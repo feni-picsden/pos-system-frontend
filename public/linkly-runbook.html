@@ -1,0 +1,398 @@
+<div style="font-family:Arial,sans-serif;font-size:11pt;line-height:1.4"><h1 style="color:#0b3d91;margin:0 0 6px">Linkly EFTPOS — Complete Manual Test Runbook</h1>
+<p style="margin:4px 0"><b>For:</b> operator-run testing on <b>sandbox + Virtual PIN Pad (VPP)</b> before Linkly/client acceptance and production credentials.</p>
+<p style="margin:4px 0"><b>Format:</b> every test tells you ① what to do on the <b>WEBSITE</b>, ② exactly what to do on the <b>VPP</b> (every keypress, or "do nothing" with the reason), ③ the <b>EXPECTED OUTPUT</b>. Tick ✅/❌ and note the log reference as you go.</p>
+<p style="margin:4px 0"><b>Date:</b> 28-Jul-2026 · covers all fixes committed 28-Jul (frontend <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">0cb8e1b</code>, backend <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">6a68976</code>).</p>
+<p style="margin:4px 0"><b>THE CARD STEPS</b> — the only card process you need, referenced in every test:</p>
+<p style="margin:4px 0"><b>Swipe Card → choose CRD → enter PIN 1234 → press OK.</b></p>
+<p style="margin:4px 0">When a test says "CARD STEPS", do exactly that. When it says "do nothing", touch nothing on the VPP — the test explains why. Anything else (press CANCEL, wait 60s, do it twice) is spelled out.</p>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">0. Before you start (do once)</h2>
+<p style="margin:4px 0"><b>Testing runs on the DEPLOYED app — backend live on Vercel. No tunnel/ngrok needed: the Vercel URL is already public HTTPS, so Linkly webhooks reach it directly.</b></p>
+<p style="margin:4px 0"><b>Server (Vercel — set once in the Vercel project → Settings → Environment Variables, then Redeploy):</b></p>
+<ol>
+<li><code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_ENV=sandbox</code> · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_POS_VENDOR_ID</code> · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_WEBHOOK_SECRET</code> · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_SECRET_ENC_KEY</code> · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_DEFAULT_TERMINAL</code> (if used) · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">DATABASE_URL</code> = live Postgres.</li>
+<li><code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">PUBLIC_BASE_URL=http://localhost:5000</code> — this is where Linkly posts notifications. <b>No ngrok.</b></li>
+<li>Backend repo pushed (latest = the 28-Jul fixes) → Vercel auto-deploys. Confirm the deployment shows the latest commit.</li>
+<li>Live Postgres has the <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">linkly_*</code> tables — if not: from local, point <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">DATABASE_URL</code> at the live DB and run <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">npx prisma db push</code> (never <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">migrate deploy</code> on this DB).</li>
+<li><b>Evidence log:</b> Vercel dashboard → project → <b>Logs</b> (Runtime), filter/search <b><code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">linkly</code></b> — every request/response logs a JSON line with <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">"scope":"linkly"</code>. Keep this open during all tests.</li>
+</ol>
+<p style="margin:4px 0"><b>Website (deployed frontend):</b></p>
+<ol>
+<li>Frontend build must point at the live API: build with <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">VITE_API_URL=http://localhost:5000/api</code> (apiClient now reads it; falls back to localhost for dev) and deploy the 28-Jul build.</li>
+<li>Open the deployed site, log in as an <b>admin</b> user (needs <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">register.manage</code>), <b>open a register</b> on the sell screen.</li>
+</ol>
+<p style="margin:4px 0"><b>VPP</b></p>
+<ol>
+<li>Start the Virtual PIN Pad, make sure it is <b>paired</b> (Setup → Linkly EFTPOS shows the green "Paired" chip).</li>
+<li><b>Auto Approve mode:</b> after every VPP restart, Auto Approve is <b>ON</b> (transactions may approve without the PIN). For all the cent-value tests (sections 4, 5) you MUST turn it <b>OFF</b>: on the VPP press <b>FUNC 7410 OK</b>, then <b>1</b>, then <b>CLEAR</b>, <b>CLEAR</b>, <b>CANCEL</b>. Each section below says which mode it needs.</li>
+<li>Cent-value simulation table (only works with Auto Approve OFF):</li>
+</ol>
+<table style="border-collapse:collapse;width:100%;margin:8px 0">
+<tr><th style="border:1px solid #bbb;background:#1a73e8;color:#fff;padding:6px 8px;text-align:left">Sale total ends in</th><th style="border:1px solid #bbb;background:#1a73e8;color:#fff;padding:6px 8px;text-align:left">VPP simulates</th></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"><b>.00</b></td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">Approved (00)</td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"><b>.08</b></td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">Signature required (approves 08 after Yes on the website)</td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"><b>.50</b></td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">System error / declined (50)</td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"><b>.51</b></td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">Bank decline — CONTACT YOUR BANK (51)</td></tr>
+</table>
+<ol>
+<li>Doing nothing on the pad for ~60s = <b>OPERATOR TIMEOUT (TM)</b> — that is itself one of the tests.</li>
+</ol>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">1. Setup &amp; pairing</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-1.1 Settings page loads</h3>
+<ul>
+<li><b>WEBSITE:</b> Sidebar → Setup → <b>Linkly EFTPOS</b>.</li>
+<li><b>VPP:</b> <b>do nothing</b> — this is only a page-load check, no transaction is sent.</li>
+<li><b>EXPECTED:</b> page renders with "Paired" chip, Pair form, "Refresh status", "Logon" button. No console errors.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-1.2 Logon (connection test)</h3>
+<ul>
+<li><b>WEBSITE:</b> on Linkly EFTPOS page press <b>Logon</b>.</li>
+<li><b>VPP:</b> <b>do nothing</b> — the logon runs by itself; just watch the pad screen flash the logon and return to idle. No card, no keys.</li>
+<li><b>EXPECTED:</b> success message with response <b>00</b>; backend log <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">logon</code> lines; pad idle again after.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-1.3 Token cache</h3>
+<ul>
+<li><b>WEBSITE:</b> run two purchases within an hour (e.g. T-3.1 twice).</li>
+<li><b>VPP:</b> <b>CARD STEPS, twice</b> — once for each purchase.</li>
+<li><b>EXPECTED:</b> log shows <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">token.refreshed</code> only ONCE (before the first txn); the second reuses the cached token.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-1.4 Pairing rejected message <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> simulate a dead secret: re-pair the VPP from another install OR temporarily corrupt <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">linkly_pinpads.secret_cipher</code> in the DB. Then attempt any purchase.</li>
+<li><b>VPP:</b> <b>do nothing</b> — the purchase is rejected before it ever reaches the pad; the pad stays idle the whole time.</li>
+<li><b>EXPECTED:</b> dialog error reads <b>"PIN pad pairing rejected by Linkly — re-pair this terminal in Setup &gt; Linkly EFTPOS."</b> — not a generic failure. Re-pair afterwards and confirm a purchase works again.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">2. Payment method configuration</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-2.1 Type dropdown <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> Setup → Payment Methods → <b>New</b> → open the Type dropdown.</li>
+<li><b>VPP:</b> <b>do nothing</b> — settings page only, no transaction.</li>
+<li><b>EXPECTED:</b> groups Standard / Integrations / External. Integrations shows <b>Linkly</b> and <b>Tyro</b> only — "Linkly Value Added Applications" is <b>hidden</b>.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-2.2 Method options persist</h3>
+<ul>
+<li><b>WEBSITE:</b> Edit <b>EFTPOS</b> → change all options (4 colours incl. dark mode, Always Open Cash Drawer, Always Print Receipt, Use Rounding, Default to Pay Exact, Allow Cash Out) → Save → reopen.</li>
+<li><b>VPP:</b> <b>do nothing</b> — settings only.</li>
+<li><b>EXPECTED:</b> every option persisted exactly.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-2.3 Always Print Receipt enforced <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> set <b>Always Print Receipt = ON</b> for EFTPOS. Sell an item, pay by EFTPOS.</li>
+<li><b>VPP:</b> <b>CARD STEPS.</b></li>
+<li><b>EXPECTED:</b> after the sale completes, the <b>print window opens by itself</b> (no Print click). Turn the flag OFF → next sale does NOT auto-print.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-2.4 Outage fallback — standalone EFTPOS <i>(fix 28-Jul, HIGH)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> Edit method "EFTPOS" → change <b>Type: Linkly → EFTPOS</b> (plain) → Save. Sell an item → Finalize → press EFTPOS.</li>
+<li><b>VPP:</b> <b>do nothing — and watch that the pad NEVER wakes up.</b> The whole point of this test: the pad must not be involved. If the pad shows PRESENT CARD, the test FAILED.</li>
+<li><b>EXPECTED:</b> payment records <b>directly</b>, no PIN pad dialog, sale completes. (Documented Linkly-outage procedure.) Change Type back to <b>Linkly</b> → next sale opens the PIN pad dialog again.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-2.5 Tidy duplicate method</h3>
+<ul>
+<li><b>WEBSITE:</b> Payment Methods list — delete the stray duplicate <b>"EFTPOS CASH OUT"</b> row (keep "EFTPOS Cash Out").</li>
+<li><b>VPP:</b> <b>do nothing</b> — settings only.</li>
+<li><b>EXPECTED:</b> list matches reference: Cash, Cheque, Direct Deposit, EFTPOS, EFTPOS Cash Out, Gift Card, …</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">3. Purchases — approved (any Auto Approve mode; amounts ending .00 if OFF)</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-3.1 Purchase via Finalize</h3>
+<ul>
+<li><b>WEBSITE:</b> add product → <b>Finalize</b> → press <b>EFTPOS</b> (no amount typed = full balance).</li>
+<li><b>VPP:</b> <b>CARD STEPS.</b> (With Auto Approve ON the pad may approve by itself before you finish — that also counts.)</li>
+<li><b>EXPECTED:</b> dialog shows live pad screen ("PRESENT CARD" → "PROCESSING") → green <b>Approved</b>; payment recorded ONCE; sale auto-completes; customer + merchant copies visible in the dialog.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-3.2 Purchase via sale key</h3>
+<ul>
+<li><b>WEBSITE:</b> add product → press the <b>EFTPOS sale key</b> directly on the sell screen.</li>
+<li><b>VPP:</b> <b>CARD STEPS.</b></li>
+<li><b>EXPECTED:</b> same as T-3.1; payment appears with card type + auth code in its description.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-3.3 EFTPOS slip on the sale receipt — sale-key path <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> after T-3.2 completes, print/preview the sale receipt.</li>
+<li><b>VPP:</b> <b>do nothing</b> — you are only checking the receipt from the previous test.</li>
+<li><b>EXPECTED:</b> the <b>Linkly customer copy text appears on the sale receipt</b> (this path used to drop it). Repeat for T-3.1's receipt (regression: still there).</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-3.4 Clear/Cancel blocked with card payment</h3>
+<ul>
+<li><b>WEBSITE:</b> start a sale, take an EFTPOS payment, do NOT complete (leave balance) → press <b>Clear Sale</b>, then <b>Cancel Sale</b> key.</li>
+<li><b>VPP:</b> <b>CARD STEPS</b> for the payment first. Then <b>do nothing</b> — the clear/cancel attempts never touch the pad.</li>
+<li><b>EXPECTED:</b> both blocked with alert "Sales that contain integrated payments … cannot be cleared/cancelled without first refunding…".</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-3.5 Amount edges</h3>
+<ul>
+<li><b>WEBSITE:</b> purchases of <b>$0.01</b> and <b>$1,234.00</b>.</li>
+<li><b>VPP:</b> <b>CARD STEPS, twice</b> (once per purchase).</li>
+<li><b>EXPECTED:</b> pad shows the exact amount (cents map 1:1); receipts and payment rows match to the cent.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">4. Declines, errors, cancels — <b>turn Auto Approve OFF first</b> (FUNC 7410 OK, 1, CLEAR, CLEAR, CANCEL)</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-4.1 Bank decline</h3>
+<ul>
+<li><b>WEBSITE:</b> sale totalling <b>$1.51</b> → EFTPOS.</li>
+<li><b>VPP:</b> <b>CARD STEPS</b> — the decline comes from the .51 amount, not from anything you press.</li>
+<li><b>EXPECTED:</b> red <b>Declined</b>, "CONTACT YOUR BANK" (code <b>51</b>); <b>no payment recorded</b>; finalize stays open; pressing EFTPOS again starts a fresh attempt (new TxnRef).</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-4.2 System error</h3>
+<ul>
+<li><b>WEBSITE:</b> sale totalling <b>$1.50</b> → EFTPOS.</li>
+<li><b>VPP:</b> <b>CARD STEPS</b> — the .50 amount triggers the system error.</li>
+<li><b>EXPECTED:</b> declined with code <b>50 SYSTEM ERROR</b>; no payment recorded.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-4.3 Operator timeout</h3>
+<ul>
+<li><b>WEBSITE:</b> start an EFTPOS payment, then just wait.</li>
+<li><b>VPP:</b> <b>do nothing at all for ~60 seconds</b> — do not swipe, do not press anything. The waiting IS the test.</li>
+<li><b>EXPECTED:</b> <b>TM / OPERATOR TIMEOUT</b> decline; no payment; dialog dismissable.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-4.4 Cancel from the POS</h3>
+<ul>
+<li><b>WEBSITE:</b> start an EFTPOS payment → press <b>Cancel transaction</b> in the dialog while the pad is waiting.</li>
+<li><b>VPP:</b> <b>do nothing</b> — do not swipe. Just watch: the pad should abort by itself right after you press Cancel on the website.</li>
+<li><b>EXPECTED:</b> log shows <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">sendkey</code> with Key <b>"0"</b>; txn ends declined/failed, never approved; no payment.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-4.5 Cancel on the pad</h3>
+<ul>
+<li><b>WEBSITE:</b> start an EFTPOS payment, then touch nothing on the website.</li>
+<li><b>VPP:</b> <b>press the CANCEL key on the pad</b> (do NOT swipe first).</li>
+<li><b>EXPECTED:</b> same as T-4.4 — declined/failed, no payment.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">5. Signature flow — <b>Auto Approve OFF</b></h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-5.1 Signature — approve <i>(fix 28-Jul: slip visible before Yes)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> sale totalling <b>$1.08</b> → EFTPOS. When the Yes/No buttons appear: <b>first check the "Merchant copy (signature slip)" box is visible in the dialog</b> (print it if the customer must sign paper). Then press <b>Yes</b>.</li>
+<li><b>VPP:</b> <b>CARD STEPS</b> — then the pad shows <b>PLEASE SIGN RECEIPT</b>. <b>Stop there, do nothing more on the pad.</b> The answer is given on the WEBSITE (Yes button), not on the pad.</li>
+<li><b>EXPECTED:</b> slip visible before Yes; after Yes → <b>Approved (08)</b>; payment recorded.</li>
+<li><b>Note:</b> Yes/No buttons come from webhook display events — if they never appear, fix the tunnel first (section 9).</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-5.2 Signature — decline</h3>
+<ul>
+<li><b>WEBSITE:</b> repeat with $1.08 but press <b>No</b>.</li>
+<li><b>VPP:</b> <b>CARD STEPS</b>, then stop at PLEASE SIGN RECEIPT — do nothing more on the pad.</li>
+<li><b>EXPECTED:</b> <b>Declined</b>; no payment recorded.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">6. Cash out (Auto Approve either; use .00 totals if OFF)</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-6.1 Cash out with a sale</h3>
+<ul>
+<li><b>WEBSITE:</b> add product → <b>EFTPOS Cash Out</b> method → cash-out dialog → enter <b>$20</b> → confirm.</li>
+<li><b>VPP:</b> <b>CARD STEPS, once</b> — it is ONE combined transaction (goods + cash), not two.</li>
+<li><b>EXPECTED:</b> one txn = goods + $20 (AmtPurchase + AmtCash); alert <b>"Give the customer $20.00 cash out."</b>; sale shows full card charge + <b>Cash (Change) −$20</b> row.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-6.2 Cash out without a sale</h3>
+<ul>
+<li><b>WEBSITE:</b> <b>empty cart</b> → press <b>Pay Exact Amount</b> on the cash-out-enabled method → enter cash amount.</li>
+<li><b>VPP:</b> <b>CARD STEPS.</b></li>
+<li><b>EXPECTED:</b> pad runs a <b>CASH (TxnType C)</b> transaction; approved; hand-over alert; recorded correctly.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-6.3 "Allow cash out without sale" OFF <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> Setup → General Settings → <b>Allow cash out without sale = OFF</b> → repeat T-6.2.</li>
+<li><b>VPP:</b> <b>do nothing — the pad must never wake up.</b> If PRESENT CARD appears, the test failed.</li>
+<li><b>EXPECTED:</b> blocked with <b>"Cash out without a sale is disabled in General Settings."</b> With goods in the cart, cash-out still works. Turn the setting back ON.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-6.4 "No Cash Out" button</h3>
+<ul>
+<li><b>WEBSITE:</b> in the cash-out dialog press <b>No Cash Out</b>.</li>
+<li><b>VPP:</b> <b>CARD STEPS.</b></li>
+<li><b>EXPECTED:</b> card charged for goods only.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">7. Split payments &amp; terminal lock</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-7.1 Cash + EFTPOS split</h3>
+<ul>
+<li><b>WEBSITE:</b> $30 sale → $10 <b>Cash</b> → then <b>EFTPOS</b> for the rest.</li>
+<li><b>VPP:</b> <b>CARD STEPS, once</b> — only the EFTPOS part reaches the pad; the cash part never does.</li>
+<li><b>EXPECTED:</b> card charged <b>$20 only</b>; sale completes; both payments on the receipt.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-7.2 Card + card split</h3>
+<ul>
+<li><b>WEBSITE:</b> split one sale across two EFTPOS tenders (type an amount first, then EFTPOS; repeat for the balance).</li>
+<li><b>VPP:</b> <b>CARD STEPS, twice</b> — once per tender, one after the other.</li>
+<li><b>EXPECTED:</b> two separate txns with two TxnRefs; both listed.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-7.3 Split then decline (Auto Approve OFF)</h3>
+<ul>
+<li><b>WEBSITE:</b> first tender any .00 amount, second tender ending <b>.51</b>.</li>
+<li><b>VPP:</b> <b>CARD STEPS, twice</b> — the second declines because of the .51 amount.</li>
+<li><b>EXPECTED:</b> first stays recorded; second declined; balance stays open; retry possible.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-7.4 Terminal busy lock <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> start an EFTPOS purchase and let the pad sit waiting (don't swipe yet). In a <b>second browser tab</b>, start another EFTPOS purchase (or press <b>EFTPOS Settlement</b> in Close Register).</li>
+<li><b>VPP:</b> <b>do nothing while you fire the second attempt</b> — the pad keeps showing the FIRST transaction only. Then finish the first one with <b>CARD STEPS</b>.</li>
+<li><b>EXPECTED:</b> second attempt fails fast with <b>"Terminal is busy with another transaction …"</b> (HTTP 409); the pad never sees it; the first txn completes normally.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-7.5 Duplicate TxnRef guard</h3>
+<ul>
+<li><b>WEBSITE/TERMINAL:</b> replay a purchase request with the same TxnRef via curl (run twice):</li>
+</ul>
+<p style="margin:4px 0">  <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST http://localhost:5000/api/linkly/purchase -H "Authorization: Bearer &lt;JWT&gt;" -H "Content-Type: application/json" -d '{"amountCents":100,"txnRef":"&lt;SAME-REF&gt;"}'</code></p>
+<ul>
+<li><b>VPP:</b> <b>CARD STEPS for the first request only.</b> The second request is rejected before the pad — the pad shows nothing new.</li>
+<li><b>EXPECTED:</b> second call → <b>HTTP 409 DUPLICATE_TXNREF</b> + the existing transaction row; <b>no second charge</b>.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">8. Partial approval <i>(fix 28-Jul)</i></h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-8.1 Simulated partial approval</h3>
+<ul>
+<li><b>WEBSITE:</b> start a <b>$50.00</b> EFTPOS purchase; note the sessionId from the log.</li>
+<li><b>VPP:</b> <b>do nothing — do NOT swipe.</b> The "bank result" is faked by the curl below. (After the test, press <b>CANCEL on the pad</b> once to clear the leftover PRESENT CARD screen.)</li>
+<li><b>TERMINAL:</b> deliver the fake partial-approval result:</li>
+</ul>
+<p style="margin:4px 0">  <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST "http://localhost:5000/api/linkly/notify/&lt;sessionId&gt;/transaction" -H "Authorization: Bearer &lt;LINKLY_WEBHOOK_SECRET&gt;" -H "Content-Type: application/json" -d '{"ResponseType":"transaction","Response":{"Success":true,"ResponseCode":"00","AmtPurchase":2500,"AmtCash":0,"CardType":"VISA"}}'</code></p>
+<ul>
+<li><b>EXPECTED:</b> dialog approves; alert <b>"Card approved $25.00 of $50.00 — take the remaining balance with another tender."</b>; payment recorded <b>$25.00</b>; balance stays <b>open</b>; sale does NOT auto-complete.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">9. Webhooks &amp; recovery</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-9.1 Webhook delivery (live)</h3>
+<ul>
+<li><b>WEBSITE:</b> with the tunnel up, run a normal purchase.</li>
+<li><b>VPP:</b> <b>CARD STEPS.</b></li>
+<li><b>EXPECTED:</b> backend log shows <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">notify.applied</code> for display/receipt/transaction events; the pad screen mirrors into the dialog within ~2s.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-9.2 Webhook auth reject</h3>
+<ul>
+<li><b>TERMINAL:</b> <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST "http://localhost:5000/api/linkly/notify/any-session/display" -H "Authorization: Bearer WRONG" -H "Content-Type: application/json" -d '{}'</code></li>
+<li><b>VPP:</b> <b>do nothing</b> — curl-only test, no transaction.</li>
+<li><b>EXPECTED:</b> <b>HTTP 401</b>; log <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">notify.rejected_auth</code>; no state change.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-9.3 Idempotent notifications</h3>
+<ul>
+<li><b>TERMINAL:</b> re-send T-8.1's exact curl a second time.</li>
+<li><b>VPP:</b> <b>do nothing</b> — curl-only test.</li>
+<li><b>EXPECTED:</b> first response <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">applied</code>, second <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">duplicate</code>; txn unchanged; exactly one event row.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-9.4 Poll-only degradation — <b>on the deployed setup this runs automatically</b></h3>
+<ul>
+<li>On Vercel there is no tunnel to kill; webhooks either arrive or the poll/auto-reconcile fallback carries the result anyway. This path was <b>proven locally 27-Jul</b> (every VPP pass resolved via poll while the tunnel was down).</li>
+<li><b>Optional deliberate re-run:</b> temporarily set Vercel env <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">PUBLIC_BASE_URL</code> to a dead URL → Redeploy → run one purchase (<b>CARD STEPS</b>) → dialog must still resolve <b>Approved</b> via polling → restore the env + Redeploy.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-9.5 Timeout → Needs review → Check again</h3>
+<ul>
+<li>Only reachable when webhooks are NOT arriving (otherwise results land instantly). Run it during the optional T-9.4 dead-webhook window, or accept the 27-Jul local pass.</li>
+<li><b>WEBSITE:</b> start a purchase; let the dialog run past its 120s budget, THEN complete the card.</li>
+<li><b>VPP:</b> <b>wait ~2 minutes doing nothing, then CARD STEPS</b> (approve late).</li>
+<li><b>EXPECTED:</b> amber <b>"Needs review"</b> with the do-not-recharge warning → press <b>Check again</b> → resolves to approved. Never re-charges.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-9.6 Kill the server — approved mid-flight — <b>local-only, PASSED 27-Jul</b></h3>
+<ul>
+<li>Cannot be run against Vercel (serverless — nothing to Ctrl-C). Already evidenced locally: <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">recovery.start</code> → <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">reconcile.resolved</code>, txn approved, no double charge. Keep the 27-Jul logs as the evidence for this class.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-9.7 Kill the server — txn never happened — <b>local-only, PASSED 27-Jul</b></h3>
+<ul>
+<li>Same — not runnable on Vercel. Evidence: 27-Jul local run (<code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">reconcile.not_found_failed</code>, no charge). On Vercel the equivalent safety is the per-request auto-reconcile on every status poll.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-9.8 Browser dies after approval</h3>
+<ul>
+<li><b>WEBSITE:</b> start a purchase; after the approval shows but <b>before</b> pressing Done, close the browser tab. Reopen.</li>
+<li><b>VPP:</b> <b>CARD STEPS</b> (a normal approval — the failure is on the browser side).</li>
+<li><b>EXPECTED (known limitation):</b> charge exists in <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">linkly_transactions</code> (approved) but no sale payment. Find it: <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">SELECT txn_ref,status,amount_cents FROM linkly_transactions ORDER BY created_at DESC LIMIT 5;</code> → record the payment manually. (Admin journal UI is a deferred build.)</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">10. Refunds &amp; returns</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-10.1 Refund via return sale key</h3>
+<ul>
+<li><b>WEBSITE:</b> use the return-item key to make a line negative → <b>Finalize</b> → <b>EFTPOS</b>.</li>
+<li><b>VPP:</b> <b>CARD STEPS</b> — a refund feels identical on the pad; the pad screen says REFUND instead of PURCHASE.</li>
+<li><b>EXPECTED:</b> dialog titled <b>"Refund to Card $X"</b>; TxnType <b>R</b> in logs; negative payment recorded; sale completes with negative total.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-10.2 Return Items from Sales History <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> Sales History → select a completed EFTPOS sale → <b>Return Items</b> → confirm the prompt → Finalize → EFTPOS.</li>
+<li><b>VPP:</b> <b>do nothing until the refund dialog opens on the website, then CARD STEPS.</b></li>
+<li><b>EXPECTED:</b> you land on the sell screen; prompt lists the sale's items; cart loads with <b>negative quantities</b>; refund approves.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-10.3 Return via receipt barcode</h3>
+<ul>
+<li><b>WEBSITE:</b> scan (or type) a printed receipt's 14+ digit barcode into the sell-screen search → confirm → Finalize → EFTPOS.</li>
+<li><b>VPP:</b> <b>CARD STEPS</b> when the refund reaches the pad.</li>
+<li><b>EXPECTED:</b> same recall-as-return flow as T-10.2.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-10.4 Refund receipt shows negative total <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> print the completed refund's receipt.</li>
+<li><b>VPP:</b> <b>do nothing</b> — receipt check only.</li>
+<li><b>EXPECTED:</b> Totals show <b>−$X</b> (previously printed positive).</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-10.5 Refund permission gate</h3>
+<ul>
+<li><b>WEBSITE:</b> log in as a till user <b>without</b> <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">register.manage</code> → attempt a refund.</li>
+<li><b>VPP:</b> <b>do nothing</b> — the refund is blocked before it reaches the pad.</li>
+<li><b>EXPECTED:</b> blocked (403) — refunds are manager-only.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">11. Settlement, reprint, closure</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-11.1 Settlement</h3>
+<ul>
+<li><b>WEBSITE:</b> Register → <b>Close Register</b> → <b>EFTPOS Settlement</b>.</li>
+<li><b>VPP:</b> <b>do nothing</b> — settlement runs by itself; just watch the pad show its settlement screen and return to idle. No card, no keys.</li>
+<li><b>EXPECTED:</b> success + <b>merchant settlement receipt</b> rendered on the page; register close itself is never blocked by settlement.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-11.2 Settlement while pad busy <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> start a purchase (leave the pad waiting), then press EFTPOS Settlement in another tab.</li>
+<li><b>VPP:</b> <b>do nothing during the settlement attempt</b> — pad keeps showing the purchase. Then finish the purchase with <b>CARD STEPS</b>.</li>
+<li><b>EXPECTED:</b> <b>"Terminal is busy…"</b> (409). After the purchase finishes, settlement works.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-11.3 Reprint shows the receipt text <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> after any approved txn, press <b>Reprint</b> in the result dialog.</li>
+<li><b>VPP:</b> <b>do nothing</b> — the pad may show/print the duplicate by itself.</li>
+<li><b>EXPECTED:</b> a <b>"Reprint copy"</b> box with the returned receipt text appears in the dialog (previously discarded).</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-11.4 Closure per-card-scheme totals <i>(fix 28-Jul)</i></h3>
+<ul>
+<li><b>WEBSITE:</b> run a few EFTPOS sales, close the register → open the closure → <b>Payment Subtype</b> breakdown.</li>
+<li><b>VPP:</b> <b>CARD STEPS for each sale</b> beforehand; nothing during the closure check.</li>
+<li><b>EXPECTED:</b> EFTPOS split per scheme, e.g. <b>"EFTPOS — VISA CREDIT"</b>, amounts summing to the method total; non-Linkly methods unchanged.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-11.5 Cash-out closure math</h3>
+<ul>
+<li><b>WEBSITE:</b> after a day containing T-6.1, check the closure's expected cash.</li>
+<li><b>VPP:</b> <b>do nothing</b> — closure check only.</li>
+<li><b>EXPECTED:</b> expected cash reduced by handed-out cash (the Cash (Change) negative rows); EFTPOS total includes goods + cash-out.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">12. Security &amp; data hygiene</h2>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-12.1 Card data masking</h3>
+<ul>
+<li><b>WEBSITE/DB:</b> after an approved purchase inspect backend logs and <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">linkly_transactions.result_raw</code>.</li>
+<li><b>VPP:</b> <b>do nothing</b> — data inspection only.</li>
+<li><b>EXPECTED:</b> PAN only as <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">BIN******last4</code>; secrets <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">***REDACTED***</code>; no track data anywhere.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-12.2 Permission matrix</h3>
+<ul>
+<li><b>WEBSITE:</b> till user (<code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">register.access</code>): purchase / poll / cancel / reprint OK; pair / logon / settlement / refund → blocked. Admin (<code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">register.manage</code>): all OK.</li>
+<li><b>VPP:</b> <b>CARD STEPS only where a purchase actually starts</b>; blocked actions never reach the pad.</li>
+<li><b>EXPECTED:</b> exactly as above.</li>
+</ul>
+<h3 style="color:#1a73e8;margin:14px 0 4px">T-12.3 Outlet scoping</h3>
+<ul>
+<li><b>WEBSITE:</b> as a non-superadmin from outlet B, poll a txnRef belonging to outlet A (curl the GET endpoint).</li>
+<li><b>VPP:</b> <b>do nothing</b> — curl-only test.</li>
+<li><b>EXPECTED:</b> <b>403 Forbidden</b>.</li>
+</ul>
+<hr>
+<h2 style="color:#0b3d91;border-bottom:2px solid #1a73e8;padding-bottom:2px;margin:18px 0 6px">13. Results log</h2>
+<table style="border-collapse:collapse;width:100%;margin:8px 0">
+<tr><th style="border:1px solid #bbb;background:#1a73e8;color:#fff;padding:6px 8px;text-align:left">Test</th><th style="border:1px solid #bbb;background:#1a73e8;color:#fff;padding:6px 8px;text-align:left">Pass?</th><th style="border:1px solid #bbb;background:#1a73e8;color:#fff;padding:6px 8px;text-align:left">Log ref / notes</th></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-1.1 … T-1.4</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-2.1 … T-2.5</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-3.1 … T-3.5</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-4.1 … T-4.5</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-5.1 … T-5.2</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-6.1 … T-6.4</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-7.1 … T-7.5</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-8.1</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-9.1 … T-9.8</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-10.1 … T-10.5</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-11.1 … T-11.5</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+<tr><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">T-12.1 … T-12.3</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top">☐</td><td style="border:1px solid #bbb;padding:6px 8px;vertical-align:top"></td></tr>
+</table>
+<p style="margin:4px 0"><b>Known deferrals (do not fail the run):</b> Use Rounding / Default to Pay Exact / Always Open Cash Drawer flags not sale-flow-enforced; matched-refund UI; Linkly Status health probe; VAA; PLB basket tag (ask acquirer about DSS); Linkly journal admin UI; per-register terminal mapping (single lane only).</p>
+<p style="margin:4px 0"><b>When Linkly/client testing passes and production credentials arrive:</b> follow §14 "Production cutover" in <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">docs/linkly-accreditation-test-plan.md</code> (env swap, <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">prisma db push</code> for linkly_* tables on live DB, permanent HTTPS webhook URL, re-pair live pads, $0.01 live purchase + refund, first settlement reconciliation).</p></div>

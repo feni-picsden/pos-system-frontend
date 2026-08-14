@@ -1,0 +1,220 @@
+/* Global Styles */
+:root {
+  --primary-color: #1976d2;
+  --secondary-color: #dc004e;
+  --background-color: #ffffff;
+  --surface-color: #ffffff;
+  --text-primary: #212121;
+  --text-secondary: #757575;
+  --border-radius: 8px;
+  --box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  --transition: all 0.2s ease-in-out;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background-color);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* Native scrollbars (match reference: no custom scrollbar styling) */
+
+/* Loading Animation */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading {
+  animation: pulse 2s infinite;
+}
+
+/* Card Hover Effects */
+.dashboard-card {
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Responsive Typography */
+@media (max-width: 600px) {
+  body {
+    font-size: 14px;
+  }
+  
+  h1 {
+    font-size: 1.75rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+  
+  h3 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Custom MUI Component Overrides */
+.MuiCard-root {
+  transition: var(--transition) !important;
+}
+
+.MuiButton-root {
+  text-transform: none !important;
+}
+
+.MuiChip-root {
+  border-radius: 6px !important;
+}
+
+/* Layout Helpers */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.full-height {
+  height: 100%;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .mobile-hide {
+    display: none !important;
+  }
+  
+  .mobile-full-width {
+    width: 100% !important;
+  }
+  
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+  
+  .mobile-center {
+    text-align: center !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .MuiPaper-root {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  :root {
+    --primary-color: #0066cc;
+    --text-primary: #000000;
+    --text-secondary: #333333;
+  }
+}
+
+/* Reduced Motion — keep functional loaders animated */
+@media (prefers-reduced-motion: reduce) {
+  *:not([data-allow-animation="true"]):not([data-allow-animation="true"] *) {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .MuiCircularProgress-root,
+  .MuiCircularProgress-root *,
+  .MuiLinearProgress-root,
+  .MuiLinearProgress-root * {
+    animation-duration: revert !important;
+    animation-iteration-count: revert !important;
+    transition-duration: revert !important;
+  }
+}
+
+/* Custom focus styles - more subtle */
+.MuiButtonBase-root:focus-visible {
+  outline: none;
+  background-color: unset;
+}
+
+/* Custom Utilities */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+/* Shopfront combobox options: neutral hover/selected tint (MUI's default blue
+   tint wins over sx here because the popper renders in a portal). */
+.sf-combo-popper .MuiAutocomplete-option {
+  color: #5ebbeb;
+  font-size: 16px;
+  background-color: transparent !important;
+}
+.sf-combo-popper .MuiAutocomplete-option:hover,
+.sf-combo-popper .MuiAutocomplete-option.Mui-focused,
+.sf-combo-popper .MuiAutocomplete-option[aria-selected="true"],
+.sf-combo-popper .MuiAutocomplete-option[aria-selected="true"].Mui-focused {
+  background-color: #f8f8f8 !important;
+}

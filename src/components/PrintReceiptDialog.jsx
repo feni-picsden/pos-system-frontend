@@ -1,0 +1,453 @@
+import React, { useState, useEffect } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+  IconButton,
+  FormControl,
+  Select,
+  MenuItem,
+  CircularProgress,
+} from '@mui/material';
+import {
+  Print as PrintIcon,
+  Close as CloseIcon,
+  DescriptionOutlined,
+} from '@mui/icons-material';
+import receiptTemplateService from '../services/receiptTemplateService';
+import settingsService from '../services/settingsService';
+import posLocalDb from '../services/posLocalDb';
+import ReceiptRenderer from './Receipt/ReceiptRenderer';
+import { buildReceiptPrintHtml } from '../utils/receiptPrintHtml';
+import { groupSaleItemsForReceipt, itemsPerCase } from '../utils/saleTotals';
+
+const PrintReceiptDialog = ({ open, onClose, sale }) => {
+  const [receiptTemplates, setReceiptTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
+
+  useEffect(() => {
+    if (open) {
+      loadReceiptTemplates();
+      if (sale) {
+        convertSaleToReceiptData(sale);
+      }
+    }
+  }, [open, sale]);
+
+  const loadReceiptTemplates = async () => {
+    try {
+      setTemplatesLoading(true);
+      const [response, regResponse] = await Promise.all([
+        receiptTemplateService.getTemplates({ for: 'Sale' }),
+        settingsService.getRegisterSettings().catch(() => null),
+      ]);
+      const templates = response.templates || [];
+      setReceiptTemplates(templates);
+
+      // Same tiers as the sell screen: "Default Receipt Template" setting (by id,
+      // by name for settings saved before ids) -> first. No per-template default flag.
+      if (templates.length > 0) {
+        const settings = regResponse?.settings || {};
+        const defaultTemplate =
+          (settings.defaultReceiptTemplateId && templates.find(t => t.id === settings.defaultReceiptTemplateId)) ||
+          (settings.defaultReceiptTemplate && templates.find(t => t.name === settings.defaultReceiptTemplate)) ||
+          templates[0];
+        setSelectedTemplate(defaultTemplate);
+      }
+    } catch (error) {
+      console.error('Error loading receipt templates:', error);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  const convertSaleToReceiptData = (sale) => {
+    if (!sale) {
+      setReceiptData(null);
+      return;
+    }
+
+    // A combo banks its member products (stock/loyalty/reports need them) but printed
+    // as ONE line live — regroup before shaping the receipt lines.
+    const items = groupSaleItemsForReceipt(sale.items || []).map(item => {
+      const price = item.totalPrice || (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1);
+      const taxable = item.hasGST !== false;
+      // Case quantity is not stored on the sale line — resolve it from the cached
+      // product with the same resolver the sell screen uses (1 when unknown, which
+      // is what the live receipt printed).
+      const product = item.productId ? posLocalDb.getProductById(item.productId) : null;
+      return {
+        name: item.productName || 'Unknown Product',
+        quantity: item.quantity || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        price,
+        caseQty: itemsPerCase(product),
+        // Banked at sale time: the promotion/combo normal price and the savings.
+        // Neither survives a promotion change, so neither is re-derived here.
+        normalPrice: item.normalPrice != null ? Number(item.normalPrice) : undefined,
+        savings: item.savings != null ? Number(item.savings) : 0,
+        discount: Number(item.discount) || 0,
+        // Banked line note — the live receipt printed it, the reprint keeps it.
+        note: item.note || undefined,
+        hasGST: taxable,
+        // Prefer the tax banked on the sale line; fall back to AU GST-inclusive
+        // (price / 11, not total * 0.1). Drives ReceiptRenderer's tax component.
+        // Rate name as banked with the line. Falling back to the product's CURRENT
+        // rate (older sales, banked before taxName existed) is last resort — renaming
+        // a rate or switching a product to No Tax must not relabel history.
+        taxName: item.taxName || (taxable ? (product?.retailTaxRate || product?.taxRateName || '') : 'No Tax'),
+        taxAmount: item.tax != null ? Number(item.tax) || 0 : (taxable ? price / 11 : 0),
+      };
+    });
+
+    const lineTotal = items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+    const gst = items.reduce((sum, item) => sum + (Number(item.taxAmount) || 0), 0);
+
+    // Surcharges live as a JSON blob on each line's description (the sale has no
+    // surcharge line item). Without parsing them the reprint printed no surcharge rows
+    // and a Total short by the surcharge.
+    const surcharges = {};
+    (sale.items || []).forEach((item) => {
+      const match = String(item.description || '').match(/__SURCHARGE__:(.+)$/);
+      if (!match) return;
+      try {
+        const breakdown = JSON.parse(match[1])?.surchargeBreakdown || {};
+        Object.entries(breakdown).forEach(([name, amount]) => {
+          surcharges[name] = (surcharges[name] || 0) + (parseFloat(amount) || 0);
+        });
+      } catch { /* malformed blob — print the sale without surcharge rows */ }
+    });
+    const surchargeTotal = Object.values(surcharges).reduce((sum, a) => sum + a, 0);
+    // The banked total is the truth (it includes surcharge); line sums are the fallback
+    // for sales banked before totalAmount was trustworthy.
+    const total = Number(sale.totalAmount) || lineTotal + surchargeTotal;
+    // sale.basePrice is the COGS column, not a sell price — the receipt's base
+    // price is the pre-discount sell total, which `total` already is.
+    const basePrice = total;
+    const discount = sale.discount || 0;
+    const savings = sale.savings || 0;
+    // Real payment rows from the sale (backend stores tendered cash plus a negative
+    // "Cash (Change)" row). Drop the change row for display and derive change from it,
+    // so ReceiptRenderer's change (paid - total) matches the live sale print path.
+    const changeRow = (sale.payments || []).find(p => (p.paymentMethod || '').toLowerCase() === 'cash (change)');
+    const paymentRows = (sale.payments || []).filter(p => p !== changeRow);
+    const paymentAmount = sale.totalAmount || sale.paymentAmount || total;
+    // Only a banked "Cash (Change)" row means change was given. The old fallback
+    // (paymentAmount - total) invented a Change row worth exactly the surcharge on
+    // every exactly-tendered sale that carried one.
+    const change = changeRow ? Math.abs(Number(changeRow.amount) || 0) : 0;
+
+    // Loyalty block: points earned/redeemed are banked on the sale and the customer's
+    // balance AFTER the sale is snapshotted with it, so before/after are reconstructed
+    // exactly — reading the customer's CURRENT points would print every later sale too.
+    const pointsEarned = Number(sale.loyaltyPointsEarned) || 0;
+    const pointsSpent = Number(sale.loyaltyPointsRedeemed) || 0;
+    const pointsAfter = sale.loyaltyPointsBalance != null ? Number(sale.loyaltyPointsBalance) : null;
+    const loyalty = (pointsAfter != null || pointsEarned || pointsSpent)
+      ? {
+          currentPoints: pointsAfter,
+          earned: pointsEarned,
+          spent: pointsSpent,
+          beforeSale: pointsAfter != null ? pointsAfter - pointsEarned + pointsSpent : null,
+          afterSale: pointsAfter,
+        }
+      : null; // no loyalty on this sale -> block stays hidden, as it did live
+
+    // Account block: same idea. The charge is the on-account tender on this sale, the
+    // end balance is the snapshot; null snapshot (sales banked before it existed) hides
+    // the block rather than printing today's balance as if it were the sale's.
+    const onAccountCharged = (sale.payments || [])
+      .filter((p) => (p.paymentMethod || '').toLowerCase().includes('account'))
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const accountEnd = sale.accountBalanceAfter != null ? Number(sale.accountBalanceAfter) : null;
+    const account = accountEnd != null
+      ? {
+          startBalance: accountEnd - onAccountCharged,
+          balanceChanged: onAccountCharged,
+          endBalance: accountEnd,
+          currentBalance: accountEnd,
+        }
+      : null;
+
+    // Gift cards tendered on this sale, from the redemption transactions banked against
+    // it (GET /sales includes them). Cards SOLD on the sale are ordinary line items and
+    // are not part of this block — the live receipt only lists the ones tendered.
+    const giftCards = (sale.giftCardTransactions || [])
+      .filter((t) => t.transactionType === 'Redemption')
+      .map((t) => ({
+        id: t.giftCard?.code,
+        original: t.giftCard?.originalAmount ?? t.balanceBefore,
+        amountUsed: Math.abs(Number(t.amount) || 0),
+        current: t.balanceAfter,
+        expiry: t.giftCard?.expiryDate ? new Date(t.giftCard.expiryDate).toLocaleDateString() : '',
+      }));
+
+    const receipt = {
+      transactionId: sale.saleNumber || (sale.id ? `#${String(sale.id).padStart(8, '0')}` : 'N/A'),
+      // Reprint the invoice number the sale was issued, not a derived one.
+      // Zero-padded to the "Invoice number length" setting (Setup > General).
+      invoiceNo: settingsService.padInvoice(sale.invoiceNumber) || undefined,
+      // Template expressions ({format(completedAt, ...)}) need a real date. The `date`
+      // string below is en-GB (dd/mm), which format() re-parsed as mm/dd — a 6 Aug sale
+      // reprinted as "8th Jun".
+      completedAt: sale.saleDate || null,
+      date: sale.saleDate ? new Date(sale.saleDate).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }) : new Date().toLocaleString(),
+      formattedDate: sale.saleDate ? new Date(sale.saleDate).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }) : new Date().toLocaleString(),
+      items: items,
+      outlet: sale.outlet || sale.register?.outlet || null,
+      // Surcharge component + total.surcharge, recovered from the line blobs above.
+      surcharges,
+      surchargeTotal,
+      register: sale.register ? { name: sale.register.name } : null,
+      subtotal: lineTotal,
+      total: total.toFixed(2),
+      basePrice: basePrice.toFixed(2),
+      gst: gst.toFixed(2),
+      discount: discount.toFixed(2),
+      savings: savings.toFixed(2),
+      change: change.toFixed(2),
+      paymentAmount: paymentAmount.toFixed(2),
+      payments: paymentRows.length > 0 ? paymentRows.map((p) => ({
+        method: p.paymentMethod || 'Cash',
+        amount: (Number(p.amount) || 0).toFixed(2),
+        // Show real references (EFTPOS txnRef etc.) as the caption line; hide internal cash sentinels.
+        description: (p.reference && !['CASH_GIVEN', 'CASH_CHANGE', 'CHANGE'].includes(p.reference))
+          ? p.reference
+          : (p.paymentMethod || 'Cash'),
+        reference: p.reference || null,
+        // Verbatim Linkly slip banked with the tender — the reprint has to print the
+        // same external receipt the sale printed.
+        eftposReceipt: p.eftposReceipt || null,
+      })) : sale.paymentMethod ? [{
+        method: sale.paymentMethod,
+        amount: paymentAmount.toFixed(2),
+        description: sale.paymentMethod,
+      }] : [{
+        method: 'Cash',
+        amount: paymentAmount.toFixed(2),
+        description: 'Cash',
+      }],
+      customer: sale.customer ? {
+        firstName: sale.customer.firstName || '',
+        lastName: sale.customer.lastName || '',
+        company: sale.customer.company || '',
+        email: sale.customer.email || (sale.customer.emails && sale.customer.emails.length > 0 ? sale.customer.emails[0] : ''),
+        emails: sale.customer.emails || [],
+      } : null,
+      salesPerson: sale.user?.name || 'Unknown',
+      // Rebuilt blocks — without these three the components rendered empty on a reprint.
+      loyalty,
+      account,
+      giftCards,
+    };
+
+    setReceiptData(receipt);
+  };
+
+  const printReceipt = () => {
+    if (!receiptData) return;
+
+    // Single source of truth: print the exact template-driven component the preview shows.
+    const template = selectedTemplate || { type: 'Normal', config: { layout: 'normal' } };
+    const printContent = renderToStaticMarkup(
+      <ReceiptRenderer receiptData={receiptData} template={template} />
+    );
+    const headStyles = Array.from(document.querySelectorAll('style'))
+      .map((n) => n.outerHTML)
+      .join('\n');
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(buildReceiptPrintHtml({
+      markup: printContent,
+      headStyles,
+      template,
+      title: `Receipt - ${receiptData.transactionId}`,
+    }));
+    doc.close();
+
+    iframe.onload = () => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 100);
+    };
+  };
+
+  // A4 templates have no receipt-paper preview (see the render block below).
+  const isA4 = /a4/i.test(selectedTemplate?.type || selectedTemplate?.config?.layout || '');
+
+  if (!sale) return null;
+
+  return (
+    // Reference reprint dialog (owner screenshot 2026-08-06): a square white panel
+    // whose title bar IS the template select ("Receipt" + chevron, 1px bottom rule),
+    // a scrolling body with the receipt boxed and centred at natural width, one
+    // full-bleed blue Print button, and a dark round close badge outside the corner.
+    // Email lives on the Sales History row, not in here.
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth={false}
+      PaperProps={{
+        sx: {
+          width: 500,
+          maxWidth: '96vw',
+          borderRadius: 0,
+          overflow: 'visible',
+          m: 2,
+        },
+      }}
+    >
+      <IconButton
+        onClick={onClose}
+        sx={{
+          position: 'absolute',
+          top: -16,
+          right: -16,
+          width: 32,
+          height: 32,
+          bgcolor: '#313439',
+          color: '#f8f8f8',
+          '&:hover': { bgcolor: '#000' },
+          zIndex: 1,
+        }}
+      >
+        <CloseIcon sx={{ fontSize: 20 }} />
+      </IconButton>
+
+      <DialogTitle sx={{ p: 0, borderBottom: '1px solid #e0e0e0' }}>
+        <FormControl fullWidth>
+          <Select
+            value={selectedTemplate?.id || ''}
+            onChange={(e) => {
+              const template = receiptTemplates.find(t => t.id === e.target.value);
+              setSelectedTemplate(template);
+            }}
+            disabled={templatesLoading}
+            variant="standard"
+            disableUnderline
+            displayEmpty
+            renderValue={() => selectedTemplate?.name || 'Receipt'}
+            sx={{
+              '& .MuiSelect-select': {
+                height: '41px !important',
+                minHeight: '41px !important',
+                boxSizing: 'border-box',
+                display: 'flex',
+                alignItems: 'center',
+                px: 2,
+                fontSize: 16,
+                color: '#313439',
+              },
+              '& .MuiSelect-icon': { right: 12, color: '#313439' },
+            }}
+          >
+            {receiptTemplates.map((template) => (
+              <MenuItem key={template.id} value={template.id}>
+                {template.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </DialogTitle>
+
+      {/* .render-receipt — 569px scroll well on the reference's grey ground */}
+      <DialogContent
+        sx={{ p: '16px', bgcolor: '#f8f8f8', height: 569, overflowY: 'auto' }}
+      >
+        {templatesLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : isA4 ? (
+          // The reference cannot render an A4 template to the receipt preview and
+          // says so rather than drawing the wrong paper. Print still works.
+          <Box
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              color: '#313439',
+            }}
+          >
+            <DescriptionOutlined sx={{ fontSize: 56, color: '#f5a623' }} />
+            <Box sx={{ fontWeight: 700 }}>A4</Box>
+            <Box>Receipt preview unsupported</Box>
+          </Box>
+        ) : receiptData && (
+          // Boxed, centred, natural width — the reference never stretches the paper.
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ border: '1px solid #000', width: 'max-content', bgcolor: '#fff' }}>
+              {/* Template-driven preview — same renderer used on-screen and for print */}
+              <ReceiptRenderer receiptData={receiptData} template={selectedTemplate} preview />
+            </Box>
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ p: 0 }}>
+        <Button
+          variant="contained"
+          fullWidth
+          startIcon={<PrintIcon sx={{ fontSize: '32px !important' }} />}
+          onClick={printReceipt}
+          disabled={!receiptData || templatesLoading}
+          sx={{
+            bgcolor: '#1c86f2',
+            color: '#f8f8f8',
+            height: 56,
+            fontSize: '32px',
+            fontWeight: 400,
+            lineHeight: 1,
+            textTransform: 'none',
+            borderRadius: 0,
+            boxShadow: 'none',
+            gap: 1,
+            '&:hover': { bgcolor: '#1573d4', boxShadow: 'none' },
+          }}
+        >
+          Print
+        </Button>
+      </DialogActions>
+
+    </Dialog>
+  );
+};
+
+export default PrintReceiptDialog;
+
