@@ -289,8 +289,10 @@ const LineEditPanel = ({ item, keypadNonce, onConfirm, onCancel }) => {
   const keypadMode = percentMode ? 'percent' : 'price';
 
   // Normal Price = the AUTOMATIC pre-override line total.
+  // discountAmount is negative when the price was raised, so it is added back
+  // unclamped — otherwise a raised line reported its NEW price as the normal one.
   const normalTotal = item.discountInfo
-    ? (parseFloat(item.price) || 0) + Math.max(0, parseFloat(item.discountInfo.discountAmount) || 0)
+    ? (parseFloat(item.price) || 0) + (parseFloat(item.discountInfo.discountAmount) || 0)
     : parseFloat(item.price) || 0;
 
   const display = amount === ''

@@ -601,7 +601,10 @@ const CartSidebar = ({
               // sum of each locked line's automatic (pre-discount) total.
               value={cart.reduce(
                 (sum, i) => i.discountInfo
-                  ? sum + (parseFloat(i.price) || 0) + Math.max(0, parseFloat(i.discountInfo.discountAmount) || 0)
+                  // discountAmount is original - new, so it is NEGATIVE when the
+                  // price was raised; adding it back either way recovers the
+                  // ORIGINAL automatic price, which is what this row shows.
+                  ? sum + (parseFloat(i.price) || 0) + (parseFloat(i.discountInfo.discountAmount) || 0)
                   : sum,
                 0
               )}
@@ -742,9 +745,10 @@ const CartSidebar = ({
             <>
               {(() => {
                 // Discount = what the inline price editor took off the lines
-                // (discountInfo.discountAmount); a price INCREASE never counts.
+                // (discountInfo.discountAmount). A price INCREASE is a negative
+                // discount and is shown as such, not swallowed.
                 const lineDiscount = cart.reduce(
-                  (sum, item) => sum + Math.max(0, parseFloat(item.discountInfo?.discountAmount) || 0),
+                  (sum, item) => sum + (parseFloat(item.discountInfo?.discountAmount) || 0),
                   0
                 );
                 // Savings = what every line gave away against its normal price:
