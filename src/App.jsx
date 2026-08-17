@@ -232,8 +232,22 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
-                        <Route path="/sales/pos" element={<POSPage />} />
-                        <Route path="/sales/orders" element={<OrdersPage />} />
+                        <Route
+                          path="/sales/pos"
+                          element={
+                            <PermissionProtectedRoute requiredPermissions={["register.access"]}>
+                              <POSPage />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/sales/orders"
+                          element={
+                            <PermissionProtectedRoute requiredPermissions={["orders-invoices.view"]}>
+                              <OrdersPage />
+                            </PermissionProtectedRoute>
+                          }
+                        />
                         <Route path="/register/close" element={<CloseRegister />} />
                         <Route
                           path="/register/manage-cash"
@@ -246,7 +260,11 @@ function App() {
                         <Route path="/register/display" element={<OpenCustomerDisplay />} />
                         <Route
                           path="/inventory/products"
-                          element={<ProductsPage />}
+                          element={
+                            <PermissionProtectedRoute requiredPermissions={["see_products"]}>
+                              <ProductsPage />
+                            </PermissionProtectedRoute>
+                          }
                         />
                         <Route
                           path="/customers"
@@ -1087,9 +1105,24 @@ function App() {
                         />
                         <Route
                           path="/setup/account-billing"
-                          element={<AccountBilling />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["manage_billing"]}
+                            >
+                              <AccountBilling />
+                            </PermissionProtectedRoute>
+                          }
                         />
-                        <Route path="/setup/sale-key" element={<SaleKey />} />
+                        <Route
+                          path="/setup/sale-key"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["sale_keys.view"]}
+                            >
+                              <SaleKey />
+                            </PermissionProtectedRoute>
+                          }
+                        />
                                     <Route
               path="/setup/taxes"
               element={
@@ -1130,14 +1163,70 @@ function App() {
                 </PermissionProtectedRoute>
               }
             />
-            <Route path="/setup/receipts" element={<ReceiptTemplates />} />
-            <Route path="/setup/receipts/:templateId/edit" element={<ReceiptEditor />} />
-            <Route path="/setup/statements" element={<StatementTemplates />} />
-            <Route path="/setup/statements/:templateId/edit" element={<StatementEditor />} />
-            <Route path="/setup/shelf-tickets" element={<ShelfTicketTemplates />} />
-            <Route path="/setup/shelf-tickets/:templateId/edit" element={<ShelfTicketEditor />} />
-            <Route path="/setup/customer-display" element={<CustomerDisplays />} />
-            <Route path="/setup/customer-display/:templateId/edit" element={<CustomerDisplayEditor />} />
+            <Route
+              path="/setup/receipts"
+              element={
+                <PermissionProtectedRoute requiredPermissions={["modify_receipts"]}>
+                  <ReceiptTemplates />
+                </PermissionProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup/receipts/:templateId/edit"
+              element={
+                <PermissionProtectedRoute requiredPermissions={["modify_receipts"]}>
+                  <ReceiptEditor />
+                </PermissionProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup/statements"
+              element={
+                <PermissionProtectedRoute requiredPermissions={["modify_statements"]}>
+                  <StatementTemplates />
+                </PermissionProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup/statements/:templateId/edit"
+              element={
+                <PermissionProtectedRoute requiredPermissions={["modify_statements"]}>
+                  <StatementEditor />
+                </PermissionProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup/shelf-tickets"
+              element={
+                <PermissionProtectedRoute requiredPermissions={["modify_ticket_templates"]}>
+                  <ShelfTicketTemplates />
+                </PermissionProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup/shelf-tickets/:templateId/edit"
+              element={
+                <PermissionProtectedRoute requiredPermissions={["modify_ticket_templates"]}>
+                  <ShelfTicketEditor />
+                </PermissionProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup/customer-display"
+              element={
+                <PermissionProtectedRoute requiredPermissions={["modify_customer_displays"]}>
+                  <CustomerDisplays />
+                </PermissionProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup/customer-display/:templateId/edit"
+              element={
+                <PermissionProtectedRoute requiredPermissions={["modify_customer_displays"]}>
+                  <CustomerDisplayEditor />
+                </PermissionProtectedRoute>
+              }
+            />
                         <Route
                           path="/setup/transfer-list"
                           element={
@@ -1178,8 +1267,26 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
-                        <Route path="/setup/sale-key-sets" element={<SaleKeySets />} />
-                        <Route path="/setup/sale-key/:setId" element={<SaleKeyEditor />} />
+                        <Route
+                          path="/setup/sale-key-sets"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["sale_keys.view"]}
+                            >
+                              <SaleKeySets />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/setup/sale-key/:setId"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["sale_keys.edit"]}
+                            >
+                              <SaleKeyEditor />
+                            </PermissionProtectedRoute>
+                          }
+                        />
                         <Route 
                           path="/setup/loyalty" 
                           element={
@@ -1200,7 +1307,16 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
-                        <Route path="/setup/integrations" element={<Integrations />} />
+                        <Route
+                          path="/setup/integrations"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["modify_integrations"]}
+                            >
+                              <Integrations />
+                            </PermissionProtectedRoute>
+                          }
+                        />
                         <Route
                           path="/setup/master-database-products"
                           element={
@@ -1209,14 +1325,23 @@ function App() {
                             </ProtectedRoute>
                           }
                         />
-                        <Route path="/admin/push-notifications" element={<PushNotifications />} />
+                        <Route
+                          path="/admin/push-notifications"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["manage_push_devices"]}
+                            >
+                              <PushNotifications />
+                            </PermissionProtectedRoute>
+                          }
+                        />
                         
                         {/* Sales History Route */}
                         <Route
                           path="/register/history"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["reports.sales"]}
+                              requiredPermissions={["see_history", "reports.sales"]}
                             >
                               <SalesHistory />
                             </PermissionProtectedRoute>
@@ -1254,7 +1379,16 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
-                        <Route path="/setup/hardware" element={<HardwareSettings />} />
+                        <Route
+                          path="/setup/hardware"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["modify_hardware"]}
+                            >
+                              <HardwareSettings />
+                            </PermissionProtectedRoute>
+                          }
+                        />
                         <Route
                           path="/setup/linkly"
                           element={

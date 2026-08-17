@@ -103,7 +103,7 @@ const menuItems = [
         title: "Sales History",
         icon: <Assignment />,
         path: "/register/history",
-        permissions: ["reports.sales"],
+        permissions: ["see_history", "reports.sales"],
       },
       {
         id: "open-customer-display",
@@ -335,21 +335,21 @@ const menuItems = [
         title: "General",
         icon: <SettingsIcon />,
         path: "/setup/general",
-        permissions: [],
+        permissions: ["settings.view"],
       },
       {
         id: "integrations",
         title: "Integrations",
         icon: <ExtensionIcon />,
         path: "/setup/integrations",
-        permissions: [],
+        permissions: ["modify_integrations"],
       },
       {
         id: "hardware",
         title: "Hardware",
         icon: <ReceiptIcon />,
         path: "/setup/hardware",
-        permissions: [],
+        permissions: ["modify_hardware"],
       },
       {
         id: "linkly",
@@ -377,28 +377,28 @@ const menuItems = [
         title: "Sale Key",
         icon: <Key />,
         path: "/setup/sale-key-sets",
-        permissions: [],
+        permissions: ["sale_keys.view"],
       },
       {
         id: "receipts",
         title: "Receipts",
         icon: <Receipt />,
         path: "/setup/receipts",
-        permissions: [],
+        permissions: ["modify_receipts"],
       },
       {
         id: "statements",
         title: "Statements",
         icon: <Assignment />,
         path: "/setup/statements",
-        permissions: [],
+        permissions: ["modify_statements"],
       },
       {
         id: "shelf-ticket-templates",
         title: "Shelf Ticket Templates",
         icon: <TicketIcon />,
         path: "/setup/shelf-tickets",
-        permissions: [],
+        permissions: ["modify_ticket_templates"],
       },
       {
         id: "customer-display",
@@ -482,7 +482,7 @@ const menuItems = [
         title: "Push Notifications",
         icon: <Notifications />,
         path: "/admin/push-notifications",
-        permissions: [],
+        permissions: ["manage_push_devices"],
       },
     ],
   },
@@ -499,49 +499,49 @@ const menuItems = [
         title: "Future Prices",
         icon: <CalendarToday />,
         path: "/utilities/future-prices",
-        permissions: [],
+        permissions: ["modify_default_prices"],
       },
       {
         id: "future-costs",
         title: "Future Costs",
         icon: <CalendarToday />,
         path: "/utilities/future-costs",
-        permissions: [],
+        permissions: ["modify_default_prices"],
       },
       {
         id: "mail-log",
         title: "Mail Log",
         icon: <MailIcon />,
         path: "/utilities/mail-log",
-        permissions: [],
+        permissions: ["see_mail_log"],
       },
       {
         id: "trashed-items",
         title: "Trashed Items",
         icon: <DeleteIcon />,
         path: "/utilities/trashed-items",
-        permissions: [],
+        permissions: ["see_trashed_items"],
       },
       {
         id: "product-utilities",
         title: "Product Utilities",
         icon: <InventoryIcon />,
         path: "/utilities/product-utilities",
-        permissions: [],
+        permissions: ["edit_products"],
       },
       {
         id: "customer-utilities",
         title: "Customer Utilities",
         icon: <PeopleIcon />,
         path: "/utilities/customer-utilities",
-        permissions: [],
+        permissions: ["edit_customers"],
       },
       {
         id: "barcodes",
         title: "Barcodes",
         icon: <InventoryIcon />,
         path: "/utilities/barcodes",
-        permissions: [],
+        permissions: ["modify_barcode_templates"],
       },
     ],
   },
@@ -631,7 +631,11 @@ const Sidebar = ({ onClick }) => {
           const accessibleChildren = item.children.filter((child) =>
             shouldShowMenuItem(child)
           );
-          return hasItemPermission || accessibleChildren.length > 0;
+          // A group is only a door to its children: showing it with every child
+          // filtered out gave a restricted user an empty, dead-end menu. The group's
+          // own permission does not gate it — a user who may see one child reaches it
+          // through the group.
+          return accessibleChildren.length > 0;
         }
 
         return hasItemPermission;

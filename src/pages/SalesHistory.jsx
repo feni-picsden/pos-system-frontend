@@ -30,6 +30,7 @@ import { useAppDialogs } from '../components/Common/AppDialogProvider';
 import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
 import ShopfrontDialog, { DialogButton } from '../components/Common/ShopfrontDialog';
 import SaleDetailCard, { SplitPrice, customerName } from '../components/SalesHistory/SaleDetailCard';
+import { usePermissions } from '../hooks/usePermissions';
 
 // Reference filter chrome: the field label lives INSIDE the 42px box and floats
 // into the notch on focus/value; 1px #404040 rail that does NOT change on hover.
@@ -207,6 +208,10 @@ const SalesHistory = () => {
   const { alert, notify } = useAppDialogs();
   const { selectedRegister } = useSelectedRegister();
   const { user, getOutletName } = useAuth();
+  // The action rail offers what the backend will actually allow: a cashier with
+  // see_history could open Modify Details / Return Items / Cancel Sale and only
+  // learn they were forbidden from the 403.
+  const { hasPermission } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -871,17 +876,18 @@ const SalesHistory = () => {
                                 ✕ Close
                               </Button>
                               {[
-                                ["Reprint Receipt", () => handleReprintReceipt(selectedSale)],
-                                ["Email Receipt", () => handleEmailReceipt(selectedSale)],
-                                ["Modify Details", () => handleModifyDetails(selectedSale)],
+                                ["Reprint Receipt", () => handleReprintReceipt(selectedSale), true],
+                                ["Email Receipt", () => handleEmailReceipt(selectedSale), hasPermission("reports.sales")],
+                                ["Modify Details", () => handleModifyDetails(selectedSale), hasPermission("history_modify_sale")],
                                 [
                                   "Assign Customer",
                                   () => {
                                     setAssignCustomerId(selectedSale.customerId || "");
                                     setAssignCustomerOpen(true);
                                   },
+                                  hasPermission("history_modify_sale"),
                                 ],
-                                ["Return Items", () => handleReturnItems(selectedSale)],
+                                ["Return Items", () => handleReturnItems(selectedSale), hasPermission("refund")],
                                 ...(selectedSale.status !== "CANCELLED"
                                   ? [
                                       [
@@ -890,10 +896,11 @@ const SalesHistory = () => {
                                           setCancelReason("");
                                           setCancelStep("confirm");
                                         },
+                                        hasPermission("history_cancel_sale"),
                                       ],
                                     ]
                                   : []),
-                              ].map(([label, onClick]) => (
+                              ].filter(([, , allowed]) => allowed).map(([label, onClick]) => (
                                 <Button
                                   key={label}
                                   disableElevation
