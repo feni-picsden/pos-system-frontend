@@ -49,11 +49,11 @@ import {
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import SettingsSlideOver from '../../components/Settings/SettingsSlideOver';
 import EditReasonsSlideOver from '../../components/Settings/EditReasonsSlideOver';
-import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS } from './generalSettingsFields';
+import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS, COMPANY_CONSTRAINTS } from './generalSettingsFields';
 import { setLeaveGuard, clearLeaveGuard } from '../../utils/leaveGuard';
 import { formatWithTokens } from '../../utils/dateFormat';
 import saleKeyService from '../../services/saleKeyService';
-import settingsService from '../../services/settingsService';
+import settingsService, { GENERAL_DEFAULTS } from '../../services/settingsService';
 import outletService from '../../services/outletService';
 import { userService } from '../../services/userService';
 import receiptTemplateService from '../../services/receiptTemplateService';
@@ -63,6 +63,10 @@ import registerService from '../../services/registerService';
 import paymentMethodService from '../../services/paymentMethodService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+
+// The fixed app bar in DashboardLayout (HEADER_HEIGHT). Anything sticky on this page
+// has to start below it, or it scrolls under the bar and its text is clipped.
+const APP_BAR_HEIGHT = 50;
 
 // ---- Company tab shell primitives (reference parity) ----------------------
 const SETTING_FIELD_SX = {
@@ -321,6 +325,9 @@ const GeneralSettings = () => {
   // discount/drawer lists live inside companySettings.
   const [reasonsEditor, setReasonsEditor] = useState(null);
   const [cashReasons, setCashReasons] = useState({ take_out: [], put_in: [] });
+  // These two lists live in their own setting rows, so they have no entry in the
+  // company blob's `_updatedAt` map - their row stamp is tracked separately.
+  const [cashReasonStamps, setCashReasonStamps] = useState({});
   const [editingOutletId, setEditingOutletId] = useState(null);
   const [outletEditorTab, setOutletEditorTab] = useState(0);
   const [outletProfile, setOutletProfile] = useState(EMPTY_OUTLET_PROFILE);
@@ -350,87 +357,7 @@ const GeneralSettings = () => {
   });
 
   // Company Settings State
-  const [companySettings, setCompanySettings] = useState({
-    // General Settings
-    useQuantityRate: false,
-    familyPriceDistributionMethod: 'Match Price Points',
-    priceRoundingMode: '',
-    costCalculationMethod: 'Last Cost',
-    profitabilityDisplay: 'Gross Profit Margin',
-    setPricesBasedOn: 'Cost Calculation Method',
-    useComponentsAndPackages: false,
-    productsCanHaveWeight: false,
-    useBarocodeTemplates: false,
-    sellCases: true,
-    crossPromotionCount: true,
-    
-    // Team Message
-    teamMessage: '',
-    
-    // Hours until price changes become active
-    hoursUntilPriceChanges: 0,
-    
-    // General Display
-    singleText: 'Item',
-    caseText: 'Case',
-    
-    // Login After Sale
-    signInType: 'Select user',
-    maskUsername: false,
-    requirePassword: true,
-    autoLogoutTime: 0,
-    autoLogoutDuringSale: false,
-    
-    // Product Search and Cache
-    productSearchLevel: 'full',
-    searchCacheSaveLocation: 'indexeddb',
-    
-    // Integrations
-    metacashHostFileIntegration: true,
-    
-    // Miscellaneous
-    defaultSaleKeys: 'Home Keys',
-    defaultSaleKeysId: null,
-    saleKeysPosition: 'left',
-    getNotificationOnProductCreation: false,
-    globalStatementReplyToEmail: 'rossmoretopdrops@outlook.com',
-    showAverageCostOnPriceEditor: false,
-    defaultNewUsersReportingAccessAllOutlets: true,
-    debugLoggingLevel: 'normal',
-    
-    // Sell Screen / Register settings
-    showProductDetailsOnAdd: false,
-    displayCustomerDetailsOnAdd: false,
-    preventBlurOnFocusLoss: true,
-    keepSelectProductPopupOpen: false,
-    makeSelectProductPopupPaginated: false,
-    discountsRequireReason: false,
-    predefinedDiscountReasons: [],
-    refundsRequireReason: false,
-    requireReasonForCashDrawer: false,
-    predefinedCashDrawerReasons: [],
-    allowCashOutWithoutSale: true,
-    requireNoteOnParkedSale: false,
-    invoiceNumberLength: 8,
-    
-    // Outlets settings
-    shareParkedSalesBetweenOutlets: true,
-    shareGiftCardsBetweenOutlets: true,
-    
-    // Date & Time settings
-    timezone: 'Australia/Sydney',
-    dateFormat: 'DD/MM/YYYY',
-    timeFormat: 'HH:mm:ss',
-    startOfWeek: 'monday',
-
-    // Currency settings
-    roundTo: 0.05,
-    currencyCode: 'AUD',
-    numberLocale: '',
-
-    // Search settings
-    customerSearchLevel: 'full'
-  });
+  const [companySettings, setCompanySettings] = useState(GENERAL_DEFAULTS);
 
   // Outlet Settings State
   const [outletSettings, setOutletSettings] = useState({
@@ -457,19 +384,15 @@ const GeneralSettings = () => {
     importBuyingPeriods: false,
     
     // Miscellaneous
-    discountingBelowCostBehaviour: 'Allow',
-    saleKeys: 'Default',
-    saleKeysPosition: ''
+    discountingBelowCostBehaviour: 'Allow'
   });
 
   // Register Settings State
   const [registerSettings, setRegisterSettings] = useState({
     // General
     safeDropAlertAmount: 0,
-    defaultPaymentMethod: 'Cash',
     defaultReceiptTemplateId: '',
-    darkMode: '',
-    
+
     // Sell Screen
     loginAfterSale: false,
     neverOpenCashDrawer: false,
@@ -480,27 +403,17 @@ const GeneralSettings = () => {
     requireNoteOnRegisterClosureWithDiscrepancy: false,
     runPromotionCalculationInDedicatedThread: false,
     
-    // Customer Display
-    customerDisplayTemplate: 'Customer Display',
-    openCustomerDisplayWhenRegisterOpens: true,
-    customerDisplayMode: 'Popup',
-    
     // Invoices
     offlineInvoiceSuffix: 'A',
     invoiceNumberMode: 'Incremental',
-    invoiceMaxNumber: 99999999,
-    
-    // Miscellaneous
-    saleKeys: 'Default',
-    saleKeysPosition: ''
+    invoiceMaxNumber: 99999999
   });
 
   // User Settings State
   const [userSettings, setUserSettings] = useState({
     // Miscellaneous
     saleKeys: 'Default',
-    saleKeysPosition: '',
-    overrideDarkMode: 'Default'
+    saleKeysPosition: ''
   });
 
   // Load settings and sale key sets on mount
@@ -508,7 +421,6 @@ const GeneralSettings = () => {
     loadSettings();
     loadSaleKeySets();
     loadOutlets();
-    loadRegisterSettings();
     loadUsers();
     loadEmailReceiptTemplates();
     loadDefaultReceiptTemplates();
@@ -671,9 +583,9 @@ const GeneralSettings = () => {
     }
   };
 
-  const loadRegisterSettings = async () => {
+  const loadRegisterSettings = async (registerId) => {
     try {
-      const response = await settingsService.getRegisterSettings();
+      const response = await settingsService.getRegisterSettings(registerId);
       if (response.settings) {
         // ponytail: merge, never replace - a bare replace drops the defaults and
         // every missing key becomes undefined, flipping controlled inputs to
@@ -736,6 +648,7 @@ const GeneralSettings = () => {
     for (const type of ['take_out', 'put_in']) {
       const res = await settingsService.getCashDrawerReasons(type);
       setCashReasons(prev => ({ ...prev, [type]: Array.isArray(res?.reasons) ? res.reasons : [] }));
+      setCashReasonStamps(prev => ({ ...prev, [type]: res?.updatedAt || null }));
     }
   };
 
@@ -748,8 +661,9 @@ const GeneralSettings = () => {
     const { apiType } = REASON_LIST_FIELDS[reasonsEditor];
     if (apiType) {
       try {
-        await settingsService.updateCashDrawerReasons(apiType, cleaned);
+        const res = await settingsService.updateCashDrawerReasons(apiType, cleaned);
         setCashReasons(prev => ({ ...prev, [apiType]: cleaned }));
+        setCashReasonStamps(prev => ({ ...prev, [apiType]: res?.updatedAt || new Date().toISOString() }));
         setShowSuccess(true);
       } catch (err) {
         setError(err.response?.data?.error || 'Failed to save reasons');
@@ -1066,7 +980,7 @@ const GeneralSettings = () => {
     if (!outletId) return;
     
     try {
-      const response = await settingsService.getOutletSettings();
+      const response = await settingsService.getOutletSettings(outletId);
       if (response.settings) {
         const values = captureStamps('outlet', response);
         setOutletSettings(prev => ({
@@ -1101,14 +1015,11 @@ const GeneralSettings = () => {
 
       const response = await settingsService.getUserSettings(user.id);
       if (response.settings) {
-        // Legacy values used the short dark-mode names.
-        const legacyDarkMode = { Light: 'Force Light Mode', Dark: 'Force Dark Mode' };
         const values = captureStamps('user', response);
         setUserSettings(prev => ({
           ...prev,
           ...values,
-          saleKeysPosition: values.saleKeysPosition || 'Default',
-          overrideDarkMode: legacyDarkMode[values.overrideDarkMode] || values.overrideDarkMode || 'Default'
+          saleKeysPosition: values.saleKeysPosition || 'Default'
         }));
       }
     } catch (error) {
@@ -1166,6 +1077,7 @@ const GeneralSettings = () => {
   useEffect(() => {
     if (selectedRegister) {
       loadRegisterCustomerDisplaySettings(selectedRegister);
+      loadRegisterSettings(selectedRegister);
     }
   }, [selectedRegister]);
 
@@ -1180,10 +1092,22 @@ const GeneralSettings = () => {
         await settingsService.updateGeneralSettings(companySettings);
       }
       if (dirty.outlet) {
-        await settingsService.updateOutletSettings(outletSettings);
+        await settingsService.updateOutletSettings(outletSettings, selectedOutlet);
+        // Every consumer of the outlet's email (receipts, statements) reads the
+        // Outlet record, not this blob - keep the record in step or the edit is
+        // invisible everywhere but this page.
+        if (selectedOutlet) {
+          try {
+            await outletService.updateOutlet(Number(selectedOutlet), {
+              email: outletSettings.outletEmail || null
+            });
+          } catch {
+            // only super admins may write the outlet record; the blob is still saved
+          }
+        }
       }
       if (dirty.register) {
-        await settingsService.updateRegisterSettings(registerSettings);
+        await settingsService.updateRegisterSettings(registerSettings, selectedRegister);
         if (selectedRegister) {
           await customerDisplayService.updateRegisterConfig(Number(selectedRegister), {
             templateId: registerCustomerDisplaySettings.templateId || null,
@@ -1219,6 +1143,24 @@ const GeneralSettings = () => {
   // --- Company tab: generic rendering from the field-definition module -------
   const setCompanyValue = (key, value) =>
     handleCompanySettingChange(key)({ target: { value } });
+
+  // inputProps min/max only stops the spinner arrows; typing or pasting an
+  // out-of-range value went straight through to the API. Clamp on blur, so the
+  // user can still type "700" into a min-60 box one digit at a time.
+  const clampCompanyValue = (key) => {
+    const c = COMPANY_CONSTRAINTS[key];
+    if (!c || c.type !== 'number') return;
+    setCompanySettings((prev) => {
+      const raw = prev[key];
+      if (raw === '' || raw === null || raw === undefined) {
+        return c.required && c.fallback !== undefined ? { ...prev, [key]: c.fallback } : prev;
+      }
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return { ...prev, [key]: c.fallback ?? c.min ?? 0 };
+      const clamped = Math.min(c.max ?? Infinity, Math.max(c.min ?? -Infinity, n));
+      return clamped === raw ? prev : { ...prev, [key]: clamped };
+    });
+  };
 
   // Date/Time Format: the reference pairs an editable combobox (the listed
   // formats plus "Custom Format", which frees the input for token text) with a
@@ -1318,7 +1260,9 @@ const GeneralSettings = () => {
     <SettingRow
       key={field.key}
       label={field.label}
-      updated={stampFor('company', field.key)}
+      updated={REASON_LIST_FIELDS[field.key].apiType
+        ? (formatStamp(cashReasonStamps[REASON_LIST_FIELDS[field.key].apiType]) || '—')
+        : stampFor('company', field.key)}
       description={field.description}
     >
       <Button
@@ -1369,9 +1313,9 @@ const GeneralSettings = () => {
         />
       );
     } else if (field.type === 'select') {
-      // field.normalize maps legacy stored values onto the reference options
-      const rawValue = companySettings[field.key] ?? field.default ?? '';
-      const value = field.normalize ? field.normalize(rawValue) : rawValue;
+      // Legacy values are already mapped onto the reference options by
+      // normalizeCompanySettings on load, so what renders is what will be saved.
+      const value = companySettings[field.key] ?? field.default ?? '';
       // Long lists (the 400+ IANA timezones) render as a filterable combobox.
       control = field.searchable ? (
         <Autocomplete
@@ -1406,10 +1350,9 @@ const GeneralSettings = () => {
         <TextField
           type={field.type === 'number' ? 'number' : (field.inputType || 'text')}
           fullWidth
-          multiline={!!field.multiline}
-          rows={field.multiline ? 3 : undefined}
           value={companySettings[field.key] ?? ''}
           onChange={handleCompanySettingChange(field.key)}
+          onBlur={() => clampCompanyValue(field.key)}
           placeholder={field.placeholder}
           inputProps={field.constraints
             ? { min: field.constraints.min, max: field.constraints.max, step: field.constraints.step }
@@ -1799,7 +1742,7 @@ const GeneralSettings = () => {
                 Outlet email
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'outletEmail')}
               </Typography>
             </Box>
             <TextField
@@ -1831,7 +1774,7 @@ const GeneralSettings = () => {
                 Enable gift cards
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'enableGiftCards')}
               </Typography>
             </Box>
             <Switch
@@ -1847,7 +1790,7 @@ const GeneralSettings = () => {
                 Default expiry amount
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'defaultExpiryAmount')}
               </Typography>
             </Box>
             <TextField
@@ -1866,7 +1809,7 @@ const GeneralSettings = () => {
                 Default expiry period
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'defaultExpiryPeriod')}
               </Typography>
             </Box>
             <FormControl fullWidth size="small">
@@ -1889,7 +1832,7 @@ const GeneralSettings = () => {
                 Can manually adjust expiry
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'canManuallyAdjustExpiry')}
               </Typography>
             </Box>
             <Switch
@@ -1916,7 +1859,7 @@ const GeneralSettings = () => {
               Update last cost when receiving transfers
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Updated {stampFor('outlet')}
+              Updated {stampFor('outlet', 'updateLastCostWhenReceivingTransfers')}
             </Typography>
           </Box>
           <Switch
@@ -1944,7 +1887,7 @@ const GeneralSettings = () => {
                 B2B Account (leave blank for default)
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'b2bAccount')}
               </Typography>
             </Box>
             <TextField
@@ -1962,7 +1905,7 @@ const GeneralSettings = () => {
                 B2B Password (leave blank for default)
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'b2bPassword')}
               </Typography>
             </Box>
             <TextField
@@ -1981,7 +1924,7 @@ const GeneralSettings = () => {
                 Customer ID
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'customerId')}
               </Typography>
             </Box>
             <TextField
@@ -2000,7 +1943,7 @@ const GeneralSettings = () => {
                 State
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'state')}
               </Typography>
             </Box>
             <FormControl fullWidth size="small">
@@ -2029,7 +1972,7 @@ const GeneralSettings = () => {
                 Pillar
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'pillar')}
               </Typography>
             </Box>
             <FormControl fullWidth size="small">
@@ -2054,7 +1997,7 @@ const GeneralSettings = () => {
                 Import Promotions
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'importPromotions')}
               </Typography>
             </Box>
             <Switch
@@ -2069,7 +2012,7 @@ const GeneralSettings = () => {
                 Import Buying Periods
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'importBuyingPeriods')}
               </Typography>
             </Box>
             <Switch
@@ -2098,7 +2041,7 @@ const GeneralSettings = () => {
                 Discounting Below Cost Behaviour
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
+                Updated {stampFor('outlet', 'discountingBelowCostBehaviour')}
               </Typography>
             </Box>
             <FormControl fullWidth size="small">
@@ -2113,52 +2056,6 @@ const GeneralSettings = () => {
             </FormControl>
           </Box>
 
-          {/* Sale keys */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Sale keys
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={outletSettings.saleKeys}
-                onChange={handleOutletSettingChange('saleKeys')}
-              >
-                <MenuItem value="Default">Default</MenuItem>
-                <MenuItem value="Home Keys">Home Keys</MenuItem>
-                <MenuItem value="Custom">Custom</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Sale keys position */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Sale keys position
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={outletSettings.saleKeysPosition}
-                onChange={handleOutletSettingChange('saleKeysPosition')}
-                displayEmpty
-              >
-                <MenuItem value="">Select...</MenuItem>
-                <MenuItem value="Left">Left</MenuItem>
-                <MenuItem value="Right">Right</MenuItem>
-                <MenuItem value="Top">Top</MenuItem>
-                <MenuItem value="Bottom">Bottom</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
         </Box>
       </Box>
 
@@ -2422,7 +2319,7 @@ const GeneralSettings = () => {
                 Safe drop alert amount
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
+                Updated {stampFor('register', 'safeDropAlertAmount')}
               </Typography>
             </Box>
             <TextField
@@ -2434,29 +2331,6 @@ const GeneralSettings = () => {
             />
           </Box>
 
-          {/* Default payment method */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Default payment method
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={registerSettings.defaultPaymentMethod}
-                onChange={handleRegisterSettingChange('defaultPaymentMethod')}
-              >
-                <MenuItem value="Cash">Cash</MenuItem>
-                <MenuItem value="Card">Card</MenuItem>
-                <MenuItem value="EFTPOS">EFTPOS</MenuItem>
-                <MenuItem value="Gift Card">Gift Card</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
           {/* Default receipt template */}
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -2464,7 +2338,7 @@ const GeneralSettings = () => {
                 Default Receipt Template
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
+                Updated {stampFor('register', 'defaultReceiptTemplateId')}
               </Typography>
             </Box>
             <FormControl fullWidth size="small">
@@ -2482,30 +2356,6 @@ const GeneralSettings = () => {
                 {defaultReceiptTemplates.map((template) => (
                   <MenuItem key={template.id} value={template.id}>{template.name}</MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Dark Mode */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Dark Mode
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={registerSettings.darkMode}
-                onChange={handleRegisterSettingChange('darkMode')}
-                displayEmpty
-              >
-                <MenuItem value="">Select...</MenuItem>
-                <MenuItem value="Light">Light</MenuItem>
-                <MenuItem value="Dark">Dark</MenuItem>
-                <MenuItem value="Auto">Auto</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -2539,7 +2389,7 @@ const GeneralSettings = () => {
                   {setting.label}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Updated {stampFor('register')}
+                  Updated {stampFor('register', setting.key)}
                 </Typography>
               </Box>
               <Switch
@@ -2666,7 +2516,7 @@ const GeneralSettings = () => {
                 Offline invoice suffix
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
+                Updated {stampFor('register', 'offlineInvoiceSuffix')}
               </Typography>
             </Box>
             <TextField
@@ -2684,7 +2534,7 @@ const GeneralSettings = () => {
                 Invoice Number Mode
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
+                Updated {stampFor('register', 'invoiceNumberMode')}
               </Typography>
             </Box>
             <FormControl fullWidth size="small">
@@ -2706,7 +2556,7 @@ const GeneralSettings = () => {
                 Invoice max number (until next invoice batch requested)
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
+                Updated {stampFor('register', 'invoiceMaxNumber')}
               </Typography>
             </Box>
             <TextField
@@ -2720,65 +2570,6 @@ const GeneralSettings = () => {
         </Box>
       </Box>
 
-      <Divider sx={{ my: 4 }} />
-
-      {/* Miscellaneous Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            ⚙️ Miscellaneous
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Sale keys */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Sale keys
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={registerSettings.saleKeys}
-                onChange={handleRegisterSettingChange('saleKeys')}
-              >
-                <MenuItem value="Default">Default</MenuItem>
-                <MenuItem value="Home Keys">Home Keys</MenuItem>
-                <MenuItem value="Custom">Custom</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Sale keys position */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Sale keys position
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('register')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={registerSettings.saleKeysPosition}
-                onChange={handleRegisterSettingChange('saleKeysPosition')}
-                displayEmpty
-              >
-                <MenuItem value="">Select...</MenuItem>
-                <MenuItem value="Left">Left</MenuItem>
-                <MenuItem value="Right">Right</MenuItem>
-                <MenuItem value="Top">Top</MenuItem>
-                <MenuItem value="Bottom">Bottom</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </Box>
-      </Box>
 
     </Box>
   );
@@ -2822,7 +2613,6 @@ const GeneralSettings = () => {
             label="Sale Keys"
             updated={stampFor('user', 'saleKeys')}
             description="The sale keys to use, overrides all other sale key settings"
-            noHelp
           >
             <Autocomplete
               options={selectedFirst(userSaleKeyOptions, userSettings.saleKeys || 'Default')}
@@ -2843,7 +2633,6 @@ const GeneralSettings = () => {
             label="Sale Keys Position"
             updated={stampFor('user', 'saleKeysPosition')}
             description="Show sale keys on the left-hand side or right-hand side of the sell screen"
-            noHelp
           >
             <FormControl fullWidth size="small" sx={USER_FIELD_SX}>
               <Select
@@ -2854,26 +2643,6 @@ const GeneralSettings = () => {
                 <MenuItem value="Default">Default</MenuItem>
                 <MenuItem value="Left">Left</MenuItem>
                 <MenuItem value="Right">Right</MenuItem>
-              </Select>
-            </FormControl>
-          </SettingRow>
-
-          <SettingRow
-            label="Override Dark Mode"
-            updated={stampFor('user', 'overrideDarkMode')}
-            description="The colour scheme that the user will have."
-            helpUrl="https://support.onshopfront.com/hc/en-us/articles/360057642932-Using-Shopfront-in-Dark-Mode"
-          >
-            <FormControl fullWidth size="small" sx={USER_FIELD_SX}>
-              <Select
-                value={userSettings.overrideDarkMode || 'Default'}
-                onChange={handleUserSettingChange('overrideDarkMode')}
-                MenuProps={SETTING_MENU_PROPS}
-              >
-                <MenuItem value="Default">Default</MenuItem>
-                <MenuItem value="Force Light Mode">Force Light Mode</MenuItem>
-                <MenuItem value="Force Dark Mode">Force Dark Mode</MenuItem>
-                <MenuItem value="Auto">Auto</MenuItem>
               </Select>
             </FormControl>
           </SettingRow>
@@ -2893,10 +2662,12 @@ const GeneralSettings = () => {
           width: 320,
           flexShrink: 0,
           position: 'sticky',
-          top: 0,
+          // The app bar is position:fixed and 50px tall, so a sticky top of 0 parks this
+          // rail UNDERNEATH it and the tab labels get clipped as soon as the page scrolls.
+          top: APP_BAR_HEIGHT,
           alignSelf: 'flex-start',
           display: { xs: 'none', md: 'block' },
-          minHeight: 'calc(100vh - 64px)',
+          minHeight: `calc(100vh - ${APP_BAR_HEIGHT}px)`,
           backgroundColor: '#e2e8f0',
           borderRight: '4px solid rgba(203,213,225,0.5)',
           pt: 2,
@@ -2960,7 +2731,9 @@ const GeneralSettings = () => {
       {/* Content column: one scrolling column (~756px) except the outlet/register
           LISTS which run full width. */}
       <Box sx={{ flex: 1, maxWidth: isFullWidthList ? 'none' : 820, minWidth: 0, px: 4, pt: 2, pb: 12 }}>
-        <Box sx={{ position: 'sticky', top: 0, zIndex: 3, backgroundColor: '#fff', pt: 1, pb: 2 }}>
+        {/* Same 50px offset as the rail: at top 0 this search bar sat under the fixed app
+            bar and the section heading scrolled through the gap, half hidden. */}
+        <Box sx={{ position: 'sticky', top: `${APP_BAR_HEIGHT}px`, zIndex: 3, backgroundColor: '#fff', pt: 1, pb: 2 }}>
           <Autocomplete
             options={searchOptions}
             groupBy={(option) => option.tab}

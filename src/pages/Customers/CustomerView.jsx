@@ -49,6 +49,7 @@ import paymentService from "../../services/paymentService";
 import paymentMethodService from "../../services/paymentMethodService";
 import registerService from "../../services/registerService";
 import salesService from "../../services/salesService";
+import { emailSaleReceipt } from '../../services/receiptEmailSender';
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import PrintReceiptDialog from "../../components/PrintReceiptDialog";
 import EmailReceiptModal from "../../components/SalesHistory/EmailReceiptModal";
@@ -382,7 +383,7 @@ const CustomerView = () => {
   };
 
   const handleSendEmail = async (saleId, receiverEmails, senderEmail) => {
-    const result = await salesService.emailReceipt(saleId, receiverEmails, senderEmail);
+    const result = await emailSaleReceipt({ saleId, receiverEmails, senderEmail, sale: selectedSale });
     if (!result?.success) {
       throw new Error(result?.message || "Failed to send email");
     }

@@ -101,8 +101,8 @@ export const COMPANY_SECTIONS = [
         label: 'Profitability Display',
         type: 'select',
         description: 'Determine how expected and received profit is displayed.',
-        // MEAS captured only the body length (399 ch), not the text - no button
-        moreDescription: null,
+        // measured verbatim from the reference panel 2026-08-17
+        moreDescription: 'Shopfront supports showing expected and received profit in two ways, **Gross Profit Margin** and **Markup**.\n\n**Gross Profit Margin** is typically used by the liquor industry in Australia and is calculated using the following formula:\n\n(sell - cost) / sell * 100\n\n**Markup** is typically used by the fashion industry in Australia and is calculated using the following formula:\n\n(sell - cost) / cost * 100',
         options: [
           { label: 'Gross Profit Margin', value: 'Gross Profit Margin' },
           { label: 'Markup', value: 'Markup' }
@@ -114,8 +114,8 @@ export const COMPANY_SECTIONS = [
         type: 'select',
         default: 'Cost Calculation Method',
         description: 'Determine which cost you would like to see when setting your prices and displaying your profitability.',
-        // MEAS captured only the body length (634 ch), not the text - no button
-        moreDescription: null,
+        // measured verbatim from the reference panel 2026-08-17
+        moreDescription: 'Select which cost you would like to see when setting your prices and displaying your profitability, by default this is set to **Cost Calculation Method** which will display the same profit when setting a price as what is calculated when performing a sale.\n\nThis does not affect how Shopfront calculates the cost for sales.\n\nFor example, if you have your cost calculation method set to **Average Cost** and your have a last cost of $20 and an average cost of $18, the following costs will be shown when editing prices:\n\n• **Cost Calculation Method**: Average Cost ($18)\n• **Last Cost**: Last Cost ($20)\n• **Highest Cost**: Last Cost ($20)',
         options: [
           { label: 'Cost Calculation Method', value: 'Cost Calculation Method' },
           { label: 'Last Cost', value: 'Last Cost' },
@@ -282,8 +282,8 @@ export const COMPANY_SECTIONS = [
         label: 'Auto Logout During Sale',
         type: 'toggle',
         description: 'Whether to automatically log out while a sale is in progress.',
-        // reference has a More Info button here but MEAS did not capture its body
-        moreDescription: null,
+        // measured verbatim from the reference panel 2026-08-17
+        moreDescription: 'Whether to automatically log out while a sale is in progress. If enabled Shopfront will log out the user once the amount of time specified in **Auto logout time** has passed even if a sale exists on the sell screen.\n\nThe sale won\'t be lost, once the user has logged back in the sale will be visible again.\n\nThis only affects the **Sell screen Auto Logout Time (in seconds)** setting.',
         disabledLabel: 'Active sales prevent auto logout'
       }
     ]
@@ -750,11 +750,9 @@ export const LOCAL_TAB_FIELDS = [
     'B2B Account (leave blank for default)', 'B2B Password (leave blank for default)',
     'Customer ID', 'State', 'Pillar', 'Import Promotions', 'Import Buying Periods'
   ]),
-  ...local('Outlets', 1, 'Miscellaneous', [
-    'Discounting Below Cost Behaviour', 'Sale keys', 'Sale keys position'
-  ]),
+  ...local('Outlets', 1, 'Miscellaneous', ['Discounting Below Cost Behaviour']),
   ...local('Registers', 2, 'General', [
-    'Safe drop alert amount', 'Default payment method', 'Default Receipt Template', 'Dark Mode'
+    'Safe drop alert amount', 'Default Receipt Template'
   ]),
   ...local('Registers', 2, 'Sell Screen', [
     'Login after sale', 'Never open cash drawer', 'Print receipt on refund',
@@ -768,6 +766,29 @@ export const LOCAL_TAB_FIELDS = [
     'Offline invoice suffix', 'Invoice Number Mode',
     'Invoice max number (until next invoice batch requested)'
   ]),
-  ...local('Registers', 2, 'Miscellaneous', ['Sale keys', 'Sale keys position']),
-  ...local('Users', 3, 'Miscellaneous', ['Sale Keys', 'Sale Keys Position', 'Override Dark Mode'])
+  ...local('Users', 3, 'Miscellaneous', ['Sale Keys', 'Sale Keys Position'])
 ];
+
+// Legacy blobs hold display labels ("Australian Dollars (AUD)", "Monday") and
+// blanks. Applying `normalize` at render only fixed the pixels: state kept the
+// raw value, the next save wrote it back, and every consumer outside this page
+// read the raw value from the shared cache. Normalise on LOAD instead.
+export const normalizeCompanySettings = (values = {}) => {
+  const out = { ...values };
+  for (const section of COMPANY_SECTIONS) {
+    for (const field of section.fields) {
+      if (field.normalize && field.key in out) out[field.key] = field.normalize(out[field.key]);
+    }
+  }
+  return out;
+};
+
+// Number/required constraints by key, for clamping on blur - the DOM min/max
+// only stops spinner clicks, typing and paste sail straight past it.
+export const COMPANY_CONSTRAINTS = Object.fromEntries(
+  COMPANY_SECTIONS.flatMap((section) =>
+    section.fields
+      .filter((f) => f.constraints)
+      .map((f) => [f.key, { ...f.constraints, type: f.type, fallback: f.default }])
+  )
+);

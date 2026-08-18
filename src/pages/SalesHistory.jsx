@@ -16,6 +16,7 @@ import { CheckCircleOutlined } from "@mui/icons-material";
 import DateRangePicker from "../components/Common/DateRangePicker";
 import ShopfrontSwitch from "../components/Common/ShopfrontSwitch";
 import salesService from "../services/salesService";
+import { emailSaleReceipt } from '../services/receiptEmailSender';
 import { userService } from "../services/userService";
 import customerService from "../services/customerService";
 import productService from "../services/productService";
@@ -492,7 +493,7 @@ const SalesHistory = () => {
 
   const handleSendEmail = async (saleId, receiverEmails, senderEmail) => {
     try {
-      const result = await salesService.emailReceipt(saleId, receiverEmails, senderEmail);
+      const result = await emailSaleReceipt({ saleId, receiverEmails, senderEmail, sale: selectedSale });
       if (result.success) {
         alert(`Receipt sent successfully to ${receiverEmails.length} email address(es)!`);
       } else {

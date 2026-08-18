@@ -14,7 +14,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'https://pos-system-backend-five.vercel.app', // ponytail: temp — loca.lt tunnel down; restore tunnel URL after testing
+        target: 'http://localhost:5000', // ponytail: temp — loca.lt tunnel down; restore tunnel URL after testing
         changeOrigin: true,
         secure: false,
         headers: {

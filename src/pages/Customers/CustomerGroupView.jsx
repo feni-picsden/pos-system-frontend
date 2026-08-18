@@ -29,6 +29,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import customerGroupService from "../../services/customerGroupService";
 import customerService from "../../services/customerService";
 import salesService from "../../services/salesService";
+import { emailSaleReceipt } from '../../services/receiptEmailSender';
 import PrintReceiptDialog from "../../components/PrintReceiptDialog";
 import EmailReceiptModal from "../../components/SalesHistory/EmailReceiptModal";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
@@ -168,7 +169,7 @@ const CustomerGroupView = () => {
   const computeSaleTotal = saleLineTotal;
 
   const handleSendEmail = async (saleId, receiverEmails, senderEmail) => {
-    const result = await salesService.emailReceipt(saleId, receiverEmails, senderEmail);
+    const result = await emailSaleReceipt({ saleId, receiverEmails, senderEmail, sale: selectedSale });
     if (!result?.success) {
       throw new Error(result?.message || "Failed to send email");
     }

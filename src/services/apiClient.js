@@ -71,9 +71,9 @@ function scheduleCustomersRefresh() {
 }
 
 const apiClient = axios.create({
-  // Deployed builds set VITE_API_URL (e.g. https://pos-system-backend-five.vercel.app/api);
+  // Deployed builds set VITE_API_URL (e.g. http://localhost:5000/api);
   // local dev falls back to the local backend.
-  baseURL: import.meta.env.VITE_API_URL || 'https://pos-system-backend-five.vercel.app/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   // ponytail: a stalled socket used to hang forever (Save stuck at "Saving...",
   // and 6 hung requests exhaust the browser's per-host pool, freezing the tab).
   // Fail the request instead so callers hit their catch/finally.

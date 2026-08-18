@@ -98,11 +98,14 @@ const salesService = {
   },
 
   // Email receipt
-  emailReceipt: async (saleId, receiverEmails, senderEmail) => {
+  // receiptHtml is the client-rendered receipt (see services/receiptEmailSender.js).
+  // Omit it and the backend falls back to its own generator.
+  emailReceipt: async (saleId, receiverEmails, senderEmail, receiptHtml = null) => {
     try {
       const response = await apiClient.post(`/sales/${saleId}/email-receipt`, {
         receiverEmails: Array.isArray(receiverEmails) ? receiverEmails : [receiverEmails],
-        senderEmail: senderEmail
+        senderEmail: senderEmail,
+        ...(receiptHtml ? { receiptHtml } : {})
       });
       return response.data;
     } catch (error) {

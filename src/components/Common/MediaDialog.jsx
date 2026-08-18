@@ -64,7 +64,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*' }) => {
       return `${window.location.protocol}//${window.location.hostname}:5000`;
     }
 
-    return 'https://pos-system-backend-five.vercel.app';
+    return 'http://localhost:5000';
   };
 
   const getMediaUrl = (url) => {

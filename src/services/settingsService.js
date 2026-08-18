@@ -1,7 +1,9 @@
 import apiClient from './apiClient';
+import { normalizeCompanySettings } from '../pages/Setup/generalSettingsFields';
 
-// Company blob defaults — also what every consumer sees until the real blob loads.
-const GENERAL_DEFAULTS = {
+// Company blob defaults — also what every consumer sees until the real blob
+// loads, AND the initial state of Setup > General. One copy, not three.
+export const GENERAL_DEFAULTS = {
   useQuantityRate: false,
   familyPriceDistributionMethod: 'Match Price Points',
   priceRoundingMode: '',
@@ -53,7 +55,7 @@ const GENERAL_DEFAULTS = {
   numberLocale: '',
   customerSearchLevel: 'full',
   setPricesBasedOn: 'Cost Calculation Method',
-  defaultNewUsersReportingAccessAllOutlets: false,
+  defaultNewUsersReportingAccessAllOutlets: true,
   activatePricesAfterPrinting: false,
   requirePasswordFirstLogin: false,
   generalAutoLogoutTime: 7200,
@@ -101,7 +103,10 @@ const settingsService = {
   getGeneralSettings: async () => {
     try {
       const response = await apiClient.get('/settings/general');
-      return response.data;
+      // Normalise here, not at render: this is the one door both the settings
+      // page and the shared cache come through.
+      const { settings, ...rest } = response.data || {};
+      return { ...rest, settings: normalizeCompanySettings(settings) };
     } catch (error) {
       // fromFallback lets the page warn "showing defaults - backend unreachable".
       return { fromFallback: true, settings: { ...GENERAL_DEFAULTS } };
@@ -186,18 +191,20 @@ const settingsService = {
     return response.data;
   },
 
-  getRegisterSettings: async () => {
+  // Register settings are per register. Consumers outside Setup want the
+  // register the operator is signed on to, which is the one localStorage holds.
+  getRegisterSettings: async (registerId = localStorage.getItem('selectedRegisterId')) => {
     try {
-      const response = await apiClient.get('/settings/register');
+      const response = await apiClient.get('/settings/register', {
+        params: registerId ? { registerId } : undefined
+      });
       return response.data;
     } catch (error) {
       return {
         fromFallback: true,
         settings: {
           safeDropAlertAmount: 0,
-          defaultPaymentMethod: 'Cash',
           defaultReceiptTemplate: 'Receipt',
-          darkMode: '',
           loginAfterSale: false,
           neverOpenCashDrawer: false,
           printReceiptOnRefund: true,
@@ -206,21 +213,18 @@ const settingsService = {
           allowTrainingModeToggle: false,
           requireNoteOnRegisterClosureWithDiscrepancy: false,
           runPromotionCalculationInDedicatedThread: false,
-          customerDisplayTemplate: 'Customer Display',
-          openCustomerDisplayWhenRegisterOpens: true,
-          customerDisplayMode: 'Popup',
           offlineInvoiceSuffix: 'A',
           invoiceNumberMode: 'Incremental',
-          invoiceMaxNumber: 99999999,
-          saleKeys: 'Default',
-          saleKeysPosition: ''
+          invoiceMaxNumber: 99999999
         }
       };
     }
   },
 
-  updateRegisterSettings: async (settings) => {
-    const response = await apiClient.put('/settings/register', { settings });
+  updateRegisterSettings: async (settings, registerId) => {
+    const response = await apiClient.put('/settings/register', { settings }, {
+      params: registerId ? { registerId } : undefined
+    });
     return response.data;
   },
 
@@ -233,8 +237,7 @@ const settingsService = {
         fromFallback: true,
         settings: {
           saleKeys: 'Default',
-          saleKeysPosition: '',
-          overrideDarkMode: 'Default'
+          saleKeysPosition: ''
         }
       };
     }
@@ -245,9 +248,13 @@ const settingsService = {
     return response.data;
   },
 
-  getOutletSettings: async () => {
+  // Outlet settings are per outlet - without the id the API falls back to the
+  // caller's own outlet, which made the Outlets tab selector cosmetic.
+  getOutletSettings: async (outletId) => {
     try {
-      const response = await apiClient.get('/settings/outlet');
+      const response = await apiClient.get('/settings/outlet', {
+        params: outletId ? { outletId } : undefined
+      });
       return response.data;
     } catch (error) {
       return {
@@ -267,16 +274,16 @@ const settingsService = {
           pillar: '',
           importPromotions: false,
           importBuyingPeriods: false,
-          discountingBelowCostBehaviour: 'Allow',
-          saleKeys: 'Default',
-          saleKeysPosition: ''
+          discountingBelowCostBehaviour: 'Allow'
         }
       };
     }
   },
 
-  updateOutletSettings: async (settings) => {
-    const response = await apiClient.put('/settings/outlet', { settings });
+  updateOutletSettings: async (settings, outletId) => {
+    const response = await apiClient.put('/settings/outlet', { settings }, {
+      params: outletId ? { outletId } : undefined
+    });
     return response.data;
   }
 };

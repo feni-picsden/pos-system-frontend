@@ -88,6 +88,7 @@ import customerService from '../services/customerService';
 import receiptTemplateService from '../services/receiptTemplateService';
 import settingsService from '../services/settingsService';
 import salesService from '../services/salesService';
+import { emailSaleReceipt } from '../services/receiptEmailSender';
 import registerService from '../services/registerService';
 import ShopfrontDialog from '../components/Common/ShopfrontDialog';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -305,6 +306,8 @@ const SaleKeyPage = () => {
   const [transactionId, setTransactionId] = useState(null);
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
+  // Same object as `receiptData`, readable synchronously right after generateReceipt.
+  const lastReceiptRef = useRef(null);
   // Persisted sale id of the just-completed sale (null until its save resolves) so the
   // manual "Email" button can send the real receipt via salesService.emailReceipt.
   const [lastSaleId, setLastSaleId] = useState(null);
@@ -320,6 +323,7 @@ const SaleKeyPage = () => {
   const [componentPicker, setComponentPicker] = useState(null);
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
   const [customerLoyaltyInfo, setCustomerLoyaltyInfo] = useState(null);
+  const [registerPayments, setRegisterPayments] = useState(null);
   // Setup > General (company blob): cash-out gate, reason/note prompts and the
   // sale-keys position all read from the one cached copy.
   const allowCashOutNoSaleRef = useRef(true);
@@ -337,6 +341,19 @@ const SaleKeyPage = () => {
       })
       .catch(() => {});
   }, []);
+
+  // Setup > General > Users > "Sale Keys Position" overrides the company default.
+  const [userSaleKeysPosition, setUserSaleKeysPosition] = useState('Default');
+  useEffect(() => {
+    if (!user?.id) return;
+    settingsService
+      .getUserSettings(user.id)
+      .then((r) => setUserSaleKeysPosition(r?.settings?.saleKeysPosition || 'Default'))
+      .catch(() => {});
+  }, [user?.id]);
+  const saleKeysPosition = userSaleKeysPosition && userSaleKeysPosition !== 'Default'
+    ? userSaleKeysPosition.toLowerCase()
+    : generalSettings.saleKeysPosition;
 
   const [receiptTemplates, setReceiptTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -596,6 +613,24 @@ const SaleKeyPage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.outletId, selectedOutlet]);
+
+  // Setup > General > Registers > Edit > Payment Methods writes
+  // register_profile_<id>.payments — a map of paymentMethodId -> enabled.
+  useEffect(() => {
+    const loadRegisterPayments = async () => {
+      if (!selectedRegister?.id) {
+        setRegisterPayments(null);
+        return;
+      }
+      try {
+        const res = await settingsService.getSetting(`register_profile_${selectedRegister.id}`);
+        setRegisterPayments(res?.setting?.value?.payments || null);
+      } catch {
+        setRegisterPayments(null); // no profile saved yet — every method stays available
+      }
+    };
+    loadRegisterPayments();
+  }, [selectedRegister?.id]);
 
   useEffect(() => {
     const loadRegisterCustomerDisplaySettings = async () => {
@@ -910,13 +945,22 @@ const SaleKeyPage = () => {
       try {
         const outletId = getEffectiveOutletId();
         const defaultSaleKeyInfo = await settingsService.getDefaultSaleKeySet();
-        
+
         const allSets = await saleKeyService.getSaleKeySets(outletId);
         const sets = allSets?.saleKeySets || [];
-        
+
+        // 0) The user's own set wins - Setup > General > Users says it
+        // "overrides all other sale key settings".
+        const userSaleKeys = user?.id
+          ? (await settingsService.getUserSettings(user.id).catch(() => null))?.settings?.saleKeys
+          : null;
+        let targetSet = userSaleKeys && userSaleKeys !== 'Default'
+          ? sets.find(set => set.name === userSaleKeys)
+          : null;
+
         // 1) Prefer outlet-wise default (isDefault flag per outlet)
-        let targetSet = sets.find(set => set.isDefault);
-        
+        if (!targetSet) targetSet = sets.find(set => set.isDefault);
+
         // 2) Fallback to global/company default from general settings
         if (!targetSet && defaultSaleKeyInfo.id) {
           targetSet = sets.find(set => set.id === defaultSaleKeyInfo.id);
@@ -3617,7 +3661,7 @@ const SaleKeyPage = () => {
         || selectedCustomer?.email;
       if (!email) return;
       const senderEmail = selectedRegister?.outlet?.email || undefined;
-      salesService.emailReceipt(saleId, [email], senderEmail)
+      emailSaleReceipt({ saleId, receiverEmails: [email], senderEmail, receiptData: lastReceiptRef.current })
         .then(() => console.log('[Receipt] Auto-emailed to', email))
         .catch((e) => console.warn('[Receipt] Auto-email failed:', e?.message || e));
     } catch (e) {
@@ -3967,7 +4011,10 @@ const SaleKeyPage = () => {
       hasOnAccount: receiptPayments.some(p => (p.method || '').toLowerCase().includes('account'))
     });
     
-    // Set receipt data and show dialogs
+    // Set receipt data and show dialogs. The ref carries the SAME object to callers that
+    // run before React commits the state (auto-email fires from the save promise, where
+    // `receiptData` is still the previous sale's).
+    lastReceiptRef.current = newReceiptData;
     setReceiptData(newReceiptData);
 
     // ponytail: autoPrintReceipt (group flag) — print automatically for members of a group
@@ -4090,7 +4137,13 @@ const SaleKeyPage = () => {
     if (!email) return;
 
     try {
-      await salesService.emailReceipt(lastSaleId, [email], selectedRegister?.outlet?.email || undefined);
+      // The receipt on screen IS the email body — same components, rendered to HTML here.
+      await emailSaleReceipt({
+        saleId: lastSaleId,
+        receiverEmails: [email],
+        senderEmail: selectedRegister?.outlet?.email || undefined,
+        receiptData,
+      });
     } catch (e) {
       console.error('[Receipt] Email failed:', e);
       alert('Failed to email the receipt. The sale is still open — please try again.');
@@ -4751,8 +4804,12 @@ const SaleKeyPage = () => {
   };
 
   const getFilteredPaymentMethods = () => {
-    let methods = [...availablePaymentMethods];
-    
+    // A method the register's editor switched off is not offered here (absent
+    // from the map = on, so a register with no saved profile keeps them all).
+    let methods = availablePaymentMethods.filter(
+      (m) => !registerPayments || registerPayments[m.id] !== false
+    );
+
     // Check if customer's group has account sales enabled
     const hasAccountSales = selectedCustomer?.customerGroup?.allowAccountSales || false;
     const hasOnAccountMethod = methods.some(method => 
@@ -6404,7 +6461,7 @@ const SaleKeyPage = () => {
       {/* Sales screen - only show when register is selected AND geofence is validated */}
       {/* Setup > General > Miscellaneous "Sale Keys Position": 'right' mirrors
           the keys pane and the sale summary. */}
-      <Box sx={{ display: (selectedRegister && geofenceValidated) ? 'flex' : 'none', flexDirection: generalSettings.saleKeysPosition === 'right' ? 'row-reverse' : 'row', flex: 1, overflow: 'hidden', minWidth: 0, width: '100%', gap: 0, alignItems: 'stretch' }}>
+      <Box sx={{ display: (selectedRegister && geofenceValidated) ? 'flex' : 'none', flexDirection: saleKeysPosition === 'right' ? 'row-reverse' : 'row', flex: 1, overflow: 'hidden', minWidth: 0, width: '100%', gap: 0, alignItems: 'stretch' }}>
         {/* Finalize surface uses the same 8px inset as the selling panes so the
             right rail keeps its x/y when finalize opens (no jump). */}
         {showFinalizeDialog && selectedRegister ? (

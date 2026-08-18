@@ -155,6 +155,13 @@ const receiptTemplateService = {
     }
   },
 
+  // The template an emailed receipt is rendered with, resolved server-side from the
+  // outlet's settings (same answer the backend would use).
+  getEmailDefault: async () => {
+    const response = await apiClient.get('/receipt-templates/email-default', { noCache: true });
+    return response.data?.template || null;
+  },
+
   // Get all default template configurations
   getAllDefaultConfigs: async () => {
     try {

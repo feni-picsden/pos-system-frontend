@@ -12,6 +12,7 @@ import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { useParams, useNavigate } from 'react-router-dom';
 import registerClosureService from '../../services/registerClosureService';
+import settingsService from '../../services/settingsService';
 
 // Reference toolbar palette (measured on the Shopfront closure view)
 const REF_BLUE = '#1C86F2';
@@ -132,7 +133,12 @@ const RegisterClosureView = () => {
   const [paySubtypeOpen, setPaySubtypeOpen] = useState(false);
   const [paySubtypeRows, setPaySubtypeRows] = useState([]);
   const [hourlyRows, setHourlyRows] = useState([]);
-  const [hourlyTab, setHourlyTab] = useState('revenue'); 
+  const [hourlyTab, setHourlyTab] = useState('revenue');
+  // Setup > General > Registers > Edit > Register Closures > Print Settings.
+  // ponytail: only the three sections the closure actually stores data for are
+  // honoured (Payment Method, Tax, Movements); the other seven have no source on
+  // RegisterClosure, so they stay unprinted until that data is recorded.
+  const [closurePrint, setClosurePrint] = useState({});
 
   useEffect(() => {
     const load = async () => {
@@ -179,6 +185,14 @@ const RegisterClosureView = () => {
   }, [closure, hourlyRows, hourlyTab]);
 
   useEffect(() => {
+    if (!closure?.registerId) return;
+    settingsService
+      .getSetting(`register_profile_${closure.registerId}`)
+      .then((res) => setClosurePrint(res?.setting?.value?.closurePrint || {}))
+      .catch(() => setClosurePrint({}));
+  }, [closure?.registerId]);
+
+  useEffect(() => {
     const loadHourly = async () => {
       const data = await registerClosureService.getHourlyStats(id);
       setHourlyRows(data.rows || []);
@@ -217,13 +231,30 @@ const RegisterClosureView = () => {
   // "Print" prints the closure slip only; "Print Full Page" prints the whole page.
   const printSlip = () => {
     const money = (n) => `$${Number(n || 0).toFixed(2)}`;
+    // Default matches CLOSURE_PRINT_SECTIONS in Setup > General.
+    const mode = (key, fallback) => closurePrint[key] || fallback;
     const lines = [
       ...summaryRows,
       ['Money Received', money(closure.receivedAmount)],
-      ['Expected', money(closure.expectedAmount)],
-      ['Movements', money(closure.cashMovementsTotal)],
-      ['Tax', money(taxData.totalTax)]
+      ['Expected', money(closure.expectedAmount)]
     ];
+
+    if (mode('paymentMethod', 'Print Table') === 'Print Table') {
+      Object.entries(closure.paymentBreakdown || {}).forEach(([method, entry]) => {
+        const received = entry && typeof entry === 'object' ? entry.received : entry;
+        lines.push([method, money(received)]);
+      });
+    }
+
+    const movements = mode('movements', 'Print Total');
+    if (movements !== "Don't Print") lines.push(['Movements', money(closure.cashMovementsTotal)]);
+
+    const tax = mode('tax', 'Print Table');
+    if (tax === 'Print Table') {
+      (taxData.rows || []).forEach((row) => lines.push([row.name || row.taxName || 'Tax', money(row.tax ?? row.amount)]));
+    } else if (tax === 'Print Total') {
+      lines.push(['Tax', money(taxData.totalTax)]);
+    }
     printHtml(`<html><head><title>Register Closure ${esc(closure.id)}</title>
 <style>body{font:14px/1.5 monospace;margin:16px;width:280px}h1{font-size:16px;margin:0 0 12px}
 table{width:100%;border-collapse:collapse}td{padding:2px 0;vertical-align:top}
