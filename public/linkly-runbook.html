@@ -11,14 +11,14 @@
 <p style="margin:4px 0"><b>Server (Vercel — set once in the Vercel project → Settings → Environment Variables, then Redeploy):</b></p>
 <ol>
 <li><code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_ENV=sandbox</code> · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_POS_VENDOR_ID</code> · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_WEBHOOK_SECRET</code> · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_SECRET_ENC_KEY</code> · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">LINKLY_DEFAULT_TERMINAL</code> (if used) · <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">DATABASE_URL</code> = live Postgres.</li>
-<li><code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">PUBLIC_BASE_URL=http://localhost:5000</code> — this is where Linkly posts notifications. <b>No ngrok.</b></li>
+<li><code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">PUBLIC_BASE_URL=https://pos-system-backend-five.vercel.app</code> — this is where Linkly posts notifications. <b>No ngrok.</b></li>
 <li>Backend repo pushed (latest = the 28-Jul fixes) → Vercel auto-deploys. Confirm the deployment shows the latest commit.</li>
 <li>Live Postgres has the <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">linkly_*</code> tables — if not: from local, point <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">DATABASE_URL</code> at the live DB and run <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">npx prisma db push</code> (never <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">migrate deploy</code> on this DB).</li>
 <li><b>Evidence log:</b> Vercel dashboard → project → <b>Logs</b> (Runtime), filter/search <b><code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">linkly</code></b> — every request/response logs a JSON line with <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">"scope":"linkly"</code>. Keep this open during all tests.</li>
 </ol>
 <p style="margin:4px 0"><b>Website (deployed frontend):</b></p>
 <ol>
-<li>Frontend build must point at the live API: build with <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">VITE_API_URL=http://localhost:5000/api</code> (apiClient now reads it; falls back to localhost for dev) and deploy the 28-Jul build.</li>
+<li>Frontend build must point at the live API: build with <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">VITE_API_URL=https://pos-system-backend-five.vercel.app/api</code> (apiClient now reads it; falls back to localhost for dev) and deploy the 28-Jul build.</li>
 <li>Open the deployed site, log in as an <b>admin</b> user (needs <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">register.manage</code>), <b>open a register</b> on the sell screen.</li>
 </ol>
 <p style="margin:4px 0"><b>VPP</b></p>
@@ -230,7 +230,7 @@
 <ul>
 <li><b>WEBSITE/TERMINAL:</b> replay a purchase request with the same TxnRef via curl (run twice):</li>
 </ul>
-<p style="margin:4px 0">  <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST http://localhost:5000/api/linkly/purchase -H "Authorization: Bearer &lt;JWT&gt;" -H "Content-Type: application/json" -d '{"amountCents":100,"txnRef":"&lt;SAME-REF&gt;"}'</code></p>
+<p style="margin:4px 0">  <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST https://pos-system-backend-five.vercel.app/api/linkly/purchase -H "Authorization: Bearer &lt;JWT&gt;" -H "Content-Type: application/json" -d '{"amountCents":100,"txnRef":"&lt;SAME-REF&gt;"}'</code></p>
 <ul>
 <li><b>VPP:</b> <b>CARD STEPS for the first request only.</b> The second request is rejected before the pad — the pad shows nothing new.</li>
 <li><b>EXPECTED:</b> second call → <b>HTTP 409 DUPLICATE_TXNREF</b> + the existing transaction row; <b>no second charge</b>.</li>
@@ -243,7 +243,7 @@
 <li><b>VPP:</b> <b>do nothing — do NOT swipe.</b> The "bank result" is faked by the curl below. (After the test, press <b>CANCEL on the pad</b> once to clear the leftover PRESENT CARD screen.)</li>
 <li><b>TERMINAL:</b> deliver the fake partial-approval result:</li>
 </ul>
-<p style="margin:4px 0">  <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST "http://localhost:5000/api/linkly/notify/&lt;sessionId&gt;/transaction" -H "Authorization: Bearer &lt;LINKLY_WEBHOOK_SECRET&gt;" -H "Content-Type: application/json" -d '{"ResponseType":"transaction","Response":{"Success":true,"ResponseCode":"00","AmtPurchase":2500,"AmtCash":0,"CardType":"VISA"}}'</code></p>
+<p style="margin:4px 0">  <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST "https://pos-system-backend-five.vercel.app/api/linkly/notify/&lt;sessionId&gt;/transaction" -H "Authorization: Bearer &lt;LINKLY_WEBHOOK_SECRET&gt;" -H "Content-Type: application/json" -d '{"ResponseType":"transaction","Response":{"Success":true,"ResponseCode":"00","AmtPurchase":2500,"AmtCash":0,"CardType":"VISA"}}'</code></p>
 <ul>
 <li><b>EXPECTED:</b> dialog approves; alert <b>"Card approved $25.00 of $50.00 — take the remaining balance with another tender."</b>; payment recorded <b>$25.00</b>; balance stays <b>open</b>; sale does NOT auto-complete.</li>
 </ul>
@@ -257,7 +257,7 @@
 </ul>
 <h3 style="color:#1a73e8;margin:14px 0 4px">T-9.2 Webhook auth reject</h3>
 <ul>
-<li><b>TERMINAL:</b> <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST "http://localhost:5000/api/linkly/notify/any-session/display" -H "Authorization: Bearer WRONG" -H "Content-Type: application/json" -d '{}'</code></li>
+<li><b>TERMINAL:</b> <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">curl -X POST "https://pos-system-backend-five.vercel.app/api/linkly/notify/any-session/display" -H "Authorization: Bearer WRONG" -H "Content-Type: application/json" -d '{}'</code></li>
 <li><b>VPP:</b> <b>do nothing</b> — curl-only test, no transaction.</li>
 <li><b>EXPECTED:</b> <b>HTTP 401</b>; log <code style="background:#f1f3f4;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:10pt">notify.rejected_auth</code>; no state change.</li>
 </ul>
