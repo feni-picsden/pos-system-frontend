@@ -402,6 +402,13 @@ const FutureCosts = () => {
       return;
     }
 
+    // The field defaults to the string '0', which passes the !cost check but
+    // creates a future cost the server can never apply - require a real value.
+    if (!(parseFloat(cost) > 0)) {
+      setError('Cost must be greater than zero');
+      return;
+    }
+
     if (scheduledTime <= new Date()) {
       setDateError('Please select a time that is in the future');
       setError('Please select a time that is in the future');

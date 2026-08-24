@@ -165,20 +165,14 @@ export default function ExpressStocktake() {
   const handleAdd = async () => {
     if (!selectedProduct) return;
     const totalItems = calculateTotal();
-    const caseQty = selectedProduct.caseQuantity || 1;
-    // Existing stock is cases + loose items, not the items bucket alone.
-    const currentStock =
-      (selectedProduct.currentStockCases || 0) * caseQty + (selectedProduct.currentStockItems || 0);
-    const newInventory = currentStock + totalItems;
-    const newStockCases = Math.floor(newInventory / caseQty);
-    const newStockItems = newInventory % caseQty;
+    if (!totalItems) { handleCancel(); return; } // nothing counted, nothing to add
     try {
-      await productService.updateProduct(selectedProduct.id, {
-        inventory: newInventory,
-        currentStockItems: newStockItems,
-        currentStockCases: newStockCases
-      });
-      pushHistory(selectedProduct, totalItems, 'Add', newInventory, newStockItems);
+      // Server-side DELTA: the API reads the LIVE row inside a transaction and
+      // adds the counted units. Computing the new total here from the local
+      // product mirror re-posted every sale made since the mirror was cached
+      // (a 20-minute-old copy silently invented the units sold in between).
+      const { product: updated } = await productService.adjustStock(selectedProduct.id, totalItems);
+      pushHistory(selectedProduct, totalItems, 'Add', updated?.inventory ?? totalItems, updated?.currentStockItems ?? 0);
       setSelectedProduct(null);
       setActualCases('');
       setActualItems('');

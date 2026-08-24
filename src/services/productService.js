@@ -120,6 +120,20 @@ const productService = {
       throw error;
     }
   },
+  // Server-side DELTA stock adjustment (Express Stocktake "Add"): the live row
+  // is read on the server inside a transaction, so a stale local mirror can
+  // never be re-posted as an absolute total.
+  adjustStock: async (id, deltaUnits) => {
+    try {
+      apiClient.bustCache(`/products/${id}`);
+      apiClient.bustCache('/products');
+      const response = await apiClient.post(`/products/${id}/adjust-stock`, { deltaUnits });
+      return response.data;
+    } catch (error) {
+      console.error('Error adjusting stock:', error);
+      throw error;
+    }
+  },
   updateProduct: async (id, productData) => {
     try {
       apiClient.bustCache(`/products/${id}`);

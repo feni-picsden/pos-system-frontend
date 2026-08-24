@@ -320,20 +320,36 @@ const StockList = () => {
       "Profit %"
     ];
 
+    // Mirror the grid: one row per PRICE POINT, with the same per-row
+    // quantity/cost/profit expressions the table body renders. The old export
+    // emitted one row per product with fields that don't exist there (Profit %
+    // was always 0.00, Quantity repeated Items on Hand, multi-buy tiers
+    // silently vanished).
     const csvContent = [
       headers.join(","),
-      ...(Array.isArray(filteredProducts) ? filteredProducts : []).map(product => [
-        `"${product.name}"`,
-        `"${product.category?.name || ''}"`,
-        1,
-        product.caseQuantity || 0,
-        product.currentStockCases || 0,
-        product.currentStockItems || 0,
-        product.currentStockItems || 0,
-        (product.itemCost || 0).toFixed(2),
-        (product.prices?.[0]?.price || 0).toFixed(2),
-        (product.profitPercentage || 0).toFixed(2)
-      ].join(","))
+      ...(Array.isArray(filteredProducts) ? filteredProducts : []).flatMap(product => {
+        const prices = product.prices?.length ? product.prices : [{ price: 0, quantity: 1, profitPercentage: 0 }];
+        return prices.map(pricePoint => {
+          const quantity = Number(pricePoint.quantity) || 1;
+          const totalCost = (product.itemCost || 0) * quantity;
+          const totalPrice = Number(pricePoint.price) || 0;
+          const profitPercent = (pricePoint.profitPercentage !== undefined && pricePoint.profitPercentage !== null && pricePoint.profitPercentage !== "")
+            ? Number(pricePoint.profitPercentage)
+            : (totalPrice > 0 ? ((totalPrice - totalCost) / totalPrice) * 100 : 0);
+          return [
+            `"${product.name}"`,
+            `"${product.category?.name || ''}"`,
+            `"${pricePoint.priceSet?.name || pricePoint.priceSetName || ''}"`,
+            product.caseQuantity || 0,
+            product.currentStockCases || 0,
+            product.currentStockItems || 0,
+            quantity,
+            totalCost.toFixed(2),
+            totalPrice.toFixed(2),
+            profitPercent.toFixed(2)
+          ].join(",");
+        });
+      })
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
