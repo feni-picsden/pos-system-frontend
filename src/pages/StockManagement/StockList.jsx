@@ -220,27 +220,35 @@ const StockList = () => {
       if (field === 'name') {
         updatedProduct.name = newValue;
       } else if (field === 'price') {
-        // When price changes, calculate profit percentage
-        const cost = updatedProduct.itemCost || 0;
+        // When price changes, calculate profit percentage.
+        // Cost basis is the ROW's cost: itemCost x row quantity (a qty-10 row
+        // costs 10 singles), same basis as the grid's own Cost cell.
+        const rowQty = Number(updatedProduct.prices?.[priceIndex]?.quantity) || 1;
+        const cost = (updatedProduct.itemCost || 0) * rowQty;
         const price = parseFloat(newValue);
         const profitPercentage = price > 0 ? ((price - cost) / price * 100) : 0;
-        
+
         // Update specific price point
-        updatedProduct.prices = updatedProduct.prices?.map((priceObj, index) => 
+        updatedProduct.prices = updatedProduct.prices?.map((priceObj, index) =>
           index === priceIndex ? { ...priceObj, price: price, profitPercentage: profitPercentage } : priceObj
         ) || [{ price: price, quantity: 1, profitPercentage: profitPercentage }];
-        
+
       } else if (field === 'profitPercentage') {
-        // When profit percentage changes, calculate price
-        const cost = updatedProduct.itemCost || 0;
+        // When profit percentage changes, calculate price from the ROW's cost
+        // (itemCost x row quantity). 100%+ has no finite price - keep the old one.
+        const rowQty = Number(updatedProduct.prices?.[priceIndex]?.quantity) || 1;
+        const cost = (updatedProduct.itemCost || 0) * rowQty;
         const profitPercentage = parseFloat(newValue);
-        const price = profitPercentage !== 100 ? (cost / (1 - profitPercentage / 100)) : 0;
-        
+        if (!(profitPercentage < 100)) {
+          return; // invalid target margin - do not write price 0
+        }
+        const price = cost / (1 - profitPercentage / 100);
+
         // Update specific price point
-        updatedProduct.prices = updatedProduct.prices?.map((priceObj, index) => 
+        updatedProduct.prices = updatedProduct.prices?.map((priceObj, index) =>
           index === priceIndex ? { ...priceObj, price: price, profitPercentage: profitPercentage } : priceObj
         ) || [{ price: price, quantity: 1, profitPercentage: profitPercentage }];
-        
+
       } else if (field === 'quantity') {
         // Update quantity for specific price point
         updatedProduct.prices = updatedProduct.prices?.map((priceObj, index) => 
@@ -261,10 +269,12 @@ const StockList = () => {
           await productService.updateProduct(productId, { name: updatedProduct.name });
         } else if (field === 'price' || field === 'profitPercentage' || field === 'quantity') {
           // Update product prices - API expects prices array with quantity, price, cost, percentage
+          // Each row's cost is itemCost x its quantity - sending the single-item
+          // cost for every row corrupted every untouched tier's stored margin.
           const pricesData = updatedProduct.prices?.map(price => ({
             quantity: price.quantity || 1,
             price: price.price || 0,
-            cost: updatedProduct.itemCost || 0,
+            cost: (updatedProduct.itemCost || 0) * (Number(price.quantity) || 1),
             percentage: 0 // API expects percentage field
           })) || [];
           

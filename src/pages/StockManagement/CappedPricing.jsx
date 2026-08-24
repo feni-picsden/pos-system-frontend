@@ -67,7 +67,11 @@ const CappedPricing = () => {
     try {
       // Refresh current prices from the products API so the % column is live.
       const matchResult = await productService.matchCappedPricing(
-        stored.map(({ name, supplierCode }) => ({ name, supplierCode }))
+        stored.map(({ name, supplierCode, quantity }) => ({
+          name,
+          supplierCode,
+          quantity: Number(quantity) || 1
+        }))
       );
       setCappedProducts(
         stored.map((item, index) => {
@@ -155,7 +159,9 @@ const CappedPricing = () => {
 
       const itemsToMatch = parsed.map(item => ({
         name: item.name,
-        supplierCode: item.supplierCode
+        supplierCode: item.supplierCode,
+        // The cap's tier - the backend compares against this quantity's price row
+        quantity: Number(item.quantity) || 1
       }));
 
       const matchResult = await productService.matchCappedPricing(itemsToMatch);
@@ -236,14 +242,26 @@ const CappedPricing = () => {
 
   // Auto-save on blur (no Save button on the reference). Prices above the cap are still saved.
   const handlePriceBlur = async (item) => {
-    const price = parseFloat(item.currentPrice) || 0;
+    const price = parseFloat(item.currentPrice);
+
+    // A cleared cell must never save $0.00 - the product would ring up free.
+    if (!Number.isFinite(price) || price <= 0) {
+      setError('Price must be greater than zero - change not saved');
+      return;
+    }
 
     handlePriceChange(item.id, price);
 
     if (!item.productId) return;
 
     try {
-      await productService.bulkUpdatePrices([{ productId: item.productId, price }]);
+      // The cap row's quantity is part of the price identity: a 6-pack cap must
+      // update the 6-pack tier, not the single.
+      await productService.bulkUpdatePrices([{
+        productId: item.productId,
+        quantity: Number(item.quantity) || 1,
+        price
+      }]);
       // Help docs: applying the price change also queues the product for shelf ticket printing.
       await shelfTicketService
         .addShelfTicket({ productId: item.productId, ticketType: 'Everyday', productGrouping: null })
