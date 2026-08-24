@@ -1036,11 +1036,23 @@ function App() {
                         />
                         <Route
                           path="/settings/general"
-                          element={<SettingsPage />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["settings.view"]}
+                            >
+                              <SettingsPage />
+                            </PermissionProtectedRoute>
+                          }
                         />
                         <Route
                           path="/settings"
-                          element={<SettingsPage />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["settings.view"]}
+                            >
+                              <SettingsPage />
+                            </PermissionProtectedRoute>
+                          }
                         />
 
                         <Route
@@ -1501,31 +1513,73 @@ function App() {
                         />
                         <Route
                           path="/utilities/future-prices"
-                          element={<FuturePrices />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["modify_default_prices"]}
+                            >
+                              <FuturePrices />
+                            </PermissionProtectedRoute>
+                          }
                         />
                         <Route
                           path="/utilities/future-costs"
-                          element={<FutureCosts />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["modify_default_prices"]}
+                            >
+                              <FutureCosts />
+                            </PermissionProtectedRoute>
+                          }
                         />
                         <Route
                           path="/utilities/mail-log"
-                          element={<MailLog />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["see_mail_log"]}
+                            >
+                              <MailLog />
+                            </PermissionProtectedRoute>
+                          }
                         />
                         <Route
                           path="/utilities/trashed-items"
-                          element={<TrashedItems />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["see_trashed_items"]}
+                            >
+                              <TrashedItems />
+                            </PermissionProtectedRoute>
+                          }
                         />
                         <Route
                           path="/utilities/product-utilities"
-                          element={<ProductUtilities />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["edit_products"]}
+                            >
+                              <ProductUtilities />
+                            </PermissionProtectedRoute>
+                          }
                         />
                         <Route
                           path="/utilities/customer-utilities"
-                          element={<CustomerUtilities />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["edit_customers"]}
+                            >
+                              <CustomerUtilities />
+                            </PermissionProtectedRoute>
+                          }
                         />
                         <Route
                           path="/utilities/barcodes"
-                          element={<Barcodes />}
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["modify_barcode_templates"]}
+                            >
+                              <Barcodes />
+                            </PermissionProtectedRoute>
+                          }
                         />
 
                         <Route path="*" element={<NotFound />} />
