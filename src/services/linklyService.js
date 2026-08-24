@@ -42,6 +42,16 @@ const linklyService = {
     return res.data;
   },
 
+  // Forget the stored pairing secret. Rejected (409) while a card transaction on
+  // this terminal is still unresolved — without the secret it could never be
+  // reconciled against Linkly.
+  unpair: async (terminalKey) => {
+    const res = await apiClient.delete('/linkly/pinpad', {
+      params: terminalKey ? { terminalKey } : undefined,
+    });
+    return res.data;
+  },
+
   logon: async (terminalKey) => {
     const res = await apiClient.post('/linkly/logon', { terminalKey });
     return res.data;
@@ -87,9 +97,11 @@ const linklyService = {
   },
 
   // Read-only journal for end-of-day reconciliation and disputes.
-  listTransactions: async ({ days = 7, limit = 50 } = {}) => {
+  // status: a literal status, or 'unresolved' for everything that never reached
+  // a terminal state (pending / in_progress / unknown).
+  listTransactions: async ({ days = 7, limit = 50, status } = {}) => {
     const res = await apiClient.get('/linkly/transactions', {
-      params: { days, limit },
+      params: { days, limit, ...(status ? { status } : {}) },
       noCache: true,
     });
     return res.data.transactions || [];

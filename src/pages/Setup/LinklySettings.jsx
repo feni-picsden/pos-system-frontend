@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import {
   Link as PairIcon,
+  LinkOff as UnpairIcon,
   PowerSettingsNew as LogonIcon,
   CreditCard as CardIcon,
 } from '@mui/icons-material';
@@ -30,10 +31,13 @@ const LinklySettings = () => {
   const [paired, setPaired] = useState(null); // null = unknown/checking
   const [checking, setChecking] = useState(true);
   const [pairing, setPairing] = useState(false);
+  const [unpairing, setUnpairing] = useState(false);
   const [loggingOn, setLoggingOn] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [journal, setJournal] = useState([]);
-  const [orphansOnly, setOrphansOnly] = useState(false);
+  // 'all' | 'unresolved' (never reached a terminal state) | 'orphans' (approved,
+  // no sale recorded). The last two are the ones that cost money if ignored.
+  const [journalMode, setJournalMode] = useState('all');
   const [journalLoading, setJournalLoading] = useState(false);
 
   const notify = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
@@ -50,14 +54,20 @@ const LinklySettings = () => {
     }
   };
 
-  const loadJournal = async (onlyOrphans = orphansOnly) => {
+  const loadJournal = async (mode = journalMode) => {
     setJournalLoading(true);
     try {
-      setJournal(
-        onlyOrphans
-          ? await linklyService.listOrphans(30)
-          : await linklyService.listTransactions({ days: 7, limit: 50 })
-      );
+      if (mode === 'orphans') {
+        setJournal(await linklyService.listOrphans(30));
+      } else {
+        setJournal(
+          await linklyService.listTransactions({
+            days: mode === 'unresolved' ? 30 : 7,
+            limit: 50,
+            status: mode === 'unresolved' ? 'unresolved' : undefined,
+          })
+        );
+      }
     } catch {
       setJournal([]);
     } finally {
@@ -65,9 +75,28 @@ const LinklySettings = () => {
     }
   };
 
+  const showJournal = (mode) => {
+    setJournalMode(mode);
+    loadJournal(mode);
+  };
+
+  // Resolve one undecided transaction now, instead of waiting for the nightly
+  // recovery sweep. Asks Linkly what happened — never re-submits a payment.
+  const handleReconcile = async (txnRef) => {
+    setJournalLoading(true);
+    try {
+      const txn = await linklyService.reconcile(txnRef);
+      notify(`${txnRef} is now ${txn?.status || 'unchanged'}`, txn?.status === 'approved' ? 'success' : 'info');
+      await loadJournal();
+    } catch (e) {
+      notify(e?.response?.data?.error || e.message || 'Reconcile failed', 'error');
+      setJournalLoading(false);
+    }
+  };
+
   useEffect(() => {
     refreshStatus();
-    loadJournal(false);
+    loadJournal('all');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -93,6 +122,25 @@ const LinklySettings = () => {
       notify(msg || 'Pairing failed', 'error');
     } finally {
       setPairing(false);
+    }
+  };
+
+  const handleUnpair = async () => {
+    const confirmed = window.confirm(
+      "Forget this PIN pad's stored pairing secret?\n\n" +
+        'The pad cannot take payments until it is paired again with a fresh pair code (FUNC 8880 on the pad, valid 180 seconds).'
+    );
+    if (!confirmed) return;
+    setUnpairing(true);
+    try {
+      await linklyService.unpair(terminalKey || undefined);
+      notify('PIN pad unpaired — pair again before taking card payments', 'warning');
+      await refreshStatus();
+    } catch (e) {
+      const msg = e?.response?.data?.message || e?.response?.data?.error || e.message;
+      notify(msg || 'Unpair failed', 'error');
+    } finally {
+      setUnpairing(false);
     }
   };
 
@@ -193,6 +241,17 @@ const LinklySettings = () => {
           <Button onClick={refreshStatus} disabled={checking}>
             Refresh status
           </Button>
+          <Box sx={{ flex: 1 }} />
+          {paired && (
+            <Button
+              color="error"
+              startIcon={unpairing ? <CircularProgress size={18} color="inherit" /> : <UnpairIcon />}
+              onClick={handleUnpair}
+              disabled={unpairing}
+            >
+              Unpair
+            </Button>
+          )}
         </Box>
       </Paper>
 
@@ -227,38 +286,48 @@ const LinklySettings = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
             Transaction journal
           </Typography>
-          <Button
-            size="small"
-            variant={orphansOnly ? 'contained' : 'outlined'}
-            onClick={() => {
-              const next = !orphansOnly;
-              setOrphansOnly(next);
-              loadJournal(next);
-            }}
-          >
-            {orphansOnly ? 'Showing unmatched only' : 'Show unmatched approvals'}
-          </Button>
+          {[
+            ['all', 'All'],
+            ['unresolved', 'Show unresolved'],
+            ['orphans', 'Show unmatched approvals'],
+          ].map(([mode, label]) => (
+            <Button
+              key={mode}
+              size="small"
+              variant={journalMode === mode ? 'contained' : 'outlined'}
+              onClick={() => showJournal(mode)}
+              disabled={journalLoading}
+            >
+              {label}
+            </Button>
+          ))}
           <Button size="small" onClick={() => loadJournal()} disabled={journalLoading}>
             Refresh
           </Button>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {orphansOnly
+          {journalMode === 'orphans'
             ? 'Approved on the PIN pad in the last 30 days with no matching sale payment — each one needs investigating.'
-            : 'Last 50 PIN pad transactions from the past 7 days.'}
+            : journalMode === 'unresolved'
+              ? 'Card transactions from the last 30 days that never reached a final result. Until one is reconciled, nobody knows whether the customer was charged. Reconcile asks Linkly — it never re-charges.'
+              : 'Last 50 PIN pad transactions from the past 7 days.'}
         </Typography>
         {journalLoading ? (
           <CircularProgress size={22} />
         ) : journal.length === 0 ? (
-          <Alert severity={orphansOnly ? 'success' : 'info'}>
-            {orphansOnly ? 'No unmatched approvals.' : 'No transactions yet.'}
+          <Alert severity={journalMode === 'all' ? 'info' : 'success'}>
+            {journalMode === 'orphans'
+              ? 'No unmatched approvals.'
+              : journalMode === 'unresolved'
+                ? 'No unresolved transactions.'
+                : 'No transactions yet.'}
           </Alert>
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
             <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <Box component="thead">
                 <Box component="tr" sx={{ '& th': { textAlign: 'left', p: 1, bgcolor: '#f8f8f8', whiteSpace: 'nowrap' } }}>
-                  <th>When</th><th>Type</th><th>Amount</th><th>Status</th><th>Code</th><th>Card</th><th>Reference</th>
+                  <th>When</th><th>Type</th><th>Amount</th><th>Status</th><th>Code</th><th>Card</th><th>Reference</th><th />
                 </Box>
               </Box>
               <Box component="tbody">
@@ -277,6 +346,14 @@ const LinklySettings = () => {
                     <td>{t.responseCode || '—'}</td>
                     <td>{(t.cardType || '').trim() || '—'}</td>
                     <td>{t.txnRef}</td>
+                    <td>
+                      {/* Only an undecided transaction has anything to resolve. */}
+                      {['pending', 'in_progress', 'unknown'].includes(t.status) && (
+                        <Button size="small" onClick={() => handleReconcile(t.txnRef)} disabled={journalLoading}>
+                          Reconcile
+                        </Button>
+                      )}
+                    </td>
                   </Box>
                 ))}
               </Box>
