@@ -168,11 +168,14 @@ const salesService = {
     }
   },
 
-  // Resume a parked sale (update status from PARKED to COMPLETED)
-  resumeParkedSale: async (saleId) => {
+  // Complete a resumed parked sale. Pass the LIVE cart body (items, payments,
+  // totals) - completing with only {status} banks the original parked items,
+  // the parked total and zero payment rows.
+  resumeParkedSale: async (saleId, saleData = {}) => {
     try {
       const response = await apiClient.put(`/sales/${saleId}`, {
-        status: 'COMPLETED'
+        status: 'COMPLETED',
+        ...saleData
       });
       return response.data;
     } catch (error) {

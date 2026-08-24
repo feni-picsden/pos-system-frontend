@@ -3341,8 +3341,11 @@ const SaleKeyPage = () => {
     return { discount, savings };
   };
 
-  const saveSaleToHistory = async (finalPayments, cartTotal, transactionId, changeValue = 0, invoiceNumber = null) => {
-    try {
+  // Build the full sale payload from the LIVE cart + tendered payments. Shared
+  // by the regular save (POST /sales) and resumed-parked completion
+  // (PUT /sales/:id), so a resumed sale banks what was actually sold - not the
+  // items and total that were parked.
+  const buildSaleBody = async (finalPayments, cartTotal, changeValue = 0) => {
       const { savings, discount } = getCartDiscountTotals(cart);
       const loyaltyValue = 0;
       const balance = 0;
@@ -3441,12 +3444,6 @@ const SaleKeyPage = () => {
       }
 
       const saleData = {
-        // Same digits as the printed receipt barcode, so scanning a receipt
-        // finds this sale (backend regenerates on the rare duplicate).
-        saleNumber: transactionId ? '#' + String(transactionId).replace(/\D/g, '') : undefined,
-        // The number already printed on the receipt; the server stores it and advances
-        // the register's counter past it.
-        invoiceNumber: invoiceNumber || undefined,
         totalAmount: parseFloat(cartTotal),
         // basePrice is the COGS column: a cart with no item costs is zero cost,
         // not the ex-tax sell total (that reported a ~100% gross margin as ~0%).
@@ -3473,6 +3470,19 @@ const SaleKeyPage = () => {
         items: saleItems,
         payments: salePayments
       };
+
+      return saleData;
+  };
+
+  const saveSaleToHistory = async (finalPayments, cartTotal, transactionId, changeValue = 0, invoiceNumber = null) => {
+    try {
+      const saleData = await buildSaleBody(finalPayments, cartTotal, changeValue);
+      // Same digits as the printed receipt barcode, so scanning a receipt
+      // finds this sale (backend regenerates on the rare duplicate).
+      saleData.saleNumber = transactionId ? '#' + String(transactionId).replace(/\D/g, '') : undefined;
+      // The number already printed on the receipt; the server stores it and advances
+      // the register's counter past it.
+      saleData.invoiceNumber = invoiceNumber || undefined;
 
       const created = await salesService.createSale(saleData);
       // Return the created sale id so the caller can auto-email the receipt (group flag).
@@ -3553,8 +3563,20 @@ const SaleKeyPage = () => {
     // If this is a resumed parked sale, use the special completion function
     if (currentParkedSaleId) {
       try {
-        // Update the parked sale status to COMPLETED
-        const resumed = await salesService.resumeParkedSale(currentParkedSaleId);
+        // Complete with the LIVE cart + tendered payments. Completing with only
+        // {status} banked the ORIGINAL parked items, the parked total and zero
+        // payment rows - the receipt and the database disagreed forever.
+        const { change: resumedChange } = normalizeCashForChange(finalPayments, cartTotal);
+        const resumedBody = await buildSaleBody(finalPayments, cartTotal, resumedChange);
+        const resumed = await salesService.resumeParkedSale(currentParkedSaleId, {
+          items: resumedBody.items,
+          payments: resumedBody.payments,
+          totalAmount: resumedBody.totalAmount,
+          basePrice: resumedBody.basePrice,
+          savings: resumedBody.savings,
+          discount: resumedBody.discount,
+          tax: resumedBody.tax,
+        });
         
         // Generate transaction ID
         const newTransactionId = `TXN-${Date.now()}`;
@@ -3790,7 +3812,9 @@ const SaleKeyPage = () => {
       const resumedItems = parkedSale.items.map(item => {
         return {
           id: `resumed-${item.id}`,
-          productId: null, 
+          // Keep the real productId - the completion PUT posts these lines back
+          // and stock matching by name alone hits wrong-outlet duplicates.
+          productId: item.productId || null,
           name: item.productName,
           price: item.totalPrice,
           quantity: item.quantity,

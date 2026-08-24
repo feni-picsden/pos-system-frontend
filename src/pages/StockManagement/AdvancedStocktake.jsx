@@ -75,7 +75,10 @@ export default function AdvancedStocktake() {
             caseQuantity: it.product?.caseQuantity || 1,
             cost: it.product?.itemCost || it.product?.caseCost || 0,
           },
-          scanned: it.scanCount || 0,
+          // One reloaded row represents the product's whole stored count: its
+          // "scanned" must equal actualQuantity (units, not scan events) so the
+          // collapsed save round-trips without changing the count.
+          scanned: it.actualQuantity ?? 0,
           accumulated: it.actualQuantity ?? 0,
           cancelled: false,
         }));
@@ -86,18 +89,28 @@ export default function AdvancedStocktake() {
     return () => { isMounted = false; };
   }, [stocktakeId]);
 
+  // One row per product; the true count is the SUM of its non-cancelled scans.
+  // Sending one row PER SCAN with running totals stored n scans as n(n+1)/2,
+  // and cancelled scans kept counting through the stale running totals.
+  const collapseItemsForSave = (allItems) => {
+    const totals = new Map();
+    allItems.filter(i => !i.cancelled).forEach((i) => {
+      totals.set(i.productId, (totals.get(i.productId) || 0) + (Number(i.scanned) || 0));
+    });
+    return Array.from(totals.entries()).map(([productId, actualQuantity]) => ({
+      productId,
+      actualQuantity,
+    }));
+  };
+
   // Debounced auto-save draft while editing (keep status In Progress)
   useEffect(() => {
     if (!stocktakeId || items.length === 0) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
-        const activeItems = items.filter(i => !i.cancelled);
         await stocktakeService.updateStocktake(stocktakeId, {
-          items: activeItems.map((i) => ({
-            productId: i.productId,
-            actualQuantity: i.accumulated,
-          })),
+          items: collapseItemsForSave(items),
         });
       } catch (_) {}
     }, 1000);
@@ -248,13 +261,9 @@ export default function AdvancedStocktake() {
   const complete = async () => {
     if (!stocktakeId || items.length === 0) return;
     try {
-      const activeItems = items.filter(i => !i.cancelled);
       await stocktakeService.updateStocktake(stocktakeId, {
         status: 'Completed',
-        items: activeItems.map(i => ({
-          productId: i.productId,
-          actualQuantity: i.accumulated
-        }))
+        items: collapseItemsForSave(items)
       });
       navigate('/stock-management/stocktakes');
     } catch (e) {

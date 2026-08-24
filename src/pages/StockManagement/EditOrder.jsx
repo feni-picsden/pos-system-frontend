@@ -205,6 +205,7 @@ const EditOrder = () => {
       const loadOrderProducts = async () => {
         const initialProducts = [];
         const initialQuantities = {};
+        const initialOrdered = {};
         
         // Load actual product data for each item
         for (let index = 0; index < order.items.length; index++) {
@@ -318,17 +319,30 @@ const EditOrder = () => {
               product._savedItems = items;
             }
             
-            initialQuantities[product.id] = {
+            initialOrdered[product.id] = {
               cases: cases,
               items: items,
               supplierCode: item.supplierCode || '',
             };
+            // On a receivable (SENT) order the boxes mean "arriving in THIS
+            // delivery": prefill the OUTSTANDING quantity, not the full ordered
+            // amount. Prefilling ordered on a partially-received order fed a
+            // received-to-date figure back in and silently deleted stock.
+            if (order.status === 'SENT') {
+              initialQuantities[product.id] = {
+                cases: Math.max(0, cases - (Number(item.receivedCases) || 0)),
+                items: Math.max(0, items - (Number(item.receivedItems) || 0)),
+                supplierCode: item.supplierCode || '',
+              };
+            } else {
+              initialQuantities[product.id] = { ...initialOrdered[product.id] };
+            }
           }
         }
-        
+
         setSelectedProducts(initialProducts);
         setProductQuantities(initialQuantities);
-        setOrderedQuantities(initialQuantities);
+        setOrderedQuantities(initialOrdered);
         updateGroupedProducts(initialProducts);
       };
       
@@ -1156,8 +1170,20 @@ const EditOrder = () => {
       setError('');
       setSuccess('');
 
-      const items = formatOrderItems();
-      const totalAmount = calculateGrandTotal();
+      // On a SENT order the quantity boxes hold "To Receive" values - plain Save
+      // must never rewrite the ORDERED quantities with them (10 cases ordered
+      // used to become 4 after a partial receipt was typed and saved).
+      const orderedMap = order?.status === 'SENT'
+        ? Object.fromEntries(
+            selectedProducts.map((p) => {
+              const current = productQuantities[p.id] || { cases: 0, items: 0, supplierCode: '' };
+              const ordered = orderedQuantities[p.id];
+              return [p.id, ordered ? { ...ordered, supplierCode: current.supplierCode || '' } : current];
+            })
+          )
+        : undefined;
+      const items = formatOrderItems(orderedMap);
+      const totalAmount = calculateGrandTotal(orderedMap);
 
       const isTransfer = order?.type === 'TRANSFER';
 
@@ -1255,8 +1281,11 @@ const EditOrder = () => {
         const toReceive = (product && productQuantities[product.id]) || { cases: 0, items: 0 };
         return {
           itemId: savedItem.id,
-          receivedCases: parseInt(toReceive.cases, 10) || 0,
-          receivedItems: parseInt(toReceive.items, 10) || 0,
+          // Delta form: the box holds what is arriving in THIS delivery. The
+          // backend adds it to received-to-date - posting it as the cumulative
+          // figure is what used to turn a second delivery into a stock-out.
+          receiveNowCases: parseInt(toReceive.cases, 10) || 0,
+          receiveNowItems: parseInt(toReceive.items, 10) || 0,
         };
       });
       try {
