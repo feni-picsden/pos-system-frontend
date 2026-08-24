@@ -596,25 +596,28 @@ const SaleKey = () => {
   const loadFolders = async () => {
     try {
       await posLocalDb.init();
-      const cached = await posLocalDb.getStoreAll('saleKeySets');
+      // Folders belong to ONE outlet - the cache and the API response can carry other outlets' sets (super admin in All Outlets mode), so filter like SaleKeySets does.
+      const oid = saleKeysOutletId();
+      const mine = (rows) => rows.filter((s) => oid != null && Number(s.outletId) === Number(oid));
+      const cached = mine(await posLocalDb.getStoreAll('saleKeySets'));
       if (cached.length > 0) {
         setAvailableFolders(cached.map((s) => ({ id: s.id, name: s.name })));
         const stale = await posLocalDb.isStoreStale('saleKeySets');
         if (stale) {
-          saleKeyService.getSaleKeySets(saleKeysOutletId())
+          saleKeyService.getSaleKeySets(oid)
             .then(async (r) => {
               const sets = r.saleKeySets || [];
               await posLocalDb.putStoreAll('saleKeySets', sets);
-              setAvailableFolders(sets.map((s) => ({ id: s.id, name: s.name })));
+              setAvailableFolders(mine(sets).map((s) => ({ id: s.id, name: s.name })));
             })
             .catch(() => {});
         }
         return;
       }
-      const response = await saleKeyService.getSaleKeySets(saleKeysOutletId());
+      const response = await saleKeyService.getSaleKeySets(oid);
       const sets = response.saleKeySets || [];
       await posLocalDb.putStoreAll('saleKeySets', sets);
-      setAvailableFolders(sets.map((s) => ({ id: s.id, name: s.name })));
+      setAvailableFolders(mine(sets).map((s) => ({ id: s.id, name: s.name })));
     } catch (error) {
       console.error('Error loading sale key folders:', error);
       setAvailableFolders([]);

@@ -25,6 +25,7 @@ import PaymentMethodDialog, { TypeCombobox } from '../../components/PaymentMetho
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useHasPermission } from '../../hooks/usePermissions';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import paymentMethodService from '../../services/paymentMethodService';
 import saleKeyService from '../../services/saleKeyService';
 import posLocalDb from '../../services/posLocalDb';
@@ -341,9 +342,11 @@ const PaymentMethods = () => {
   const canEditPaymentMethods = useHasPermission('payment_methods.edit');
   const canDeletePaymentMethods = useHasPermission('payment_methods.delete');
 
+  // Refetch on outlet switch (see Registers.jsx).
+  const { selectedOutletId } = useSelectedOutlet();
   useEffect(() => {
     loadPaymentMethods();
-  }, []);
+  }, [selectedOutletId]);
 
   // Methods wired to a sale key show a keyboard glyph next to their name.
   useEffect(() => {

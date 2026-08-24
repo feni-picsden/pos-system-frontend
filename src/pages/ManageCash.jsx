@@ -15,6 +15,7 @@ import { formatCurrency } from '../utils/currency';
 import CashActionDialog from '../components/CashDrawer/CashActionDialog';
 import NiceError from '../components/Common/NiceError';
 import { useHasPermission, useHasAnyPermission } from '../hooks/usePermissions';
+import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
 
 const ACTION_BTN_SX = {
   backgroundColor: '#5ebbeb',
@@ -94,7 +95,11 @@ const ManageCash = () => {
   const canManage = useHasAnyPermission(['register.cash_drawer.manage', 'register.manage']);
   const canAccess = useHasPermission('register.cash_drawer');
 
-  const registerId = getRegisterId();
+  // Context-backed selection: hydrated + pruned on outlet switch, so this page
+  // can never keep operating on the previous outlet's register (raw
+  // localStorage reads survived the switch until the async prune landed).
+  const { selectedRegister } = useSelectedRegister();
+  const registerId = selectedRegister?.id ?? getRegisterId();
 
   const [shiftData, setShiftData] = useState(null);
   const [movements, setMovements] = useState([]);
@@ -251,7 +256,8 @@ const ManageCash = () => {
     );
   }
 
-  if (!registerId || !isRegisterOpen()) {
+  const registerOpen = selectedRegister ? selectedRegister.status === 'Open' : isRegisterOpen();
+  if (!registerId || !registerOpen) {
     return (
       <NiceError
         icon={<MeetingRoomOutlinedIcon sx={{ fontSize: 'inherit' }} />}

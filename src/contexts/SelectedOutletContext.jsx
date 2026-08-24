@@ -123,6 +123,10 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
           // AppDataSync's key doesn't change and nothing re-warms. Refill for
           // the outlet we are still in.
           syncAppDataInBackground(selectedOutletId, { force: true }).catch(() => {});
+          // Re-throw so the caller (LocationSelectorDialog) can tell the user
+          // the switch failed - swallowing it advanced the dialog to register
+          // selection under the OLD outlet with no message.
+          throw err;
         }
       }
       // A register belonging to the outlet we just left is dropped by

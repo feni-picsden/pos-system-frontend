@@ -645,7 +645,7 @@ const posLocalDb = {
     const customerStore = tx.objectStore(STORES.customers);
 
     products.forEach((p) => {
-      productStore.put({ ...p, outletId: p.outletId ?? oid });
+      productStore.put({ ...p, outletId: p.outletId ?? null });
       normalizeBarcodeCodes(p.barcodes).forEach((code) => {
         barcodeStore.put({ code, productId: p.id, outletId: oid });
       });

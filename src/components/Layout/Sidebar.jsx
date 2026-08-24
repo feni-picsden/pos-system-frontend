@@ -608,11 +608,11 @@ const Sidebar = ({ onClick }) => {
 
   const shouldShowMenuItem = (item) => {
     if (item.id === 'outlets') {
-      return isSuperAdmin();
+      return isTrueSuperAdmin;
     }
 
     if (item.id === 'registers') {
-      return isSuperAdmin();
+      return isTrueSuperAdmin;
     }
 
     if (item.id === 'master-database-products') {

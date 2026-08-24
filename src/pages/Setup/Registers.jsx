@@ -38,6 +38,7 @@ import outletService from '../../services/outletService';
 import paymentMethodService from '../../services/paymentMethodService';
 import productService from '../../services/productService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import posLocalDb from '../../services/posLocalDb';
 import PageLoader from '../../components/Common/PageLoader';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
@@ -185,10 +186,13 @@ const Registers = () => {
     return '';
   };
 
+  // Refetch on outlet switch: the layout-level remount also covers this, but
+  // the page should not depend on that implementation detail.
+  const { selectedOutletId } = useSelectedOutlet();
   useEffect(() => {
     fetchRegisters();
     fetchOutlets();
-  }, []);
+  }, [selectedOutletId]);
 
   // Load payment methods + product tags when the edit page opens
   useEffect(() => {

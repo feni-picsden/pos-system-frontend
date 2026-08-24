@@ -58,6 +58,9 @@ const LocationSelectorDialog = () => {
   // ('outlet-3' / 'register-5') marks the row that is working; while it is set
   // the whole list is inert and the pending row shows a spinner.
   const [busyKey, setBusyKey] = useState(null);
+  // A failed outlet switch used to be swallowed - the dialog advanced to the
+  // register step under the OLD outlet with no feedback.
+  const [outletError, setOutletError] = useState('');
   const runBusy = async (key, fn) => {
     if (busyKey) return;
     setBusyKey(key);
@@ -165,9 +168,14 @@ const LocationSelectorDialog = () => {
                   key={outlet.id}
                   onClick={() =>
                     runBusy(`outlet-${outlet.id}`, async () => {
-                      // Context persists the id, clears the cached catalog and drops
-                      // a register that belongs to the outlet we just left.
-                      await setSelectedOutlet(outlet.id);
+                      try {
+                        // Context persists the id, clears the cached catalog and drops
+                        // a register that belongs to the outlet we just left.
+                        await setSelectedOutlet(outlet.id);
+                      } catch (err) {
+                        setOutletError(err?.response?.data?.error || 'Could not switch outlet. Please try again.');
+                        return; // stay on the outlet step; do NOT advance
+                      }
                       // The dialog now outlives the outlet switch (it is mounted in
                       // the layout, not the page), so the register list has to be
                       // refetched for the outlet we just moved to. Awaited: the
@@ -202,7 +210,12 @@ const LocationSelectorDialog = () => {
               <Box
                 onClick={() =>
                   runBusy('outlet-global', async () => {
-                    await setSelectedOutlet(null);
+                    try {
+                      await setSelectedOutlet(null);
+                    } catch (err) {
+                      setOutletError(err?.response?.data?.error || 'Could not switch outlet. Please try again.');
+                      return;
+                    }
                     await refreshRegisters();
                     setLocationStep('register');
                   })
@@ -295,6 +308,19 @@ const LocationSelectorDialog = () => {
       >
         <Alert severity="error" variant="filled" onClose={() => setRegisterError('')}>
           {registerError}
+        </Alert>
+      </Snackbar>
+
+      {/* Outlet switch failures */}
+      <Snackbar
+        open={!!outletError}
+        autoHideDuration={6000}
+        onClose={() => setOutletError('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ zIndex: 2000 }}
+      >
+        <Alert severity="error" variant="filled" onClose={() => setOutletError('')}>
+          {outletError}
         </Alert>
       </Snackbar>
     </>

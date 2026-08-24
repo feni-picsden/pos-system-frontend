@@ -71,8 +71,8 @@ function scheduleCustomersRefresh() {
 }
 
 const apiClient = axios.create({
-  // Deployed builds set VITE_API_URL (e.g. https://pos-system-backend-five.vercel.app/api);
-  // local dev falls back to the local backend.
+  // Deployed builds set VITE_API_URL; without it the DEPLOYED backend is the
+  // fallback (fails safe). Local dev sets VITE_API_URL=http://localhost:5000/api.
   baseURL: import.meta.env.VITE_API_URL || 'https://pos-system-backend-five.vercel.app/api',
   // ponytail: a stalled socket used to hang forever (Save stuck at "Saving...",
   // and 6 hung requests exhaust the browser's per-host pool, freezing the tab).
@@ -111,7 +111,9 @@ apiClient.interceptors.request.use(
     try {
       const userStr = localStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
-      const isSuperAdmin = user?.isSuperAdmin === true || user?.hasAllPermission === true;
+      const isSuperAdmin =
+      (user?.isSuperAdmin === true || user?.hasAllPermission === true) &&
+      (user?.outletId === null || user?.outletId === undefined);
       // skipOutletScope lets a caller opt out of the auto outletId injection
       // (e.g. the buying-period item picker must find products across ALL
       // outlets AND global products, not just the selected outlet).

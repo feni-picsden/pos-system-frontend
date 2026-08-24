@@ -32,6 +32,7 @@ import PageLoader from '../../components/Common/PageLoader';
 import { taxRateService } from '../../services/taxRateService';
 import { useHasPermission } from '../../hooks/usePermissions';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import posLocalDb from '../../services/posLocalDb';
 
 // Shopfront reference has no transitions anywhere.
@@ -50,7 +51,7 @@ const PILL_BUTTON_SX = {
 };
 
 const TaxRates = () => {
-  const { isSuperAdmin } = useAuth();
+  const { isTrueSuperAdmin: isSuperAdmin } = useAuth();
   const [taxRates, setTaxRates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -66,9 +67,11 @@ const TaxRates = () => {
   const canDeleteTaxRates = useHasPermission('taxes.delete');
 
   // Load tax rates on component mount
+  // Refetch on outlet switch (see Registers.jsx).
+  const { selectedOutletId } = useSelectedOutlet();
   useEffect(() => {
     loadTaxRates();
-  }, []);
+  }, [selectedOutletId]);
 
   const loadTaxRates = async () => {
     await posLocalDb.init();

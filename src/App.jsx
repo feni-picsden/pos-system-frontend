@@ -248,7 +248,7 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
-                        <Route path="/register/close" element={<CloseRegister />} />
+                        <Route path="/register/close" element={<PermissionProtectedRoute requiredPermissions={["register.access"]}><CloseRegister /></PermissionProtectedRoute>} />
                         <Route
                           path="/register/manage-cash"
                           element={
@@ -257,7 +257,7 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
-                        <Route path="/register/display" element={<OpenCustomerDisplay />} />
+                        <Route path="/register/display" element={<PermissionProtectedRoute requiredPermissions={["register.access"]}><OpenCustomerDisplay /></PermissionProtectedRoute>} />
                         <Route
                           path="/inventory/products"
                           element={
@@ -1364,21 +1364,17 @@ function App() {
                         <Route
                           path="/outlets"
                           element={
-                            <PermissionProtectedRoute
-                              requiredPermissions={[]}
-                            >
+                            <ProtectedRoute requireSuperAdmin>
                               <Outlets />
-                            </PermissionProtectedRoute>
+                            </ProtectedRoute>
                           }
                         />
                         <Route
                           path="/outlets/:id"
                           element={
-                            <PermissionProtectedRoute
-                              requiredPermissions={[]}
-                            >
+                            <ProtectedRoute requireSuperAdmin>
                               <OutletDetails />
-                            </PermissionProtectedRoute>
+                            </ProtectedRoute>
                           }
                         />
                         <Route

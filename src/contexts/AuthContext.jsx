@@ -9,6 +9,7 @@ const AuthContext = createContext({
   switchOutlet: async () => {},
   isAuthenticated: () => false,
   isSuperAdmin: () => false,
+  isTrueSuperAdmin: () => false,
   isOutletAdmin: () => false,
   hasRole: () => false,
   isAdmin: () => false,
@@ -82,8 +83,19 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   const isSuperAdmin = useCallback(() => {
-    // Treat any user with hasAllPermission as super admin in the UI
+    // PERMISSION helper: any all-permission user. For OUTLET-SCOPING decisions
+    // use isTrueSuperAdmin below - an outlet-pinned admin passes this test but
+    // must stay scoped to their outlet.
     return user?.isSuperAdmin === true || user?.hasAllPermission === true;
+  }, [user]);
+
+  // Outlet-scoping decisions only. Mirrors the backend's canAccessAllOutlets
+  // (middleware/auth.js): global access needs the admin flag AND no outlet.
+  const isTrueSuperAdmin = useCallback(() => {
+    return (
+      (user?.isSuperAdmin === true || user?.hasAllPermission === true) &&
+      (user?.outletId === null || user?.outletId === undefined)
+    );
   }, [user]);
 
   const isOutletAdmin = useCallback(() => {
@@ -100,7 +112,8 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   const getOutletId = useCallback(() => {
-    return user?.outletId || null;
+    // ?? not ||: falsy-coercion obscured the null = All-Outlets semantic.
+    return user?.outletId ?? null;
   }, [user]);
 
   const getOutletName = useCallback(() => {
@@ -114,6 +127,7 @@ export const AuthProvider = ({ children }) => {
      switchOutlet,
     isAuthenticated,
     isSuperAdmin,
+    isTrueSuperAdmin,
     isOutletAdmin,
     hasRole,
     isAdmin,

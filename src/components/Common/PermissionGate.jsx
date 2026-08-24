@@ -29,6 +29,12 @@ const PermissionGate = ({
   const hasAllPermissions = useHasAllPermissions(allPermissions);
 
   // Determine if user has required permissions
+  // No permission prop = fail CLOSED (it used to default-allow).
+  if (!permission && !anyPermission && !allPermissions) {
+    if (import.meta.env.DEV) console.warn('PermissionGate rendered without any permission prop - denying');
+    return fallback;
+  }
+
   let hasAccess = true;
 
   if (permission) {
