@@ -860,7 +860,7 @@ const ProductView = () => {
                     return (
                       <TableRow key={`price-${idx}`}>
                         <TableCell sx={{ padding: "16px 10px !important" }}>
-                          Default Price
+                          {p.priceSet?.name || p.priceSetName || (p.outletId ? "Outlet Price" : "Default Price")}
                         </TableCell>
                         <TableCell sx={{ padding: "16px !important" }}>{qty}</TableCell>
                         <TableCell sx={{ padding: "16px !important" }}>

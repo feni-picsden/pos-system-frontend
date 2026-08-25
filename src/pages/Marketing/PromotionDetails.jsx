@@ -888,407 +888,107 @@ const PromotionDetails = () => {
     };
   };
 
-  const calculateCriterionProfit = (criterion) => {
-    if (!criterion.items || criterion.items.length === 0) return 0;
-    if (criterion.purchaseValue === 0) return 0;
-
-    const nonExcludedItems = criterion.items.filter(item => !item.excluded);
-    if (nonExcludedItems.length === 0) return 0;
-
-    let totalCostForQuantity = 0;
-    let totalNormalPriceForQuantity = 0;
-    
-    nonExcludedItems.forEach(item => {
-      const tier = findPricingTier(item, criterion.purchaseValue);
-      const pricePerUnit = tier.pricePerUnit || tier.price || item.originalPrice || 0;
-      const costPerUnit = tier.costPerUnit || tier.cost || item.cost || 0;
-      
-      const itemTotalPrice = pricePerUnit * criterion.purchaseValue;
-      const itemTotalCost = costPerUnit * criterion.purchaseValue;
-      
-      totalNormalPriceForQuantity += itemTotalPrice;
-      totalCostForQuantity += itemTotalCost;
-    });
-    
-    if (nonExcludedItems.length > 1) {
-      totalNormalPriceForQuantity = totalNormalPriceForQuantity / nonExcludedItems.length;
-      totalCostForQuantity = totalCostForQuantity / nonExcludedItems.length;
-    }
-    
-    const avgNormalPrice = nonExcludedItems.length > 0 ? totalNormalPriceForQuantity / criterion.purchaseValue : 0;
-    const avgCost = nonExcludedItems.length > 0 ? totalCostForQuantity / criterion.purchaseValue : 0;
-
-    if (criterion.receiveType === 'quantity_only') {
-      if (totalNormalPriceForQuantity === 0) return 0;
-      if (totalCostForQuantity <= 0) return -100;
-      const profit = ((totalNormalPriceForQuantity - totalCostForQuantity) / totalNormalPriceForQuantity) * 100;
-      if (isNaN(profit) || !isFinite(profit)) return 0;
-      return profit;
-    }
-
-    if (criterion.receiveType === 'total_price') {
-      const promoPrice = parseFloat(criterion.receiveValue) || 0;
-      const cost = parseFloat(totalCostForQuantity) || 0;
-      
-      if (promoPrice === 0) return 0;
-      if (cost <= 0) return -100; 
-      
-      const profit = ((promoPrice - cost) / promoPrice) * 100;
-      
-      if (isNaN(profit) || !isFinite(profit)) {
-        console.error('Invalid profit calculation:', { promoPrice, cost, profit });
-        return 0;
-      }
-      
-      return profit;
-    }
-
-    if (criterion.receiveType === 'each_item_for') {
-      if (criterion.receiveValue === 0 || avgCost === 0) return 0;
-      const promoPricePerItem = criterion.receiveValue;
-      return ((promoPricePerItem - avgCost) / promoPricePerItem) * 100;
-    }
-
-    if (criterion.receiveType === 'discount_each_item') {
-      if (criterion.receiveValue === 0 || avgNormalPrice === 0) return 0;
-      const promoPricePerItem = avgNormalPrice - criterion.receiveValue;
-      if (promoPricePerItem <= 0) return -100;
-      return ((promoPricePerItem - avgCost) / promoPricePerItem) * 100;
-    }
-
-    if (criterion.receiveType === 'discount_total') {
-      if (criterion.receiveValue === 0 || totalNormalPriceForQuantity === 0) return 0;
-      const promoPrice = totalNormalPriceForQuantity - criterion.receiveValue;
-      if (promoPrice <= 0) return -100;
-      return ((promoPrice - totalCostForQuantity) / promoPrice) * 100;
-    }
-
-    if (criterion.receiveType === 'percentage_discount') {
-      if (criterion.receiveValue === 0 || totalNormalPriceForQuantity === 0) return 0;
-      const discountDecimal = criterion.receiveValue / 100;
-      const promoPrice = totalNormalPriceForQuantity * (1 - discountDecimal);
-      if (promoPrice <= 0) return -100;
-      return ((promoPrice - totalCostForQuantity) / promoPrice) * 100;
-    }
-
-    if (criterion.receiveType === 'same_sell_rate') {
-      if (criterion.receiveValue === 0 || criterion.purchaseValue === 0) return 0;
-      const firstItem = nonExcludedItems[0];
-      const bulkTier = findPricingTier(firstItem, criterion.receiveValue);
-      const bulkPricePerUnit = bulkTier.price;
-      const bulkCostPerUnit = bulkTier.cost;
-      
-      const promoPrice = bulkPricePerUnit * criterion.purchaseValue;
-      const totalCost = bulkCostPerUnit * criterion.purchaseValue;
-      
-      if (promoPrice <= 0) return -100;
-      return ((promoPrice - totalCost) / promoPrice) * 100;
-    }
-
-    if (criterion.receiveType === 'discount') {
-      if (criterion.purchaseType === 'purchase') {
-        if (totalNormalPriceForQuantity === 0) return 0;
-        const promoPrice = totalNormalPriceForQuantity - criterion.receiveValue;
-        if (promoPrice <= 0) return -100;
-        return ((promoPrice - totalCostForQuantity) / promoPrice) * 100;
-      } else if (criterion.purchaseType === 'spend') {
-        if (criterion.purchaseValue === 0) return 0;
-        const promoPrice = criterion.purchaseValue - criterion.receiveValue;
-        if (promoPrice <= 0) return -100;
-        const estimatedCost = promoPrice * 0.7;
-        return ((promoPrice - estimatedCost) / promoPrice) * 100;
-      }
-    }
-
-    return 0;
-  };
-
-  const calculateItemProfit = (criterion, item) => {
-    if (!item || item.excluded) return 0;
-    if (criterion.purchaseValue === 0) return 0;
+  // --- Promotion profit (margin on the promo sell price) ---------------------
+  // Single source of truth: returns { sell, cost } TOTALS for one item under the
+  // criterion, or null when a real cost is unknown (never fabricate a cost). A
+  // supplier rebate lowers the effective cost of goods, so it raises margin.
+  const calculateItemProfitBasis = (criterion, item) => {
+    if (!item || item.excluded) return null;
+    const qty = parseFloat(criterion.purchaseValue) || 0;
+    if (qty === 0) return null;
 
     const tier = findPricingTier(item, criterion.purchaseValue);
-    const pricePerUnit = tier.pricePerUnit || tier.price || item.originalPrice || 0;
-    const costPerUnit = tier.costPerUnit || tier.cost || item.cost || 0;
-    
-    const itemTotalPrice = pricePerUnit * criterion.purchaseValue;
-    const itemTotalCost = costPerUnit * criterion.purchaseValue;
+    const pricePerUnit = tier.pricePerUnit || tier.price || parseFloat(item.originalPrice) || 0;
+    const rawCostPerUnit = tier.costPerUnit || tier.cost || parseFloat(item.cost) || 0;
+    if (!(rawCostPerUnit > 0)) return null; // no real cost -> cannot compute margin
 
-    if (criterion.receiveType === 'quantity_only') {
-      if (itemTotalPrice === 0) return 0;
-      if (itemTotalCost <= 0) return -100;
-      const profit = ((itemTotalPrice - itemTotalCost) / itemTotalPrice) * 100;
-      if (isNaN(profit) || !isFinite(profit)) return 0;
-      return profit;
-    }
+    const rebatePerUnit = parseFloat(item.rebateAmount) || 0;
+    const costPerUnit = Math.max(0, rawCostPerUnit - rebatePerUnit);
 
-    if (criterion.receiveType === 'total_price') {
-      const promoPrice = parseFloat(criterion.receiveValue) || 0;
-      
-      if (promoPrice === 0) return 0;
-      
-      const purchaseQty = parseFloat(criterion.purchaseValue) || 0;
-      if (purchaseQty === 0) return 0;
-      
-      let totalCost = 0;
-      
-      if (item.pricingTiers && item.pricingTiers.length > 0) {
-        const sortedTiers = [...item.pricingTiers].sort((a, b) => {
-          const qtyA = parseFloat(a.quantity) || 0;
-          const qtyB = parseFloat(b.quantity) || 0;
-          return qtyA - qtyB;
-        });
-        
-        const exactTier = sortedTiers.find(t => {
-          const tierQty = parseFloat(t.quantity) || 0;
-          return tierQty === purchaseQty;
-        });
-        
-        if (exactTier) {
-          const tierCost = parseFloat(exactTier.cost);
-          if (!isNaN(tierCost) && tierCost > 0) {
-            totalCost = tierCost;
-          } else {
-            const tierPrice = parseFloat(exactTier.price) || 0;
-            if (tierPrice > 0) {
-              const baseCost = parseFloat(item.cost) || 0;
-              const costPerUnit = baseCost > 0 ? baseCost : (tierPrice * 0.7);
-              totalCost = costPerUnit * purchaseQty;
-            } else {
-              const baseCost = parseFloat(item.cost) || 0;
-              totalCost = baseCost * purchaseQty;
-            }
-          }
+    const rv = parseFloat(criterion.receiveValue) || 0;
+    let sell = null;
+    let cost = costPerUnit * qty;
+
+    switch (criterion.receiveType) {
+      case 'quantity_only':
+        sell = pricePerUnit * qty;
+        break;
+      case 'total_price':
+        sell = rv; // flat promo price for the whole quantity
+        break;
+      case 'each_item_for':
+        sell = rv * qty;
+        break;
+      case 'discount_each_item':
+        sell = (pricePerUnit - rv) * qty;
+        break;
+      case 'discount_total':
+        sell = pricePerUnit * qty - rv;
+        break;
+      case 'percentage_discount':
+        sell = pricePerUnit * qty * (1 - rv / 100);
+        break;
+      case 'discount':
+        if (criterion.purchaseType === 'purchase') {
+          sell = pricePerUnit * qty - rv;
         } else {
-          let bestMatchingTier = sortedTiers[0];
-          let bestMatchQty = 0;
-          
-          for (let i = sortedTiers.length - 1; i >= 0; i--) {
-            const tierQty = parseFloat(sortedTiers[i].quantity) || 0;
-            if (tierQty <= purchaseQty && tierQty > bestMatchQty) {
-              bestMatchingTier = sortedTiers[i];
-              bestMatchQty = tierQty;
-            }
-          }
-          
-          const tierQuantity = parseFloat(bestMatchingTier.quantity) || 1;
-          let tierCost = parseFloat(bestMatchingTier.cost);
-          
-          if (isNaN(tierCost) || tierCost <= 0) {
-            tierCost = parseFloat(item.cost) || 0;
-            if (tierCost <= 0) {
-              const tierPrice = parseFloat(bestMatchingTier.price) || 0;
-              if (tierPrice > 0) {
-                tierCost = tierPrice * 0.7;
-              }
-            }
-          }
-          
-          if (tierQuantity > 0 && tierCost > 0) {
-            const costPerUnit = tierCost / tierQuantity;
-            totalCost = costPerUnit * purchaseQty;
-          } else if (tierCost > 0) {
-            totalCost = tierCost * purchaseQty;
-          } else {
-            const baseCost = parseFloat(item.cost) || 0;
-            totalCost = baseCost * purchaseQty;
-          }
+          // 'spend' has no per-item cost basis -> cannot compute margin honestly
+          return null;
         }
-      } else {
-        const baseCost = parseFloat(item.cost) || 0;
-        totalCost = baseCost * purchaseQty;
+        break;
+      case 'same_sell_rate': {
+        const bulk = findPricingTier(item, criterion.receiveValue);
+        const bulkPricePerUnit = bulk.pricePerUnit || bulk.price || 0;
+        const bulkRawCost = bulk.costPerUnit || bulk.cost || 0;
+        if (!(bulkRawCost > 0)) return null;
+        sell = bulkPricePerUnit * qty;
+        cost = Math.max(0, bulkRawCost - rebatePerUnit) * qty;
+        break;
       }
-      
-      if (totalCost <= 0) return -100;
-      
-      const profit = ((promoPrice - totalCost) / promoPrice) * 100;
-      
-      if (isNaN(profit) || !isFinite(profit)) return 0;
-      
-      return profit;
+      default:
+        return null;
     }
 
-    if (criterion.receiveType === 'each_item_for') {
-      if (criterion.receiveValue === 0 || costPerUnit === 0) return 0;
-      const promoPricePerItem = criterion.receiveValue;
-      return ((promoPricePerItem - costPerUnit) / promoPricePerItem) * 100;
-    }
-
-    if (criterion.receiveType === 'discount_each_item') {
-      if (criterion.receiveValue === 0 || pricePerUnit === 0) return 0;
-      const promoPricePerItem = pricePerUnit - criterion.receiveValue;
-      if (promoPricePerItem <= 0) return -100;
-      return ((promoPricePerItem - costPerUnit) / promoPricePerItem) * 100;
-    }
-
-    if (criterion.receiveType === 'discount_total') {
-      if (criterion.receiveValue === 0 || itemTotalPrice === 0) return 0;
-      const promoPrice = itemTotalPrice - criterion.receiveValue;
-      if (promoPrice <= 0) return -100;
-      return ((promoPrice - itemTotalCost) / promoPrice) * 100;
-    }
-
-    if (criterion.receiveType === 'percentage_discount') {
-      const purchaseQty = parseFloat(criterion.purchaseValue) || 0;
-      if (criterion.receiveValue === 0 || purchaseQty === 0) return 0;
-      
-      let totalPrice = 0;
-      let totalCost = 0;
-      
-      if (item.pricingTiers && item.pricingTiers.length > 0) {
-        const sortedTiers = [...item.pricingTiers].sort((a, b) => {
-          const qtyA = parseFloat(a.quantity) || 0;
-          const qtyB = parseFloat(b.quantity) || 0;
-          return qtyA - qtyB;
-        });
-        
-        const exactTier = sortedTiers.find(t => {
-          const tierQty = parseFloat(t.quantity) || 0;
-          return tierQty === purchaseQty;
-        });
-        
-        if (exactTier) {
-          const tierPrice = parseFloat(exactTier.price) || 0;
-          let tierCost = parseFloat(exactTier.cost);
-          
-          if (tierPrice > 0) {
-            totalPrice = tierPrice;
-          } else {
-            const pricePerUnit = exactTier.pricePerUnit || item.originalPrice || 0;
-            totalPrice = pricePerUnit * purchaseQty;
-          }
-          
-          if (!isNaN(tierCost) && tierCost > 0) {
-            totalCost = tierCost;
-          } else {
-            const baseCost = parseFloat(item.cost) || 0;
-            if (baseCost > 0) {
-              totalCost = baseCost * purchaseQty;
-            } else if (tierPrice > 0) {
-              totalCost = tierPrice * 0.7;
-            } else {
-              totalCost = 0;
-            }
-          }
-        } else {
-          let bestMatchingTier = sortedTiers[0];
-          let bestMatchQty = 0;
-          
-          for (let i = sortedTiers.length - 1; i >= 0; i--) {
-            const tierQty = parseFloat(sortedTiers[i].quantity) || 0;
-            if (tierQty <= purchaseQty && tierQty > bestMatchQty) {
-              bestMatchingTier = sortedTiers[i];
-              bestMatchQty = tierQty;
-            }
-          }
-          
-          const tierQuantity = parseFloat(bestMatchingTier.quantity) || 1;
-          const tierPrice = parseFloat(bestMatchingTier.price) || 0;
-          let tierCost = parseFloat(bestMatchingTier.cost);
-          
-          if (tierPrice > 0) {
-            const pricePerUnit = tierPrice / tierQuantity;
-            totalPrice = pricePerUnit * purchaseQty;
-          } else {
-            const pricePerUnit = bestMatchingTier.pricePerUnit || item.originalPrice || 0;
-            totalPrice = pricePerUnit * purchaseQty;
-          }
-          
-          if (isNaN(tierCost) || tierCost <= 0) {
-            tierCost = parseFloat(item.cost) || 0;
-            if (tierCost <= 0 && tierPrice > 0) {
-              tierCost = (tierPrice / tierQuantity) * 0.7;
-            }
-          }
-          
-          if (tierQuantity > 0 && tierCost > 0) {
-            const costPerUnit = tierCost / tierQuantity;
-            totalCost = costPerUnit * purchaseQty;
-          } else if (tierCost > 0) {
-            totalCost = tierCost * purchaseQty;
-          } else {
-            const baseCost = parseFloat(item.cost) || 0;
-            totalCost = baseCost * purchaseQty;
-          }
-        }
-      } else {
-        const basePrice = parseFloat(item.originalPrice) || 0;
-        const baseCost = parseFloat(item.cost) || 0;
-        totalPrice = basePrice * purchaseQty;
-        totalCost = baseCost * purchaseQty;
-      }
-      
-      if (totalPrice === 0) return 0;
-      
-      const discountDecimal = criterion.receiveValue / 100;
-      const promoPrice = totalPrice * (1 - discountDecimal);
-      
-      if (promoPrice <= 0) return -100;
-      if (totalCost <= 0) return -100;
-      
-      const profit = ((promoPrice - totalCost) / promoPrice) * 100;
-      
-      if (isNaN(profit) || !isFinite(profit)) return 0;
-      
-      return profit;
-    }
-
-    if (criterion.receiveType === 'discount') {
-      if (criterion.purchaseType === 'purchase') {
-        if (itemTotalPrice === 0) return 0;
-        const promoPrice = itemTotalPrice - criterion.receiveValue;
-        if (promoPrice <= 0) return -100;
-        if (itemTotalCost <= 0) return -100;
-        const profit = ((promoPrice - itemTotalCost) / promoPrice) * 100;
-        if (isNaN(profit) || !isFinite(profit)) return 0;
-        return profit;
-      } else if (criterion.purchaseType === 'spend') {
-        if (criterion.purchaseValue === 0) return 0;
-        const promoPrice = criterion.purchaseValue - criterion.receiveValue;
-        if (promoPrice <= 0) return -100;
-        const estimatedCost = promoPrice * 0.7;
-        const profit = ((promoPrice - estimatedCost) / promoPrice) * 100;
-        if (isNaN(profit) || !isFinite(profit)) return 0;
-        return profit;
-      }
-    }
-
-    if (criterion.receiveType === 'same_sell_rate') {
-      if (criterion.receiveValue === 0 || criterion.purchaseValue === 0) return 0;
-      const bulkTier = findPricingTier(item, criterion.receiveValue);
-      const bulkPricePerUnit = bulkTier.pricePerUnit || bulkTier.price || 0;
-      const bulkCostPerUnit = bulkTier.costPerUnit || bulkTier.cost || 0;
-      
-      const promoPrice = bulkPricePerUnit * criterion.purchaseValue;
-      const totalCost = bulkCostPerUnit * criterion.purchaseValue;
-      
-      if (promoPrice <= 0) return -100;
-      return ((promoPrice - totalCost) / promoPrice) * 100;
-    }
-
-    return 0;
+    if (sell == null || !isFinite(sell) || !isFinite(cost)) return null;
+    return { sell, cost };
   };
 
+  // Per-item margin %, or null when it cannot be computed (missing cost, or a
+  // zero/negative promo sell price where a margin is undefined).
+  const calculateItemProfit = (criterion, item) => {
+    const basis = calculateItemProfitBasis(criterion, item);
+    if (!basis || basis.sell <= 0) return null;
+    const profit = ((basis.sell - basis.cost) / basis.sell) * 100;
+    return isFinite(profit) ? profit : null;
+  };
+
+  // Criterion margin %: VALUE-WEIGHTED across items (sum(sell-cost)/sum(sell)),
+  // not a plain mean of percentages, and it skips items whose cost is unknown.
   const calculateAverageItemProfit = (criterion) => {
-    if (!criterion.items || criterion.items.length === 0) return 0;
-    
-    const nonExcludedItems = criterion.items.filter(item => !item.excluded);
-    if (nonExcludedItems.length === 0) return 0;
-    let totalProfit = 0;
-    let validProfitCount = 0;
-    
-    nonExcludedItems.forEach(item => {
-      const itemProfit = calculateItemProfit(criterion, item);
-      if (!isNaN(itemProfit) && isFinite(itemProfit)) {
-        totalProfit += itemProfit;
-        validProfitCount++;
+    if (!criterion.items || criterion.items.length === 0) return null;
+    let totalSell = 0;
+    let totalCost = 0;
+    let have = false;
+    criterion.items.filter((i) => !i.excluded).forEach((item) => {
+      const b = calculateItemProfitBasis(criterion, item);
+      if (b && b.sell > 0) {
+        totalSell += b.sell;
+        totalCost += b.cost;
+        have = true;
       }
     });
-    
-    if (validProfitCount === 0) return 0;
-    
-    return totalProfit / validProfitCount;
+    if (!have || totalSell <= 0) return null;
+    return ((totalSell - totalCost) / totalSell) * 100;
   };
+
+  // The value persisted on the criterion == the value shown on screen.
+  const calculateCriterionProfit = (criterion) => {
+    const avg = calculateAverageItemProfit(criterion);
+    return avg == null ? 0 : avg;
+  };
+
+  // Display helper: shows N/A instead of crashing on a null (uncomputable) %.
+  const formatProfitPct = (v) => (v == null || isNaN(v) ? 'N/A' : `${v.toFixed(2)}%`);
 
   const getCriterionSummary = (criterion) => {
     const optionalText = criterion.isOptional ? 'Optionally' : '(Required)';
@@ -2028,7 +1728,7 @@ const PromotionDetails = () => {
                                       fontSize: '0.9rem'
                                     }}
                                   >
-                                    {itemProfit.toFixed(2)}%
+                                    {formatProfitPct(itemProfit)}
                                   </Typography>
                             <IconButton
                               size="small"
@@ -2187,7 +1887,7 @@ const PromotionDetails = () => {
                                 mb: 2
                               }}
                             >
-                              {calculateAverageItemProfit(criterion).toFixed(2)}%
+                              {formatProfitPct(calculateAverageItemProfit(criterion))}
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
                         <Button
@@ -2230,7 +1930,7 @@ const PromotionDetails = () => {
                                 mb: 2
                               }}
                             >
-                              {calculateAverageItemProfit(criterion).toFixed(2)}%
+                              {formatProfitPct(calculateAverageItemProfit(criterion))}
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
                               <Button

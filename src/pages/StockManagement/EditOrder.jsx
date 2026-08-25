@@ -558,7 +558,10 @@ const EditOrder = () => {
           : null;
       const transferFromOutletOk = isTransfer && fromOutletId && !isNaN(fromOutletId);
 
-      // Transfers: only products stocked at the "From" outlet (strict outlet filter on API)
+      // Transfers: products at the "From" outlet PLUS global (outletId null)
+      // products, which are stocked at every outlet and must be transferable.
+      // (outletOnly:true was strict and hid the whole global catalog from the
+      // transfer picker; scoping by outletId alone keeps from-outlet + globals.)
       let productFilters = {
         search: searchValue,
         limit: 10,
@@ -568,7 +571,6 @@ const EditOrder = () => {
         productFilters = {
           ...productFilters,
           outletId: fromOutletId,
-          outletOnly: true,
         };
       } else if (!isTransfer) {
         const supplierFilter =
@@ -594,10 +596,30 @@ const EditOrder = () => {
           : Promise.resolve({ classifications: [] }),
       ]);
 
-      const products = (productsResponse.products || []).map(p => ({
+      let products = (productsResponse.products || []).map(p => ({
         ...p,
         type: 'product',
       }));
+
+      // Barcode fallback: the name/description search can't match a scanned
+      // barcode (barcodes live in a JSON column). If the term looks like a
+      // barcode, or the text search found nothing, also resolve it by barcode
+      // and merge - mirroring the stocktake screens.
+      const term = (searchValue || '').trim();
+      const looksLikeBarcode = /^[0-9]{4,}$/.test(term);
+      if (term && (looksLikeBarcode || products.length === 0)) {
+        try {
+          const bc = await productService.getProductByBarcode(
+            term,
+            transferFromOutletOk ? fromOutletId : null
+          );
+          const raw = bc?.matches || bc?.products || (bc?.product ? [bc.product] : (Array.isArray(bc) ? bc : []));
+          const barcodeMatches = (raw || [])
+            .filter((p) => p && p.id && !products.some((x) => x.id === p.id))
+            .map((p) => ({ ...p, type: 'product' }));
+          products = [...products, ...barcodeMatches];
+        } catch { /* no barcode match - ignore */ }
+      }
 
       const matchingSuppliers =
         !isTransfer && allSuppliersToggle

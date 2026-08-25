@@ -708,72 +708,11 @@ const Balance = () => {
       setOutstandingInvoices(response.invoices || []);
     } catch (err) {
       console.error('Error loading outstanding invoices:', err);
-      const mockInvoices = [
-        {
-          id: 1,
-          saleNumber: '10104512',
-          createdAt: new Date('2024-05-03T10:45:25'),
-          user: { name: 'Chintan' },
-          register: { name: 'Register' },
-          totalAmount: 35230.82,
-          balance: 35230.82
-        },
-        {
-          id: 2,
-          saleNumber: '10104631',
-          createdAt: new Date('2024-05-05T07:24:39'),
-          user: { name: 'Chintan' },
-          register: { name: 'Register' },
-          totalAmount: 1209.25,
-          balance: 1209.25
-        },
-        {
-          id: 3,
-          saleNumber: '10105281',
-          createdAt: new Date('2024-05-13T02:46:49'),
-          user: { name: 'Chintan' },
-          register: { name: 'Register' },
-          totalAmount: 473.00,
-          balance: 473.00
-        },
-        {
-          id: 4,
-          saleNumber: '10106371',
-          createdAt: new Date('2024-05-24T22:44:11'),
-          user: { name: 'Chintan' },
-          register: { name: 'Register' },
-          totalAmount: 1372.67,
-          balance: 1372.67
-        },
-        {
-          id: 5,
-          saleNumber: '10106546',
-          createdAt: new Date('2024-05-27T03:51:38'),
-          user: { name: 'Chintan' },
-          register: { name: 'Register' },
-          totalAmount: 4355.20,
-          balance: 4355.20
-        },
-        {
-          id: 6,
-          saleNumber: '10107163',
-          createdAt: new Date('2024-06-03T05:53:36'),
-          user: { name: 'Chintan' },
-          register: { name: 'Register' },
-          totalAmount: 17079.11,
-          balance: 17079.11
-        },
-        {
-          id: 7,
-          saleNumber: '10107724',
-          createdAt: new Date('2024-06-10T06:06:30'),
-          user: { name: 'Danica' },
-          register: { name: 'Register' },
-          totalAmount: 592.58,
-          balance: 592.58
-        }
-      ];
-      setOutstandingInvoices(mockInvoices);
+      // Never fabricate invoices: the old mock fallback rendered fictitious
+      // ~$60k balances in the live Make Payment dialog, and allocating against
+      // them then 400'd server-side. Show nothing + surface the error instead.
+      setOutstandingInvoices([]);
+      setPaymentError(err?.response?.data?.error || 'Could not load outstanding invoices. Please try again.');
     }
   };
 

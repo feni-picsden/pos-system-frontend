@@ -167,58 +167,67 @@ const PromotionView = () => {
   // Reference section label ("CRITERIA" / "MISSING ITEMS").
   const SECTION_LABEL_SX = { ...HEADER_LABEL_SX, mb: 1.5 };
 
-  const calculateItemProfit = (criterion, item) => {
-    if (!item || item.excluded) return 0;
-    if (criterion.purchaseValue === 0) return 0;
+  // Margin on the promo sell price. Uses the BASE tier for price/cost sourcing
+  // (a saved promo may have snapshotted a bulk-tier cost as if per-unit), applies
+  // any supplier rebate, and returns null when a real cost is unknown. Kept in
+  // sync with the editor (PromotionDetails) so the same promo shows one number.
+  const calculateItemProfitBasis = (criterion, item) => {
+    if (!item || item.excluded) return null;
+    const qty = parseFloat(criterion.purchaseValue) || 0;
+    if (qty === 0) return null;
 
-    const purchaseQty = parseFloat(criterion.purchaseValue) || 0;
-    // Promotions saved before the base-tier fix snapshotted cost/originalPrice
-    // from prices[0], which can be a bulk tier — a case cost read as a unit cost
-    // produces wild negative margins. The tiers travel with the item, so prefer
-    // the base tier and fall back to the snapshot only when there are none.
     const baseTier = getBaseTier(item.pricingTiers);
-    const originalPrice =
-      parseFloat(baseTier?.price ?? item.originalPrice) || 0;
-    const cost = parseFloat(baseTier?.cost ?? item.cost) || 0;
+    const pricePerUnit = parseFloat(baseTier?.price ?? item.originalPrice) || 0;
+    const rawCostPerUnit = parseFloat(baseTier?.cost ?? item.cost) || 0;
+    if (!(rawCostPerUnit > 0)) return null;
 
-    if (criterion.receiveType === 'total_price') {
-      const promoPrice = parseFloat(criterion.receiveValue) || 0;
-      if (promoPrice === 0) return 0;
-      let totalCost = cost * purchaseQty;
-      if (totalCost <= 0) return -100;
-      const profit = ((promoPrice - totalCost) / promoPrice) * 100;
-      return isNaN(profit) || !isFinite(profit) ? 0 : profit;
+    const rebatePerUnit = parseFloat(item.rebateAmount) || 0;
+    const costPerUnit = Math.max(0, rawCostPerUnit - rebatePerUnit);
+
+    const rv = parseFloat(criterion.receiveValue) || 0;
+    let sell = null;
+    const cost = costPerUnit * qty;
+
+    switch (criterion.receiveType) {
+      case 'quantity_only': sell = pricePerUnit * qty; break;
+      case 'total_price': sell = rv; break;
+      case 'each_item_for': sell = rv * qty; break;
+      case 'discount_each_item': sell = (pricePerUnit - rv) * qty; break;
+      case 'discount_total': sell = pricePerUnit * qty - rv; break;
+      case 'percentage_discount': sell = pricePerUnit * qty * (1 - rv / 100); break;
+      case 'discount':
+        if (criterion.purchaseType === 'purchase') sell = pricePerUnit * qty - rv;
+        else return null;
+        break;
+      case 'same_sell_rate': sell = pricePerUnit * qty; break;
+      default: return null;
     }
+    if (sell == null || !isFinite(sell) || !isFinite(cost)) return null;
+    return { sell, cost };
+  };
 
-    if (criterion.receiveType === 'percentage_discount') {
-      const discountPercentage = parseFloat(criterion.receiveValue) || 0;
-      if (discountPercentage === 0 || originalPrice === 0) return 0;
-      const discountDecimal = discountPercentage / 100;
-      const promoPrice = originalPrice * purchaseQty * (1 - discountDecimal);
-      const totalCost = cost * purchaseQty;
-      if (promoPrice <= 0) return -100;
-      const profit = ((promoPrice - totalCost) / promoPrice) * 100;
-      return isNaN(profit) || !isFinite(profit) ? 0 : profit;
-    }
-
-    if (criterion.receiveType === 'quantity_only') {
-      const totalPrice = originalPrice * purchaseQty;
-      const totalCost = cost * purchaseQty;
-      if (totalPrice === 0) return 0;
-      if (totalCost <= 0) return -100;
-      const profit = ((totalPrice - totalCost) / totalPrice) * 100;
-      return isNaN(profit) || !isFinite(profit) ? 0 : profit;
-    }
-
-    return 0;
+  const calculateItemProfit = (criterion, item) => {
+    const b = calculateItemProfitBasis(criterion, item);
+    if (!b || b.sell <= 0) return null;
+    const profit = ((b.sell - b.cost) / b.sell) * 100;
+    return isFinite(profit) ? profit : null;
   };
 
   const calculateCriterionProfit = (criterion) => {
     const items = (criterion.items || []).filter((it) => !it.excluded);
-    if (items.length === 0) return 0;
-    const total = items.reduce((sum, it) => sum + calculateItemProfit(criterion, it), 0);
-    return total / items.length;
+    if (items.length === 0) return null;
+    let totalSell = 0;
+    let totalCost = 0;
+    let have = false;
+    items.forEach((it) => {
+      const b = calculateItemProfitBasis(criterion, it);
+      if (b && b.sell > 0) { totalSell += b.sell; totalCost += b.cost; have = true; }
+    });
+    if (!have || totalSell <= 0) return null;
+    return ((totalSell - totalCost) / totalSell) * 100;
   };
+
+  const formatProfitPct = (v) => (v == null || isNaN(v) ? 'N/A' : `${v.toFixed(2)}%`);
 
   const getCriterionSummary = (criterion) => {
     const optionalText = criterion.isOptional ? 'Optionally' : '';
@@ -478,7 +487,7 @@ const PromotionView = () => {
                           color: criterionProfit < 0 ? "#e33430" : "#313439",
                         }}
                       >
-                        {criterionProfit.toFixed(2)}%
+                        {formatProfitPct(criterionProfit)}
                       </Typography>
                     </Box>
                     {activeItems.map((item, itemIndex) => {
@@ -514,7 +523,7 @@ const PromotionView = () => {
                           <Typography
                             sx={{ fontSize: 16, whiteSpace: "nowrap", color: profit < 0 ? "#e33430" : "#313439" }}
                           >
-                            {profit.toFixed(2)}%
+                            {formatProfitPct(profit)}
                           </Typography>
                         </Box>
                       );
