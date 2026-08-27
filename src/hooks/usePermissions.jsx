@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, createContext } from 'react';
+import { useState, useEffect, useContext, createContext, useRef } from 'react';
 import { permissionService } from '../services/permissionService';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -11,6 +11,11 @@ export const PermissionProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const { isAuthenticated, user: authUser, loading: authLoading } = useAuth();
+  // Collapses overlapping loads: the mount effect, the authUser-change effect and
+  // the focus/visibility handlers all called /permissions/me, so a single tab
+  // focus (which fires BOTH 'focus' and 'visibilitychange') plus an auth refresh
+  // fired the request ~5x. One in-flight request is reused instead.
+  const inFlight = useRef(null);
 
   useEffect(() => {
     // Only load permissions if user is authenticated and auth is not loading
@@ -46,9 +51,15 @@ export const PermissionProvider = ({ children }) => {
   // quiet: refresh in place without flipping `loading`, which would blank the
   // permission-gated routes for a frame on every tab focus.
   const loadUserPermissions = async ({ quiet = false } = {}) => {
+    // Reuse an in-flight request instead of firing a duplicate.
+    if (inFlight.current) {
+      try { await inFlight.current; } catch { /* handled by the owner call */ }
+      return;
+    }
     try {
       if (!quiet) setLoading(true);
-      const response = await permissionService.getCurrentUserPermissions();
+      inFlight.current = permissionService.getCurrentUserPermissions();
+      const response = await inFlight.current;
       setPermissions(response.permissions || []);
       setUser(response.user || null);
     } catch (error) {
@@ -64,6 +75,7 @@ export const PermissionProvider = ({ children }) => {
       setPermissions([]);
       setUser(authUser || null);
     } finally {
+      inFlight.current = null;
       if (!quiet) setLoading(false);
     }
   };
