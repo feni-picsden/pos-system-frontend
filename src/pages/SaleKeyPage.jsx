@@ -3926,6 +3926,78 @@ const SaleKeyPage = () => {
   };
 
   // Resume a parked sale
+  // Merge Sale (reference: Parking / Holding Sales) — combine the CURRENT cart
+  // into an existing parked sale. The sale stays parked; items and totals are
+  // replaced with the combined cart; the register cart is then cleared.
+  const mergeIntoParkedSale = async (parkedSale) => {
+    if (cart.length === 0) { alert('Add items to the current sale before merging.'); return; }
+    const ok = await confirm(
+      `Merge the current ${cart.length} item${cart.length === 1 ? '' : 's'} into parked sale ${parkedSale.saleNumber}?`,
+      { title: 'Merge Sale', confirmText: 'Merge Sale' }
+    );
+    if (!ok) return;
+    try {
+      const parkedLines = (parkedSale.items || []).map((it) => ({
+        productName: it.productName,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        totalPrice: it.totalPrice,
+        discount: it.discount || 0,
+        tax: it.tax || 0,
+        taxName: it.taxName || null,
+        comboName: it.comboName || null,
+        comboSets: it.comboSets || null,
+        productId: it.productId || null,
+      }));
+      const cartLines = expandCartForSale(cart).map((item) => {
+        const qty = parseFloat(item.quantity) || 1;
+        const total = parseFloat(item.price) || 0;
+        return {
+          productName: item.name,
+          quantity: qty,
+          unitPrice: item.unitPrice != null ? parseFloat(item.unitPrice) : total / qty,
+          totalPrice: total,
+          discount: getItemDiscount(item) || 0,
+          tax: 0, // banked at completion from the live cart totals
+          comboName: item.comboName || null,
+          comboSets: item.comboSets || null,
+          productId: item.productId || null,
+        };
+      });
+      const combined = [...parkedLines, ...cartLines];
+      const combinedTotal = combined.reduce((s, l) => s + (Number(l.totalPrice) || 0), 0);
+      await salesService.updateSale(parkedSale.id, {
+        status: 'PARKED',
+        items: combined,
+        totalAmount: combinedTotal,
+      });
+      setCart([]);
+      setSelectedCartItem(null);
+      await loadParkedSales();
+      notify(`Merged into ${parkedSale.saleNumber} — new total $${combinedTotal.toFixed(2)}`);
+    } catch (error) {
+      console.error('Error merging into parked sale:', error);
+      alert('Failed to merge into the parked sale.');
+    }
+  };
+
+  // Remove Parked Sale (reference: confirm, then the held sale is discarded).
+  const removeParkedSale = async (parkedSale) => {
+    const ok = await confirm(
+      `Remove parked sale ${parkedSale.saleNumber} ($${Number(parkedSale.totalAmount || 0).toFixed(2)})?`,
+      { title: 'Remove Parked Sale', confirmText: 'Remove', severity: 'warning' }
+    );
+    if (!ok) return;
+    try {
+      await salesService.updateSale(parkedSale.id, { status: 'CANCELLED' });
+      await loadParkedSales();
+      notify(`Parked sale ${parkedSale.saleNumber} removed`);
+    } catch (error) {
+      console.error('Error removing parked sale:', error);
+      alert('Failed to remove the parked sale.');
+    }
+  };
+
   const resumeParkedSale = async (parkedSale) => {
     const ok = await ensureRegisterControl({ force: true });
     if (!ok) return;
@@ -7053,6 +7125,27 @@ const SaleKeyPage = () => {
                               </Typography>
                             </Box>
                           )}
+                        </Box>
+
+                        {/* Reference row actions: row click = Load; Merge combines the
+                            current cart into this held sale; Remove discards it. */}
+                        <Box sx={{ flexShrink: 0, display: 'flex', gap: 1, mr: 1 }} onClick={(e) => e.stopPropagation()}>
+                          {cart.length > 0 && (
+                            <Box
+                              role="button"
+                              onClick={() => mergeIntoParkedSale(sale)}
+                              sx={{ px: 1.5, py: 0.5, border: '1px solid #0084d1', color: '#0084d1', fontSize: 13, fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
+                            >
+                              Merge Sale
+                            </Box>
+                          )}
+                          <Box
+                            role="button"
+                            onClick={() => removeParkedSale(sale)}
+                            sx={{ px: 1.5, py: 0.5, border: '1px solid #e33430', color: '#e33430', fontSize: 13, fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
+                          >
+                            Remove
+                          </Box>
                         </Box>
 
                         <Box sx={{
