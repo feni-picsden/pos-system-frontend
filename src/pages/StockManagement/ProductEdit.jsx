@@ -93,6 +93,7 @@ import MediaDialog from '../../components/Common/MediaDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import supplierService from '../../services/supplierService';
 import { taxRateService } from '../../services/taxRateService';
+import { additionalFieldService } from '../../services/additionalFieldService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
@@ -527,8 +528,14 @@ const ProductEdit = () => {
     images: [],
     sellOnShopMyLocal: false,
     loyaltyRows: [],
+    // Additional Information values keyed by field safeName; a missing key means
+    // "use the field's default value".
+    additionalInfo: {},
     outletId: null,
   });
+
+  // Settings > Additional Information field definitions
+  const [additionalFields, setAdditionalFields] = useState([]);
 
   // Available options
   const [categories, setCategories] = useState([]);
@@ -592,6 +599,10 @@ const ProductEdit = () => {
     }
     loadOptions();
     loadSuppliers();
+    // Additional Information definitions — rendered on the Additional Info tab.
+    additionalFieldService.getFields()
+      .then(({ fields }) => setAdditionalFields(fields || []))
+      .catch((e) => console.error('Error loading additional fields:', e));
   }, [id, isSuperAdmin, getOutletId]);
 
   // Recost the price rows whenever item cost changes. Must read prev.prices inside the
@@ -674,6 +685,7 @@ const ProductEdit = () => {
         images: response.product.images || [],
         sellOnShopMyLocal: response.product.sellOnShopMyLocal || false,
         loyaltyRows: response.product.loyaltyRows || [],
+        additionalInfo: response.product.additionalInfo || {},
         outletId: response.product.outletId || null,
       });
       setError('');
@@ -865,6 +877,21 @@ const ProductEdit = () => {
       return;
     }
     setCaseQtyInvalid(false);
+
+    // Reference: a Required additional field must hold a value (its own or the
+    // field default) before the product can be saved. Checkboxes always hold a
+    // state, so they never block.
+    const missingRequired = additionalFields.filter((field) => {
+      if (!field.required || field.type === 'checkbox') return false;
+      const value = formData.additionalInfo?.[field.safeName] ?? field.defaultValue;
+      if (Array.isArray(value)) return value.length === 0;
+      return value === null || value === undefined || String(value).trim() === '';
+    });
+    if (missingRequired.length > 0) {
+      setError(`Please fill in the required additional information: ${missingRequired.map((f) => f.name).join(', ')}`);
+      setActiveTab(8);
+      return;
+    }
 
     try {
       setSaving(true);
@@ -2607,7 +2634,82 @@ const ProductEdit = () => {
             <ComputerIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Additional Info</Typography>
           </Box>
-          
+
+          {/* Custom fields from Settings > Additional Information. A product with
+              no explicit value shows the field's default (reference behaviour). */}
+          {additionalFields.map((field) => {
+            const stored = formData.additionalInfo?.[field.safeName];
+            const value = stored !== undefined ? stored : field.defaultValue;
+            const setValue = (next) =>
+              handleInputChange('additionalInfo', { ...(formData.additionalInfo || {}), [field.safeName]: next });
+            const label = field.required ? `${field.name} *` : field.name;
+            const options = Array.isArray(field.options) ? field.options : [];
+            let control;
+            switch (field.type) {
+              case 'checkbox':
+                control = (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <ShopfrontSwitch checked={value === true} onChange={(e) => setValue(e.target.checked)} />
+                    <Typography variant="body2" sx={{ ml: 2, color: '#404040' }}>{value === true ? 'On' : 'Off'}</Typography>
+                  </Box>
+                );
+                break;
+              case 'select':
+                control = (
+                  <TextField select fullWidth size="small" value={options.includes(value) ? value : ''}
+                    onChange={(e) => setValue(e.target.value)}>
+                    <MenuItem value="">None</MenuItem>
+                    {options.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                  </TextField>
+                );
+                break;
+              case 'multi_select': {
+                const selected = Array.isArray(value) ? value.filter((v) => options.includes(v)) : [];
+                control = (
+                  <TextField select fullWidth size="small" value={selected}
+                    SelectProps={{ multiple: true, renderValue: (sel) => (sel || []).join(', ') }}
+                    onChange={(e) => setValue(e.target.value)}>
+                    {options.map((o) => (
+                      <MenuItem key={o} value={o}>
+                        <Checkbox checked={selected.includes(o)} size="small" />{o}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                );
+                break;
+              }
+              case 'multi_line':
+                control = (
+                  <TextField fullWidth size="small" multiline minRows={3} value={value ?? ''}
+                    onChange={(e) => setValue(e.target.value)} />
+                );
+                break;
+              case 'number':
+                control = (
+                  <TextField fullWidth size="small" type="number" value={value ?? ''}
+                    onChange={(e) => setValue(e.target.value === '' ? null : Number(e.target.value))} />
+                );
+                break;
+              case 'date':
+                control = (
+                  <TextField fullWidth size="small" type="date" InputLabelProps={{ shrink: true }} value={value ?? ''}
+                    onChange={(e) => setValue(e.target.value)} />
+                );
+                break;
+              default:
+                control = (
+                  <TextField fullWidth size="small" value={value ?? ''}
+                    onChange={(e) => setValue(e.target.value)} />
+                );
+            }
+            return (
+              <Box key={field.safeName} sx={{ mb: 3, maxWidth: 480 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>{label}</Typography>
+                {control}
+              </Box>
+            );
+          })}
+
           <Typography variant="subtitle1" sx={{ mb: 2 }}>
             Sell on Shop MyLocal <FavoriteStar field="Sell on Shop MyLocal" />
           </Typography>

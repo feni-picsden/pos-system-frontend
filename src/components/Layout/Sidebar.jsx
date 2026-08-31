@@ -329,9 +329,9 @@ const menuItems = [
     path: "/settings",
     badge: null,
     permissions: [],
-    // Ordered to match the reference Settings menu. Four reference-only pages
-    // (Additional Information, Page Rules, Price Sets, Enterprise Policies) are
-    // intentionally deferred until we capture their specs. Local-only extras
+    // Ordered to match the reference Settings menu. Three reference-only pages
+    // (Page Rules, Price Sets, Enterprise Policies) are still deferred until we
+    // capture their specs (Additional Information shipped 2026-08-31). Local-only extras
     // (Shelf Ticket Templates, Linkly EFTPOS, Master Database Products) are kept
     // and slotted next to related items.
     children: [
@@ -439,6 +439,13 @@ const menuItems = [
         icon: <ReceiptIcon />,
         path: "/settings/hardware",
         permissions: ["modify_hardware"],
+      },
+      {
+        id: "additional-information",
+        title: "Additional Information",
+        icon: <SettingsIcon />,
+        path: "/settings/additional-information",
+        permissions: ["settings.view"],
       },
       {
         id: "linkly",

@@ -98,6 +98,7 @@ import ShelfTicketTemplates from './pages/Setup/ShelfTicketTemplates';
 import ShelfTicketEditor from './pages/Setup/ShelfTicketEditor';
 import AccountBilling from './pages/Setup/AccountBilling';
 import GeneralSettings from './pages/Setup/GeneralSettings';
+import AdditionalInformation from './pages/Setup/AdditionalInformation';
 import Integrations from './pages/Setup/Integrations';
 import HardwareSettings from './pages/Setup/HardwareSettings';
 import LinklySettings from './pages/Setup/LinklySettings';
@@ -1325,6 +1326,16 @@ function App() {
                               requiredPermissions={["modify_integrations"]}
                             >
                               <Integrations />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/settings/additional-information"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["settings.view"]}
+                            >
+                              <AdditionalInformation />
                             </PermissionProtectedRoute>
                           }
                         />
