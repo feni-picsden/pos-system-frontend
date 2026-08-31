@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeModeProvider } from "./contexts/ThemeModeContext";
 import { AppDialogProvider } from "./components/Common/AppDialogProvider";
 import GlobalLoader from './components/Common/GlobalLoader';
@@ -159,6 +159,15 @@ const ProductsPage = () => (
 );
 
 const SettingsPage = () => <GeneralSettings />;
+
+// The whole Setup section moved to /settings/* for reference parity. Canonical
+// routes live under /settings; this maps any lingering /setup/* deep link
+// (bookmarks, old in-app links) to its /settings/* equivalent so nothing 404s.
+const SetupToSettingsRedirect = () => {
+  const location = useLocation();
+  const target = location.pathname.replace(/^\/setup(?=\/|$)/, "/settings");
+  return <Navigate to={`${target}${location.search}${location.hash}`} replace />;
+};
 
 const AuthBridge = ({ children }) => {
   const { user, switchOutlet } = useAuth();
@@ -1056,7 +1065,7 @@ function App() {
                         />
 
                         <Route
-                          path="/setup/users"
+                          path="/settings/users"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["users.view"]}
@@ -1066,7 +1075,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/roles"
+                          path="/settings/roles"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["roles.view"]}
@@ -1076,7 +1085,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/roles/new"
+                          path="/settings/roles/new"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["roles.add"]}
@@ -1086,7 +1095,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/roles/:roleId/permissions"
+                          path="/settings/roles/:roleId/permissions"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["roles.edit"]}
@@ -1096,7 +1105,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/roles/:roleId/revisions"
+                          path="/settings/roles/:roleId/revisions"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["roles.view"]}
@@ -1106,17 +1115,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/general"
-                          element={
-                            <PermissionProtectedRoute
-                              requiredPermissions={["settings.view"]}
-                            >
-                              <SettingsPage />
-                            </PermissionProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="/setup/account-billing"
+                          path="/settings/account-billing"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["manage_billing"]}
@@ -1126,7 +1125,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/sale-key"
+                          path="/settings/sale-key"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["sale_keys.view"]}
@@ -1136,7 +1135,7 @@ function App() {
                           }
                         />
                                     <Route
-              path="/setup/taxes"
+              path="/settings/taxes"
               element={
                 <PermissionProtectedRoute
                   requiredPermissions={["taxes.view"]}
@@ -1146,7 +1145,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/payment-methods"
+              path="/settings/payment-methods"
               element={
                 <PermissionProtectedRoute
                   requiredPermissions={["payment_methods.view"]}
@@ -1156,7 +1155,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/promotion-categories"
+              path="/settings/promotion-categories"
               element={
                 <PermissionProtectedRoute
                   requiredPermissions={["promotion_categories.view"]}
@@ -1166,7 +1165,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/surcharging"
+              path="/settings/surcharging"
               element={
                 <PermissionProtectedRoute
                   requiredPermissions={["surcharges.view"]}
@@ -1176,7 +1175,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/receipts"
+              path="/settings/receipts"
               element={
                 <PermissionProtectedRoute requiredPermissions={["modify_receipts"]}>
                   <ReceiptTemplates />
@@ -1184,7 +1183,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/receipts/:templateId/edit"
+              path="/settings/receipts/:templateId/edit"
               element={
                 <PermissionProtectedRoute requiredPermissions={["modify_receipts"]}>
                   <ReceiptEditor />
@@ -1192,7 +1191,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/statements"
+              path="/settings/statements"
               element={
                 <PermissionProtectedRoute requiredPermissions={["modify_statements"]}>
                   <StatementTemplates />
@@ -1200,7 +1199,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/statements/:templateId/edit"
+              path="/settings/statements/:templateId/edit"
               element={
                 <PermissionProtectedRoute requiredPermissions={["modify_statements"]}>
                   <StatementEditor />
@@ -1208,7 +1207,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/shelf-tickets"
+              path="/settings/shelf-tickets"
               element={
                 <PermissionProtectedRoute requiredPermissions={["modify_ticket_templates"]}>
                   <ShelfTicketTemplates />
@@ -1216,7 +1215,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/shelf-tickets/:templateId/edit"
+              path="/settings/shelf-tickets/:templateId/edit"
               element={
                 <PermissionProtectedRoute requiredPermissions={["modify_ticket_templates"]}>
                   <ShelfTicketEditor />
@@ -1224,7 +1223,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/customer-display"
+              path="/settings/customer-display"
               element={
                 <PermissionProtectedRoute requiredPermissions={["modify_customer_displays"]}>
                   <CustomerDisplays />
@@ -1232,7 +1231,7 @@ function App() {
               }
             />
             <Route
-              path="/setup/customer-display/:templateId/edit"
+              path="/settings/customer-display/:templateId/edit"
               element={
                 <PermissionProtectedRoute requiredPermissions={["modify_customer_displays"]}>
                   <CustomerDisplayEditor />
@@ -1240,7 +1239,7 @@ function App() {
               }
             />
                         <Route
-                          path="/setup/transfer-list"
+                          path="/settings/transfer-list"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["orders-invoices.view"]}
@@ -1250,7 +1249,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/transfer-list/new"
+                          path="/settings/transfer-list/new"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["orders-invoices.add"]}
@@ -1260,7 +1259,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/transfer-list/:id/edit"
+                          path="/settings/transfer-list/:id/edit"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["orders-invoices.edit"]}
@@ -1270,7 +1269,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/transfer-list/:id/view"
+                          path="/settings/transfer-list/:id/view"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["orders-invoices.view"]}
@@ -1280,7 +1279,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/sale-key-sets"
+                          path="/settings/sale-key-sets"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["sale_keys.view"]}
@@ -1290,7 +1289,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/sale-key/:setId"
+                          path="/settings/sale-key/:setId"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["sale_keys.edit"]}
@@ -1300,7 +1299,7 @@ function App() {
                           }
                         />
                         <Route 
-                          path="/setup/loyalty" 
+                          path="/settings/loyalty" 
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["settings.view"]}
@@ -1310,7 +1309,7 @@ function App() {
                           }
                         />
                         <Route 
-                          path="/setup/loyalty/:id/assign" 
+                          path="/settings/loyalty/:id/assign" 
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["settings.edit"]}
@@ -1320,7 +1319,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/integrations"
+                          path="/settings/integrations"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["modify_integrations"]}
@@ -1330,7 +1329,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/master-database-products"
+                          path="/settings/master-database-products"
                           element={
                             <ProtectedRoute requireSuperAdmin>
                               <ImportSupplierProducts />
@@ -1338,7 +1337,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/admin/push-notifications"
+                          path="/settings/push"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["manage_push_devices"]}
@@ -1346,6 +1345,11 @@ function App() {
                               <PushNotifications />
                             </PermissionProtectedRoute>
                           }
+                        />
+                        {/* Legacy path kept for existing links */}
+                        <Route
+                          path="/admin/push-notifications"
+                          element={<Navigate to="/settings/push" replace />}
                         />
                         
                         {/* Sales History Route */}
@@ -1360,14 +1364,19 @@ function App() {
                           }
                         />
                         
-                        {/* Outlet Routes */}
+                        {/* Registers & Outlets — merged Settings page (reference parity) */}
                         <Route
-                          path="/outlets"
+                          path="/settings/registers-outlets"
                           element={
                             <ProtectedRoute requireSuperAdmin>
                               <Outlets />
                             </ProtectedRoute>
                           }
+                        />
+                        {/* Legacy list path → merged page */}
+                        <Route
+                          path="/outlets"
+                          element={<Navigate to="/settings/registers-outlets" replace />}
                         />
                         <Route
                           path="/outlets/:id"
@@ -1388,7 +1397,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/hardware"
+                          path="/settings/hardware"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["modify_hardware"]}
@@ -1398,7 +1407,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/setup/linkly"
+                          path="/settings/linkly"
                           element={
                             <PermissionProtectedRoute requiredPermissions={['register.manage']}>
                               <LinklySettings />
@@ -1567,8 +1576,9 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
+                        {/* Barcode Templates — now under Settings (reference parity); Utilities path kept */}
                         <Route
-                          path="/utilities/barcodes"
+                          path="/settings/barcodes"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["modify_barcode_templates"]}
@@ -1577,6 +1587,13 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
+                        <Route
+                          path="/utilities/barcodes"
+                          element={<Navigate to="/settings/barcodes" replace />}
+                        />
+
+                        {/* Any remaining old /setup/* deep link → /settings/* equivalent */}
+                        <Route path="/setup/*" element={<SetupToSettingsRedirect />} />
 
                         <Route path="*" element={<NotFound />} />
                       </Routes>

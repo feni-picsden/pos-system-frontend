@@ -790,20 +790,12 @@ const Outlets = () => {
 
   return (
     <Box sx={{ p: 3 }}>
+      {/* Reference parity: the merged Registers & Outlets page has NO create
+          control. The Add-outlet dialog below is retained but unreachable. */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: "#000" }}>
           Registers &amp; Outlets
         </Typography>
-        <Button
-          variant="contained"
-          disableRipple
-          disableElevation
-          startIcon={<AddIcon />}
-          onClick={handleOpenDialog}
-          sx={PRIMARY_BUTTON_SX}
-        >
-          Add Outlet
-        </Button>
       </Box>
 
       {error && (
