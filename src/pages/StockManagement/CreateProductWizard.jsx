@@ -22,6 +22,11 @@ import {
 import { Add as AddIcon, DeleteOutline } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/productService';
+import settingsService from '../../services/settingsService';
+import { createPageRuleSession } from '../../utils/pageRuleSandbox';
+import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
+import PageRuleWizard from '../../components/Common/PageRuleWizard';
+import { useAuth } from '../../contexts/AuthContext';
 
 const steps = [
   { label: 'Barcode' },
@@ -156,9 +161,32 @@ const CreateProductWizard = () => {
   const [categories, setCategories] = useState([]);
   const [tags, setTags] = useState([]);
 
+  // Custom Page Rule (Settings > Page Rules > Products). When a valid rule is
+  // stored it replaces this built-in wizard; a broken rule falls back here.
+  const { user } = useAuth();
+  const [ruleSession, setRuleSession] = useState(null);
+  const ruleSessionRef = useRef(null);
+
   useEffect(() => {
     loadOptions();
-    return () => clearTimeout(transitionTimerRef.current);
+    (async () => {
+      try {
+        const res = await settingsService.getSetting('page_rule_products');
+        const value = res?.setting?.value;
+        if (value?.code && value?.valid !== false) {
+          const session = await createPageRuleSession(value.code, {});
+          ruleSessionRef.current = session;
+          setRuleSession(session);
+        }
+      } catch {
+        /* no custom rule, or it failed to boot — the built-in wizard runs */
+      }
+    })();
+    return () => {
+      clearTimeout(transitionTimerRef.current);
+      ruleSessionRef.current?.destroy();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadOptions = async () => {
@@ -571,6 +599,43 @@ const CreateProductWizard = () => {
 
   if (loading) {
     return <PageLoader />;
+  }
+
+  // A valid custom Page Rule replaces the built-in wizard entirely. Its fields
+  // land in the same localStorage handoff the built-in Save uses, so the full
+  // product form hydrates identically; unknown custom fields ride along and are
+  // ignored by the editor.
+  if (ruleSession) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <PageRuleWizard
+          session={ruleSession}
+          user={{
+            name: user?.name || '',
+            username: user?.name || '',
+            role: user?.roleId != null ? { id: String(user.roleId) } : null,
+            permissions: [],
+          }}
+          location={{ outlet: null, register: null }}
+          dbFetch={fetchPageRuleDatabase}
+          onCancel={() => navigate('/products')}
+          onFinish={(fields) => {
+            const wizardData = {
+              type: 'Normal Product',
+              status: 'Active',
+              retailTaxRate: 'GST',
+              purchaseTaxRate: 'Inherit',
+              trackInventory: true,
+              ...fields,
+              barcodes: fields.barcode ? [fields.barcode] : [],
+              tagIds: Array.isArray(fields.tags) ? fields.tags : [],
+            };
+            localStorage.setItem('productWizardData', JSON.stringify(wizardData));
+            navigate('/products/new');
+          }}
+        />
+      </Box>
+    );
   }
 
   const stepValid = isStepValid();

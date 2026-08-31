@@ -12,6 +12,8 @@ import { Add as AddIcon, BackspaceOutlined, DeleteOutline } from '@mui/icons-mat
 import LoyaltyPaymentDialog from '../Loyalty/LoyaltyPaymentDialog';
 import PayByCardDialog from '../Payment/PayByCardDialog';
 import CashOutDialog from '../Payment/CashOutDialog';
+import TyroPairingDialog from '../Payment/TyroPairingDialog';
+import tyroService from '../../services/tyroService';
 import { isEftposMethod } from '../../services/linklyService';
 import { allowsCashOut, getPaymentMethodSettings } from '../../services/paymentMethodService';
 import settingsService from '../../services/settingsService';
@@ -118,6 +120,8 @@ const FinalizeSaleDialog = ({
   const [showLoyaltyDialog, setShowLoyaltyDialog] = useState(false);
   const [cardCharge, setCardCharge] = useState(null); // { amountCents, cashOutCents, methodName }
   const [cashOutPrompt, setCashOutPrompt] = useState(null); // { goodsCents, methodName }
+  // Tyro method awaiting a device pairing (reference art. 360020096032)
+  const [tyroPairingMethod, setTyroPairingMethod] = useState(null);
   const [orderReference, setOrderReference] = useState('');
   const autoCompleteAttemptedRef = useRef(false);
   const amountInputRef = useRef(null);
@@ -203,6 +207,14 @@ const FinalizeSaleDialog = ({
     }
     setSelectedPaymentMethod(method);
     const amount = parseFloat(paymentAmount) || 0;
+
+    // Tyro-typed method with no terminal paired on this device: the reference
+    // shows the pairing screen the first time Tyro is used (pairing is stored
+    // per browser device). Once paired, the tender records as usual.
+    if ((method.type || '') === 'Tyro' && !tyroService.getPairing()) {
+      setTyroPairingMethod(method);
+      return;
+    }
 
     // Handle card / EFTPOS: process through the Linkly PIN pad instead of just
     // recording a payment. The payment is only added once the card is approved.
@@ -985,6 +997,18 @@ const FinalizeSaleDialog = ({
             setShowLoyaltyDialog(false);
         }}
       />
+
+        {/* Tyro pairing screen — shown on the first Tyro payment on this device,
+            per the reference; once paired the tender records immediately. */}
+        <TyroPairingDialog
+          open={Boolean(tyroPairingMethod)}
+          onClose={() => setTyroPairingMethod(null)}
+          onPaired={() => {
+            const method = tyroPairingMethod;
+            setTyroPairingMethod(null);
+            if (method) handlePaymentMethodClick(method);
+          }}
+        />
 
         {/* Ask for the cash-out amount, then charge goods + cash out */}
         <CashOutDialog

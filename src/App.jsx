@@ -100,6 +100,7 @@ import AccountBilling from './pages/Setup/AccountBilling';
 import GeneralSettings from './pages/Setup/GeneralSettings';
 import AdditionalInformation from './pages/Setup/AdditionalInformation';
 import PriceSets from './pages/Setup/PriceSets';
+import PageRules from './pages/Setup/PageRules';
 import Integrations from './pages/Setup/Integrations';
 import HardwareSettings from './pages/Setup/HardwareSettings';
 import LinklySettings from './pages/Setup/LinklySettings';
@@ -1347,6 +1348,16 @@ function App() {
                               requiredPermissions={["settings.view"]}
                             >
                               <PriceSets />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/settings/rules"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["settings.view"]}
+                            >
+                              <PageRules />
                             </PermissionProtectedRoute>
                           }
                         />

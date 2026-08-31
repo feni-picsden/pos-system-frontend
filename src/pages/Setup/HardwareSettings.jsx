@@ -13,15 +13,19 @@ import {
   CircularProgress,
   Tooltip,
 } from '@mui/material';
-import { Save as SaveIcon, PointOfSale as DrawerIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { Save as SaveIcon, PointOfSale as DrawerIcon, Refresh as RefreshIcon, CreditCard as CardIcon } from '@mui/icons-material';
 import drawerService from '../../services/drawerService';
+import tyroService from '../../services/tyroService';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 
 const BRANDS = ['Epson', 'Star', 'Generic ESC/POS'];
 
 const HardwareSettings = () => {
+  const { confirm } = useAppDialogs();
   const [printer, setPrinter] = useState(drawerService.getDrawerPrinter());
   const [brand, setBrand] = useState(drawerService.getPrinterBrand());
   const [kickCode, setKickCode] = useState(drawerService.getKickCode());
+  const [tyroPairing, setTyroPairing] = useState(tyroService.getPairing());
 
   const [printers, setPrinters] = useState([]);
   const [qzAvailable, setQzAvailable] = useState(null); // null = checking
@@ -176,6 +180,53 @@ const HardwareSettings = () => {
             />
           </Grid>
         </Grid>
+      </Paper>
+
+      {/* Tyro terminal pairing — stored per browser device (reference model:
+          the pairing lives in the browser). Replacement terminal = clear here,
+          then pair the new terminal from the sell screen's Tyro payment. */}
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <CardIcon color="primary" />
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>Tyro EFTPOS</Typography>
+        </Box>
+        {tyroPairing ? (
+          <>
+            <Typography variant="body2" sx={{ mb: 0.5 }}>
+              Terminal paired on this device — Merchant ID <b>{tyroPairing.merchantId}</b>,
+              Terminal ID <b>{tyroPairing.terminalId}</b>
+              {tyroPairing.pairedAt ? ` (since ${new Date(tyroPairing.pairedAt).toLocaleDateString()})` : ''}.
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Replacing the terminal? Clear the pairing on the old terminal's menu first
+              (contact Tyro for the exact steps), then clear it here and pair the new
+              terminal from the sell screen.
+            </Typography>
+            <Button
+              variant="outlined"
+              color="error"
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+              onClick={async () => {
+                const ok = await confirm(
+                  'Clear the Tyro terminal pairing on this device? The next Tyro payment will show the pairing screen again.',
+                  { title: 'Clear Tyro pairing', confirmText: 'Clear pairing', severity: 'warning' }
+                );
+                if (!ok) return;
+                tyroService.clearPairing();
+                setTyroPairing(null);
+                showSuccess('Tyro pairing cleared on this device');
+              }}
+            >
+              Clear pairing on this device
+            </Button>
+          </>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            No Tyro terminal is paired on this device. Pairing happens from the sell
+            screen: take a payment with a Tyro payment method and the pairing screen
+            will appear.
+          </Typography>
+        )}
       </Paper>
 
       <Snackbar

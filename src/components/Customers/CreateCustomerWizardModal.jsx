@@ -26,6 +26,10 @@ import customerService from '../../services/customerService';
 import customerGroupService from '../../services/customerGroupService';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import settingsService from '../../services/settingsService';
+import { createPageRuleSession } from '../../utils/pageRuleSandbox';
+import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
+import PageRuleWizard from '../Common/PageRuleWizard';
 
 const steps = [
   { label: 'Name', icon: <PersonIcon /> },
@@ -39,8 +43,28 @@ const steps = [
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
 const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDetailsModal }) => {
-  const { isSuperAdmin, getOutletId } = useAuth();
+  const { isSuperAdmin, getOutletId, user } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
+  // Custom Page Rule (Settings > Page Rules > Customers). When a valid rule is
+  // stored it replaces this built-in wizard; a broken rule falls back here.
+  const [ruleSession, setRuleSession] = useState(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    let session = null;
+    (async () => {
+      try {
+        const res = await settingsService.getSetting('page_rule_customers');
+        const value = res?.setting?.value;
+        if (value?.code && value?.valid !== false) {
+          session = await createPageRuleSession(value.code, {});
+          setRuleSession(session);
+        }
+      } catch {
+        /* no custom rule, or it failed to boot — the built-in wizard runs */
+      }
+    })();
+    return () => { session?.destroy(); setRuleSession(null); };
+  }, [open]);
   const [customerGroups, setCustomerGroups] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [error, setError] = useState('');
@@ -355,6 +379,33 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
         return null;
     }
   };
+
+  // A valid custom Page Rule replaces the built-in wizard; its fields overlay
+  // the default customer shape and hand off to the details modal as usual.
+  if (ruleSession) {
+    return (
+      <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+        <Box sx={{ p: 4 }}>
+          <PageRuleWizard
+            session={ruleSession}
+            user={{
+              name: user?.name || '',
+              username: user?.name || '',
+              role: user?.roleId != null ? { id: String(user.roleId) } : null,
+              permissions: [],
+            }}
+            location={{ outlet: null, register: null }}
+            dbFetch={fetchPageRuleDatabase}
+            onCancel={handleCancel}
+            onFinish={(fields) => {
+              onClose();
+              onOpenDetailsModal?.({ ...formData, ...fields });
+            }}
+          />
+        </Box>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog
