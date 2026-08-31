@@ -1329,7 +1329,26 @@ const ProductEdit = () => {
               <FormControl fullWidth>
                 <Select
                   value={formData.type}
-                  onChange={(e) => handleInputChange('type', e.target.value)}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    if (nextType === 'EFTPOS Refund Item') {
+                      // Reference config for banner-group EFTPOS gift cards
+                      // (art. 360021214372): No Tax, cost = 100% of the sell
+                      // price, Request Price, inventory not tracked. Pre-applied
+                      // here; every field stays editable.
+                      setFormData((prev) => ({
+                        ...prev,
+                        type: nextType,
+                        retailTaxRate: 'No Tax',
+                        costPercentage: true,
+                        itemCost: 100, // with costPercentage on, itemCost holds the %
+                        requestPrice: true,
+                        trackInventory: false,
+                      }));
+                      return;
+                    }
+                    handleInputChange('type', nextType);
+                  }}
                   disabled={!isNewProduct}
                   sx={{
                     '&.Mui-disabled': { backgroundColor: '#dedede', cursor: 'not-allowed' },
@@ -1339,6 +1358,7 @@ const ProductEdit = () => {
                   <MenuItem value="Normal Product">Normal Product</MenuItem>
                   <MenuItem value="Composite Product">Composite Product</MenuItem>
                   <MenuItem value="Service">Service</MenuItem>
+                  <MenuItem value="EFTPOS Refund Item">EFTPOS Refund Item</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

@@ -319,6 +319,10 @@ const SaleKeyPage = () => {
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
   // Pending Linkly PIN pad charge triggered by a card/EFTPOS sale key: { amountCents, methodName, description }
   const [saleKeyCardCharge, setSaleKeyCardCharge] = useState(null);
+  // EFTPOS Refund Item loads owed after a completed sale (banner-group gift
+  // cards, ref art. 360021214372): the card's value is loaded by running a
+  // REFUND on the EFTPOS terminal. { name, amountCents, queue: [...rest] }
+  const [eftposLoadCharge, setEftposLoadCharge] = useState(null);
   const [saleKeyCashOutPrompt, setSaleKeyCashOutPrompt] = useState(null); // { goodsCents, methodName, description }
   // Component picker opened by display-components-add/remove keys: { mode: 'add' | 'remove' }
   const [componentPicker, setComponentPicker] = useState(null);
@@ -3588,6 +3592,63 @@ const SaleKeyPage = () => {
       : totalPaid >= cartTotal - PAYMENT_TOLERANCE;
   };
 
+  // ── EFTPOS Refund Item (banner-group EFTPOS gift cards) ────────────────────
+  // Reference art. 360021214372: the card's value is loaded by running a REFUND
+  // on the EFTPOS terminal after the sale is paid. Integrated = a Linkly refund
+  // straight to the pinpad (operator follows the pad: swipe card, Savings,
+  // PIN 0000). Non-integrated = run it on the standalone terminal and confirm.
+  const startEftposGiftCardLoads = (cartSnapshot) => {
+    const lines = (cartSnapshot || [])
+      .filter((item) => {
+        if (!item.productId || item.isCombo || item.giftCardId) return false;
+        const product = resolveProductLocal(item.productId, item.name);
+        return product?.type === 'EFTPOS Refund Item' && (parseFloat(item.price) || 0) > 0;
+      })
+      .map((item) => ({
+        name: item.name,
+        amountCents: Math.round((parseFloat(item.price) || 0) * 100),
+      }));
+    if (lines.length > 0) processEftposGiftCardLoad(lines);
+  };
+
+  const processEftposGiftCardLoad = async (queue) => {
+    const [line, ...rest] = queue || [];
+    if (!line) return;
+    const dollars = (line.amountCents / 100).toFixed(2);
+    const usePinpad = await confirm(
+      `Load $${dollars} onto the customer's EFTPOS gift card ("${line.name}") now?\n\n` +
+        'The value is loaded by a REFUND on the EFTPOS terminal.',
+      {
+        title: 'EFTPOS gift card',
+        confirmText: 'Send refund to pinpad',
+        cancelText: 'Manual terminal',
+        severity: 'question',
+      }
+    );
+    if (usePinpad) {
+      setEftposLoadCharge({ ...line, queue: rest });
+      return; // continues from the refund dialog's onApproved/onClose
+    }
+    const loaded = await confirm(
+      `Run a refund of $${dollars} on the standalone EFTPOS terminal now ` +
+        '(swipe the gift card, select Savings, PIN 0000).\n\n' +
+        'Check that the card has loaded successfully.',
+      {
+        title: 'EFTPOS gift card',
+        confirmText: 'Card loaded',
+        cancelText: 'Not loaded',
+        severity: 'question',
+      }
+    );
+    if (!loaded) {
+      alert(
+        `"${line.name}" was NOT confirmed as loaded — run the $${dollars} refund on the terminal before the customer leaves.`,
+        'warning'
+      );
+    }
+    processEftposGiftCardLoad(rest);
+  };
+
   const completeTransaction = async (finalPayments, cartTotal) => {
     // Idempotency guard: duplicate scheduled completions (state updaters run more
     // than once) land here with a stale isTransactionComplete — bail on the ref.
@@ -3671,6 +3732,9 @@ const SaleKeyPage = () => {
           resumed?.sale?.invoiceNumber || null,
         );
 
+        // EFTPOS Refund Item lines: load the gift card(s) via a terminal refund.
+        startEftposGiftCardLoads(cart);
+
         // Decrement any gift cards tendered on this (resumed) sale — exactly once.
         await redeemPendingGiftCards(currentParkedSaleId);
 
@@ -3698,6 +3762,9 @@ const SaleKeyPage = () => {
     const { change } = normalizeCashForChange(finalPayments, cartTotal);
     const invoiceNumber = takeInvoiceNumber();
     generateReceipt(newTransactionId, finalPayments, cartTotal, change, invoiceNumber);
+
+    // EFTPOS Refund Item lines: load the gift card(s) via a terminal refund.
+    startEftposGiftCardLoads(cart);
 
     const hasOnAccountPayment = finalPayments.some(p =>
       (p.method || '').toLowerCase().includes('account')
@@ -8473,6 +8540,35 @@ const SaleKeyPage = () => {
         }}
         onDeclined={() => {
           /* leave the dialog open showing the decline; operator can retry */
+        }}
+      />
+
+      {/* EFTPOS Refund Item: after the sale, load the gift card by sending a
+          REFUND to the Linkly pinpad (operator follows the pad: swipe card,
+          Savings, PIN 0000). Closing without approval falls back to the manual
+          confirm so the load is never silently skipped. */}
+      <PayByCardDialog
+        open={Boolean(eftposLoadCharge)}
+        amountCents={eftposLoadCharge?.amountCents}
+        txnType="refund"
+        registerId={undefined}
+        onClose={() => {
+          const pending = eftposLoadCharge;
+          setEftposLoadCharge(null);
+          if (!pending) return;
+          // Not approved on the pinpad — rejoin the manual-confirm path for this
+          // line, then continue with any remaining lines.
+          processEftposGiftCardLoad([{ name: pending.name, amountCents: pending.amountCents }, ...(pending.queue || [])]);
+        }}
+        onApproved={() => {
+          const pending = eftposLoadCharge;
+          setEftposLoadCharge(null);
+          if (!pending) return;
+          notify(`Gift card loaded — $${(pending.amountCents / 100).toFixed(2)} refunded to the card`);
+          if ((pending.queue || []).length) processEftposGiftCardLoad(pending.queue);
+        }}
+        onDeclined={() => {
+          /* dialog shows the decline; operator can retry or close for manual */
         }}
       />
     </Box>
