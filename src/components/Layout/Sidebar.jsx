@@ -287,6 +287,13 @@ const menuItems = [
         permissions: ["reports.view"],
       },
       {
+        id: "actions-reports",
+        title: "Actions Reports",
+        icon: <Assessment />,
+        path: "/reports/actions",
+        permissions: ["run_actions_reports"],
+      },
+      {
         title: "Purchase Report",
         icon: <Assessment />,
         path: "/reports/purchases",
