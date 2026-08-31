@@ -56,10 +56,35 @@ import EmailReceiptModal from "../../components/SalesHistory/EmailReceiptModal";
 import { saleBasePrice, saleLineTotal } from "../../utils/saleTotals";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { formatCurrency } from "../../utils/currency";
+import { useAppDialogs } from "../../components/Common/AppDialogProvider";
 
 const CustomerView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { alert: appAlert, confirm: appConfirm, notify } = useAppDialogs();
+
+  // Reference (Using Account Customers): Cancel voids a payment; Refund keeps
+  // it visible and posts an opposing entry. Both re-open the owing balance.
+  const reversePayment = async (payment, kind) => {
+    const dollars = formatCurrency(payment.amount || 0);
+    const ok = await appConfirm(
+      kind === 'cancel'
+        ? `Cancel this ${dollars} payment? It is removed from reports and statements, and the balance re-opens.`
+        : `Refund this ${dollars} payment? The original stays visible and an opposing entry is posted; the balance re-opens.`,
+      { title: kind === 'cancel' ? 'Cancel payment' : 'Refund payment', confirmText: kind === 'cancel' ? 'Cancel payment' : 'Refund payment', severity: 'warning' }
+    );
+    if (!ok) return;
+    try {
+      if (kind === 'cancel') await paymentService.cancelPayment(payment.id);
+      else await paymentService.refundPayment(payment.id);
+      notify(kind === 'cancel' ? 'Payment cancelled' : 'Payment refunded');
+      await loadCustomerData();
+      loadOutstandingSales();
+      loadPayments();
+    } catch (err) {
+      appAlert(err?.response?.data?.error || `Failed to ${kind} the payment`, 'error');
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState(null);
@@ -654,7 +679,7 @@ const CustomerView = () => {
                   <Table>
                     <TableHead>
                       <TableRow sx={{ bgcolor: "#5ebbeb" }}>
-                        {["Timestamp", "Invoice Number", "User", "Method", "Amount"].map((h) => (
+                        {["Timestamp", "Invoice Number", "User", "Method", "Amount", "Actions"].map((h) => (
                           <TableCell key={h} sx={{ color: "white", fontWeight: 600 }}>
                             {h}
                           </TableCell>
@@ -669,6 +694,24 @@ const CustomerView = () => {
                           <TableCell>{payment.sale?.user?.name || "-"}</TableCell>
                           <TableCell>{payment.paymentMethod || "-"}</TableCell>
                           <TableCell>{formatCurrency(payment.amount || 0)}</TableCell>
+                          <TableCell>
+                            {/* Reversal only makes sense on positive rows —
+                                negative rows ARE reversals. */}
+                            {Number(payment.amount) > 0 ? (
+                              <Box sx={{ display: "flex", gap: 1 }}>
+                                <Button size="small" disableRipple onClick={() => reversePayment(payment, 'cancel')}
+                                  sx={{ color: "#e33430", textTransform: "none", fontWeight: 600, minWidth: 0 }}>
+                                  Cancel
+                                </Button>
+                                <Button size="small" disableRipple onClick={() => reversePayment(payment, 'refund')}
+                                  sx={{ color: "#0084d1", textTransform: "none", fontWeight: 600, minWidth: 0 }}>
+                                  Refund
+                                </Button>
+                              </Box>
+                            ) : (
+                              <Typography component="span" sx={{ fontSize: 13, color: "#676b72" }}>Reversal</Typography>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

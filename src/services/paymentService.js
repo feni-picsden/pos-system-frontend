@@ -35,6 +35,25 @@ const paymentService = {
       throw error;
     }
   },
+
+  // Payment reversal (reference: Using Account Customers) — Cancel voids the
+  // row (gone from reports/statements); Refund keeps it and posts an opposing
+  // entry. Both re-open the sale balance and the customer's owing.
+  cancelPayment: async (salePaymentId) => {
+    const response = await apiClient.post(`/payments/${salePaymentId}/cancel`);
+    apiClient.bustCache('/customers');
+    apiClient.bustCache('/sales');
+    await posLocalDb.invalidateStore('customers').catch(() => {});
+    return response.data;
+  },
+
+  refundPayment: async (salePaymentId) => {
+    const response = await apiClient.post(`/payments/${salePaymentId}/refund`);
+    apiClient.bustCache('/customers');
+    apiClient.bustCache('/sales');
+    await posLocalDb.invalidateStore('customers').catch(() => {});
+    return response.data;
+  },
 };
 
 export default paymentService;
