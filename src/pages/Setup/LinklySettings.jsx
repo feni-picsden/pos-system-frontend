@@ -18,11 +18,13 @@ import {
   CreditCard as CardIcon,
 } from '@mui/icons-material';
 import linklyService from '../../services/linklyService';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 
 // Admin screen to pair a Linkly PIN pad and run a Logon test.
 // Pairing is one-time per PIN pad; the secret is stored encrypted server-side.
 
 const LinklySettings = () => {
+  const { confirm } = useAppDialogs();
   const [terminalKey, setTerminalKey] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -126,9 +128,10 @@ const LinklySettings = () => {
   };
 
   const handleUnpair = async () => {
-    const confirmed = window.confirm(
+    const confirmed = await confirm(
       "Forget this PIN pad's stored pairing secret?\n\n" +
-        'The pad cannot take payments until it is paired again with a fresh pair code (FUNC 8880 on the pad, valid 180 seconds).'
+        'The pad cannot take payments until it is paired again with a fresh pair code (FUNC 8880 on the pad, valid 180 seconds).',
+      { title: 'Unpair PIN pad', confirmText: 'Unpair', severity: 'warning' }
     );
     if (!confirmed) return;
     setUnpairing(true);
