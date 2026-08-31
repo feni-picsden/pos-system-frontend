@@ -329,9 +329,9 @@ const menuItems = [
     path: "/settings",
     badge: null,
     permissions: [],
-    // Ordered to match the reference Settings menu. Three reference-only pages
-    // (Page Rules, Price Sets, Enterprise Policies) are still deferred until we
-    // capture their specs (Additional Information shipped 2026-08-31). Local-only extras
+    // Ordered to match the reference Settings menu. Two reference-only pages
+    // (Page Rules, Enterprise Policies) are still deferred until we capture their
+    // specs (Additional Information + Price Sets shipped 2026-08-31). Local-only extras
     // (Shelf Ticket Templates, Linkly EFTPOS, Master Database Products) are kept
     // and slotted next to related items.
     children: [
@@ -481,6 +481,13 @@ const menuItems = [
         icon: <InventoryIcon />,
         path: "/settings/barcodes",
         permissions: ["modify_barcode_templates"],
+      },
+      {
+        id: "price-sets",
+        title: "Price Sets",
+        icon: <AttachMoney />,
+        path: "/settings/pricesets",
+        permissions: ["settings.view"],
       },
       {
         id: "registers-outlets",

@@ -95,6 +95,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { claimTakeoverUI } from '../services/registerControl';
 import giftCardService from '../services/giftCardService';
 import priceListService from '../services/priceListService';
+import { priceSetService } from '../services/priceSetService';
 import { applyPriceListToLine } from '../utils/priceListEngine';
 import { lineSavings, itemsPerCase } from '../utils/saleTotals';
 import { effectiveUnitCost } from '../utils/productCost';
@@ -631,6 +632,42 @@ const SaleKeyPage = () => {
     };
     loadRegisterPayments();
   }, [selectedRegister?.id]);
+
+  // Active Price Set (Settings > Price Sets). null = the products' Default Price
+  // Set. Initialised from the register's "Default Price Set" setting; a
+  // change-price-set sale key switches it for the whole sale. The ref mirrors the
+  // state synchronously so a switch can reprice the cart in the same tick.
+  const [activePriceSetId, setActivePriceSetId] = useState(null);
+  const activePriceSetRef = useRef(null);
+  const applyActivePriceSet = (id) => {
+    activePriceSetRef.current = id ? Number(id) : null;
+    setActivePriceSetId(activePriceSetRef.current);
+  };
+  useEffect(() => {
+    const loadRegisterDefaultPriceSet = async () => {
+      if (!selectedRegister?.id) { applyActivePriceSet(null); return; }
+      try {
+        const res = await settingsService.getRegisterSettings(selectedRegister.id);
+        applyActivePriceSet(res?.settings?.defaultPriceSetId || null);
+      } catch {
+        applyActivePriceSet(null); // no register settings saved yet — default prices
+      }
+    };
+    loadRegisterDefaultPriceSet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRegister?.id]);
+
+  // Reference rule: if the product has ANY price rows in the active set, that set
+  // replaces the entire default group; otherwise the default (null-set) rows apply.
+  const effectivePrices = (product) => {
+    const rows = Array.isArray(product?.prices) ? product.prices : [];
+    const setId = activePriceSetRef.current;
+    if (setId) {
+      const inSet = rows.filter((r) => Number(r.priceSetId) === Number(setId));
+      if (inSet.length > 0) return inSet;
+    }
+    return rows.filter((r) => r.priceSetId == null);
+  };
 
   useEffect(() => {
     const loadRegisterCustomerDisplaySettings = async () => {
@@ -3228,26 +3265,52 @@ const SaleKeyPage = () => {
         break;
       }
       case 'change-price-set': {
-        // Switch the whole sale to the configured price set: load its configuration,
-        // make it the active pricing config, and reprice existing product lines.
+        // Switch the whole sale to the configured Price Set (Settings > Price Sets)
+        // and reprice existing product lines. Reference: the entire sale changes —
+        // price sets cannot be mixed within one sale. Keys saved before true price
+        // sets existed pointed at a customer Price List; those keep the old
+        // load-the-list-config behaviour as a fallback.
         const psId = saleKey.priceSetId;
         const psName = saleKey.priceSetName;
         if (!psId && !psName) { alert('This price-set key is not configured. Edit it and choose a price set.'); return; }
         (async () => {
           try {
-            let id = psId;
-            if (!id) {
-              const all = await priceListService.getPriceLists();
-              id = (all.priceLists || []).find(pl => pl.name === psName)?.id;
+            // Keys saved with priceSetKind 'set' point at a true Price Set; keys
+            // without it predate price sets and point at a customer Price List
+            // (ids overlap between the two tables, so the kind decides the path).
+            if (saleKey.priceSetKind === 'set') {
+              const { priceSets: sets } = await priceSetService.getPriceSets();
+              const match = (sets || []).find(ps => ps.id === Number(psId))
+                || (sets || []).find(ps => ps.name === psName);
+              if (!match) { alert(`Price set "${psName || psId}" was not found.`); return; }
+              applyActivePriceSet(match.id);
+              // Combos, gift cards and return (negative) lines keep their prices.
+              // ponytail: reprice = base price through the new set (+ the sale's
+              // current price-list layer); the promotion best-of re-check is
+              // skipped here (next add applies it as usual).
+              setCart(prev => prev.map(item => {
+                if (item.isCombo || item.giftCardId || !item.productId) return item;
+                const qty = parseFloat(item.quantity) || 0;
+                if (qty <= 0) return item;
+                const product = resolveProductLocal(item.productId, item.name);
+                if (!product) return item;
+                const base = calculateBasePriceForQuantity(product, qty);
+                return { ...item, price: computePriceListTotal(product, qty, base) };
+              }));
+              setSelectedCartItem(null);
+              notify(`Price set: ${match.name}`);
+              return;
             }
-            if (!id) { alert(`Price set "${psName}" was not found.`); return; }
-            const res = await priceListService.getPriceListConfiguration(id);
+            // Legacy keys configured against a customer Price List.
+            let listId = psId;
+            if (!listId) {
+              const all = await priceListService.getPriceLists();
+              listId = (all.priceLists || []).find(pl => pl.name === psName)?.id;
+            }
+            if (!listId) { alert(`Price set "${psName || psId}" was not found.`); return; }
+            const res = await priceListService.getPriceListConfiguration(listId);
             const config = res?.configuration || res || null;
             setPriceListConfig(config);
-            // Reprice existing product lines under the new set. Combos, gift cards
-            // and return (negative) lines keep their prices.
-            // ponytail: reprice = base price through the new set; the promotion
-            // best-of re-check is skipped here (next add applies it as usual).
             setCart(prev => prev.map(item => {
               if (item.isCombo || item.giftCardId || !item.productId) return item;
               const qty = parseFloat(item.quantity) || 0;
@@ -5589,13 +5652,15 @@ const SaleKeyPage = () => {
 
   const calculateBasePriceForQuantity = (product, quantity) => {
     if (!product) return 0;
-    
+
     const qty = Number(quantity);
     if (qty <= 0) return 0;
-    
-    // Price tier matching: find the appropriate tier based on quantity
-    if (Array.isArray(product.prices) && product.prices.length > 0) {
-      const sorted = [...product.prices].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
+
+    // Price tier matching against the ACTIVE price set's rows (falls back to the
+    // default group when the product has no rows in the set).
+    const priceRows = effectivePrices(product);
+    if (Array.isArray(priceRows) && priceRows.length > 0) {
+      const sorted = [...priceRows].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
       console.log(`Tier pricing - Sorted tiers:`, sorted.map(t => ({ qty: t.quantity, price: t.price })));
       
       let selectedTier = null;

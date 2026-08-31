@@ -51,6 +51,7 @@ import productService from '../../services/productService';
 import productComboService from '../../services/productComboService';
 import paymentMethodService from '../../services/paymentMethodService';
 import priceListService from '../../services/priceListService';
+import { priceSetService } from '../../services/priceSetService';
 import classificationService from '../../services/classificationService';
 import customerService from '../../services/customerService';
 import MediaDialog from '../../components/Common/MediaDialog';
@@ -910,8 +911,11 @@ const SaleKeyEditor = () => {
 
   const loadPriceSets = async () => {
     try {
-      const response = await priceListService.getPriceLists();
-      setAvailablePriceSets(response.priceLists || []);
+      // True Price Sets (Settings > Price Sets). Keys saved before these existed
+      // were configured against customer Price Lists; the register still honours
+      // those at runtime (keys without priceSetKind take the legacy list path).
+      const response = await priceSetService.getPriceSets();
+      setAvailablePriceSets(response.priceSets || []);
     } catch (error) {
       console.error('Error loading price sets:', error);
       setAvailablePriceSets([]);
@@ -1847,6 +1851,9 @@ const SaleKeyEditor = () => {
                     handlePropertyChange({
                       priceSetId: newValue ? newValue.id : '',
                       priceSetName: newValue ? newValue.name : '',
+                      // Discriminates true Price Sets from legacy keys that were
+                      // saved against a customer Price List before sets existed.
+                      priceSetKind: newValue ? 'set' : '',
                     });
                   }}
                   renderInput={(params) => (

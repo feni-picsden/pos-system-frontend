@@ -94,6 +94,7 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import supplierService from '../../services/supplierService';
 import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
+import { priceSetService } from '../../services/priceSetService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
@@ -537,6 +538,9 @@ const ProductEdit = () => {
   // Settings > Additional Information field definitions
   const [additionalFields, setAdditionalFields] = useState([]);
 
+  // Settings > Price Sets — options for assigning a price point to a set.
+  const [priceSets, setPriceSets] = useState([]);
+
   // Available options
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -603,6 +607,10 @@ const ProductEdit = () => {
     additionalFieldService.getFields()
       .then(({ fields }) => setAdditionalFields(fields || []))
       .catch((e) => console.error('Error loading additional fields:', e));
+    // Price sets — the per-price-point selector in Sell & Cost Prices.
+    priceSetService.getPriceSets()
+      .then(({ priceSets: sets }) => setPriceSets(sets || []))
+      .catch((e) => console.error('Error loading price sets:', e));
   }, [id, isSuperAdmin, getOutletId]);
 
   // Recost the price rows whenever item cost changes. Must read prev.prices inside the
@@ -1898,7 +1906,34 @@ const ProductEdit = () => {
                     <TableBody>
                       {formData.prices.map((price, index) => (
                         <TableRow key={index} sx={dataTableRowSx(index)}>
-                          <TableCell>{price.source || 'Product'}</TableCell>
+                          <TableCell>
+                            {/* Reference: each price point belongs to a Price Set;
+                                blank = the product's Default Price Set. Plain text
+                                until any set is defined. */}
+                            {priceSets.length > 0 ? (
+                              <TextField
+                                select
+                                size="small"
+                                value={price.priceSetId ?? ''}
+                                onChange={(e) => {
+                                  const newPrices = [...formData.prices];
+                                  newPrices[index] = {
+                                    ...newPrices[index],
+                                    priceSetId: e.target.value === '' ? null : Number(e.target.value),
+                                  };
+                                  handleInputChange('prices', newPrices);
+                                }}
+                                sx={{ minWidth: 150 }}
+                              >
+                                <MenuItem value="">Default Price Set</MenuItem>
+                                {priceSets.map((ps) => (
+                                  <MenuItem key={ps.id} value={ps.id}>{ps.name}</MenuItem>
+                                ))}
+                              </TextField>
+                            ) : (
+                              price.source || 'Product'
+                            )}
+                          </TableCell>
                           <TableCell>
                             <TextField
                               type="number"

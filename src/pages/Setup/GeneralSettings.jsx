@@ -57,6 +57,7 @@ import settingsService, { GENERAL_DEFAULTS } from '../../services/settingsServic
 import outletService from '../../services/outletService';
 import { userService } from '../../services/userService';
 import receiptTemplateService from '../../services/receiptTemplateService';
+import { priceSetService } from '../../services/priceSetService';
 import customerDisplayTemplateService from '../../services/customerDisplayTemplateService';
 import customerDisplayService from '../../services/customerDisplayService';
 import registerService from '../../services/registerService';
@@ -348,6 +349,7 @@ const GeneralSettings = () => {
   // all templates except the Email ones (Payment Receipt included) — measured
   // 2026-08-05, docs/parity/receipt-template.md row 2.4.
   const [defaultReceiptTemplates, setDefaultReceiptTemplates] = useState([]);
+  const [availablePriceSets, setAvailablePriceSets] = useState([]);
   const [customerDisplayTemplates, setCustomerDisplayTemplates] = useState([]);
   const [registerCustomerDisplaySettings, setRegisterCustomerDisplaySettings] = useState({
     templateId: '',
@@ -392,6 +394,7 @@ const GeneralSettings = () => {
     // General
     safeDropAlertAmount: 0,
     defaultReceiptTemplateId: '',
+    defaultPriceSetId: '',
 
     // Sell Screen
     loginAfterSale: false,
@@ -424,6 +427,7 @@ const GeneralSettings = () => {
     loadUsers();
     loadEmailReceiptTemplates();
     loadDefaultReceiptTemplates();
+    loadAvailablePriceSets();
     loadCustomerDisplayTemplates();
     loadRegisters();
     loadPaymentMethods();
@@ -1037,6 +1041,16 @@ const GeneralSettings = () => {
     } catch (error) {
       console.error('Error loading receipt templates:', error);
       setDefaultReceiptTemplates([]);
+    }
+  };
+
+  const loadAvailablePriceSets = async () => {
+    try {
+      const { priceSets: sets } = await priceSetService.getPriceSets();
+      setAvailablePriceSets(sets || []);
+    } catch (error) {
+      console.error('Error loading price sets:', error);
+      setAvailablePriceSets([]);
     }
   };
 
@@ -2355,6 +2369,31 @@ const GeneralSettings = () => {
               >
                 {defaultReceiptTemplates.map((template) => (
                   <MenuItem key={template.id} value={template.id}>{template.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          {/* Default price set — reference: each register can sell under a Price Set;
+              blank = the products' Default Price Set. */}
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                Default Price Set
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Updated {stampFor('register', 'defaultPriceSetId')}
+              </Typography>
+            </Box>
+            <FormControl fullWidth size="small">
+              <Select
+                value={availablePriceSets.find((ps) => ps.id === registerSettings.defaultPriceSetId)?.id ?? ''}
+                onChange={handleRegisterSettingChange('defaultPriceSetId')}
+                displayEmpty
+              >
+                <MenuItem value="">Default Price Set</MenuItem>
+                {availablePriceSets.map((ps) => (
+                  <MenuItem key={ps.id} value={ps.id}>{ps.name}</MenuItem>
                 ))}
               </Select>
             </FormControl>
