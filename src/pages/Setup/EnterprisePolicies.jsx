@@ -19,12 +19,14 @@ import settingsService from '../../services/settingsService';
 // below. Policies default to platform-enforced values; a real enterprise
 // connection would override them via the `enterprise_policies` settings key.
 
-const PLATFORM = 'POS System';
+// Owner decision 2026-08-31: mirror the reference account (topdrops) verbatim —
+// show exactly what that account shows, no extra subscription features.
+const PLATFORM = 'Shopfront';
 
 // Reference defaults, one row per policy. `json: true` renders the value as a
 // code block, matching the reference's JSON-array cells.
 const DEFAULT_POLICIES = [
-  { name: 'Master File Address', enforcedBy: PLATFORM, value: 'Not configured' },
+  { name: 'Master File Address', enforcedBy: PLATFORM, value: 'https://posliquor.com.au/enterprise' },
   { name: 'Display Enterprise Login', enforcedBy: PLATFORM, value: 'disabled' },
   { name: 'Product Creation Source', enforcedBy: PLATFORM, value: 'all' },
   { name: 'Product Update Source', enforcedBy: PLATFORM, value: 'all' },
