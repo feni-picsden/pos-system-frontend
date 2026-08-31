@@ -15,6 +15,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { playErrorSound } from '../../utils/notificationSounds';
 
 /**
  * In-app replacements for window.alert / confirm / prompt.
@@ -119,6 +120,9 @@ export const AppDialogProvider = ({ children }) => {
         notify(message, 'success');
         return Promise.resolve();
       }
+      // Reference parity: an error plays the error sound (volume popover
+      // controls the level per device).
+      if (level === 'error') playErrorSound();
       return new Promise((resolve) => push({ type: 'alert', message, severity: level, resolve }));
     },
     /** Drop-in for window.confirm — await it. */

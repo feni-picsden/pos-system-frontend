@@ -65,6 +65,7 @@ import orderInvoiceService from '../../services/orderInvoiceService';
 import settingsService from '../../services/settingsService';
 import useAutoLogout from '../../hooks/useAutoLogout';
 import { useAppDialogs } from '../Common/AppDialogProvider';
+import { playNotificationSound } from '../../utils/notificationSounds';
 
 // Team Message is admin-set HTML but still crosses a trust boundary: keep text
 // and plain <a href="http(s)://..."> links, drop every other tag and attribute.
@@ -382,12 +383,20 @@ const DashboardLayout = ({ children }) => {
   const [pendingCount, setPendingCount] = useState(0);
   const [receivingId, setReceivingId] = useState(null);
 
+  // Reference parity: a rising unread count plays the notification chime
+  // (e.g. a new electronic invoice landing). null = first poll, no sound.
+  const lastUnreadRef = React.useRef(null);
   const fetchNotifCount = React.useCallback(async () => {
     try {
       const r = await notificationService.getCount();
       // Bell dot = unread notifications (cleared by "Mark all as read"),
       // not status:'Pending' (that only clears when stock is received).
-      setPendingCount(r.unread || 0);
+      const unread = r.unread || 0;
+      if (lastUnreadRef.current !== null && unread > lastUnreadRef.current) {
+        playNotificationSound();
+      }
+      lastUnreadRef.current = unread;
+      setPendingCount(unread);
     } catch { /* ignore */ }
   }, []);
 
