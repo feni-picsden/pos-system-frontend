@@ -101,6 +101,7 @@ import GeneralSettings from './pages/Setup/GeneralSettings';
 import AdditionalInformation from './pages/Setup/AdditionalInformation';
 import PriceSets from './pages/Setup/PriceSets';
 import PageRules from './pages/Setup/PageRules';
+import EnterprisePolicies from './pages/Setup/EnterprisePolicies';
 import Integrations from './pages/Setup/Integrations';
 import HardwareSettings from './pages/Setup/HardwareSettings';
 import LinklySettings from './pages/Setup/LinklySettings';
@@ -1358,6 +1359,17 @@ function App() {
                               requiredPermissions={["settings.view"]}
                             >
                               <PageRules />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        {/* Reference route is /enterprise (not under /settings) */}
+                        <Route
+                          path="/enterprise"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["settings.view"]}
+                            >
+                              <EnterprisePolicies />
                             </PermissionProtectedRoute>
                           }
                         />
