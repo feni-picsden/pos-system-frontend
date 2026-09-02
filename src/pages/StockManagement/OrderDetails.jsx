@@ -65,6 +65,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { useParams, useNavigate } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
+import { resolveAssetUrl } from '../../services/apiClient';
 import { outletService } from '../../services/outletService';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1338,7 +1339,7 @@ const OrderDetails = () => {
               <Box
                 key={i}
                 component="a"
-                href={`${window.location.protocol}//${window.location.hostname}:5000${att.url}`}
+                href={resolveAssetUrl(att.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 sx={{ ...metaValueSx, display: 'block', color: '#5ebbeb', textDecoration: 'none' }}

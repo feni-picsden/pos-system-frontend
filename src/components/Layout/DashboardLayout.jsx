@@ -60,7 +60,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useThemeMode } from '../../contexts/themeMode';
 import { useNavigate, useLocation } from 'react-router-dom';
 import notificationService from '../../services/notificationService';
-import apiClient, { backendOrigin } from '../../services/apiClient';
+import apiClient, { resolveAssetUrl } from '../../services/apiClient';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import settingsService from '../../services/settingsService';
 import useAutoLogout from '../../hooks/useAutoLogout';
@@ -248,7 +248,7 @@ const DashboardLayout = ({ children }) => {
 
   const displayUser = localUser || user;
 
-  const avatarSrc = displayUser?.avatar ? `${backendOrigin()}/${displayUser.avatar}` : null;
+  const avatarSrc = displayUser?.avatar ? resolveAssetUrl(displayUser.avatar) : null;
 
   const getUserInitials = () => {
     if (!displayUser?.name) return 'U';

@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
+import { resolveAssetUrl } from '../../services/apiClient';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
@@ -380,7 +381,7 @@ const ReviewOrder = () => {
                 <Box
                   key={i}
                   component="a"
-                  href={`${window.location.protocol}//${window.location.hostname}:5000${att.url}`}
+                  href={resolveAssetUrl(att.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   sx={{ display: 'block', fontSize: 15, color: '#5ebbeb', textDecoration: 'none', py: 0.25 }}

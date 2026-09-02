@@ -34,7 +34,7 @@ import {
 import { authService } from '../../services/authService';
 import { roleService } from '../../services/roleService';
 
-import { backendOrigin } from '../../services/apiClient';
+import { resolveAssetUrl } from '../../services/apiClient';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const TabPanel = ({ children, value, index }) => (
@@ -160,7 +160,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const savedAvatarUrl = user?.avatar ? `${backendOrigin()}/${user.avatar}` : null;
+  const savedAvatarUrl = user?.avatar ? resolveAssetUrl(user.avatar) : null;
   const displayAvatarSrc = avatarCleared ? null : (avatarPreview || savedAvatarUrl);
 
   const getUserInitials = () => {

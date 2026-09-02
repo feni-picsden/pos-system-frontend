@@ -36,7 +36,7 @@ import UserFormDialog from '../../components/Users/UserFormDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import PageLoader from '../../components/Common/PageLoader';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
-import apiClient from '../../services/apiClient';
+import apiClient, { resolveAssetUrl } from '../../services/apiClient';
 import { userService } from '../../services/userService';
 import usePageCache from '../../hooks/usePageCache';
 import { roleService } from '../../services/roleService';
@@ -419,7 +419,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
     reader.readAsDataURL(file);
   };
 
-  const savedAvatar = user.avatar ? `${API_ORIGIN}/${user.avatar}` : null;
+  const savedAvatar = user.avatar ? resolveAssetUrl(user.avatar) : null;
   const avatarSrc = avatarCleared ? null : avatarDataUrl || savedAvatar;
 
   const handleSave = async () => {
@@ -1176,7 +1176,7 @@ const Users = () => {
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Avatar
-                        src={user.avatar ? `${API_ORIGIN}/${user.avatar}` : undefined}
+                        src={user.avatar ? resolveAssetUrl(user.avatar) : undefined}
                         sx={{
                           width: 40,
                           height: 40,

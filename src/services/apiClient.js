@@ -88,6 +88,17 @@ const apiClient = axios.create({
 export const backendOrigin = () =>
   (apiClient.defaults.baseURL || '').replace(/\/+api\/?$/, '').replace(/\/+$/, '');
 
+// Resolve a stored upload reference to a displayable URL. Uploads now live on
+// object storage (Spaces), so stored values are FULL absolute URLs — use them
+// as-is. Legacy/dev values are relative ("uploads/…" or "/uploads/…") and get
+// the backend origin prefixed. Handles data:/blob: too. Use this everywhere an
+// avatar / media / attachment reference is turned into an <img> src or link.
+export const resolveAssetUrl = (value) => {
+  if (!value || typeof value !== 'string') return value || '';
+  if (/^(https?:|data:|blob:)/i.test(value)) return value;
+  return `${backendOrigin()}/${value.replace(/^\/+/, '')}`;
+};
+
 /**
  * Decide loading UI for this request:
  * - silent: true          → no loader (background sync, polling, catalog refresh)
