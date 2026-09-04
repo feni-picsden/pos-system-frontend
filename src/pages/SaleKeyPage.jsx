@@ -3939,12 +3939,15 @@ const SaleKeyPage = () => {
     try {
       const parkedLines = (parkedSale.items || []).map((it) => ({
         productName: it.productName,
+        description: it.description || null,
         quantity: it.quantity,
         unitPrice: it.unitPrice,
         totalPrice: it.totalPrice,
         discount: it.discount || 0,
         tax: it.tax || 0,
         taxName: it.taxName || null,
+        normalPrice: it.normalPrice ?? null,
+        savings: it.savings ?? null,
         comboName: it.comboName || null,
         comboSets: it.comboSets || null,
         productId: it.productId || null,
@@ -4012,6 +4015,12 @@ const SaleKeyPage = () => {
 
     try {
       const resumedItems = parkedSale.items.map(item => {
+        // Resolve the product from the local catalog to restore COGS — the
+        // parked line stores the sale-time tax NAME but not the unit cost.
+        const localProduct = item.productId
+          ? resolveProductLocal(item.productId, item.productName)
+          : null;
+        const qty = parseFloat(item.quantity) || 1;
         return {
           id: `resumed-${item.id}`,
           // Keep the real productId - the completion PUT posts these lines back
@@ -4023,7 +4032,21 @@ const SaleKeyPage = () => {
           timestamp: Date.now(),
           action: 'resume-parked-sale',
           unitPrice: item.unitPrice,
-          description: item.description
+          description: item.description,
+          // Restore what buildSaleBody needs so the resumed completion banks
+          // REAL figures — without these a resumed sale completed with tax=$0
+          // (GST under-banked, closure tax breakdown showed "No Tax") and
+          // basePrice/COGS=0 (profit reports showed 100% margin).
+          retailTaxRate: item.taxName || localProduct?.retailTaxRate || null,
+          discount: item.discount || 0,
+          unitCost: localProduct
+            ? getUnitCost(localProduct, qty > 0 ? (parseFloat(item.totalPrice) || 0) / qty : 0)
+            : 0,
+          // Receipt columns survive the resume round-trip:
+          normalPrice: item.normalPrice ?? null,
+          comboName: item.comboName || null,
+          comboSets: item.comboSets || null,
+          note: item.note || null
         };
       });
 
