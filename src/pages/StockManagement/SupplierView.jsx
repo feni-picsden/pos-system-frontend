@@ -27,7 +27,7 @@ import {
   Block as NoResultsIcon,
   AssignmentOutlined as OrderRowIcon,
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 
@@ -573,7 +573,7 @@ const SupplierView = () => {
                           <Button
                             size="small"
                             startIcon={<ViewIcon />}
-                            onClick={() => navigate(`/products/${product.id}/view`)}
+                            component={RouterLink} to={`/products/${product.id}/view`}
                             sx={{ color: '#2196f3', textTransform: 'none' }}
                           >
                             View
@@ -581,7 +581,7 @@ const SupplierView = () => {
                           <Button
                             size="small"
                             startIcon={<EditIcon />}
-                            onClick={() => navigate(`/products/${product.id}/edit`)}
+                            component={RouterLink} to={`/products/${product.id}/edit`}
                             sx={{ color: '#45a049', textTransform: 'none' }}
                           >
                             Edit
@@ -681,7 +681,7 @@ const SupplierView = () => {
                             <Button
                               size="small"
                               startIcon={<ViewIcon />}
-                              onClick={() => navigate(`/orders-invoices/${order.id}`)}
+                              component={RouterLink} to={`/orders-invoices/${order.id}`}
                               sx={{ color: '#2196f3', textTransform: 'none' }}
                             >
                               View

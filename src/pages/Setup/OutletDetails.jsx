@@ -43,7 +43,7 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom';
 import outletService from '../../services/outletService';
 // import userService from '../../services/userService';
 // import roleService from '../../services/roleService';
@@ -77,7 +77,6 @@ const CANCEL_BUTTON_SX = {
 
 const OutletDetails = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [outlet, setOutlet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -180,7 +179,7 @@ const OutletDetails = () => {
         <Alert severity="error">{error}</Alert>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/outlets')}
+          component={RouterLink} to={'/outlets'}
           sx={{ mt: 2 }}
         >
           Back to Outlets
@@ -195,7 +194,7 @@ const OutletDetails = () => {
         <Alert severity="warning">Outlet not found</Alert>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/outlets')}
+          component={RouterLink} to={'/outlets'}
           sx={{ mt: 2 }}
         >
           Back to Outlets
@@ -209,7 +208,7 @@ const OutletDetails = () => {
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={2}>
-          <IconButton onClick={() => navigate('/outlets')}>
+          <IconButton component={RouterLink} to={'/outlets'}>
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" component="h1">
@@ -337,7 +336,7 @@ const OutletDetails = () => {
                 disableRipple
                 disableElevation
                 startIcon={<AddIcon />}
-                onClick={() => navigate(`/outlets/${id}/users/new`)}
+                component={RouterLink} to={`/outlets/${id}/users/new`}
                 sx={PRIMARY_BUTTON_SX}
               >
                 Add User
@@ -383,7 +382,7 @@ const OutletDetails = () => {
                            <Tooltip title="Edit User">
                              <IconButton
                                size="small"
-                               onClick={() => navigate(`/setup/users/${userOutlet.users.id}/edit`)}
+                               component={RouterLink} to={`/setup/users/${userOutlet.users.id}/edit`}
                              >
                                <EditIcon />
                              </IconButton>
@@ -404,7 +403,7 @@ const OutletDetails = () => {
                   disableRipple
                   disableElevation
                   startIcon={<AddIcon />}
-                  onClick={() => navigate(`/outlets/${id}/users/new`)}
+                  component={RouterLink} to={`/outlets/${id}/users/new`}
                   sx={{ ...PRIMARY_BUTTON_SX, mt: 2 }}
                 >
                   Add First User
@@ -424,7 +423,7 @@ const OutletDetails = () => {
                 disableRipple
                 disableElevation
                 startIcon={<AddIcon />}
-                onClick={() => navigate(`/outlets/${id}/roles/new`)}
+                component={RouterLink} to={`/outlets/${id}/roles/new`}
                 sx={PRIMARY_BUTTON_SX}
               >
                 Add Role
@@ -475,7 +474,7 @@ const OutletDetails = () => {
                            <Tooltip title="Edit Role">
                              <IconButton
                                size="small"
-                               onClick={() => navigate(`/setup/roles/${userOutlet.roles.id}/permissions`)}
+                               component={RouterLink} to={`/setup/roles/${userOutlet.roles.id}/permissions`}
                              >
                                <EditIcon />
                              </IconButton>
@@ -496,7 +495,7 @@ const OutletDetails = () => {
                   disableRipple
                   disableElevation
                   startIcon={<AddIcon />}
-                  onClick={() => navigate(`/outlets/${id}/roles/new`)}
+                  component={RouterLink} to={`/outlets/${id}/roles/new`}
                   sx={{ ...PRIMARY_BUTTON_SX, mt: 2 }}
                 >
                   Add First Role

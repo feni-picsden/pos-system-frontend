@@ -29,7 +29,7 @@ import {
   Delete as DeleteIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import promotionService from '../../services/promotionService';
@@ -968,7 +968,7 @@ const ExpressPromotion = () => {
         zIndex: 1000
       }}>
         <Button
-          onClick={() => navigate('/marketing/promotions')}
+          component={RouterLink} to={'/marketing/promotions'}
           sx={{
             backgroundColor: '#e33430',
             color: '#f8f8f8',

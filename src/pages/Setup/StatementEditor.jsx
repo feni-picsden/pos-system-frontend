@@ -59,7 +59,7 @@ import {
   ArrowUpwardOutlined as ArrowUpIcon,
   ArrowDownwardOutlined as ArrowDownIcon,
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import MediaDialog from '../../components/Common/MediaDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import StatementRenderer from '../../components/Statement/StatementRenderer';
@@ -3307,7 +3307,7 @@ const StatementEditor = () => {
         <Button
           variant="outlined"
           startIcon={<CancelIcon />}
-          onClick={() => navigate('/setup/statements')}
+          component={RouterLink} to={'/setup/statements'}
           sx={{ textTransform: 'none', color: '#676b72', borderColor: '#404040', borderRadius: '8px', fontSize: 16, '&:hover': { borderColor: '#404040', bgcolor: '#f8f8f8' } }}
         >
           Cancel

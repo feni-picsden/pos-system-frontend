@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -39,7 +39,6 @@ const rowActionSx = (color) => ({
 });
 
 const TransferList = () => {
-  const navigate = useNavigate();
   // Renders from IndexedDB first, then revalidates in the background.
   const {
     data: transferees,
@@ -92,7 +91,7 @@ const TransferList = () => {
           variant="outlined"
           disableRipple
           startIcon={<AddIcon />}
-          onClick={() => navigate('/setup/transfer-list/new')}
+          component={RouterLink} to={'/setup/transfer-list/new'}
           sx={{
             color: '#5ebbeb',
             border: '1px solid #5ebbeb',
@@ -162,7 +161,7 @@ const TransferList = () => {
                       <Button
                         disableRipple
                         startIcon={<VisibilityIcon />}
-                        onClick={() => navigate(`/setup/transfer-list/${row.id}/view`)}
+                        component={RouterLink} to={`/setup/transfer-list/${row.id}/view`}
                         sx={rowActionSx('#0284c7')}
                       >
                         View
@@ -170,7 +169,7 @@ const TransferList = () => {
                       <Button
                         disableRipple
                         startIcon={<EditIcon />}
-                        onClick={() => navigate(`/setup/transfer-list/${row.id}/edit`)}
+                        component={RouterLink} to={`/setup/transfer-list/${row.id}/edit`}
                         sx={rowActionSx('#16a34a')}
                       >
                         Edit

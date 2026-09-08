@@ -19,13 +19,12 @@ import {
   BarChart as BarChartIcon,
   Assignment as AssignmentIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import productService from '../../services/productService';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ProductDetailView = ({ product, quantities, onQuantityChange, onSupplierCodeChange, supplierCode, preloadedDetails }) => {
-  const navigate = useNavigate();
   const { getOutletName } = useAuth();
   
   const productData = preloadedDetails?.productData || product;
@@ -151,7 +150,7 @@ const ProductDetailView = ({ product, quantities, onQuantityChange, onSupplierCo
                 <Button
                   variant="contained"
                   startIcon={<EditIcon />}
-                  onClick={() => navigate(`/stock-management/products/${fullProduct.id}/edit`)}
+                  component={RouterLink} to={`/stock-management/products/${fullProduct.id}/edit`}
                   sx={{ backgroundColor: '#1976d2' }}
                 >
                   Edit Product
@@ -159,7 +158,7 @@ const ProductDetailView = ({ product, quantities, onQuantityChange, onSupplierCo
                 <Button
                   variant="contained"
                   startIcon={<BarChartIcon />}
-                  onClick={() => navigate(`/stock-management/products/${fullProduct.id}?tab=sales`)}
+                  component={RouterLink} to={`/stock-management/products/${fullProduct.id}?tab=sales`}
                   sx={{ backgroundColor: '#1976d2' }}
                 >
                   Sales Summary
@@ -167,7 +166,7 @@ const ProductDetailView = ({ product, quantities, onQuantityChange, onSupplierCo
                 <Button
                   variant="contained"
                   startIcon={<AssignmentIcon />}
-                  onClick={() => navigate(`/stock-management/products/${fullProduct.id}?tab=purchases`)}
+                  component={RouterLink} to={`/stock-management/products/${fullProduct.id}?tab=purchases`}
                   sx={{ backgroundColor: '#1976d2' }}
                 >
                   Purchase History

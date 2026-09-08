@@ -1,10 +1,9 @@
 import React from "react";
 import { Box, Button, Typography } from "@mui/material";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, Link as RouterLink } from "react-router-dom";
 import SearchOffOutlinedIcon from "@mui/icons-material/SearchOffOutlined";
 
 const NotFound = () => {
-  const navigate = useNavigate();
   const location = useLocation();
 
   return (
@@ -28,7 +27,7 @@ const NotFound = () => {
       </Typography>
       <Button
         variant="contained"
-        onClick={() => navigate("/")}
+        component={RouterLink} to={"/"}
         sx={{
           mt: 2,
           textTransform: "none",

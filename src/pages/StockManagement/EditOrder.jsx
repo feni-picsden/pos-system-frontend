@@ -35,7 +35,7 @@ import {
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import supplierService from '../../services/supplierService';
 import customerService from '../../services/customerService';
@@ -1996,7 +1996,7 @@ const EditOrder = () => {
         />
         <Button
           startIcon={<AddIcon />}
-          onClick={() => navigate('/products/new')}
+          component={RouterLink} to={'/products/new'}
           sx={{ ...sfBtn, fontSize: 24, px: 2.5 }}
         >
           New Product

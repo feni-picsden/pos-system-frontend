@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { SwapHoriz as SwapHorizIcon } from '@mui/icons-material';
 import PageLoader from '../Common/PageLoader';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import productService from '../../services/productService';
 import {
   EVENT_ROOT_SX,
@@ -49,7 +49,6 @@ const ProductTransferHistory = ({ productId }) => {
   const [error, setError] = useState('');
   const [transferData, setTransferData] = useState(null);
   const [page, setPage] = useState(1);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (productId) {
@@ -162,9 +161,9 @@ const ProductTransferHistory = ({ productId }) => {
                   <TableCell>{formatCurrency(transfer.totalAmount)}</TableCell>
                   <TableCell>
                     <Link
-                      component="button"
+                      component={RouterLink}
+                      to={`/orders-invoices/${transfer.id}`}
                       underline="none"
-                      onClick={() => navigate(`/orders-invoices/${transfer.id}`)}
                       sx={{
                         color: '#1c86f2',
                         fontSize: 16,

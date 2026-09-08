@@ -13,7 +13,7 @@ import {
   ContentCopy as DuplicateIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import shelfTicketTemplateService from '../../services/shelfTicketTemplateService';
 import usePageCache from '../../hooks/usePageCache';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -112,7 +112,7 @@ const ShelfTicketTemplates = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
-        <IconButton onClick={() => navigate('/setup')} size="small">
+        <IconButton component={RouterLink} to={'/setup'} size="small">
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flexGrow: 1 }}>
@@ -217,7 +217,7 @@ const ShelfTicketTemplates = () => {
                   <Button
                     size="small"
                     startIcon={<EditIcon />}
-                    onClick={() => navigate(`/setup/shelf-tickets/${template.id}/edit`)}
+                    component={RouterLink} to={`/setup/shelf-tickets/${template.id}/edit`}
                     sx={{ flexGrow: 1, color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                   >
                     Design

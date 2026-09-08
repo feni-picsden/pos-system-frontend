@@ -44,7 +44,7 @@ import {
   ArrowDropDown,
   ArrowDropUp,
 } from '@mui/icons-material';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import salesReportService from '../../services/salesReportService';
@@ -296,7 +296,6 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue }) => {
 const SalesReport = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert } = useAppDialogs();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reportTypes = {
     general: [
@@ -1489,7 +1488,7 @@ const SalesReport = () => {
           <Button
             variant="text"
             startIcon={<EditIcon />}
-            onClick={() => navigate('/reports/sales/query')}
+            component={RouterLink} to={'/reports/sales/query'}
             sx={{
               ml: 2,
               minWidth: 88,

@@ -41,7 +41,7 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { ChromePicker } from 'react-color';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import saleKeyService from '../../services/saleKeyService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
@@ -1085,7 +1085,7 @@ const SaleKeyEditor = () => {
           zIndex: 1000,
         }}
       >
-        <IconButton onClick={() => navigate('/setup/sale-key-sets')} sx={{ color: 'white' }}>
+        <IconButton component={RouterLink} to={'/setup/sale-key-sets'} sx={{ color: 'white' }}>
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h6" sx={{ ml: 2 }}>Modify Sale Key -</Typography>
@@ -2206,7 +2206,7 @@ const SaleKeyEditor = () => {
             fullWidth
             variant="outlined"
             startIcon={<CloseIcon />}
-            onClick={() => navigate('/setup/sale-key-sets')}
+            component={RouterLink} to={'/setup/sale-key-sets'}
           >
             Cancel
           </Button>

@@ -18,7 +18,7 @@ import {
   DeleteOutline as DeleteIcon,
   VisibilityOutlined as ViewIcon,
 } from '@mui/icons-material';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import CustomerGroupDialog from '../../components/CustomerGroups/CustomerGroupDialog';
 import customerGroupService from '../../services/customerGroupService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -49,7 +49,6 @@ const CustomerGroups = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState(null);
-  const navigate = useNavigate();
 
   const loadCustomerGroups = useCallback(async () => {
     try {
@@ -78,15 +77,6 @@ const CustomerGroups = () => {
 
   const handleAddGroup = () => {
     setOpenDialog(true);
-  };
-
-  // Reference: Edit opens the group's settings page (receipts, price list, account sales)
-  const handleEditGroup = (group) => {
-    navigate(`/customers/groups/${group.id}`);
-  };
-
-  const handleViewGroup = (group) => {
-    navigate(`/customers/groups/${group.id}/view`);
   };
 
   const handleDeleteGroup = (groupId) => {
@@ -219,7 +209,7 @@ const CustomerGroups = () => {
                       <Button
                         disableRipple
                         startIcon={<ViewIcon />}
-                        onClick={() => handleViewGroup(group)}
+                        component={RouterLink} to={`/customers/groups/${group.id}/view`}
                         sx={rowActionSx('#0284c7', 129)}
                       >
                         View
@@ -227,7 +217,7 @@ const CustomerGroups = () => {
                       <Button
                         disableRipple
                         startIcon={<EditIcon />}
-                        onClick={() => handleEditGroup(group)}
+                        component={RouterLink} to={`/customers/groups/${group.id}`}
                         sx={rowActionSx('#16a34a', 120)}
                       >
                         Edit

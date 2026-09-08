@@ -63,7 +63,7 @@ import customerDisplayService from '../../services/customerDisplayService';
 import registerService from '../../services/registerService';
 import paymentMethodService from '../../services/paymentMethodService';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 
 // The fixed app bar in DashboardLayout (HEADER_HEIGHT). Anything sticky on this page
 // has to start below it, or it scrolls under the bar and its text is clipped.
@@ -296,7 +296,6 @@ const outletEditorInputSx = {
 
 const GeneralSettings = () => {
   const { user, getOutletName } = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   // ponytail: section survives a reload via localStorage, no router plumbing needed.
   const [activeTab, setActiveTab] = useState(() => Number(localStorage.getItem('generalSettingsTab')) || 0);
@@ -2480,7 +2479,7 @@ const GeneralSettings = () => {
                 ))}
               </Select>
             </FormControl>
-            <Button sx={{ mt: 1 }} onClick={() => navigate('/setup/customer-display')}>
+            <Button sx={{ mt: 1 }} component={RouterLink} to={'/setup/customer-display'}>
               Edit templates
             </Button>
           </Box>

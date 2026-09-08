@@ -20,7 +20,7 @@ import {
   VisibilityOutlined as VisibilityOutlinedIcon,
   HelpOutline as HelpOutlineIcon
 } from '@mui/icons-material';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import classificationService from '../../services/classificationService';
 import masterDatabaseService from '../../services/masterDatabaseService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -667,7 +667,7 @@ const ClassificationDetails = () => {
             return (
               <Box
                 key={item.id}
-                component={item.to ? Link : 'button'}
+                component={item.to ? RouterLink : 'button'}
                 type={item.to ? undefined : 'button'}
                 to={item.to}
                 onClick={item.onClick}
@@ -817,8 +817,8 @@ const ClassificationDetails = () => {
                 {product.name}
               </Typography>
               <Box
-                component="a"
-                onClick={() => navigate(`/products/${product.id}/view`)}
+                component={RouterLink}
+                to={`/products/${product.id}/view`}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',

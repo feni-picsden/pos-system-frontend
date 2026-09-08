@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom';
 import PageLoader from '../../components/Common/PageLoader';
 import { roleService } from '../../services/roleService';
 import { formatRevisionValue } from '../../utils/revisionValue';
@@ -21,7 +21,6 @@ import { formatRevisionValue } from '../../utils/revisionValue';
 const INSTANT = 'all 0s ease';
 
 const RoleRevisions = () => {
-  const navigate = useNavigate();
   const { roleId } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -56,7 +55,7 @@ const RoleRevisions = () => {
           disableElevation
           variant="contained"
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(`/setup/roles/${roleId}/permissions`)}
+          component={RouterLink} to={`/setup/roles/${roleId}/permissions`}
           sx={{
             bgcolor: '#5ebbeb',
             color: '#fff',

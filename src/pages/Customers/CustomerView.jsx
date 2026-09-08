@@ -43,7 +43,7 @@ import {
   History as HistoryIcon,
   RestoreFromTrash as RevisionIcon,
 } from "@mui/icons-material";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import customerService from "../../services/customerService";
 import paymentService from "../../services/paymentService";
 import paymentMethodService from "../../services/paymentMethodService";
@@ -571,7 +571,7 @@ const CustomerView = () => {
                       "&:hover": { bgcolor: "#115293" },
                       px: 3,
                     }}
-                    onClick={() => navigate(`/customers/balance?customerId=${id}`)}
+                    component={RouterLink} to={`/customers/balance?customerId=${id}`}
                   >
                     View Statement
                   </Button>

@@ -27,7 +27,7 @@ import {
   CheckOutlined as CheckIcon,
   SearchOutlined as SearchIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import customerService from '../../services/customerService';
 
 // One description of the merge form drives BOTH the Results column and every customer
@@ -289,7 +289,7 @@ const CustomerMerge = () => {
     <Box sx={{ p: 3 }}>
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={() => navigate('/customers')} sx={{ mr: 2 }}>
+          <IconButton component={RouterLink} to={'/customers'} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" component="h1">

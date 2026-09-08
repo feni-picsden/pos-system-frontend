@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -804,7 +804,7 @@ const PurchaseQueryEditor = () => {
     <Box sx={{ p: '8px', height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
       {/* Reference has no page title — just a way back to the purchase report */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: '8px' }}>
-        <IconButton onClick={() => navigate('/reports/purchases')} aria-label="Back to purchase reports">
+        <IconButton component={RouterLink} to={'/reports/purchases'} aria-label="Back to purchase reports">
           <ArrowBackIcon />
         </IconButton>
       </Box>

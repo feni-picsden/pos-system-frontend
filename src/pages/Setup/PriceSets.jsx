@@ -18,7 +18,7 @@ import {
   TextField,
   Link,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -53,7 +53,6 @@ const PILL_BUTTON_SX = {
 const PriceSets = () => {
   const { alert, confirm, notify } = useAppDialogs();
   const canEdit = useHasPermission('settings.edit');
-  const navigate = useNavigate();
 
   const [priceSets, setPriceSets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -253,8 +252,8 @@ const PriceSets = () => {
               </Typography>
               {(productsView.products || []).map((p) => (
                 <Box key={p.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, borderBottom: '1px solid #eee' }}>
-                  <Link component="button" underline="hover" sx={{ fontSize: 15, textAlign: 'left' }}
-                    onClick={() => navigate(`/products/${p.id}/edit`)}>
+                  <Link component={RouterLink} to={`/products/${p.id}/edit`}
+                    underline="hover" sx={{ fontSize: 15, textAlign: 'left' }}>
                     {p.name}
                   </Link>
                   <Typography sx={{ fontSize: 13, color: '#676b72' }}>

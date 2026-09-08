@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -293,7 +293,6 @@ const GROUP_BY_GROUPS = [
 ];
 
 const InventoryReport = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { getOutletId } = useAuth();
   
@@ -841,7 +840,7 @@ const InventoryReport = () => {
         <Button
           variant="text"
           startIcon={<EditIcon />}
-          onClick={() => navigate('/reports/inventory/query')}
+          component={RouterLink} to={'/reports/inventory/query'}
           sx={{
             ml: 2,
             minWidth: 88,

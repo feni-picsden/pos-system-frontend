@@ -63,7 +63,7 @@ import {
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import { resolveAssetUrl } from '../../services/apiClient';
 import { outletService } from '../../services/outletService';
@@ -1088,7 +1088,7 @@ const OrderDetails = () => {
             variant="contained"
             disableElevation
             startIcon={<PencilIcon />}
-            onClick={() => navigate(`/orders-invoices/${id}/edit`)}
+            component={RouterLink} to={`/orders-invoices/${id}/edit`}
             sx={toolbarBtnSx}
           >
             Edit
@@ -1218,7 +1218,7 @@ const OrderDetails = () => {
               variant="contained"
               disableElevation
               startIcon={<PencilIcon />}
-              onClick={() => navigate(`/orders-invoices/${id}/review`)}
+              component={RouterLink} to={`/orders-invoices/${id}/review`}
               sx={toolbarBtnSx}
             >
               View Review

@@ -40,7 +40,7 @@ import {
   TextFields as TextFieldsIcon,
 } from '@mui/icons-material';
 import { ChromePicker } from 'react-color';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import MediaDialog from '../../components/Common/MediaDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import CustomerDisplayRenderer from '../../components/CustomerDisplay/CustomerDisplayRenderer';
@@ -894,7 +894,7 @@ const CustomerDisplayEditor = () => {
             )}
             <Box sx={{ mt: 'auto', p: 0.75, borderTop: '1px solid #d0d0d0', display: 'grid', gap: 0.75 }}>
               <Button fullWidth variant="contained" onClick={saveTemplate}>Save</Button>
-              <Button fullWidth onClick={() => navigate('/setup/customer-display')}>Cancel</Button>
+              <Button fullWidth component={RouterLink} to={'/setup/customer-display'}>Cancel</Button>
             </Box>
           </Paper>
         </Grid>

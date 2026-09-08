@@ -34,7 +34,7 @@ import {
   KeyboardArrowLeft,
   KeyboardArrowRight,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import supplierService from '../../services/supplierService';
@@ -652,19 +652,19 @@ const OrdersInvoices = () => {
         flexWrap: 'wrap',
         alignItems: 'center'
       }}>
-        <Button variant="contained" startIcon={<OrderStockIcon />} onClick={() => navigate('/orders-invoices/create')} sx={toolbarButtonSx}>
+        <Button variant="contained" startIcon={<OrderStockIcon />} component={RouterLink} to={'/orders-invoices/create'} sx={toolbarButtonSx}>
           Order Stock
         </Button>
-        <Button variant="contained" startIcon={<TransferStockIcon />} onClick={() => navigate('/orders-invoices/create-transfer')} sx={toolbarButtonSx}>
+        <Button variant="contained" startIcon={<TransferStockIcon />} component={RouterLink} to={'/orders-invoices/create-transfer'} sx={toolbarButtonSx}>
           Transfer Stock
         </Button>
-        <Button variant="contained" startIcon={<ReceiveStockIcon />} onClick={() => navigate('/orders-invoices/create-receive-stock')} sx={toolbarButtonSx}>
+        <Button variant="contained" startIcon={<ReceiveStockIcon />} component={RouterLink} to={'/orders-invoices/create-receive-stock'} sx={toolbarButtonSx}>
           Receive Stock
         </Button>
-        <Button variant="contained" startIcon={<ReturnStockIcon />} onClick={() => navigate('/orders-invoices/create-return')} sx={toolbarButtonSx}>
+        <Button variant="contained" startIcon={<ReturnStockIcon />} component={RouterLink} to={'/orders-invoices/create-return'} sx={toolbarButtonSx}>
           Return Stock
         </Button>
-        <Button variant="contained" startIcon={<CreditNoteIcon />} onClick={() => navigate('/orders-invoices/create-credit-note')} sx={toolbarButtonSx}>
+        <Button variant="contained" startIcon={<CreditNoteIcon />} component={RouterLink} to={'/orders-invoices/create-credit-note'} sx={toolbarButtonSx}>
           Add Credit Note
         </Button>
         <Button

@@ -31,7 +31,7 @@ import {
   VisibilityOutlined as ViewIcon,
   SaveOutlined as SaveIcon,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import outletService from "../../services/outletService";
 import registerService from "../../services/registerService";
 import settingsService from "../../services/settingsService";
@@ -208,7 +208,6 @@ const Outlets = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOutlets();
@@ -832,7 +831,7 @@ const Outlets = () => {
                         <Button
                           disableRipple
                           startIcon={<ViewIcon />}
-                          onClick={() => navigate(`/outlets/${outlet.id}`)}
+                          component={RouterLink} to={`/outlets/${outlet.id}`}
                           sx={rowActionSx("#0084d1")}
                         >
                           View
@@ -875,7 +874,7 @@ const Outlets = () => {
                         <Button
                           disableRipple
                           startIcon={<EditIcon />}
-                          onClick={() => navigate("/registers")}
+                          component={RouterLink} to={"/registers"}
                           sx={EDIT_LINK_SX}
                         >
                           Edit

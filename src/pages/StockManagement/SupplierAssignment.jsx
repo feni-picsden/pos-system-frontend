@@ -20,7 +20,7 @@ import {
   Close as CloseIcon,
   ArrowDropDown
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
@@ -166,7 +166,6 @@ const rowActionSx = (color) => ({
 
 const SupplierAssignment = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const [supplier, setSupplier] = useState(null);
   const [assignedProducts, setAssignedProducts] = useState([]);
@@ -573,7 +572,7 @@ const SupplierAssignment = () => {
       }}>
         <Button
           variant="contained"
-          onClick={() => navigate('/suppliers')}
+          component={RouterLink} to={'/suppliers'}
           sx={{
             backgroundColor: '#3b82f6',
             color: '#fff',

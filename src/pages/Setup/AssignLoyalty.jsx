@@ -11,7 +11,7 @@ import {
   Autocomplete
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, DeleteOutline as DeleteIcon, SaveOutlined as SaveOutlinedIcon } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import loyaltyProgramService from '../../services/loyaltyProgramService';
 import classificationService from '../../services/classificationService';
@@ -62,7 +62,6 @@ const refAddAllButtonSx = {
 const AssignLoyalty = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -435,7 +434,7 @@ const AssignLoyalty = () => {
       <Box display="flex" alignItems="center" mb={2} >
         <Button
           startIcon={<ArrowBackIcon sx={{ fontSize: '28px !important' }} />}
-          onClick={() => navigate('/setup/loyalty')}
+          component={RouterLink} to={'/setup/loyalty'}
           sx={{ ...refBlueButtonSx, mr: 2 }}
         >
           Back

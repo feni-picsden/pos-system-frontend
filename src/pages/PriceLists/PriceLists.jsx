@@ -24,7 +24,7 @@ import {
   CloseOutlined as ClearIcon,
   VisibilityOutlined as ViewIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import PriceListDialog from '../../components/PriceLists/PriceListDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import priceListService from '../../services/priceListService';
@@ -61,7 +61,6 @@ const PriceLists = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [listToDelete, setListToDelete] = useState(null);
   const searchInputRef = useRef(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const filtered = priceLists.filter(list =>
@@ -73,14 +72,6 @@ const PriceLists = () => {
 
   const handleAddList = () => {
     setOpenDialog(true);
-  };
-
-  const handleEditList = (list) => {
-    navigate(`/customers/price-lists/${list.id}/configuration`);
-  };
-
-  const handleViewList = (list) => {
-    navigate(`/customers/price-lists/${list.id}`);
   };
 
   const handleDeleteList = (listId) => {
@@ -253,7 +244,7 @@ const PriceLists = () => {
                     <Button
                       disableRipple
                       startIcon={<ViewIcon />}
-                      onClick={() => handleViewList(list)}
+                      component={RouterLink} to={`/customers/price-lists/${list.id}`}
                       sx={rowActionSx('#1c86f2')}
                     >
                       View
@@ -261,7 +252,7 @@ const PriceLists = () => {
                     <Button
                       disableRipple
                       startIcon={<EditIcon />}
-                      onClick={() => handleEditList(list)}
+                      component={RouterLink} to={`/customers/price-lists/${list.id}/configuration`}
                       sx={rowActionSx('#32b643')}
                     >
                       Edit

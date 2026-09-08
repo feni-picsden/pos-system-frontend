@@ -34,7 +34,7 @@ import {
   ArrowDropDown as ArrowDropDownIcon,
   HelpOutline as HelpIcon,
 } from '@mui/icons-material';
-import { useNavigate, useSearchParams, useLocation, Link as RouterLink } from 'react-router-dom';
+import { useSearchParams, useLocation, Link as RouterLink } from 'react-router-dom';
 
 import customerService from '../../services/customerService';
 import customerGroupService from '../../services/customerGroupService';
@@ -340,7 +340,6 @@ const Customers = () => {
   const fileInputRef = useRef(null);
   const [importBusy, setImportBusy] = useState(false);
   const [importResult, setImportResult] = useState(null);
-  const navigate = useNavigate();
   const location = useLocation();
   const { selectedOutletId } = useSelectedOutlet();
 
@@ -424,9 +423,6 @@ const Customers = () => {
     }
   };
 
-  const handleViewCustomer = (customer) => {
-    navigate(`/customers/${customer.id}/view`);
-  };
 
   const handleDeleteCustomer = (customerId) => {
     const customer = customers.find((c) => c.id === customerId);
@@ -652,8 +648,8 @@ const Customers = () => {
                 <TableRow key={customer.id}>
                   <TableCell>
                     <Typography
-                      component="a"
-                      onClick={() => handleViewCustomer(customer)}
+                      component={RouterLink}
+                      to={`/customers/${customer.id}/view`}
                       sx={{ fontSize: 16, color: '#000', cursor: 'pointer', textDecoration: 'none', '&:hover': { textDecoration: 'none' } }}
                     >
                       {customer.firstName} {customer.lastName}

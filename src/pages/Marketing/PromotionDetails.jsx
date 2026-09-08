@@ -35,7 +35,7 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import promotionService from '../../services/promotionService';
 import promotionCategoryService from '../../services/promotionCategoryService';
@@ -2085,7 +2085,7 @@ const PromotionDetails = () => {
         <Button
           variant="contained"
           startIcon={<CancelIcon />}
-          onClick={() => navigate('/marketing/promotions')}
+          component={RouterLink} to={'/marketing/promotions'}
           sx={{
             bgcolor: '#e33430',
             borderRadius: 0,

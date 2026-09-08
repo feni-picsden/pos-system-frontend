@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
 import { Box, Paper, Typography, Button, Alert } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom';
 import priceListService from '../../services/priceListService';
 import { formatRuleSummary } from './ruleLabels';
 
@@ -41,7 +41,6 @@ const ruleRowSx = {
 
 const PriceListDetails = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [priceList, setPriceList] = useState(null);
@@ -101,7 +100,7 @@ const PriceListDetails = () => {
       >
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/customers/price-lists')}
+          component={RouterLink} to={'/customers/price-lists'}
           disableElevation
           sx={refButtonSx}
         >
@@ -119,14 +118,14 @@ const PriceListDetails = () => {
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '.5rem', mb: '1rem' }}>
           <Button
-            onClick={() => navigate(`/customers?priceList=${id}`)}
+            component={RouterLink} to={`/customers?priceList=${id}`}
             disableElevation
             sx={refButtonSx}
           >
             View Customers
           </Button>
           <Button
-            onClick={() => navigate(`/customers/price-lists/${id}/configuration`)}
+            component={RouterLink} to={`/customers/price-lists/${id}/configuration`}
             disableElevation
             sx={refButtonSx}
           >

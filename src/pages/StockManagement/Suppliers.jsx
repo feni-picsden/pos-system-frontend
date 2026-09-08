@@ -30,7 +30,7 @@ import {
   AccountTreeOutlined as MergeIcon,
   CloseOutlined as CloseIcon,
 } from '@mui/icons-material';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
 import usePageCache from '../../hooks/usePageCache';
 import PerformanceGraph from '../../components/Classifications/PerformanceGraph';
@@ -200,18 +200,6 @@ const Suppliers = () => {
 
   const handleAddSupplier = () => {
     navigate('/suppliers/new');
-  };
-
-  const handleViewSupplier = (supplier) => {
-    navigate(`/suppliers/${supplier.id}/view`);
-  };
-
-  const handleEditSupplier = (supplier) => {
-    navigate(`/suppliers/${supplier.id}/edit`);
-  };
-
-  const handleAssignSupplier = (supplier) => {
-    navigate(`/suppliers/${supplier.id}/assign`);
   };
 
   const handleDeleteSupplier = (supplierId) => {
@@ -769,7 +757,7 @@ const Suppliers = () => {
                         size="small"
                         disableRipple
                         startIcon={<ViewIcon />}
-                        onClick={() => handleViewSupplier(supplier)}
+                        component={RouterLink} to={`/suppliers/${supplier.id}/view`}
                         sx={{ ...actionLinkSx, color: '#0284c7', '&:hover': { ...actionLinkSx['&:hover'], color: 'rgb(115, 180, 247)' } }}
                       >
                         View
@@ -778,7 +766,7 @@ const Suppliers = () => {
                         size="small"
                         disableRipple
                         startIcon={<EditIcon />}
-                        onClick={() => handleEditSupplier(supplier)}
+                        component={RouterLink} to={`/suppliers/${supplier.id}/edit`}
                         sx={{ ...actionLinkSx, color: '#16a34a', '&:hover': { ...actionLinkSx['&:hover'], color: 'rgb(109, 215, 123)' } }}
                       >
                         Edit
@@ -787,7 +775,7 @@ const Suppliers = () => {
                         size="small"
                         disableRipple
                         startIcon={<AssignIcon />}
-                        onClick={() => handleAssignSupplier(supplier)}
+                        component={RouterLink} to={`/suppliers/${supplier.id}/assign`}
                         sx={{ ...actionLinkSx, color: '#9561e2', transition: 'color 0.4s ease', '&:hover': { ...actionLinkSx['&:hover'], color: 'rgb(96, 34, 187)' } }}
                       >
                         Assign

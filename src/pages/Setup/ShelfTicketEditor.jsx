@@ -39,7 +39,7 @@ import {
   ArrowDownward as SendBackwardIcon,
   PermMedia as PermMediaIcon,
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom';
 import shelfTicketTemplateService from '../../services/shelfTicketTemplateService';
 import { handlePrintPreview, renderPrintElement } from '../../utils/shelfTicketPrint.jsx';
 import MediaDialog from '../../components/Common/MediaDialog';
@@ -298,7 +298,6 @@ const ColorPickerButton = ({ color, onChange, label }) => {
 
 const ShelfTicketEditor = () => {
   const { templateId } = useParams();
-  const navigate = useNavigate();
 
   const [template, setTemplate] = useState({
     id: null, name: 'New Template', width: 100, height: 70,
@@ -1091,7 +1090,7 @@ const ShelfTicketEditor = () => {
       <Paper elevation={2} sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1, zIndex: 100, borderRadius: 0, flexShrink: 0 }}>
         <Tooltip title="Back to Templates">
           <span>
-            <IconButton onClick={() => navigate('/setup/shelf-tickets')}>
+            <IconButton component={RouterLink} to={'/setup/shelf-tickets'}>
               <ArrowBackIcon />
             </IconButton>
           </span>

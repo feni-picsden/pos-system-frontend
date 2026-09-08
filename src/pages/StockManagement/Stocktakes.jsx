@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -335,7 +335,7 @@ export default function Stocktakes() {
                     <Button
                       size="small"
                       startIcon={<VisibilityOutlined />}
-                      onClick={() => navigate(`/stock-management/stocktakes/${r.id}`)}
+                      component={RouterLink} to={`/stock-management/stocktakes/${r.id}`}
                       sx={{ color: '#0284c7', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                     >
                       View

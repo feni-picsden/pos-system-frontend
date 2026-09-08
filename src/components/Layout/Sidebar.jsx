@@ -49,7 +49,7 @@ import {
   ExtensionOutlined as ExtensionIcon,
   StorageOutlined as StorageIcon,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { usePermissions } from "../../hooks/usePermissions";
 import {
@@ -57,7 +57,7 @@ import {
   isCustomerDisplayWindowOpen,
   openCustomerDisplayWindow,
 } from "../../utils/customerDisplayWindow";
-import { confirmLeave } from "../../utils/leaveGuard";
+import { confirmLeave, hasLeaveGuard } from "../../utils/leaveGuard";
 
 const menuItems = [
   {
@@ -599,7 +599,15 @@ const Sidebar = ({ onClick }) => {
     user?.isSuperAdmin || (user?.hasAllPermission && (user?.outletId === null || user?.outletId === undefined))
   );
 
-  const handleItemClick = (item) => {
+  // A plain left-click is ours to handle; ctrl/cmd/shift/alt-click and
+  // middle-click belong to the browser, which is what opens the item in a new
+  // tab or window. Returning early rather than preventDefault-ing is what makes
+  // that work now that leaf items render as real <a href> links.
+  const isModifiedClick = (e) =>
+    Boolean(e) &&
+    (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (e.button != null && e.button !== 0));
+
+  const handleItemClick = (item, event) => {
     if (item.id === "open-customer-display") {
       if (isCustomerDisplayWindowOpen()) {
         closeCustomerDisplayWindow();
@@ -622,8 +630,16 @@ const Sidebar = ({ onClick }) => {
         [item.id]: !prev[item.id],
       }));
     } else if (item.path) {
-      // Pages with unsaved edits (Setup > General) get to confirm before we leave.
-      confirmLeave(() => navigate(item.path));
+      // Modifier/middle click: leave the anchor alone so the browser opens the
+      // page in a new tab. The drawer stays open, which is the point.
+      if (isModifiedClick(event)) return;
+      // Pages with unsaved edits (Setup > General) get to confirm before we
+      // leave. Only then do we cancel the anchor and drive the navigation
+      // ourselves; with no guard registered the <Link> navigates on its own.
+      if (hasLeaveGuard()) {
+        event?.preventDefault();
+        confirmLeave(() => navigate(item.path));
+      }
       onClick();
     }
   };
@@ -699,6 +715,14 @@ const Sidebar = ({ onClick }) => {
   const renderMenuItem = (item) => {
     const hasChildren = item.children && item.children.length > 0;
     const isOpen = openItems[item.id];
+    // Leaf items that go somewhere render as real anchors, so right-click >
+    // "Open link in new tab", ctrl/cmd-click and middle-click all work. Group
+    // headers (they only expand) and the customer-display toggle (it opens a
+    // popup window, not a route) stay plain buttons.
+    const linkProps =
+      !hasChildren && item.path && item.id !== "open-customer-display"
+        ? { component: RouterLink, to: item.path }
+        : {};
 
     return (
       <React.Fragment key={item.id}>
@@ -715,13 +739,19 @@ const Sidebar = ({ onClick }) => {
         >
           <ListItemButton
             disableRipple
-            onClick={() => handleItemClick(item)}
+            {...linkProps}
+            onClick={(e) => handleItemClick(item, e)}
+            onAuxClick={(e) => handleItemClick(item, e)}
             sx={{
               p: "4px 0",
               borderRadius: 0,
               transition: "none",
+              // It is an <a> now; keep it looking exactly like the row it was.
+              textDecoration: "none",
+              color: "inherit",
               "&:hover": {
                 bgcolor: "transparent",
+                textDecoration: "none",
                 "& .MuiListItemText-primary": { color: "#737373" },
               },
             }}

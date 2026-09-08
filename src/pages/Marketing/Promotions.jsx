@@ -35,7 +35,7 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   format,
   addMonths,
@@ -1046,7 +1046,7 @@ const Promotions = () => {
             disableRipple
             disableElevation
             startIcon={<AddIcon />}
-            onClick={() => navigate('/marketing/promotions/create')}
+            component={RouterLink} to={'/marketing/promotions/create'}
             sx={PRIMARY_BUTTON_SX}
           >
             Add Promotion
@@ -1291,7 +1291,7 @@ const Promotions = () => {
                         <Button
                           disableRipple
                           startIcon={<ViewIcon />}
-                          onClick={() => navigate(viewPath(promotion))}
+                          component={RouterLink} to={viewPath(promotion)}
                           sx={rowActionSx('#0084d1')}
                         >
                           View
@@ -1299,7 +1299,7 @@ const Promotions = () => {
                         <Button
                           disableRipple
                           startIcon={<EditIcon />}
-                          onClick={() => navigate(editPath(promotion))}
+                          component={RouterLink} to={editPath(promotion)}
                           sx={rowActionSx('#00a63e')}
                         >
                           Edit

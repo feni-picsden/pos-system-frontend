@@ -17,7 +17,7 @@ import {
   Home as HomeIcon,
   History as HistoryIcon,
 } from "@mui/icons-material";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import promotionService from "../../services/promotionService";
 import productService from "../../services/productService";
 import { getBaseTier } from "../../utils/baseTier";
@@ -496,7 +496,7 @@ const ExpressPromotionView = () => {
                           <Typography className="mi-cell">Not Matched</Typography>
                           <Typography className="mi-cell">{getItemSummary(item)}</Typography>
                           <Button
-                            onClick={() => navigate(`/marketing/promotions/express/${id}`)}
+                            component={RouterLink} to={`/marketing/promotions/express/${id}`}
                             sx={{
                               border: "1px solid #e0e0e0",
                               borderRadius: "12px",

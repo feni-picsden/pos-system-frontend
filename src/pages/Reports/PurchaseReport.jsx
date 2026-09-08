@@ -43,7 +43,7 @@ import {
   ArrowDropUp,
 } from '@mui/icons-material';
 import { format as formatDate } from 'date-fns';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import purchaseReportService from '../../services/purchaseReportService';
@@ -185,7 +185,6 @@ const FilterTile = ({ label, value, groups, selected, open, onToggle, onSelect }
 const PurchaseReport = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert } = useAppDialogs();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
   // Report Type Options
@@ -1253,7 +1252,7 @@ const PurchaseReport = () => {
           <Button
             disableRipple
             startIcon={<PencilIcon sx={{ fontSize: 20 }} />}
-            onClick={() => navigate(`/reports/purchases/query?query=${encodeURIComponent(customQuery)}`)}
+            component={RouterLink} to={`/reports/purchases/query?query=${encodeURIComponent(customQuery)}`}
             sx={{
               color: '#16a34a',
               fontSize: 16,

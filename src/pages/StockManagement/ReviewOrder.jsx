@@ -17,7 +17,7 @@ import {
   Close as CloseIcon,
   Remove as RemoveIcon,
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import { resolveAssetUrl } from '../../services/apiClient';
 import { userService } from '../../services/userService';
@@ -459,7 +459,7 @@ const ReviewOrder = () => {
                 size="small"
                 variant="contained"
                 disableElevation
-                onClick={() => navigate(`/orders-invoices/${id}/edit`)}
+                component={RouterLink} to={`/orders-invoices/${id}/edit`}
                 sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
               >
                 Edit Order
@@ -469,7 +469,7 @@ const ReviewOrder = () => {
                 size="small"
                 variant="contained"
                 disableElevation
-                onClick={() => navigate(`/orders-invoices/${id}`)}
+                component={RouterLink} to={`/orders-invoices/${id}`}
                 sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
               >
                 View Order

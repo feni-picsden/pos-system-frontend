@@ -58,7 +58,7 @@ import { styled } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useThemeMode } from '../../contexts/themeMode';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import notificationService from '../../services/notificationService';
 import apiClient, { resolveAssetUrl } from '../../services/apiClient';
 import orderInvoiceService from '../../services/orderInvoiceService';
@@ -298,11 +298,17 @@ const DashboardLayout = ({ children }) => {
     }
   };
 
-  const handleQuickItemClick = (item) => {
-    setQuickOpen(false);
-    if (!item.url) return;
-    if (item.external) window.open(item.url, '_blank');
-    else navigate(item.url);
+  // Quick menu rows render as real links (see quickItemLinkProps) so they can be
+  // middle-clicked or opened in a new tab; clicking one only closes the menu.
+  const handleQuickItemClick = () => setQuickOpen(false);
+
+  // Internal rows become <Link to>, external ones a plain <a target="_blank">.
+  // Either way the browser gets an href, which is what the context menu needs.
+  const quickItemLinkProps = (item) => {
+    if (!item.url) return {};
+    return item.external
+      ? { component: 'a', href: item.url, target: '_blank', rel: 'noopener noreferrer' }
+      : { component: RouterLink, to: item.url };
   };
 
   // ── Volume (audio popover) ─────────────────────────────────────────────────
@@ -516,10 +522,11 @@ const DashboardLayout = ({ children }) => {
                 onMouseLeave={() => setQuickOpen(false)}
               >
                 <Box
-                  onClick={() => { setQuickOpen(false); navigate('/'); }}
-                  role="button"
+                  component={RouterLink}
+                  to="/"
+                  onClick={() => setQuickOpen(false)}
                   aria-label="quick menu"
-                  sx={headerCellSx}
+                  sx={{ ...headerCellSx, textDecoration: 'none' }}
                 >
                   <CloudIcon sx={{ fontSize: 30, color: '#fff' }} />
                 </Box>
@@ -560,8 +567,11 @@ const DashboardLayout = ({ children }) => {
                       {quickItems.map((item, idx) => (
                         <Box
                           key={idx}
-                          onClick={() => handleQuickItemClick(item)}
+                          {...quickItemLinkProps(item)}
+                          onClick={handleQuickItemClick}
                           sx={{
+                            display: 'block',
+                            textDecoration: 'none',
                             width: '100%',
                             height: 39,
                             boxSizing: 'border-box',

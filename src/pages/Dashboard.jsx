@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import FavouriteReportPreview from '../components/Dashboard/FavouriteReportPreview';
 import dashboardLayoutService from '../services/dashboardLayoutService';
 import { useSelectedOutlet } from '../contexts/SelectedOutletContext';
@@ -12,7 +12,6 @@ import posLocalDb from '../services/posLocalDb';
 const GRID_COLS = 10;
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const { selectedOutletId } = useSelectedOutlet();
   const { user } = useAuth();
   const [widgets, setWidgets] = useState([]);
@@ -157,8 +156,8 @@ const Dashboard = () => {
         }}
       >
         <Box
-          component="button"
-          onClick={() => navigate('/dashboard/customize')}
+          component={RouterLink}
+          to="/dashboard/customize"
           aria-label="Edit dashboard"
           sx={{
             pointerEvents: 'auto',
@@ -170,6 +169,9 @@ const Dashboard = () => {
             border: 0,
             borderRadius: 0,
             cursor: 'pointer',
+            // It is an <a> now (so it can be opened in a new tab); keep it
+            // looking exactly like the button it replaced.
+            textDecoration: 'none',
             color: '#fff',
             bgcolor: '#16a34a',
             transform: 'translateX(96px)',

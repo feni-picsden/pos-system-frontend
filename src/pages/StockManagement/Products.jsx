@@ -566,14 +566,6 @@ const Products = () => {
     setCurrentPage(value);
   };
 
-  const handleViewProduct = (productId) => {
-    navigate(`/products/${productId}/view`);
-  };
-
-  const handleEditProduct = (productId) => {
-    navigate(`/products/${productId}/edit`);
-  };
-
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -957,14 +949,14 @@ const Products = () => {
                         }}
                       >
                         <Button
-                          onClick={() => handleViewProduct(product.id)}
+                          component={RouterLink} to={`/products/${product.id}/view`}
                           startIcon={<VisibilityOutlinedIcon />}
                           sx={{ color: "#0284c7", textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, p: 0, height: 42, transition: "none", "&:hover": { bgcolor: "transparent" } }}
                         >
                           View
                         </Button>
                         <Button
-                          onClick={() => handleEditProduct(product.id)}
+                          component={RouterLink} to={`/products/${product.id}/edit`}
                           startIcon={<EditOutlinedIcon />}
                           sx={{ color: "#16a34a", textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, p: 0, height: 42, transition: "none", "&:hover": { bgcolor: "transparent" } }}
                         >

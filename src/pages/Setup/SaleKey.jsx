@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -853,7 +853,7 @@ const SaleKey = () => {
         }}
       >
         <IconButton
-          onClick={() => navigate('/setup/sale-key-sets')}
+          component={RouterLink} to={'/setup/sale-key-sets'}
           sx={{ color: 'white', mr: 2 }}
         >
           <ArrowBackIcon />
@@ -1722,7 +1722,7 @@ const SaleKey = () => {
             fullWidth
             variant="outlined"
             startIcon={<CloseIcon />}
-            onClick={() => navigate('/setup/sale-key-sets')}
+            component={RouterLink} to={'/setup/sale-key-sets'}
           >
             Cancel
           </Button>

@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Add as AddIcon, ContentCopy as CloneIcon, DeleteOutline as DeleteIcon, EditOutlined as EditIcon } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import customerDisplayTemplateService from '../../services/customerDisplayTemplateService';
 import usePageCache from '../../hooks/usePageCache';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -144,7 +144,7 @@ const CustomerDisplays = () => {
                       <Button
                         size="small"
                         startIcon={<EditIcon />}
-                        onClick={() => navigate(`/setup/customer-display/${template.id}/edit`)}
+                        component={RouterLink} to={`/setup/customer-display/${template.id}/edit`}
                         sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0, '&:hover': { bgcolor: 'transparent', color: '#68c389' } }}
                       >
                         Edit
