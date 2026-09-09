@@ -18,6 +18,7 @@ import { isEftposMethod } from '../../services/linklyService';
 import { allowsCashOut, getPaymentMethodSettings } from '../../services/paymentMethodService';
 import settingsService from '../../services/settingsService';
 import { useAppDialogs } from '../Common/AppDialogProvider';
+import { formatMoney } from '../../utils/currency';
 
 // ponytail: one resolver for effective customer-management flags. The customer's own
 // value wins only when overrideCustomerGroup is set (and actually provided); otherwise
@@ -82,17 +83,9 @@ console.assert(exceedsAccountLimit(999, 999, null) === false, 'accountLimit: nul
 console.assert(exceedsAccountLimit(50, 20, '100') === false, 'accountLimit: string cap coerces');
 
 // Reference money format: dollars at full size, cents raised at ~70% size.
-const Money = ({ value }) => {
-  const cents = Math.round(Math.abs(Number(value) || 0) * 100);
-  return (
-    <>
-      {value < 0 ? '-' : ''}${Math.floor(cents / 100)}.
-      <Box component="span" sx={{ fontSize: '70%', verticalAlign: 'top' }}>
-        {String(cents % 100).padStart(2, '0')}
-      </Box>
-    </>
-  );
-};
+// Money was a local component that shrank the cents to 70% and lifted them with
+// verticalAlign:top — while the sell screen sidebar pushed its cents DOWN and the
+// grand total dropped the decimal point. formatMoney is the one format now.
 
 const FinalizeSaleDialog = ({
   open,
@@ -887,7 +880,7 @@ const FinalizeSaleDialog = ({
                     sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}
                   >
                     <Typography component="div" sx={{ fontSize: '19.2px', fontWeight: 700, color: '#676b72' }}>
-                      {payment.description}: <Money value={payment.amount} />
+                      {payment.description}: {formatMoney(payment.amount)}
                     </Typography>
                     {/* A mis-keyed tender must be removable in place. PIN pad charges are
                         left alone — the money already moved, refund it on the pad instead. */}
@@ -906,15 +899,15 @@ const FinalizeSaleDialog = ({
               </Box>
             )}
             <Typography component="div" sx={{ fontSize: '23.04px', fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal' }}>
-              Total: <Money value={total} />
+              Total: {formatMoney(total)}
             </Typography>
             {remainingBalance < -PAYMENT_TOLERANCE ? (
               <Typography component="div" sx={{ fontSize: '23.04px', fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal' }}>
-                Change: <Money value={-remainingBalance} />
+                Change: {formatMoney(-remainingBalance)}
               </Typography>
             ) : (
               <Typography component="div" sx={{ fontSize: '23.04px', fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal' }}>
-                Remaining: <Money value={remainingBalance} />
+                Remaining: {formatMoney(remainingBalance)}
               </Typography>
             )}
           </Box>

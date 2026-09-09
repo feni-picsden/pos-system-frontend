@@ -98,6 +98,7 @@ import priceListService from '../services/priceListService';
 import { priceSetService } from '../services/priceSetService';
 import { applyPriceListToLine } from '../utils/priceListEngine';
 import { lineSavings, itemsPerCase } from '../utils/saleTotals';
+import { formatMoney } from '../utils/currency';
 import { effectiveUnitCost } from '../utils/productCost';
 import { surchargeService } from '../services/surchargeService';
 import securityReportService from '../services/securityReportService';
@@ -7057,8 +7058,7 @@ const SaleKeyPage = () => {
                       : null;
                     const employeeName = sale.user?.name || 'Unknown';
                     const totalAmount = parseFloat(sale.totalAmount || 0);
-                    const formattedAmount = totalAmount.toFixed(2);
-                    const [amtDollars, amtCents] = formattedAmount.split('.');
+                    const formattedAmount = formatMoney(totalAmount);
                     // Reference rows: 89px, 16px padding, zebra #f8f8f8/#fff.
                     const rowBgColor = index % 2 === 0 ? '#f8f8f8' : '#ffffff';
                     return (
@@ -7190,8 +7190,7 @@ const SaleKeyPage = () => {
                               lineHeight: 1.2
                             }}
                           >
-                            ${amtDollars}
-                            <Box component="span" sx={{ fontSize: '0.95rem' }}>.{amtCents}</Box>
+                            {formatMoney(totalAmount)}
                           </Typography>
                           <Typography
                             variant="body2"
@@ -7201,7 +7200,7 @@ const SaleKeyPage = () => {
                               mb: 0.5
                             }}
                           >
-                            ${formattedAmount}
+                            {formattedAmount}
                           </Typography>
                           {customerName && (
                             <Typography
@@ -7502,15 +7501,7 @@ const SaleKeyPage = () => {
                           Change
                         </Typography>
                         <Typography component="div" sx={{ fontWeight: 700, fontSize: '64px', lineHeight: 'normal', color: 'inherit' }}>
-                          {(() => {
-                            const [dollars, cents] = (parseFloat(receiptData.change) || 0).toFixed(2).split('.');
-                            return (
-                              <>
-                                ${dollars}.
-                                <Box component="span" sx={{ fontSize: '0.7em' }}>{cents}</Box>
-                              </>
-                            );
-                          })()}
+                          {formatMoney(receiptData.change)}
                         </Typography>
                       </>
                     ) : (

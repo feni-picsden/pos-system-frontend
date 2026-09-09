@@ -38,24 +38,16 @@ import LineEditPanel, {
 import { useAppDialogs } from '../Common/AppDialogProvider';
 import settingsService from '../../services/settingsService';
 import { effectiveUnitCost } from '../../utils/productCost';
+import { formatMoney } from '../../utils/currency';
 
 // SaleKeyPage imports the shared keypad from here (quantity popup)
 export { KeypadPopover };
 
-// Reference money format: dollars at full size, cents in a 70% span pushed down
-// by `raise` px. The grand total carries NO '.' glyph (size/offset separate the
-// cents); the 16px Savings/Discount lines keep theirs.
-const Money = ({ value, dot = true, raise = 0, centsSize = '70%' }) => {
-  const cents = Math.round(Math.abs(Number(value) || 0) * 100);
-  return (
-    <>
-      {Number(value) < 0 ? '-' : ''}${Math.floor(cents / 100)}{dot ? '.' : ''}
-      <Box component="span" sx={{ fontSize: centsSize, position: 'relative', top: `${raise}px` }}>
-        {String(cents % 100).padStart(2, '0')}
-      </Box>
-    </>
-  );
-};
+// Money is plain text now — $40.00, one size, always a decimal point. It used to
+// shrink the cents to 70% and shove them off the baseline (down here, up in the
+// Finalize dialog), and the grand total dropped the '.' entirely, so the same
+// amount read three different ways on one screen. `dot`, `raise` and `centsSize`
+// are gone with it; formatMoney is the single format.
 
 // Live profit of one cart line, on the SAME basis as the reference's product
 // price table (measured 2026-08-14: price $32.99 inc, cost $27.44 inc, 16.82% —
@@ -282,7 +274,7 @@ const CartSidebar = ({
           {/* Owing — 32px amount with 70% raised cents, small-caps 16px label */}
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'right', pr: '8px' }}>
             <Typography sx={{ fontSize: 32, fontWeight: 400, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
-              <Money value={parseFloat(selectedCustomer.currentOwing ?? selectedCustomer.accountBalance) || 0} dot={false} raise={9} />
+              {formatMoney(parseFloat(selectedCustomer.currentOwing ?? selectedCustomer.accountBalance) || 0)}
             </Typography>
             <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000', fontVariant: 'small-caps', textTransform: 'none', lineHeight: 'normal', letterSpacing: 'normal', m: 0 }}>
               Owing
@@ -380,7 +372,7 @@ const CartSidebar = ({
                 </Box>
                 <Typography component="span" sx={{ fontSize: 16, color, mr: '12px', lineHeight: 'normal', letterSpacing: 'normal' }}>
                   Amount:{' '}
-                  <Money value={parseFloat(payment.amount) || 0} raise={4} centsSize="12px" />
+                  {formatMoney(parseFloat(payment.amount) || 0)}
                 </Typography>
                 {!inactive && (
                   <DeleteOutlineIcon
@@ -604,21 +596,19 @@ const CartSidebar = ({
         <Box sx={{ flexShrink: 0, height: 36, boxSizing: 'border-box', display: 'flex', alignItems: 'center', p: '8px', bgcolor: 'transparent' }}>
           <Typography component="span" sx={{ flexGrow: 1, fontSize: 16, fontWeight: 400, color: '#313439', lineHeight: 'normal', letterSpacing: 'normal' }}>
             Unlocked Price:{' '}
-            <Money
-              // ponytail: single-locked-line was the measured case; multi-line =
-              // sum of each locked line's automatic (pre-discount) total.
-              value={cart.reduce(
+            {/* ponytail: single-locked-line was the measured case; multi-line =
+                sum of each locked line's automatic (pre-discount) total.
+                discountAmount is original - new, so it is NEGATIVE when the
+                price was raised; adding it back either way recovers the
+                ORIGINAL automatic price, which is what this row shows. */}
+            {formatMoney(
+              cart.reduce(
                 (sum, i) => i.discountInfo
-                  // discountAmount is original - new, so it is NEGATIVE when the
-                  // price was raised; adding it back either way recovers the
-                  // ORIGINAL automatic price, which is what this row shows.
                   ? sum + (parseFloat(i.price) || 0) + (parseFloat(i.discountInfo.discountAmount) || 0)
                   : sum,
                 0
-              )}
-              raise={4}
-              centsSize="14px"
-            />
+              )
+            )}
           </Typography>
           <HelpOutlineIcon
             onClick={() => setUnlockedInfoOpen(true)}
@@ -685,10 +675,10 @@ const CartSidebar = ({
       {paymentView ? (
         <Box sx={{ height: 93, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', p: '8px' }}>
           <Typography component="div" sx={{ fontSize: 20, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
-            Total: <Money value={calculateTotal()} raise={4} centsSize="14px" />
+            Total: {formatMoney(calculateTotal())}
           </Typography>
           <Typography component="div" sx={{ fontSize: 24, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
-            Remaining: <Money value={Math.max(0, calculateTotal() - paidTotal)} raise={4} centsSize="16px" />
+            Remaining: {formatMoney(Math.max(0, calculateTotal() - paidTotal))}
           </Typography>
         </Box>
       ) : (
@@ -783,10 +773,10 @@ const CartSidebar = ({
                       {cart.length} Product{cart.length === 1 ? '' : 's'}
                     </Typography>
                     <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && savings > 0 ? '#000' : 'rgba(189, 189, 189, 0.7)' }}>
-                      Savings: <Money value={savings} raise={4} centsSize="14px" />
+                      Savings: {formatMoney(savings)}
                     </Typography>
                     <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && lineDiscount > 0 ? '#000' : 'rgba(189, 189, 189, 0.7)' }}>
-                      Discount: <Money value={lineDiscount} raise={4} centsSize="14px" />
+                      Discount: {formatMoney(lineDiscount)}
                     </Typography>
                   </>
                 );
@@ -802,7 +792,7 @@ const CartSidebar = ({
           sx={{ width: '50%', boxSizing: 'border-box', p: '8px', textAlign: 'center', color: totalsColor, cursor: cartEmpty ? 'not-allowed' : 'pointer' }}
         >
           <Typography component="div" sx={{ color: 'inherit', fontWeight: 400, fontSize: 40, lineHeight: 'normal', letterSpacing: 'normal' }}>
-            <Money value={calculateTotal()} dot={false} raise={11} />
+            {formatMoney(calculateTotal())}
           </Typography>
           <Typography
             component="p"

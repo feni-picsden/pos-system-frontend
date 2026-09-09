@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Grid, Typography } from '@mui/material';
+import { formatMoney } from '../../utils/currency';
 
 // Actions that operate on the current sale: the reference gives ALL of these a
 // not-allowed cursor (and ignores the click) while the sale is idle/empty,
@@ -129,7 +130,7 @@ const SaleKeysGrid = ({
               {(saleKey.action === 'payment' || saleKey.action === 'pay-amount') && saleKey.amount ? (
                 <>
                   <Box sx={{ fontSize: `${Math.max((saleKey.fontSize || 16) + 4, 20)}px`, fontWeight: 'bold', mb: 0.5 }}>
-                    ${saleKey.amount}
+                    {formatMoney(saleKey.amount)}
                   </Box>
                   {saleKey.name}
                 </>
@@ -146,7 +147,7 @@ const SaleKeysGrid = ({
                 letterSpacing: 'normal',
                 lineHeight: 1.2
               }}>
-                ${saleKey.amount}
+                {formatMoney(saleKey.amount)}
               </Typography>
             )}
           </Box>

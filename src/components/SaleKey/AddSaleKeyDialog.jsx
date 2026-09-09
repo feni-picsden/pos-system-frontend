@@ -31,6 +31,7 @@ import {
   FormatUnderlined,
 } from '@mui/icons-material';
 import { productOptionLabel, productOptionDetail } from '../../utils/productOptionLabel';
+import { formatMoney } from '../../utils/currency';
 
 const AddSaleKeyDialog = ({
   open,
@@ -576,7 +577,7 @@ const AddSaleKeyDialog = ({
               
               {newSaleKey.amount && (
                 <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
-                  ${newSaleKey.amount}
+                  {formatMoney(newSaleKey.amount)}
                 </Typography>
               )}
             </Box>
