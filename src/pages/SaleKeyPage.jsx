@@ -4492,11 +4492,15 @@ const SaleKeyPage = () => {
       return updatedCart;
     });
     
-    if (selectedCartItem && 
-        selectedCartItem.id === itemToRemove.id && 
-        selectedCartItem.timestamp === itemToRemove.timestamp) {
-      setSelectedCartItem(null);
-    }
+    // Functional form: clicking the trash icon now selects the line first (the row
+    // selects on capture), so the `selectedCartItem` captured in this closure is a
+    // render behind. Reading the latest value here is what stops a just-deleted
+    // line from staying in `selectedCartItem`.
+    setSelectedCartItem(prev =>
+      prev && prev.id === itemToRemove.id && prev.timestamp === itemToRemove.timestamp
+        ? null
+        : prev
+    );
 
     try {
       const registerId = localStorage.getItem('selectedRegisterId')

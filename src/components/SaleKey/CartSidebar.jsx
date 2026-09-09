@@ -426,7 +426,15 @@ const CartSidebar = ({
           return (
             <React.Fragment key={lineKey}>
               <Box
-                onClick={() => onCartItemSelect(item)}
+                // CAPTURE, not bubble. Every cell in this row (quantity, name,
+                // price, note, lock, trash) has its own click handler and calls
+                // stopPropagation, and the name cell is flex:1 so it covers most
+                // of the row — so a bubble handler here only ever saw clicks on
+                // the thin padding, and a row that was not already selected was
+                // effectively unselectable. Capture runs before the target's own
+                // handler, so stopPropagation can no longer swallow the select and
+                // every cell keeps doing exactly what it did before.
+                onClickCapture={() => onCartItemSelect(item)}
                 sx={{
                   position: 'relative',
                   display: 'flex',
