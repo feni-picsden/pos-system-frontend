@@ -5,7 +5,7 @@
  */
 
 const DB_NAME = 'pos-system';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const STORES = {
   // POS catalog (used by sell screen)
@@ -197,6 +197,19 @@ function openDatabase() {
         STORES.users, STORES.roles, STORES.loyaltyPrograms, STORES.surcharges,
         STORES.stocktakes,
       ].forEach((name) => ensureStore(name, { keyPath: 'id' }));
+
+      // v6: the product cache was filled by a request that silently defaulted to
+      // status=Active, so every install holds an Active-only catalog and the
+      // Products page's Inactive filter has nothing to match. The sync now asks
+      // for all statuses; drop the bad cache once so it is refilled instead of
+      // being served as "fresh" for the rest of its TTL.
+      if (event.oldVersion > 0 && event.oldVersion < 6) {
+        try {
+          const tx = event.target.transaction;
+          tx.objectStore(STORES.products).clear();
+          tx.objectStore(STORES.meta).delete(`store:${STORES.products}:updatedAt`);
+        } catch { /* store missing on a partial upgrade — nothing to drop */ }
+      }
     };
 
     request.onsuccess = () => {

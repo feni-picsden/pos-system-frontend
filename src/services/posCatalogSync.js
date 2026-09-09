@@ -23,10 +23,14 @@ export async function fetchAllProducts(outletId) {
   while (all.length < total) {
     // Every status is cached — the Products page lists inactive/discontinued rows
     // too. The sell screen's in-memory catalog filters back down to Active.
+    // includeAllStatuses is load-bearing: getProducts appends `status=Active`
+    // unless it is told not to, so without it the cache held Active rows only
+    // and the Products page's Inactive filter had nothing to match.
     const res = await productService.getProducts({
       outletId,
       limit,
       page,
+      includeAllStatuses: true,
     }, { silent: true });
     const batch = res?.products || [];
     all.push(...batch);
