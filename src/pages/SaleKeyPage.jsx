@@ -1527,7 +1527,7 @@ const SaleKeyPage = () => {
   // scanners that do (queueScan dedupes the repeat).
   useEffect(() => {
     const timer = setTimeout(() => {
-      const term = String(searchTerm || '').trim();
+      const term = sanitizeScanInput(searchTerm);
       if (term && looksLikeBarcode(term) && !isCustomerSearchMode && !isTransactionComplete) {
         queueScan(term);
         return;
@@ -1594,9 +1594,51 @@ const SaleKeyPage = () => {
     setSearchTerm(e.target.value);
   };
 
+  // Scanners rarely deliver a clean code. Wedge configurations add prefix/suffix
+  // characters, codes pasted from a spreadsheet arrive wrapped in quotes, and
+  // some scanners emit control or zero-width characters around the payload.
+  // Every one of those made an otherwise valid barcode fail the shape test and
+  // fall through to a text search that matches nothing, so strip them ONCE here
+  // and use the cleaned value on every scan path.
+  // Char codes are compared numerically rather than with a regex class so the
+  // invisible characters never have to appear literally in this source file.
+  const isStrippableScanChar = (charCode) =>
+    charCode < 32 || // C0 controls (includes the scanner's CR/LF/Tab suffix)
+    (charCode >= 127 && charCode <= 159) || // DEL + C1 controls
+    (charCode >= 0x200b && charCode <= 0x200d) || // zero-width space/non-joiner/joiner
+    charCode === 0xfeff; // BOM / zero-width no-break space
+
+  const SCAN_QUOTE_CODES = new Set([
+    34, // "
+    39, // '
+    0x2018, 0x2019, // curly single quotes
+    0x201c, 0x201d, // curly double quotes
+  ]);
+
+  const sanitizeScanInput = (value) => {
+    const raw = String(value ?? '');
+    let code = '';
+    for (let i = 0; i < raw.length; i++) {
+      if (!isStrippableScanChar(raw.charCodeAt(i))) code += raw[i];
+    }
+    code = code.trim();
+    // Peel wrapping quotes, which may be repeated or mixed.
+    let previous;
+    do {
+      previous = code;
+      while (code.length && SCAN_QUOTE_CODES.has(code.charCodeAt(0))) code = code.slice(1);
+      while (code.length && SCAN_QUOTE_CODES.has(code.charCodeAt(code.length - 1))) {
+        code = code.slice(0, -1);
+      }
+      code = code.trim();
+    } while (code !== previous);
+    return code;
+  };
+
   // Barcode-SHAPED input. Only used where there is no Enter to confirm the scan
   // (the auto-scan debounce, the global keydown buffer), so it stays deliberately
   // narrow: widening it there would hijack typed product-name searches.
+  // No upper bound on length: GTIN-14 and longer in-house codes are valid.
   const looksLikeBarcode = (term) => /^\d{4,}$/.test(term);
 
   const productMatchesBarcode = (product, code) => {
@@ -1622,7 +1664,7 @@ const SaleKeyPage = () => {
   // local barcode map (or among the products currently listed, which covers codes
   // resolved from the API) is what makes Enter a scan instead of a no-op.
   const isKnownBarcode = (term) => {
-    const code = String(term || '').trim();
+    const code = sanitizeScanInput(term);
     if (!code) return false;
     if (Object.prototype.hasOwnProperty.call(localBarcodeIndex, code)) return true;
     if (posLocalDb.getProductsByBarcode(code).length > 0) return true;
@@ -1797,11 +1839,17 @@ const SaleKeyPage = () => {
 
   // Recall a completed sale into the cart as a RETURN (negative lines).
   // Shared by the sale-search key (typed invoice) and receipt-barcode scans.
-  const recallSaleAsReturn = async (term) => {
+  // `silent` is used by the scan fallback: an unmatched long code there is just
+  // an unknown barcode, so the caller's "not found" snackbar should speak, not
+  // an alert claiming no sale was found.
+  const recallSaleAsReturn = async (term, { silent = false } = {}) => {
     try {
       const resp = await salesService.getSales({ invoiceNumber: term.replace(/^#/, ''), limit: 5 });
       let sale = (resp.sales || []).find(s => s.status !== 'PARKED');
-      if (!sale) { alert(`No sale found matching "${term}".`); return false; }
+      if (!sale) {
+        if (!silent) alert(`No sale found matching "${term}".`);
+        return false;
+      }
       // The list response's items omit productId — fetch the full sale when possible.
       try {
         const detail = await salesService.getSaleById(sale.id);
@@ -1852,16 +1900,21 @@ const SaleKeyPage = () => {
   };
 
   const handleBarcodeScan = async (rawCode) => {
-    const code = String(rawCode || '').trim();
+    const code = sanitizeScanInput(rawCode);
     if (!code || isCustomerSearchMode || isTransactionComplete) {
       return false;
     }
 
-    // Receipt barcode (sale number): 14+ digits, far longer than EAN-13 product
-    // barcodes — reload that sale as a RETURN instead of a product lookup.
-    if (/^#?\d{14,}$/.test(code)) {
+    // A leading '#' is only ever typed/printed for a sale number, never scanned
+    // off a product, so that form still short-circuits to the return recall.
+    // A BARE long digit string is ambiguous: GTIN-14 cartons, ITF-14 and
+    // 14+ digit in-house codes are real product barcodes, so length alone must
+    // not route them to the sale lookup — the product search runs first below
+    // and the receipt recall is the fallback when nothing in the catalog matches.
+    if (/^#\d+$/.test(code)) {
       return recallSaleAsReturn(code);
     }
+    const mayBeSaleNumber = /^\d{14,}$/.test(code);
 
     // Duplicate barcodes are allowed across products: collect EVERY matching
     // product (deduped by id) so a multi-match scan opens a selection dialog
@@ -1936,13 +1989,23 @@ const SaleKeyPage = () => {
       }
     }
 
+    // No product anywhere owns this code. A long all-digit code at this point is
+    // a receipt barcode (sale number) — recall it as a return.
+    if (mayBeSaleNumber) {
+      return recallSaleAsReturn(code, { silent: true });
+    }
+
     return false;
   };
 
   // Shared by the Enter-key scan path and the auto-scan debounce: dedupes
   // repeated codes, clears the box and queues the scan for serialized adds.
-  const queueScan = (code) => {
+  const queueScan = (rawCode) => {
     if (isCustomerSearchMode || isTransactionComplete) return;
+    // Sanitize before the dedupe compare so the same scan arriving once clean
+    // and once with a scanner suffix is still recognised as a repeat.
+    const code = sanitizeScanInput(rawCode);
+    if (!code) return;
     // Some scanners send CR+LF, i.e. two Enter keydowns for one scan — and
     // the auto-scan debounce can race the Enter path. Ignore an identical
     // code repeated within the same instant.
@@ -1992,7 +2055,7 @@ const SaleKeyPage = () => {
     // Read the live DOM value, not searchTerm state: barcode scanners type
     // faster than React re-renders, so the state closure can lag a scan
     // behind (which caused duplicate adds and dropped scans).
-    const code = String(e.target.value || '').trim();
+    const code = sanitizeScanInput(e.target.value);
     // Scanners emit the code then Enter. Treat Enter as a scan for barcode-shaped
     // input AND for anything the catalog knows as a barcode (alphanumeric codes
     // included); typed product names keep the normal dropdown behavior.

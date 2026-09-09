@@ -43,11 +43,19 @@ export const normalizeBarcodeValue = (value, format = 'CODE128') => {
   const text = extractBarcodeValue(value);
   const normalizedFormat = normalizeFormat(format);
 
+  // EAN is a fixed-width symbology. A longer code (GTIN-14, ITF-14, an in-house
+  // code) is NOT an EAN, and truncating it would silently encode a DIFFERENT
+  // product. Only hand the digits to the EAN encoder when the length is one it
+  // actually accepts (12 = check digit computed, 13 = complete); otherwise keep
+  // the original text so createBarcodeSvgMarkup falls back to CODE128 and prints
+  // the real code.
   if (normalizedFormat === 'EAN13') {
-    return text.replace(/\D/g, '').slice(0, 13);
+    const digits = text.replace(/\D/g, '');
+    return digits.length === 12 || digits.length === 13 ? digits : text;
   }
   if (normalizedFormat === 'EAN8') {
-    return text.replace(/\D/g, '').slice(0, 8);
+    const digits = text.replace(/\D/g, '');
+    return digits.length === 7 || digits.length === 8 ? digits : text;
   }
   return text;
 };
