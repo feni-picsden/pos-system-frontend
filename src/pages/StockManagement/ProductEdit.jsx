@@ -40,6 +40,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -98,6 +99,13 @@ import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { priceSetService } from '../../services/priceSetService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import {
+  deriveFamilyTemplate,
+  applyFamilyTemplate,
+  describeFamilyTemplate,
+  describeFamilyPrice,
+  describeFamilyAlignment,
+} from '../../utils/familyOverride';
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
 const primaryButtonSx = {
@@ -457,7 +465,7 @@ const TabPanel = ({ children, value, index, ...other }) => (
 
 const ProductEdit = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
-  const { alert, prompt } = useAppDialogs();
+  const { alert, prompt, confirm, notify } = useAppDialogs();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -484,6 +492,27 @@ const ProductEdit = () => {
   const contentScrollRef = useRef(null);
 
   // Form state
+  // --- Family price override -------------------------------------------------
+  // A Family is "products that are price-aligned and grouped together", so moving a
+  // product into one offers to bring its prices and tax rate into line with the
+  // members already there. The offer appears as a banner under the Family field;
+  // if it is ignored, Save asks before letting the product sit in a family at a
+  // price that does not match it.
+  //
+  // The family the product was LOADED with. Re-picking it is not a change, so the
+  // offer must not reappear for it.
+  const savedFamilyIdRef = useRef(null);
+  // { familyId, familyName, template } — the pending offer, or null.
+  const [familyOffer, setFamilyOffer] = useState(null);
+  // Set once the user accepts (banner link or save prompt) so neither asks twice.
+  const [familyOverrideApplied, setFamilyOverrideApplied] = useState(false);
+  // The in-flight lookup. Save awaits it, so picking a family and hitting Save
+  // straight away still gets the prompt instead of racing past it. Its resolved
+  // offer is kept on a ref because state set inside .then is not readable in the
+  // same tick that Save awaits it.
+  const familyOfferPromiseRef = useRef(null);
+  const familyOfferRef = useRef(null);
+
   const [formData, setFormData] = useState({
     name: '',
     type: 'Normal Product',
@@ -643,6 +672,9 @@ const ProductEdit = () => {
       }
       const response = await productService.getProduct(id);
       setProduct(response.product);
+      // The family this product arrived in. Re-picking it is not a change, so the
+      // override offer must not fire for it.
+      savedFamilyIdRef.current = response.product.familyId || null;
       setFormData({
         name: response.product.name || '',
         type: response.product.type || 'Normal Product',
@@ -880,6 +912,52 @@ const ProductEdit = () => {
     handleInputChange(field, stored);
   };
 
+  // Build the override offer whenever the product is moved into a DIFFERENT family.
+  // The family itself stores no prices, so the offer is derived from the products
+  // already in it (GET /products?family=<id> returns them with their price rows).
+  useEffect(() => {
+    const familyId = formData.familyId;
+    if (!familyId || familyId === savedFamilyIdRef.current) {
+      familyOfferPromiseRef.current = null;
+      familyOfferRef.current = null;
+      setFamilyOffer(null);
+      setFamilyOverrideApplied(false);
+      return;
+    }
+
+    let cancelled = false;
+    const lookup = productService
+      .getProducts({ family: familyId, limit: 200 }, { silent: true })
+      .then((res) => {
+        // Never let the product being edited vote on the price it is about to adopt.
+        const members = (res?.products || []).filter((p) => String(p.id) !== String(id));
+        const template = deriveFamilyTemplate(members);
+        return template ? { familyId, familyName: formData.family, template } : null;
+      })
+      // An offer we could not build is not an error worth blocking a save on.
+      .catch(() => null);
+
+    familyOfferPromiseRef.current = lookup;
+    lookup.then((offer) => {
+      if (cancelled) return;
+      familyOfferRef.current = offer;
+      setFamilyOffer(offer);
+      setFamilyOverrideApplied(false);
+    });
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.familyId, id]);
+
+  // Accept the offer: the family's price quantities and tax rate replace this
+  // product's. Cost is deliberately untouched — see utils/familyOverride.js.
+  const applyFamilyOverride = () => {
+    if (!familyOffer) return;
+    setFormData((prev) => applyFamilyTemplate(prev, familyOffer.template));
+    setFamilyOverrideApplied(true);
+    notify(`Prices updated to match "${familyOffer.familyName}"`);
+  };
+
   const handleSave = async () => {
     // Name is the product's identity — block the save here (covers both /products/new
     // and /products/:id/edit, which share this handler) as well as at the API.
@@ -916,9 +994,40 @@ const ProductEdit = () => {
       return;
     }
 
+    // The product is moving into a new family and the banner's offer was never
+    // taken. Ask before saving rather than filing it into a "price-aligned" family
+    // at a price that does not match — the whole point of a family is that its
+    // members agree, and silently leaving it out of step is the bug this prevents.
+    // Both answers save — the question is only which prices go with it — so the
+    // labels say what each does rather than Yes/No, and dismissing the dialog
+    // takes the same path as "keep", which is the non-destructive one.
+    // Await the lookup so a quick pick-then-save still gets asked.
+    if (familyOfferPromiseRef.current) await familyOfferPromiseRef.current;
+    const offer = familyOfferRef.current;
+
+    let overrides = null;
+    if (offer && !familyOverrideApplied) {
+      const override = await confirm(
+        `${describeFamilyTemplate(offer.template, offer.familyName)}\n\n` +
+          `Override this product's prices and tax rate to match?`,
+        {
+          title: 'Override with family prices?',
+          confirmText: 'Override prices',
+          cancelText: 'Keep current prices',
+        }
+      );
+      if (override) overrides = applyFamilyTemplate(formData, offer.template);
+    }
+
+    // What the payload is built from. setFormData would not have landed by the time
+    // the payload is assembled below, so an accepted override has to be applied to
+    // the value being saved, not just to the form the user is looking at.
+    const source = overrides || formData;
+    if (overrides) setFormData(overrides); // keep the visible form in step
+
     try {
       setSaving(true);
-      
+
       // Resolve IDs from names if IDs are missing
       const resolvedCategoryId =
         formData.categoryId ??
@@ -938,9 +1047,10 @@ const ProductEdit = () => {
           ? (families || []).find(f => f.name === formData.family)?.id ?? null
           : null);
 
-      // Build payload with resolved ids
+      // Build payload with resolved ids. `source` carries an accepted family
+      // override (prices + tax rate); it is formData otherwise.
       const payload = {
-        ...formData,
+        ...source,
         caseQuantity: parseInt(formData.caseQuantity, 10) || 1,
         categoryId: resolvedCategoryId,
         brandId: resolvedBrandId,
@@ -1625,6 +1735,44 @@ const ProductEdit = () => {
                   </Box>
                 )}
               />
+
+              {/* A new family was picked and its members agree on a price this
+                  product does not share. Offer to align it here; if the offer is
+                  ignored, Save asks again rather than filing the product into a
+                  "price-aligned" family out of step with it. */}
+              {familyOffer && !familyOverrideApplied && (
+                <Alert
+                  severity="info"
+                  sx={{ mt: 2 }}
+                  onClose={() => setFamilyOffer(null)}
+                >
+                  A new family has been selected.{' '}
+                  <Link
+                    component="button"
+                    type="button"
+                    onClick={applyFamilyOverride}
+                    sx={{ fontWeight: 600 }}
+                  >
+                    Click to override with the family&apos;s prices and tax rate.
+                  </Link>
+                  <Typography component="div" sx={{ mt: 0.5, fontSize: 13, color: '#404040' }}>
+                    {describeFamilyPrice(familyOffer.template, familyOffer.familyName)}
+                  </Typography>
+                  {/* The alignment warning is its own line: it cautions about the
+                      price above rather than describing it, and run together on one
+                      wrapped line it reads as a footnote and gets skipped. */}
+                  {describeFamilyAlignment(familyOffer.template, familyOffer.familyName) && (
+                    <Typography component="div" sx={{ mt: 0.5, fontSize: 13, fontWeight: 600, color: '#8a5a00' }}>
+                      {describeFamilyAlignment(familyOffer.template, familyOffer.familyName)}
+                    </Typography>
+                  )}
+                </Alert>
+              )}
+              {familyOverrideApplied && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  Prices and tax rate now match this family. Save to apply.
+                </Alert>
+              )}
             </Grid>
 
             <Grid item xs={12}>
