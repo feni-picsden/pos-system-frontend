@@ -17,6 +17,7 @@ import { Save as SaveIcon, PointOfSale as DrawerIcon, Refresh as RefreshIcon, Cr
 import drawerService from '../../services/drawerService';
 import tyroService from '../../services/tyroService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 const BRANDS = ['Epson', 'Star', 'Generic ESC/POS'];
 
@@ -105,9 +106,7 @@ const HardwareSettings = () => {
           >
             Test Open Cash Drawer
           </Button>
-          <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>
-            Save
-          </Button>
+          <PageSaveBar onSave={handleSave} saving={false} />
         </Box>
       </Box>
 

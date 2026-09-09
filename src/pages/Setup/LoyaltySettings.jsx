@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import loyaltyProgramService from '../../services/loyaltyProgramService';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Reference-style flat input: static label above, 1px #000 border, radius 0, h53
 const refFieldSx = {
@@ -29,27 +30,7 @@ const refFieldSx = {
 
 const refFieldLabelSx = { fontSize: 16, color: '#000', mb: 0.5 };
 
-// Reference Save button: solid #1c86f2, 32px text, radius 0, invert on hover
-const refSaveButtonSx = {
-  height: 48,
-  px: 2.5,
-  backgroundColor: '#1c86f2',
-  color: '#f8f8f8',
-  fontSize: 32,
-  fontWeight: 400,
-  lineHeight: 1,
-  textTransform: 'none',
-  borderRadius: 0,
-  border: '1px solid #1c86f2',
-  boxShadow: 'none',
-  transition: 'background-color 0.2s ease, color 0.2s ease',
-  '&:hover': {
-    backgroundColor: '#f8f8f8',
-    color: '#1c86f2',
-    border: '1px solid #1c86f2',
-    boxShadow: 'none'
-  }
-};
+
 
 const LoyaltySettings = () => {
   const { user } = useAuth();
@@ -276,14 +257,7 @@ const LoyaltySettings = () => {
       </Box>
 
       <Box display="flex" justifyContent="flex-end">
-        <Button
-          onClick={handleSave}
-          disabled={saving || (!user?.isSuperAdmin && !user?.outletId)}
-          startIcon={saving ? <CircularProgress size={20} /> : <SaveOutlinedIcon sx={{ fontSize: '28px !important' }} />}
-          sx={refSaveButtonSx}
-        >
-          Save
-        </Button>
+        <PageSaveBar onSave={handleSave} saving={saving} disabled={!user?.isSuperAdmin && !user?.outletId} />
       </Box>
     </Box>
   );

@@ -17,6 +17,7 @@ import ConfirmDeleteDialog from '../components/Common/ConfirmDeleteDialog';
 import ShopfrontSwitch from '../components/Common/ShopfrontSwitch';
 import apiClient from '../services/apiClient';
 import { pushApi } from '../services/pushService';
+import PageSaveBar from '../components/Common/PageSaveBar';
 
 // Reference has no transitions on row actions.
 const INSTANT = 'all 0s ease';
@@ -306,16 +307,7 @@ export default function PushNotifications() {
           </Box>
         ))}
 
-        <Button
-          variant="contained"
-          disableRipple
-          disableElevation
-          disabled={saving}
-          onClick={handleSave}
-          sx={{ ...PRIMARY_BUTTON_SX, position: 'fixed', right: 24, bottom: 24, zIndex: 1200 }}
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
+        <PageSaveBar onSave={handleSave} saving={saving} />
       </Box>
     );
   }

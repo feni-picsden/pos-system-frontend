@@ -14,6 +14,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import transfereeService from '../../services/transfereeService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 const emptyForm = {
   name: '',
@@ -289,30 +290,7 @@ const TransfereeForm = () => {
       </Box>
 
       {/* Fixed floating Save button */}
-      <Button
-        type="submit"
-        disabled={saving}
-        onClick={handleSave}
-        sx={{
-          position: 'fixed',
-          right: 48,
-          bottom: 24,
-          minWidth: 103,
-          minHeight: 42,
-          backgroundColor: '#5ebbeb',
-          color: '#fff',
-          borderRadius: '12px',
-          fontSize: 16,
-          fontWeight: 700,
-          textTransform: 'none',
-          boxShadow: 'none',
-          transition: 'none',
-          '&:hover': { backgroundColor: '#0ea5e9', boxShadow: 'none' },
-          '&.Mui-disabled': { backgroundColor: '#404040', color: '#737373' },
-        }}
-      >
-        {saving ? 'Saving...' : 'Save'}
-      </Button>
+      <PageSaveBar onSave={handleSave} saving={saving} />
     </Box>
   );
 };

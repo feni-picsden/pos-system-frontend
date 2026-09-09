@@ -15,6 +15,7 @@ import { useParams, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import loyaltyProgramService from '../../services/loyaltyProgramService';
 import classificationService from '../../services/classificationService';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Reference solid-blue button (Back/Save): #1c86f2 bg, 32px white text, radius 0, invert on hover
 const refBlueButtonSx = {
@@ -647,14 +648,7 @@ const AssignLoyalty = () => {
       </Paper>
 
       <Box display="flex" justifyContent="flex-end">
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          startIcon={saving ? <CircularProgress size={20} /> : <SaveOutlinedIcon sx={{ fontSize: '28px !important' }} />}
-          sx={refBlueButtonSx}
-        >
-          Save
-        </Button>
+        <PageSaveBar onSave={handleSave} saving={saving} />
       </Box>
     </Box>
   );

@@ -2880,22 +2880,7 @@ const GeneralSettings = () => {
         </Snackbar>
 
         {/* Single floating Save - persists every dirty store, always enabled */}
-        <Box sx={{ position: 'fixed', bottom: '16px', right: '32px', zIndex: 1200 }}>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={loading}
-            sx={{
-              bgcolor: 'rgb(94,187,235)', color: '#fff', height: 42, padding: '8px 32px',
-              borderRadius: '12px', fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
-              textTransform: 'none', boxShadow: 'none',
-              '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }
-            }}
-          >
-            {loading ? 'Saving...' : 'Save'}
-          </Button>
-        </Box>
+        <PageSaveBar onSave={handleSave} saving={loading} />
 
         {/* Confirm Leaving - raised when navigating away with unsaved changes */}
         <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)}>

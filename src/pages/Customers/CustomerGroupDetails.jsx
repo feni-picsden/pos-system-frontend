@@ -34,6 +34,7 @@ import outletService from "../../services/outletService";
 import receiptTemplateService from "../../services/receiptTemplateService";
 import statementTemplateService from "../../services/statementTemplateService";
 import { useAuth } from "../../contexts/AuthContext";
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // ---- Shopfront reference styling ------------------------------------------
 const FORM_WIDTH = 764;
@@ -479,19 +480,16 @@ const CustomerGroupDetails = () => {
                 </Select>
               </FormControl>
             )}
-            <Button startIcon={<ArrowBackIcon />} onClick={handleCancel} sx={btnSx('#676b72', '#585c62')}>
-              Cancel
-            </Button>
-            <Button
-              startIcon={saveLoading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : <SaveIcon />}
-              onClick={handleSave}
-              disabled={saveLoading}
-              sx={btnSx('#5ebbeb', '#4aa9dd')}
-            >
-              Save
-            </Button>
           </Box>
         </Box>
+
+        {/* Cancel and Save were in the header row above, which scrolls away on the
+            longer tabs. They move together so the pair stays side by side. */}
+        <PageSaveBar
+          onSave={handleSave}
+          saving={saveLoading}
+          onCancel={handleCancel}
+        />
 
         <Box sx={{ bgcolor: '#e2e8f0', px: 3 }}>
           <Tabs

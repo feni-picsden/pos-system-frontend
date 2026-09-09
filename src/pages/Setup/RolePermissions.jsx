@@ -27,6 +27,7 @@ import { setLeaveGuard, clearLeaveGuard } from '../../utils/leaveGuard';
 import { roleService } from '../../services/roleService';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -354,33 +355,7 @@ const RolePermissions = () => {
       )}
 
       {/* Save — bottom right, like the reference */}
-      <Button
-        disableRipple
-        disableElevation
-        variant="contained"
-        startIcon={<SaveIcon />}
-        onClick={handleSave}
-        disabled={saving || !roleName.trim()}
-        sx={{
-          position: 'fixed',
-          right: 32,
-          bottom: 24,
-          bgcolor: '#5ebbeb',
-          color: '#fff',
-          textTransform: 'none',
-          fontWeight: 700,
-          fontSize: 16,
-          height: 42,
-          px: 3,
-          borderRadius: '12px',
-          boxShadow: 'none',
-          transition: INSTANT,
-          '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' },
-          '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#737373' },
-        }}
-      >
-        {saving ? 'Saving...' : 'Save'}
-      </Button>
+      <PageSaveBar onSave={handleSave} saving={saving} disabled={!roleName.trim()} />
 
       {/* Confirm Leaving - raised when navigating away with unsaved changes */}
       <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)}>

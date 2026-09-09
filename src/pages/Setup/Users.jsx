@@ -43,6 +43,7 @@ import { roleService } from '../../services/roleService';
 import { outletService } from '../../services/outletService';
 import { useHasPermission } from '../../hooks/usePermissions';
 import { useAuth } from '../../contexts/AuthContext';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -924,32 +925,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
       )}
 
       {/* Floating blue Save */}
-      <Button
-        disableRipple
-        startIcon={<SaveIcon />}
-        onClick={handleSave}
-        disabled={saving}
-        sx={{
-          position: 'fixed',
-          right: 24,
-          bottom: 24,
-          zIndex: 1200,
-          bgcolor: '#5ebbeb',
-          color: '#f8f8f8',
-          height: 42,
-          minWidth: 142,
-          borderRadius: '12px',
-          fontWeight: 700,
-          fontSize: 16,
-          textTransform: 'none',
-          boxShadow: '0 8px 10px -6px rgba(0,0,0,0.3)',
-          transition: INSTANT,
-          '&:hover': { bgcolor: '#4aa9dd', boxShadow: '0 8px 10px -6px rgba(0,0,0,0.3)' },
-          '&.Mui-disabled': { bgcolor: '#404040', color: '#737373' },
-        }}
-      >
-        Save
-      </Button>
+      <PageSaveBar onSave={handleSave} saving={saving} />
     </Box>
   );
 };

@@ -55,6 +55,7 @@ import ShopfrontSwitch from "../../components/Common/ShopfrontSwitch";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import CreatableAutocomplete from "../../components/Common/CreatableAutocomplete";
 import PerformanceGraph from "../../components/Customers/PerformanceGraph";
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Reference edit-form section rail: exactly these six. Loyalty / Account / Special
 // Pricing are NOT rail sections on the reference edit form (they live on the customer
@@ -1871,40 +1872,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
         </Box>
       </Box>
 
-      <Button
-        onClick={handleSave}
-        disabled={saveLoading}
-        startIcon={<SaveIcon sx={{ fontSize: "32px !important" }} />}
-        sx={{
-          position: "fixed",
-          right: 32,
-          bottom: 32,
-          zIndex: 10,
-          width: 288,
-          height: 72,
-          borderRadius: 0,
-          border: "1px solid #5ebbeb",
-          boxShadow: "none",
-          fontSize: 32,
-          fontWeight: 400,
-          textTransform: "none",
-          backgroundColor: "#5ebbeb",
-          color: "#f8f8f8",
-          transition: "background 0.2s ease, color 0.2s ease",
-          "&:hover": {
-            boxShadow: "none",
-            backgroundColor: "#f8f8f8",
-            color: "#5ebbeb",
-          },
-          "&.Mui-disabled": {
-            backgroundColor: "#5ebbeb",
-            color: "#f8f8f8",
-            opacity: 0.6,
-          },
-        }}
-      >
-        Save
-      </Button>
+      <PageSaveBar onSave={handleSave} saving={saveLoading} />
 
       <ConfirmDeleteDialog
         open={confirmDisableOverride}

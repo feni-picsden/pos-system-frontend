@@ -45,6 +45,7 @@ import masterDatabaseService from '../../services/masterDatabaseService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAuth } from '../../contexts/AuthContext';
 import { outletService } from '../../services/outletService';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Shopfront reference select menu: white panel, 1px black border, radius 8,
 // no shadow, no grow transition, selected/hovered option = #38bdf8 text, no bg
@@ -1307,41 +1308,7 @@ const SupplierDetails = () => {
       </Box>
 
       {/* Save button — fixed bottom-right, Shopfront invert-on-hover */}
-      <Button
-        onClick={handleSave}
-        disabled={saveLoading}
-        startIcon={<SaveIcon sx={{ fontSize: '32px !important' }} />}
-        sx={{
-          position: 'fixed',
-          right: 0,
-          bottom: 0,
-          width: 288,
-          height: 72,
-          zIndex: 1200,
-          backgroundColor: '#1c86f2',
-          color: '#f8f8f8',
-          fontSize: 32,
-          fontWeight: 400,
-          textTransform: 'none',
-          borderRadius: 0,
-          border: '1px solid #1c86f2',
-          boxShadow: 'none',
-          transition: 'background-color 0.2s ease, color 0.2s ease',
-          '&:hover': {
-            backgroundColor: '#f8f8f8',
-            color: '#1c86f2',
-            borderColor: '#1c86f2',
-            boxShadow: 'none',
-          },
-          '&.Mui-disabled': {
-            backgroundColor: '#404040',
-            color: '#737373',
-            borderColor: '#404040',
-          },
-        }}
-      >
-        Save
-      </Button>
+      <PageSaveBar onSave={handleSave} saving={saveLoading} />
     </Box>
   );
 };

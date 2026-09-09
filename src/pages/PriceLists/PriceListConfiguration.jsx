@@ -46,6 +46,7 @@ import {
   MINIMUM_PRICE_OPTIONS,
   formatRuleSummary,
 } from './ruleLabels';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 
 // Search panel groups, in reference display order (also the keyboard-nav order).
@@ -1642,24 +1643,7 @@ const PriceListConfiguration = () => {
             </Button>
           </DialogActions>
         </Dialog>
-        <Button
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={saving}
-          sx={{
-            backgroundColor: '#1976d2',
-            color: 'white',
-            textTransform: 'none',
-            '&:hover': { backgroundColor: '#1565c0' },
-            '&.Mui-disabled': {
-              backgroundColor: '#e0e0e0',
-              color: '#9e9e9e',
-            },
-            px: 3,
-          }}
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
+        <PageSaveBar onSave={handleSave} saving={saving} />
       </Box>
 
       <Dialog

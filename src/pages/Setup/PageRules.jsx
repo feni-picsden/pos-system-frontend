@@ -19,6 +19,7 @@ import { validatePageRule } from '../../utils/pageRuleSandbox';
 import { PAGE_RULE_DATABASES } from '../../utils/pageRuleDatabases';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useHasPermission } from '../../hooks/usePermissions';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Settings > Page Rules — customise the creation wizards with sandboxed
 // JavaScript (reference art. 360021629152). A rule defines entry(context) and
@@ -204,9 +205,7 @@ const PageRules = () => {
             sx={{ textTransform: 'none', color: '#e33430', fontWeight: 600 }}>
             Reset Wizard
           </Button>
-          <Button variant="contained" disableElevation disableRipple onClick={handleSave} disabled={saving} sx={PILL_BUTTON_SX}>
-            {saving ? 'Validating…' : 'Save'}
-          </Button>
+          <PageSaveBar onSave={handleSave} saving={saving} />
         </Box>
       </Box>
     );

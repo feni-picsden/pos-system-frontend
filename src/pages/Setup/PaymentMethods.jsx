@@ -29,6 +29,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import paymentMethodService from '../../services/paymentMethodService';
 import saleKeyService from '../../services/saleKeyService';
 import posLocalDb from '../../services/posLocalDb';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -298,29 +299,7 @@ const EditPaymentMethodView = ({ method, onBack, onSaved }) => {
           />
         </Box>
 
-        <Button
-          disableRipple
-          disableElevation
-          startIcon={<SaveOutlinedIcon />}
-          onClick={handleSave}
-          disabled={saving}
-          sx={{
-            bgcolor: '#5ebbeb',
-            color: '#fff',
-            textTransform: 'none',
-            borderRadius: '12px',
-            fontWeight: 700,
-            fontSize: 16,
-            height: 42,
-            px: 4,
-            boxShadow: 'none',
-            transition: INSTANT,
-            '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-            '&.Mui-disabled': { bgcolor: 'rgba(0,0,0,0.1)', color: '#b5b5b5' },
-          }}
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
+        <PageSaveBar onSave={handleSave} saving={saving} />
       </Box>
     </Box>
   );

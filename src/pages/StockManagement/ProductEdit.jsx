@@ -99,6 +99,7 @@ import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { priceSetService } from '../../services/priceSetService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSaveBar';
 import {
   deriveFamilyTemplate,
   applyFamilyTemplate,
@@ -1344,9 +1345,13 @@ const ProductEdit = () => {
         </Alert>
       )}
 
-      {/* Header band: title block + tab row on the full-width slate-200 strip (pinned) */}
+      {/* Header band: title block + tab row on the full-width slate-200 strip (pinned).
+          The title used to sit in 80px of padding above and 48px below — 128px of
+          empty band for one line of text, which with the 50px app bar and the 72px
+          tab row left barely half a 768px laptop screen for the form itself. 24/16
+          reads the same and gives ~88px back to the content. */}
       <Box sx={{ backgroundColor: 'rgb(226, 232, 240)', flexShrink: 0 }}>
-        <Box sx={{ maxWidth: '820px', margin: '0 auto', padding: '80px 24px 48px' }}>
+        <Box sx={{ maxWidth: '820px', margin: '0 auto', padding: '24px 24px 16px' }}>
           <Typography sx={{ fontSize: 20, fontWeight: 700, color: 'rgb(90, 90, 90)' }}>
             {isNewProduct ? 'Creating' : 'Editing'} <Box component="span" sx={{ color: '#000' }}>{formData.name || ''}</Box>
           </Typography>
@@ -1401,7 +1406,9 @@ const ProductEdit = () => {
       </Box>
 
       {/* Scrollable form content (header band stays pinned) */}
-      <Box ref={contentScrollRef} sx={{ flex: 1, overflowY: 'auto', backgroundColor: '#fff' }}>
+      {/* pb clears the pinned Save bar, so the last field of a tab is never sitting
+          underneath it. */}
+      <Box ref={contentScrollRef} sx={{ flex: 1, overflowY: 'auto', backgroundColor: '#fff', pb: `${SAVE_BAR_CLEARANCE}px` }}>
       {/* Tab Content */}
       <Box sx={{
         backgroundColor: 'white',
@@ -2943,28 +2950,9 @@ const ProductEdit = () => {
         </TabPanel>
       </Box>
 
-      {/* Sticky Save — floats bottom-right of the scroll area */}
-      <Box
-        sx={{
-          position: 'sticky',
-          bottom: '24px',
-          zIndex: 1200,
-          display: 'flex',
-          justifyContent: 'flex-end',
-          pr: '24px',
-          pointerEvents: 'none',
-        }}
-      >
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={saving}
-          sx={{ ...primaryButtonSx, px: '32px', pointerEvents: 'auto' }}
-        >
-          {saving ? null : 'Save'}
-        </Button>
       </Box>
-      </Box>
+
+      <PageSaveBar onSave={handleSave} saving={saving} />
 
       {/* Media library popup for the Description editor image button */}
       <MediaDialog
