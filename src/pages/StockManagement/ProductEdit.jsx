@@ -92,6 +92,8 @@ import ImageUpload from '../../components/Common/ImageUpload';
 import MediaDialog from '../../components/Common/MediaDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import supplierService from '../../services/supplierService';
+import classificationService from '../../services/classificationService';
+import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { priceSetService } from '../../services/priceSetService';
@@ -703,6 +705,19 @@ const ProductEdit = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Category / Brand / Family / Tag are one backend entity split by `type`, so a
+  // single creator serves all four combos. The POST goes through
+  // classificationService, whose response interceptor drops the cached
+  // classifications store — other screens pick the new record up on their next
+  // load rather than serving a stale list until the TTL expires.
+  const createClassificationOption = async (name, type, setList) => {
+    const response = await classificationService.createClassification({ name, type });
+    const created = response?.classification || response;
+    if (!created?.id) return null;
+    setList((prev) => [...prev, created]);
+    return created;
   };
 
   const loadOptions = async () => {
@@ -1530,21 +1545,22 @@ const ProductEdit = () => {
                 A mid-level name for a like group of products
               </Typography>
               {/* Ref combobox: type-to-filter, x clear inside the field, sky-blue selected option */}
-              <Autocomplete
+              <CreatableAutocomplete
                 fullWidth
                 options={categories}
-                getOptionLabel={(option) => option?.name || ''}
-                isOptionEqualToValue={(option, value) => option?.id === value?.id}
                 // Match on id first: the wizard handoff supplies categoryId only, no name.
                 value={
                   categories.find((c) => c.id === formData.categoryId) ||
                   categories.find((c) => c.name === formData.category) ||
                   null
                 }
-                onChange={(event, newValue) => {
+                onChange={(newValue) => {
                   handleInputChange('category', newValue?.name || '');
                   handleInputChange('categoryId', newValue?.id ?? null);
                 }}
+                onCreate={(name) => createClassificationOption(name, 'CATEGORY', setCategories)}
+                onError={(err) => setError(err?.response?.data?.error || 'Failed to create category')}
+                placeholder="Select..."
                 PaperComponent={ComboPaper}
                 sx={{ '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' } }}
                 renderOption={(props, option, { selected }) => (
@@ -1552,7 +1568,6 @@ const ProductEdit = () => {
                     {option.name}
                   </Box>
                 )}
-                renderInput={(params) => <TextField {...params} placeholder="Select..." />}
               />
             </Grid>
 
@@ -1563,16 +1578,17 @@ const ProductEdit = () => {
               <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
                 The group name of like products that customers recognise
               </Typography>
-              <Autocomplete
+              <CreatableAutocomplete
                 fullWidth
                 options={brands}
-                getOptionLabel={(option) => option?.name || ''}
-                isOptionEqualToValue={(option, value) => option?.id === value?.id}
                 value={brands.find((b) => b.name === formData.brand) || null}
-                onChange={(event, newValue) => {
+                onChange={(newValue) => {
                   handleInputChange('brand', newValue?.name || '');
                   handleInputChange('brandId', newValue?.id ?? null);
                 }}
+                onCreate={(name) => createClassificationOption(name, 'BRAND', setBrands)}
+                onError={(err) => setError(err?.response?.data?.error || 'Failed to create brand')}
+                placeholder="Select..."
                 PaperComponent={ComboPaper}
                 sx={{ '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' } }}
                 renderOption={(props, option, { selected }) => (
@@ -1580,7 +1596,6 @@ const ProductEdit = () => {
                     {option.name}
                   </Box>
                 )}
-                renderInput={(params) => <TextField {...params} placeholder="Select..." />}
               />
             </Grid>
 
@@ -1591,16 +1606,17 @@ const ProductEdit = () => {
               <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
                 Products that are price-aligned and grouped together
               </Typography>
-              <Autocomplete
+              <CreatableAutocomplete
                 fullWidth
                 options={families}
-                getOptionLabel={(option) => option?.name || ''}
-                isOptionEqualToValue={(option, value) => option?.id === value?.id}
                 value={families.find((f) => f.name === formData.family) || null}
-                onChange={(event, newValue) => {
+                onChange={(newValue) => {
                   handleInputChange('family', newValue?.name || '');
                   handleInputChange('familyId', newValue?.id ?? null);
                 }}
+                onCreate={(name) => createClassificationOption(name, 'FAMILY', setFamilies)}
+                onError={(err) => setError(err?.response?.data?.error || 'Failed to create family')}
+                placeholder="Select..."
                 PaperComponent={ComboPaper}
                 sx={{ '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' } }}
                 renderOption={(props, option, { selected }) => (
@@ -1608,7 +1624,6 @@ const ProductEdit = () => {
                     {option.name}
                   </Box>
                 )}
-                renderInput={(params) => <TextField {...params} placeholder="Select..." />}
               />
             </Grid>
 
@@ -1619,33 +1634,31 @@ const ProductEdit = () => {
               <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
                 Used for filtering products into groups
               </Typography>
-              <FormControl fullWidth>
-                <Select
-                  multiple
-                  value={formData.tags}
-                  onChange={(e) => handleInputChange('tags', e.target.value)}
-                  input={<OutlinedInput />}
-                  renderValue={(selected) => (selected.length === 0 ? (
-                    // Ref shows the same "Select..." placeholder as the other classification selects
-                    <Box component="span" sx={{ color: '#808080' }}>Select...</Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((value) => {
-                        const tag = tags.find(t => t.id === value);
-                        return <Chip key={value} label={tag?.name || value} />;
-                      })}
-                    </Box>
-                  ))}
-                  displayEmpty
-                >
-                  {tags.map((tag) => (
-                    <MenuItem key={tag.id} value={tag.id}>
-                      <Checkbox checked={formData.tags.indexOf(tag.id) > -1} />
-                      <ListItemText primary={tag.name} />
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              {/* Was a <Select multiple>, which has no text filter at all — with a
+                  long tag list there was no way to search, let alone create. As a
+                  combobox it filters as you type and offers the create row. It
+                  still stores ids in formData.tags; the records are only for
+                  display. */}
+              <CreatableAutocomplete
+                fullWidth
+                multiple
+                disableCloseOnSelect
+                options={tags}
+                value={(formData.tags || [])
+                  .map((id) => tags.find((t) => t.id === id))
+                  .filter(Boolean)}
+                onChange={(selected) => handleInputChange('tags', selected.map((t) => t.id))}
+                onCreate={(name) => createClassificationOption(name, 'TAG', setTags)}
+                onError={(err) => setError(err?.response?.data?.error || 'Failed to create tag')}
+                placeholder={(formData.tags || []).length === 0 ? 'Select...' : ''}
+                PaperComponent={ComboPaper}
+                renderOption={(props, option, { selected }) => (
+                  <Box component="li" {...props} sx={{ fontSize: 16 }}>
+                    <Checkbox checked={selected} sx={{ mr: 1, p: 0 }} />
+                    <ListItemText primary={option.name} />
+                  </Box>
+                )}
+              />
             </Grid>
 
             <Grid item xs={12}>

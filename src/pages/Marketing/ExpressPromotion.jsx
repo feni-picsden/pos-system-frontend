@@ -34,6 +34,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import promotionService from '../../services/promotionService';
 import promotionCategoryService from '../../services/promotionCategoryService';
+import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import customerGroupService from '../../services/customerGroupService';
 import productService from '../../services/productService';
 import productComboService from '../../services/productComboService';
@@ -223,6 +224,18 @@ const ExpressPromotion = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Inline promotion-category creation from the combobox 'Create "<text>"...' row.
+  const handleCreatePromotionCategory = async (name) => {
+    const response = await promotionCategoryService.createPromotionCategory({
+      name,
+      outletId: selectedOutletId != null ? Number(selectedOutletId) : null,
+    });
+    const created = response?.promotionCategory || response;
+    if (!created?.id) return null;
+    setCategories((prev) => [...prev, created]);
+    return created;
   };
 
   const fetchCategories = async () => {
@@ -605,16 +618,15 @@ const ExpressPromotion = () => {
           
           <Grid item xs={12} sm={6} md={3}>
             {/* Reference Category is a searchable, clearable combobox. */}
-            <Autocomplete
+            <CreatableAutocomplete
               size="small"
               options={categories}
-              getOptionLabel={(option) => option?.name || ''}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
               value={categories.find((c) => c.id === formData.categoryId) || null}
-              onChange={(event, newValue) => handleInputChange('categoryId', newValue?.id || '')}
-              renderInput={(params) => (
-                <TextField {...params} label="Category" placeholder="Select..." />
-              )}
+              onChange={(newValue) => handleInputChange('categoryId', newValue?.id || '')}
+              onCreate={handleCreatePromotionCategory}
+              onError={(err) => showSnackbarMessage(err?.response?.data?.error || 'Failed to create category', 'error')}
+              placeholder="Select..."
+              textFieldProps={{ label: 'Category' }}
             />
           </Grid>
           

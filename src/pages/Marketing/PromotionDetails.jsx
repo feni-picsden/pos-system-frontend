@@ -39,6 +39,7 @@ import { useLocation, useNavigate, useParams, Link as RouterLink } from 'react-r
 import { useAuth } from '../../contexts/AuthContext';
 import promotionService from '../../services/promotionService';
 import promotionCategoryService from '../../services/promotionCategoryService';
+import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import customerGroupService from '../../services/customerGroupService';
 import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
@@ -518,6 +519,20 @@ const PromotionDetails = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Inline promotion-category creation from the combobox 'Create "<text>"...' row.
+  // Uses the same outlet scope fetchCategories reads with, so the new record is
+  // in the list the very next time it loads too.
+  const handleCreatePromotionCategory = async (name) => {
+    const response = await promotionCategoryService.createPromotionCategory({
+      name,
+      outletId: resolveOutletId(),
+    });
+    const created = response?.promotionCategory || response;
+    if (!created?.id) return null;
+    setCategories((prev) => [...prev, created]);
+    return created;
   };
 
   const fetchCategories = async () => {
@@ -1270,13 +1285,13 @@ const PromotionDetails = () => {
             )}
             <Grid item xs={12} md={3}>
               <LabeledField label="Category">
-                <Autocomplete
+                <CreatableAutocomplete
                   size="small"
                   options={categories}
-                  getOptionLabel={(option) => option?.name || ''}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
                   value={categories.find((c) => c.id === formData.categoryId) || null}
-                  onChange={(event, newValue) => handleInputChange('categoryId', newValue ? newValue.id : '')}
+                  onChange={(newValue) => handleInputChange('categoryId', newValue ? newValue.id : '')}
+                  onCreate={handleCreatePromotionCategory}
+                  onError={(err) => showSnackbar(err?.response?.data?.error || 'Failed to create category', 'error')}
                   renderOption={(props, option, { selected }) => (
                     <Box
                       component="li"

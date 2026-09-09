@@ -28,6 +28,7 @@ import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import settingsService from '../../services/settingsService';
 import { createPageRuleSession } from '../../utils/pageRuleSandbox';
+import CreatableAutocomplete from '../Common/CreatableAutocomplete';
 import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
 import PageRuleWizard from '../Common/PageRuleWizard';
 
@@ -143,6 +144,18 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
     } catch (err) {
       console.error('Error loading outlets:', err);
     }
+  };
+
+  // Create a group from the combobox without abandoning the half-filled wizard.
+  // Scoped to the outlet the wizard already targets so it survives the filter
+  // loadCustomerGroups applies.
+  const handleCreateCustomerGroup = async (name) => {
+    const outletId = formData.outletId || getOutletId() || null;
+    const response = await customerGroupService.createCustomerGroup({ name, outletId });
+    const created = response?.customerGroup || response;
+    if (!created?.id) return null;
+    setCustomerGroups((prev) => [...(Array.isArray(prev) ? prev : []), created]);
+    return created;
   };
 
   const loadCustomerGroups = async (selectedOutletId = null) => {
@@ -316,22 +329,20 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                 </Box>
               )}
 
-              <FormControl fullWidth>
-                <Select
-                  value={formData.customerGroupId}
-                  onChange={(e) => handleInputChange('customerGroupId', e.target.value)}
-                  sx={{ backgroundColor: 'white' }}
-                >
-                  <MenuItem value="">
-                    <em>No group</em>
-                  </MenuItem>
-                  {Array.isArray(customerGroups) && customerGroups.map((group) => (
-                    <MenuItem key={group.id} value={group.id}>
-                      {group.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <CreatableAutocomplete
+                fullWidth
+                options={Array.isArray(customerGroups) ? customerGroups : []}
+                value={
+                  (Array.isArray(customerGroups) ? customerGroups : []).find(
+                    (g) => g.id === formData.customerGroupId
+                  ) || null
+                }
+                onChange={(group) => handleInputChange('customerGroupId', group ? group.id : '')}
+                onCreate={handleCreateCustomerGroup}
+                onError={(err) => setError(err?.response?.data?.error || 'Failed to create customer group')}
+                placeholder="No group"
+                sx={{ backgroundColor: 'white' }}
+              />
             </Box>
           </Box>
         );

@@ -53,6 +53,7 @@ import outletService from "../../services/outletService";
 import { useAuth } from "../../contexts/AuthContext";
 import ShopfrontSwitch from "../../components/Common/ShopfrontSwitch";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
+import CreatableAutocomplete from "../../components/Common/CreatableAutocomplete";
 import PerformanceGraph from "../../components/Customers/PerformanceGraph";
 
 // Reference edit-form section rail: exactly these six. Loyalty / Account / Special
@@ -429,6 +430,27 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
     } catch (err) {
       console.error('Error loading outlets:', err);
     }
+  };
+
+  // Inline creation for the two lookup combos below. Both are scoped to the
+  // outlet the form already targets, so the new record passes the same filter
+  // its loader applies and stays visible in the list.
+  const handleCreateCustomerGroup = async (name) => {
+    const outletId = formData.outletId || getOutletId() || null;
+    const response = await customerGroupService.createCustomerGroup({ name, outletId });
+    const created = response?.customerGroup || response;
+    if (!created?.id) return null;
+    setCustomerGroups((prev) => [...prev, created]);
+    return created;
+  };
+
+  const handleCreatePriceList = async (name) => {
+    const outletId = formData.outletId || getOutletId() || null;
+    const response = await priceListService.createPriceList({ name, outletId });
+    const created = response?.priceList || response;
+    if (!created?.id) return null;
+    setPriceLists((prev) => [...prev, created]);
+    return created;
   };
 
   const loadCustomerGroups = async (selectedOutletId = null) => {
@@ -1330,24 +1352,23 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                 </Grid>
               )}
               <Grid item xs={12}>
-                <Autocomplete
+                <CreatableAutocomplete
                   options={customerGroups}
-                  getOptionLabel={(option) => option.name || ""}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
                   value={selectedGroup}
-                  onChange={(_, option) =>
+                  onChange={(option) =>
                     handleInputChange("customerGroupId", option ? option.id : "")
                   }
+                  onCreate={handleCreateCustomerGroup}
+                  onError={(err) =>
+                    setError(err?.response?.data?.error || "Failed to create customer group")
+                  }
+                  placeholder="Search customer groups"
+                  textFieldProps={{
+                    ref: (el) => (fieldRefs.current.customerGroupId = el),
+                    label: "Customer Group",
+                  }}
                   sx={fieldSx}
                   componentsProps={autocompletePaperProps}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      ref={(el) => (fieldRefs.current.customerGroupId = el)}
-                      label="Customer Group"
-                      placeholder="Search customer groups"
-                    />
-                  )}
                 />
               </Grid>
               {!!formData.customerGroupId && (
@@ -1753,25 +1774,26 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <FormControl fullWidth sx={fieldSx}>
-                    <InputLabel>Price List</InputLabel>
-                    <Select
-                      ref={(el) => (fieldRefs.current.priceListId = el)}
-                      value={formData.priceListId}
-                      onChange={(e) => handleInputChange("priceListId", e.target.value)}
-                      label="Price List"
-                      MenuProps={selectMenuProps}
-                    >
-                      <MenuItem value="">
-                        <em>No price list</em>
-                      </MenuItem>
-                      {priceLists.map((priceList) => (
-                        <MenuItem key={priceList.id} value={priceList.id}>
-                          {priceList.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  {/* Was a <Select> with no search and no way to add a missing
+                      price list without leaving the customer half-edited. */}
+                  <CreatableAutocomplete
+                    options={priceLists}
+                    value={priceLists.find((p) => p.id === formData.priceListId) || null}
+                    onChange={(option) =>
+                      handleInputChange("priceListId", option ? option.id : "")
+                    }
+                    onCreate={handleCreatePriceList}
+                    onError={(err) =>
+                      setError(err?.response?.data?.error || "Failed to create price list")
+                    }
+                    placeholder="No price list"
+                    textFieldProps={{
+                      ref: (el) => (fieldRefs.current.priceListId = el),
+                      label: "Price List",
+                    }}
+                    sx={fieldSx}
+                    componentsProps={autocompletePaperProps}
+                  />
                 </Grid>
               </Grid>
             </SectionCard>

@@ -21,6 +21,7 @@ import { format, parse, isValid, addMonths, startOfMonth, endOfMonth, isSameDay,
 import { useNavigate } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import supplierService from '../../services/supplierService';
+import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -336,19 +337,15 @@ const CreateReceiveStock = () => {
     setSuccess('');
   };
 
-  // Inline supplier creation from the From combobox 'Create "<text>" option...' row
+  // Inline supplier creation from the From combobox 'Create "<text>"...' row.
+  // The filter/sentinel half of this now lives in CreatableAutocomplete, which
+  // selects whatever record this resolves to.
   const handleCreateSupplier = async (name) => {
-    try {
-      const response = await supplierService.createSupplier({ name });
-      const created = response.supplier || response;
-      if (created?.id) {
-        setSuppliers(prev => [...prev, created]);
-        handleInputChange('from', String(created.id));
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create supplier');
-      console.error('Error creating supplier:', err);
-    }
+    const response = await supplierService.createSupplier({ name });
+    const created = response.supplier || response;
+    if (!created?.id) return null;
+    setSuppliers((prev) => [...prev, created]);
+    return { id: String(created.id), name: created.name };
   };
 
   const handleSubmit = async (e) => {
@@ -468,34 +465,16 @@ const CreateReceiveStock = () => {
         {/* From (supplier combobox with inline create) */}
         <Box>
           <FieldLabel>From</FieldLabel>
-          <Autocomplete
+          <CreatableAutocomplete
             options={supplierOptions}
             value={selectedSupplier}
-            // Supplier names are not unique: key options by id or MUI falls back to the
-            // label and same-named suppliers collide (duplicate-key warning + stale options)
-            getOptionKey={(o) => o.id}
-            getOptionLabel={(o) => o.name}
-            isOptionEqualToValue={(o, v) => o.id === v.id}
-            onChange={(e, newValue) => {
-              if (newValue?.isCreate) {
-                handleCreateSupplier(newValue.inputValue);
-              } else if (newValue) {
+            onChange={(newValue) => {
+              if (newValue) {
                 handleInputChange('from', newValue.id);
               }
             }}
-            filterOptions={(options, state) => {
-              const input = state.inputValue.trim().toLowerCase();
-              const filtered = options.filter((o) => o.name.toLowerCase().includes(input));
-              if (input && !options.some((o) => o.name.toLowerCase() === input)) {
-                filtered.push({
-                  id: '__create__',
-                  name: `Create "${state.inputValue}" option...`,
-                  inputValue: state.inputValue.trim(),
-                  isCreate: true,
-                });
-              }
-              return filtered;
-            }}
+            onCreate={handleCreateSupplier}
+            onError={(err) => setError(err?.response?.data?.error || 'Failed to create supplier')}
             disableClearable
             componentsProps={{
               popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: 0, boxShadow: 'none', border: '1px solid #404040' } } },
@@ -508,9 +487,8 @@ const CreateReceiveStock = () => {
                 '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
               },
             }}
-            renderInput={(params) => (
-              <TextField {...params} placeholder="Select Supplier..." sx={fieldSx} />
-            )}
+            placeholder="Select Supplier..."
+            textFieldProps={{ sx: fieldSx }}
           />
         </Box>
 

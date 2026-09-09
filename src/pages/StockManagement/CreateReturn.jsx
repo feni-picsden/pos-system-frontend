@@ -21,6 +21,7 @@ import { format, addMonths, startOfMonth, endOfMonth, isSameDay, isSameMonth } f
 import { useNavigate } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import supplierService from '../../services/supplierService';
+import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -455,6 +456,18 @@ const CreateReturn = () => {
   const selectedOutlet = outletOptions.find((o) => o.id === String(formData.from)) || null;
 
   const supplierOptions = suppliers.map((s) => ({ id: String(s.id), name: s.name }));
+
+  // Inline supplier creation from the combobox 'Create "<text>"...' row — the
+  // same path CreateReceiveStock has had; the other three order screens were
+  // copied from it without this half.
+  const handleCreateSupplier = async (name) => {
+    const response = await supplierService.createSupplier({ name });
+    const created = response.supplier || response;
+    if (!created?.id) return null;
+    setSuppliers((prev) => [...prev, created]);
+    return { id: String(created.id), name: created.name };
+  };
+
   const selectedSupplier = supplierOptions.find((o) => o.id === String(formData.to)) || null;
 
   const invoiceOptions = receivedInvoices.map((oi) => ({
@@ -523,16 +536,11 @@ const CreateReturn = () => {
             {!formData.to && (
               <WarningIcon sx={{ fontSize: 22, color: '#dc2626' }} />
             )}
-            <Autocomplete
+            <CreatableAutocomplete
               sx={{ flex: 1 }}
               options={supplierOptions}
               value={selectedSupplier}
-              // Supplier names are not unique: key options by id or MUI falls back to the
-              // label and same-named suppliers collide (duplicate-key warning + stale options)
-              getOptionKey={(o) => o.id}
-              getOptionLabel={(o) => o.name}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
-              onChange={(e, newValue) => {
+              onChange={(newValue) => {
                 if (newValue) {
                   // New supplier invalidates any previously linked invoice
                   setFormData(prev => ({ ...prev, to: newValue.id, linkedInvoiceId: '', returnCostBasis: 'BASE' }));
@@ -540,6 +548,8 @@ const CreateReturn = () => {
                   setSuccess('');
                 }
               }}
+              onCreate={handleCreateSupplier}
+              onError={(err) => setError(err?.response?.data?.error || 'Failed to create supplier')}
               disableClearable
               noOptionsText="No Options"
               componentsProps={{ popper: comboPopperProps }}

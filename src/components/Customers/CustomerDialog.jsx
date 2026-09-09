@@ -22,6 +22,7 @@ import customerGroupService from '../../services/customerGroupService';
 import priceListService from '../../services/priceListService';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import CreatableAutocomplete from '../Common/CreatableAutocomplete';
 
 const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
   const { isSuperAdmin, getOutletId } = useAuth();
@@ -96,6 +97,18 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
       setValidationErrors({});
     }
   }, [open, customer, isSuperAdmin, getOutletId]);
+
+  // Create a group from the combobox without leaving this dialog. It is scoped
+  // to the outlet the form is already targeting, so it passes the same filter
+  // loadCustomerGroups applies and stays visible in the list.
+  const handleCreateCustomerGroup = async (name) => {
+    const outletId = formData.outletId || getOutletId() || null;
+    const response = await customerGroupService.createCustomerGroup({ name, outletId });
+    const created = response?.customerGroup || response;
+    if (!created?.id) return null;
+    setCustomerGroups((prev) => [...prev, created]);
+    return created;
+  };
 
   const loadCustomerGroups = async (selectedOutletId = null) => {
     try {
@@ -366,26 +379,19 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
             }}
           />
           
-          <FormControl fullWidth>
-            <InputLabel>Customer Group</InputLabel>
-            <Select
-              value={formData.customerGroupId}
-              onChange={(e) => handleInputChange('customerGroupId', e.target.value)}
-              label="Customer Group"
-              sx={{
-                borderRadius: 1,
-              }}
-            >
-              <MenuItem value="">
-                <em>Select a customer group</em>
-              </MenuItem>
-              {customerGroups.map((group) => (
-                <MenuItem key={group.id} value={group.id}>
-                  {group.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* Was a <Select>, which offers no way to search or to add a group that
+              doesn't exist yet — the user had to abandon the dialog, go to
+              Customer Groups, create it, and start over. */}
+          <CreatableAutocomplete
+            fullWidth
+            options={customerGroups}
+            value={customerGroups.find((g) => g.id === formData.customerGroupId) || null}
+            onChange={(group) => handleInputChange('customerGroupId', group ? group.id : '')}
+            onCreate={handleCreateCustomerGroup}
+            onError={(err) => setError(err?.response?.data?.error || 'Failed to create customer group')}
+            placeholder="Select a customer group"
+            textFieldProps={{ label: 'Customer Group' }}
+          />
 
           {/* Outlet Selection for Super Admin */}
           {isSuperAdmin() && (
