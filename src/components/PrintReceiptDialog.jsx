@@ -109,7 +109,12 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
           width: 500,
           maxWidth: '96vw',
           borderRadius: 0,
+          // `overflow: visible` is what lets the close badge sit outside the corner,
+          // so the panel cannot scroll itself — it must never be taller than the
+          // viewport or the Print button falls off a laptop screen (see the body's
+          // clamped height below).
           overflow: 'visible',
+          maxHeight: 'calc(100vh - 32px)',
           m: 2,
         },
       }}
@@ -167,9 +172,21 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
         </FormControl>
       </DialogTitle>
 
-      {/* .render-receipt — 569px scroll well on the reference's grey ground */}
+      {/* .render-receipt — 569px scroll well on the reference's grey ground. The
+          569 is a FLOOR-to-fit, not a fixed height: 41px title + 569 + 56px Print
+          button + 32px margin needs ~700px of viewport, which a 768px laptop does
+          not have once browser chrome is out, and the panel cannot scroll itself
+          (overflow: visible above) — so the Print button used to sit off-screen.
+          Desktop still gets the full 569. */}
       <DialogContent
-        sx={{ p: '16px', bgcolor: '#f8f8f8', height: 569, overflowY: 'auto' }}
+        sx={{
+          p: '16px',
+          bgcolor: '#f8f8f8',
+          height: 'min(569px, calc(100vh - 185px))',
+          minHeight: 220,
+          overflowY: 'auto',
+          overflowX: 'auto',
+        }}
       >
         {templatesLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -195,7 +212,11 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
           </Box>
         ) : receiptData && (
           // Boxed, centred, natural width — the reference never stretches the paper.
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          // `min-width: 100%` + `width: max-content` is what keeps the centring safe
+          // once a wide template (Configure > Receipt Width) outgrows the 468px well:
+          // a plain centred flex row overflows equally both ways, and the left half
+          // of the paper is then unreachable — no scroll position can reach it.
+          <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: '100%', width: 'max-content' }}>
             <Box sx={{ border: '1px solid #000', width: 'max-content', bgcolor: '#fff' }}>
               {/* Template-driven preview — same renderer used on-screen and for print */}
               <ReceiptRenderer receiptData={receiptData} template={selectedTemplate} preview />

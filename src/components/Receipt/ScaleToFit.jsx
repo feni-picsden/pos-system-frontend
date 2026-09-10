@@ -39,7 +39,23 @@ const ScaleToFit = ({ children, maxScale = 1 }) => {
   }, [maxScale]);
 
   return (
-    <Box ref={outerRef} sx={{ width: '100%', height, overflow: 'hidden', display: 'flex', justifyContent: 'center' }}>
+    // Centre only at natural size. Below 1 the child's LAYOUT width is still its
+    // natural (unscaled) width, so `justify-content: center` on an item wider than
+    // the box overflows equally both ways and the transform (anchored top-left)
+    // pushed the receipt off the left edge, where `overflow: hidden` ate it. At
+    // scale < 1 the painted width is exactly the available width, so flex-start is
+    // both correct and already centred.
+    <Box
+      ref={outerRef}
+      sx={{
+        width: '100%',
+        maxWidth: '100%',
+        height,
+        overflow: 'hidden',
+        display: 'flex',
+        justifyContent: scale < 1 ? 'flex-start' : 'center',
+      }}
+    >
       <Box
         ref={innerRef}
         // max-content lets the receipt lay out at its NATURAL width before scaling.

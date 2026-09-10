@@ -2121,7 +2121,20 @@ const SaleKeyPage = () => {
         setSelectedCustomer(customer);
       }
     }
-    
+
+    // Picked from the post-sale panel's "Add Customer": the sale is already saved,
+    // so setting local state alone would be lost on Done. PUT /sales/:id accepts
+    // customerId for exactly this (the same assign-customer path Sales History
+    // uses), which is what puts the sale on the customer's account and history.
+    if (isTransactionComplete && lastSaleId) {
+      try {
+        await salesService.updateSale(lastSaleId, { customerId: customer.id });
+      } catch (error) {
+        console.error('Error assigning customer to completed sale:', error);
+        alert('Customer could not be attached to this sale.');
+      }
+    }
+
     setSearchTerm('');
     setSearchResults({ products: [], customers: [] });
     setShowSearchResults(false);
@@ -7525,7 +7538,7 @@ const SaleKeyPage = () => {
                     },
                   }}>
                     <Button variant="contained" startIcon={<PrintIcon />} onClick={handlePrintReceipt}>Print</Button>
-                    <Button variant="contained" startIcon={<PersonAddIcon />}>Add Customer</Button>
+                    <Button variant="contained" startIcon={<PersonAddIcon />} onClick={handleAddCustomerClick}>Add Customer</Button>
                     <Button variant="contained" startIcon={<EmailIcon />} onClick={handleEmailReceipt}>Email</Button>
                   </Box>
 
@@ -7571,12 +7584,19 @@ const SaleKeyPage = () => {
                     </FormControl>
                   </Box>
 
-                  <Box sx={{ flex: '1 1 0px', minHeight: 0, overflow: 'auto', bgcolor: '#f8f8f8', p: '16px' }}>
-                    <Box sx={{ width: 'fit-content', m: 'auto', bgcolor: '#fff', border: '1px solid #000', p: '15px' }}>
-                      <ScaleToFit>
+                  {/* ScaleToFit measures its own clientWidth to shrink the paper into
+                      the column. The white paper box therefore has to live INSIDE it:
+                      as a `fit-content` WRAPPER it collapsed onto the receipt's natural
+                      width, so ScaleToFit read available === natural, never scaled, and
+                      a narrow (laptop) cart column scrolled the receipt left/right with
+                      its right-hand price column cut off. Boxed inside, the border and
+                      padding scale with the paper and the column never overflows. */}
+                  <Box sx={{ flex: '1 1 0px', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', bgcolor: '#f8f8f8', p: '16px' }}>
+                    <ScaleToFit>
+                      <Box sx={{ width: 'max-content', bgcolor: '#fff', border: '1px solid #000', p: '15px' }}>
                         <ReceiptRenderer receiptData={receiptData} template={selectedTemplate} preview />
-                      </ScaleToFit>
-                    </Box>
+                      </Box>
+                    </ScaleToFit>
                   </Box>
                 </Box>
                 <Button
@@ -8086,13 +8106,9 @@ const SaleKeyPage = () => {
           >
             Email
           </Button>
-          <Button
-            variant="outlined"
-            onClick={handleClosePrintDialog}
-            sx={{ minWidth: 80 }}
-          >
-            Close
-          </Button>
+          {/* No footer "Close": the title bar's ✕ already calls
+              handleClosePrintDialog, and two controls doing the same thing read as
+              two different outcomes. Print and Email now split the row evenly. */}
         </DialogActions>
       </Dialog>
       {/* Reference "Register Takeover" dialog. */}
