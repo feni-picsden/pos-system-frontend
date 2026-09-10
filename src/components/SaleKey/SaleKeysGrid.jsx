@@ -78,11 +78,16 @@ const SaleKeysGrid = ({
               border: isCaseModeKey ? '3px solid #0284c7' : '1px solid #ffffff',
               boxShadow: isCaseModeKey ? 'inset 0 0 0 2px #f8f8f8' : 'none',
               display: 'flex',
-              // Reference tile content: centred ROW, zero padding, overflow visible.
-              flexDirection: 'row',
+              // Artwork above the label, both centred, zero padding - the same
+              // stack both designers draw. It used to be a row, which put the
+              // price beside the name instead of under it: on a narrow key that
+              // ran past the tile edge and the next key, painted after it, cut
+              // it off ("$20.0", "$2.0"). Clipping is hidden here rather than
+              // with overflow, so a filled image can still cover the tile.
+              flexDirection: 'column',
               gap: '4px',
               alignItems: 'center',
-              overflow: 'visible',
+              overflow: 'hidden',
               justifyContent: 'center',
               cursor: isKeyDisabled ? 'not-allowed' : 'pointer',
               fontSize: labelSize,

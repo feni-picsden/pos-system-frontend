@@ -80,6 +80,10 @@ const SaleKeyTileContent = ({ saleKey }) => {
           sx={{
             ...labelSx,
             minWidth: 0,
+            // A long product name wraps inside the key instead of running past
+            // its edge, where the next key would paint over the overflow.
+            maxWidth: '100%',
+            overflowWrap: 'anywhere',
             display: 'flex',
             flexDirection: 'column',
             gap: '4px',
