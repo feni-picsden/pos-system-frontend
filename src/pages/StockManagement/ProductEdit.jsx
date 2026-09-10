@@ -41,6 +41,8 @@ import {
   DialogContent,
   DialogActions,
   Link,
+  Tooltip,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -84,6 +86,7 @@ import {
   Undo as UndoIcon,
   Redo as RedoIcon,
   ArrowDropDown as ArrowDropDownIcon,
+  WarningAmberOutlined as WarningAmberIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import productService from '../../services/productService';
@@ -93,6 +96,7 @@ import ImageUpload from '../../components/Common/ImageUpload';
 import MediaDialog from '../../components/Common/MediaDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import supplierService from '../../services/supplierService';
+import barcodeService from '../../services/barcodeService';
 import classificationService from '../../services/classificationService';
 import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import { taxRateService } from '../../services/taxRateService';
@@ -452,6 +456,24 @@ const dataTableRowSx = (index) => ({
   '& td': { fontSize: 16, color: '#000', borderBottom: 'none', padding: '8px 8px 8px 10px' },
 });
 
+// The duplicate-barcode tooltip reads as a small white card rather than MUI's
+// dark chip: it carries a heading plus a product list, so it needs page-level
+// contrast and room to breathe.
+const duplicateTooltipSlotProps = {
+  tooltip: {
+    sx: {
+      bgcolor: '#fff',
+      color: '#111827',
+      maxWidth: 380,
+      p: '12px 16px',
+      borderRadius: '10px',
+      border: '1px solid #e5e7eb',
+      boxShadow: '0 8px 24px rgba(15, 23, 42, 0.14)',
+    },
+  },
+  arrow: { sx: { color: '#fff', '&::before': { border: '1px solid #e5e7eb' } } },
+};
+
 const TabPanel = ({ children, value, index, ...other }) => (
   <div
     role="tabpanel"
@@ -483,6 +505,8 @@ const ProductEdit = () => {
   const [nameInvalid, setNameInvalid] = useState(false);
   const [caseQtyInvalid, setCaseQtyInvalid] = useState(false);
   const [isNewProduct, setIsNewProduct] = useState(false);
+  // { [barcode code]: [{ id, name }] } - other products already using that code.
+  const [duplicateBarcodes, setDuplicateBarcodes] = useState({});
   // Case Quantity is only changed through the confirmation dialog (ref behavior):
   // null = closed, otherwise the draft value being edited
   const [caseQuantityDraft, setCaseQuantityDraft] = useState(null);
@@ -995,6 +1019,44 @@ const ProductEdit = () => {
       return;
     }
 
+    // Duplicate barcodes are allowed - the sell screen asks which product was
+    // meant - so this confirms rather than blocks. Checked fresh at save time so
+    // a code typed and saved before the debounced lookup landed is still caught,
+    // and so another till's edit since the form loaded is picked up.
+    const ownCodes = (formData.barcodes || [])
+      .map((b) => String(b?.code ?? '').trim())
+      .filter(Boolean);
+    const codesToCheck = [...new Set(ownCodes)];
+    if (codesToCheck.length > 0) {
+      let duplicatesAtSave = {};
+      try {
+        duplicatesAtSave = await barcodeService.checkDuplicates(codesToCheck, isNewProduct ? null : id);
+        setDuplicateBarcodes(duplicatesAtSave);
+      } catch (checkError) {
+        // Lookup failures must not block a save - worst case the user is not asked.
+        console.error('Error checking duplicate barcodes:', checkError);
+      }
+      const repeatedOnThisProduct = ownCodes.length !== codesToCheck.length;
+      const usedByOthers = Object.keys(duplicatesAtSave).length > 0;
+
+      if (usedByOthers || repeatedOnThisProduct) {
+        const proceed = await confirm(
+          usedByOthers
+            ? "We've detected that one of your barcodes is used by another product, was this intended?"
+            : "We've detected that one of your barcodes is listed twice on this product, was this intended?",
+          {
+            title: 'Confirm Duplicate Barcodes',
+            confirmText: 'Yes',
+            cancelText: 'No',
+          }
+        );
+        if (!proceed) {
+          setActiveTab(4);
+          return;
+        }
+      }
+    }
+
     // The product is moving into a new family and the banner's offer was never
     // taken. Ask before saving rather than filing it into a "price-aligned" family
     // at a price that does not match — the whole point of a family is that its
@@ -1231,6 +1293,50 @@ const ProductEdit = () => {
       ...prev,
       barcodes: prev.barcodes.filter((_, i) => i !== index)
     }));
+  };
+
+  // Barcode codes typed on this form, trimmed, in row order. Blank rows drop out.
+  const barcodeCodes = (formData.barcodes || []).map((b) => String(b?.code ?? '').trim());
+  const barcodeCodesKey = JSON.stringify(barcodeCodes);
+
+  // Duplicate barcodes are legal (the sell screen asks which product was meant),
+  // so this warns rather than blocks: the code is shown in error state with a
+  // tooltip naming the other owners, and save asks for confirmation.
+  useEffect(() => {
+    const codes = [...new Set(JSON.parse(barcodeCodesKey).filter(Boolean))];
+    if (codes.length === 0) {
+      setDuplicateBarcodes({});
+      return;
+    }
+
+    let cancelled = false;
+    // Debounced: a scanner types a whole code a character at a time.
+    const timer = setTimeout(async () => {
+      try {
+        const duplicates = await barcodeService.checkDuplicates(codes, isNewProduct ? null : id);
+        if (!cancelled) setDuplicateBarcodes(duplicates);
+      } catch (error) {
+        // A failed lookup must not stop the user editing - it only means no warning.
+        console.error('Error checking duplicate barcodes:', error);
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [barcodeCodesKey, id, isNewProduct]);
+
+  // Other products using the code in this row, plus this product's own repeats of
+  // it: entering the same code twice on one product is a duplicate too.
+  const duplicateOwnersFor = (index) => {
+    const code = barcodeCodes[index];
+    if (!code) return { code, others: [], repeatedHere: false };
+    return {
+      code,
+      others: duplicateBarcodes[code] || [],
+      repeatedHere: barcodeCodes.indexOf(code) !== index,
+    };
   };
 
   const loadSuppliers = async () => {
@@ -2412,7 +2518,62 @@ const ProductEdit = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {formData.barcodes.map((barcode, index) => (
+                {formData.barcodes.map((barcode, index) => {
+                  const { others, repeatedHere } = duplicateOwnersFor(index);
+                  const isDuplicate = others.length > 0 || repeatedHere;
+                  const duplicateMessage = (
+                    <Box sx={{ py: 0.25 }}>
+                      {others.length > 0 && (
+                        <>
+                          <Typography
+                            sx={{ fontSize: 14, fontWeight: 600, color: '#111827', lineHeight: 1.4 }}
+                          >
+                            This barcode is also used in the following products
+                          </Typography>
+                          <Box component="ul" sx={{ m: 0, mt: 0.75, pl: 2, listStyle: 'none' }}>
+                            {others.map((product) => (
+                              <Box
+                                component="li"
+                                key={product.id}
+                                sx={{
+                                  fontSize: 14,
+                                  color: '#374151',
+                                  lineHeight: 1.6,
+                                  position: 'relative',
+                                  '&::before': {
+                                    content: '""',
+                                    position: 'absolute',
+                                    left: -14,
+                                    top: 9,
+                                    width: 5,
+                                    height: 5,
+                                    borderRadius: '50%',
+                                    bgcolor: '#9ca3af',
+                                  },
+                                }}
+                              >
+                                {product.name}
+                              </Box>
+                            ))}
+                          </Box>
+                        </>
+                      )}
+                      {repeatedHere && (
+                        <Typography
+                          sx={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: '#111827',
+                            lineHeight: 1.4,
+                            mt: others.length > 0 ? 1 : 0,
+                          }}
+                        >
+                          This barcode is already listed on this product
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                  return (
                   <TableRow key={index} sx={dataTableRowSx(index)}>
                     <TableCell>
                       <TextField
@@ -2436,6 +2597,26 @@ const ProductEdit = () => {
                         }}
                         size="small"
                         fullWidth
+                        error={isDuplicate}
+                        InputProps={isDuplicate ? {
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <Tooltip
+                                title={duplicateMessage}
+                                arrow
+                                placement="top-end"
+                                enterTouchDelay={0}
+                                slotProps={duplicateTooltipSlotProps}
+                              >
+                                <WarningAmberIcon
+                                  color="error"
+                                  fontSize="small"
+                                  sx={{ cursor: 'help' }}
+                                />
+                              </Tooltip>
+                            </InputAdornment>
+                          ),
+                        } : undefined}
                       />
                     </TableCell>
                     <TableCell>
@@ -2448,7 +2629,8 @@ const ProductEdit = () => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

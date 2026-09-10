@@ -31,9 +31,11 @@ export const getBarcodeQuantity = (product, code) => {
 /**
  * Shown when a scanned barcode matches MORE THAN ONE product: the cashier
  * picks which product to add to the sale (duplicate barcodes are allowed).
- * Styled to match Shopfront's "Multiple Results Found" dialog: square-corner
- * white modal with a blue "?" badge overhanging the top edge, full-width
- * black-bordered option buttons and a full-width gray Cancel.
+ * Follows Shopfront's "Multiple Results Found" dialog - white modal with a blue
+ * "?" badge overhanging the top edge, one full-width button per match and a
+ * full-width Cancel - restyled to this app's theme: rounded card, hairline
+ * borders, and each option led by its pack-quantity chip so the quantities line
+ * up in a column down the list.
  */
 const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => {
   const items = Array.isArray(products) ? products : [];
@@ -46,12 +48,12 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
       maxWidth="sm"
       PaperProps={{
         sx: {
-          borderRadius: 0,
+          borderRadius: '12px',
           overflow: 'visible',
           maxWidth: 620,
           width: '100%',
           m: 2,
-          boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
+          boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
           bgcolor: '#fff',
         },
       }}
@@ -83,14 +85,17 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
         </Typography>
       </Box>
 
-      <Box sx={{ px: 2, pt: 8.5, pb: 2 }}>
+      <Box sx={{ px: 3, pt: 8.5, pb: 2.5 }}>
         <Typography
           align="center"
-          sx={{ fontWeight: 700, color: '#000', fontSize: 21, mb: 1 }}
+          sx={{ fontWeight: 700, color: '#111827', fontSize: 21, mb: 0.75 }}
         >
           Multiple Results Found
         </Typography>
-        <Typography align="center" sx={{ fontSize: 15, color: '#1a1a1a', mb: 2.5 }}>
+        <Typography
+          align="center"
+          sx={{ fontSize: 14.5, color: '#5f6b76', lineHeight: 1.5, mb: 2.5, px: 1 }}
+        >
           Multiple results have been found, please select the correct result
           from the list below:
         </Typography>
@@ -103,23 +108,47 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
               onClick={() => onSelect(product, qty)}
               sx={{
                 width: '100%',
-                height: 50,
+                minHeight: 56,
                 bgcolor: '#fff',
-                border: '1px solid #000',
-                borderRadius: 0,
+                border: '1px solid #dfe3e8',
+                borderRadius: '8px',
                 mb: 1.25,
-                px: 2,
-                fontSize: 15.5,
-                justifyContent: 'center',
-                '&:hover': { bgcolor: '#f5f5f5' },
+                px: 1.5,
+                py: 1,
+                gap: 1.5,
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                transition: 'border-color .15s, background-color .15s',
+                '&:hover': { bgcolor: '#fafbfc', borderColor: '#b6bec7' },
               }}
             >
-              <Typography noWrap sx={{ fontSize: 'inherit', color: '#000' }}>
-                {qty > 1 && (
-                  <Box component="span" sx={{ color: '#9e9e9e' }}>
-                    {qty} x{' '}
-                  </Box>
-                )}
+              {/* The pack quantity leads every option, "1 x" included: the cashier
+                  is comparing these rows against each other, and a row with no
+                  multiplier next to a "6 x" row reads as missing information
+                  rather than as a single unit. Its own chip keeps the quantities
+                  in one column, so they can be scanned down the list. */}
+              <Box
+                sx={{
+                  flexShrink: 0,
+                  minWidth: 46,
+                  height: 32,
+                  px: 1,
+                  borderRadius: '6px',
+                  bgcolor: '#f1f3f5',
+                  color: '#48525c',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {qty} ×
+              </Box>
+              <Typography
+                noWrap
+                sx={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', minWidth: 0 }}
+              >
                 {product.name}
               </Typography>
             </ButtonBase>
@@ -130,14 +159,16 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
           onClick={onClose}
           sx={{
             width: '100%',
-            height: 50,
-            bgcolor: '#eeeeee',
-            border: '1px solid #d9d9d9',
-            borderRadius: 0,
-            color: '#8a8a8a',
-            fontSize: 20,
+            height: 48,
+            mt: 0.5,
+            bgcolor: '#f4f5f7',
+            border: '1px solid #dfe3e8',
+            borderRadius: '8px',
+            color: '#5f6b76',
+            fontSize: 16,
+            fontWeight: 600,
             justifyContent: 'center',
-            '&:hover': { bgcolor: '#e3e3e3' },
+            '&:hover': { bgcolor: '#e9ebee' },
           }}
         >
           Cancel
