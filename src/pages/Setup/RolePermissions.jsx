@@ -23,7 +23,7 @@ import {
   HistoryOutlined as HistoryIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { setLeaveGuard, clearLeaveGuard } from '../../utils/leaveGuard';
+import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 import { roleService } from '../../services/roleService';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -58,22 +58,12 @@ const RolePermissions = () => {
 
   const isDirty = savedSnapshot.current !== snapshot(roleName, selectedPermissions);
 
-  // Leaving the route (or the browser page) with unsaved edits prompts
+  // Leaving the route, or pressing browser Back, with unsaved edits prompts
   // "Confirm Leaving" - same gate the other Setup editors register.
-  useEffect(() => {
-    if (!isDirty) return undefined;
-    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
-    const guard = (proceed) => {
-      pendingLeaveRef.current = proceed;
-      setLeaveOpen(true);
-    };
-    window.addEventListener('beforeunload', warn);
-    setLeaveGuard(guard);
-    return () => {
-      window.removeEventListener('beforeunload', warn);
-      clearLeaveGuard(guard);
-    };
-  }, [isDirty]);
+  useUnsavedChangesGuard(isDirty, (proceed) => {
+    pendingLeaveRef.current = proceed;
+    setLeaveOpen(true);
+  });
 
   const leaveEditor = () => navigate('/setup/roles');
 

@@ -74,6 +74,7 @@ import { renderExpressions, sampleReceiptContext } from '../../utils/receiptExpr
 import { ReferenceComponent } from '../../components/Receipt/ReferenceReceipt';
 import { sampleReferenceData } from '../../utils/referenceReceiptData';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 
 // A block's default column set: the reference's own columns for that type, in
 // reference order, each keyed so the storage adapter can match it.
@@ -148,6 +149,9 @@ const ReceiptEditor = () => {
   // Reference asks "Save <name>?" (Yes / No / Cancel) when you leave the editor with
   // unsaved edits — measured 2026-08-06. We used to discard silently.
   const [leavePrompt, setLeavePrompt] = useState(false);
+  // What the prompt should run once the user answers Yes or No - Cancel, the
+  // sidebar and browser Back each leave the editor for a different place.
+  const pendingLeaveRef = useRef(null);
   const savedSnapshot = useRef('');
   // The Configure dialog edits `config` (padding / width / attachments), which the
   // component snapshot cannot see. Set on Confirm, cleared on a successful save.
@@ -472,19 +476,20 @@ const ReceiptEditor = () => {
   // Cancel mirrors the reference: straight out when nothing changed, otherwise the
   // Save? prompt.
   const handleCancel = () => {
-    if (hasUnsavedChanges()) setLeavePrompt(true);
-    else leaveEditor();
+    if (!hasUnsavedChanges()) {
+      leaveEditor();
+      return;
+    }
+    pendingLeaveRef.current = leaveEditor;
+    setLeavePrompt(true);
   };
 
-  // Closing the tab / reloading with unsaved edits gets the browser's own warning.
-  useEffect(() => {
-    const warn = (e) => {
-      if (!hasUnsavedChanges()) return;
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
+  // Sidebar navigation and browser Back both raise the same Save? prompt; only a
+  // tab close or reload still falls to the browser's own warning, which no site
+  // is allowed to replace.
+  useUnsavedChangesGuard(hasUnsavedChanges(), (proceed) => {
+    pendingLeaveRef.current = proceed;
+    setLeavePrompt(true);
   });
 
   const handleAddComponent = (componentType) => {
@@ -6385,7 +6390,9 @@ const ReceiptEditor = () => {
             onClick={async () => {
               const ok = await handleSave();
               setLeavePrompt(false);
-              if (ok) leaveEditor();
+              if (!ok) return;
+              pendingLeaveRef.current?.();
+              pendingLeaveRef.current = null;
             }}
             disabled={saving}
             sx={{ bgcolor: '#1c86f2', color: '#f8f8f8', borderRadius: 0, textTransform: 'none', fontSize: 18, minWidth: 72 }}
@@ -6394,7 +6401,16 @@ const ReceiptEditor = () => {
           </Button>
           <Button
             variant="contained"
-            onClick={() => { setLeavePrompt(false); leaveEditor(); }}
+            onClick={() => {
+              setLeavePrompt(false);
+              // Discard, so the guard has nothing left to hold on to. Marked
+              // clean before proceeding: the guard releases its history trap on
+              // the render that follows, once the leave is already under way.
+              configDirty.current = false;
+              savedSnapshot.current = JSON.stringify(toReferenceComponents(receiptComponents));
+              pendingLeaveRef.current?.();
+              pendingLeaveRef.current = null;
+            }}
             sx={{ bgcolor: '#e3342f', color: '#f8f8f8', borderRadius: 0, textTransform: 'none', fontSize: 18, minWidth: 72, '&:hover': { bgcolor: '#cc2f2a' } }}
           >
             No

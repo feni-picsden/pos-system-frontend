@@ -50,7 +50,7 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import SettingsSlideOver from '../../components/Settings/SettingsSlideOver';
 import EditReasonsSlideOver from '../../components/Settings/EditReasonsSlideOver';
 import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS, COMPANY_CONSTRAINTS } from './generalSettingsFields';
-import { setLeaveGuard, clearLeaveGuard } from '../../utils/leaveGuard';
+import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 import { formatWithTokens } from '../../utils/dateFormat';
 import saleKeyService from '../../services/saleKeyService';
 import settingsService, { GENERAL_DEFAULTS } from '../../services/settingsService';
@@ -720,22 +720,12 @@ const GeneralSettings = () => {
 
   const isDirty = Object.values(dirty).some(Boolean);
 
-  // Leaving the route (or the browser page) with unsaved edits prompts
+  // Leaving the route, or pressing browser Back, with unsaved edits prompts
   // "Confirm Leaving"; tab switches inside the page never do.
-  useEffect(() => {
-    if (!isDirty) return undefined;
-    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
-    const guard = (proceed) => {
-      pendingLeaveRef.current = proceed;
-      setLeaveOpen(true);
-    };
-    window.addEventListener('beforeunload', warn);
-    setLeaveGuard(guard);
-    return () => {
-      window.removeEventListener('beforeunload', warn);
-      clearLeaveGuard(guard);
-    };
-  }, [isDirty]);
+  useUnsavedChangesGuard(isDirty, (proceed) => {
+    pendingLeaveRef.current = proceed;
+    setLeaveOpen(true);
+  });
 
   const flashAndScroll = (el, sectionId) => {
     // behavior:'auto' - the search popper unmounting restores focus to the

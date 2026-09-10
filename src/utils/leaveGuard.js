@@ -2,8 +2,10 @@
 // react-router's useBlocker (data-router only) is unavailable - instead a page
 // with unsaved edits registers a guard, and navigation entry points route their
 // navigate() calls through confirmLeave().
-// ponytail: only guarded call sites (Sidebar) prompt; browser back/forward is
-// covered by beforeunload alone. Upgrade path: migrate to createBrowserRouter.
+// Browser back/forward is handled separately, by the history trap in
+// hooks/useUnsavedChangesGuard - which is also what registers the guard here,
+// so pages should use that hook rather than calling setLeaveGuard directly.
+// Upgrade path: migrate to createBrowserRouter and swap both for useBlocker.
 let guard = null;
 
 export const setLeaveGuard = (fn) => { guard = fn; };
