@@ -102,6 +102,7 @@ import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete
 import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { priceSetService } from '../../services/priceSetService';
+import { syncPriceRowsFromUnitPrice, rowQuantity } from '../../utils/priceRowSync';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSaveBar';
 import {
@@ -1114,6 +1115,13 @@ const ProductEdit = () => {
       // override (prices + tax rate); it is formData otherwise.
       const payload = {
         ...source,
+        // The price cell holds what was typed (so "5.05" survives mid-keystroke);
+        // the API takes numbers, so the rows are coerced once, here at the edge.
+        prices: (source.prices || []).map((p) => ({
+          ...p,
+          quantity: parseInt(p.quantity, 10) || 1,
+          price: Math.round((parseFloat(p.price) || 0) * 100) / 100,
+        })),
         caseQuantity: parseInt(formData.caseQuantity, 10) || 1,
         categoryId: resolvedCategoryId,
         brandId: resolvedBrandId,
@@ -2234,16 +2242,22 @@ const ProductEdit = () => {
                               value={price.quantity}
                               onChange={(e) => {
                                 const newPrices = [...formData.prices];
-                              const newQty = parseInt(e.target.value) || 1;
-                              // Keep current displayed price stable; adjust percentage to match new quantity cost
-                              const currentPrice = newPrices[index].price;
-                              const newBaseCost = calculateBaseCost(formData.itemCost, newQty);
-                              const newPct = calculatePercentageFromPrice(newBaseCost, currentPrice);
-                              newPrices[index].quantity = newQty;
-                              newPrices[index].cost = newBaseCost;
-                              newPrices[index].percentage = newPct;
-                              newPrices[index].price = Math.round(currentPrice * 100) / 100;
-                                handleInputChange('prices', newPrices);
+                                const newQty = parseInt(e.target.value) || 1;
+                                // Resizing the pack keeps the PER-UNIT price: a $30
+                                // six-pack becomes $60 at twelve, not a silent
+                                // half-price cut. The old quantity is what the
+                                // showing price was struck at, so it sets the rate.
+                                const oldQty = rowQuantity(newPrices[index]);
+                                const oldPrice = parseFloat(newPrices[index].price) || 0;
+                                const scaled =
+                                  oldQty > 0 && oldPrice > 0
+                                    ? Math.round((oldPrice / oldQty) * newQty * 100) / 100
+                                    : newPrices[index].price;
+                                newPrices[index] = { ...newPrices[index], quantity: newQty, price: scaled };
+                                handleInputChange(
+                                  'prices',
+                                  syncPriceRowsFromUnitPrice(newPrices, index, formData.itemCost)
+                                );
                               }}
                               size="small"
                             />
@@ -2254,12 +2268,16 @@ const ProductEdit = () => {
                               value={price.price}
                               onChange={(e) => {
                                 const newPrices = [...formData.prices];
-                              const inputPrice = parseFloat(e.target.value) || 0;
-                              const baseCost = calculateBaseCost(formData.itemCost, newPrices[index].quantity);
-                              const pct = calculatePercentageFromPrice(baseCost, inputPrice);
-                              newPrices[index].price = Math.round(inputPrice * 100) / 100;
-                              newPrices[index].percentage = pct;
-                                handleInputChange('prices', newPrices);
+                                // Raw text, not the rounded value: rounding every
+                                // keystroke fights the cashier typing "5.05".
+                                const inputPrice = e.target.value;
+                                newPrices[index] = { ...newPrices[index], price: inputPrice };
+                                // The pack sizes share one per-unit price, so pricing
+                                // the 6-pack at $30 puts the single at $5 (and back).
+                                handleInputChange(
+                                  'prices',
+                                  syncPriceRowsFromUnitPrice(newPrices, index, formData.itemCost)
+                                );
                               }}
                               size="small"
                               InputProps={{
@@ -2276,10 +2294,16 @@ const ProductEdit = () => {
                               value={price.percentage}
                               onChange={(e) => {
                                 const newPrices = [...formData.prices];
-                                newPrices[index].percentage = parseFloat(e.target.value) || 0;
-                                const newPrice = calculatePrice(formData.itemCost, newPrices[index].quantity, newPrices[index].percentage);
-                                newPrices[index].price = newPrice;
-                                handleInputChange('prices', newPrices);
+                                const pct = parseFloat(e.target.value) || 0;
+                                const newPrice = calculatePrice(formData.itemCost, newPrices[index].quantity, pct);
+                                newPrices[index] = { ...newPrices[index], percentage: pct, price: newPrice };
+                                // A margin change moves this row's price, so the other
+                                // pack sizes follow it just as a typed price would.
+                                const synced = syncPriceRowsFromUnitPrice(newPrices, index, formData.itemCost);
+                                // Keep the margin exactly as typed: re-deriving it from
+                                // the rounded price makes the field jump under the cursor.
+                                synced[index] = { ...synced[index], percentage: pct };
+                                handleInputChange('prices', synced);
                               }}
                               size="small"
                             />

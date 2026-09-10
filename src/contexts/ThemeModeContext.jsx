@@ -35,6 +35,19 @@ const buildTheme = (mode) =>
       },
     },
     components: {
+      // Number fields are typed into, never nudged: the browser's spinner arrows
+      // are a mis-click away from silently changing a price or a stock count, and
+      // they crowd the ~53 screens that use type="number". Hidden app-wide here so
+      // no screen has to remember to do it. The keyboard's up/down arrows still
+      // work — only the painted control goes.
+      MuiCssBaseline: {
+        styleOverrides: {
+          'input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button':
+            { WebkitAppearance: 'none', margin: 0 },
+          // Firefox draws its own; both engines need telling.
+          'input[type=number]': { MozAppearance: 'textfield', appearance: 'textfield' },
+        },
+      },
       MuiCard: {
         styleOverrides: {
           root: {
