@@ -103,6 +103,7 @@ import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { priceSetService } from '../../services/priceSetService';
 import { syncPriceRowsFromUnitPrice, rowQuantity } from '../../utils/priceRowSync';
+import { priceSourceLabel, isDefaultPriceRow } from '../../utils/priceSourceLabel';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSaveBar';
 import {
@@ -2209,9 +2210,12 @@ const ProductEdit = () => {
                       {formData.prices.map((price, index) => (
                         <TableRow key={index} sx={dataTableRowSx(index)}>
                           <TableCell>
-                            {/* Reference: each price point belongs to a Price Set;
-                                blank = the product's Default Price Set. Plain text
-                                until any set is defined. */}
+                            {/* Each price point belongs to a Price Set; no set = the
+                                default one, which Setup names. A default row reads as
+                                plain text — there is nothing to choose on the row that
+                                is already the default — but stays a selector so it can
+                                still be moved into a set. Plain text until Setup
+                                defines any set at all. */}
                             {priceSets.length > 0 ? (
                               <TextField
                                 select
@@ -2225,15 +2229,32 @@ const ProductEdit = () => {
                                   };
                                   handleInputChange('prices', newPrices);
                                 }}
+                                variant={isDefaultPriceRow(price) ? 'standard' : 'outlined'}
+                                InputProps={
+                                  isDefaultPriceRow(price) ? { disableUnderline: true } : undefined
+                                }
+                                // An empty value is a real choice here (the base
+                                // price row), not "nothing picked", so the cell has
+                                // to render text for it rather than sit blank.
+                                SelectProps={{
+                                  displayEmpty: true,
+                                  renderValue: (v) =>
+                                    priceSourceLabel(
+                                      { priceSetId: v === '' || v == null ? null : v },
+                                      priceSets
+                                    ),
+                                }}
                                 sx={{ minWidth: 150 }}
                               >
-                                <MenuItem value="">Default Price Set</MenuItem>
+                                <MenuItem value="">
+                                  {priceSourceLabel({ priceSetId: null }, priceSets)}
+                                </MenuItem>
                                 {priceSets.map((ps) => (
                                   <MenuItem key={ps.id} value={ps.id}>{ps.name}</MenuItem>
                                 ))}
                               </TextField>
                             ) : (
-                              price.source || 'Product'
+                              priceSourceLabel(price, priceSets)
                             )}
                           </TableCell>
                           <TableCell>

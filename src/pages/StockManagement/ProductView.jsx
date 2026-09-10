@@ -27,6 +27,8 @@ import {
 } from "@mui/icons-material";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import productService from "../../services/productService";
+import { priceSourceLabel } from "../../utils/priceSourceLabel";
+import { priceSetService } from "../../services/priceSetService";
 import PageLoader from "../../components/Common/PageLoader";
 import ProductSalesSummary from "../../components/StockManagement/ProductSalesSummary";
 import ProductSalesHistory from "../../components/StockManagement/ProductSalesHistory";
@@ -143,12 +145,22 @@ const ProductView = () => {
   const [showSupplierExpanded, setShowSupplierExpanded] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // The API sends a price row's priceSetId but not the set's name, so the Source
+  // column needs the set list to name one. Optional: it falls back to generic
+  // wording if the list can't be loaded.
+  const [priceSets, setPriceSets] = useState([]);
 
   useEffect(() => {
     if (id) {
       loadProductData();
     }
   }, [id]);
+
+  useEffect(() => {
+    priceSetService.getPriceSets()
+      .then(({ priceSets: sets }) => setPriceSets(sets || []))
+      .catch((e) => console.error("Error loading price sets:", e));
+  }, []);
 
   useEffect(() => {
     if (product) {
@@ -860,7 +872,8 @@ const ProductView = () => {
                     return (
                       <TableRow key={`price-${idx}`}>
                         <TableCell sx={{ padding: "16px 10px !important" }}>
-                          {p.priceSet?.name || p.priceSetName || (p.outletId ? "Outlet Price" : "Default Price")}
+                          {/* Same wording as the editor's Source column. */}
+                          {priceSourceLabel(p, priceSets)}
                         </TableCell>
                         <TableCell sx={{ padding: "16px !important" }}>{qty}</TableCell>
                         <TableCell sx={{ padding: "16px !important" }}>
