@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Grid, Typography } from '@mui/material';
-import { formatMoney } from '../../utils/currency';
+import { Box, Grid } from '@mui/material';
+import SaleKeyTileContent from './SaleKeyTileContent';
 
 // Actions that operate on the current sale: the reference gives ALL of these a
 // not-allowed cursor (and ignores the click) while the sale is idle/empty,
@@ -26,7 +26,6 @@ const SaleKeysGrid = ({
   saleKeyConfig,
   cart,
   onSaleKeyClick,
-  getIconForSaleKey,
   caseModeActive = false,
 }) => {
   if (!saleKeyConfig || !saleKeyConfig.saleKeys) {
@@ -60,6 +59,9 @@ const SaleKeysGrid = ({
         // Highlight armed Use Case Quantity keys so the active mode is visible.
         const isCaseModeKey = caseModeActive && saleKey.action === 'use-case-quantity';
 
+        // Reference keeps every tile label at 16px whatever the tile spans.
+        const labelSize = Math.max(saleKey.fontSize || 16, 16);
+
         return (
           <Box
             key={saleKey.id}
@@ -83,11 +85,7 @@ const SaleKeysGrid = ({
               overflow: 'visible',
               justifyContent: 'center',
               cursor: isKeyDisabled ? 'not-allowed' : 'pointer',
-              // Reference keeps every tile label at 16px/400 whatever the tile spans.
-              fontSize: Math.max(saleKey.fontSize || 16, 16),
-              fontWeight: saleKey.textStyle?.bold ? 'bold' : 'normal',
-              fontStyle: saleKey.textStyle?.italic ? 'italic' : 'normal',
-              textDecoration: saleKey.textStyle?.underline ? 'underline' : 'none',
+              fontSize: labelSize,
               // Reference marks an unusable key with the CURSOR only — the tile keeps
               // its configured colour (no dim/filter was measured on the reference).
               filter: 'none',
@@ -99,57 +97,7 @@ const SaleKeysGrid = ({
             }}
             onClick={isKeyDisabled ? undefined : () => onSaleKeyClick(saleKey)}
           >
-            {saleKey.image ? (      
-              <img 
-                src={saleKey.image} 
-                alt={saleKey.name}
-                style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  objectFit: 'contain',
-                }}
-              />
-            ) : (
-              <Box sx={{ fontSize: `${Math.max(saleKey.fontSize || 16, 16)}px`, display: 'flex' }}>
-                {getIconForSaleKey(saleKey)}
-              </Box>
-            )}
-            
-            <Typography
-              component="div"
-              sx={{
-                textAlign: 'center',
-                fontSize: `${Math.max(saleKey.fontSize || 16, 16)}px`,
-                fontWeight: saleKey.textStyle?.bold ? 'bold' : 'normal',
-                fontStyle: saleKey.textStyle?.italic ? 'italic' : 'normal',
-                textDecoration: saleKey.textStyle?.underline ? 'underline' : 'none',
-                letterSpacing: 'normal',
-                lineHeight: 1.2,
-              }}
-            >
-              {(saleKey.action === 'payment' || saleKey.action === 'pay-amount') && saleKey.amount ? (
-                <>
-                  <Box sx={{ fontSize: `${Math.max((saleKey.fontSize || 16) + 4, 20)}px`, fontWeight: 'bold', mb: 0.5 }}>
-                    {formatMoney(saleKey.amount)}
-                  </Box>
-                  {saleKey.name}
-                </>
-              ) : (
-                saleKey.name
-              )}
-            </Typography>
-            
-            {saleKey.amount && saleKey.action !== 'payment' && saleKey.action !== 'pay-amount' && (
-              <Typography sx={{
-                mt: 0.5,
-                // Reference has no smaller size variant — every tile label is 16px.
-                fontSize: `${Math.max(saleKey.fontSize || 16, 16)}px`,
-                letterSpacing: 'normal',
-                lineHeight: 1.2
-              }}>
-                {formatMoney(saleKey.amount)}
-              </Typography>
-            )}
+            <SaleKeyTileContent saleKey={saleKey} />
           </Box>
         );
       })}

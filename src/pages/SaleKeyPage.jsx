@@ -126,6 +126,7 @@ import productComboService from '../services/productComboService';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
+import { getIconForSaleKey } from '../utils/saleKeyIcons';
 import CartSidebar, { KeypadPopover } from '../components/SaleKey/CartSidebar';
 import AddSaleKeyDialog from '../components/SaleKey/AddSaleKeyDialog';
 import BarcodeSelectDialog, { getBarcodeQuantity } from '../components/SaleKey/BarcodeSelectDialog';
@@ -6484,52 +6485,7 @@ const SaleKeyPage = () => {
 
 
 
-  const getIconForSaleKey = (saleKey) => {
-    if ((saleKey.action === 'payment' || saleKey.action === 'pay-amount') && saleKey.amount) {
-      return null; 
-    }
-    
-    switch (saleKey.action) {
-      case 'payment':
-      case 'pay-amount':
-        return saleKey.paymentMethod === 'cash' ? <MoneyIcon /> : <CreditCardIcon />;
-      case 'add-product':
-        return saleKey.name.toLowerCase().includes('beer') ? <BarIcon /> : <DrinkIcon />;
-      case 'add-product-case':
-        return <CartIcon />;
-      case 'add-product-combo':
-        return <OfferIcon />;
-      case 'add-gift-card':
-        return <OfferIcon />;
-      case 'subtract-quantity':
-        return <RemoveIcon />;
-      case 'add-quantity':
-        return <AddIcon />;
-      case 'clear-sale':
-        return <CancelIcon />;
-      case 'cancel-current-sale':
-        return <CancelIcon />;
-      case 'open-drawer':
-        return <MoneyIcon />;
-      case 'display-product-details':
-        return <InfoOutlinedIcon />;
-      case 'view-live-profit':
-        return <OfferIcon />;
-      case 'view-promotions':
-        return <OfferIcon />;
-      case 'create-customer':
-        return <PersonIcon />;
-      case 'display-classification-products':
-      case 'display-classification-products-case':
-        return <FolderIcon />;
-      case 'navigation':
-        return <ArrowUpIcon />;
-      case 'special':
-        return saleKey.name.toLowerCase().includes('party') ? <PartyIcon /> : <OfferIcon />;
-      default:
-        return <CartIcon />;
-    }
-  };
+  // Shared with both designer grids - see utils/saleKeyIcons.
 
   // Shared customer row (search dropdown + left-panel picker): name + group
   // subtitle on the left, loyalty points on the right (reference anatomy).
@@ -7482,7 +7438,6 @@ const SaleKeyPage = () => {
                     saleKeyConfig={saleKeyConfig}
                     cart={cart}
                     onSaleKeyClick={handleSaleKeyClick}
-                    getIconForSaleKey={getIconForSaleKey}
                     caseModeActive={useCaseQuantity}
                   />
                 </Box>

@@ -550,7 +550,10 @@ const AddSaleKeyDialog = ({
                 textDecoration: newSaleKey.textStyle.underline ? 'underline' : 'none',
                 borderRadius: 1,
                 textAlign: 'center',
-                p: 1,
+                // Preview has to be honest about the real tile, which insets
+                // nothing - see SaleKeysGrid.
+                p: 0,
+                gap: '4px',
                 boxSizing: 'border-box'
               }}
             >
@@ -558,15 +561,15 @@ const AddSaleKeyDialog = ({
                 <img 
                   src={newSaleKey.image} 
                   alt="Preview"
-                  style={{ 
-                    width: '60%', 
-                    height: '60%', 
+                  style={{
+                    width: '100%',
+                    height: '100%',
                     objectFit: 'contain',
-                    marginBottom: 4 
-                  }} 
+                    minHeight: 0,
+                  }}
                 />
               ) : (
-                <Box sx={{ fontSize: '1.5rem', mb: 0.5 }}>
+                <Box sx={{ fontSize: '1.5rem' }}>
                   {getIconForSaleKey({ action: newSaleKey.action })}
                 </Box>
               )}

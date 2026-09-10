@@ -47,6 +47,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { productOptionLabel } from '../../utils/productOptionLabel';
+import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
 import productService from '../../services/productService';
 import productComboService from '../../services/productComboService';
 import paymentMethodService from '../../services/paymentMethodService';
@@ -738,7 +739,7 @@ const SaleKey = () => {
     const isSelected = selectedKey?.id === key.id;
     const cellWidth = 100 / gridSize.cols;
     const cellHeight = 100 / gridSize.rows;
-    
+
     return (
       <Box
         key={key.id}
@@ -766,7 +767,10 @@ const SaleKey = () => {
           },
           transition: key.behavior?.preventHoverAnimation ? 'none' : 'all 0.2s ease',
           boxSizing: 'border-box',
-          padding: 1,
+          // Same zero-inset tile as SaleKeyEditor and SaleKeysGrid: artwork runs
+          // to the border, and the 1px border is the only separator.
+          padding: 0,
+          gap: '4px',
         }}
         onClick={(e) => handleKeyClick(key, e)}
       >
@@ -786,50 +790,7 @@ const SaleKey = () => {
           </>
         )}
         
-        {key.image ? (
-          <img 
-            src={key.image} 
-            alt={key.name}
-            style={{ 
-              width: '100%', 
-              height: '100%', 
-              objectFit: 'contain',
-              marginBottom: 8 
-            }} 
-          />
-        ) : (
-          <Box sx={{ fontSize: `${Math.max(key.fontSize || 16, 16)}px`, mb: 1 }}>
-            {key.action === 'pay-amount' ? '$' : 
-             key.action === 'pay-exact-amount' ? '💳' :
-             key.action === 'add-product' ? '🛒' :
-             key.action === 'subtract-quantity' ? '➖' :
-             key.action === 'add-quantity' ? '➕' :
-             key.action === 'open-sale-key-folder' ? '📁' : '📦'}
-          </Box>
-        )}
-        
-        <Typography
-          sx={{
-            textAlign: 'center',
-            fontSize: `${key.fontSize || 16}px`,
-            fontWeight: key.textStyle?.bold ? 'bold' : 'normal',
-            fontStyle: key.textStyle?.italic ? 'italic' : 'normal',
-            textDecoration: key.textStyle?.underline ? 'underline' : 'none',
-            lineHeight: 1.2,
-          }}
-        >
-          {key.name}
-        </Typography>
-        
-        {key.amount && (
-          <Typography sx={{ 
-            mt: 0.5, 
-            fontSize: `${Math.max((key.fontSize || 16) - 2, 10)}px`,
-            lineHeight: 1.1
-          }}>
-            ${key.amount}
-          </Typography>
-        )}
+        <SaleKeyTileContent saleKey={key} />
       </Box>
     );
   };
@@ -1766,6 +1727,9 @@ const SaleKey = () => {
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        // Top centre, matching SaleKeyEditor - the default bottom-left corner
+        // sat under the grid, furthest from the key the message is about.
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}
