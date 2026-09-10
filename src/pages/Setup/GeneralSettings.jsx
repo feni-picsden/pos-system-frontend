@@ -62,6 +62,7 @@ import customerDisplayTemplateService from '../../services/customerDisplayTempla
 import customerDisplayService from '../../services/customerDisplayService';
 import registerService from '../../services/registerService';
 import paymentMethodService from '../../services/paymentMethodService';
+import PageSaveBar from '../../components/Common/PageSaveBar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 

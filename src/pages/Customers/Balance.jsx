@@ -65,6 +65,7 @@ import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 import StatementRenderer from "../../components/Statement/StatementRenderer";
 import ReceiptRenderer from "../../components/Receipt/ReceiptRenderer";
 import { buildReceiptPrintHtml } from "../../utils/receiptPrintHtml";
+import { printHtmlDocument } from "../../utils/printHtmlDocument";
 import { groupActivitiesByAge } from "../../utils/statementDefaults";
 import { formatCurrency } from "../../utils/currency";
 import {
@@ -288,24 +289,13 @@ const previousMonthRange = () => [
   endOfMonth(subMonths(new Date(), 1)),
 ];
 
-// Same hidden-iframe print mechanism the app already uses for receipts (PrintReceiptDialog.printReceipt).
-// fontFamily defaults to the receipt's monospace; statements print in the
-// canvas font instead.
+// Wraps the statement body in its own print document; printHtmlDocument prints it
+// over this page. fontFamily defaults to the receipt's monospace; statements print
+// in the canvas font instead.
 const printHtmlViaIframe = (bodyHtml, title, fontFamily = "'Courier New',monospace") => {
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(iframe);
-  const doc = iframe.contentWindow.document;
-  doc.open();
-  doc.write(
+  printHtmlDocument(
     `<html><head><title>${title}</title><style>body{font-family:${fontFamily};margin:0;padding:20px;background:#fff;}@media print{body{margin:0;padding:10px;}@page{margin:0.5cm;}}</style></head><body>${bodyHtml}</body></html>`
   );
-  doc.close();
-  iframe.onload = () => {
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-    setTimeout(() => document.body.removeChild(iframe), 100);
-  };
 };
 
 const Balance = () => {
@@ -849,18 +839,7 @@ const Balance = () => {
             <ReceiptRenderer receiptData={receiptData} template={template} />
           );
           const headStyles = Array.from(document.querySelectorAll("style")).map((n) => n.outerHTML).join("\n");
-          const iframe = document.createElement("iframe");
-          iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-          document.body.appendChild(iframe);
-          const doc = iframe.contentWindow.document;
-          doc.open();
-          doc.write(buildReceiptPrintHtml({ markup, headStyles, template, title: "Payment Receipt" }));
-          doc.close();
-          iframe.onload = () => {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-            setTimeout(() => document.body.removeChild(iframe), 100);
-          };
+          printHtmlDocument(buildReceiptPrintHtml({ markup, headStyles, template, title: "Payment Receipt" }));
         } else {
           // No Payment template assigned (or it failed to load): keep the minimal built-in
           // receipt, but caption it with the receipt-template name we resolved (never the

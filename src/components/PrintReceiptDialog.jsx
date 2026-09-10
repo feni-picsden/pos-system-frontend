@@ -22,6 +22,7 @@ import receiptTemplateService from '../services/receiptTemplateService';
 import settingsService from '../services/settingsService';
 import ReceiptRenderer from './Receipt/ReceiptRenderer';
 import { buildReceiptPrintHtml } from '../utils/receiptPrintHtml';
+import { printHtmlDocument } from '../utils/printHtmlDocument';
 import { saleToReceiptData } from '../utils/saleToReceiptData';
 
 const PrintReceiptDialog = ({ open, onClose, sale }) => {
@@ -80,32 +81,12 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
       .map((n) => n.outerHTML)
       .join('\n');
 
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(buildReceiptPrintHtml({
+    printHtmlDocument(buildReceiptPrintHtml({
       markup: printContent,
       headStyles,
       template,
       title: `Receipt - ${receiptData.transactionId}`,
     }));
-    doc.close();
-
-    iframe.onload = () => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 100);
-    };
   };
 
   // A4 templates have no receipt-paper preview (see the render block below).

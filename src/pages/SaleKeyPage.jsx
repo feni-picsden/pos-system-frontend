@@ -132,6 +132,7 @@ import BarcodeSelectDialog, { getBarcodeQuantity } from '../components/SaleKey/B
 import ReceiptRenderer from '../components/Receipt/ReceiptRenderer';
 import ScaleToFit from '../components/Receipt/ScaleToFit';
 import { buildReceiptPrintHtml } from '../utils/receiptPrintHtml';
+import { printHtmlDocument } from '../utils/printHtmlDocument';
 import GeofenceValidator from '../components/Geofencing/GeofenceValidator';
 import {
   openCustomerDisplayWindow,
@@ -413,7 +414,7 @@ const SaleKeyPage = () => {
     setSelectedRegister,
     availableRegisters,
     openLocationSelector,
-    persistRegister,
+    isRegisterConfirmedForTab,
     clearSelectedRegister,
     getOutletName,
     openRegister: handleOpenRegister,
@@ -584,38 +585,22 @@ const SaleKeyPage = () => {
       // Saved outlet selection is hydrated by SelectedOutletContext.
     }
     
-    // SelectedRegisterContext hydrates the stored register. What stays here is
-    // the sell-screen-only boot fallback: with nothing stored, adopt a register
-    // already assigned to this user, otherwise pop the Location Selector. Keeping
-    // it here is what keeps the auto-open sell-screen-only.
-    const savedRegisterId = localStorage.getItem('selectedRegisterId');
-    const savedRegisterName = localStorage.getItem('selectedRegisterName');
-    if (!savedRegisterId || !savedRegisterName) {
-      setTimeout(async () => {
-        try {
-          const registers = await registerService.list({ isActive: true });
-          const userRegister = registers.find(reg =>
-            reg.currentUser &&
-            reg.currentUser.id &&
-            user &&
-            reg.currentUser.id === user.id
-          );
-
-          if (userRegister) {
-            const fullRegister = {
-              ...userRegister,
-              outletId: userRegister.outletId || userRegister.outlet?.id || null
-            };
-            persistRegister(fullRegister);
-          } else {
-            // No register assigned to user, show location selector
-            openLocationSelector();
-          }
-        } catch (error) {
-          console.error('Error checking for user register:', error);
-          openLocationSelector();
-        }
-      }, 1000);
+    // SelectedRegisterContext hydrates the stored register; the sell-screen-only
+    // boot prompt stays here (keeping it here is what keeps the auto-open
+    // sell-screen-only).
+    //
+    // A register may only be driven from one screen at a time, so opening the
+    // sell screen asks which register this screen is on unless THIS tab already
+    // answered. It used to skip the question whenever localStorage held a
+    // register — but localStorage is shared by every tab of the browser, so a
+    // second tab silently drove the first tab's register. The old fallback for an
+    // empty localStorage had the same hole one level up: it adopted whichever
+    // register the account already held, which is how a second browser or a
+    // second PC took over a register nobody meant to hand over. `force` skips
+    // that auto-adopt inside openLocationSelector, so the user picks (and the
+    // takeover prompt still appears for a register in use).
+    if (!isRegisterConfirmedForTab()) {
+      openLocationSelector({ force: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.outletId, selectedOutlet]);
@@ -4395,24 +4380,13 @@ const SaleKeyPage = () => {
       template,
       title: `Receipt - ${receiptData.transactionId}`,
     });
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      return;
-    }
-    // Auto-print (Always Print Receipt / customer-group flag) fires from a timeout, so the
-    // popup blocker kills window.open. Fall back to a hidden iframe — same output, no popup.
-    const frame = document.createElement('iframe');
-    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-    document.body.appendChild(frame);
-    frame.contentDocument.write(html);
-    frame.contentDocument.close();
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-    setTimeout(() => frame.remove(), 1000);
+    // Prints over the sell screen itself. This used to open the receipt in a new
+    // tab and print from there, which took the cashier off the sale and left the
+    // receipt tab behind whenever the print was cancelled. It also made auto-print
+    // (Always Print Receipt / the customer-group flag) unreliable, since that
+    // fires from a timeout and the popup blocker stops window.open outside a
+    // click. The hidden iframe has neither problem.
+    printHtmlDocument(html);
   };
 
   const calculateChange = (finalPayments, cartTotal) => {

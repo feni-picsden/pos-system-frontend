@@ -11,6 +11,36 @@ import { useSelectedOutlet } from './SelectedOutletContext';
 // through it.
 const SelectedRegisterContext = createContext(null);
 
+// Which register this screen is on is a fact about ONE tab, not about the
+// account: localStorage is shared by every tab of the browser, and the
+// "register already assigned to me" auto-adopt is shared by every device, so
+// between them a second tab / browser / PC used to inherit a register that is
+// already in use elsewhere without ever asking. sessionStorage is per-tab and
+// survives reloads and in-tab navigation, which is exactly the scope we want:
+// ask once per tab, never again in that tab.
+const TAB_CONFIRMATION_KEY = 'registerConfirmedForTab';
+// Recorded when the user answers the selector with "Not using a register", so
+// that answer sticks for the tab instead of reopening the dialog on every visit.
+const NO_REGISTER = 'none';
+
+// Safari's private mode and locked-down browsers throw on session storage
+// access; a missing marker only costs an extra prompt, so failures are ignored.
+const readTabConfirmation = () => {
+  try {
+    return sessionStorage.getItem(TAB_CONFIRMATION_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const writeTabConfirmation = (value) => {
+  try {
+    sessionStorage.setItem(TAB_CONFIRMATION_KEY, String(value));
+  } catch {
+    /* ignore */
+  }
+};
+
 export const useSelectedRegister = () => useContext(SelectedRegisterContext) || {};
 
 export const SelectedRegisterProvider = ({ children }) => {
@@ -35,6 +65,22 @@ export const SelectedRegisterProvider = ({ children }) => {
     localStorage.setItem('selectedRegisterId', register.id);
     localStorage.setItem('selectedRegisterName', register.name);
     localStorage.setItem('selectedRegisterStatus', register.status || 'Closed');
+  };
+
+  // True only when THIS tab is the one that answered the selector, and the
+  // answer still matches what is stored. Anything else — another tab's choice
+  // arriving through localStorage, a register swapped out underneath, a fresh
+  // browser or machine — reads as unconfirmed, so the sell screen asks.
+  const isRegisterConfirmedForTab = () => {
+    const confirmed = readTabConfirmation();
+    if (!confirmed) return false;
+    if (confirmed === NO_REGISTER) return true;
+    return confirmed === localStorage.getItem('selectedRegisterId');
+  };
+
+  // The user answered "Not using a register": remember that for this tab.
+  const confirmNoRegisterForTab = () => {
+    writeTabConfirmation(NO_REGISTER);
   };
 
   const clearSelectedRegister = () => {
@@ -211,6 +257,9 @@ export const SelectedRegisterProvider = ({ children }) => {
       };
 
       persistRegister(fullRegister);
+      // The user picked this register on this screen — that is the answer the
+      // sell screen looks for before it stops asking.
+      writeTabConfirmation(fullRegister.id);
       setShowLocationSelector(false);
     } catch (error) {
       if (error.response?.status === 409) {
@@ -239,6 +288,8 @@ export const SelectedRegisterProvider = ({ children }) => {
         await registerService.takeControl(registerInUseData.register.id);
 
         persistRegister({ ...registerInUseData.register, status: 'Locked' });
+        // Taking control is a deliberate pick too, so it counts as this tab's answer.
+        writeTabConfirmation(registerInUseData.register.id);
         setShowRegisterInUseDialog(false);
         setRegisterInUseData(null);
         setShowLocationSelector(false);
@@ -275,6 +326,8 @@ export const SelectedRegisterProvider = ({ children }) => {
         chooseAnotherLocation,
         persistRegister,
         clearSelectedRegister,
+        isRegisterConfirmedForTab,
+        confirmNoRegisterForTab,
         getOutletName,
         getEffectiveOutletId,
         openRegister,

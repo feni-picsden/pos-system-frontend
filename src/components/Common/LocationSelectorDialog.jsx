@@ -43,6 +43,7 @@ const LocationSelectorDialog = () => {
     refreshRegisters,
     selectRegister,
     clearSelectedRegister,
+    confirmNoRegisterForTab,
     getOutletName,
     getEffectiveOutletId,
     showRegisterInUseDialog,
@@ -285,6 +286,10 @@ const LocationSelectorDialog = () => {
           onClick={() => {
             if (busyKey) return;
             clearSelectedRegister();
+            // Answering the selector at all is what stops the sell screen from
+            // asking again in this tab; without this "no register" would reopen
+            // the dialog on every visit.
+            confirmNoRegisterForTab();
             setShowLocationSelector(false);
           }}
           sx={{ ...rowSx('none'), mb: 0 }}

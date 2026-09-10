@@ -41,6 +41,7 @@ import inventoryReportService from '../../services/inventoryReportService';
 import outletService from '../../services/outletService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { printHtmlDocument } from '../../utils/printHtmlDocument';
 import {
   format,
   parse,
@@ -561,8 +562,9 @@ const InventoryAtDate = () => {
       </div>
     `;
 
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+    // Prints over the report itself: window.open put the print dialog on a new tab
+    // and threw outright when the popup blocker refused it.
+    printHtmlDocument(`
       <html>
         <head>
           <title>Inventory at Date - ${dateLabel}</title>
@@ -572,12 +574,6 @@ const InventoryAtDate = () => {
         </body>
       </html>
     `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
   };
 
   const toggleColumn = (key) => {

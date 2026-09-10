@@ -225,13 +225,36 @@ export const AppDialogProvider = ({ children }) => {
   );
 };
 
-// Falls back to the browser dialogs if a component renders outside the
-// provider (tests, isolated stories) so nothing silently swallows a message.
+// Used only when a component renders outside the provider (tests, isolated
+// stories). It used to call window.alert/confirm/prompt, which put a browser
+// dialog — chrome, wording and all — on top of the app: it looks like it came
+// from somewhere other than this site, it cannot be styled or translated, and
+// it blocks the whole tab. Nothing is silently swallowed either: every call is
+// reported to the console with the message it was given.
+//
+// The answers fail safe rather than fail open: confirm() resolves false and
+// prompt() resolves null, so an unattended destructive action is cancelled
+// instead of being auto-approved by a dialog nobody could see.
+const outsideProvider = (method, message) => {
+  console.error(
+    `[AppDialogProvider] ${method}() was called outside the provider, so it could not be shown: ${message}`
+  );
+};
+
 const FALLBACK = {
-  notify: (message) => window.alert(message),
-  alert: (message) => { window.alert(message); return Promise.resolve(); },
-  confirm: (message) => Promise.resolve(window.confirm(message)),
-  prompt: (message, defaultValue = '') => Promise.resolve(window.prompt(message, defaultValue)),
+  notify: (message) => outsideProvider('notify', message),
+  alert: (message) => {
+    outsideProvider('alert', message);
+    return Promise.resolve();
+  },
+  confirm: (message) => {
+    outsideProvider('confirm', message);
+    return Promise.resolve(false);
+  },
+  prompt: (message) => {
+    outsideProvider('prompt', message);
+    return Promise.resolve(null);
+  },
 };
 
 export const useAppDialogs = () => useContext(AppDialogContext) || FALLBACK;
