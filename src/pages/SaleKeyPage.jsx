@@ -6522,12 +6522,21 @@ const SaleKeyPage = () => {
 
   // Reference: while search results are on screen they take over the whole
   // actions pane (keys grid AND the tab strip are swapped out).
+  // A search that matched nothing still owns the pane — it reports "No Results
+  // Found" (reference). Falling back to the keys grid on an empty result, as this
+  // used to, read as the search never having run: the operator sees their term in
+  // the box and the keys behind it, with nothing saying the term found no product.
   const searchResultsVisible =
     showSearchResults &&
     !isCustomerSearchMode &&
     !showPromotionView &&
     !showClassificationView &&
-    (searchResults.products.length > 0 || searchResults.customers.length > 0);
+    searchTerm.trim().length > 0;
+
+  const searchFoundNothing =
+    searchResultsVisible &&
+    searchResults.products.length === 0 &&
+    searchResults.customers.length === 0;
 
   if (loading) {
     return <PageLoader />;
@@ -6900,6 +6909,25 @@ const SaleKeyPage = () => {
                       boxShadow: 'none',
                     }}
                   >
+                    {/* Reference empty state: the term found nothing, said plainly and
+                        centred in the pane the results would have filled. */}
+                    {searchFoundNothing && (
+                      <Box
+                        sx={{
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: '#f8f8f8',
+                          color: '#000',
+                          fontSize: 32,
+                          textAlign: 'center',
+                          px: 2,
+                        }}
+                      >
+                        No Results Found
+                      </Box>
+                    )}
                     {/* Reference anatomy: full-width gray section bands + 75px zebra rows. */}
                     {searchResults.customers.length > 0 && (
                       <>
