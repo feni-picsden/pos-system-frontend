@@ -358,6 +358,28 @@ const posLocalDb = {
     return cache.barcodeByCode;
   },
 
+  /**
+   * Replace one cached product's barcodes after the register associates a new
+   * code, so the very next scan resolves locally instead of waiting for the next
+   * catalog sync. Rebuilds the code -> products map; returns the updated product
+   * (or null when the id is not in this outlet's cache).
+   */
+  setProductBarcodes(productId, barcodes) {
+    const id = String(productId);
+    const idx = cache.products.findIndex((p) => String(p?.id) === id);
+    if (idx === -1) return null;
+    const updated = { ...cache.products[idx], barcodes: barcodes || [] };
+    // New array: callers hold references to cache.products, and mutating in
+    // place would leave memoised consumers showing the old barcodes.
+    cache.products = [
+      ...cache.products.slice(0, idx),
+      updated,
+      ...cache.products.slice(idx + 1),
+    ];
+    cache.barcodeByCode = buildBarcodeMap(cache.products);
+    return updated;
+  },
+
   getProductByBarcode(code) {
     const c = String(code || '').trim();
     const list = c ? cache.barcodeByCode[c] : null;

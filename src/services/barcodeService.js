@@ -92,6 +92,13 @@ const barcodeService = {
     }
   },
 
+  // Attach an unknown code to an existing product (the register's associate flow).
+  // `quantity` is the pack size the code adds per scan.
+  associateBarcode: async (productId, code, quantity = 1) => {
+    const response = await apiClient.post(`/barcodes/${productId}`, { code, quantity });
+    return response.data;
+  },
+
   deleteBarcode: async (productId, barcodeCode) => {
     const response = await apiClient.delete(`/barcodes/${productId}/${encodeURIComponent(barcodeCode)}`);
     return response.data;

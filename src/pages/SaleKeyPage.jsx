@@ -130,6 +130,10 @@ import { getIconForSaleKey } from '../utils/saleKeyIcons';
 import CartSidebar, { KeypadPopover } from '../components/SaleKey/CartSidebar';
 import AddSaleKeyDialog from '../components/SaleKey/AddSaleKeyDialog';
 import BarcodeSelectDialog, { getBarcodeQuantity } from '../components/SaleKey/BarcodeSelectDialog';
+import BarcodeNotFoundDialog from '../components/SaleKey/BarcodeNotFoundDialog';
+import AssociateBarcodeDialog from '../components/SaleKey/AssociateBarcodeDialog';
+import ProductPreviewCard from '../components/SaleKey/ProductPreviewCard';
+import barcodeService from '../services/barcodeService';
 import ReceiptRenderer from '../components/Receipt/ReceiptRenderer';
 import ScaleToFit from '../components/Receipt/ScaleToFit';
 import { buildReceiptPrintHtml } from '../utils/receiptPrintHtml';
@@ -282,8 +286,18 @@ const SaleKeyPage = () => {
   const [isCustomerSearchMode, setIsCustomerSearchMode] = useState(false);
   const [scanNotFound, setScanNotFound] = useState(null); // barcode string that failed lookup
   const [saleWarning, setSaleWarning] = useState(null); // warning toast text (reference-style guards)
+  const [saleSuccess, setSaleSuccess] = useState(null); // green confirmation toast text
   const [barcodeChoices, setBarcodeChoices] = useState(null); // { code, products } when a scan matches 2+ products
+  // "Associate an unknown barcode" flow, three steps:
+  //  1. scanNotFound       — the code missed; offer to bind it to a product
+  //  2. associatingBarcode — the code being bound; the search box now PICKS a product
+  //  3. associateTarget    — the chosen product; asks for the pack quantity
+  const [associatingBarcode, setAssociatingBarcode] = useState(null);
+  const [associateTarget, setAssociateTarget] = useState(null);
+  const [associateSaving, setAssociateSaving] = useState(false);
   const searchRef = useRef(null);
+  // Set by the search box's onPaste, read once by the debounced search.
+  const pastedRef = useRef(false);
   const lastRegisterControlCheckRef = useRef(0);
   // Barcode scanning: serialize rapid scans, dedupe CR+LF double-Enters and
   // invalidate stale in-flight name searches (scanner input outruns renders).
@@ -1430,7 +1444,9 @@ const SaleKeyPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRegister?.id, selectedOutlet]);
 
-  // Search functionality
+  // Search functionality.
+  // Resolves true when the term matched something, so the debounced caller can
+  // tell "typed digits that are a partial code" from "digits nothing knows".
   const performSearch = async (term) => {
     // Sequence guard: a newer search (or a barcode scan clearing the box)
     // invalidates any still-in-flight older lookups so their late responses
@@ -1444,11 +1460,11 @@ const SaleKeyPage = () => {
       } else {
         // Customer picker with an empty box lists the full roster again.
         const customers = await posLocalDb.searchCustomersAsync('', 50, getEffectiveOutletId());
-        if (seq !== searchSeqRef.current) return;
+        if (seq !== searchSeqRef.current) return false;
         setSearchResults({ products: [], customers });
         setShowSearchResults(true);
       }
-      return;
+      return false;
     }
 
     const outletId = getEffectiveOutletId();
@@ -1456,7 +1472,7 @@ const SaleKeyPage = () => {
     // Always prefer IndexedDB / in-memory catalog — no API on keystrokes.
     if (isCustomerSearchMode) {
       let customers = await posLocalDb.searchCustomersAsync(term, 50, outletId);
-      if (seq !== searchSeqRef.current) return;
+      if (seq !== searchSeqRef.current) return false;
       if (!customers.length) {
         // Local cache miss (just-created customer, cleared store): ask the
         // server directly, unscoped, so every customer stays findable.
@@ -1467,11 +1483,11 @@ const SaleKeyPage = () => {
           );
           customers = res.customers || [];
         } catch { customers = []; }
-        if (seq !== searchSeqRef.current) return;
+        if (seq !== searchSeqRef.current) return false;
       }
       setSearchResults({ products: [], customers });
       setShowSearchResults(true);
-      return;
+      return customers.length > 0;
     }
 
     // Normal search: match BOTH products and customers from the IndexedDB cache.
@@ -1479,11 +1495,11 @@ const SaleKeyPage = () => {
       posLocalDb.searchProductsAsync(term, 10, outletId),
       posLocalDb.searchCustomersAsync(term, 10, outletId),
     ]);
-    if (seq !== searchSeqRef.current) return;
+    if (seq !== searchSeqRef.current) return false;
     if (products.length > 0 || customers.length > 0) {
       setSearchResults({ products, customers });
       setShowSearchResults(true);
-      return;
+      return true;
     }
 
     // Local cache had no match (stale/partial outlet cache, or first visit):
@@ -1494,17 +1510,17 @@ const SaleKeyPage = () => {
         search: term,
         limit: 10,
       });
-      if (seq !== searchSeqRef.current) return;
-      setSearchResults({
-        products: productsResponse.products || [],
-        customers: [],
-      });
+      if (seq !== searchSeqRef.current) return false;
+      const apiProducts = productsResponse.products || [];
+      setSearchResults({ products: apiProducts, customers: [] });
       setShowSearchResults(true);
+      return apiProducts.length > 0;
     } catch {
       if (seq === searchSeqRef.current) {
         setSearchResults({ products: [], customers: [] });
       }
     }
+    return false;
   };
 
   // Debounced search effect. Barcode-shaped input auto-adds to the sale
@@ -1512,18 +1528,72 @@ const SaleKeyPage = () => {
   // search-results dropdown; the Enter-key path still wins the race for
   // scanners that do (queueScan dedupes the repeat).
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       const term = sanitizeScanInput(searchTerm);
-      if (term && looksLikeBarcode(term) && !isCustomerSearchMode && !isTransactionComplete) {
+      // A PASTED code is someone looking the product up, not a scanner firing:
+      // it must list the match, not add it to the sale and wipe the box. Consumed
+      // on the first run after the paste, so typing afterwards scans normally.
+      const wasPaste = pastedRef.current;
+      pastedRef.current = false;
+      // While associating, the box is picking a PRODUCT — digits typed there must
+      // search, never add to the sale.
+      const scannable =
+        Boolean(term) &&
+        looksLikeBarcode(term) &&
+        !isCustomerSearchMode &&
+        !isTransactionComplete &&
+        !associatingBarcode &&
+        !wasPaste;
+
+      // A COMPLETE code the catalog recognises adds to the sale immediately.
+      if (scannable && isKnownBarcode(term)) {
         queueScan(term);
         return;
       }
-      performSearch(searchTerm);
+
+      // Otherwise search first. Typing the first 4-5 digits of a code used to be
+      // swallowed by the scan path and reported as "not found"; it now lists every
+      // product whose barcode (or name) contains those digits, exactly like a name
+      // search, so the operator can pick the right one.
+      const found = await performSearch(searchTerm);
+
+      // Nothing matched: the digits may still be a real code missing from the local
+      // cache, so hand it to the scan path for its API lookup — the old behaviour
+      // for genuinely unknown-to-the-cache barcodes. The operator is still typing
+      // here, so this lookup must leave the box and its results alone; a hit adds
+      // the product (which clears the box itself) and a miss changes nothing.
+      // No "not found" toast either: the pane already reports it, and a toast per
+      // typing pause would fire repeatedly while a long code is still going in.
+      if (scannable && !found) queueScan(term, { clearBox: false, notifyMissing: false });
+
+      // A pasted code the local cache doesn't hold. performSearch's API fallback
+      // is the product-list endpoint, which matches name and description only —
+      // never barcodes — so it would report "No Results Found" for a code that
+      // really exists. Resolve it through the barcode endpoint and LIST the match
+      // rather than adding it: a paste is a lookup, not a scan.
+      if (wasPaste && !found && term && looksLikeBarcode(term) && !isCustomerSearchMode) {
+        const seq = ++searchSeqRef.current;
+        try {
+          const resp = await productService.getProductByBarcode(term, getEffectiveOutletId());
+          const matches =
+            Array.isArray(resp?.products) && resp.products.length
+              ? resp.products
+              : resp?.product
+                ? [resp.product]
+                : [];
+          if (seq === searchSeqRef.current && matches.length) {
+            setSearchResults({ products: matches, customers: [] });
+            setShowSearchResults(true);
+          }
+        } catch {
+          // 404 just means the code is unknown; the pane already says so.
+        }
+      }
     }, 300); // 300ms debounce
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [searchTerm, associatingBarcode]);
 
   // Tax rates: IndexedDB first, API only if cache empty
   useEffect(() => {
@@ -1986,8 +2056,14 @@ const SaleKeyPage = () => {
 
   // Shared by the Enter-key scan path and the auto-scan debounce: dedupes
   // repeated codes, clears the box and queues the scan for serialized adds.
-  const queueScan = (rawCode) => {
-    if (isCustomerSearchMode || isTransactionComplete) return;
+  // `clearBox: false` keeps what the operator typed on screen — used by the
+  // speculative lookup for digits that matched nothing locally, which must not
+  // wipe a half-typed code (or the results under it) out from under them.
+  const queueScan = (rawCode, { clearBox = true, notifyMissing = true } = {}) => {
+    // `associatingBarcode`: the operator is choosing which product a code belongs
+    // to. A scan landing in the sale now would be a surprise item on the receipt,
+    // so every scan path is inert until the flow finishes or is cancelled.
+    if (isCustomerSearchMode || isTransactionComplete || associatingBarcode) return;
     // Sanitize before the dedupe compare so the same scan arriving once clean
     // and once with a scanner suffix is still recognised as a repeat.
     const code = sanitizeScanInput(rawCode);
@@ -2004,10 +2080,14 @@ const SaleKeyPage = () => {
     // Clear the box synchronously so the next rapid scan types into an empty
     // field (never concatenates onto leftover digits), and invalidate any
     // in-flight debounced search so it can't re-open the dropdown.
-    searchSeqRef.current++;
-    setSearchTerm('');
-    setSearchResults({ products: [], customers: [] });
-    setShowSearchResults(false);
+    // A successful add clears the box on its own, so the speculative path loses
+    // nothing by leaving it alone.
+    if (clearBox) {
+      searchSeqRef.current++;
+      setSearchTerm('');
+      setSearchResults({ products: [], customers: [] });
+      setShowSearchResults(false);
+    }
 
     // Serialize scan processing so rapid consecutive scans resolve and add
     // to the cart strictly in order, one at a time.
@@ -2017,7 +2097,7 @@ const SaleKeyPage = () => {
         // Sale was cleared/parked/reset after this scan was queued — drop it.
         if (scanEpoch !== saleEpochRef.current) return;
         const added = await handleBarcodeScan(code);
-        if (!added) {
+        if (!added && notifyMissing) {
           setScanNotFound(code);
         }
       })
@@ -2031,9 +2111,93 @@ const SaleKeyPage = () => {
       });
   };
 
+  // --- Associate an unknown barcode ------------------------------------------
+  // Step 1 -> 2: the operator accepted the offer on the "Product Not Found"
+  // dialog. Hand the search box over to picking a product; it stops adding to
+  // the sale until the flow ends.
+  const startBarcodeAssociation = () => {
+    const code = scanNotFound;
+    if (!code) return;
+    setScanNotFound(null);
+    setAssociatingBarcode(code);
+    // Empty box, empty results: the operator now searches by NAME for the
+    // product to bind to, and leaving the failed digits in place would just
+    // re-run the search that already missed.
+    searchSeqRef.current++;
+    setSearchTerm('');
+    setSearchResults({ products: [], customers: [] });
+    setShowSearchResults(false);
+    focusSearchInput();
+  };
+
+  const cancelBarcodeAssociation = () => {
+    setAssociatingBarcode(null);
+    setAssociateTarget(null);
+    searchSeqRef.current++;
+    setSearchTerm('');
+    setSearchResults({ products: [], customers: [] });
+    setShowSearchResults(false);
+    focusSearchInput();
+  };
+
+  // Step 3: write the code onto the product, then refresh the local catalog so
+  // the very next scan of it resolves without waiting for a full sync.
+  const confirmBarcodeAssociation = async (quantity) => {
+    const product = associateTarget;
+    const code = associatingBarcode;
+    if (!product || !code || associateSaving) return;
+
+    setAssociateSaving(true);
+    try {
+      const result = await barcodeService.associateBarcode(product.id, code, quantity);
+
+      const updatedBarcodes =
+        result?.barcodes ||
+        [...(Array.isArray(product.barcodes) ? product.barcodes : []), { code, quantity }];
+      posLocalDb.setProductBarcodes(product.id, updatedBarcodes);
+      setLocalBarcodeIndex(posLocalDb.getBarcodeMap());
+
+      setAssociateTarget(null);
+      setAssociatingBarcode(null);
+      searchSeqRef.current++;
+      setSearchTerm('');
+      setSearchResults({ products: [], customers: [] });
+      setShowSearchResults(false);
+
+      // Duplicates across products are legal — a scan just asks which one — so
+      // this is worth saying but is not a failure.
+      const clash = result?.conflicts?.length
+        ? ` (also used by ${result.conflicts.map((c) => c.name).join(', ')})`
+        : '';
+      // Green: the code IS on the product now, in both branches. Reporting a
+      // completed action in the same orange as the failures made a success look
+      // like something had gone wrong.
+      setSaleSuccess(
+        result?.alreadyPresent
+          ? `Barcode "${code}" was already on ${product.name}.`
+          : `Barcode "${code}" associated to ${product.name}${clash}.`
+      );
+      focusSearchInput();
+    } catch (err) {
+      console.error('Barcode association failed:', err);
+      // Stay on the dialog: the operator still has the code and can retry.
+      setSaleWarning(
+        err?.response?.data?.error || 'Could not associate the barcode. Please try again.'
+      );
+    } finally {
+      setAssociateSaving(false);
+    }
+  };
+
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Escape' && isCustomerSearchMode) {
       exitCustomerSearchMode();
+      return;
+    }
+    // Escape backs out of the association the same way it backs out of the
+    // customer picker — the flow takes over the search box, so it needs a way out.
+    if (e.key === 'Escape' && associatingBarcode) {
+      cancelBarcodeAssociation();
       return;
     }
     if (e.key !== 'Enter') return;
@@ -6526,15 +6690,18 @@ const SaleKeyPage = () => {
   // Found" (reference). Falling back to the keys grid on an empty result, as this
   // used to, read as the search never having run: the operator sees their term in
   // the box and the keys behind it, with nothing saying the term found no product.
+  // Mid-association the pane stays open on an empty box too: it holds the Back
+  // row, and dropping back to the keys grid there would strand the operator in a
+  // mode with no visible way out.
   const searchResultsVisible =
-    showSearchResults &&
     !isCustomerSearchMode &&
     !showPromotionView &&
     !showClassificationView &&
-    searchTerm.trim().length > 0;
+    (Boolean(associatingBarcode) || (showSearchResults && searchTerm.trim().length > 0));
 
   const searchFoundNothing =
     searchResultsVisible &&
+    searchTerm.trim().length > 0 &&
     searchResults.products.length === 0 &&
     searchResults.customers.length === 0;
 
@@ -6847,7 +7014,13 @@ const SaleKeyPage = () => {
               <Box sx={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, flex: searchResultsVisible ? 1 : '0 0 auto', zIndex: 10 }}>
             <TextField
               ref={searchRef}
-              placeholder={isCustomerSearchMode ? 'Search for Customers...' : 'Search for Products and Customers...'}
+              placeholder={
+                associatingBarcode
+                  ? 'Search for the product to associate...'
+                  : isCustomerSearchMode
+                    ? 'Search for Customers...'
+                    : 'Search for Products and Customers...'
+              }
               variant="outlined"
               size="small"
               fullWidth
@@ -6881,19 +7054,59 @@ const SaleKeyPage = () => {
                 },
               }}
               InputProps={{
-                endAdornment: searchTerm ? (
-                  <InputAdornment position="end">
-                    <CloseIcon
-                      onClick={() => { setSearchTerm(''); focusSearchInput(); }}
-                      aria-label="clear search"
-                      sx={{ fontSize: 16, color: '#000', cursor: 'pointer' }}
-                    />
-                  </InputAdornment>
-                ) : null,
+                endAdornment:
+                  associatingBarcode || searchTerm ? (
+                    <InputAdornment position="end" sx={{ gap: 1 }}>
+                      {/* The register looks identical in this mode except that a
+                          product tap binds a code instead of selling it, so the
+                          mode has to be visible at a glance, next to the box the
+                          operator is actually looking at. */}
+                      {associatingBarcode && (
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.75,
+                            height: 26,
+                            px: 1,
+                            bgcolor: '#16A34A',
+                            color: '#fff',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            letterSpacing: '0.04em',
+                            borderRadius: '3px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <Box component="span" sx={{ fontSize: 13 }}>
+                            ▮▮▮
+                          </Box>
+                          ASSOCIATING BARCODE
+                        </Box>
+                      )}
+                      <CloseIcon
+                        onClick={() => {
+                          // In this mode the × leaves the flow entirely, matching
+                          // the Back row below the box.
+                          if (associatingBarcode) cancelBarcodeAssociation();
+                          else {
+                            setSearchTerm('');
+                            focusSearchInput();
+                          }
+                        }}
+                        aria-label={associatingBarcode ? 'cancel barcode association' : 'clear search'}
+                        sx={{ fontSize: 16, color: '#000', cursor: 'pointer' }}
+                      />
+                    </InputAdornment>
+                  ) : null,
               }}
               value={searchTerm}
                   onChange={handleSearchChange}
                   onKeyDown={handleSearchKeyDown}
+                  // Flags the next debounced search as coming from a paste, so a
+                  // pasted barcode lists its product instead of being treated as
+                  // a scan (added to the sale, box cleared).
+                  onPaste={() => { pastedRef.current = true; }}
                   onFocus={() => searchTerm && setShowSearchResults(true)}
                 />
                 
@@ -6909,6 +7122,29 @@ const SaleKeyPage = () => {
                       boxShadow: 'none',
                     }}
                   >
+                    {/* Association mode owns the results pane: a Back row out of the
+                        flow, so the operator is never stuck picking a product. */}
+                    {associatingBarcode && (
+                      <Box
+                        onClick={cancelBarcodeAssociation}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                          height: 56,
+                          px: 2,
+                          bgcolor: '#f8f8f8',
+                          borderBottom: '1px solid #e0e0e0',
+                          cursor: 'pointer',
+                          fontSize: 20,
+                          color: '#000',
+                          userSelect: 'none',
+                          '&:hover': { bgcolor: '#efefef' },
+                        }}
+                      >
+                        ← Back
+                      </Box>
+                    )}
                     {/* Reference empty state: the term found nothing, said plainly and
                         centred in the pane the results would have filled. */}
                     {searchFoundNothing && (
@@ -6941,14 +7177,20 @@ const SaleKeyPage = () => {
                         {searchResults.products.map((product, idx) => (
                           <Box
                             key={product.id}
-                            // Clicking a row the search matched BY BARCODE adds that
-                            // barcode's pack quantity, exactly like scanning it.
-                            onClick={() => handleAddProductFromSearch(
-                              product,
-                              productMatchesBarcode(product, searchTerm.trim())
-                                ? getBarcodeQuantity(product, searchTerm.trim())
-                                : 1
-                            )}
+                            // Mid-association a tap PICKS the product to bind the
+                            // code to; otherwise it sells it. A row the search
+                            // matched BY BARCODE adds that barcode's pack quantity,
+                            // exactly like scanning it.
+                            onClick={() =>
+                              associatingBarcode
+                                ? setAssociateTarget(product)
+                                : handleAddProductFromSearch(
+                                    product,
+                                    productMatchesBarcode(product, searchTerm.trim())
+                                      ? getBarcodeQuantity(product, searchTerm.trim())
+                                      : 1
+                                  )
+                            }
                             sx={searchRowSx(idx)}
                           >
                             <Box sx={{ minWidth: 0 }}>
@@ -8553,20 +8795,53 @@ const SaleKeyPage = () => {
         }}
       />
 
-      {/* Barcode scan "product not found" feedback (non-modal so scanning continues) */}
-      <Snackbar
-        key={scanNotFound || 'scan-not-found'}
+      {/* Scan matched nothing. This replaced a warning toast: the toast told the
+          operator the code was unknown and left them there, while the code they
+          are holding usually belongs on a product that already exists. */}
+      <BarcodeNotFoundDialog
         open={!!scanNotFound}
+        barcode={scanNotFound || ''}
+        onAssociate={startBarcodeAssociation}
+        onClose={() => {
+          setScanNotFound(null);
+          focusSearchInput();
+        }}
+      />
+
+      {/* Details of the product the quantity dialog is asking about — shown only
+          alongside that dialog, never on hover: a card chasing the pointer down
+          the list covered the rows the operator was still reading.
+          Rendered out here, NOT inside the results list: that list scrolls, and
+          an absolutely-positioned card inside it was clipped at the pane's edge
+          and dimmed under the dialog's backdrop. */}
+      {associateTarget && <ProductPreviewCard product={associateTarget} />}
+
+      {/* Product picked — how many units does one scan of this code add? */}
+      <AssociateBarcodeDialog
+        open={!!associateTarget}
+        barcode={associatingBarcode || ''}
+        product={associateTarget}
+        saving={associateSaving}
+        onAssociate={confirmBarcodeAssociation}
+        onClose={() => {
+          // Back to picking a product, NOT out of the flow: a wrong row is the
+          // likeliest reason to be here.
+          setAssociateTarget(null);
+          focusSearchInput();
+        }}
+      />
+
+      {/* Success toast — green, so a completed action is not reported in the same
+          orange as the guards and failures below it. */}
+      <Snackbar
+        key={saleSuccess || 'sale-success'}
+        open={!!saleSuccess}
         autoHideDuration={4000}
-        onClose={() => setScanNotFound(null)}
+        onClose={() => setSaleSuccess(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert
-          severity="warning"
-          variant="filled"
-          onClose={() => setScanNotFound(null)}
-        >
-          Product not found for barcode "{scanNotFound}"
+        <Alert severity="success" variant="filled" onClose={() => setSaleSuccess(null)}>
+          {saleSuccess}
         </Alert>
       </Snackbar>
 

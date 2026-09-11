@@ -29,14 +29,21 @@ assert.equal(matchesProductFilters(product, { search: 'corona' }), true);
 assert.equal(matchesProductFilters(product, { search: 'LAGER' }), true);
 assert.equal(matchesProductFilters(product, { search: 'whisky' }), false);
 
-// Search also matches a barcode, but only the FULL code — a prefix must not hit.
+// Search also matches a barcode — full code, and any partial run of digits.
 assert.equal(matchesProductFilters(product, { search: '9310797256216' }), true);
 assert.equal(matchesProductFilters(product, { search: ' 21458575856582 ' }), true);
-assert.equal(matchesProductFilters(product, { search: '93107972' }), false);
+assert.equal(matchesProductFilters(product, { search: '93107' }), true);
+assert.equal(matchesProductFilters(product, { search: '79725' }), true); // mid-code, not just a prefix
+assert.equal(matchesProductFilters(product, { search: '21458' }), true);
+assert.equal(matchesProductFilters(product, { search: '00000' }), false);
 assert.equal(matchesProductFilters(product, { search: '9310797256216x' }), false);
 // Both barcode shapes and the JSON-string form the API sometimes returns.
 assert.equal(
   matchesProductFilters({ name: 'x', barcodes: '[{"code":"12458784578"}]' }, { search: '12458784578' }),
+  true
+);
+assert.equal(
+  matchesProductFilters({ name: 'x', barcodes: '[{"code":"12458784578"}]' }, { search: '12458' }),
   true
 );
 assert.equal(matchesProductFilters({ name: 'x' }, { search: '12458784578' }), false);

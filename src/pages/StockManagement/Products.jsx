@@ -722,6 +722,22 @@ const Products = () => {
         }}
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
+        InputProps={{
+          endAdornment: searchTerm ? (
+            <IconButton
+              size="small"
+              aria-label="Clear search"
+              // Clears the box AND the debounced copy, so the list snaps back at once
+              // instead of waiting out the 300ms timer.
+              onClick={() => {
+                setSearchTerm("");
+                setDebouncedSearchTerm("");
+              }}
+            >
+              <ClearIcon fontSize="small" />
+            </IconButton>
+          ) : null,
+        }}
       />
       {/* Filter Section - sits directly on the page background (no card), main row holds
           exactly Brand/Category/Family/Tag/Supplier (reference layout) */}

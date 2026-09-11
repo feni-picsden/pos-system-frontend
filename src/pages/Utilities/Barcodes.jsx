@@ -111,7 +111,10 @@ const Barcodes = () => {
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [onlyDuplicates, setOnlyDuplicates] = useState(false);
 
-  const loadBarcodes = useCallback(async () => {
+  // `overrides` lets a caller search with a value React has not committed to state yet
+  // (the clear button clears the box and re-runs in the same tick).
+  const loadBarcodes = useCallback(async (overrides = {}) => {
+    const search = overrides.barcodeSearch ?? barcodeSearch;
     const iso = (d) => (d ? format(d, "yyyy-MM-dd'T'HH:mm:ss") : null);
     try {
       setLoading(true);
@@ -129,7 +132,7 @@ const Barcodes = () => {
         lastSoldAtStart: iso(lastSoldAt.startDate),
         lastSoldAtEnd: iso(lastSoldAt.endDate),
         inventoryLevel: inventoryLevel || null,
-        barcodeSearch: barcodeSearch || null,
+        barcodeSearch: search || null,
         onlyDuplicates: onlyDuplicates ? 'true' : null,
       });
 
@@ -366,10 +369,32 @@ const Barcodes = () => {
         <Field label="Barcode">
           <TextField
             fullWidth
-            placeholder="Search for barcode..."
+            placeholder="Search for barcode or product name..."
             value={barcodeSearch}
             onChange={(e) => setBarcodeSearch(e.target.value)}
+            // Enter searches straight away — a handheld scanner ends its scan with Enter,
+            // so a scan now applies the filter without a trip to the Apply Filters button.
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                loadBarcodes();
+              }
+            }}
             sx={fieldSx}
+            InputProps={{
+              endAdornment: barcodeSearch ? (
+                <IconButton
+                  size="small"
+                  aria-label="Clear barcode search"
+                  onClick={() => {
+                    setBarcodeSearch('');
+                    loadBarcodes({ barcodeSearch: '' });
+                  }}
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              ) : null,
+            }}
           />
         </Field>
 
@@ -393,7 +418,7 @@ const Barcodes = () => {
             fullWidth
             variant="contained"
             disableElevation
-            onClick={loadBarcodes}
+            onClick={() => loadBarcodes()}
             sx={{
               height: 42,
               bgcolor: '#5ebbeb',

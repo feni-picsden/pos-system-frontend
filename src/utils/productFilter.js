@@ -31,10 +31,10 @@ export function matchesProductFilters(product, filters = {}) {
   if (q) {
     // Description is rich-text HTML; match its TEXT so tag names never match.
     const text = `${product.name || ''} ${stripHtml(product.description)}`.toLowerCase();
-    // A scanned barcode only counts in full: the reference finds the product on the
-    // whole code and returns nothing for a partial prefix, so this branch is ===.
+    // Barcodes match on any part of the code, the same way the name does, so typing
+    // the first few digits narrows the list as you go (a full scanned code still hits).
     const barcodeHit = () =>
-      normalizeBarcodeCodes(product.barcodes).some((code) => code.toLowerCase() === q);
+      normalizeBarcodeCodes(product.barcodes).some((code) => code.toLowerCase().includes(q));
     if (!text.includes(q) && !barcodeHit()) return false;
   }
   if (has(status) && !status.includes(product.status || 'Active')) return false;
