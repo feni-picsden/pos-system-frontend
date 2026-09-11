@@ -150,10 +150,31 @@ const headerCellSx = {
   color: '#f8f8f8',
 };
 
-// Small tool button in the quick menu (star / pencil) — 30x28, #f8f8f8, radius 6 (reference)
+// Hover tint only on devices that really hover (mouse/touchpad); on touchscreens
+// a :hover style sticks after the tap, so it's replaced by an :active press state.
+const pressableSx = {
+  transition: 'background 0.2s ease-in-out',
+  '@media (hover: hover)': { '&:hover': { bgcolor: '#e8e8e8' } },
+  '&:active': { bgcolor: '#e0e0e0' },
+};
+
+// Cloud logo as a real <button>: 50px header cell (the sell screen's header
+// strip starts right after it at x108), browser button chrome reset.
+const quickButtonSx = {
+  ...headerCellSx,
+  border: 0,
+  p: 0,
+  bgcolor: 'transparent',
+  font: 'inherit',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+  '&:focus-visible': { outline: '2px solid #5ebbeb', outlineOffset: -2 },
+};
+
+// Small tool button in the quick menu (star / pencil) — 44px finger-sized target
 const quickToolSx = {
-  width: 30,
-  height: 28,
+  width: 44,
+  height: 44,
   bgcolor: '#f8f8f8',
   color: '#676b72',
   borderRadius: '6px',
@@ -161,9 +182,14 @@ const quickToolSx = {
   alignItems: 'center',
   justifyContent: 'center',
   cursor: 'pointer',
-  transition: 'background 0.2s ease-in-out',
-  '&:hover': { bgcolor: '#e8e8e8' },
+  ...pressableSx,
 };
+
+// The cloud icon no longer links to the sell screen, so the quick menu always
+// keeps a Sell Screen row: renameable, but its URL and delete are locked.
+const SELL_SCREEN_ITEM = { name: 'Sell Screen', url: '/', external: false };
+const isSellScreenItem = (item) => item.url === '/' && !item.external;
+const withSellScreen = (items) => (items.some(isSellScreenItem) ? items : [SELL_SCREEN_ITEM, ...items]);
 
 const quickInputSx = {
   '& .MuiOutlinedInput-root': {
@@ -255,7 +281,9 @@ const DashboardLayout = ({ children }) => {
     return displayUser.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  // ── Quick Menu (cloud logo hover dropdown) ─────────────────────────────────
+  // ── Quick Menu (cloud logo click/tap dropdown) ─────────────────────────────
+  // Opens on click or tap only (no hover) so mouse, touchpad and touchscreen
+  // all behave the same; closes on outside tap, item pick, Esc or navigation.
   const quickKey = `quickMenu:${user?.id ?? 'default'}`;
   const [quickItems, setQuickItems] = useState([]);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -265,15 +293,30 @@ const DashboardLayout = ({ children }) => {
     // ponytail: quick menu is per-user localStorage; move to backend if cross-device sync matters
     try {
       const saved = JSON.parse(localStorage.getItem(quickKey));
-      setQuickItems(Array.isArray(saved) ? saved : [{ name: 'Sell Screen', url: '/', external: false }]);
+      setQuickItems(withSellScreen(Array.isArray(saved) ? saved : []));
     } catch {
-      setQuickItems([{ name: 'Sell Screen', url: '/', external: false }]);
+      setQuickItems([SELL_SCREEN_ITEM]);
     }
   }, [quickKey]);
 
+  // Row index of the locked Sell Screen entry (the menu and the editor share one list).
+  const sellScreenIdx = quickItems.findIndex(isSellScreenItem);
+
+  // Close when the page changes (menu link, sidebar, browser back, etc.).
+  React.useEffect(() => { setQuickOpen(false); }, [location.pathname]);
+
+  // Esc closes the menu.
+  React.useEffect(() => {
+    if (!quickOpen) return undefined;
+    const onKeyDown = (e) => { if (e.key === 'Escape') setQuickOpen(false); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [quickOpen]);
+
   const saveQuickItems = (items) => {
-    setQuickItems(items);
-    try { localStorage.setItem(quickKey, JSON.stringify(items)); } catch { /* ignore */ }
+    const next = withSellScreen(items);
+    setQuickItems(next);
+    try { localStorage.setItem(quickKey, JSON.stringify(next)); } catch { /* ignore */ }
   };
 
   const updateQuickItem = (idx, patch) =>
@@ -290,7 +333,14 @@ const DashboardLayout = ({ children }) => {
     return name || document.title || location.pathname;
   };
 
+  // The sell screen is always in the menu, so its star can't unpin it.
+  const starLocked = location.pathname === '/';
+  const starTitle = starLocked
+    ? 'Sell Screen is always in the Quick Menu'
+    : currentPinned ? 'Remove this page from the Quick Menu' : 'Add this page to the Quick Menu';
+
   const handleStarClick = () => {
+    if (starLocked) return;
     if (currentPinned) {
       saveQuickItems(quickItems.filter((i) => i.url !== location.pathname));
     } else {
@@ -514,54 +564,74 @@ const DashboardLayout = ({ children }) => {
             >
               {navDrawerOpen ? <CloseIcon sx={{ fontSize: 24 }} /> : <MenuIcon sx={{ fontSize: 24 }} />}
             </Box>
-            {/* Cloud logo — HOVER opens the Quick Menu, CLICK navigates to the sell screen (reference) */}
+            {/* Cloud logo — CLICK/TAP toggles the Quick Menu (works for mouse and touch) */}
             <ClickAwayListener onClickAway={() => setQuickOpen(false)}>
-              <Box
-                sx={{ position: 'relative', height: HEADER_HEIGHT }}
-                onMouseEnter={() => setQuickOpen(true)}
-                onMouseLeave={() => setQuickOpen(false)}
-              >
+              <Box sx={{ position: 'relative', height: HEADER_HEIGHT }}>
                 <Box
-                  component={RouterLink}
-                  to="/"
-                  onClick={() => setQuickOpen(false)}
+                  component="button"
+                  type="button"
+                  onClick={() => setQuickOpen((open) => !open)}
                   aria-label="quick menu"
-                  sx={{ ...headerCellSx, textDecoration: 'none' }}
+                  aria-haspopup="true"
+                  aria-expanded={quickOpen}
+                  aria-controls="quick-menu"
+                  sx={{ ...quickButtonSx, bgcolor: quickOpen ? 'rgba(255,255,255,0.12)' : 'transparent' }}
                 >
                   <CloudIcon sx={{ fontSize: 30, color: '#fff' }} />
                 </Box>
                 {quickOpen && (
                   <Box
+                    id="quick-menu"
                     sx={{
                       position: 'absolute',
                       top: '100%',
                       left: 0,
                       zIndex: 20,
-                      animation: 'quickMenuIn 0.4s ease',
+                      animation: 'quickMenuIn 0.25s ease',
                       '@keyframes quickMenuIn': {
                         from: { opacity: 0, transform: 'translateY(-1rem)' },
                         to: { opacity: 1, transform: 'translateY(0)' },
                       },
                     }}
                   >
-                    <Box sx={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid #f8f8f8', ml: '13px' }} />
-                    <Box sx={{ bgcolor: '#f8f8f8', boxShadow: 'rgba(0,0,0,0.2) 0 0 4px, rgba(0,0,0,0.15) 0 2px 4px', borderRadius: 0, p: 1, minWidth: 200 }}>
+                    <Box sx={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid #f8f8f8', ml: '17px' }} />
+                    <Box
+                      sx={{
+                        bgcolor: '#f8f8f8',
+                        boxShadow: 'rgba(0,0,0,0.2) 0 0 4px, rgba(0,0,0,0.15) 0 2px 4px',
+                        borderRadius: 0,
+                        p: 1,
+                        minWidth: 220,
+                        maxWidth: 'calc(100vw - 16px)',
+                        // Long lists scroll inside the menu instead of running off-screen.
+                        maxHeight: `calc(100vh - ${HEADER_HEIGHT + 24}px)`,
+                        overflowY: 'auto',
+                        overscrollBehavior: 'contain',
+                      }}
+                    >
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Box
+                          component="button"
+                          type="button"
                           onClick={handleStarClick}
-                          title={currentPinned ? 'Remove this page from the Quick Menu' : 'Add this page to the Quick Menu'}
-                          sx={quickToolSx}
+                          aria-disabled={starLocked}
+                          title={starTitle}
+                          aria-label={starTitle}
+                          sx={{ ...quickToolSx, border: 0, p: 0, ...(starLocked && { cursor: 'default', opacity: 0.6 }) }}
                         >
                           {currentPinned
-                            ? <StarIcon sx={{ fontSize: 17 }} />
-                            : <StarBorderIcon sx={{ fontSize: 17 }} />}
+                            ? <StarIcon sx={{ fontSize: 20 }} />
+                            : <StarBorderIcon sx={{ fontSize: 20 }} />}
                         </Box>
                         <Box
+                          component="button"
+                          type="button"
                           onClick={() => { setQuickOpen(false); setQuickEditOpen(true); }}
                           title="Edit Quick Menu"
-                          sx={quickToolSx}
+                          aria-label="Edit Quick Menu"
+                          sx={{ ...quickToolSx, border: 0, p: 0 }}
                         >
-                          <EditOutlinedIcon sx={{ fontSize: 17 }} />
+                          <EditOutlinedIcon sx={{ fontSize: 20 }} />
                         </Box>
                       </Box>
                       {quickItems.map((item, idx) => (
@@ -573,21 +643,22 @@ const DashboardLayout = ({ children }) => {
                             display: 'block',
                             textDecoration: 'none',
                             width: '100%',
-                            height: 39,
+                            height: 48,
                             boxSizing: 'border-box',
                             bgcolor: '#f8f8f8',
                             borderRadius: '6px',
                             color: '#313439',
                             fontSize: '19.2px',
-                            p: '8px',
+                            px: '8px',
+                            py: '12px',
                             mt: 1,
                             cursor: 'pointer',
-                            transition: 'background 0.2s ease-in-out',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            lineHeight: '23px',
-                            '&:hover': { bgcolor: '#e8e8e8' },
+                            lineHeight: '24px',
+                            touchAction: 'manipulation',
+                            ...pressableSx,
                           }}
                         >
                           {item.name || item.url}
@@ -914,34 +985,43 @@ const DashboardLayout = ({ children }) => {
       <Dialog open={quickEditOpen} onClose={() => setQuickEditOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Quick Menu</DialogTitle>
         <DialogContent>
-          {quickItems.map((item, idx) => (
-            <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, mt: idx === 0 ? 1 : 0 }}>
-              <TextField
-                label="Name"
-                size="small"
-                value={item.name}
-                onChange={(e) => updateQuickItem(idx, { name: e.target.value })}
-                sx={{ ...quickInputSx, width: 180 }}
-              />
-              <TextField
-                label="URL"
-                size="small"
-                value={item.url}
-                onChange={(e) => updateQuickItem(idx, { url: e.target.value })}
-                sx={{ ...quickInputSx, flex: 1 }}
-              />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <ShopfrontSwitch
-                  checked={!!item.external}
-                  onChange={(e) => updateQuickItem(idx, { external: e.target.checked })}
+          {quickItems.map((item, idx) => {
+            const locked = idx === sellScreenIdx;
+            return (
+              <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, mt: idx === 0 ? 1 : 0 }}>
+                <TextField
+                  label="Name"
+                  value={item.name}
+                  onChange={(e) => updateQuickItem(idx, { name: e.target.value })}
+                  sx={{ ...quickInputSx, width: 180 }}
                 />
-                <Typography sx={{ fontSize: 13, color: '#676b72' }}>External</Typography>
+                <TextField
+                  label="URL"
+                  value={item.url}
+                  disabled={locked}
+                  onChange={(e) => updateQuickItem(idx, { url: e.target.value })}
+                  sx={{ ...quickInputSx, flex: 1 }}
+                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <ShopfrontSwitch
+                    checked={!!item.external}
+                    disabled={locked}
+                    onChange={(e) => updateQuickItem(idx, { external: e.target.checked })}
+                  />
+                  <Typography sx={{ fontSize: 13, color: '#676b72' }}>External</Typography>
+                </Box>
+                <IconButton
+                  onClick={() => saveQuickItems(quickItems.filter((_, i) => i !== idx))}
+                  disabled={locked}
+                  title={locked ? 'Sell Screen is always in the Quick Menu' : 'Delete'}
+                  aria-label="delete quick menu item"
+                  sx={{ width: 44, height: 44 }}
+                >
+                  <DeleteIcon />
+                </IconButton>
               </Box>
-              <IconButton size="small" onClick={() => saveQuickItems(quickItems.filter((_, i) => i !== idx))} aria-label="delete quick menu item">
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          ))}
+            );
+          })}
           <Button
             onClick={() => saveQuickItems([...quickItems, { name: '', url: '/', external: false }])}
             sx={{ textTransform: 'none', color: '#5ebbeb', fontWeight: 700 }}
