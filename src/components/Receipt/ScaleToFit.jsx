@@ -54,6 +54,11 @@ const ScaleToFit = ({ children, maxScale = 1 }) => {
         overflow: 'hidden',
         display: 'flex',
         justifyContent: scale < 1 ? 'flex-start' : 'center',
+        // Without this the flex default (stretch) pins the child to the height we
+        // set above, so when content grows after the first measure (the receipt
+        // logo image loading) the child box never resizes, the ResizeObserver never
+        // fires, and overflow:hidden cuts the bottom of the receipt off.
+        alignItems: 'flex-start',
       }}
     >
       <Box

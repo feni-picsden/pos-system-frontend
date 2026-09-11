@@ -322,7 +322,6 @@ const SaleKeyPage = () => {
 
   const [showReceipt, setShowReceipt] = useState(false);
   const [transactionId, setTransactionId] = useState(null);
-  const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
   // Same object as `receiptData`, readable synchronously right after generateReceipt.
   const lastReceiptRef = useRef(null);
@@ -3140,7 +3139,6 @@ const SaleKeyPage = () => {
         setLoyaltyCalculation(null);
         setShowReceipt(false);
         setTransactionId(null);
-        setShowPrintDialog(false);
         setReceiptData(null);
         break;
       case 'cancel-current-sale':
@@ -3162,7 +3160,6 @@ const SaleKeyPage = () => {
         setLoyaltyCalculation(null);
         setShowReceipt(false);
         setTransactionId(null);
-        setShowPrintDialog(false);
         setReceiptData(null);
         break;
       case 'add-gift-card':
@@ -4525,11 +4522,11 @@ const SaleKeyPage = () => {
       ? printOnRefund
       : Boolean(selectedCustomer?.customerGroup?.autoPrintReceipt) || methodAutoPrint;
 
-    // Use setTimeout to ensure state updates are processed
+    // Use setTimeout to ensure state updates are processed. No modal here: the
+    // reference shows Change / Print / Email / Done inline above the receipt in the
+    // cart column (the isTransactionComplete && receiptData branch), nothing on top.
     setTimeout(() => {
       setShowReceipt(true);
-      setShowPrintDialog(true);
-      console.log('[Receipt] Receipt dialog should now be visible');
       if (autoPrint) {
         setTimeout(() => {
           try { printReceipt(newReceiptData); } catch (e) { console.warn('[Receipt] Auto-print failed:', e?.message || e); }
@@ -4580,7 +4577,6 @@ const SaleKeyPage = () => {
   const handlePrintReceipt = () => {
     if (receiptData) {
       printReceipt(receiptData);
-      setShowPrintDialog(false);
     }
   };
 
@@ -4616,7 +4612,6 @@ const SaleKeyPage = () => {
     }
 
     alert(`Receipt emailed to ${email}`);
-    setShowPrintDialog(false);
     // Reset the sale only after a successful send.
     setTimeout(() => {
       // New epoch, or completeTransaction's idempotency guard still holds this
@@ -4635,10 +4630,6 @@ const SaleKeyPage = () => {
       setLastSaleId(null);
       console.log('[Transaction] Sale reset after emailing receipt');
     }, 500);
-  };
-
-  const handleClosePrintDialog = () => {
-    setShowPrintDialog(false);
   };
 
   const calculateTotal = () => {
@@ -7880,7 +7871,6 @@ const SaleKeyPage = () => {
                     setIsTransactionComplete(false);
                     setShowReceipt(false);
                     setTransactionId(null);
-                    setShowPrintDialog(false);
                     setReceiptData(null);
                     setLoyaltyRedemption(null);
                     setLoyaltyCalculation(null);
@@ -8120,7 +8110,6 @@ const SaleKeyPage = () => {
                   setIsTransactionComplete(false);
                   setShowReceipt(false);
                   setTransactionId(null);
-                  setShowPrintDialog(false);
                   setReceiptData(null);
                   setLoyaltyRedemption(null);
                   setLoyaltyCalculation(null);
@@ -8302,85 +8291,6 @@ const SaleKeyPage = () => {
         </Box>
       </Drawer>
 
-      <Dialog 
-        open={showPrintDialog} 
-        onClose={handleClosePrintDialog}
-        maxWidth="sm"
-        fullWidth
-        sx={{
-          zIndex: 1400, // Ensure it appears above other dialogs
-        }}
-        PaperProps={{
-          sx: {
-            zIndex: 1400,
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          bgcolor: '#4CAF50', 
-          color: 'white',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <PrintIcon />
-            Print Receipt
-          </Box>
-          <IconButton onClick={handleClosePrintDialog} sx={{ color: 'white' }}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        
-        <DialogContent sx={{ p: 3 }}>
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Typography variant="h4" sx={{ color: '#4CAF50', fontWeight: 'bold', mb: 1 }}>
-              Transaction Complete!
-            </Typography>
-            <Typography variant="h5" sx={{ color: '#FF9800', fontWeight: 'bold' }}>
-              Change: ${receiptData ? (parseFloat(receiptData.change) || 0).toFixed(2) : '0.00'}
-            </Typography>
-          </Box>
-          
-          <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
-            Receipt has been generated for transaction {receiptData?.transactionId}
-          </Typography>
-          
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-            Would you like to print or email the receipt?
-          </Typography>
-        </DialogContent>
-        
-        <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button
-            variant="contained"
-            startIcon={<PrintIcon />}
-            onClick={handlePrintReceipt}
-            sx={{ 
-              bgcolor: '#4CAF50',
-              flex: 1,
-              '&:hover': { bgcolor: '#45a049' }
-            }}
-          >
-            Print
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<EmailIcon />}
-            onClick={handleEmailReceipt}
-            sx={{ 
-              bgcolor: '#2196F3',
-              flex: 1,
-              '&:hover': { bgcolor: '#1976D2' }
-            }}
-          >
-            Email
-          </Button>
-          {/* No footer "Close": the title bar's ✕ already calls
-              handleClosePrintDialog, and two controls doing the same thing read as
-              two different outcomes. Print and Email now split the row evenly. */}
-        </DialogActions>
-      </Dialog>
       {/* Reference "Register Takeover" dialog. */}
       <ShopfrontDialog
         open={showControlTakenDialog}
