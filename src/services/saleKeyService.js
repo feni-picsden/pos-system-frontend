@@ -377,8 +377,12 @@ const saleKeyService = {
           },
           {
             id: 'legal-age',
-            name: 'Legal Age 7th Aug 2007',
-            action: 'info',
+            // Prints the latest legal birth date on the key ("11th Sep 2008"),
+            // worked out from today rather than typed into the name.
+            name: 'Legal Age',
+            action: 'view-previous-date',
+            durationAgo: 'P18Y',
+            dateFormat: 'Do MMM YYYY',
             backgroundColor: '#FF0000',
             textColor: '#FFFFFF',
             borderColor: '#000000',

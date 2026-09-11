@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { formatMoney } from '../../utils/currency';
-import { getIconForSaleKey } from '../../utils/saleKeyIcons';
+import { CLOCK_ACTIONS, getSaleKeyLiveText } from '../../utils/saleKeyDisplay';
+
+// Re-renders a clock key as time passes: every second for the current time,
+// every minute for a previous date (enough to roll over at midnight). Other
+// keys never start a timer.
+const useNow = (action) => {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!CLOCK_ACTIONS.has(action)) return undefined;
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), action === 'view-current-time' ? 1000 : 60000);
+    return () => clearInterval(id);
+  }, [action]);
+  return now;
+};
 
 /**
- * The inside of a sale key: artwork, then the name and price.
+ * The inside of a sale key: artwork, then the name, then the price or - for a
+ * key that only shows something (time, legal-age date, info text) - that value.
+ * Like the reference, a key without artwork is text only: no stand-in icon.
  *
  * Shared by the sale screen (SaleKeysGrid) and both designer grids. Each of the
  * three used to carry its own copy, and they had drifted apart - different icons
@@ -33,6 +49,8 @@ const SaleKeyTileContent = ({ saleKey }) => {
   // underneath; every other key shows the amount under its name at label size.
   const isPaymentKey = saleKey.action === 'payment' || saleKey.action === 'pay-amount';
   const amount = saleKey.amount ? formatMoney(saleKey.amount) : null;
+  const now = useNow(saleKey.action);
+  const liveText = getSaleKeyLiveText(saleKey, now);
 
   // "Fill Key with Image" makes the artwork the key's background: it covers the
   // tile corner to corner and the label sits on top of it. As an ordinary flex
@@ -42,7 +60,7 @@ const SaleKeyTileContent = ({ saleKey }) => {
 
   return (
     <>
-      {saleKey.image ? (
+      {saleKey.image && (
         <Box
           component="img"
           src={saleKey.image}
@@ -69,13 +87,9 @@ const SaleKeyTileContent = ({ saleKey }) => {
             objectFit: 'contain',
           }}
         />
-      ) : (
-        <Box sx={{ display: 'flex', fontSize: `${labelSize}px` }}>
-          {getIconForSaleKey(saleKey)}
-        </Box>
       )}
 
-      {(saleKey.name || amount) && (
+      {(saleKey.name || amount || liveText) && (
         <Box
           sx={{
             ...labelSx,
@@ -100,6 +114,8 @@ const SaleKeyTileContent = ({ saleKey }) => {
           )}
           {saleKey.name && <Box>{saleKey.name}</Box>}
           {!isPaymentKey && amount && <Box>{amount}</Box>}
+          {/* Keeps the operator's line breaks in info text. */}
+          {liveText && <Box sx={{ whiteSpace: 'pre-line' }}>{liveText}</Box>}
         </Box>
       )}
     </>

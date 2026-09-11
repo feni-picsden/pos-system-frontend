@@ -52,7 +52,6 @@ import {
   PersonAddAlt1Outlined as PersonAddIcon, // reference "Add Customer" glyph
   Keyboard as KeyboardIcon,
   Folder as FolderIcon,
-  ShoppingCart as CartIcon,
   Cancel as CancelIcon,
   CreditCard as CreditCardIcon,
   Phone as PhoneIcon,
@@ -126,7 +125,6 @@ import productComboService from '../services/productComboService';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
-import { getIconForSaleKey } from '../utils/saleKeyIcons';
 import CartSidebar, { KeypadPopover } from '../components/SaleKey/CartSidebar';
 import AddSaleKeyDialog from '../components/SaleKey/AddSaleKeyDialog';
 import BarcodeSelectDialog, { getBarcodeQuantity } from '../components/SaleKey/BarcodeSelectDialog';
@@ -2541,35 +2539,6 @@ const SaleKeyPage = () => {
     return result + raw.slice(lastIndex);
   };
 
-  // Subtract an ISO 8601 period (e.g. P18Y, P21Y, P1Y6M) from a date.
-  const subtractIsoPeriod = (date, iso) => {
-    const d = new Date(date.getTime());
-    const m = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(String(iso || '').trim());
-    if (!m) return d;
-    const n = (i) => (m[i] ? parseInt(m[i], 10) : 0);
-    if (n(1)) d.setFullYear(d.getFullYear() - n(1));
-    if (n(2)) d.setMonth(d.getMonth() - n(2));
-    if (n(3) || n(4)) d.setDate(d.getDate() - (n(3) * 7 + n(4)));
-    if (n(5)) d.setHours(d.getHours() - n(5));
-    if (n(6)) d.setMinutes(d.getMinutes() - n(6));
-    if (n(7)) d.setSeconds(d.getSeconds() - n(7));
-    return d;
-  };
-
-  // Format a date with common tokens (YYYY MM DD HH mm ss).
-  const formatDynamicDate = (date, fmt) => {
-    const pad = (x) => String(x).padStart(2, '0');
-    const map = {
-      YYYY: date.getFullYear(),
-      MM: pad(date.getMonth() + 1),
-      DD: pad(date.getDate()),
-      HH: pad(date.getHours()),
-      mm: pad(date.getMinutes()),
-      ss: pad(date.getSeconds()),
-    };
-    return String(fmt || 'YYYY-MM-DD').replace(/YYYY|MM|DD|HH|mm|ss/g, (t) => map[t]);
-  };
-
   const handleSaleKeyClick = async (saleKey) => {
     const ok = await ensureRegisterControl();
     if (!ok) return;
@@ -2587,8 +2556,8 @@ const SaleKeyPage = () => {
     }
 
     // Disable payment actions if no products in cart
-    if ((saleKey.action === 'payment' || saleKey.action === 'pay-amount' || 
-         (saleKey.name.toLowerCase().includes('cash') && saleKey.amount)) && 
+    if ((saleKey.action === 'payment' || saleKey.action === 'pay-amount' ||
+         ((saleKey.name || '').toLowerCase().includes('cash') && saleKey.amount)) &&
         cart.length === 0) {
       return; // Disable payment keys when cart is empty
     }
@@ -3233,13 +3202,17 @@ const SaleKeyPage = () => {
         }
         break;
       case 'special':
-        // ponytail: no special-action engine exists — show the key's configured
-        // message so the key is never a silent dead click.
-        alert(saleKey.specialText || `${saleKey.name}: no special action is configured for this key.`);
+        // ponytail: no special-action engine exists. A configured message is
+        // printed on the key itself (SaleKeysGrid never sends that click here);
+        // an unconfigured key says so rather than being a silent dead click.
+        if (!saleKey.specialText) {
+          alert(`${saleKey.name || 'This key'}: no special action is configured for this key.`);
+        }
         break;
       case 'info':
-        // Informational key: show its configured info text.
-        alert(saleKey.infoText || saleKey.name);
+      case 'view-current-time':
+      case 'view-previous-date':
+        // Display-only: the value is printed on the key (SaleKeyTileContent).
         break;
       case 'create-customer':
         // Open the create customer modal (same as clicking "Create Customer" button)
@@ -3556,15 +3529,9 @@ const SaleKeyPage = () => {
         })();
         break;
       }
-      case 'view-current-time':
-        alert(formatDynamicDate(new Date(), saleKey.dateFormat || 'HH:mm:ss'));
-        break;
-      case 'view-previous-date':
-        alert(formatDynamicDate(subtractIsoPeriod(new Date(), saleKey.durationAgo || 'P0D'), saleKey.dateFormat || 'YYYY-MM-DD'));
-        break;
       default:
-        // Check if it's a cash payment by name pattern or if it has an amount (likely a payment key)
-        if ((saleKey.name.toLowerCase().includes('cash') || saleKey.amount) && saleKey.amount) {
+        // A key with an amount and no other action is a cash payment.
+        if (saleKey.amount) {
           // Prevent additional payments if transaction is already complete
           if (isTransactionComplete) return;
           
@@ -6628,6 +6595,8 @@ const SaleKeyPage = () => {
       keyboardText: newSaleKey.keyboardText,
       durationAgo: newSaleKey.durationAgo,
       dateFormat: newSaleKey.dateFormat,
+      infoText: newSaleKey.infoText,
+      specialText: newSaleKey.specialText,
       componentProductId: newSaleKey.componentProductId,
       componentProductName: newSaleKey.componentProductName,
       position: {
@@ -6651,9 +6620,6 @@ const SaleKeyPage = () => {
     handleCloseAddSaleKeyDialog();
   };
 
-
-
-  // Shared with both designer grids - see utils/saleKeyIcons.
 
   // Shared customer row (search dropdown + left-panel picker): name + group
   // subtitle on the left, loyalty points on the right (reference anatomy).
@@ -8334,7 +8300,6 @@ const SaleKeyPage = () => {
         onProductSelection={handleProductSelection}
         onImageUpload={handleImageUpload}
         onAddSaleKey={handleAddSaleKey}
-        getIconForSaleKey={getIconForSaleKey}
       />
 
       <Dialog

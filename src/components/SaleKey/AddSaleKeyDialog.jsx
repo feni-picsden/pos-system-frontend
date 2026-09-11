@@ -23,15 +23,13 @@ import {
   Add as AddIcon,
   Close as CloseIcon,
   Image as ImageIcon,
-  ShoppingCart as CartIcon,
-  AttachMoney as MoneyIcon,
-  Cancel as CancelIcon,
   FormatBold,
   FormatItalic,
   FormatUnderlined,
 } from '@mui/icons-material';
 import { productOptionLabel, productOptionDetail } from '../../utils/productOptionLabel';
 import { formatMoney } from '../../utils/currency';
+import { DEFAULT_PREVIOUS_DATE_FORMAT, DEFAULT_TIME_FORMAT, getSaleKeyLiveText } from '../../utils/saleKeyDisplay';
 
 const AddSaleKeyDialog = ({
   open,
@@ -45,8 +43,9 @@ const AddSaleKeyDialog = ({
   onProductSelection,
   onImageUpload,
   onAddSaleKey,
-  getIconForSaleKey,
 }) => {
+  const previewLiveText = getSaleKeyLiveText(newSaleKey);
+
   return (
     <Dialog 
       open={open} 
@@ -369,6 +368,7 @@ const AddSaleKeyDialog = ({
                     value={newSaleKey.durationAgo || ''}
                     onChange={(e) => setNewSaleKey(prev => ({ ...prev, durationAgo: e.target.value }))}
                     placeholder="e.g. P18Y or P21Y"
+                    helperText="P18Y = 18 years ago (legal age)"
                   />
                 </Grid>
               )}
@@ -378,10 +378,28 @@ const AddSaleKeyDialog = ({
                   label="Format"
                   value={newSaleKey.dateFormat || ''}
                   onChange={(e) => setNewSaleKey(prev => ({ ...prev, dateFormat: e.target.value }))}
-                  placeholder={newSaleKey.action === 'view-current-time' ? 'HH:mm:ss' : 'YYYY-MM-DD'}
+                  placeholder={newSaleKey.action === 'view-current-time' ? DEFAULT_TIME_FORMAT : DEFAULT_PREVIOUS_DATE_FORMAT}
+                  helperText="Shown on the key"
                 />
               </Grid>
             </>
+          )}
+
+          {(newSaleKey.action === 'info' || newSaleKey.action === 'special') && (
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                label={newSaleKey.action === 'info' ? 'Information Text' : 'Message'}
+                value={(newSaleKey.action === 'info' ? newSaleKey.infoText : newSaleKey.specialText) || ''}
+                onChange={(e) => {
+                  const field = newSaleKey.action === 'info' ? 'infoText' : 'specialText';
+                  setNewSaleKey(prev => ({ ...prev, [field]: e.target.value }));
+                }}
+                helperText="Shown on the key"
+              />
+            </Grid>
           )}
 
           {newSaleKey.action && !['add-product', 'payment', 'pay-amount'].includes(newSaleKey.action) && (
@@ -557,9 +575,9 @@ const AddSaleKeyDialog = ({
                 boxSizing: 'border-box'
               }}
             >
-              {newSaleKey.image ? (
-                <img 
-                  src={newSaleKey.image} 
+              {newSaleKey.image && (
+                <img
+                  src={newSaleKey.image}
                   alt="Preview"
                   style={{
                     width: '100%',
@@ -568,19 +586,21 @@ const AddSaleKeyDialog = ({
                     minHeight: 0,
                   }}
                 />
-              ) : (
-                <Box sx={{ fontSize: '1.5rem' }}>
-                  {getIconForSaleKey({ action: newSaleKey.action })}
-                </Box>
               )}
-              
+
               <Typography variant="caption" sx={{ fontSize: '0.7rem', lineHeight: 1 }}>
                 {newSaleKey.name || 'Sale Key Name'}
               </Typography>
-              
+
               {newSaleKey.amount && (
                 <Typography variant="caption" sx={{ fontSize: '0.6rem' }}>
                   {formatMoney(newSaleKey.amount)}
+                </Typography>
+              )}
+
+              {previewLiveText && (
+                <Typography variant="caption" sx={{ fontSize: '0.6rem', whiteSpace: 'pre-line' }}>
+                  {previewLiveText}
                 </Typography>
               )}
             </Box>

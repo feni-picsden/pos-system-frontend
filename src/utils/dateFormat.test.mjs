@@ -17,6 +17,10 @@ assert.equal(formatWithTokens(d, 'hh:mm:ss a'), '08:25:05 pm');
 assert.equal(toDateFnsPattern('D/M/YYYY'), 'd/M/yyyy');
 assert.equal(formatWithTokens(d, 'D/M/YYYY'), '11/8/2026');
 
+// Do is the ordinal day ("11th"), used by the legal-age sale key.
+assert.equal(formatWithTokens(d, 'Do MMM YYYY'), '11th Aug 2026');
+assert.equal(formatWithTokens(new Date(2007, 7, 7), 'Do MMM YYYY'), '7th Aug 2007');
+
 // Custom Format garbage falls back to the pattern instead of throwing.
 assert.equal(formatWithTokens(d, 'not a pattern'), 'not a pattern');
 assert.equal(formatWithTokens(d, ''), '');

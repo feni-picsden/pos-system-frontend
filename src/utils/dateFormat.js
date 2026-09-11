@@ -5,9 +5,10 @@ import { format as formatWithDateFns } from 'date-fns';
 // handful of them, so translate before formatting. Tokens the two libraries
 // agree on (MM, HH, hh, h, mm, ss) are left alone.
 const TOKEN_MAP = {
-  YYYY: 'yyyy', YY: 'yy', DD: 'dd', D: 'd', dddd: 'EEEE', ddd: 'EEE', A: 'a', a: 'aaa'
+  YYYY: 'yyyy', YY: 'yy', DD: 'dd', Do: 'do', D: 'd', dddd: 'EEEE', ddd: 'EEE', A: 'a', a: 'aaa'
 };
-const TOKEN_RE = /YYYY|YY|dddd|ddd|DD|D|A|a/g;
+// Do (ordinal day, "7th") must be tried before D.
+const TOKEN_RE = /YYYY|YY|dddd|ddd|DD|Do|D|A|a/g;
 
 export const toDateFnsPattern = (pattern) => String(pattern).replace(TOKEN_RE, (t) => TOKEN_MAP[t]);
 

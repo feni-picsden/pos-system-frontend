@@ -48,6 +48,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { productOptionLabel } from '../../utils/productOptionLabel';
 import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
+import { DEFAULT_PREVIOUS_DATE_FORMAT, DEFAULT_TIME_FORMAT } from '../../utils/saleKeyDisplay';
 import productService from '../../services/productService';
 import productComboService from '../../services/productComboService';
 import paymentMethodService from '../../services/paymentMethodService';
@@ -1850,7 +1851,7 @@ const SaleKeyEditor = () => {
                   label="Information Text"
                   value={selectedKey.infoText || ''}
                   onChange={(e) => handlePropertyChange('infoText', e.target.value)}
-                  helperText="Shown when the key is pressed"
+                  helperText="Shown on the key"
                   sx={{ mb: 2 }}
                 />
               )}
@@ -1863,7 +1864,7 @@ const SaleKeyEditor = () => {
                   label="Message"
                   value={selectedKey.specialText || ''}
                   onChange={(e) => handlePropertyChange('specialText', e.target.value)}
-                  helperText="Shown when the key is pressed"
+                  helperText="Shown on the key"
                   sx={{ mb: 2 }}
                 />
               )}
@@ -1875,6 +1876,7 @@ const SaleKeyEditor = () => {
                   value={selectedKey.durationAgo || ''}
                   onChange={(e) => handlePropertyChange('durationAgo', e.target.value)}
                   placeholder="e.g. P18Y or P21Y"
+                  helperText="P18Y = 18 years ago (legal age)"
                   sx={{ mb: 2 }}
                 />
               )}
@@ -1885,7 +1887,8 @@ const SaleKeyEditor = () => {
                   label="Format"
                   value={selectedKey.dateFormat || ''}
                   onChange={(e) => handlePropertyChange('dateFormat', e.target.value)}
-                  placeholder={selectedKey.action === 'view-current-time' ? 'HH:mm:ss' : 'YYYY-MM-DD'}
+                  placeholder={selectedKey.action === 'view-current-time' ? DEFAULT_TIME_FORMAT : DEFAULT_PREVIOUS_DATE_FORMAT}
+                  helperText="Shown on the key, e.g. Do MMM YYYY → 11th Sep 2008"
                   sx={{ mb: 2 }}
                 />
               )}
