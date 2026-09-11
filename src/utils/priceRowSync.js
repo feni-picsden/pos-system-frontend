@@ -1,9 +1,9 @@
-// Price points of one product are the SAME item sold in different pack sizes, so
-// they share one per-unit price: a case of 6 priced at $30 makes the single $5.
-// Editing any row therefore re-prices its siblings instead of leaving the table
-// internally inconsistent (Shopfront behaviour).
+// Price points of one product are the same item in different pack sizes.
+// Pricing a pack sets the single's price from it (a case of 6 at $30 makes the
+// single $5), but the link runs ONE way: re-pricing the single afterwards ($8)
+// never touches the packs, so "1 for $8, 6 for $30" stays possible.
 //
-// Siblings are the rows of the SAME price set only — a different price set is a
+// Only rows of the SAME price set are linked — a different price set is a
 // different customer group and must not be touched.
 
 /** 2-decimal money rounding, matching the price table's own rounding. */
@@ -27,21 +27,21 @@ const samePriceSet = (a, b) => (a?.priceSetId ?? null) === (b?.priceSetId ?? nul
 const percentageFor = (cost, price) => (!price ? 0 : round2((1 - cost / price) * 100));
 
 /**
- * Re-price every sibling of `rows[index]` from that row's per-unit price.
+ * After `rows[index]` was edited: refresh its cost / GP%, and when it is a pack
+ * (quantity > 1) re-price the single (quantity 1) rows of its price set from
+ * the pack's per-unit price. Other packs are never changed.
  *
- * Returns a NEW array (never mutates). The edited row is left exactly as typed —
- * only its `cost`/`percentage` are refreshed — so the cashier's own number is
- * never rounded out from under them mid-keystroke.
+ * Returns a NEW array (never mutates). The edited row's price is left exactly
+ * as typed, so the cashier's own number is never rounded mid-keystroke.
  *
- * No-ops (returns rows unchanged) when the edited row can't define a per-unit
- * price: quantity 0/blank/NaN, or a price of 0 or blank. Clearing the field to
- * retype it must not wipe the other rows.
+ * No-op (returns rows unchanged) while the edited row can't be priced yet:
+ * quantity 0/blank/NaN, or a price of 0 or blank.
  *
  * @param {Array} rows      formData.prices
  * @param {number} index    row the user just edited
  * @param {number} itemCost per-unit cost, for the cost/% columns
  */
-export function syncPriceRowsFromUnitPrice(rows, index, itemCost = 0) {
+export function syncPriceRows(rows, index, itemCost = 0) {
   if (!Array.isArray(rows) || !rows[index]) return rows;
 
   const edited = rows[index];
@@ -49,23 +49,21 @@ export function syncPriceRowsFromUnitPrice(rows, index, itemCost = 0) {
   const price = toNumber(edited.price);
   if (qty <= 0 || price <= 0) return rows;
 
-  const unitPrice = price / qty;
   const unitCost = toNumber(itemCost);
+  const unitPrice = price / qty;
 
   return rows.map((row, i) => {
-    const rowCost = round2(unitCost * (rowQuantity(row) || 1));
-
     if (i === index) {
-      return { ...row, cost: rowCost, percentage: percentageFor(rowCost, price) };
+      const cost = round2(unitCost * qty);
+      return { ...row, cost, percentage: percentageFor(cost, price) };
     }
-    if (!samePriceSet(row, edited)) return row;
-
-    const siblingQty = rowQuantity(row);
-    if (siblingQty <= 0) return row;
-
-    const newPrice = round2(unitPrice * siblingQty);
-    return { ...row, price: newPrice, cost: rowCost, percentage: percentageFor(rowCost, newPrice) };
+    if (qty > 1 && rowQuantity(row) === 1 && samePriceSet(row, edited)) {
+      const single = round2(unitPrice);
+      const cost = round2(unitCost);
+      return { ...row, price: single, cost, percentage: percentageFor(cost, single) };
+    }
+    return row;
   });
 }
 
-export default syncPriceRowsFromUnitPrice;
+export default syncPriceRows;

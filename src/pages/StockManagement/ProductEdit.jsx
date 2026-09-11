@@ -102,7 +102,7 @@ import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete
 import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { priceSetService } from '../../services/priceSetService';
-import { syncPriceRowsFromUnitPrice, rowQuantity } from '../../utils/priceRowSync';
+import { syncPriceRows, rowQuantity } from '../../utils/priceRowSync';
 import { priceSourceLabel, isDefaultPriceRow } from '../../utils/priceSourceLabel';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSaveBar';
@@ -2277,7 +2277,7 @@ const ProductEdit = () => {
                                 newPrices[index] = { ...newPrices[index], quantity: newQty, price: scaled };
                                 handleInputChange(
                                   'prices',
-                                  syncPriceRowsFromUnitPrice(newPrices, index, formData.itemCost)
+                                  syncPriceRows(newPrices, index, formData.itemCost)
                                 );
                               }}
                               size="small"
@@ -2293,11 +2293,11 @@ const ProductEdit = () => {
                                 // keystroke fights the cashier typing "5.05".
                                 const inputPrice = e.target.value;
                                 newPrices[index] = { ...newPrices[index], price: inputPrice };
-                                // The pack sizes share one per-unit price, so pricing
-                                // the 6-pack at $30 puts the single at $5 (and back).
+                                // Pricing a pack sets the single ($30 for 6 → $5); pricing
+                                // the single afterwards ($8) leaves the packs alone.
                                 handleInputChange(
                                   'prices',
-                                  syncPriceRowsFromUnitPrice(newPrices, index, formData.itemCost)
+                                  syncPriceRows(newPrices, index, formData.itemCost)
                                 );
                               }}
                               size="small"
@@ -2318,9 +2318,9 @@ const ProductEdit = () => {
                                 const pct = parseFloat(e.target.value) || 0;
                                 const newPrice = calculatePrice(formData.itemCost, newPrices[index].quantity, pct);
                                 newPrices[index] = { ...newPrices[index], percentage: pct, price: newPrice };
-                                // A margin change moves this row's price, so the other
-                                // pack sizes follow it just as a typed price would.
-                                const synced = syncPriceRowsFromUnitPrice(newPrices, index, formData.itemCost);
+                                // A margin change moves this row's price, so a pack's
+                                // single follows it just as a typed price would.
+                                const synced = syncPriceRows(newPrices, index, formData.itemCost);
                                 // Keep the margin exactly as typed: re-deriving it from
                                 // the rounded price makes the field jump under the cursor.
                                 synced[index] = { ...synced[index], percentage: pct };
