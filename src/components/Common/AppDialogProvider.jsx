@@ -114,7 +114,7 @@ export const AppDialogProvider = ({ children }) => {
   const api = useMemo(() => ({
     notify,
     /** Drop-in for window.alert. Success messages toast; the rest open a modal. */
-    alert: (message, severity) => {
+    alert: (message, severity, options = {}) => {
       const level = severity || inferSeverity(message);
       if (level === 'success') {
         notify(message, 'success');
@@ -123,7 +123,8 @@ export const AppDialogProvider = ({ children }) => {
       // Reference parity: an error plays the error sound (volume popover
       // controls the level per device).
       if (level === 'error') playErrorSound();
-      return new Promise((resolve) => push({ type: 'alert', message, severity: level, resolve }));
+      // options: { title, confirmText } - same keys confirm() already accepts.
+      return new Promise((resolve) => push({ type: 'alert', message, severity: level, ...options, resolve }));
     },
     /** Drop-in for window.confirm — await it. */
     confirm: (message, options = {}) =>

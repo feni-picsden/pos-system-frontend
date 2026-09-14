@@ -539,6 +539,11 @@ const ProductEdit = () => {
   // same tick that Save awaits it.
   const familyOfferPromiseRef = useRef(null);
   const familyOfferRef = useRef(null);
+  // Family id -> derived template (or null when it has no priced members), so
+  // re-picking a family already looked up on this page needs no second round trip.
+  const familyTemplateCacheRef = useRef(new Map());
+  // True while the member lookup for the picked family is in flight.
+  const [familyOfferLoading, setFamilyOfferLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -939,29 +944,54 @@ const ProductEdit = () => {
     handleInputChange(field, stored);
   };
 
-  // Build the override offer whenever the product is moved into a DIFFERENT family.
-  // The family itself stores no prices, so the offer is derived from the products
-  // already in it (GET /products?family=<id> returns them with their price rows).
+  // Build the override offer only when an existing product that already had a family
+  // is moved into a DIFFERENT family. A new product, or one picking its first family,
+  // gets no offer (and so no banner or save prompt). The family itself stores no
+  // prices, so the offer is derived from the products already in it
+  // (GET /products?family=<id> returns them with their price rows).
   useEffect(() => {
     const familyId = formData.familyId;
-    if (!familyId || familyId === savedFamilyIdRef.current) {
-      familyOfferPromiseRef.current = null;
-      familyOfferRef.current = null;
-      setFamilyOffer(null);
-      setFamilyOverrideApplied(false);
+    const savedFamilyId = savedFamilyIdRef.current;
+    const isNew = !id || id === 'new';
+
+    // Whatever was offered belongs to the PREVIOUS pick. Clear it straight away: the
+    // member lookup takes seconds against the remote DB, and leaving the old banner up
+    // meanwhile showed (and its link applied) another family's prices.
+    familyOfferPromiseRef.current = null;
+    familyOfferRef.current = null;
+    setFamilyOffer(null);
+    setFamilyOverrideApplied(false);
+    setFamilyOfferLoading(false);
+
+    if (isNew || !familyId || !savedFamilyId || String(familyId) === String(savedFamilyId)) {
+      return;
+    }
+
+    const cacheKey = String(familyId);
+    const familyName = formData.family;
+    const toOffer = (template) => (template ? { familyId, familyName, template } : null);
+
+    // Already looked this family up on this page: show its offer at once.
+    if (familyTemplateCacheRef.current.has(cacheKey)) {
+      const offer = toOffer(familyTemplateCacheRef.current.get(cacheKey));
+      familyOfferRef.current = offer;
+      setFamilyOffer(offer);
       return;
     }
 
     let cancelled = false;
+    setFamilyOfferLoading(true);
     const lookup = productService
       .getProducts({ family: familyId, limit: 200 }, { silent: true })
       .then((res) => {
         // Never let the product being edited vote on the price it is about to adopt.
         const members = (res?.products || []).filter((p) => String(p.id) !== String(id));
         const template = deriveFamilyTemplate(members);
-        return template ? { familyId, familyName: formData.family, template } : null;
+        familyTemplateCacheRef.current.set(cacheKey, template);
+        return toOffer(template);
       })
-      // An offer we could not build is not an error worth blocking a save on.
+      // An offer we could not build is not an error worth blocking a save on
+      // (and is not cached, so the next pick tries again).
       .catch(() => null);
 
     familyOfferPromiseRef.current = lookup;
@@ -969,7 +999,7 @@ const ProductEdit = () => {
       if (cancelled) return;
       familyOfferRef.current = offer;
       setFamilyOffer(offer);
-      setFamilyOverrideApplied(false);
+      setFamilyOfferLoading(false);
     });
 
     return () => { cancelled = true; };
@@ -985,13 +1015,43 @@ const ProductEdit = () => {
     notify(`Prices updated to match "${familyOffer.familyName}"`);
   };
 
+  // The tab a save problem belongs to, so the popup can say WHERE to fix it and the
+  // page can jump there. The server names it when it knows (`tab`); otherwise it is
+  // inferred from the wording of the reason. -1 = no specific tab.
+  const tabForProblem = (serverTab, text) => {
+    const byLabel = PRODUCT_TABS.findIndex((t) => t.label === serverTab);
+    if (byLabel >= 0) return byLabel;
+    const s = String(text || '').toLowerCase();
+    const rules = [
+      [/price|margin/, 'Sell & Cost'],
+      [/barcode/, 'Barcodes'],
+      [/image|photo|too large/, 'Images'],
+      [/supplier/, 'Suppliers'],
+      [/loyalty/, 'Loyalty'],
+      [/additional information/, 'Additional Info'],
+      [/stock|inventory|reorder/, 'Inventory'],
+      [/category|brand|family|tag/, 'Classifications'],
+      [/name|case quantity/, 'General'],
+    ];
+    const hit = rules.find(([re]) => re.test(s));
+    return hit ? PRODUCT_TABS.findIndex((t) => t.label === hit[1]) : -1;
+  };
+
+  // One way to report why a product was not saved: jump to the tab, show it in the
+  // banner, and open a popup that names the tab so the user knows where to look.
+  const reportSaveProblem = (message, { tab = -1, severity = 'error' } = {}) => {
+    const where = tab >= 0 ? PRODUCT_TABS[tab].label : null;
+    if (tab >= 0) setActiveTab(tab);
+    setError(where ? `Not saved - ${where} tab: ${message}` : `Not saved: ${message}`);
+    alert(where ? `Where: ${where} tab\n\n${message}` : message, severity, { title: 'Product not saved' });
+  };
+
   const handleSave = async () => {
     // Name is the product's identity — block the save here (covers both /products/new
     // and /products/:id/edit, which share this handler) as well as at the API.
     if (!formData.name?.trim()) {
       setNameInvalid(true);
-      setError('Name is required');
-      setActiveTab(0);
+      reportSaveProblem('Enter a product name, then press Save again.', { tab: 0, severity: 'warning' });
       return;
     }
     setNameInvalid(false);
@@ -1000,8 +1060,10 @@ const ProductEdit = () => {
     // and the page jumps to the failing field on the General tab.
     if (!(parseInt(formData.caseQuantity, 10) >= 1)) {
       setCaseQtyInvalid(true);
-      setError('Please fill in all required details before saving');
-      setActiveTab(0);
+      reportSaveProblem(
+        'Enter a Case Quantity of 1 or more (how many items come in one case), then press Save again.',
+        { tab: 0, severity: 'warning' }
+      );
       return;
     }
     setCaseQtyInvalid(false);
@@ -1016,8 +1078,21 @@ const ProductEdit = () => {
       return value === null || value === undefined || String(value).trim() === '';
     });
     if (missingRequired.length > 0) {
-      setError(`Please fill in the required additional information: ${missingRequired.map((f) => f.name).join(', ')}`);
-      setActiveTab(8);
+      reportSaveProblem(
+        `Fill in the required additional information: ${missingRequired.map((f) => f.name).join(', ')}. Then press Save again.`,
+        { tab: 8, severity: 'warning' }
+      );
+      return;
+    }
+
+    // Same rule the server enforces: a sellable product keeps at least one price
+    // (request-price and cost-percentage products are the exceptions). Caught here
+    // so the user is sent straight to Sell & Cost instead of waiting on a round trip.
+    if ((formData.prices || []).length === 0 && !formData.requestPrice && !formData.costPercentage) {
+      reportSaveProblem('This product has no price. Add at least one price, then press Save again.', {
+        tab: 2,
+        severity: 'warning',
+      });
       return;
     }
 
@@ -1114,8 +1189,17 @@ const ProductEdit = () => {
 
       // Build payload with resolved ids. `source` carries an accepted family
       // override (prices + tax rate); it is formData otherwise.
+      // Images picked from disk on a NEW product are only local previews (a base64
+      // data: URL plus the File); they are uploaded properly once the product exists
+      // (below). Sending them in the payload stored the base64 blob as an image row,
+      // duplicated the picture after the upload, and a large photo pushed the request
+      // past the server's body limit ("Failed to save product").
+      const isLocalImage = (img) => Boolean(img?.file) || String(img?.imageUrl || '').startsWith('data:');
       const payload = {
         ...source,
+        images: (source.images || [])
+          .filter((img) => !isLocalImage(img))
+          .map(({ imageUrl, isMain, altText, sortOrder }) => ({ imageUrl, isMain, altText, sortOrder })),
         // The price cell holds what was typed (so "5.05" survives mid-keystroke);
         // the API takes numbers, so the rows are coerced once, here at the edge.
         prices: (source.prices || []).map((p) => ({
@@ -1165,7 +1249,26 @@ const ProductEdit = () => {
       navigate(location.state?.returnTo || (savedId ? `/products/${savedId}/view` : '/products'));
     } catch (error) {
       console.error('Error saving product:', error);
-      setError('Failed to save product');
+      // Say WHY the save failed. The server sends its reason in `error` (plus
+      // validation `details`); a bare "Failed to save product" left the user
+      // guessing whether it was the barcode, a price, a permission or the network.
+      const data = error?.response?.data;
+      const details = Array.isArray(data?.details)
+        ? data.details.map((d) => d?.msg || d).filter(Boolean).join('\n')
+        : (typeof data?.details === 'string' ? data.details : '');
+      let reason = data?.error || data?.message || '';
+      if (!error?.response) {
+        reason = 'Could not reach the server. Check your internet connection and try again.';
+      } else if (error.response.status === 413) {
+        reason = 'The product data is too large to send - usually a very large image. Use a smaller image and try again.';
+      } else if (!reason) {
+        reason = `The server could not save this product (error ${error.response.status}).`;
+      }
+      const message = details && details !== reason ? `${reason}\n${details}` : reason;
+      const tab = error?.response?.status === 413
+        ? PRODUCT_TABS.findIndex((t) => t.label === 'Images')
+        : tabForProblem(data?.tab, message);
+      reportSaveProblem(message, { tab });
     } finally {
       setSaving(false);
     }
@@ -1748,7 +1851,22 @@ const ProductEdit = () => {
                     variant="contained"
                     sx={primaryButtonSx}
                     onClick={() => {
-                      handleInputChange('caseQuantity', Math.max(1, parseInt(caseQuantityDraft, 10) || 1));
+                      const nextCaseQty = Math.max(1, parseInt(caseQuantityDraft, 10) || 1);
+                      // The units on hand do not change with the case size: re-split the
+                      // same total so the stock fields show what Save will store
+                      // (23 bottles @5 = 4 cases + 3 -> @6 = 3 cases + 5).
+                      setFormData((prev) => {
+                        const prevCaseQty = parseInt(prev.caseQuantity, 10) || 1;
+                        const units = (parseInt(prev.currentStockCases, 10) || 0) * prevCaseQty
+                          + (parseInt(prev.currentStockItems, 10) || 0);
+                        const cases = Math.floor(units / nextCaseQty);
+                        return {
+                          ...prev,
+                          caseQuantity: nextCaseQty,
+                          currentStockCases: cases,
+                          currentStockItems: units - cases * nextCaseQty,
+                        };
+                      });
                       setCaseQuantityDraft(null);
                     }}
                   >
@@ -1862,6 +1980,13 @@ const ProductEdit = () => {
                   product does not share. Offer to align it here; if the offer is
                   ignored, Save asks again rather than filing the product into a
                   "price-aligned" family out of step with it. */}
+              {/* The member lookup takes a moment; say so, rather than leaving a gap
+                  that reads as "no banner for this family". */}
+              {familyOfferLoading && (
+                <Alert severity="info" icon={<CircularProgress size={18} />} sx={{ mt: 2 }}>
+                  Checking prices for &quot;{formData.family}&quot;...
+                </Alert>
+              )}
               {familyOffer && !familyOverrideApplied && (
                 <Alert
                   severity="info"
