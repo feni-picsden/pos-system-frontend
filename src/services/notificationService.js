@@ -9,7 +9,9 @@ const notificationService = {
   },
 
   getCount: async () => {
-    const response = await apiClient.get('/notifications/count', { silent: true });
+    // Polled every minute to ring the bell for unread notifications: a cached count
+    // would hide a new one for the whole GET cache TTL.
+    const response = await apiClient.get('/notifications/count', { silent: true, noCache: true });
     return response.data;
   },
 

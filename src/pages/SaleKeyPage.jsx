@@ -361,6 +361,29 @@ const SaleKeyPage = () => {
       .catch(() => {});
   }, []);
 
+  // Width of the header's right cluster (ONLINE, bell, avatar + user name), measured
+  // from the shared DashboardLayout header so the sell screen's own header icons end
+  // exactly where it starts. The name makes it vary by user, so it is re-measured
+  // whenever the cluster or the window resizes. 250 is the cluster without a name.
+  const [headerClusterWidth, setHeaderClusterWidth] = useState(250);
+  useEffect(() => {
+    const clusterStart = document.querySelector('.MuiAppBar-root [aria-label="online status"]');
+    const profile = document.querySelector('.MuiAppBar-root [title="Profile"]');
+    if (!clusterStart) return undefined;
+    const measure = () => {
+      const width = Math.round(window.innerWidth - clusterStart.getBoundingClientRect().left);
+      if (width > 0) setHeaderClusterWidth(width);
+    };
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (observer && profile) observer.observe(profile);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
   // Setup > General > Users > "Sale Keys Position" overrides the company default.
   const [userSaleKeysPosition, setUserSaleKeysPosition] = useState('Default');
   useEffect(() => {
@@ -6696,15 +6719,7 @@ const SaleKeyPage = () => {
           // screen's own), so the navbar's is hidden here; anything else in this
           // cell displaces the whole cluster.
           '.MuiAppBar-root [aria-label="select register"]': { display: 'none' },
-          // Reference profile cell is the avatar only, a 50px cell flush to the edge.
-          '.MuiAppBar-root [title="Profile"]': {
-            width: '50px',
-            paddingLeft: 0,
-            paddingRight: 0,
-            gap: 0,
-            justifyContent: 'center',
-          },
-          '.MuiAppBar-root [title="Profile"] .MuiTypography-root': { display: 'none' },
+          // The profile cell keeps the avatar + user name, the same as every other page.
           // Reference ONLINE label: full-height line box, no letter-spacing, right aligned.
           '.MuiAppBar-root [aria-label="online status"] .MuiTypography-root': {
             lineHeight: '50px',
@@ -6741,11 +6756,10 @@ const SaleKeyPage = () => {
           // hamburger + logo cells) and the right-hand icons butt up against the
           // header's own right cluster.
           left: 108,
-          // Reference right cluster is six contiguous 50px cells (the ONLINE cell
-          // is 100px) ending flush at the viewport edge: help, cash-drawer,
-          // speaker, ONLINE, bell, avatar. The header owns the last four (250px),
-          // so this strip ends there and supplies help + cash-drawer at x1570/1620.
-          right: 250,
+          // The header owns the right cluster (ONLINE, bell, avatar + user name). Its
+          // width follows the user's name, so the strip ends where that cluster
+          // actually starts (measured) and its own icons sit flush against it.
+          right: headerClusterWidth,
           height: 50,
           minWidth: 0,
           zIndex: (t) => t.zIndex.drawer + 2,
@@ -6785,10 +6799,9 @@ const SaleKeyPage = () => {
           <TvOutlinedIcon sx={{ fontSize: 24, width: 30 }} />
         </Box>
         <Box sx={{ flex: 1 }} />
-        {/* Same button as the navbar's; only the measured spacing differs — held
-            clear of the reference's six-cell right cluster so help + cash-drawer
-            stay its first two members. */}
-        <RegisterSelectButton sx={{ flexShrink: 0, mr: '50px', pointerEvents: 'auto' }} />
+        {/* Same button as the navbar's (whose copy is hidden on this screen), placed
+            directly beside the cash-drawer button and the header's right cluster. */}
+        <RegisterSelectButton sx={{ flexShrink: 0, pointerEvents: 'auto' }} />
         {/* Reference right cluster carries a cash-drawer button next to the help
             '?'. Reuses the existing 'open-drawer' sale-key action (same service,
             same register guard). */}

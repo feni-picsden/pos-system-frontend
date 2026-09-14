@@ -42,6 +42,9 @@ const DERIVED_RESOURCES = {
   '/customers': ['/customer-groups'],
   // PUT /roles/:id/permissions changes what /permissions/* reports.
   '/roles': ['/permissions'],
+  // Assigning products to a classification (or deleting one) rewrites the products'
+  // category/brand/family links — and for a family, aligns their prices and tax rate.
+  '/classifications': ['/products'],
 };
 
 function invalidateStoreFor(prefix) {

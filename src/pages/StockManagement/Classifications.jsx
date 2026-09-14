@@ -472,7 +472,11 @@ const Classifications = () => {
       <ConfirmDeleteDialog
         open={deleteDialogOpen}
         title="Delete Classification"
-        message={`Are you sure you want to delete "${classificationToDelete?.name || ''}"?`}
+        message={
+          classificationToDelete?.productCount > 0
+            ? `Are you sure you want to delete "${classificationToDelete.name}"? It will be removed from its ${classificationToDelete.productCount} product(s).`
+            : `Are you sure you want to delete "${classificationToDelete?.name || ''}"?`
+        }
         onCancel={() => {
           setDeleteDialogOpen(false);
           setClassificationToDelete(null);

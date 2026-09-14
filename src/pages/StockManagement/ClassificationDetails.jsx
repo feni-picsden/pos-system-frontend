@@ -18,10 +18,14 @@ import {
   CallSplitOutlined as CallSplitOutlinedIcon,
   DeleteOutline as DeleteOutlineIcon,
   VisibilityOutlined as VisibilityOutlinedIcon,
-  HelpOutline as HelpOutlineIcon
+  HelpOutline as HelpOutlineIcon,
+  LocalShippingOutlined as OrderNoteIcon,
+  ReceiptLongOutlined as InvoiceNoteIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import classificationService from '../../services/classificationService';
+import productService from '../../services/productService';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import masterDatabaseService from '../../services/masterDatabaseService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 
@@ -53,6 +57,7 @@ const selectFieldSx = {
 const ClassificationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { prompt, notify } = useAppDialogs();
   const chartContainerRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
@@ -247,6 +252,30 @@ const ClassificationDetails = () => {
       console.error('Error applying tag:', err);
     } finally {
       setApplyingTag(false);
+    }
+  };
+
+  // Family view (reference): replace the order or invoice note on every product in
+  // the family. An empty answer clears the notes; Cancel changes nothing.
+  const handleFamilyNote = async (field, label) => {
+    const lower = label.toLowerCase();
+    const note = await prompt(
+      `What should the ${lower} be? (Warning: This will replace the ${lower}s of the products in this family)`,
+      '',
+      { title: `Add ${label}`, confirmText: 'Confirm', multiline: true, placeholder: label }
+    );
+    if (note === null) return;
+    const productIds = products.map((p) => p.id);
+    if (productIds.length === 0) {
+      setError(`There are no products in this family to add the ${lower} to`);
+      return;
+    }
+    try {
+      await productService.bulkUpdateProducts(productIds, { [field]: note.trim() || null });
+      notify(`${label} updated on ${productIds.length} product${productIds.length === 1 ? '' : 's'}`);
+    } catch (err) {
+      setError(err.response?.data?.error || `Failed to update the ${lower}`);
+      console.error(`Error updating family ${lower}:`, err);
     }
   };
 
@@ -611,6 +640,25 @@ const ClassificationDetails = () => {
           onClick: handleAddTag
         }]
       : []),
+    // A Family's view screen: Home, Add Order Note, Add Invoice Note, Assign
+    ...(classification.type === 'FAMILY'
+      ? [
+          {
+            id: 'orderNote',
+            label: 'Add Order Note',
+            icon: OrderNoteIcon,
+            description: 'Add order note to the products in this family',
+            onClick: () => handleFamilyNote('orderNotes', 'Order Note')
+          },
+          {
+            id: 'invoiceNote',
+            label: 'Add Invoice Note',
+            icon: InvoiceNoteIcon,
+            description: 'Add invoice note to the products in this family',
+            onClick: () => handleFamilyNote('invoiceNotes', 'Invoice Note')
+          }
+        ]
+      : []),
     {
       id: 'assign',
       label: 'Assign',
@@ -878,6 +926,9 @@ const ClassificationDetails = () => {
               },
             }}
           />
+          {/* Reference: a family's Modify dialog carries only its Name. */}
+          {classification.type !== 'FAMILY' && (
+            <>
           <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Master Database Reference</Typography>
           <Autocomplete
             freeSolo
@@ -906,6 +957,8 @@ const ClassificationDetails = () => {
               />
             )}
           />
+            </>
+          )}
           {classification.type === 'CATEGORY' && (
             <>
               <Typography sx={{ fontSize: 14, color: '#000', mt: 2, mb: 0.5 }}>MSC Mapping</Typography>
@@ -1058,8 +1111,8 @@ const ClassificationDetails = () => {
       {/* Delete confirmation */}
       <ConfirmDeleteDialog
         open={deleteOpen}
-        title="Delete"
-        message={`Are you sure you want to delete "${classification.name}"?`}
+        title={`Delete ${typeLabel}`}
+        message={`Are you sure you want to delete ${classification.name}?`}
         loading={deleting}
         onCancel={() => setDeleteOpen(false)}
         onConfirm={handleDeleteConfirm}

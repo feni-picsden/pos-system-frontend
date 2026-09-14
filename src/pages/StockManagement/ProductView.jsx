@@ -926,6 +926,18 @@ const ProductView = () => {
                 {product?.retailTaxRate || "N/A"}
               </Typography>
             </Box>
+            {/* Reference: the family sits under the tax rate — family products share
+                one price table, so it explains where this product's prices come from. */}
+            {product?.family && (
+              <Box sx={{ mb: 1 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: "#000" }}>
+                  Family
+                </Typography>
+                <Typography sx={{ fontWeight: 400, fontSize: 16, color: "#000" }}>
+                  {product.family.name}
+                </Typography>
+              </Box>
+            )}
             <Box>
               <Typography sx={{ fontWeight: 700, fontSize: 16, color: "#000" }}>
                 Category

@@ -43,11 +43,23 @@ import { formatMoney } from '../../utils/currency';
 // SaleKeyPage imports the shared keypad from here (quantity popup)
 export { KeypadPopover };
 
-// Money is plain text now — $40.00, one size, always a decimal point. It used to
-// shrink the cents to 70% and shove them off the baseline (down here, up in the
-// Finalize dialog), and the grand total dropped the '.' entirely, so the same
-// amount read three different ways on one screen. `dot`, `raise` and `centsSize`
-// are gone with it; formatMoney is the single format.
+// Money is formatMoney everywhere — $40.00, always a decimal point. The cart's
+// summary bar (Savings, Discount and the grand Total) follows the reference and
+// draws the cents at 70% on the SAME baseline: "$0." full size, "40" smaller. It
+// used to shove the cents off the baseline and drop the '.', which is what made
+// one amount read differently across the screen — so only the size changes here,
+// and the text is still exactly formatMoney's.
+const SmallCentsMoney = ({ value }) => {
+  const text = formatMoney(value);
+  const dot = text.lastIndexOf('.');
+  if (dot === -1) return text;
+  return (
+    <>
+      {text.slice(0, dot + 1)}
+      <span style={{ fontSize: '0.7em' }}>{text.slice(dot + 1)}</span>
+    </>
+  );
+};
 
 // Live profit of one cart line, on the SAME basis as the reference's product
 // price table (measured 2026-08-14: price $32.99 inc, cost $27.44 inc, 16.82% —
@@ -513,28 +525,40 @@ const CartSidebar = ({
                       e.stopPropagation();
                       onRemoveItem(item);
                     }}
+                    role="button"
+                    aria-label={`Remove ${item.name}`}
                     sx={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                   >
-                    <DeleteOutlineIcon sx={{ fontSize: 16, color: '#000' }} />
+                    {/* Reference cart-line bin (thin-stroke "trash-alt"): a full-width
+                        lid with a wide handle over a straight body that is a little
+                        narrower than the lid, three long ribs. Drawn inline. */}
+                    <svg width="15" height="18" viewBox="0 0 15 18" aria-hidden="true" fill="none" stroke="#000" strokeWidth="1.15" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M.8 3.3h13.4" />
+                      <path d="M4.6 3.3V1.4c0-.3.2-.6.6-.6h4.6c.4 0 .6.3.6.6v1.9" />
+                      <path d="M2.2 3.3v12.9c0 .6.4 1 1 1h8.6c.6 0 1-.4 1-1V3.3" />
+                      <path d="M5 5.8v9M7.5 5.8v9M10 5.8v9" />
+                    </svg>
                   </Box>
                 </Box>
                 {/* Per-unit price (reference .product-line-unit): a second full-width
-                    row under the top row, right-aligned. Shown only on the SELECTED
-                    line and only when it holds more than one unit. Line `price` is
-                    the LINE TOTAL. */}
+                    row under the top row, right-aligned with the line's trash icon.
+                    Shown only on the SELECTED line and only when it holds more than
+                    one unit. Line `price` is the LINE TOTAL. */}
                 {isSelected && (parseFloat(item.quantity) || 1) > 1 && (
                   <Typography
                     component="div"
-                    sx={{ position: 'relative', mt: '0.5rem', textAlign: 'right', fontSize: 14, lineHeight: 'normal', letterSpacing: 'normal', color: '#676B72' }}
+                    // The row is a wrapping flex container: without the full basis this
+                    // box shrinks to its text and sits at the left, ignoring textAlign.
+                    sx={{ position: 'relative', flexBasis: '100%', mt: '0.5rem', textAlign: 'right', fontSize: 16, lineHeight: 'normal', letterSpacing: 'normal', color: '#000' }}
                   >
                     Item price: ${((parseFloat(item.price) || 0) / (parseFloat(item.quantity) || 1)).toFixed(2)}
                   </Typography>
                 )}
-                {/* Live profit of the SELECTED line, right-aligned, with the
-                    whole sale's profit under it in smaller text. Shown to anyone
-                    holding the live-profit permission (the View Live Profit sale
-                    key is no longer required). */}
-                {canViewLiveProfit && isSelected && (
+                {/* Live profit of the SELECTED line, right-aligned. Reference: the
+                    line shows its item price, and profit only appears once the
+                    View Live Profit sale key is switched on (and the user holds
+                    the live-profit permission). */}
+                {canViewLiveProfit && showLiveProfit && isSelected && (
                   <Box sx={{ position: 'relative', flexBasis: '100%', textAlign: 'right', mt: '0.25rem' }}>
                     <Typography component="div" sx={{ fontSize: 14, lineHeight: 'normal', color: '#313439' }}>
                       {(() => {
@@ -682,8 +706,8 @@ const CartSidebar = ({
           </Typography>
         </Box>
       ) : (
-      // 93px on the reference; the Total Profit line (local addition) needs a few
-      // more, so the bar grows instead of clipping it.
+      // 93px on the reference; it grows rather than clipping when a sale-level
+      // surcharge line is added above the counters.
       <Box sx={{ display: 'flex', minHeight: 93, boxSizing: 'border-box' }}>
         <Box sx={{ width: '50%', boxSizing: 'border-box', p: '8px', color: totalsColor, fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal' }}>
           {/* Surcharges summary (sale-level) – directly above item summary, like reference design */}
@@ -773,10 +797,10 @@ const CartSidebar = ({
                       {cart.length} Product{cart.length === 1 ? '' : 's'}
                     </Typography>
                     <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && savings > 0 ? '#000' : 'rgba(189, 189, 189, 0.7)' }}>
-                      Savings: {formatMoney(savings)}
+                      Savings: <SmallCentsMoney value={savings} />
                     </Typography>
                     <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && lineDiscount > 0 ? '#000' : 'rgba(189, 189, 189, 0.7)' }}>
-                      Discount: {formatMoney(lineDiscount)}
+                      Discount: <SmallCentsMoney value={lineDiscount} />
                     </Typography>
                   </>
                 );
@@ -792,7 +816,7 @@ const CartSidebar = ({
           sx={{ width: '50%', boxSizing: 'border-box', p: '8px', textAlign: 'center', color: totalsColor, cursor: cartEmpty ? 'not-allowed' : 'pointer' }}
         >
           <Typography component="div" sx={{ color: 'inherit', fontWeight: 400, fontSize: 40, lineHeight: 'normal', letterSpacing: 'normal' }}>
-            {formatMoney(calculateTotal())}
+            <SmallCentsMoney value={calculateTotal()} />
           </Typography>
           <Typography
             component="p"
@@ -800,17 +824,6 @@ const CartSidebar = ({
           >
             Total
           </Typography>
-          {/* Whole-sale profit, small, under the Total figure. Same permission
-              as the per-line readout. */}
-          {canViewLiveProfit && !cartEmpty && (
-            <Typography
-              component="div"
-              sx={{ fontSize: 12, lineHeight: 'normal', color: '#676B72' }}
-            >
-              Total Profit: $
-              {cart.reduce((sum, i) => sum + lineProfit(i).profit, 0).toFixed(2)}
-            </Typography>
-          )}
         </Box>
       </Box>
       )}

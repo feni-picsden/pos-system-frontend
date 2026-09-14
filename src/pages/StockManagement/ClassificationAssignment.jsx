@@ -15,6 +15,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import classificationService from '../../services/classificationService';
 import productComboService from '../../services/productComboService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 
 // Combos carry only a category/brand link in the schema, so they can only be
 // assigned to those two classification types.
@@ -43,6 +44,7 @@ const TYPE_LABELS = {
 const ClassificationAssignment = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { confirm } = useAppDialogs();
 
   const [classification, setClassification] = useState(null);
   const [assignedProducts, setAssignedProducts] = useState([]);
@@ -242,6 +244,16 @@ const ClassificationAssignment = () => {
     const toAssign = added.filter(p => !p.isCombo).map(p => p.id);
     const toUnassign = removed.filter(p => !p.isCombo).map(p => p.id);
     const comboField = COMBO_FIELD[classification.type];
+
+    // Reference: adding products to a family rewrites their prices and tax rates, so
+    // Save asks first. Only removing products aligns nothing, so it does not ask.
+    if (classification.type === 'FAMILY' && toAssign.length > 0) {
+      const ok = await confirm(
+        'Family products are price-aligned, saving this will cause the prices and tax rates of the products to align\n\nAre you sure you wish to continue?',
+        { title: 'Confirm Alignment', confirmText: 'Save', severity: 'warning' }
+      );
+      if (!ok) return;
+    }
 
     try {
       setSaving(true);
@@ -634,16 +646,34 @@ const ClassificationAssignment = () => {
       </Box>
 
       {/* Fixed full-width bottom action bar (reference: #525252, 74px tall,
-          pinned to viewport bottom, Save right-aligned with ~16px inset) */}
-      <Box sx={{ height: 74 }} />
+          pinned to viewport bottom, Save right-aligned with ~16px inset). For a
+          family the reference pins its price-alignment notice directly above the
+          bar, so it is always on screen when Save is — below the lists it sat
+          under the fold on a tall assignment list. The spacer reserves both. */}
+      <Box sx={{ height: classification.type === 'FAMILY' ? 152 : 74 }} />
+      <Box sx={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1200 }}>
+      {classification.type === 'FAMILY' && (
+        <Box
+          role="note"
+          sx={{
+            height: 78,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+            px: 4,
+            backgroundColor: '#e1f1fb',
+            borderLeft: '4px solid #29a8e0',
+            color: '#1a6fa8',
+            fontSize: 16
+          }}
+        >
+          <Box component="span" aria-hidden="true" sx={{ fontWeight: 700, fontSize: 20, color: '#1a6fa8' }}>i</Box>
+          Family products are price-aligned, saving this will cause the prices and tax rates of the products to align
+        </Box>
+      )}
       <Box
         sx={{
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: 0,
           height: 74,
-          zIndex: 1200,
           backgroundColor: '#525252',
           display: 'flex',
           alignItems: 'center',
@@ -674,6 +704,7 @@ const ClassificationAssignment = () => {
         >
           Save
         </Box>
+      </Box>
       </Box>
     </Box>
   );

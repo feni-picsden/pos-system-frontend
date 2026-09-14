@@ -131,7 +131,11 @@ export const AppDialogProvider = ({ children }) => {
       new Promise((resolve) =>
         push({ type: 'confirm', message, severity: 'question', ...options, resolve })
       ),
-    /** Drop-in for window.prompt — await it. Resolves to a string, or null on cancel. */
+    /**
+     * Drop-in for window.prompt — await it. Resolves to a string, or null on cancel.
+     * options: { title, confirmText, cancelText, multiline, placeholder }. A multiline
+     * prompt keeps Enter for new lines, so only the button submits it.
+     */
     prompt: (message, defaultValue = '', options = {}) =>
       new Promise((resolve) =>
         push({ type: 'prompt', message, defaultValue, severity: 'question', ...options, resolve })
@@ -173,9 +177,12 @@ export const AppDialogProvider = ({ children }) => {
               fullWidth
               size="small"
               value={value}
+              multiline={Boolean(request?.multiline)}
+              minRows={request?.multiline ? 3 : undefined}
+              placeholder={request?.placeholder}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); submit(); }
+                if (e.key === 'Enter' && !request?.multiline) { e.preventDefault(); submit(); }
               }}
               sx={{ mt: 2, '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: '#fff' } }}
             />

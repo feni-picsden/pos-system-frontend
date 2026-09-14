@@ -575,7 +575,10 @@ const DashboardLayout = ({ children }) => {
                   aria-haspopup="true"
                   aria-expanded={quickOpen}
                   aria-controls="quick-menu"
-                  sx={{ ...quickButtonSx, bgcolor: quickOpen ? 'rgba(255,255,255,0.12)' : 'transparent' }}
+                  // Reference: the logo cell stays plain while its menu is open — the
+                  // menu's arrow already ties it to the logo. (Keyboard focus keeps
+                  // its outline from quickButtonSx.)
+                  sx={quickButtonSx}
                 >
                   <CloudIcon sx={{ fontSize: 30, color: '#fff' }} />
                 </Box>
@@ -617,10 +620,12 @@ const DashboardLayout = ({ children }) => {
                           aria-disabled={starLocked}
                           title={starTitle}
                           aria-label={starTitle}
-                          sx={{ ...quickToolSx, border: 0, p: 0, ...(starLocked && { cursor: 'default', opacity: 0.6 }) }}
+                          sx={{ ...quickToolSx, border: 0, p: 0, ...(starLocked && { cursor: 'default' }) }}
                         >
+                          {/* Reference: a page in the Quick Menu shows a solid orange star
+                              (the always-present Sell Screen included — locked, not dimmed). */}
                           {currentPinned
-                            ? <StarIcon sx={{ fontSize: 20 }} />
+                            ? <StarIcon sx={{ fontSize: 20, color: '#f6993f' }} />
                             : <StarBorderIcon sx={{ fontSize: 20 }} />}
                         </Box>
                         <Box
@@ -820,7 +825,26 @@ const DashboardLayout = ({ children }) => {
                 invisible={pendingCount === 0}
                 sx={{ '& .MuiBadge-badge': { bgcolor: 'rgb(227,52,47)', width: 8, height: 8, minWidth: 8, borderRadius: '50%' } }}
               >
-                <NotificationsIcon sx={{ fontSize: 24 }} />
+                {/* Rings (a short shake, then a pause) while notifications are pending,
+                    so a new one is noticed without the bell moving constantly. */}
+                <NotificationsIcon
+                  sx={{
+                    fontSize: 24,
+                    transformOrigin: '50% 10%',
+                    animation: pendingCount > 0 ? 'bellRing 4s ease-in-out infinite' : 'none',
+                    '@keyframes bellRing': {
+                      '0%, 30%, 100%': { transform: 'rotate(0deg)' },
+                      '3%': { transform: 'rotate(18deg)' },
+                      '7%': { transform: 'rotate(-16deg)' },
+                      '11%': { transform: 'rotate(12deg)' },
+                      '15%': { transform: 'rotate(-10deg)' },
+                      '19%': { transform: 'rotate(6deg)' },
+                      '23%': { transform: 'rotate(-4deg)' },
+                      '27%': { transform: 'rotate(2deg)' },
+                    },
+                    '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+                  }}
+                />
               </Badge>
             </Box>
 
@@ -847,6 +871,27 @@ const DashboardLayout = ({ children }) => {
         </Toolbar>
         <TopProgressBar variant="appBar" />
       </AppBarStyled>
+
+      {/* Reference: an open Quick Menu dims the page under the header. The header
+          (and the menu hanging from it) stay above this layer; tapping the dimmed
+          page closes the menu. */}
+      {quickOpen && (
+        <Box
+          aria-hidden="true"
+          onClick={() => setQuickOpen(false)}
+          sx={{
+            position: 'fixed',
+            top: HEADER_HEIGHT,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: (t) => t.zIndex.appBar - 1,
+            bgcolor: 'rgba(0, 0, 0, 0.7)',
+            animation: 'quickMenuDim 0.25s ease',
+            '@keyframes quickMenuDim': { from: { opacity: 0 }, to: { opacity: 1 } },
+          }}
+        />
+      )}
 
       {/* Left navigation drawer (below the 50px header, reference-style) */}
       <Drawer
