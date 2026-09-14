@@ -105,7 +105,7 @@ import { syncPriceRows, rowQuantity } from '../../utils/priceRowSync';
 import { priceSourceLabel, isDefaultPriceRow } from '../../utils/priceSourceLabel';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSaveBar';
-import { deriveFamilyTemplate, applyFamilyTemplate } from '../../utils/familyOverride';
+import { deriveFamilyTemplate, applyFamilyTemplate, tiersKey } from '../../utils/familyOverride';
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
 const primaryButtonSx = {
@@ -1114,6 +1114,39 @@ const ProductEdit = () => {
       }
     }
 
+    // Reference "Align Family": the server carries this product's prices and tax rate
+    // to the rest of its family when this save changes them (or the product joins the
+    // family, or is new) — see PUT/POST /products. Ask first, naming only the members
+    // that will actually change; No cancels the save. Nothing to ask when no member
+    // differs, or when there is no real price to align to (the server skips an empty
+    // or all-$0 table too).
+    if (source.familyId) {
+      const defaultRowsKey = (rows) => tiersKey((rows || []).filter((r) => r?.priceSetId == null));
+      const newKey = defaultRowsKey(source.prices);
+      const hasRealPrice = (source.prices || []).some((r) => r?.priceSetId == null && Number(r.price) > 0);
+      const members = familyMembersCacheRef.current.get(String(source.familyId)) || familyMembers;
+      const isNewSave = isNewProduct || !id || id === 'new';
+      const familyPriceChanged =
+        isNewSave ||
+        String(source.familyId) !== String(savedFamilyIdRef.current ?? '') ||
+        newKey !== defaultRowsKey(product?.prices) ||
+        (source.retailTaxRate || null) !== (product?.retailTaxRate || null);
+      const willChange = (members || []).filter(
+        (m) =>
+          defaultRowsKey(m.prices) !== newKey ||
+          (source.retailTaxRate && m.retailTaxRate !== source.retailTaxRate)
+      );
+
+      if (hasRealPrice && familyPriceChanged && willChange.length > 0) {
+        const proceed = await confirm(
+          'The other items in this family will also have their prices and tax rate adjusted, would you like to continue?\n\n' +
+            willChange.map((m) => `•  ${m.name}`).join('\n'),
+          { title: 'Align Family', confirmText: 'Yes', cancelText: 'No' }
+        );
+        if (!proceed) return;
+      }
+    }
+
     try {
       setSaving(true);
 
@@ -1507,7 +1540,9 @@ const ProductEdit = () => {
       }}
     >
       {error && (
-        <Alert severity="error" sx={{ m: 2 }}>
+        // onClose gives the banner its close (×) button at the right end; the
+        // message comes back on the next failed save.
+        <Alert severity="error" sx={{ m: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}

@@ -1,6 +1,13 @@
 // Family price rules. Run: node src/utils/familyOverride.test.mjs
 import assert from 'node:assert/strict';
-import { defaultTiers, deriveFamilyTemplate, applyFamilyTemplate } from './familyOverride.js';
+import {
+  defaultTiers,
+  deriveFamilyTemplate,
+  applyFamilyTemplate,
+  tiersKey,
+  groupFamilyLines,
+  shareByQuantity,
+} from './familyOverride.js';
 
 // A family member as GET /products?family=<id> returns it.
 const member = (over = {}) => ({
@@ -110,6 +117,52 @@ const tiers = (...pairs) =>
   const formData = { prices: [{ quantity: 1, price: 1, cost: 2 }], retailTaxRate: 'GST' };
   const out = applyFamilyTemplate(formData, { prices: [{ quantity: 1, price: 3 }], retailTaxRate: null });
   assert.equal(out.retailTaxRate, 'GST', 'a missing family tax rate leaves the product\'s intact');
+}
+
+// --- sell screen: family quantity pricing ---------------------------------------
+
+{
+  assert.equal(
+    tiersKey([{ quantity: 6, price: 16 }, { quantity: 1, price: 3 }]),
+    tiersKey([{ quantity: 1, price: '3' }, { quantity: '6', price: 16 }]),
+    'the same tiers give the same key whatever order or type they arrive in'
+  );
+  assert.notEqual(
+    tiersKey([{ quantity: 1, price: 3 }]),
+    tiersKey([{ quantity: 1, price: 4 }]),
+    'a different price is a different key'
+  );
+}
+
+{
+  const same = tiersKey([{ quantity: 1, price: 3 }, { quantity: 6, price: 16 }]);
+  const lines = [
+    { key: 'a', familyId: 9, tiersKey: same, quantity: 3 },
+    { key: 'x', familyId: null, tiersKey: same, quantity: 5 }, // not in a family
+    { key: 'b', familyId: 9, tiersKey: same, quantity: 3 },
+    { key: 'c', familyId: 7, tiersKey: same, quantity: 2 }, // alone in its family
+  ];
+  const groups = groupFamilyLines(lines);
+  assert.equal(groups.length, 1, 'only a family with 2+ lines in the cart groups');
+  assert.deepEqual(groups[0].map((l) => l.key), ['a', 'b'], 'cart order is kept');
+}
+
+{
+  // A family whose members carry different prices does not group.
+  const lines = [
+    { key: 'a', familyId: 9, tiersKey: tiersKey([{ quantity: 1, price: 3 }]), quantity: 3 },
+    { key: 'b', familyId: 9, tiersKey: tiersKey([{ quantity: 1, price: 5 }]), quantity: 3 },
+  ];
+  assert.equal(groupFamilyLines(lines).length, 0, 'misaligned members price on their own');
+}
+
+{
+  assert.deepEqual(shareByQuantity(16, [3, 3]), [8, 8], '3 + 3 of $16 is $8 + $8');
+  assert.deepEqual(shareByQuantity(16, [4, 2]), [10.67, 5.33], '4 + 2 of $16 splits by quantity');
+  const odd = shareByQuantity(10, [1, 1, 1]);
+  assert.equal(Math.round(odd.reduce((a, b) => a + b, 0) * 100), 1000, 'the shares always add back to the total');
+  assert.deepEqual(odd, [3.34, 3.33, 3.33], 'the leftover cent goes to one line, not lost');
+  assert.deepEqual(shareByQuantity(16, [0, 0]), [0, 0], 'no quantity, no share');
 }
 
 console.log('familyOverride: all assertions passed');

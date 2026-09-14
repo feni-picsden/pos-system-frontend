@@ -57,6 +57,64 @@ export function deriveFamilyTemplate(members) {
   };
 }
 
+// --- Sell screen: family quantity pricing ----------------------------------------
+//
+// Family products share their price points at the register: 3 x Beer A + 3 x Beer B
+// in a family priced "6 for $16" is 6 bottles, so the pair sells for $16 — not two
+// lines of 3 at the single price. The page prices a family group's COMBINED quantity
+// with its normal price-point rule, then splits that total back onto the lines.
+
+/** Stable key for a price-tier list, so "same prices" is a string comparison. */
+export function tiersKey(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((r) => ({ quantity: num(r?.quantity) ?? 1, price: num(r?.price) ?? 0 }))
+    .filter((r) => r.quantity > 0)
+    .sort((a, b) => a.quantity - b.quantity || a.price - b.price)
+    .map((r) => `${r.quantity}@${r.price}`)
+    .join('|');
+}
+
+/**
+ * Cart lines that price together: 2+ lines whose products share a family AND the
+ * same price tiers. A family whose members disagree on price cannot say whose
+ * "6 for $16" applies, so those lines keep pricing on their own.
+ *
+ * @param {Array<{ familyId, tiersKey: string, quantity: number }>} lines
+ * @returns {Array<Array>} the groups, each of 2+ lines, in cart order
+ */
+export function groupFamilyLines(lines) {
+  const groups = new Map();
+  for (const line of Array.isArray(lines) ? lines : []) {
+    if (line?.familyId == null || !line.tiersKey || !(Number(line.quantity) > 0)) continue;
+    const id = `${line.familyId}|${line.tiersKey}`;
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(line);
+  }
+  return [...groups.values()].filter((group) => group.length > 1);
+}
+
+/**
+ * Split a family total across its lines by quantity, to the cent, so the line
+ * prices always add back up to exactly the total: $16 over 3 + 3 is $8 + $8, and
+ * over 4 + 2 is $10.67 + $5.33 (the leftover cent goes to the largest remainder).
+ */
+export function shareByQuantity(total, quantities) {
+  const qty = (Array.isArray(quantities) ? quantities : []).map((q) => Math.max(0, Number(q) || 0));
+  const sum = qty.reduce((a, b) => a + b, 0);
+  if (sum <= 0) return qty.map(() => 0);
+  const cents = Math.round((Number(total) || 0) * 100);
+  const exact = qty.map((q) => (cents * q) / sum);
+  const shares = exact.map((e) => Math.floor(e));
+  let left = cents - shares.reduce((a, b) => a + b, 0);
+  const byRemainder = exact
+    .map((e, i) => [e - shares[i], i])
+    .sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (let k = 0; left > 0 && k < byRemainder.length; k += 1, left -= 1) {
+    shares[byRemainder[k][1]] += 1;
+  }
+  return shares.map((c) => c / 100);
+}
+
 /**
  * Apply a template to the editor's form data.
  *

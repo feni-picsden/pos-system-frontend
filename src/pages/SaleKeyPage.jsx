@@ -121,6 +121,7 @@ import { isEftposMethod } from '../services/linklyService';
 import paymentMethodService, { allowsCashOut, getPaymentMethodSettings } from '../services/paymentMethodService';
 import loyaltyService from '../services/loyaltyService';
 import cashManagementService from '../services/cashManagementService';
+import { tiersKey, groupFamilyLines, shareByQuantity } from '../utils/familyOverride';
 import productComboService from '../services/productComboService';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
@@ -6214,6 +6215,88 @@ const SaleKeyPage = () => {
       discountInfo: { ...info, discountAmount },
     };
   };
+
+  // Family quantity pricing. Lines whose products share a family (and the same price
+  // points) sell on their COMBINED quantity: 3 x Beer A + 3 x Beer B in a family
+  // priced "6 for $16" is one 6-pack at $16, not two lines of 3 at the single price.
+  // The combined quantity goes through the same price-point rule a single line uses,
+  // so a product outside a family prices exactly as before, and the total is split
+  // back onto the lines by quantity (then each line's customer price list applies).
+  //
+  // One pass after every cart change covers every add / quantity / remove path and a
+  // restored sale without touching them. Lines that carry their own price keep it: a
+  // promotion, a manual price or discount, a requested price, combos, gift cards and
+  // returns. Only prices that actually differ are rewritten, so it settles at once.
+  useEffect(() => {
+    if (isTransactionComplete || !Array.isArray(cart) || cart.length === 0) return;
+
+    const candidates = [];
+    cart.forEach((item, index) => {
+      if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem) return;
+      const quantity = parseFloat(item.quantity) || 0;
+      if (quantity <= 0) return;
+      const product = resolveProductLocal(item.productId, item.name);
+      if (!product || product.familyId == null || product.requestPrice) return;
+      // An automatic promotion already prices this line; the promotion keeps it.
+      if (calculatePriceForQuantity(product, quantity) < calculateNormalPriceForQuantity(product, quantity) - 0.005) return;
+      candidates.push({
+        index,
+        item,
+        product,
+        quantity,
+        familyId: product.familyId,
+        tiersKey: tiersKey(effectivePrices(product)),
+      });
+    });
+
+    // cart index -> the price that line should carry
+    const targets = new Map();
+    for (const group of groupFamilyLines(candidates)) {
+      const totalQuantity = group.reduce((sum, line) => sum + line.quantity, 0);
+      const familyTotal = calculateBasePriceForQuantity(group[0].product, totalQuantity);
+      const shares = shareByQuantity(familyTotal, group.map((line) => line.quantity));
+      group.forEach((line, i) => {
+        const price = Math.round(computePriceListTotal(line.product, line.quantity, shares[i]) * 100) / 100;
+        // Family pricing is the everyday price, not a promotion: normalPrice follows
+        // it so the footer does not report the family deal as a "saving".
+        targets.set(line.index, { price, normalPrice: price, familyPriced: true });
+      });
+    }
+    // A line that was family-priced but no longer has a family partner in the cart
+    // (the other line was removed) goes back to its own price.
+    candidates.forEach((line) => {
+      if (targets.has(line.index) || !line.item.familyPriced) return;
+      targets.set(line.index, {
+        price: calculatePriceForQuantity(line.product, line.quantity),
+        normalPrice: calculateNormalPriceForQuantity(line.product, line.quantity),
+        familyPriced: false,
+      });
+    });
+
+    let changed = false;
+    const next = cart.map((item, index) => {
+      const target = targets.get(index);
+      if (!target) return item;
+      const samePrice = Math.abs((parseFloat(item.price) || 0) - target.price) < 0.005;
+      if (samePrice && Boolean(item.familyPriced) === target.familyPriced) return item;
+      changed = true;
+      const updated = { ...item, price: target.price, normalPrice: target.normalPrice };
+      if (target.familyPriced) updated.familyPriced = true;
+      else delete updated.familyPriced;
+      return updated;
+    });
+    if (!changed) return;
+
+    // Only replace the cart this pass was computed from; if another update landed in
+    // between, the pass runs again on that cart instead of overwriting it.
+    setCart((prev) => (prev === cart ? next : prev));
+    setSelectedCartItem((prev) => {
+      if (!prev) return prev;
+      const match = next.find((i) => i.id === prev.id && i.timestamp === prev.timestamp);
+      return match || prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, isTransactionComplete, priceListConfig]);
 
   // Cart-line padlock: one click strips the manual price and re-prices the line
   // through the automatic waterfall (reference unlock, no confirmation).
