@@ -105,7 +105,7 @@ import { syncPriceRows, rowQuantity } from '../../utils/priceRowSync';
 import { priceSourceLabel, isDefaultPriceRow } from '../../utils/priceSourceLabel';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSaveBar';
-import { deriveFamilyTemplate, applyFamilyTemplate, tiersKey } from '../../utils/familyOverride';
+import { deriveFamilyTemplate, applyFamilyTemplate, tiersKey, findHigherRateQuantity } from '../../utils/familyOverride';
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
 const primaryButtonSx = {
@@ -1111,6 +1111,25 @@ const ProductEdit = () => {
       if (template) {
         source = applyFamilyTemplate(formData, template);
         setFormData(source);
+      }
+    }
+
+    // Reference "Invalid Price Rates Detected": the register sells at the best per-unit
+    // rate, so a price point dearer per unit than a smaller quantity (a $60 six-pack
+    // over a $5 single) would never be used. Ask before saving it; No cancels the save
+    // and shows the price table.
+    if (!source.requestPrice && !source.costPercentage) {
+      const dearerQuantity = findHigherRateQuantity(source.prices);
+      if (dearerQuantity != null) {
+        const intentional = await confirm(
+          `We've detected a price with the quantity ${dearerQuantity} has a higher rate than a previous quantity, this may lead to the higher price not being used. Is this intentional?`,
+          { title: 'Invalid Price Rates Detected', confirmText: 'Yes', cancelText: 'No' }
+        );
+        if (!intentional) {
+          const sellTab = PRODUCT_TABS.findIndex((t) => t.label === 'Sell & Cost');
+          if (sellTab >= 0) setActiveTab(sellTab);
+          return;
+        }
       }
     }
 

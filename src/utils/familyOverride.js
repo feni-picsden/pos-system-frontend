@@ -57,6 +57,70 @@ export function deriveFamilyTemplate(members) {
   };
 }
 
+// --- Price points: best rate --------------------------------------------------------
+//
+// Shopfront "Quantity Rate": a quantity sells at the BEST (lowest) per-unit rate among
+// the price points equal to or below it — "the best price for the customer". A pack
+// priced dearer per unit than a smaller price point is therefore never used: a $5
+// single with a $60 six-pack sells 6 for $30, not $60.
+
+/**
+ * The price point a quantity sells at: lowest price/quantity among the rows whose
+ * quantity is at or below `quantity`. On an equal rate the larger pack wins (same
+ * money). Rows without a usable quantity or price are skipped.
+ * @returns the row, or null when no price point is at or below the quantity
+ */
+export function bestRateTier(rows, quantity) {
+  const qty = Number(quantity);
+  let best = null;
+  let bestRate = Infinity;
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const q = num(row?.quantity);
+    const p = num(row?.price);
+    if (q == null || q <= 0 || !(q <= qty) || p == null) continue;
+    const rate = p / q;
+    const better = rate < bestRate - 1e-9;
+    const tieLargerPack = best && Math.abs(rate - bestRate) <= 1e-9 && q > num(best.quantity);
+    if (better || tieLargerPack) {
+      best = row;
+      bestRate = rate;
+    }
+  }
+  return best;
+}
+
+/**
+ * The first price point priced at a HIGHER per-unit rate than a smaller quantity in
+ * the same price group (Price Set). The register sells at the best rate, so such a
+ * price point would never be used — the product editor asks before saving it
+ * (reference "Invalid Price Rates Detected"). Blank and $0 rows are ignored.
+ * @returns the offending quantity, or null
+ */
+export function findHigherRateQuantity(rows) {
+  const groups = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const q = num(row?.quantity);
+    const p = num(row?.price);
+    if (!(q > 0) || !(p > 0)) continue;
+    const key = row?.priceSetId ?? 'default';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ quantity: q, rate: p / q });
+  }
+  let found = null;
+  for (const list of groups.values()) {
+    list.sort((a, b) => a.quantity - b.quantity);
+    let lowestSoFar = Infinity;
+    for (const tier of list) {
+      if (tier.rate > lowestSoFar + 1e-9) {
+        if (found == null || tier.quantity < found) found = tier.quantity;
+        break;
+      }
+      lowestSoFar = Math.min(lowestSoFar, tier.rate);
+    }
+  }
+  return found;
+}
+
 // --- Sell screen: family quantity pricing ----------------------------------------
 //
 // Family products share their price points at the register: 3 x Beer A + 3 x Beer B

@@ -701,8 +701,11 @@ const CartSidebar = ({
           <Typography component="div" sx={{ fontSize: 20, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
             Total: {formatMoney(calculateTotal())}
           </Typography>
+          {/* Overpaid in cash: show the change owed rather than a flat $0.00 remaining. */}
           <Typography component="div" sx={{ fontSize: 24, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
-            Remaining: {formatMoney(Math.max(0, calculateTotal() - paidTotal))}
+            {paidTotal - calculateTotal() > 0.005
+              ? `Change: ${formatMoney(paidTotal - calculateTotal())}`
+              : `Remaining: ${formatMoney(Math.max(0, calculateTotal() - paidTotal))}`}
           </Typography>
         </Box>
       ) : (

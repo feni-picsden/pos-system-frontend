@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -58,6 +58,9 @@ const inferSeverity = (message) => {
 
 const AppDialogContext = createContext(null);
 
+// How long a message that needs no answer stays up (success toast, info/warning alert).
+const AUTO_CLOSE_MS = 3000;
+
 const PAPER_SX = {
   width: 440,
   maxWidth: '92vw',
@@ -106,6 +109,15 @@ export const AppDialogProvider = ({ children }) => {
       return next;
     });
   }, []);
+
+  // A message that needs nothing from the user closes itself after 3 seconds: an info
+  // or warning alert with only an OK button (OK still closes it sooner). An error stays
+  // until OK — a problem has to be read — and confirm/prompt always wait for an answer.
+  useEffect(() => {
+    if (request?.type !== 'alert' || !['info', 'warning'].includes(request.severity)) return undefined;
+    const timer = setTimeout(() => close(undefined), AUTO_CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [request, close]);
 
   const notify = useCallback((message, severity = 'success') => {
     setToast({ message: String(message ?? ''), severity });
@@ -215,7 +227,7 @@ export const AppDialogProvider = ({ children }) => {
 
       <Snackbar
         open={Boolean(toast)}
-        autoHideDuration={2500}
+        autoHideDuration={AUTO_CLOSE_MS}
         onClose={() => setToast(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ zIndex: 2100 }}

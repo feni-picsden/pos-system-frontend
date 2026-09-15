@@ -65,6 +65,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import productService from '../../services/productService';
 import futurePriceService from '../../services/futurePriceService';
 import classificationService from '../../services/classificationService';
+import { bestRateTier } from '../../utils/familyOverride';
 
 // Reference has no transitions anywhere on this page.
 const INSTANT = 'all 0s ease';
@@ -999,14 +1000,9 @@ const FuturePrices = () => {
 
     if (Array.isArray(product.prices) && product.prices.length > 0) {
       const sorted = [...product.prices].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
-      let selectedTier = null;
-      for (let i = sorted.length - 1; i >= 0; i--) {
-        if ((Number(sorted[i].quantity) || 0) <= qty) {
-          selectedTier = sorted[i];
-          break;
-        }
-      }
-      if (!selectedTier) selectedTier = sorted[0];
+      // Same rule the register sells at: the best per-unit rate at or below the
+      // quantity, so the suggested price matches what the till would charge.
+      const selectedTier = bestRateTier(sorted, qty) || sorted[0];
       if (selectedTier) {
         const pricePerUnit = (Number(selectedTier.price) || 0) / (Number(selectedTier.quantity) || 1);
         return pricePerUnit * qty;

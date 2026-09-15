@@ -66,6 +66,11 @@ const roundTender = (amount, method, step = roundingStep()) => {
   return sign * Math.round(Math.abs(amount) / step) * step;
 };
 
+// Cash is the only tender that can be over-paid: the difference is handed back as
+// change from the drawer. Every other method is capped at the balance still owed.
+const isCashMethod = (method) =>
+  [method?.name, method?.type].some((v) => String(v || '').trim().toLowerCase() === 'cash');
+
 // Runnable self-checks for the money paths (silent unless the arithmetic regresses).
 const roundingOn = { masterDatabaseRef: JSON.stringify({ useRounding: true }) };
 console.assert(roundTender(10.02, roundingOn, 0.05) === 10, 'rounding: 10.02 -> 10.00');
@@ -192,6 +197,27 @@ const FinalizeSaleDialog = ({
     }
   };
 
+  // The payment row(s) for a non-integrated tender of `requested` dollars.
+  //  * Cash may exceed the balance (change); other methods are capped at it.
+  //  * A method with "Use Rounding" rounds what it takes. When that tender pays the
+  //    WHOLE balance but rounds it DOWN (10.02 -> 10.00), the customer owes nothing
+  //    more, so the unrounded cents go on a Rounding row — otherwise 2c stays
+  //    "remaining" and the sale can never finish.
+  //  * Never a $0 row (a tender that rounds to nothing adds nothing).
+  const tenderRows = (requested, method) => {
+    const name = method.name || method.type;
+    const tender = isCashMethod(method) ? requested : Math.min(requested, remainingBalance);
+    if (!(tender > 0)) return [];
+    const rounded = Math.round(roundTender(tender, method) * 100) / 100;
+    const rows = rounded > 0 ? [{ amount: rounded, method: name, description: name }] : [];
+    const coversBalance = tender >= remainingBalance - PAYMENT_TOLERANCE;
+    const shortBy = Math.round((remainingBalance - rounded) * 100) / 100;
+    if (coversBalance && shortBy > 0 && shortBy < roundingStep()) {
+      rows.push({ amount: shortBy, method: 'Rounding', description: 'Rounding' });
+    }
+    return rows;
+  };
+
   const handlePaymentMethodClick = (method) => {
     // ponytail: requireOrderReference — block any payment entry until a reference exists.
     if (needsOrderRef) {
@@ -265,46 +291,18 @@ const FinalizeSaleDialog = ({
       }
 
       if (accountAmount > 0) {
-        const willCompleteSale = accountAmount >= remainingBalance;
-
-        const paymentId = `payment-${crypto.randomUUID()}`;
-        const newPayment = {
-          id: paymentId,
+        // The order reference travels WITH the payment (saveSaleToHistory forwards
+        // payment.reference to createSale). onAddPayment completes the sale itself once
+        // it is fully paid, so there is no second, delayed completion here — that one
+        // carried the reference but always lost to the first and was skipped.
+        onAddPayment({
           amount: accountAmount,
           method: 'On Account',
-          timestamp: Date.now(),
           description: 'On Account Payment',
-          // ponytail: requireOrderReference — persist the ref via the payment.reference
-          // field that saveSaleToHistory already forwards to createSale.
           reference: orderReference.trim() || undefined,
-        };
-        
-        const onAccountPayment = {
-          amount: accountAmount,
-          method: 'On Account',
-          description: 'On Account Payment'
-        };
-        onAddPayment(onAccountPayment);
+        });
         setPaymentAmount('');
         setSelectedPaymentMethod(null);
-        
-        if (willCompleteSale) {
-          console.log('[On Account] Payment covers full amount, auto-completing sale');
-          console.log('[On Account] Created payment object:', newPayment);
-          console.log('[On Account] Current payments prop:', payments);
-          
-          // Wait for payment to be added to state, then complete transaction
-          setTimeout(() => {
-            // Create updated payments array including the new On Account payment
-            // Always include the payment we just created to ensure it's included
-            const updatedPayments = [...payments, newPayment];
-            console.log('[On Account] Updated payments for completion:', updatedPayments);
-            console.log('[On Account] Payment count:', updatedPayments.length);
-            console.log('[On Account] On Account payments in array:', updatedPayments.filter(p => (p.method || '').toLowerCase().includes('account')));
-            // Call completion with updated payments
-            onCompleteTransaction(updatedPayments);
-          }, 500); // Increased timeout to ensure state is updated
-        }
       }
       return;
     }
@@ -327,16 +325,13 @@ const FinalizeSaleDialog = ({
       return;
     }
     
-    // Allow overpayment (e.g. $100 on a $49 sale) — change is calculated on complete.
+    // Cash may be over-paid (e.g. $100 on a $49 sale) — change is calculated on
+    // complete; other methods are capped at the balance (see tenderRows).
     // Ref: clicking a tender with the amount left empty pays the full remaining
     // balance (same default the EFTPOS / On Account / Loyalty branches use).
-    const tenderAmount = amount > 0 ? amount : remainingBalance;
-    if (tenderAmount > 0) {
-      onAddPayment({
-        amount: roundTender(tenderAmount, method),
-        method: method.name || method.type,
-        description: method.name || method.type
-      });
+    const rows = tenderRows(amount > 0 ? amount : remainingBalance, method);
+    if (rows.length > 0) {
+      onAddPayment(rows.length === 1 ? rows[0] : rows);
       setPaymentAmount('');
       setSelectedPaymentMethod(null);
     }
@@ -360,7 +355,9 @@ const FinalizeSaleDialog = ({
         const onAccountPayment = {
           amount: remainingBalance,
           method: 'On Account',
-          description: 'On Account Payment'
+          description: 'On Account Payment',
+          // Travels with the payment; onAddPayment completes the sale (see the click path).
+          reference: orderReference.trim() || undefined,
         };
 
         // Create the payment object with the same format as handleAddPaymentFromDialog creates
@@ -382,13 +379,6 @@ const FinalizeSaleDialog = ({
         console.log('[On Account] Pay exact amount - auto-completing sale');
         console.log('[On Account] Created payment object:', newPayment);
         
-        setTimeout(() => {
-          // Create updated payments array including the new On Account payment
-          const updatedPayments = [...payments, newPayment];
-          console.log('[On Account] Current payments prop:', payments);
-          console.log('[On Account] Updated payments for completion:', updatedPayments);
-          onCompleteTransaction(updatedPayments);
-        }, 400); // Increased timeout to ensure state is updated
         return;
       }
       
@@ -415,11 +405,8 @@ const FinalizeSaleDialog = ({
         return;
       }
 
-      onAddPayment({
-        amount: roundTender(remainingBalance, selectedPaymentMethod),
-        method: selectedPaymentMethod.name || selectedPaymentMethod.type,
-        description: selectedPaymentMethod.name || selectedPaymentMethod.type
-      });
+      const rows = tenderRows(remainingBalance, selectedPaymentMethod);
+      if (rows.length > 0) onAddPayment(rows.length === 1 ? rows[0] : rows);
       setPaymentAmount('');
       setSelectedPaymentMethod(null);
     }

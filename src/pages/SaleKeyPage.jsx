@@ -121,7 +121,7 @@ import { isEftposMethod } from '../services/linklyService';
 import paymentMethodService, { allowsCashOut, getPaymentMethodSettings } from '../services/paymentMethodService';
 import loyaltyService from '../services/loyaltyService';
 import cashManagementService from '../services/cashManagementService';
-import { tiersKey, groupFamilyLines, shareByQuantity } from '../utils/familyOverride';
+import { tiersKey, groupFamilyLines, shareByQuantity, bestRateTier } from '../utils/familyOverride';
 import productComboService from '../services/productComboService';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
@@ -3024,11 +3024,18 @@ const SaleKeyPage = () => {
           break;
         }
         if (paymentAmount > 0) {
+          // Only cash can be over-tendered (the difference is change). Any other method
+          // is capped at what is still owed, the same as the card path above.
+          const keyMethod = saleKey.paymentMethod || 'cash';
+          const keyTender = isCashTender(keyMethod)
+            ? paymentAmount
+            : Math.min(paymentAmount, Math.max(0, calculateRemainingBalance()));
+          if (keyTender <= 0) break;
           setPayments(prev => {
             const newPayments = [...prev, {
             id: `payment-${crypto.randomUUID()}`,
-            amount: paymentAmount,
-            method: saleKey.paymentMethod || 'cash',
+            amount: keyTender,
+            method: keyMethod,
             timestamp: Date.now(),
             description: saleKey.name
             }];
@@ -3705,7 +3712,9 @@ const SaleKeyPage = () => {
         throw new Error('No payments provided for sale');
       }
 
-      const salePayments = finalPayments.map(payment => {
+      // A reversed tender and its negative copy cancel out — they stay on screen as the
+      // audit trail, but are not money taken, so they are not banked as payment rows.
+      const salePayments = finalPayments.filter(payment => !payment.reversed).map(payment => {
         const method = payment.method || 'Cash';
         return {
           paymentMethod: method,
@@ -3775,11 +3784,20 @@ const SaleKeyPage = () => {
     }
   };
 
+  // Only cash is handed back, so a split payment's change is the overpaid amount but
+  // never more than the cash tendered: an overpaid voucher or cheque is not money in
+  // the drawer, and counting it as change took it off the drawer's expected cash.
+  // Rounded to the cent so float dust (1e-15) never becomes a Cash (Change) row.
+  const isCashTender = (method) => String(method || '').trim().toLowerCase() === 'cash';
+
   const normalizeCashForChange = (paymentsArray, cartTotal) => {
     const paymentsCopy = Array.isArray(paymentsArray) ? paymentsArray.map(p => ({ ...p })) : [];
     const totalPaid = paymentsCopy.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    const cashPaid = paymentsCopy
+      .filter((p) => isCashTender(p.method))
+      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
     const total = parseFloat(cartTotal) || 0;
-    const change = Math.max(0, totalPaid - total);
+    const change = Math.round(Math.max(0, Math.min(totalPaid - total, cashPaid)) * 100) / 100;
     if (change > 0) {
       const cashIndex = [...paymentsCopy].reverse().findIndex(p => (p.method || '').toLowerCase() === 'cash');
       if (cashIndex !== -1) {
@@ -5342,26 +5360,51 @@ const SaleKeyPage = () => {
     setShowFinalizeDialog(true);
   };
 
-  // Handle adding payment from finalize dialog
-  const handleAddPaymentFromDialog = async (payment) => {
-    const newPayment = {
+  // The latest payments, readable synchronously. handleAddPaymentFromDialog is reached
+  // after awaits (gift card lookup, PIN pad approval) where the render-time `payments`
+  // is already stale, so a payment added moments earlier went missing from the list
+  // the sale completed with.
+  const paymentsRef = useRef(payments);
+  paymentsRef.current = payments;
+
+  // A gift card tender that is removed or reversed must not be deducted from the card
+  // at completion (the deduction is queued in pendingGiftCardRef when it is tendered).
+  const dropPendingGiftCard = (payment) => {
+    if (!payment?.giftCardCode) return;
+    const pending = pendingGiftCardRef.current;
+    const i = pending.findIndex(
+      (g) => g.code === payment.giftCardCode &&
+        Math.abs((parseFloat(g.amount) || 0) - Math.abs(parseFloat(payment.amount) || 0)) < 0.005
+    );
+    if (i !== -1) pendingGiftCardRef.current = [...pending.slice(0, i), ...pending.slice(i + 1)];
+  };
+
+  // Handle adding payment from finalize dialog. Takes one payment, or several that
+  // belong together (a rounded cash tender and its Rounding adjustment).
+  const handleAddPaymentFromDialog = async (paymentOrPayments) => {
+    const incoming = (Array.isArray(paymentOrPayments) ? paymentOrPayments : [paymentOrPayments]).filter(Boolean);
+    if (incoming.length === 0) return;
+    const payment = incoming[0];
+    const newPayments = incoming.map((p) => ({
       id: `payment-${crypto.randomUUID()}`,
-      amount: parseFloat(payment.amount) || 0,
-      method: payment.method,
+      amount: parseFloat(p.amount) || 0,
+      method: p.method,
       timestamp: Date.now(),
-      description: payment.description || payment.method,
-      reference: payment.reference, // Linkly txnRef (card) / order ref (on account) — persisted to SalePayment.reference
-      integrated: payment.integrated === true, // PIN pad charge — blocks clear/cancel until refunded
-      eftposReceipt: payment.eftposReceipt || null, // Linkly customer receipt text; printed on the sale receipt
-      pointsRedeemed: payment.pointsRedeemed || null // Store points redeemed for loyalty payments
-    };
+      description: p.description || p.method,
+      reference: p.reference, // Linkly txnRef (card) / order ref (on account) — persisted to SalePayment.reference
+      integrated: p.integrated === true, // PIN pad charge — blocks clear/cancel until refunded
+      eftposReceipt: p.eftposReceipt || null, // Linkly customer receipt text; printed on the sale receipt
+      pointsRedeemed: p.pointsRedeemed || null, // Store points redeemed for loyalty payments
+      giftCardCode: p.giftCardCode || null, // lets a removed gift card tender cancel its deduction
+    }));
 
     const cartTotal = calculateTotal();
-    const updatedPayments = [...payments, newPayment];
+    const updatedPayments = [...paymentsRef.current, ...newPayments];
+    paymentsRef.current = updatedPayments;
     const shouldCompleteSale = isSaleFullyPaid(updatedPayments, cartTotal);
-    
+
     setPayments(prev => {
-      const updatedPayments = [...prev, newPayment];
+      const updatedPayments = [...prev, ...newPayments];
       
       // If this is a loyalty payment, calculate total loyalty redemption
       if (payment.method?.toLowerCase() === 'loyalty' && selectedCustomer?.id) {
@@ -5428,6 +5471,7 @@ const SaleKeyPage = () => {
       alert('Integrated payments (such as EFTPOS/card) must be refunded on the PIN pad before they can be reversed.');
       return;
     }
+    if (!payment.reversed) dropPendingGiftCard(payment);
     setPayments(prev => {
       const target = prev.find(p => p.id === payment.id);
       if (!target || target.reversed) return prev;
@@ -5449,6 +5493,7 @@ const SaleKeyPage = () => {
 
   // Handle removing payment from finalize dialog
   const handleRemovePaymentFromDialog = (paymentId) => {
+    dropPendingGiftCard(paymentsRef.current.find(p => p.id === paymentId));
     setPayments(prev => {
       const paymentToRemove = prev.find(p => p.id === paymentId);
       const updatedPayments = prev.filter(p => p.id !== paymentId);
@@ -6024,45 +6069,14 @@ const SaleKeyPage = () => {
     // default group when the product has no rows in the set).
     const priceRows = effectivePrices(product);
     if (Array.isArray(priceRows) && priceRows.length > 0) {
-      const sorted = [...priceRows].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
-      console.log(`Tier pricing - Sorted tiers:`, sorted.map(t => ({ qty: t.quantity, price: t.price })));
-      
-      let selectedTier = null;
-      
-      if (qty >= 10) {
-        console.log(`Quantity ${qty} >= 10, looking for highest tier <= ${qty}`);
-        for (let i = sorted.length - 1; i >= 0; i -= 1) {
-          const tierQty = Number(sorted[i].quantity);
-          console.log(`  Checking tier ${i}: qty=${tierQty}, price=${sorted[i].price}`);
-          if (!Number.isNaN(tierQty) && tierQty <= qty) {
-            selectedTier = sorted[i];
-            console.log(`  -> Selected tier:`, selectedTier);
-            break;
-          }
-        }
-      } else {
-        console.log(`Quantity ${qty} < 10, looking for exact match first`);
-        selectedTier = sorted.find(t => Number(t.quantity) === qty) || null;
-        if (!selectedTier) {
-          console.log(`No exact match, looking for highest tier <= ${qty}`);
-          for (let i = sorted.length - 1; i >= 0; i -= 1) {
-            const tierQty = Number(sorted[i].quantity);
-            if (!Number.isNaN(tierQty) && tierQty <= qty) {
-              selectedTier = sorted[i];
-              break;
-            }
-          }
-        }
-      }
-      
+      // Best price for the customer (reference Quantity Rate): the price point with the
+      // LOWEST per-unit rate at or below this quantity, times the quantity. Taking the
+      // largest price point instead sold 6 x a $5 single at a $60 six-pack's $10 rate.
+      const selectedTier = bestRateTier(priceRows, qty);
       if (selectedTier && typeof selectedTier.price !== 'undefined') {
         const tierPrice = Number(selectedTier.price) || 0;
         const tierQuantity = Number(selectedTier.quantity) || 1;
-        const pricePerUnit = tierPrice / tierQuantity;
-        console.log(`Using tier: qty=${tierQuantity}, price=${tierPrice}, unit=${pricePerUnit}, total=${pricePerUnit * qty}`);
-        return pricePerUnit * qty;
-      } else {
-        console.log(`No tier selected or tier has no price`);
+        return (tierPrice / tierQuantity) * qty;
       }
     }
     
@@ -6297,6 +6311,36 @@ const SaleKeyPage = () => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, isTransactionComplete, priceListConfig]);
+
+  // Done on the completed-sale panel: clear everything for the next sale.
+  const startNextSale = () => {
+    saleEpochRef.current++;
+    setCart([]);
+    setPayments([]);
+    setSelectedCustomer(null);
+    setIsTransactionComplete(false);
+    setShowReceipt(false);
+    setTransactionId(null);
+    setReceiptData(null);
+    setLoyaltyRedemption(null);
+    setLoyaltyCalculation(null);
+  };
+
+  // Automatic Done: a completed sale that needs nothing more from the cashier (no
+  // change to hand back) clears for the next sale 3 seconds after it completes. A sale
+  // WITH change stays until Done so the change figure is not lost, and using the panel
+  // (Print, Email, Add Customer, the receipt template) cancels the countdown.
+  const [autoDoneCancelled, setAutoDoneCancelled] = useState(false);
+  useEffect(() => {
+    if (!isTransactionComplete) setAutoDoneCancelled(false);
+  }, [isTransactionComplete]);
+  useEffect(() => {
+    if (!isTransactionComplete || !receiptData || autoDoneCancelled) return undefined;
+    if ((parseFloat(receiptData.change) || 0) > 0) return undefined;
+    const timer = setTimeout(startNextSale, 3000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTransactionComplete, receiptData, autoDoneCancelled]);
 
   // Cart-line padlock: one click strips the manual price and re-prices the line
   // through the automatic waterfall (reference unlock, no confirmation).
@@ -7860,9 +7904,11 @@ const SaleKeyPage = () => {
                       '&:hover': { bgcolor: '#1c86f2', boxShadow: 'none' },
                     },
                   }}>
-                    <Button variant="contained" startIcon={<PrintIcon />} onClick={handlePrintReceipt}>Print</Button>
-                    <Button variant="contained" startIcon={<PersonAddIcon />} onClick={handleAddCustomerClick}>Add Customer</Button>
-                    <Button variant="contained" startIcon={<EmailIcon />} onClick={handleEmailReceipt}>Email</Button>
+                    {/* Using the completed sale (print, email, attach a customer) stops
+                        the automatic Done, so the screen never clears under the cashier. */}
+                    <Button variant="contained" startIcon={<PrintIcon />} onClick={(e) => { setAutoDoneCancelled(true); handlePrintReceipt(e); }}>Print</Button>
+                    <Button variant="contained" startIcon={<PersonAddIcon />} onClick={(e) => { setAutoDoneCancelled(true); handleAddCustomerClick(e); }}>Add Customer</Button>
+                    <Button variant="contained" startIcon={<EmailIcon />} onClick={(e) => { setAutoDoneCancelled(true); handleEmailReceipt(e); }}>Email</Button>
                   </Box>
 
                   {/* Template field: white, 1px #5a5a5a, 8px radius, with the
@@ -7871,6 +7917,7 @@ const SaleKeyPage = () => {
                     <FormControl fullWidth>
                       <Select
                         value={selectedTemplate?.id || ''}
+                        onOpen={() => setAutoDoneCancelled(true)}
                         onChange={(e) => {
                           const template = receiptTemplates.find(t => t.id === e.target.value);
                           setSelectedTemplate(template);
@@ -7925,18 +7972,7 @@ const SaleKeyPage = () => {
                 <Button
                   variant="contained"
                   fullWidth
-                  onClick={() => {
-                    saleEpochRef.current++;
-                    setCart([]);
-                    setPayments([]);
-                    setSelectedCustomer(null);
-                    setIsTransactionComplete(false);
-                    setShowReceipt(false);
-                    setTransactionId(null);
-                    setReceiptData(null);
-                    setLoyaltyRedemption(null);
-                    setLoyaltyCalculation(null);
-                  }}
+                  onClick={startNextSale}
                   sx={{
                     flexShrink: 0,
                     bgcolor: '#1c86f2',

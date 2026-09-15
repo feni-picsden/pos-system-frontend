@@ -7,6 +7,8 @@ import {
   tiersKey,
   groupFamilyLines,
   shareByQuantity,
+  bestRateTier,
+  findHigherRateQuantity,
 } from './familyOverride.js';
 
 // A family member as GET /products?family=<id> returns it.
@@ -117,6 +119,60 @@ const tiers = (...pairs) =>
   const formData = { prices: [{ quantity: 1, price: 1, cost: 2 }], retailTaxRate: 'GST' };
   const out = applyFamilyTemplate(formData, { prices: [{ quantity: 1, price: 3 }], retailTaxRate: null });
   assert.equal(out.retailTaxRate, 'GST', 'a missing family tax rate leaves the product\'s intact');
+}
+
+// --- price points: best rate ------------------------------------------------------
+
+{
+  const dearPack = [{ quantity: 1, price: 5 }, { quantity: 6, price: 60 }];
+  const at = (qty) => {
+    const t = bestRateTier(dearPack, qty);
+    return t ? (t.price / t.quantity) * qty : null;
+  };
+  assert.equal(at(6), 30, 'a $60 six-pack dearer than $5 singles: 6 sell for $30 (reference)');
+  assert.equal(at(7), 35, '7 also sell at the single rate');
+  assert.equal(at(1), 5, 'one sells at the single price');
+
+  const goodPack = [{ quantity: 1, price: 3 }, { quantity: 6, price: 16 }];
+  assert.equal(bestRateTier(goodPack, 6).quantity, 6, 'a cheaper six-pack is still used at 6');
+  assert.equal(bestRateTier(goodPack, 5).quantity, 1, 'below the pack, the single price applies');
+  assert.equal(bestRateTier([{ quantity: 6, price: 16 }], 3), null, 'nothing at or below the quantity');
+  assert.equal(
+    bestRateTier([{ quantity: 1, price: 5 }, { quantity: 2, price: 10 }], 2).quantity,
+    2,
+    'an equal rate picks the larger pack'
+  );
+}
+
+{
+  assert.equal(
+    findHigherRateQuantity([{ quantity: 1, price: 5 }, { quantity: 6, price: 60 }]),
+    6,
+    'the six-pack at $10 each is dearer than the $5 single'
+  );
+  assert.equal(
+    findHigherRateQuantity([{ quantity: 1, price: 3 }, { quantity: 6, price: 16 }]),
+    null,
+    'a cheaper pack is fine'
+  );
+  assert.equal(
+    findHigherRateQuantity([{ quantity: 6, price: 60 }, { quantity: 1, price: 5 }]),
+    6,
+    'rows are compared by quantity, whatever order they are in'
+  );
+  assert.equal(
+    findHigherRateQuantity([
+      { quantity: 1, price: 5, priceSetId: null },
+      { quantity: 6, price: 20, priceSetId: 3 },
+    ]),
+    null,
+    'rows in different Price Sets are not compared with each other'
+  );
+  assert.equal(
+    findHigherRateQuantity([{ quantity: 1, price: 0 }, { quantity: 6, price: 16 }]),
+    null,
+    'a blank $0 row is ignored'
+  );
 }
 
 // --- sell screen: family quantity pricing ---------------------------------------
