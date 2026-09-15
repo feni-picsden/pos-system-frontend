@@ -58,7 +58,7 @@ const rowActionSx = (color) => ({
 const CELL_PADDING = '8px 8px 8px 10px';
 
 const PromotionCategories = () => {
-  const { isSuperAdmin } = useAuth();
+  const { isTrueSuperAdmin } = useAuth();
   // Renders from IndexedDB first, then revalidates in the background.
   // 'all' bypasses the auto outlet filter so this management page lists every
   // category (global + per-outlet); includeInactive keeps deactivated rows visible.
@@ -206,7 +206,7 @@ const PromotionCategories = () => {
                 <TableCell>Promotion Source</TableCell>
                 <TableCell>Show on Order</TableCell>
                 <TableCell>Include in Integrations</TableCell>
-                {isSuperAdmin() && <TableCell>Outlet</TableCell>}
+                {isTrueSuperAdmin() && <TableCell>Outlet</TableCell>}
                 <TableCell>Promotions</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -221,7 +221,7 @@ const PromotionCategories = () => {
             >
               {promotionCategories.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isSuperAdmin() ? 8 : 7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={isTrueSuperAdmin() ? 8 : 7} align="center" sx={{ py: 4 }}>
                     <Typography variant="body1" color="text.secondary">
                       No promotion categories found. {canAddPromotionCategories && 'Click "New" to create your first promotion category.'}
                     </Typography>
@@ -248,7 +248,7 @@ const PromotionCategories = () => {
                         <CancelOutlined sx={{ color: '#737373' }} />
                       )}
                     </TableCell>
-                    {isSuperAdmin() && (
+                    {isTrueSuperAdmin() && (
                       <TableCell>
                         <Chip
                           label={getOutletDisplay(promotionCategory)}

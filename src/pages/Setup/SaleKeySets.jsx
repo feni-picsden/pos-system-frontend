@@ -43,7 +43,7 @@ const SaleKeySets = () => {
     outlets,
     selectedOutletId,
     isAllOutlets,
-    isSuperAdmin,
+    isTrueSuperAdmin,
   } = useSelectedOutlet();
   const [saleKeySets, setSaleKeySets] = useState([]);
   const [, setLoading] = useState(true);
@@ -62,17 +62,17 @@ const SaleKeySets = () => {
   const resolveListOutletId = useCallback(
     () =>
       getSaleKeysOutletId({
-        isSuperAdmin,
+        isTrueSuperAdmin,
         getOutletId,
         selectedOutletId,
       }),
-    [isSuperAdmin, getOutletId, selectedOutletId]
+    [isTrueSuperAdmin, getOutletId, selectedOutletId]
   );
 
   const loadSaleKeySets = useCallback(async () => {
     setError('');
 
-    if (isSuperAdmin && isAllOutlets) {
+    if (isTrueSuperAdmin && isAllOutlets) {
       setSaleKeySets([]);
       setError('Select an outlet from the top navigation to view sale key sets.');
       setLoading(false);
@@ -114,7 +114,7 @@ const SaleKeySets = () => {
     } finally {
       setLoading(false);
     }
-  }, [isSuperAdmin, isAllOutlets, resolveListOutletId]);
+  }, [isTrueSuperAdmin, isAllOutlets, resolveListOutletId]);
 
   useEffect(() => {
     loadSaleKeySets();
@@ -216,7 +216,7 @@ const SaleKeySets = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const createDisabled = isSuperAdmin && isAllOutlets;
+  const createDisabled = isTrueSuperAdmin && isAllOutlets;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -256,7 +256,7 @@ const SaleKeySets = () => {
                 }}
               >
                 <TableCell>Name</TableCell>
-                {isSuperAdmin && (
+                {isTrueSuperAdmin && (
                   <TableCell>Outlet</TableCell>
                 )}
                 <TableCell>Description</TableCell>
@@ -276,7 +276,7 @@ const SaleKeySets = () => {
               {saleKeySets.map((set) => (
                 <TableRow key={set.id}>
                   <TableCell sx={{ fontWeight: 'medium' }}>{set.name}</TableCell>
-                  {isSuperAdmin && (
+                  {isTrueSuperAdmin && (
                     <TableCell>{getOutletLabel(set.outletId)}</TableCell>
                   )}
                   <TableCell>{set.description}</TableCell>

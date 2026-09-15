@@ -17,7 +17,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 // list's configuration page. Description / discount / markup / active / default are
 // edited afterwards on the price list details page (PriceListDetails.jsx).
 const PriceListDialog = ({ open, onClose, onSave }) => {
-  const { isSuperAdmin } = useAuth();
+  const { isTrueSuperAdmin } = useAuth();
   const { selectedOutletId } = useSelectedOutlet();
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -46,7 +46,7 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
       // Non super admins are scoped to their own outlet server-side; super admins
       // create into whichever outlet the global outlet switcher has selected.
       const payload = { name: name.trim() };
-      if (isSuperAdmin()) {
+      if (isTrueSuperAdmin()) {
         payload.outletId = selectedOutletId;
       }
       const response = await priceListService.createPriceList(payload);

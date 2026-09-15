@@ -37,7 +37,7 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 
 const GiftCards = () => {
   const navigate = useNavigate();
-  const { isSuperAdmin, getOutletId, getOutletName } = useAuth();
+  const { isTrueSuperAdmin, getOutletId, getOutletName } = useAuth();
   // Renders from IndexedDB first, then revalidates in the background.
   // showRedeemedExpired is either/or on the API (true returns ONLY the
   // redeemed/expired set), so cache both halves and filter locally.
@@ -63,7 +63,7 @@ const GiftCards = () => {
   // Load outlets if super admin
   useEffect(() => {
     const loadOutlets = async () => {
-      if (isSuperAdmin()) {
+      if (isTrueSuperAdmin()) {
         setLoadingOutlets(true);
         try {
           const response = await outletService.getAllOutlets();
@@ -87,7 +87,7 @@ const GiftCards = () => {
     };
 
     loadOutlets();
-  }, [isSuperAdmin, getOutletId]);
+  }, [isTrueSuperAdmin, getOutletId]);
 
   // Functions tray is an inline disclosure: Esc closes it (the tab itself toggles).
   useEffect(() => {
@@ -353,7 +353,7 @@ const GiftCards = () => {
       </Box>
 
       {/* Outlet Filter - Only show for super admin. Flat (radius 0), placeholder 'Outlet' like the reference react-select */}
-      {isSuperAdmin() && (
+      {isTrueSuperAdmin() && (
         <FormControl fullWidth sx={{ mb: 2 }}>
           <Select
             value={selectedOutlet}

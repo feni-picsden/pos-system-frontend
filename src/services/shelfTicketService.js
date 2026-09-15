@@ -4,7 +4,11 @@ const resolveSuperAdminOutletId = () => {
   try {
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : null;
-    const isSuperAdmin = user?.isSuperAdmin === true || user?.hasAllPermission === true;
+    // Outlet scoping, so it takes the same rule as the backend's canAccessAllOutlets:
+    // an admin PINNED to an outlet is scoped to it and must not ask for another's.
+    const isSuperAdmin =
+      (user?.isSuperAdmin === true || user?.hasAllPermission === true) &&
+      (user?.outletId === null || user?.outletId === undefined);
 
     if (!isSuperAdmin) return undefined;
 

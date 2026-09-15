@@ -585,7 +585,7 @@ const Sidebar = ({ onClick }) => {
   const [openItems, setOpenItems] = useState({});
   const [customerDisplayOpen, setCustomerDisplayOpen] = useState(false);
   const navigate = useNavigate();
-  const { isSuperAdmin, getOutletName } = useAuth();
+  const { getOutletName } = useAuth();
   const { hasAnyPermission, user, loading } = usePermissions();
 
   useEffect(() => {
@@ -825,7 +825,7 @@ const Sidebar = ({ onClick }) => {
 
   return (
     <Box sx={{ width: "100%", height: "100%", pt: 0 }}>
-      {!isSuperAdmin() && getOutletName() && (
+      {!isTrueSuperAdmin && getOutletName() && (
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="caption" color="text.secondary" display="block">
             Current Outlet

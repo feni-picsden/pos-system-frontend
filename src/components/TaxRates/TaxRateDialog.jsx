@@ -23,7 +23,7 @@ import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 
 const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' }) => {
-  const { user, isSuperAdmin } = useAuth();
+  const { user, isTrueSuperAdmin } = useAuth();
   const isEditMode = mode === 'edit' && taxRate;
 
   const [formData, setFormData] = useState({
@@ -60,16 +60,16 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
           masterDatabaseRef: '',
           isActive: true,
           isDefault: false,
-          outletId: !isSuperAdmin() && user?.outletId ? user.outletId : null,
+          outletId: !isTrueSuperAdmin() && user?.outletId ? user.outletId : null,
         });
       }
       setError('');
     }
-  }, [open, isEditMode, taxRate, isSuperAdmin, user]);
+  }, [open, isEditMode, taxRate, isTrueSuperAdmin, user]);
 
   const loadOutlets = async () => {
     try {
-      if (isSuperAdmin()) {
+      if (isTrueSuperAdmin()) {
         const response = await outletService.getAllOutlets();
         setOutlets(response.outlets || []);
       }
@@ -236,7 +236,7 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
           </TextField>
 
           {/* Outlet Selection - Only for Super Admin */}
-          {isSuperAdmin() && (
+          {isTrueSuperAdmin() && (
             <TextField
               select
               label="Outlet"
@@ -256,7 +256,7 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
           )}
 
           {/* Current outlet info for non-super admin */}
-          {!isSuperAdmin() && user?.outletId && (
+          {!isTrueSuperAdmin() && user?.outletId && (
             <Typography variant="body2" color="text.secondary">
               This tax rate will be created for your current outlet.
             </Typography>

@@ -44,7 +44,7 @@ const steps = [
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
 const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDetailsModal }) => {
-  const { isSuperAdmin, getOutletId, user } = useAuth();
+  const { isTrueSuperAdmin, getOutletId, user } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
   // Custom Page Rule (Settings > Page Rules > Customers). When a valid rule is
   // stored it replaces this built-in wizard; a broken rule falls back here.
@@ -109,11 +109,11 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
   useEffect(() => {
     if (open) {
       loadCustomerGroups();
-      if (isSuperAdmin()) {
+      if (isTrueSuperAdmin()) {
         loadOutlets();
       }
       // Set default outlet for non-super admin users
-      if (!isSuperAdmin()) {
+      if (!isTrueSuperAdmin()) {
         setFormData(prev => ({ ...prev, outletId: getOutletId() }));
       }
       // Reset form when modal opens
@@ -128,7 +128,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
         emails: ['']
       }));
     }
-  }, [open, isSuperAdmin, getOutletId]);
+  }, [open, isTrueSuperAdmin, getOutletId]);
 
   // Reload customer groups when outletId changes
   useEffect(() => {
@@ -168,7 +168,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
           filtered = response.customerGroups.filter(
             (g) => (g.outletId === outletIdToFilter || g.outletId === null) && g.isActive
           );
-        } else if (!isSuperAdmin()) {
+        } else if (!isTrueSuperAdmin()) {
           const userOutletId = getOutletId();
           filtered = response.customerGroups.filter(
             (g) => (g.outletId === userOutletId || g.outletId === null) && g.isActive
@@ -296,7 +296,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
               Which group does {formData.firstName || 'the customer'} belong to?
             </Typography>
             <Box sx={{ maxWidth: 800 }}>
-              {isSuperAdmin() && (
+              {isTrueSuperAdmin() && (
                 <FormControl fullWidth sx={{ mb: 2 }}>
                   <Select
                     value={formData.outletId || ''}
@@ -315,7 +315,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                 </FormControl>
               )}
 
-              {!isSuperAdmin() && (
+              {!isTrueSuperAdmin() && (
                 <Box sx={{ 
                   p: 2, 
                   bgcolor: 'rgba(255, 255, 255, 0.1)', 

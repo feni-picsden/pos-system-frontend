@@ -61,7 +61,7 @@ const StatementTemplates = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert, prompt } = useAppDialogs();
   const navigate = useNavigate();
-  const { isSuperAdmin } = useAuth();
+  const { isTrueSuperAdmin } = useAuth();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -101,10 +101,10 @@ const StatementTemplates = () => {
 
   useEffect(() => {
     loadTemplates();
-    if (isSuperAdmin()) {
+    if (isTrueSuperAdmin()) {
       loadOutlets();
     }
-  }, [isSuperAdmin]);
+  }, [isTrueSuperAdmin]);
 
   const loadOutlets = async () => {
     try {
@@ -141,7 +141,7 @@ const StatementTemplates = () => {
         createdAt: new Date().toISOString(),
       };
 
-      if (isSuperAdmin() && newTemplate.outletId) {
+      if (isTrueSuperAdmin() && newTemplate.outletId) {
         templateData.outletId = parseInt(newTemplate.outletId);
       }
 
@@ -504,7 +504,7 @@ const StatementTemplates = () => {
           />
 
           {/* Outlet Selector for Super Admins */}
-          {isSuperAdmin() && (
+          {isTrueSuperAdmin() && (
             <FormControl sx={{ width: 350, mt: '16px' }}>
               <InputLabel>Assign to Outlet (Optional)</InputLabel>
               <Select

@@ -211,7 +211,13 @@ apiClient.interceptors.response.use(
   }
 );
 
-const GET_CACHE_TTL_MS = 2 * 60 * 1000;
+// Short on purpose. The cache only clears itself on writes made in THIS browser, so
+// anything it holds past this window is a figure someone else has already changed —
+// a sale on another register, stock received at the back door. Fifteen seconds still
+// collapses the burst of identical GETs a page fires while it mounts, which is what
+// the cache is actually for; two minutes was long enough to show stale stock.
+// Route changes drop it outright — see FreshPerOutletAndRoute in App.jsx.
+const GET_CACHE_TTL_MS = 15 * 1000;
 
 const _pendingGets = new Map();
 const _getCache = new Map();

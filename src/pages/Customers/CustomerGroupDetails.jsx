@@ -146,7 +146,7 @@ const CustomerGroupDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
@@ -199,7 +199,7 @@ const CustomerGroupDetails = () => {
     loadPriceLists(); // Initial load with default filtering
     loadReceiptTemplates(); // Load receipt templates for account sales
     loadStatementTemplates(); // Statement templates live in localStorage, not the receipt-templates API
-    if (isSuperAdmin()) {
+    if (isTrueSuperAdmin()) {
       loadOutlets();
     }
     if (isEditMode) {
@@ -217,7 +217,7 @@ const CustomerGroupDetails = () => {
       let finalOutletId = null;
       if (outletIdFromUrl && outletIdFromUrl !== '') {
         finalOutletId = parseInt(outletIdFromUrl);
-      } else if (!isSuperAdmin()) {
+      } else if (!isTrueSuperAdmin()) {
         // For regular users, use their assigned outlet
         finalOutletId = getOutletId();
       }
@@ -225,7 +225,7 @@ const CustomerGroupDetails = () => {
 
       setFormData((prev) => ({ ...prev, outletId: finalOutletId }));
     }
-  }, [id, isEditMode, isNewMode, searchParams, isSuperAdmin, getOutletId]);
+  }, [id, isEditMode, isNewMode, searchParams, isTrueSuperAdmin, getOutletId]);
 
   useEffect(() => {
     if (formData.outletId !== undefined) {
@@ -277,7 +277,7 @@ const CustomerGroupDetails = () => {
           filteredPriceLists = response.priceLists.filter(
             priceList => (priceList.outletId === outletIdToFilter || priceList.outletId === null) && priceList.isActive
           );
-        } else if (!isSuperAdmin()) {
+        } else if (!isTrueSuperAdmin()) {
           // For non-super admin users, filter by their assigned outlet
           const userOutletId = getOutletId();
           filteredPriceLists = response.priceLists.filter(
@@ -356,7 +356,7 @@ const CustomerGroupDetails = () => {
     }
 
     // Validate outlet selection for super admin
-    if (isSuperAdmin() && !formData.outletId) {
+    if (isTrueSuperAdmin() && !formData.outletId) {
       setError("Please select an outlet for this customer group");
       return;
     }
@@ -463,7 +463,7 @@ const CustomerGroupDetails = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {/* Outlet lives outside the form surface — the reference form has no Outlet field,
                 but a super admin still has to pick one for the group to be saved. */}
-            {isSuperAdmin() && (
+            {isTrueSuperAdmin() && (
               <FormControl sx={{ minWidth: 220, ...FIELD_SX }}>
                 <Select
                   value={formData.outletId || ''}

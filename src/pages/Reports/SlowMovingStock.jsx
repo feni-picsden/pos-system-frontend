@@ -145,7 +145,7 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
 };
 
 const SlowMovingStock = () => {
-  const { getOutletId, getOutletName, isSuperAdmin } = useAuth();
+  const { getOutletId, getOutletName, isTrueSuperAdmin } = useAuth();
 
   // Filter states — brands/categories/families/tags are MULTI-select on the reference.
   const [outletId, setOutletId] = useState(null);
@@ -172,7 +172,7 @@ const SlowMovingStock = () => {
     const load = async () => {
       const currentOutletId = getOutletId();
       try {
-        if (isSuperAdmin()) {
+        if (isTrueSuperAdmin()) {
           const response = await outletService.getAllOutlets();
           const outletsList = response?.outlets || response || [];
           setOutlets(Array.isArray(outletsList) ? outletsList : []);
@@ -203,7 +203,7 @@ const SlowMovingStock = () => {
       }
     };
     load();
-  }, [getOutletId, getOutletName, isSuperAdmin]);
+  }, [getOutletId, getOutletName, isTrueSuperAdmin]);
 
   const ids = (list) => (list.length ? list.map((item) => item.id) : undefined);
 

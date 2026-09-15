@@ -240,7 +240,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const { isSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
@@ -357,7 +357,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
   );
 
   useEffect(() => {
-    if (isSuperAdmin()) {
+    if (isTrueSuperAdmin()) {
       loadOutlets();
     }
 
@@ -390,7 +390,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
         }
       }
     }
-  }, [id, isEditMode, isNewMode, searchParams, location.state, isSuperAdmin, modalWizardData, isModal]);
+  }, [id, isEditMode, isNewMode, searchParams, location.state, isTrueSuperAdmin, modalWizardData, isModal]);
 
   useEffect(() => {
     const outletIdToUse = formData.outletId !== undefined ? formData.outletId : getOutletId();
@@ -464,7 +464,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
           filtered = response.customerGroups.filter(
             (g) => (g.outletId === outletIdToFilter || g.outletId === null) && g.isActive
           );
-        } else if (!isSuperAdmin()) {
+        } else if (!isTrueSuperAdmin()) {
           const userOutletId = getOutletId();
           filtered = response.customerGroups.filter(
             (g) => (g.outletId === userOutletId || g.outletId === null) && g.isActive
@@ -493,7 +493,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
           filtered = response.priceLists.filter(
             (p) => (p.outletId === outletIdToFilter || p.outletId === null) && p.isActive
           );
-        } else if (!isSuperAdmin()) {
+        } else if (!isTrueSuperAdmin()) {
           const userOutletId = getOutletId();
           filtered = response.priceLists.filter(
             (p) => (p.outletId === userOutletId || p.outletId === null) && p.isActive
@@ -604,7 +604,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
         break;
 
       case 'outletId':
-        if (isSuperAdmin() && !value) {
+        if (isTrueSuperAdmin() && !value) {
           errors.outletId = "Please select an outlet for this customer";
         } else {
           delete errors.outletId;
@@ -700,7 +700,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
       errors.firstName = "First name is required";
     }
 
-    if (isSuperAdmin() && !formData.outletId) {
+    if (isTrueSuperAdmin() && !formData.outletId) {
       mainErrorMessage = "Please select an outlet for this customer";
       errors.outletId = "Please select an outlet for this customer";
     }
@@ -917,7 +917,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
     // Reference semantics: completing the 4 wizard questions CREATES the
     // customer immediately and lands on its edit page (no full form first).
     const createFromWizard = async () => {
-      if (isSuperAdmin() && !formData.outletId) {
+      if (isTrueSuperAdmin() && !formData.outletId) {
         setWizardStep(1);
         setWizardError("Please select an outlet for this customer");
         return;
@@ -975,7 +975,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
         question: `Which group does ${formData.firstName || "the customer"} belong to?`,
         content: (
           <>
-            {isSuperAdmin() && (
+            {isTrueSuperAdmin() && (
               <FormControl sx={{ ...wizardInputSx, mb: 2 }}>
                 <Select
                   displayEmpty
@@ -1321,7 +1321,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                   }}
                 />
               </Grid>
-              {isSuperAdmin() && (
+              {isTrueSuperAdmin() && (
                 <Grid item xs={12}>
                   <FormControl fullWidth sx={fieldSx} error={!!fieldErrors.outletId}>
                     <InputLabel>Outlet</InputLabel>

@@ -3,12 +3,12 @@
  * Prefer selectedOutletId from SelectedOutletContext (navbar).
  */
 export function getSaleKeysOutletId({
-  isSuperAdmin,
+  isTrueSuperAdmin,
   getOutletId,
   selectedOutletId,
 } = {}) {
   const superAdmin =
-    typeof isSuperAdmin === 'function' ? isSuperAdmin() : Boolean(isSuperAdmin);
+    typeof isTrueSuperAdmin === 'function' ? isTrueSuperAdmin() : Boolean(isTrueSuperAdmin);
 
   if (selectedOutletId != null && selectedOutletId !== '') {
     return Number(selectedOutletId);

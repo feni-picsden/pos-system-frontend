@@ -65,7 +65,8 @@ import CreateReceiveStock from "./pages/StockManagement/CreateReceiveStock";
 import EditOrder from "./pages/StockManagement/EditOrder";
 import ManageCash from "./pages/ManageCash";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { SelectedOutletProvider } from "./contexts/SelectedOutletContext";
+import { SelectedOutletProvider, useSelectedOutlet } from "./contexts/SelectedOutletContext";
+import apiClient from "./services/apiClient";
 import { SelectedRegisterProvider } from "./contexts/SelectedRegisterContext";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import PermissionProtectedRoute from "./components/Auth/PermissionProtectedRoute";
@@ -184,6 +185,38 @@ const AuthBridge = ({ children }) => {
   );
 };
 
+/**
+ * Keeps what is on screen honest about WHICH outlet it belongs to and HOW OLD it is.
+ * Stock, costs and takings are the sensitive part: showing a figure from the outlet
+ * you just left, or from before someone else's sale, is worse than showing nothing.
+ *
+ * Outlet switch — the key remounts the whole page subtree, so every page refetches.
+ * Most pages load once on mount with no outlet in their dependencies, so switching
+ * outlets otherwise left the previous outlet's rows on screen until you navigated
+ * away and back.
+ *
+ * Navigation — the short-lived GET cache is dropped on every route change, so Back
+ * and Forward re-ask the server instead of replaying a cached page. The cache only
+ * clears itself on writes made in THIS browser, so a sale rung up on another
+ * register was invisible until it expired.
+ *
+ * The bust happens during render, not in an effect: React runs child effects before
+ * parent ones, so an effect here would fire AFTER the page had already read the
+ * stale entry it was meant to clear.
+ */
+const FreshPerOutletAndRoute = ({ children }) => {
+  const { selectedOutletId } = useSelectedOutlet();
+  const { pathname } = useLocation();
+  const lastPath = React.useRef(null);
+
+  if (lastPath.current !== pathname) {
+    lastPath.current = pathname;
+    apiClient.bustCache('');
+  }
+
+  return <React.Fragment key={selectedOutletId ?? 'global'}>{children}</React.Fragment>;
+};
+
 function App() {
   return (
     <ThemeModeProvider>
@@ -213,6 +246,9 @@ function App() {
                 <ProtectedRoute>
                   <PermissionProvider>
                     <DashboardLayout>
+                      {/* Inside the layout, so the navbar does not blink when the
+                          outlet changes — only the page below it is rebuilt. */}
+                      <FreshPerOutletAndRoute>
                       <Routes>
                         <Route path="/" element={<SaleKeyPage />} />
                         <Route path="/profile/edit" element={<EditProfile />} />
@@ -1653,6 +1689,7 @@ function App() {
 
                         <Route path="*" element={<NotFound />} />
                       </Routes>
+                      </FreshPerOutletAndRoute>
                     </DashboardLayout>
                   </PermissionProvider>
                 </ProtectedRoute>

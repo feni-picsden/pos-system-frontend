@@ -25,7 +25,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import CreatableAutocomplete from '../Common/CreatableAutocomplete';
 
 const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
-  const { isSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -49,7 +49,7 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
   // Load outlets for super admin
   useEffect(() => {
     const loadOutlets = async () => {
-      if (isSuperAdmin()) {
+      if (isTrueSuperAdmin()) {
         try {
           const response = await outletService.getAllOutlets();
           setOutlets(response.outlets || []);
@@ -62,7 +62,7 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
     if (open) {
       loadOutlets();
     }
-  }, [open, isSuperAdmin]);
+  }, [open, isTrueSuperAdmin]);
 
   useEffect(() => {
     if (open) {
@@ -90,13 +90,13 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
           code: '',
           customerGroupId: '',
           priceListId: '',
-          outletId: isSuperAdmin() ? null : getOutletId(),
+          outletId: isTrueSuperAdmin() ? null : getOutletId(),
         });
       }
       setError('');
       setValidationErrors({});
     }
-  }, [open, customer, isSuperAdmin, getOutletId]);
+  }, [open, customer, isTrueSuperAdmin, getOutletId]);
 
   // Create a group from the combobox without leaving this dialog. It is scoped
   // to the outlet the form is already targeting, so it passes the same filter
@@ -120,7 +120,7 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
           filtered = response.customerGroups.filter(
             (g) => (g.outletId === outletIdToFilter || g.outletId === null) && g.isActive
           );
-        } else if (!isSuperAdmin()) {
+        } else if (!isTrueSuperAdmin()) {
           const userOutletId = getOutletId();
           filtered = response.customerGroups.filter(
             (g) => (g.outletId === userOutletId || g.outletId === null) && g.isActive
@@ -149,7 +149,7 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
           filtered = response.priceLists.filter(
             (p) => (p.outletId === outletIdToFilter || p.outletId === null) && p.isActive
           );
-        } else if (!isSuperAdmin()) {
+        } else if (!isTrueSuperAdmin()) {
           const userOutletId = getOutletId();
           filtered = response.priceLists.filter(
             (p) => (p.outletId === userOutletId || p.outletId === null) && p.isActive
@@ -199,7 +199,7 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
       errors.email = 'Please enter a valid email address';
     }
-    if (isSuperAdmin() && !formData.outletId) {
+    if (isTrueSuperAdmin() && !formData.outletId) {
       errors.outletId = 'Please select an outlet';
     }
     setValidationErrors(errors);
@@ -394,7 +394,7 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
           />
 
           {/* Outlet Selection for Super Admin */}
-          {isSuperAdmin() && (
+          {isTrueSuperAdmin() && (
             <FormControl fullWidth error={!!validationErrors.outletId}>
               <InputLabel>Outlet</InputLabel>
                              <Select
@@ -423,7 +423,7 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
           )}
 
           {/* Info for non-super admin users */}
-          {!isSuperAdmin() && (
+          {!isTrueSuperAdmin() && (
             <Box sx={{ 
               p: 2, 
               bgcolor: 'info.light', 

@@ -40,7 +40,7 @@ const RolePermissions = () => {
   const navigate = useNavigate();
   const { roleId } = useParams();
   const isEditMode = !!roleId;
-  const { user: currentUser, isSuperAdmin } = useAuth();
+  const { user: currentUser, isTrueSuperAdmin } = useAuth();
 
   const [roleName, setRoleName] = useState('');
   const [originalName, setOriginalName] = useState('');
@@ -98,7 +98,7 @@ const RolePermissions = () => {
       const requests = [roleService.getAllPermissions()];
       if (isEditMode) {
         requests.push(roleService.getRole(roleId), roleService.getRolePermissions(roleId));
-      } else if (isSuperAdmin()) {
+      } else if (isTrueSuperAdmin()) {
         requests.push(outletService.getAllOutlets());
       }
 
@@ -112,8 +112,8 @@ const RolePermissions = () => {
         setSelectedPermissions(third.permissions || []);
         savedSnapshot.current = snapshot(second.role.name, third.permissions || []);
       } else {
-        if (isSuperAdmin()) setOutlets(second?.outlets || []);
-        if (!isSuperAdmin() && currentUser?.outletId) setOutletId(currentUser.outletId);
+        if (isTrueSuperAdmin()) setOutlets(second?.outlets || []);
+        if (!isTrueSuperAdmin() && currentUser?.outletId) setOutletId(currentUser.outletId);
       }
       setError('');
     } catch (err) {
@@ -266,7 +266,7 @@ const RolePermissions = () => {
       />
 
       {/* Outlet — local-only concept, shown when creating a role */}
-      {!isEditMode && isSuperAdmin() && (
+      {!isEditMode && isTrueSuperAdmin() && (
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Outlet</InputLabel>
           <Select

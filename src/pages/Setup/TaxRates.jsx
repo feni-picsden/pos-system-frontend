@@ -51,7 +51,7 @@ const PILL_BUTTON_SX = {
 };
 
 const TaxRates = () => {
-  const { isTrueSuperAdmin: isSuperAdmin } = useAuth();
+  const { isTrueSuperAdmin: isTrueSuperAdmin } = useAuth();
   const [taxRates, setTaxRates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -283,7 +283,7 @@ const TaxRates = () => {
               >
                 <TableCell>Name</TableCell>
                 <TableCell>Amount</TableCell>
-                {isSuperAdmin() && <TableCell>Outlet</TableCell>}
+                {isTrueSuperAdmin() && <TableCell>Outlet</TableCell>}
                 <TableCell>Status</TableCell>
                 <TableCell>Default</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -292,7 +292,7 @@ const TaxRates = () => {
             <TableBody>
               {taxRates.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isSuperAdmin() ? 6 : 5} align="center" sx={{ py: 4, border: 0 }}>
+                  <TableCell colSpan={isTrueSuperAdmin() ? 6 : 5} align="center" sx={{ py: 4, border: 0 }}>
                     <Typography variant="body1" color="text.secondary">
                       No tax rates found. {canAddTaxRates && 'Click "New" to create your first tax rate.'}
                     </Typography>
@@ -365,7 +365,7 @@ const TaxRates = () => {
                         {formatAmount(taxRate.amount)}
                       </Typography>
                     </TableCell>
-                    {isSuperAdmin() && (
+                    {isTrueSuperAdmin() && (
                       <TableCell>
                         <Chip
                           label={getOutletDisplay(taxRate)}

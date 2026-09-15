@@ -293,7 +293,7 @@ const MonthGrid = ({ month, value, onPick, onPrev, onNext }) => {
 };
 
 const StocktakedProducts = () => {
-  const { getOutletId, getOutletName, isSuperAdmin } = useAuth();
+  const { getOutletId, getOutletName, isTrueSuperAdmin } = useAuth();
 
   // Filters — reference starts with an EMPTY date and nothing run; brands /
   // categories / families / tags are MULTI-select.
@@ -329,7 +329,7 @@ const StocktakedProducts = () => {
     const load = async () => {
       const currentOutletId = getOutletId();
       try {
-        if (isSuperAdmin()) {
+        if (isTrueSuperAdmin()) {
           const response = await outletService.getAllOutlets();
           const outletsList = response?.outlets || response || [];
           setOutlets(Array.isArray(outletsList) ? outletsList : []);
@@ -360,7 +360,7 @@ const StocktakedProducts = () => {
       }
     };
     load();
-  }, [getOutletId, getOutletName, isSuperAdmin]);
+  }, [getOutletId, getOutletName, isTrueSuperAdmin]);
 
   const pickDate = (date) => {
     setSelectedDate(startOfDay(date));

@@ -36,7 +36,7 @@ const fieldSx = {
 };
 
 const ClassificationDialog = ({ open, onClose, onSave, editingClassification, saveError }) => {
-  const { isSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     type: 'BRAND',
@@ -68,13 +68,13 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
         type: 'BRAND',
         masterDatabaseRef: '',
         mscMapping: '',
-        outletId: isSuperAdmin() ? null : getOutletId(),
+        outletId: isTrueSuperAdmin() ? null : getOutletId(),
         color: '',
       });
       setMdrInput('');
     }
     setErrors({});
-  }, [editingClassification, open, isSuperAdmin, getOutletId]);
+  }, [editingClassification, open, isTrueSuperAdmin, getOutletId]);
 
   // Debounced master-supplier lookup for the reference dropdown (only while open)
   useEffect(() => {

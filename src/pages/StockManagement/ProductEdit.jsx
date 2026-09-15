@@ -106,6 +106,8 @@ import { priceSourceLabel, isDefaultPriceRow } from '../../utils/priceSourceLabe
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSaveBar';
 import { deriveFamilyTemplate, applyFamilyTemplate, tiersKey, findHigherRateQuantity } from '../../utils/familyOverride';
+import { buildAdjustments, applyAdjustments } from '../../utils/caseQuantityAdjust';
+import CaseQuantityAdjustmentsDialog from '../../components/StockManagement/CaseQuantityAdjustmentsDialog';
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
 const primaryButtonSx = {
@@ -487,7 +489,7 @@ const ProductEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSuperAdmin, getOutletId, getOutletName, user } = useAuth();
+  const { isTrueSuperAdmin, getOutletId, getOutletName, user } = useAuth();
   // A super admin creates products into the outlet currently selected in the navbar —
   // otherwise the product is saved with outletId null and the outlet-scoped Products
   // list (which filters strictly by outletId for super admins) can never show it again.
@@ -503,8 +505,15 @@ const ProductEdit = () => {
   // { [barcode code]: [{ id, name }] } - other products already using that code.
   const [duplicateBarcodes, setDuplicateBarcodes] = useState({});
   // Case Quantity is only changed through the confirmation dialog (ref behavior):
-  // null = closed, otherwise the draft value being edited
+  // null = closed, otherwise the draft value being typed. The reference opens it
+  // EMPTY (not on the current value) and keeps Update disabled until a size is in.
   const [caseQuantityDraft, setCaseQuantityDraft] = useState(null);
+  // Step 2 of the change: which reading of the stock and cost figures is meant.
+  // null = closed, otherwise what utils/caseQuantityAdjust.js built for the change.
+  const [caseQtyAdjustments, setCaseQtyAdjustments] = useState(null);
+  // Set once a pick is applied, so the save tells the server the stock fields are
+  // already resolved at the new case size and must not be re-read (see products.js).
+  const caseQtyResolvedRef = useRef(false);
   // Cost Percentage repurposes formData.itemCost (dollars -> percent) and forces
   // Request Price on; stash the pair so switching back restores what was there.
   const costPercentageStashRef = useRef(null);
@@ -628,7 +637,7 @@ const ProductEdit = () => {
       }
       setFormData(prev => ({
         ...prev,
-        outletId: isSuperAdmin() ? null : getOutletId(),
+        outletId: isTrueSuperAdmin() ? null : getOutletId(),
         ...(wizard
           ? {
               name: wizard.name || prev.name,
@@ -662,7 +671,7 @@ const ProductEdit = () => {
     priceSetService.getPriceSets()
       .then(({ priceSets: sets }) => setPriceSets(sets || []))
       .catch((e) => console.error('Error loading price sets:', e));
-  }, [id, isSuperAdmin, getOutletId]);
+  }, [id, isTrueSuperAdmin, getOutletId]);
 
   // Recost the price rows whenever item cost changes. Must read prev.prices inside the
   // updater: a closure over formData.prices would be stale on mount and clobber rows
@@ -1013,6 +1022,15 @@ const ProductEdit = () => {
     alert(where ? `Where: ${where} tab\n\n${message}` : message, severity, { title: 'Product not saved' });
   };
 
+  // Ref: a case-quantity change leaves prices and promotions for the user to
+  // check by hand (the editor only adjusts inventory and cost), so it says so.
+  const applyCaseQuantityPicks = (picks) => {
+    setFormData((prev) => applyAdjustments(prev, caseQtyAdjustments, picks));
+    setCaseQtyAdjustments(null);
+    caseQtyResolvedRef.current = true;
+    notify('Please check your inventory, cost, prices and promotions', 'warning');
+  };
+
   const handleSave = async () => {
     // Name is the product's identity — block the save here (covers both /products/new
     // and /products/:id/edit, which share this handler) as well as at the API.
@@ -1212,13 +1230,17 @@ const ProductEdit = () => {
         categoryId: resolvedCategoryId,
         brandId: resolvedBrandId,
         familyId: resolvedFamilyId,
+        // The Case Quantity Adjustments dialog already decided how the stock reads
+        // at the new case size — "Keep Old" leaves the cases/items untouched, which
+        // the server would otherwise mistake for an untouched form and re-split.
+        caseQuantityAdjusted: caseQtyResolvedRef.current,
       };
 
       // New products must carry an outlet, or they land with outletId null and drop out
       // of the outlet-scoped Products list. Resolved at save time so a late-loading
       // outlet context (or an outlet switch made while editing) is still honoured.
       if (isNewProduct || !id) {
-        payload.outletId = isSuperAdmin()
+        payload.outletId = isTrueSuperAdmin()
           ? (formData.outletId ?? selectedOutletId ?? null)
           : getOutletId();
       }
@@ -1244,6 +1266,7 @@ const ProductEdit = () => {
       } else {
         savedProduct = await productService.updateProduct(id, payload);
       }
+      caseQtyResolvedRef.current = false;
       // Ref: saving lands on the product's View page (with its success context),
       // unless the caller asked to come back somewhere specific.
       const savedId = savedProduct?.product?.id || id;
@@ -1818,7 +1841,7 @@ const ProductEdit = () => {
                 <Button
                   variant="contained"
                   startIcon={<EditOutlinedIcon />}
-                  onClick={() => setCaseQuantityDraft(String(formData.caseQuantity ?? 1))}
+                  onClick={() => setCaseQuantityDraft('')}
                   // Ref: fixed 230px button so the disabled input stretches to 518px
                   sx={{ ...greenButtonSx, width: 230, padding: '8px 16px', flexShrink: 0, whiteSpace: 'nowrap' }}
                 >
@@ -1842,9 +1865,12 @@ const ProductEdit = () => {
                     value={caseQuantityDraft ?? ''}
                     onChange={(e) => setCaseQuantityDraft(e.target.value)}
                   />
-                  <Alert severity="warning" sx={{ mt: 2 }}>
-                    Changing the case quantity will affect this product's inventory, cost, prices and promotions.
-                  </Alert>
+                  {/* Reference wording (measured 2026-09-15): the change is applied,
+                      prices and promotions are for the user to check afterwards. */}
+                  <Typography variant="body2" sx={{ mt: 2, color: '#404040' }}>
+                    Please note that inventory, cost, prices and promotions are affected by changing
+                    case quantity and will need to be double-checked once the case quantity is changed.
+                  </Typography>
                 </DialogContent>
                 <DialogActions sx={{ padding: '0 24px 20px' }}>
                   <Button onClick={() => setCaseQuantityDraft(null)} sx={{ textTransform: 'none', color: '#676b72' }}>
@@ -1853,30 +1879,36 @@ const ProductEdit = () => {
                   <Button
                     variant="contained"
                     sx={primaryButtonSx}
+                    // Ref: nothing to update until a size has been typed.
+                    disabled={!(parseInt(caseQuantityDraft, 10) >= 1)}
                     onClick={() => {
                       const nextCaseQty = Math.max(1, parseInt(caseQuantityDraft, 10) || 1);
-                      // The units on hand do not change with the case size: re-split the
-                      // same total so the stock fields show what Save will store
-                      // (23 bottles @5 = 4 cases + 3 -> @6 = 3 cases + 5).
-                      setFormData((prev) => {
-                        const prevCaseQty = parseInt(prev.caseQuantity, 10) || 1;
-                        const units = (parseInt(prev.currentStockCases, 10) || 0) * prevCaseQty
-                          + (parseInt(prev.currentStockItems, 10) || 0);
-                        const cases = Math.floor(units / nextCaseQty);
-                        return {
-                          ...prev,
-                          caseQuantity: nextCaseQty,
-                          currentStockCases: cases,
-                          currentStockItems: units - cases * nextCaseQty,
-                        };
-                      });
+                      const prevCaseQty = parseInt(formData.caseQuantity, 10) || 1;
                       setCaseQuantityDraft(null);
+                      // Stock and cost each read two ways at the new case size, so the
+                      // reference asks which is meant before anything is changed. With
+                      // nothing on hand and no cost there is nothing to ask about.
+                      const adjustments = buildAdjustments(formData, prevCaseQty, nextCaseQty);
+                      if (!adjustments) {
+                        setFormData((prev) => ({ ...prev, caseQuantity: nextCaseQty }));
+                        return;
+                      }
+                      setCaseQtyAdjustments(adjustments);
                     }}
                   >
                     Update
                   </Button>
                 </DialogActions>
               </Dialog>
+
+              <CaseQuantityAdjustmentsDialog
+                open={caseQtyAdjustments !== null}
+                adjustments={caseQtyAdjustments}
+                outletName={isTrueSuperAdmin() ? 'Global' : getOutletName()}
+                onClose={() => setCaseQtyAdjustments(null)}
+                onKeepOld={() => applyCaseQuantityPicks({ inventory: 'old', cost: 'old' })}
+                onAccept={applyCaseQuantityPicks}
+              />
             </Grid>
 
           </Grid>
@@ -2198,17 +2230,25 @@ const ProductEdit = () => {
               </Grid>
             ) : (
               <>
-                {/* Reference Sell & Cost (measured 2026-08-14): Last Case Cost and
-                    Last Item Cost are READ-ONLY (invoices set them), the Average
-                    pair is editable, and every one of the four follows the
-                    "Show Costs Including Tax" toggle using the PURCHASE tax rate
-                    (Inherit = the retail rate). */}
-                {[
-                  ['Last Case Cost', 'caseCost', true],
-                  ['Last Item Cost', 'itemCost', true],
-                  ['Average Case Cost', 'averageCaseCost', false],
-                  ['Average Item Cost', 'averageItemCost', false],
-                ].map(([label, field, readOnly]) => (
+                {/* Reference Sell & Cost: a product BEING CREATED has no purchase
+                    history yet, so it offers one editable "Case Cost"/"Item Cost"
+                    pair (measured 2026-09-15). Once it exists, the four measured
+                    2026-08-14 take over: Last Case Cost and Last Item Cost are
+                    READ-ONLY (invoices set them) and the Average pair is editable.
+                    Every field follows the "Show Costs Including Tax" toggle using
+                    the PURCHASE tax rate (Inherit = the retail rate). */}
+                {(isNewProduct
+                  ? [
+                      ['Case Cost', 'caseCost', false],
+                      ['Item Cost', 'itemCost', false],
+                    ]
+                  : [
+                      ['Last Case Cost', 'caseCost', true],
+                      ['Last Item Cost', 'itemCost', true],
+                      ['Average Case Cost', 'averageCaseCost', false],
+                      ['Average Item Cost', 'averageItemCost', false],
+                    ]
+                ).map(([label, field, readOnly]) => (
                   <Grid item xs={12} key={field}>
                     <Typography variant="subtitle1" sx={{ mb: 1 }}>
                       {label}
@@ -2512,7 +2552,7 @@ const ProductEdit = () => {
             {formData.trackInventory && (
             <Grid item xs={12}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                {user?.isSuperAdmin ? 'Global' : (getOutletName() || 'N/A')} <FavoriteStar field="Inventory Outlet" />
+                {isTrueSuperAdmin() ? 'Global' : (getOutletName() || 'N/A')} <FavoriteStar field="Inventory Outlet" />
               </Typography>
 
               <Grid container spacing={2}>
@@ -3107,7 +3147,7 @@ const ProductEdit = () => {
           </Box>
           
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            {user?.isSuperAdmin ? 'Global' : (getOutletName() || 'N/A')} <FavoriteStar field="Loyalty Outlet" />
+            {isTrueSuperAdmin() ? 'Global' : (getOutletName() || 'N/A')} <FavoriteStar field="Loyalty Outlet" />
           </Typography>
           
           <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>

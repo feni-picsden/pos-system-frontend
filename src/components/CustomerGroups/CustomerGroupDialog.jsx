@@ -28,7 +28,7 @@ const dialogButtonSx = (bgcolor, color, hoverBg) => ({
 
 const CustomerGroupDialog = ({ open, onClose, customerGroup, onGroupSaved }) => {
   const navigate = useNavigate();
-  const { isSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     outletId: null,
@@ -45,12 +45,12 @@ const CustomerGroupDialog = ({ open, onClose, customerGroup, onGroupSaved }) => 
         name: customerGroup?.name || '',
         // ponytail: the reference dialog only asks for a name — a super admin without an
         // assigned outlet picks one on the group page, which already has that select.
-        outletId: customerGroup?.outletId || (isSuperAdmin() ? null : getOutletId()),
+        outletId: customerGroup?.outletId || (isTrueSuperAdmin() ? null : getOutletId()),
       });
       setError('');
       setValidationErrors({});
     }
-  }, [open, customerGroup, isSuperAdmin, getOutletId]);
+  }, [open, customerGroup, isTrueSuperAdmin, getOutletId]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

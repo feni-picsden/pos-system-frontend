@@ -74,7 +74,7 @@ const emptyForm = {
 };
 
 export default function ProductBuyingPeriods() {
-  const { selectedOutletId, isAllOutlets, isSuperAdmin } = useSelectedOutlet();
+  const { selectedOutletId, isAllOutlets, isTrueSuperAdmin } = useSelectedOutlet();
   const [loading, setLoading] = useState(true);
   const [periods, setPeriods] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -210,7 +210,7 @@ export default function ProductBuyingPeriods() {
           minQuantity: Number(form.minQuantity),
           costAmount: Number(form.costAmount),
           costIncludesTax: form.costIncludesTax,
-          ...(isSuperAdmin && !isAllOutlets && selectedOutletId ? { outletId: selectedOutletId } : {}),
+          ...(isTrueSuperAdmin && !isAllOutlets && selectedOutletId ? { outletId: selectedOutletId } : {}),
         });
         setSnack({ open: true, severity: 'success', message: 'Buying period created' });
       }

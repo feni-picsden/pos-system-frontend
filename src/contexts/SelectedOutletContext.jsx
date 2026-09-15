@@ -24,7 +24,7 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
   // outlet (outletId null) — matches the backend's canAccessAllOutlets. An outlet
   // admin (hasAllPermission WITH a non-null outletId) is scoped to that one outlet,
   // so they get their outlet's name in the navbar, not the "All Outlets" switcher.
-  const isSuperAdmin =
+  const isTrueSuperAdmin =
     (user?.isSuperAdmin === true || user?.hasAllPermission === true) &&
     user?.outletId == null;
 
@@ -43,7 +43,7 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
 
     const loadOutlets = async () => {
       try {
-        if (isSuperAdmin) {
+        if (isTrueSuperAdmin) {
           await posLocalDb.init();
           const cached = await posLocalDb.getStoreAll('outlets');
           if (cached.length > 0) {
@@ -84,7 +84,7 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
 
     loadOutlets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isSuperAdmin]);
+  }, [user?.id, isTrueSuperAdmin]);
 
   const setSelectedOutletId = useCallback(
     async (id) => {
@@ -94,9 +94,9 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
       // "Not at an Outlet" (there is no global session to switch to). Both wiped
       // the local catalog while leaving selectedOutletId untouched — and nothing
       // re-warms the cache unless that id changes.
-      if (next === selectedOutletId || (!isSuperAdmin && next == null)) return;
+      if (next === selectedOutletId || (!isTrueSuperAdmin && next == null)) return;
       // No switchOutlet to call = nothing would change, so don't wipe the catalog.
-      if (!isSuperAdmin && !switchOutlet) return;
+      if (!isTrueSuperAdmin && !switchOutlet) return;
       // Wipe cached catalog/page data so the previously selected outlet's
       // records can never be shown under the newly selected outlet. The
       // in-memory GET cache goes too: its key is only salted with the outlet id
@@ -104,7 +104,7 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
       // outlet's rows for the 2-minute TTL.
       try { await posLocalDb.clearAll(); } catch { /* best effort */ }
       apiClient.bustCache('');
-      if (isSuperAdmin) {
+      if (isTrueSuperAdmin) {
         // Super admin: just change the filter, persist to localStorage
         setSelectedOutletIdState(next);
         if (next == null) {
@@ -132,11 +132,11 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
       // A register belonging to the outlet we just left is dropped by
       // SelectedRegisterContext's hydration effect, which re-runs on this id.
     },
-    [isSuperAdmin, switchOutlet, selectedOutletId]
+    [isTrueSuperAdmin, switchOutlet, selectedOutletId]
   );
 
   const selectedOutlet = outlets.find((o) => o.id === selectedOutletId) || null;
-  const isAllOutlets = isSuperAdmin && selectedOutletId == null;
+  const isAllOutlets = isTrueSuperAdmin && selectedOutletId == null;
 
   return (
     <SelectedOutletContext.Provider
@@ -146,7 +146,7 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
         selectedOutlet,
         setSelectedOutletId,
         isAllOutlets,
-        isSuperAdmin,
+        isTrueSuperAdmin,
       }}
     >
       {children}

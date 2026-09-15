@@ -9,14 +9,14 @@ import { warmAppCache, syncAppDataInBackground } from '../services/appDataSync';
  */
 export default function AppDataSync() {
   const { user, loading: authLoading } = useAuth();
-  const { selectedOutletId, isSuperAdmin } = useSelectedOutlet();
+  const { selectedOutletId, isTrueSuperAdmin } = useSelectedOutlet();
   const lastKeyRef = useRef('');
 
   useEffect(() => {
     if (authLoading || !user) return;
 
     const outletId =
-      isSuperAdmin && selectedOutletId != null
+      isTrueSuperAdmin && selectedOutletId != null
         ? selectedOutletId
         : user.outletId ?? selectedOutletId ?? null;
 
@@ -40,7 +40,7 @@ export default function AppDataSync() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user, selectedOutletId, isSuperAdmin]);
+  }, [authLoading, user, selectedOutletId, isTrueSuperAdmin]);
 
   return null;
 }

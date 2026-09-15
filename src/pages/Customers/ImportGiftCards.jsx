@@ -132,7 +132,7 @@ const previewColumns = [
 
 const ImportGiftCards = () => {
   const navigate = useNavigate();
-  const { isSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [formatDialogOpen, setFormatDialogOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -151,7 +151,7 @@ const ImportGiftCards = () => {
   // Load outlets if super admin
   useEffect(() => {
     const loadOutlets = async () => {
-      if (isSuperAdmin()) {
+      if (isTrueSuperAdmin()) {
         setLoadingOutlets(true);
         try {
           const response = await outletService.getAllOutlets();
@@ -177,7 +177,7 @@ const ImportGiftCards = () => {
     };
 
     loadOutlets();
-  }, [isSuperAdmin, getOutletId]);
+  }, [isTrueSuperAdmin, getOutletId]);
 
   const parseCSV = (text) => {
     const lines = text.split('\n').filter(line => line.trim());
@@ -417,7 +417,7 @@ const ImportGiftCards = () => {
               </Typography>
 
               {/* Outlet Filter */}
-              {isSuperAdmin() && outlets.length > 0 && (
+              {isTrueSuperAdmin() && outlets.length > 0 && (
                 <Paper sx={{ p: 2, mb: 2 }}>
                   <FormControl fullWidth>
                     <FormLabel sx={{ mb: 1, fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>

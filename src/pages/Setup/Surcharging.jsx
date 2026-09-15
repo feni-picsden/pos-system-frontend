@@ -53,7 +53,10 @@ const Surcharging = () => {
   const [selectedDay, setSelectedDay] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null);
 
-  const isSuperAdmin = user?.isSuperAdmin || (user?.hasAllPermission && !user?.outletId);
+  // Outlet scoping: the admin flag alone is not enough — an outlet-pinned admin
+  // is scoped to their own outlet, same rule as the backend's canAccessAllOutlets.
+  const isSuperAdmin =
+    (user?.isSuperAdmin === true || user?.hasAllPermission === true) && !user?.outletId;
 
   useEffect(() => {
     (async () => {

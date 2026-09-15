@@ -33,7 +33,7 @@ const locationOptionSx = {
 // outlet -> register picker the sell screen used to own.
 const LocationSelectorDialog = () => {
   const { user } = useAuth();
-  const { outlets, setSelectedOutletId: setSelectedOutlet, isSuperAdmin } = useSelectedOutlet();
+  const { outlets, setSelectedOutletId: setSelectedOutlet, isTrueSuperAdmin } = useSelectedOutlet();
   const {
     showLocationSelector,
     setShowLocationSelector,
@@ -163,7 +163,7 @@ const LocationSelectorDialog = () => {
               const isCurrent = Number(getEffectiveOutletId()) === Number(outlet.id);
               // Last row carries no bottom margin when the global-mode row below
               // is hidden, so the paper keeps its measured 32px bottom padding.
-              const isLast = !isSuperAdmin && i === outlets.length - 1;
+              const isLast = !isTrueSuperAdmin && i === outlets.length - 1;
               return (
                 <Box
                   key={outlet.id}
@@ -207,7 +207,7 @@ const LocationSelectorDialog = () => {
             {/* Global mode is a superadmin-only state (the old navbar menu gated
                 "All Outlets" the same way): everyone else has a server-side
                 outlet session that cannot be switched to "none". */}
-            {isSuperAdmin && (
+            {isTrueSuperAdmin && (
               <Box
                 onClick={() =>
                   runBusy('outlet-global', async () => {

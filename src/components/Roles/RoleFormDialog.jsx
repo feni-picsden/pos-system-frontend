@@ -25,7 +25,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import PermissionSelector from '../Permissions/PermissionSelector';
 
 const RoleFormDialog = ({ open, onClose, role, onRoleSaved }) => {
-  const { user: currentUser, isSuperAdmin } = useAuth();
+  const { user: currentUser, isTrueSuperAdmin } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -44,10 +44,10 @@ const RoleFormDialog = ({ open, onClose, role, onRoleSaved }) => {
 
   // Load outlets when dialog opens (for super admin)
   useEffect(() => {
-    if (open && isSuperAdmin()) {
+    if (open && isTrueSuperAdmin()) {
       loadOutlets();
     }
-  }, [open, isSuperAdmin]);
+  }, [open, isTrueSuperAdmin]);
 
   // Reset form when dialog opens/closes or role changes
   useEffect(() => {
@@ -70,7 +70,7 @@ const RoleFormDialog = ({ open, onClose, role, onRoleSaved }) => {
           description: '',
           isActive: true,
           isDefault: false,
-          outletId: isSuperAdmin() ? null : currentUser?.outletId || null,
+          outletId: isTrueSuperAdmin() ? null : currentUser?.outletId || null,
         });
         setSelectedPermissions([]);
       }
@@ -78,7 +78,7 @@ const RoleFormDialog = ({ open, onClose, role, onRoleSaved }) => {
       setValidationErrors({});
       setActiveTab(0);
     }
-  }, [open, role, currentUser, isSuperAdmin]);
+  }, [open, role, currentUser, isTrueSuperAdmin]);
 
   const loadRolePermissions = async (roleId) => {
     try {
@@ -107,7 +107,7 @@ const RoleFormDialog = ({ open, onClose, role, onRoleSaved }) => {
     };
 
     // For non-super admin users, ensure outletId is always their assigned outlet
-    if (!isSuperAdmin()) {
+    if (!isTrueSuperAdmin()) {
       newData.outletId = currentUser?.outletId || null;
     }
 
@@ -130,7 +130,7 @@ const RoleFormDialog = ({ open, onClose, role, onRoleSaved }) => {
     }
 
     // Outlet validation for super admin
-    if (isSuperAdmin() && !formData.outletId) {
+    if (isTrueSuperAdmin() && !formData.outletId) {
       errors.outletId = 'Please select an outlet or leave empty for global role';
     }
 
@@ -239,7 +239,7 @@ const RoleFormDialog = ({ open, onClose, role, onRoleSaved }) => {
             />
 
             {/* Outlet Selection - Only show for true super admins */}
-            {isSuperAdmin() && (
+            {isTrueSuperAdmin() && (
               <FormControl fullWidth>
                 <InputLabel>Outlet</InputLabel>
                 <Select
@@ -276,7 +276,7 @@ const RoleFormDialog = ({ open, onClose, role, onRoleSaved }) => {
             )}
 
             {/* Outlet Information for Non-Super Admins */}
-            {!isSuperAdmin() && currentUser?.outlet && (
+            {!isTrueSuperAdmin() && currentUser?.outlet && (
               <Box sx={{ p: 2, backgroundColor: '#e3f2fd', borderRadius: 1, border: '1px solid #2196f3' }}>
                 <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
                   Creating role for outlet: {currentUser.outlet.name}

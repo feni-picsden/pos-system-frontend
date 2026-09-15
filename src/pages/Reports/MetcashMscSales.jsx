@@ -222,8 +222,8 @@ const MonthGrid = ({ month, rangeStart, rangeEnd, onPick, onPrev, onNext }) => {
 };
 
 const MetcashMscSales = () => {
-  const { user, isSuperAdmin, getOutletId } = useAuth();
-  const superAdmin = isSuperAdmin();
+  const { user, isTrueSuperAdmin, getOutletId } = useAuth();
+  const superAdmin = isTrueSuperAdmin();
 
   // Reference starts with NO date chosen and blocks Run until an outlet + a date are set.
   const [startDate, setStartDate] = useState(null);

@@ -112,7 +112,7 @@ const ProductView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isSuperAdmin, getOutletName } = useAuth();
+  const { isTrueSuperAdmin, getOutletName } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [product, setProduct] = useState(null);
@@ -977,7 +977,7 @@ const ProductView = () => {
                       // 'Global' for super admins, otherwise the viewer's own outlet.
                       outletName:
                         product?.outlet?.name ??
-                        (isSuperAdmin() ? "Global" : getOutletName() || "N/A"),
+                        (isTrueSuperAdmin() ? "Global" : getOutletName() || "N/A"),
                       cases: product?.currentStockCases ?? 0,
                       items: product?.currentStockItems ?? 0,
                       reorderLevelCases: product?.reorderLevelCases ?? 0,

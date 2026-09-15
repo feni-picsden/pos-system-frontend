@@ -166,7 +166,7 @@ const trimOrNull = (value) => (typeof value === 'string' ? value.trim() : '') ||
 const SupplierDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -244,7 +244,7 @@ const SupplierDetails = () => {
   // Load outlets for super admin
   useEffect(() => {
     const loadOutlets = async () => {
-      if (isSuperAdmin()) {
+      if (isTrueSuperAdmin()) {
         try {
           setOutletsLoading(true);
           const response = await outletService.getAllOutlets();
@@ -259,7 +259,7 @@ const SupplierDetails = () => {
     };
 
     loadOutlets();
-  }, [isSuperAdmin]);
+  }, [isTrueSuperAdmin]);
 
   useEffect(() => {
     if (isEditMode) {
@@ -279,7 +279,7 @@ const SupplierDetails = () => {
         outletId: ownOutlet ?? (Number.isNaN(parsedSaved) ? null : parsedSaved),
       }));
     }
-  }, [id, isEditMode, isNewMode, isSuperAdmin, getOutletId]);
+  }, [id, isEditMode, isNewMode, isTrueSuperAdmin, getOutletId]);
 
   // Master Database Reference typeahead — same source the Import Supplier Products
   // and Classification screens use, filtered server-side as you type.
@@ -810,7 +810,7 @@ const SupplierDetails = () => {
               </Grid>
 
               {/* Outlet Selection for Super Admin */}
-              {isSuperAdmin() && (
+              {isTrueSuperAdmin() && (
                 <Grid item xs={12}>
                   <RefSelect
                     label="Outlet"
@@ -849,7 +849,7 @@ const SupplierDetails = () => {
               )}
 
               {/* Info for non-super admin users */}
-              {!isSuperAdmin() && (
+              {!isTrueSuperAdmin() && (
                 <Grid item xs={12}>
                   <Box sx={{
                     p: 2,

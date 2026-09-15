@@ -823,7 +823,21 @@ const DashboardLayout = ({ children }) => {
               <Badge
                 variant="dot"
                 invisible={pendingCount === 0}
-                sx={{ '& .MuiBadge-badge': { bgcolor: 'rgb(227,52,47)', width: 8, height: 8, minWidth: 8, borderRadius: '50%' } }}
+                // MUI parks a dot on the corner of the icon's 24px BOX, but the bell
+                // glyph is inset within it, so the default left an obvious gap. top/right
+                // pull the dot back onto the bell's own shoulder without touching the
+                // transform MUI uses to show and hide it.
+                sx={{
+                  '& .MuiBadge-badge': {
+                    bgcolor: 'rgb(227,52,47)',
+                    width: 8,
+                    height: 8,
+                    minWidth: 8,
+                    borderRadius: '50%',
+                    top: 4,
+                    right: 4,
+                  },
+                }}
               >
                 {/* Rings (a short shake, then a pause) while notifications are pending,
                     so a new one is noticed without the bell moving constantly. */}
@@ -977,7 +991,13 @@ const DashboardLayout = ({ children }) => {
                 <ListItem
                   key={n.id}
                   alignItems="flex-start"
-                  sx={{ borderBottom: '1px solid #f0f0f0' }}
+                  sx={{
+                    borderBottom: '1px solid #f0f0f0',
+                    // Sit the dot and bin level with the TITLE. Centred (MUI's
+                    // default) they drifted down beside the message on tall rows,
+                    // which is what made the dot look mixed into the text.
+                    '& .MuiListItemSecondaryAction-root': { top: 20, transform: 'none' },
+                  }}
                   secondaryAction={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       {!n.readAt && (
@@ -993,7 +1013,12 @@ const DashboardLayout = ({ children }) => {
                     <MoveToInboxIcon sx={{ color: '#5ebbeb' }} />
                   </ListItemIcon>
                   <ListItemText
-                    primary={<Typography sx={{ fontSize: 16, fontWeight: 700, pr: 5 }}>{n.title}</Typography>}
+                    // The unread dot and the bin are absolutely positioned by
+                    // secondaryAction, and MUI's own 48px allowance is narrower than
+                    // the pair — a long message ran underneath the dot. Reserving the
+                    // gutter here keeps BOTH the title and the message clear of them.
+                    sx={{ pr: '24px' }}
+                    primary={<Typography sx={{ fontSize: 16, fontWeight: 700 }}>{n.title}</Typography>}
                     secondaryTypographyProps={{ component: 'div' }}
                     secondary={
                       <>

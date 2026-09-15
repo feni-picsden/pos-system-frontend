@@ -58,7 +58,7 @@ const footerButtonSx = (bg, fg, hoverBg) => ({
 });
 
 const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
-  const { user: currentUser, isSuperAdmin } = useAuth();
+  const { user: currentUser, isTrueSuperAdmin } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     password: '',
@@ -101,7 +101,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
         }
       }
     }
-  }, [open, currentUser, isSuperAdmin, canPickAnyOutlet]);
+  }, [open, currentUser, isTrueSuperAdmin, canPickAnyOutlet]);
 
   // Reset form when dialog opens/closes or user changes
   useEffect(() => {

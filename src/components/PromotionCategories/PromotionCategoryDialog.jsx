@@ -45,7 +45,7 @@ const MenuProps = {
 };
 
 const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = null, mode = 'create' }) => {
-  const { user, isSuperAdmin } = useAuth();
+  const { user, isTrueSuperAdmin } = useAuth();
   const isEditMode = mode === 'edit' && promotionCategory;
 
   const [formData, setFormData] = useState({
@@ -91,12 +91,12 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
           includeInIntegrations: false,
           outletIds: [],
           isActive: true,
-          outletId: !isSuperAdmin() && user?.outletId ? user.outletId : null,
+          outletId: !isTrueSuperAdmin() && user?.outletId ? user.outletId : null,
         });
       }
       setError('');
     }
-  }, [open, isEditMode, promotionCategory, isSuperAdmin, user]);
+  }, [open, isEditMode, promotionCategory, isTrueSuperAdmin, user]);
 
   const loadOutlets = async () => {
     try {
@@ -257,7 +257,7 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
           </TextField>
 
           {/* Outlet Selection - Only for Super Admin */}
-          {isSuperAdmin() && (
+          {isTrueSuperAdmin() && (
             <TextField
               select
               label="Outlet"
@@ -278,7 +278,7 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
           )}
 
           {/* Current outlet info for non-super admin */}
-          {!isSuperAdmin() && user?.outletId && (
+          {!isTrueSuperAdmin() && user?.outletId && (
             <Typography variant="body2" color="text.secondary">
               This promotion category will be created for your current outlet.
             </Typography>

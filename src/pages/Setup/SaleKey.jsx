@@ -59,9 +59,9 @@ const SaleKey = () => {
   const { setId } = useParams();
   const navigate = useNavigate();
   const { getOutletId } = useAuth();
-  const { selectedOutletId, isSuperAdmin } = useSelectedOutlet();
+  const { selectedOutletId, isTrueSuperAdmin } = useSelectedOutlet();
   const saleKeysOutletId = () =>
-    getSaleKeysOutletId({ isSuperAdmin, getOutletId, selectedOutletId });
+    getSaleKeysOutletId({ isTrueSuperAdmin, getOutletId, selectedOutletId });
   const [saleKeys, setSaleKeys] = useState([]);
   const [selectedKey, setSelectedKey] = useState(null);
   const [gridSize, setGridSize] = useState({ rows: 6, cols: 6 });
