@@ -50,7 +50,6 @@ import { productOptionLabel } from '../../utils/productOptionLabel';
 import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
 import { DEFAULT_PREVIOUS_DATE_FORMAT, DEFAULT_TIME_FORMAT } from '../../utils/saleKeyDisplay';
 import productService from '../../services/productService';
-import productComboService from '../../services/productComboService';
 import paymentMethodService from '../../services/paymentMethodService';
 import priceListService from '../../services/priceListService';
 import { priceSetService } from '../../services/priceSetService';
@@ -69,7 +68,6 @@ const ACTION_OPTIONS = [
   { value: 'add-order-reference', label: 'Add a order reference to the current sale' },
   { value: 'add-product', label: 'Add a Product' },
   { value: 'add-product-case', label: 'Add a Product using Case Quantity' },
-  { value: 'add-product-combo', label: 'Add Product Combo' },
   { value: 'add-customer', label: 'Add Customer to the Sale' },
   // IBA Loyalty Rewards integration actions (reference parity). Selectable in the editor;
   // sell-screen execution requires the IBA integration backend (not present locally).
@@ -150,8 +148,6 @@ const SaleKeyEditor = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [availableProducts, setAvailableProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [availableCombos, setAvailableCombos] = useState([]);
-  const [loadingCombos, setLoadingCombos] = useState(false);
   const [availableFolders, setAvailableFolders] = useState([]);
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
@@ -569,7 +565,7 @@ const SaleKeyEditor = () => {
   // Properties whose change should auto-save the layout to the server.
   const AUTOSAVE_PROPS = [
     'selectedProduct', 'productId', 'selectedPaymentMethod',
-    'selectedCombo', 'comboId', 'folderId', 'folderName',
+    'folderId', 'folderName',
   ];
 
   // Accepts either (property, value) or a single object of {property: value}.
@@ -707,77 +703,29 @@ const SaleKeyEditor = () => {
   };
 
   // Load products for product selection
-  const loadCombos = async () => {
-    setLoadingCombos(true);
-    try {
-      // Use memory cache from POS catalog if available
-      if (posLocalDb.isReady()) {
-        const memoryCombos = posLocalDb.getCombos();
-        if (memoryCombos.length > 0) {
-          setAvailableCombos(memoryCombos);
-          setLoadingCombos(false);
-          return;
-        }
-      }
-      // Check IDB cache next
-      await posLocalDb.init();
-      const cached = await posLocalDb.getStoreAll('combos');
-      if (cached.length > 0) {
-        setAvailableCombos(cached);
-        setLoadingCombos(false);
-        // Background refresh when stale
-        const stale = await posLocalDb.isStoreStale('combos');
-        if (stale) {
-          productComboService.getProductCombos({ limit: 1000, status: 'Active' })
-            .then((r) => { if (r?.combos?.length) setAvailableCombos(r.combos); })
-            .catch(() => {});
-        }
-        return;
-      }
-      // No cache — fetch from API
-      const response = await productComboService.getProductCombos({ limit: 1000, status: 'Active' });
-      setAvailableCombos(response.combos || []);
-    } catch (error) {
-      console.error('Error loading combos:', error);
-      setAvailableCombos([]);
-    } finally {
-      setLoadingCombos(false);
-    }
-  };
 
   const loadProducts = async () => {
     setLoadingProducts(true);
     try {
-      // Use memory cache from POS catalog if available
-      if (posLocalDb.isReady()) {
-        const memoryProducts = posLocalDb.getProducts();
-        if (memoryProducts.length > 0) {
-          setAvailableProducts(memoryProducts);
-          setLoadingProducts(false);
-          return;
-        }
+      // Show the cached catalogue straight away so the picker is usable,
+      // then ALWAYS refresh from the server: a product created a moment ago
+      // must be selectable here without a page reload.
+      let cached = posLocalDb.isReady() ? posLocalDb.getProducts() : [];
+      if (!cached.length) {
+        await posLocalDb.init();
+        cached = await posLocalDb.getStoreAll('products');
       }
-      // Check IDB cache next
-      await posLocalDb.init();
-      const cached = await posLocalDb.getStoreAll('products');
       if (cached.length > 0) {
         setAvailableProducts(cached);
         setLoadingProducts(false);
-        // Background refresh when stale
-        const stale = await posLocalDb.isStoreStale('products');
-        if (stale) {
-          productService.getProducts({ limit: 500, status: 'Active' })
-            .then((r) => { if (r?.products?.length) setAvailableProducts(r.products); })
-            .catch(() => {});
-        }
-        return;
       }
-      // No cache — fetch from API
       const response = await productService.getProducts({ limit: 500, status: 'Active' });
-      setAvailableProducts(response.products || []);
+      const fresh = Array.isArray(response?.products) ? response.products : [];
+      if (fresh.length || !cached.length) setAvailableProducts(fresh);
     } catch (error) {
+      // Keep whatever the cache gave us; only empty the picker if we had nothing.
       console.error('Error loading products:', error);
-      setAvailableProducts([]);
+      setAvailableProducts((prev) => (prev.length ? prev : []));
     } finally {
       setLoadingProducts(false);
     }
@@ -927,7 +875,6 @@ const SaleKeyEditor = () => {
   // Load products, folders, and payment methods on component mount
   useEffect(() => {
     loadProducts();
-    loadCombos();
     loadFolders();
     loadPaymentMethods();
     loadClassifications();
@@ -1439,59 +1386,6 @@ const SaleKeyEditor = () => {
                 />
               )}
 
-              {selectedKey.action === 'add-product-combo' && (
-                <Autocomplete
-                  fullWidth
-                  options={availableCombos}
-                  getOptionLabel={productOptionLabel}
-                  value={(() => {
-                    // Try to find the selected combo in available combos
-                    if (selectedKey.selectedCombo) {
-                      if (selectedKey.selectedCombo.id) {
-                        const foundCombo = availableCombos.find(combo => combo.id === selectedKey.selectedCombo.id);
-                        return foundCombo || null;
-                      }
-                      if (selectedKey.selectedCombo.name) {
-                        const foundCombo = availableCombos.find(combo => combo.name === selectedKey.selectedCombo.name);
-                        return foundCombo || null;
-                      }
-                    }
-                    if (selectedKey.comboId) {
-                      const foundById = availableCombos.find(combo => combo.id === selectedKey.comboId);
-                      return foundById || null;
-                    }
-                    return null;
-                  })()}
-                  loading={loadingCombos}
-                  isOptionEqualToValue={(option, value) => option.id === value?.id}
-                  onChange={(event, newValue) => {
-                    // Single batched update — comboId + selectedCombo persist together
-                    // and auto-save runs once (fixes the lost-on-first-save selection).
-                    handlePropertyChange({
-                      selectedCombo: newValue,
-                      comboId: newValue?.id || null,
-                      ...(newValue ? { name: newValue.name, amount: '' } : {}),
-                    });
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Select Product Combo"
-                      placeholder="Choose a product combo..."
-                      helperText={`Available combos: ${availableCombos.length}, Selected: ${selectedKey.selectedCombo ? `${selectedKey.selectedCombo.name || ''} (#${selectedKey.comboId || selectedKey.selectedCombo.id})` : 'None'}`}
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      }}
-                    />
-                  )}
-                  sx={{ mb: 2 }}
-                />
-              )}
 
               {selectedKey.action === 'add-product' && (selectedKey.productId || selectedKey.selectedProduct) && (
                 <>

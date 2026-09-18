@@ -57,7 +57,7 @@ import promotionCategoryService from '../../services/promotionCategoryService';
 import customerGroupService from '../../services/customerGroupService';
 import classificationService from '../../services/classificationService';
 import productService from '../../services/productService';
-import productComboService from '../../services/productComboService';
+import outletService from '../../services/outletService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 
@@ -767,6 +767,7 @@ const Promotions = () => {
   const [categoryStockFilter, setCategoryStockFilter] = useState([]);
   const [familyFilter, setFamilyFilter] = useState([]);
   const [tagFilter, setTagFilter] = useState([]);
+  const [outletFilter, setOutletFilter] = useState([]);
   // 'all' is the documented bypass for the apiClient outlet auto-filter. Without
   // it a super admin pinned to outlet A gets the categories of outlet A only —
   // global (outletId null) and other-outlet categories drop out and the filter
@@ -782,11 +783,10 @@ const Promotions = () => {
       .getCustomerGroups(getOutletId())
       .then((r) => (Array.isArray(r) ? r : r?.customerGroups || []))
   );
-  const { data: combos } = usePageCache('combos', () =>
-    productComboService
-      .getProductCombos({ limit: 1000 })
-      .then((r) => (Array.isArray(r?.combos) ? r.combos : []))
+  const { data: outlets } = usePageCache('outlets', () =>
+    outletService.getAllOutlets().then((r) => r?.outlets || [])
   );
+
   const { data: classifications } = usePageCache('classifications', () =>
     classificationService.getClassifications().then((r) => r?.classifications || [])
   );
@@ -838,24 +838,11 @@ const Promotions = () => {
 
   const productOptions = useMemo(
     () =>
-      [...products, ...combos.map((c) => ({ id: `combo:${c.id}`, name: c.name }))].sort((a, b) =>
+      [...products].sort((a, b) =>
         (a.name || '').localeCompare(b.name || '')
       ),
-    [products, combos]
+    [products]
   );
-
-  // A promotion item can only point at a product, so a selected combo matches any
-  // promotion that contains one of the combo's member products.
-  const comboProductIds = useMemo(() => {
-    const map = new Map();
-    combos.forEach((c) =>
-      map.set(
-        `combo:${c.id}`,
-        (Array.isArray(c.items) ? c.items : []).map((i) => i.productId).filter((id) => id != null)
-      )
-    );
-    return map;
-  }, [combos]);
 
   // productId -> tag ids (tags are the one attribute the promotions payload does not embed)
   const productTags = useMemo(() => {
@@ -887,12 +874,7 @@ const Promotions = () => {
 
       const items = Array.isArray(p.items) ? p.items : [];
       if (active(productFilter)) {
-        const wanted = new Set();
-        productFilter.forEach((id) => {
-          const members = comboProductIds.get(id);
-          if (members) members.forEach((m) => wanted.add(m));
-          else wanted.add(id);
-        });
+        const wanted = new Set(productFilter);
         if (!items.some((i) => wanted.has(i.productId))) return false;
       }
       if (active(brandFilter) && !items.some((i) => brandFilter.includes(i.product?.brandId))) return false;
@@ -911,6 +893,12 @@ const Promotions = () => {
           ...(Array.isArray(p.customerGroupIds) ? p.customerGroupIds : [])
         ];
         if (!groupIds.some((g) => customerGroupFilter.includes(g))) return false;
+      }
+
+      // A promotion with no outletId is global, so it belongs to every outlet
+      // and stays visible whichever outlets are picked.
+      if (active(outletFilter) && p.outletId != null && !outletFilter.includes(p.outletId)) {
+        return false;
       }
 
       // Date range: keep promotions whose window overlaps the selected window
@@ -935,10 +923,10 @@ const Promotions = () => {
     familyFilter,
     tagFilter,
     customerGroupFilter,
+    outletFilter,
     dateRangeStart,
     dateRangeEnd,
     productTags,
-    comboProductIds
   ]);
 
   const allSelected = filteredPromotions.length > 0 && selectedIds.length === filteredPromotions.length;
@@ -1194,6 +1182,16 @@ const Promotions = () => {
                 options={customerGroups}
               />
             </Grid>
+            <Grid item xs={12} md={2.4}>
+              <Typography variant="body2" sx={FILTER_LABEL_SX}>
+                Outlets
+              </Typography>
+              <TypeaheadFilter
+                value={outletFilter}
+                onChange={(e) => setOutletFilter(e.target.value)}
+                options={outlets}
+              />
+            </Grid>
           </Grid>
         )}
 
@@ -1231,9 +1229,10 @@ const Promotions = () => {
                   <SquareCheckButton checked={allSelected} onClick={toggleAll} light label="Select all promotions" />
                 </TableCell>
                 <TableCell sx={{ width: '20%' }}>Promotion</TableCell>
-                <TableCell sx={{ width: '26.8%' }}>Start</TableCell>
-                <TableCell sx={{ width: '26.8%' }}>End</TableCell>
-                <TableCell sx={{ pr: '20px', width: '23.2%' }}>Actions</TableCell>
+                <TableCell sx={{ width: '20%' }}>Start</TableCell>
+                <TableCell sx={{ width: '20%' }}>End</TableCell>
+                <TableCell sx={{ width: '16.8%' }}>Outlets</TableCell>
+                <TableCell sx={{ pr: '20px', width: '20%' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody
@@ -1245,7 +1244,7 @@ const Promotions = () => {
             >
               {filteredPromotions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No promotions found
                     </Typography>
@@ -1286,6 +1285,27 @@ const Promotions = () => {
                     </TableCell>
                     <TableCell>{formatDate(promotion.startDate)}</TableCell>
                     <TableCell>{formatDate(promotion.endDate)}</TableCell>
+                    <TableCell>
+                      {/* Reference shows the owning outlet as a pill; a promotion
+                          with no outlet is global and shows nothing. */}
+                      {promotion.outlet?.name && (
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'inline-block',
+                            px: 1,
+                            py: '2px',
+                            fontSize: 12,
+                            color: '#000',
+                            border: '1px solid #d4d4d4',
+                            borderRadius: '4px',
+                            bgcolor: '#fff'
+                          }}
+                        >
+                          {promotion.outlet.name}
+                        </Box>
+                      )}
+                    </TableCell>
                     <TableCell align="right" sx={{ pr: '20px' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         <Button

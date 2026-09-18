@@ -99,7 +99,6 @@ const AddSaleKeyDialog = ({
                 <MenuItem value="no-action">No Action</MenuItem>
                 <MenuItem value="add-product">Add Product</MenuItem>
                 <MenuItem value="add-product-case">Add Product using Case Quantity</MenuItem>
-                <MenuItem value="add-product-combo">Add Product Combo</MenuItem>
                 <MenuItem value="add-gift-card">Add Gift Card</MenuItem>
                 <MenuItem value="subtract-quantity">Subtract Quantity from Current Product</MenuItem>
                 <MenuItem value="add-quantity">Add Quantity to Current Product</MenuItem>

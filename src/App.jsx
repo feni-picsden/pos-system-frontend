@@ -51,6 +51,7 @@ import Products from "./pages/StockManagement/Products";
 import ProductView from "./pages/StockManagement/ProductView";
 import CreateProductWizard from "./pages/StockManagement/CreateProductWizard";
 import Suppliers from "./pages/StockManagement/Suppliers";
+import ProductCombos from "./pages/StockManagement/ProductCombos";
 import SupplierView from "./pages/StockManagement/SupplierView";
 import SupplierAssignment from "./pages/StockManagement/SupplierAssignment";
 import SupplierDetails from "./pages/StockManagement/SupplierDetails";
@@ -68,6 +69,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SelectedOutletProvider, useSelectedOutlet } from "./contexts/SelectedOutletContext";
 import apiClient from "./services/apiClient";
 import { SelectedRegisterProvider } from "./contexts/SelectedRegisterContext";
+import { ActivePriceSetProvider } from "./contexts/ActivePriceSetContext";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import PermissionProtectedRoute from "./components/Auth/PermissionProtectedRoute";
 import { PermissionProvider } from "./hooks/usePermissions";
@@ -136,7 +138,6 @@ import ImportProducts from './pages/StockManagement/ImportProducts';
 import AdvancedProductImporter from './pages/StockManagement/AdvancedProductImporter';
 import ProductMerge from './pages/StockManagement/ProductMerge';
 import CappedPricing from './pages/StockManagement/CappedPricing';
-import ProductCombos from './pages/StockManagement/ProductCombos';
 import ImportSupplierProducts from './pages/StockManagement/ImportSupplierProducts';
 import FuturePrices from './pages/Utilities/FuturePrices';
 import FutureCosts from './pages/Utilities/FutureCosts';
@@ -180,7 +181,9 @@ const AuthBridge = ({ children }) => {
   return (
     <SelectedOutletProvider user={user} switchOutlet={switchOutlet}>
       <AppDataSync />
-      <SelectedRegisterProvider>{children}</SelectedRegisterProvider>
+      <SelectedRegisterProvider>
+        <ActivePriceSetProvider>{children}</ActivePriceSetProvider>
+      </SelectedRegisterProvider>
     </SelectedOutletProvider>
   );
 };
@@ -575,6 +578,16 @@ function App() {
                           }
                         />
                         <Route
+                          path="/stock-management/product-combos"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["products.view"]}
+                            >
+                              <ProductCombos />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
                           path="/suppliers"
                           element={
                             <PermissionProtectedRoute
@@ -861,16 +874,6 @@ function App() {
               requiredPermissions={["products.add"]}
             >
               <ImportSupplierProducts />
-            </PermissionProtectedRoute>
-          }
-        />
-        <Route
-          path="/stock-management/product-combos"
-          element={
-            <PermissionProtectedRoute
-              requiredPermissions={["products.view"]}
-            >
-              <ProductCombos />
             </PermissionProtectedRoute>
           }
         />

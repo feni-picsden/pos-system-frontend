@@ -31,7 +31,13 @@ import {
   CheckBoxOutlineBlankOutlined as SquareIcon,
   CheckBoxOutlined as SquareCheckedIcon,
   SaveOutlined as SaveIcon,
+  // Reference marks a missing required field with a red warning triangle beside
+  // both the field label and the tab that holds it, and a green tick inside a
+  // required field once it is satisfied.
+  ErrorOutline as RequiredIcon,
+  Check as ValidIcon,
 } from '@mui/icons-material';
+import InputAdornment from '@mui/material/InputAdornment';
 import UserFormDialog from '../../components/Users/UserFormDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import PageLoader from '../../components/Common/PageLoader';
@@ -315,7 +321,7 @@ const editSelectSx = {
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
 };
 
-const FieldRow = ({ label, children }) => (
+const FieldRow = ({ label, children, invalid = false }) => (
   <Box
     sx={{
       display: 'grid',
@@ -325,7 +331,21 @@ const FieldRow = ({ label, children }) => (
       mb: 2.5,
     }}
   >
-    <Typography sx={{ fontSize: 16, color: '#676b72', fontWeight: 500 }}>{label}</Typography>
+    {/* A required field left empty turns its label red and puts a warning
+        triangle in front of it, the way the reference does. */}
+    <Typography
+      sx={{
+        fontSize: 16,
+        fontWeight: 500,
+        color: invalid ? '#c0392b' : '#676b72',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.75,
+      }}
+    >
+      {invalid && <RequiredIcon sx={{ fontSize: 18 }} />}
+      {label}
+    </Typography>
     {children}
   </Box>
 );
@@ -352,6 +372,9 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // Required fields only turn red once Save has actually been pressed — the
+  // reference does not scold a form the moment it opens.
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [outlets, setOutlets] = useState([]);
   const [form, setForm] = useState(() => {
@@ -362,6 +385,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
         : [];
     return {
       name: user.name || '',
+      username: user.username || '',
       email: user.email || '',
       phone: user.phone || '',
       password: '',
@@ -423,11 +447,21 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
   const savedAvatar = user.avatar ? resolveAssetUrl(user.avatar) : null;
   const avatarSrc = avatarCleared ? null : avatarDataUrl || savedAvatar;
 
+  // Reference wording, shown whenever a required field on this page is empty.
+  const REQUIRED_DETAILS_ERROR = 'Please fill in all required details before saving';
+  const nameMissing = !form.name.trim();
+  const usernameMissing = !form.username.trim();
+  const generalTabInvalid = saveAttempted && (nameMissing || usernameMissing);
+
   const handleSave = async () => {
     setError('');
     setSuccess('');
-    if (!form.name.trim()) {
-      setError('Name is required.');
+    setSaveAttempted(true);
+    // Username is the credential login matches against, so an account without
+    // one could never sign in. The reference refuses the save outright.
+    if (nameMissing || usernameMissing) {
+      setError(REQUIRED_DETAILS_ERROR);
+      setTab(0);
       return;
     }
     if (showPasswordFields && form.password) {
@@ -456,6 +490,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
     try {
       const payload = {
         name: form.name.trim(),
+        username: form.username.trim(),
         email: form.email,
         phone: form.phone,
         isActive: form.isActive,
@@ -553,7 +588,15 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
           '& .MuiTab-root.Mui-selected': { fontWeight: 700, color: '#313439' },
         }}
       >
-        <Tab disableRipple label="General" />
+        {/* Reference flags the tab that holds the unfilled field, so the warning
+            is visible even while another tab is open. */}
+        <Tab
+          disableRipple
+          label="General"
+          icon={generalTabInvalid ? <RequiredIcon sx={{ fontSize: 18 }} /> : undefined}
+          iconPosition="start"
+          sx={generalTabInvalid ? { color: '#c0392b !important', minHeight: 48 } : undefined}
+        />
         <Tab disableRipple label="Contact" />
         <Tab disableRipple label="Reporting Access" />
         <Tab disableRipple label="Quick Menu" />
@@ -634,15 +677,36 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
             </Box>
           </FieldRow>
 
-          <FieldRow label="Name">
-            <TextField value={form.name} onChange={setField('name')} placeholder="Name" sx={editInputSx} fullWidth />
-          </FieldRow>
-
-          <FieldRow label="Username">
+          <FieldRow label="Name" invalid={saveAttempted && nameMissing}>
             <TextField
               value={form.name}
-              disabled
-              helperText="The username used to log in — it matches the display name above."
+              onChange={setField('name')}
+              placeholder="Name"
+              error={saveAttempted && nameMissing}
+              sx={editInputSx}
+              fullWidth
+            />
+          </FieldRow>
+
+          <FieldRow label="Username" invalid={saveAttempted && usernameMissing}>
+            <TextField
+              value={form.username}
+              onChange={setField('username')}
+              placeholder="Username"
+              error={saveAttempted && usernameMissing}
+              helperText="What this person types to log in. Must be unique."
+              // Reference puts a green tick inside a satisfied required field.
+              InputProps={
+                form.username.trim()
+                  ? {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <ValidIcon sx={{ fontSize: 20, color: '#16a34a' }} />
+                        </InputAdornment>
+                      ),
+                    }
+                  : undefined
+              }
               sx={editInputSx}
               fullWidth
             />

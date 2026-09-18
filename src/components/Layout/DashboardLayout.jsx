@@ -58,6 +58,7 @@ import { styled } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useThemeMode } from '../../contexts/themeMode';
+import { useActivePriceSet } from '../../contexts/ActivePriceSetContext';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import notificationService from '../../services/notificationService';
 import apiClient, { resolveAssetUrl } from '../../services/apiClient';
@@ -215,6 +216,7 @@ const DashboardLayout = ({ children }) => {
   // Only the remount key below still needs the outlet; the selector itself moved
   // into the Location Selector dialog.
   const { selectedOutletId } = useSelectedOutlet();
+  const { activePriceSetName } = useActivePriceSet();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -676,10 +678,61 @@ const DashboardLayout = ({ children }) => {
             </ClickAwayListener>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', height: HEADER_HEIGHT }}>
+          {/* flexShrink 0: on a narrow window the Toolbar squeezes this cluster,
+              and its fixed-width icon cells then collapse onto whatever sits
+              beside them. The left cluster is the one that gives way. */}
+          <Box
+            // The sell screen lays its own icon strip over the header's empty
+            // middle and needs to know exactly where this cluster begins — the
+            // price-set pill included, or the strip's icons land on top of it.
+            data-header-cluster="true"
+            sx={{ display: 'flex', alignItems: 'center', height: HEADER_HEIGHT, flexShrink: 0 }}
+          >
+            {/* Active Price Set. The sale's price set is otherwise invisible once
+                the switch toast fades, so a cashier arriving mid-sale cannot tell
+                whether they are ringing up at Default or at some other set. Only
+                a non-default set is shown — Default is the normal state and
+                badging it would be noise. */}
+            {activePriceSetName && (
+              <Box
+                aria-label="active price set"
+                title={`Price Set: ${activePriceSetName}`}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  height: 28,
+                  px: 1.25,
+                  mr: 1.5,
+                  maxWidth: 180,
+                  // The pill is a flex item in the header row: without this it
+                  // gave up width to its neighbours and the register icon rode
+                  // over the text. It keeps its own width; the name inside is
+                  // what truncates.
+                  flexShrink: 0,
+                  borderRadius: '14px',
+                  border: '1px solid rgba(255,255,255,0.45)',
+                  color: '#fff',
+                  fontSize: 13,
+                  lineHeight: 1,
+                }}
+              >
+                {/* text-overflow only clips a block/inline-block, not a flex
+                    container's own text, so the name gets its own box. */}
+                <Box
+                  component="span"
+                  sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  {activePriceSetName}
+                </Box>
+              </Box>
+            )}
+
             {/* Outlet is now picked in the Location Selector (step 1), the same
-                place the register is picked — the navbar chip is gone. */}
-            <RegisterSelectButton />
+                place the register is picked — the navbar chip is gone. The sell
+                screen draws its own copy of this button in its header strip
+                (reference order: signpost, cash drawer), so there it is not
+                rendered twice. */}
+            {location.pathname !== '/' && <RegisterSelectButton />}
 
             {/* Volume — hidden for now; the popover and every volume handler stay wired. */}
             <Box

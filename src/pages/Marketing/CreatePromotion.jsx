@@ -43,7 +43,6 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import promotionService from '../../services/promotionService';
 import promotionCategoryService from '../../services/promotionCategoryService';
 import productService from '../../services/productService';
-import productComboService from '../../services/productComboService';
 import classificationService from '../../services/classificationService';
 
 const GRADIENT = 'linear-gradient(to bottom right,#5da2ba,#2193b0,#283c86,#4bc0c8,#283c86,#2193b0)';
@@ -105,15 +104,14 @@ const REWARD_TYPES = [
   }
 ];
 
-// The item search matches products, classifications AND product combos (same
-// sources as the Advanced editor). Results are grouped under bold headers.
+// The item search matches products and classifications (same sources as the
+// Advanced editor). Results are grouped under bold headers.
 const ITEM_GROUP_LABELS = {
   CATEGORY: 'Category',
   BRAND: 'Brand',
   FAMILY: 'Family',
   TAG: 'Tag',
-  PRODUCT: 'Product',
-  COMBO: 'Product Combo'
+  PRODUCT: 'Product'
 };
 
 const itemGroupOf = (option) =>
@@ -329,10 +327,6 @@ const CreatePromotion = () => {
   // Combo Deal state
   const [comboItems, setComboItems] = useState([]); // { productId, productName, quantity, unitPrice }
   const [comboPrice, setComboPrice] = useState('');
-  const [selectedCombo, setSelectedCombo] = useState(null);
-  const [availableCombos, setAvailableCombos] = useState([]);
-  const [combosLoaded, setCombosLoaded] = useState(false);
-  const [saveAsCombo, setSaveAsCombo] = useState(false);
   const [comboProductSearch, setComboProductSearch] = useState('');
   const [comboProductResults, setComboProductResults] = useState([]);
 
@@ -374,26 +368,8 @@ const CreatePromotion = () => {
     if (stepKey === 'category' && categories.length === 0) {
       fetchCategories();
     }
-    // Lazily fetch existing Product Combos when the user reaches the combo question.
-    if (stepKey === 'combo' && !combosLoaded) {
-      fetchAvailableCombos();
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepKey]);
-
-  const fetchAvailableCombos = async () => {
-    try {
-      setCombosLoaded(true);
-      const response = await productComboService.getProductCombos({
-        outletId: resolveOutletId(),
-        status: 'Active'
-      });
-      setAvailableCombos(Array.isArray(response?.combos) ? response.combos : []);
-    } catch (error) {
-      console.error('Error fetching product combos:', error);
-      setAvailableCombos([]);
-    }
-  };
 
   // Reference: 1-2 characters show "Keep Typing to Search...", 3+ actually search.
   // Products, classifications and product combos all match, grouped in the menu.
@@ -404,25 +380,21 @@ const CreatePromotion = () => {
       return;
     }
     setItemSearching(true);
-    const [products, classifications, combos] = await Promise.all([
+    const [products, classifications] = await Promise.all([
       productService.getProducts({ search: query, limit: 20 }).then((r) => r?.products || []).catch(() => []),
-      classificationService.getClassifications({ search: query }).then((r) => r?.classifications || []).catch(() => []),
-      productComboService
-        .getProductCombos({ search: query, status: 'Active', limit: 20 })
-        .then((r) => r?.combos || [])
-        .catch(() => [])
+      classificationService.getClassifications({ search: query }).then((r) => r?.classifications || []).catch(() => [])
     ]);
-    // Concatenated in group order — MUI groups consecutive options only.
+    // Concatenated in group order — MUI groups consecutive options only. A Combo
+    // Product is an ordinary product row, so it already arrives with the products.
     setItemOptions([
       ...classifications.map((c) => ({ ...c, resultType: 'CLASSIFICATION' })),
-      ...products.map((p) => ({ ...p, resultType: 'PRODUCT' })),
-      ...combos.map((c) => ({ ...c, resultType: 'COMBO' }))
+      ...products.map((p) => ({ ...p, resultType: 'PRODUCT' }))
     ]);
     setItemSearching(false);
   };
 
-  // A classification or a combo is shorthand for its member products: expand it so
-  // the promotion rows always carry a productId (what the sell screen matches on).
+  // A classification is shorthand for its member products: expand it so the
+  // promotion rows always carry a productId (what the sell screen matches on).
   const expandSelections = async (selections) => {
     const rows = [];
     const seen = new Set();
@@ -433,15 +405,6 @@ const CreatePromotion = () => {
           .getClassificationProducts(selection.id)
           .then((r) => r?.assignedProducts || [])
           .catch(() => []);
-      } else if (selection?.resultType === 'COMBO') {
-        let combo = selection;
-        if (!Array.isArray(combo.items) || combo.items.length === 0) {
-          combo = await productComboService
-            .getProductCombo(selection.id)
-            .then((r) => r?.combo || r || selection)
-            .catch(() => selection);
-        }
-        products = (combo.items || []).map((i) => i.product).filter(Boolean);
       }
       for (const product of products) {
         if (product?.id != null && !seen.has(product.id)) {
@@ -698,23 +661,6 @@ const CreatePromotion = () => {
     }
   };
 
-  const handleSelectExistingCombo = (combo) => {
-    setSelectedCombo(combo || null);
-    if (!combo) return;
-    const items = (combo.items || [])
-      .map((it) => ({
-        productId: it.productId || it.product?.id,
-        productName: it.product?.name || it.productName || 'Unknown Product',
-        quantity: parseInt(it.quantity) || 1,
-        unitPrice: parseFloat(it.price) > 0 ? parseFloat(it.price) : getDefaultUnitPrice(it.product)
-      }))
-      .filter((it) => it.productId);
-    setComboItems(items);
-    const rawPrice = parseFloat(combo.comboPrice) || parseFloat(combo.totalPrice) || parseFloat(combo.calculatedTotalPrice) || 0;
-    setComboPrice(rawPrice > 0 ? String(rawPrice) : '');
-    setSaveAsCombo(false);
-  };
-
   const handleAddComboProduct = (product) => {
     if (!product) return;
     setComboItems((prev) => {
@@ -813,31 +759,9 @@ const CreatePromotion = () => {
 
     try {
       setLoading(true);
-      let comboId = selectedCombo?.id ?? null;
-
-      if (saveAsCombo && !selectedCombo) {
-        try {
-          const comboResponse = await productComboService.createProductCombo({
-            name: formData.name || 'Combo Deal',
-            description: formData.description,
-            totalPrice: price,
-            items: comboItems.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              price: item.unitPrice
-            })),
-            outletId: resolveOutletId(),
-            isActive: true
-          });
-          comboId = comboResponse?.combo?.id ?? comboResponse?.id ?? null;
-        } catch (comboError) {
-          console.error('Error saving product combo:', comboError);
-          comboId = null;
-          showSnackbar('Could not save the Product Combo — the promotion will still be created', 'warning');
-        }
-      }
-
-      const response = await promotionService.createPromotion(buildComboPromotionPayload(comboId));
+      // A Combo Deal carries its own definition in conditions.combo; it is a
+      // promotion, not a catalogue row, so nothing is written outside it.
+      const response = await promotionService.createPromotion(buildComboPromotionPayload());
       const newId = response?.promotion?.id ?? response?.id;
       showSnackbar('Combo deal promotion created successfully', 'success');
       if (newId) {
@@ -958,19 +882,7 @@ const CreatePromotion = () => {
     return (
       <Box>
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
-            <Autocomplete
-              options={Array.isArray(availableCombos) ? availableCombos : []}
-              getOptionLabel={(option) => option?.name || ''}
-              isOptionEqualToValue={(option, value) => option?.id === value?.id}
-              value={selectedCombo}
-              onChange={(event, newValue) => handleSelectExistingCombo(newValue)}
-              renderInput={(params) => (
-                <TextField {...params} placeholder="Start from an existing Product Combo" sx={roundFieldSx} />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12}>
             <Autocomplete
               options={comboProductResults}
               getOptionLabel={(option) => option?.name || ''}
@@ -1062,13 +974,6 @@ const CreatePromotion = () => {
           </Grid>
         </Grid>
 
-        {!selectedCombo && (
-          <FormControlLabel
-            sx={{ mt: 2, ml: 0, gap: 1 }}
-            control={<ShopfrontSwitch checked={saveAsCombo} onChange={(e) => setSaveAsCombo(e.target.checked)} />}
-            label={<Typography sx={{ color: NEAR_WHITE }}>Also save as a Product Combo in Stock Management</Typography>}
-          />
-        )}
       </Box>
     );
   };

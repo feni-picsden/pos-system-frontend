@@ -48,6 +48,7 @@ import {
   DeleteOutline as DeleteIcon,
   InfoOutlined as InfoIcon,
   Fingerprint as FingerprintIcon,
+  Inventory2Outlined as ComboIcon,
   CategoryOutlined as CategoryIcon,
   LocalOfferOutlined as LocalOfferIcon,
   AttachMoneyOutlined as MoneyIcon,
@@ -93,6 +94,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import ImageUpload from '../../components/Common/ImageUpload';
 import MediaDialog from '../../components/Common/MediaDialog';
+import ComboItemsPanel from '../../components/StockManagement/ComboItemsPanel';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import supplierService from '../../services/supplierService';
 import barcodeService from '../../services/barcodeService';
@@ -108,6 +110,8 @@ import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSav
 import { deriveFamilyTemplate, applyFamilyTemplate, tiersKey, findHigherRateQuantity } from '../../utils/familyOverride';
 import { buildAdjustments, applyAdjustments } from '../../utils/caseQuantityAdjust';
 import CaseQuantityAdjustmentsDialog from '../../components/StockManagement/CaseQuantityAdjustmentsDialog';
+import settingsService from '../../services/settingsService';
+import { pricingUnitCost, profitPercent, priceFromPercent } from '../../utils/productCost';
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
 const primaryButtonSx = {
@@ -223,6 +227,25 @@ const ComboPaper = (props) => (
 
 // Ref option order + gray description second lines for the Status combobox
 // Tab strip: label + icon + the reference's measured pixel width for that tab
+// A Combo Product is sold as one product but spends the stock of the products
+// inside it (Shopfront "Basket Products", art. 115003878751 — the same feature
+// under our name). It carries no cost of its own: its cost is whatever its
+// contents cost, so Sell & Cost shows one derived figure instead of the four
+// Last/Average fields.
+const COMBO_TYPE = 'Combo Product';
+
+/** A combo's cost: what its contents cost, which is the only cost it has. */
+const formatComboCost = (comboContents) => {
+  const total = (comboContents || []).reduce(
+    (sum, row) => sum + (Number(row.cost) || 0) * (Number(row.quantity) || 0),
+    0
+  );
+  return `$${total.toFixed(2)}`;
+};
+
+// Reference puts the contents tab straight after General, and only for a combo.
+const COMBO_TAB = { label: 'Combo Items', icon: <ComboIcon />, width: 150 };
+
 const PRODUCT_TABS = [
   { label: 'General', icon: <FingerprintIcon />, width: 115 },
   { label: 'Classifications', icon: <LocalOfferIcon />, width: 169 },
@@ -489,7 +512,7 @@ const ProductEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isTrueSuperAdmin, getOutletId, getOutletName, user } = useAuth();
+  const { isTrueSuperAdmin, getOutletId, getOutletName } = useAuth();
   // A super admin creates products into the outlet currently selected in the navbar —
   // otherwise the product is saved with outletId null and the outlet-scoped Products
   // list (which filters strictly by outletId for super admins) can never show it again.
@@ -592,8 +615,82 @@ const ProductEdit = () => {
     // Additional Information values keyed by field safeName; a missing key means
     // "use the field's default value".
     additionalInfo: {},
+    // Combo Product contents: [{ productId, name, quantity, price, cost }]
+    comboContents: [],
     outletId: null,
   });
+
+  // Combo Items sits straight after General, and only for a Combo Product.
+  // Every tab index below is read off this list, never off PRODUCT_TABS, or a
+  // combo's indexes would be one out from the tabs actually on screen.
+  const isCombo = formData?.type === COMBO_TYPE;
+  const tabs = React.useMemo(
+    () => (isCombo ? [PRODUCT_TABS[0], COMBO_TAB, ...PRODUCT_TABS.slice(1)] : PRODUCT_TABS),
+    [isCombo]
+  );
+  const tabIndex = (label) => tabs.findIndex((t) => t.label === label);
+
+  // Setup > General drove the sell screen's profit figures but never this page, so the
+  // Prices table always costed off the LAST item cost and always showed a gross profit
+  // margin — whatever the company had chosen. Both settings are read here now.
+  //
+  // "Set Prices Based On" picks the cost this editor prices against; it deliberately
+  // does NOT change how a completed sale is costed (that stays Cost Calculation Method,
+  // which the till reads), which is why the two settings are separate.
+  // Held in state, not read straight off the cache. getCachedGeneralSettings() is a
+  // SYNC read that returns the defaults and only kicks off the fetch, so a component
+  // that reads it once and never re-renders keeps the defaults forever — this page
+  // priced every product off the last cost no matter what the company had chosen.
+  // The awaitable warm-up re-renders us once the real blob lands.
+  const [generalSettings, setGeneralSettings] = useState(
+    () => settingsService.getCachedGeneralSettings() || {}
+  );
+  useEffect(() => {
+    let cancelled = false;
+    settingsService
+      .loadCachedGeneralSettings()
+      .then((loaded) => { if (!cancelled && loaded) setGeneralSettings(loaded); })
+      .catch(() => { /* defaults already in state */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const profitabilityDisplay = generalSettings.profitabilityDisplay || 'Gross Profit Margin';
+  // loadProduct runs outside render, so it reads settings through a ref rather
+  // than closing over a value that may still be the default at that moment.
+  const generalSettingsRef = useRef(generalSettings);
+  generalSettingsRef.current = generalSettings;
+  const pricingItemCost = pricingUnitCost(
+    {
+      itemCost: formData.itemCost,
+      averageItemCost: formData.averageItemCost,
+      // The case halves come too: a case cost that does not divide evenly by the case
+      // quantity only survives at full precision if the per-unit figure is derived
+      // from it rather than read off the cent-rounded itemCost column.
+      caseCost: formData.caseCost,
+      averageCaseCost: formData.averageCaseCost,
+      caseQuantity: formData.caseQuantity,
+      // Mixed Mode switches on TOTAL units, so this is the product's whole holding,
+      // not the loose-items box on its own. The saved row is authoritative; the cases
+      // and items on screen cover a product that has not been loaded yet.
+      inventory:
+        product?.inventory
+        ?? ((Number(formData.currentStockCases) || 0) * (Number(formData.caseQuantity) || 1)
+            + (Number(formData.currentStockItems) || 0)),
+    },
+    generalSettings
+  );
+
+  // A Combo Product has no cost column of its own — its cost is whatever its
+  // contents cost. Feeding that in here is what makes the Prices table's Cost
+  // and % columns read correctly for a combo, the same way they do for any other
+  // product ("Sell prices are set for basket products the same way as for normal
+  // products" — Shopfront art. 115003878751).
+  const effectiveItemCost = isCombo
+    ? (formData.comboContents || []).reduce(
+        (sum, row) => sum + (Number(row.cost) || 0) * (Number(row.quantity) || 0),
+        0
+      )
+    : pricingItemCost;
 
   // Settings > Additional Information field definitions
   const [additionalFields, setAdditionalFields] = useState([]);
@@ -680,7 +777,7 @@ const ProductEdit = () => {
     setFormData(prev => ({
       ...prev,
       prices: prev.prices.map(price => {
-        const newBaseCost = calculateBaseCost(prev.itemCost, price.quantity);
+        const newBaseCost = calculateBaseCost(effectiveItemCost, price.quantity);
         return {
           ...price,
           cost: newBaseCost,
@@ -689,7 +786,10 @@ const ProductEdit = () => {
         };
       })
     }));
-  }, [formData.itemCost]);
+    // Recost on the PRICING cost, not the raw last cost: the average pair and the two
+    // company settings all move it, and the rows have to follow.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveItemCost, profitabilityDisplay]);
 
   const loadProduct = async () => {
     try {
@@ -731,6 +831,23 @@ const ProductEdit = () => {
         averageItemCost: response.product.averageItemCost ?? response.product.itemCost ?? 0,
         requestPrice: response.product.requestPrice || false,
         requestQuantity: response.product.requestQuantity || false,
+        // Flattened for the panel: it edits quantity, and shows the component's
+        // own price and cost beside it.
+        comboContents: (response.product.comboContents || []).map((row) => {
+          const rows = (row.product?.prices || []).filter((pr) => pr?.priceSetId == null);
+          const single = rows.find((pr) => Number(pr.quantity) === 1) || rows[0];
+          return {
+            productId: row.productId,
+            name: row.product?.name || '',
+            quantity: row.quantity,
+            price: single ? (Number(single.price) || 0) / (Number(single.quantity) || 1) : 0,
+            // The component's cost the way the pricing engine resolves it —
+            // Last / Average / Mixed per the company setting — not the raw
+            // last-cost column, which is empty on a product that has only ever
+            // had an average cost typed into it.
+            cost: pricingUnitCost(row.product || {}, generalSettingsRef.current),
+          };
+        }),
         prices: response.product.prices || [{ quantity: 1, price: 0, cost: 0, percentage: 0 }],
         trackInventory: response.product.trackInventory !== false,
         currentStockCases: response.product.currentStockCases || 0,
@@ -926,15 +1043,34 @@ const ProductEdit = () => {
   const handleCostChange = (field, value) => {
     const entered = parseFloat(value) || 0;
     const stored = formData.showCostsIncludingTax ? entered : addTaxToCost(entered, getCostTaxRateName());
+    const caseQty = parseInt(formData.caseQuantity, 10) || 1;
+
     // Ref: a case cost drives its item cost live (and the price table's GP% with
     // it) so the numbers update while typing, not only after save/reload.
-    const perUnitField = { caseCost: 'itemCost', averageCaseCost: 'averageItemCost' }[field];
-    if (perUnitField) {
-      const perUnit = stored / (parseInt(formData.caseQuantity, 10) || 1);
+    //
+    // The link runs BOTH ways. It used to be case -> item only, which left the two
+    // halves of a pair disagreeing the moment the item half was typed: entering an
+    // average item cost of $9.00 kept an average CASE cost of $125.15, and since the
+    // pricing cost is derived from the case half (see unitFromCase), the figure the
+    // operator had just typed was ignored outright.
+    const PAIRS = {
+      caseCost: { other: 'itemCost', perUnit: true },
+      averageCaseCost: { other: 'averageItemCost', perUnit: true },
+      itemCost: { other: 'caseCost', perUnit: false },
+      averageItemCost: { other: 'averageCaseCost', perUnit: false },
+    };
+    const pair = PAIRS[field];
+    // Multiplying UP needs a real case quantity. On a new product the cost is often
+    // typed before the case size, and defaulting to 1 there would bank a case cost
+    // equal to the item cost — which the server then treats as deliberate and never
+    // re-derives. With the case half left alone, the server fills it in on save.
+    const haveCaseQty = (parseInt(formData.caseQuantity, 10) || 0) > 0;
+    if (pair && (pair.perUnit || haveCaseQty)) {
+      const otherValue = pair.perUnit ? stored / caseQty : stored * caseQty;
       setFormData(prev => ({
         ...prev,
         [field]: stored,
-        [perUnitField]: Math.round(perUnit * 100) / 100,
+        [pair.other]: Math.round(otherValue * 100) / 100,
       }));
       return;
     }
@@ -995,7 +1131,7 @@ const ProductEdit = () => {
   // page can jump there. The server names it when it knows (`tab`); otherwise it is
   // inferred from the wording of the reason. -1 = no specific tab.
   const tabForProblem = (serverTab, text) => {
-    const byLabel = PRODUCT_TABS.findIndex((t) => t.label === serverTab);
+    const byLabel = tabs.findIndex((t) => t.label === serverTab);
     if (byLabel >= 0) return byLabel;
     const s = String(text || '').toLowerCase();
     const rules = [
@@ -1010,13 +1146,13 @@ const ProductEdit = () => {
       [/name|case quantity/, 'General'],
     ];
     const hit = rules.find(([re]) => re.test(s));
-    return hit ? PRODUCT_TABS.findIndex((t) => t.label === hit[1]) : -1;
+    return hit ? tabs.findIndex((t) => t.label === hit[1]) : -1;
   };
 
   // One way to report why a product was not saved: jump to the tab, show it in the
   // banner, and open a popup that names the tab so the user knows where to look.
   const reportSaveProblem = (message, { tab = -1, severity = 'error' } = {}) => {
-    const where = tab >= 0 ? PRODUCT_TABS[tab].label : null;
+    const where = tab >= 0 ? tabs[tab].label : null;
     if (tab >= 0) setActiveTab(tab);
     setError(where ? `Not saved - ${where} tab: ${message}` : `Not saved: ${message}`);
     alert(where ? `Where: ${where} tab\n\n${message}` : message, severity, { title: 'Product not saved' });
@@ -1144,7 +1280,7 @@ const ProductEdit = () => {
           { title: 'Invalid Price Rates Detected', confirmText: 'Yes', cancelText: 'No' }
         );
         if (!intentional) {
-          const sellTab = PRODUCT_TABS.findIndex((t) => t.label === 'Sell & Cost');
+          const sellTab = tabs.findIndex((t) => t.label === 'Sell & Cost');
           if (sellTab >= 0) setActiveTab(sellTab);
           return;
         }
@@ -1230,6 +1366,14 @@ const ProductEdit = () => {
         categoryId: resolvedCategoryId,
         brandId: resolvedBrandId,
         familyId: resolvedFamilyId,
+        // The server stores only what a combo SPENDS; name/price/cost on each row
+        // are the component's own, read back from the product on load.
+        comboContents: source.type === COMBO_TYPE
+          ? (source.comboContents || []).map((row) => ({
+              productId: row.productId,
+              quantity: Number(row.quantity) || 0,
+            }))
+          : undefined,
         // The Case Quantity Adjustments dialog already decided how the stock reads
         // at the new case size — "Keep Old" leaves the cases/items untouched, which
         // the server would otherwise mistake for an untouched form and re-split.
@@ -1290,7 +1434,7 @@ const ProductEdit = () => {
       }
       const message = details && details !== reason ? `${reason}\n${details}` : reason;
       const tab = error?.response?.status === 413
-        ? PRODUCT_TABS.findIndex((t) => t.label === 'Images')
+        ? tabs.findIndex((t) => t.label === 'Images')
         : tabForProblem(data?.tab, message);
       reportSaveProblem(message, { tab });
     } finally {
@@ -1387,23 +1531,19 @@ const ProductEdit = () => {
   const calculatePrice = (itemCost, quantity, percentage) => {
     if (!itemCost || itemCost <= 0) return 0;
     const baseCost = itemCost * quantity;
-    const marginFraction = (typeof percentage === 'number' ? percentage : parseFloat(percentage) || 0) / 100;
-    if (marginFraction >= 1) return 0; 
-    const rawPrice = baseCost / (1 - marginFraction);
-    return Math.round(rawPrice * 100) / 100; 
+    const rawPrice = priceFromPercent(baseCost, percentage, profitabilityDisplay);
+    return Math.round(rawPrice * 100) / 100;
   };
 
   // Calculate margin percentage for a given cost and price
   const calculatePercentageFromPrice = (cost, price) => {
     if (!price || price === 0) return 0;
-    const margin = 1 - (cost / price);
-    const pct = margin * 100;
-    return Math.round(pct * 100) / 100; 
+    return Math.round(profitPercent(price, cost, profitabilityDisplay) * 100) / 100;
   };
 
   const addPriceRow = () => {
-    const baseCost = calculateBaseCost(formData.itemCost, 1);
-    const price = calculatePrice(formData.itemCost, 1, 0);
+    const baseCost = calculateBaseCost(effectiveItemCost, 1);
+    const price = calculatePrice(effectiveItemCost, 1, 0);
     setFormData(prev => ({
       ...prev,
       prices: [...prev.prices, { quantity: 1, price: price, cost: baseCost, percentage: 0 }]
@@ -1634,7 +1774,7 @@ const ProductEdit = () => {
           }}
         >
           {/* Ref tab widths are fixed per label (115/169/141/135/136/135/120/120/168 = 1239 strip) */}
-          {PRODUCT_TABS.map(({ label, icon, width }) => (
+          {tabs.map(({ label, icon, width }) => (
             <Tab
               key={label}
               icon={icon}
@@ -1668,7 +1808,7 @@ const ProductEdit = () => {
         '& .MuiTypography-subtitle1': { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, color: '#000' },
       }}>
         {/* General Tab */}
-        <TabPanel value={activeTab} index={0}>
+        <TabPanel value={activeTab} index={tabIndex('General')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <InfoIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>General</Typography>
@@ -1731,9 +1871,12 @@ const ProductEdit = () => {
                     '& .MuiSelect-select.Mui-disabled': { WebkitTextFillColor: '#000', cursor: 'not-allowed' },
                   }}
                 >
+                  {/* Reference list (measured 2026-09-15). Composite Product and
+                      Service were ours and are not in it; Components and Packages
+                      only appear there behind Setup > General "Use Components and
+                      Packages", which this build does not implement yet. */}
                   <MenuItem value="Normal Product">Normal Product</MenuItem>
-                  <MenuItem value="Composite Product">Composite Product</MenuItem>
-                  <MenuItem value="Service">Service</MenuItem>
+                  <MenuItem value={COMBO_TYPE}>{COMBO_TYPE}</MenuItem>
                   <MenuItem value="EFTPOS Refund Item">EFTPOS Refund Item</MenuItem>
                 </Select>
               </FormControl>
@@ -1914,8 +2057,33 @@ const ProductEdit = () => {
           </Grid>
         </TabPanel>
 
+        {/* Combo Items — a Combo Product's contents. Quantity is what comes OFF
+            each component's stock when one combo sells; Price and Cost are the
+            component's own, shown so the operator can price the combo against
+            what is in it (the combo's own price is set in Sell & Cost). */}
+        {isCombo && (
+          <TabPanel value={activeTab} index={tabIndex('Combo Items')}>
+            {/* Reference heads this section "Edit Basket Items" with the title on
+                the left and the favourite star pushed out to the right edge. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <ComboIcon sx={{ mr: 1 }} />
+              <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>
+                Edit Combo Items
+              </Typography>
+              <Box sx={{ flexGrow: 1 }} />
+              <FavoriteStar field="Combo Items" />
+            </Box>
+            <ComboItemsPanel
+              items={formData.comboContents || []}
+              excludeProductId={isNewProduct ? null : parseInt(id, 10)}
+              outletId={formData.outletId}
+              onChange={(next) => setFormData((prev) => ({ ...prev, comboContents: next }))}
+            />
+          </TabPanel>
+        )}
+
         {/* Classifications Tab */}
-        <TabPanel value={activeTab} index={1}>
+        <TabPanel value={activeTab} index={tabIndex('Classifications')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <CategoryIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Classifications</Typography>
@@ -2080,7 +2248,7 @@ const ProductEdit = () => {
         </TabPanel>
 
         {/* Sell & Cost Tab */}
-        <TabPanel value={activeTab} index={2}>
+        <TabPanel value={activeTab} index={tabIndex('Sell & Cost')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <MoneyIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Sell & Cost</Typography>
@@ -2192,8 +2360,15 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Cost <FavoriteStar field="Cost" />
               </Typography>
-              
-              {!formData.costPercentage && (
+
+              {/* Reference: a combo has no cost of its own — "There isn't an option
+                  to enter a cost... Instead, the cost is determined by the costs of
+                  the individual products within" it. So the tax toggle and the four
+                  Last/Average fields give way to one read-only figure summed from
+                  the Combo Items tab. */}
+              {isCombo ? (
+                <Typography sx={{ fontSize: 16 }}>{formatComboCost(formData.comboContents)}</Typography>
+              ) : !formData.costPercentage ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <ShopfrontSwitch
                     checked={formData.showCostsIncludingTax}
@@ -2202,9 +2377,9 @@ const ProductEdit = () => {
                     Show Costs Including Tax
                   </Typography>
                 </Box>
-              )}
+              ) : null}
             </Grid>
-            {formData.costPercentage ? (
+            {isCombo ? null : formData.costPercentage ? (
               // When cost percentage is ON, show percentage input
               <Grid item xs={12}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -2423,7 +2598,7 @@ const ProductEdit = () => {
                                 newPrices[index] = { ...newPrices[index], quantity: newQty, price: scaled };
                                 handleInputChange(
                                   'prices',
-                                  syncPriceRows(newPrices, index, formData.itemCost)
+                                  syncPriceRows(newPrices, index, effectiveItemCost, profitabilityDisplay)
                                 );
                               }}
                               size="small"
@@ -2443,7 +2618,7 @@ const ProductEdit = () => {
                                 // the single afterwards ($8) leaves the packs alone.
                                 handleInputChange(
                                   'prices',
-                                  syncPriceRows(newPrices, index, formData.itemCost)
+                                  syncPriceRows(newPrices, index, effectiveItemCost, profitabilityDisplay)
                                 );
                               }}
                               size="small"
@@ -2453,7 +2628,7 @@ const ProductEdit = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            ${(formData.itemCost * price.quantity).toFixed(2)}
+                            ${(effectiveItemCost * price.quantity).toFixed(2)}
                           </TableCell>
                           <TableCell>
                             <TextField
@@ -2462,11 +2637,11 @@ const ProductEdit = () => {
                               onChange={(e) => {
                                 const newPrices = [...formData.prices];
                                 const pct = parseFloat(e.target.value) || 0;
-                                const newPrice = calculatePrice(formData.itemCost, newPrices[index].quantity, pct);
+                                const newPrice = calculatePrice(effectiveItemCost, newPrices[index].quantity, pct);
                                 newPrices[index] = { ...newPrices[index], percentage: pct, price: newPrice };
                                 // A margin change moves this row's price, so a pack's
                                 // single follows it just as a typed price would.
-                                const synced = syncPriceRows(newPrices, index, formData.itemCost);
+                                const synced = syncPriceRows(newPrices, index, effectiveItemCost, profitabilityDisplay);
                                 // Keep the margin exactly as typed: re-deriving it from
                                 // the rounded price makes the field jump under the cursor.
                                 synced[index] = { ...synced[index], percentage: pct };
@@ -2524,7 +2699,7 @@ const ProductEdit = () => {
         </TabPanel>
 
         {/* Inventory Tab */}
-        <TabPanel value={activeTab} index={3}>
+        <TabPanel value={activeTab} index={tabIndex('Inventory')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <InventoryIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Inventory</Typography>
@@ -2546,6 +2721,24 @@ const ProductEdit = () => {
                     : "The inventory changes for this product won't be tracked"}
                 </Typography>
               </Box>
+
+              {/* Shopfront art. 115003878751: "Shopfront generally recommends
+                  turning off the Track Inventory option... Enabling Track
+                  Inventory for both the normal product and the [combo] can lead
+                  to unintended consequences, particularly during a stocktake."
+
+                  A warning rather than forcing the toggle off: the reference
+                  leaves it on by default and lets the operator decide, and a
+                  combo that genuinely holds its own stock (a pre-made hamper on
+                  the shelf) is a legitimate setup. */}
+              {isCombo && formData.trackInventory && (
+                <Alert severity="warning" sx={{ mt: 2, maxWidth: 860 }}>
+                  Turning Track Inventory <strong>off</strong> is recommended for combo
+                  products, because the stock is already tracked on the products inside
+                  the combo. Leaving it on for both can give unexpected results during a
+                  stocktake.
+                </Alert>
+              )}
             </Grid>
 
             {/* Track Inventory is the master conditional for the stock block (ref) */}
@@ -2575,10 +2768,16 @@ const ProductEdit = () => {
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2">Current Stock</Typography>
+                  {/* Loose items carry the fraction: a basket spends part of a
+                      component (0.04 of a bottle per nip), so stock is held to two
+                      decimal places and parseInt here would silently drop it —
+                      2.96 items saved back as 2. Cases above stay whole, because
+                      a part case IS loose items. */}
                   <TextField
                     type="number"
                     value={formData.currentStockItems}
-                    onChange={(e) => handleInputChange('currentStockItems', parseInt(e.target.value) || 0)}
+                    inputProps={{ step: 'any' }}
+                    onChange={(e) => handleInputChange('currentStockItems', parseFloat(e.target.value) || 0)}
                     size="small"
                     fullWidth
                   />
@@ -2689,7 +2888,7 @@ const ProductEdit = () => {
         </TabPanel>
 
         {/* Barcodes Tab */}
-        <TabPanel value={activeTab} index={4}>
+        <TabPanel value={activeTab} index={tabIndex('Barcodes')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <BarcodeIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Barcodes</Typography>
@@ -2837,7 +3036,7 @@ const ProductEdit = () => {
         </TabPanel>
 
         {/* Suppliers Tab */}
-        <TabPanel value={activeTab} index={5}>
+        <TabPanel value={activeTab} index={tabIndex('Suppliers')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <TruckIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Suppliers</Typography>
@@ -3122,7 +3321,7 @@ const ProductEdit = () => {
         </TabPanel>
 
         {/* Images Tab */}
-        <TabPanel value={activeTab} index={6}>
+        <TabPanel value={activeTab} index={tabIndex('Images')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <ImageOutlinedIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Images</Typography>
@@ -3140,7 +3339,7 @@ const ProductEdit = () => {
         </TabPanel>
 
         {/* Loyalty Tab */}
-        <TabPanel value={activeTab} index={7}>
+        <TabPanel value={activeTab} index={tabIndex('Loyalty')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <TrophyIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Loyalty</Typography>
@@ -3225,7 +3424,7 @@ const ProductEdit = () => {
         </TabPanel>
 
         {/* Additional Info Tab */}
-        <TabPanel value={activeTab} index={8}>
+        <TabPanel value={activeTab} index={tabIndex('Additional Info')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <ComputerIcon sx={{ mr: 1 }} />
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Additional Info</Typography>

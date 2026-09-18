@@ -574,36 +574,26 @@ const FinalizeSaleDialog = ({
           <Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, p: 2 }}>
               {visiblePaymentMethods.map((method, index) => {
-                // Reference gates Cash until an amount is typed; the tile stays visually
-                // identical (no disabled styling), only the handler is inert.
-                // A refund (negative balance) has nothing to type — the tile must stay live.
-                // "Default to Pay Exact" (Setup > Payment Methods) decides this:
-                // whether the method can be used without specifying an amount first
-                // (reference disables it for Cash, enables it for EFTPOS). Methods
-                // that never had the flag set keep the old name-based behaviour.
-                const payExact = getPaymentMethodSettings(method).defaultToPayExact;
+                // "Default to Pay Exact" (Setup > Payment Methods) is the only thing
+                // that decides this: whether the method can be used without specifying
+                // an amount first. Every tender pays exact unless it is explicitly
+                // switched off, Cash included — press Cash on an empty input and it
+                // takes the exact remaining balance. Only an explicit false gates the
+                // tile, so an unconfigured method is never silently locked.
+                // A refund (negative balance) has nothing to type — the tile stays live.
                 const needsAmountFirst =
-                  payExact === false || (payExact === undefined && tenderLabel(method) === 'cash');
-                const cashLocked =
+                  getPaymentMethodSettings(method).defaultToPayExact === false;
+                const amountLocked =
                   needsAmountFirst &&
                   !paymentAmount.trim() &&
                   remainingBalance > -PAYMENT_TOLERANCE;
                 return (
                   <Button
                     key={method.id || index}
-                    disabled={needsOrderRef || cashLocked}
+                    disabled={needsOrderRef || amountLocked}
                     onClick={() => {
                       if (method.type === 'Gift Card' || method.name === 'Vii Gift Card') {
                         onSelectPaymentMethod(method);
-                      } else if ((method.name?.toLowerCase() === 'on account' || method.type?.toLowerCase() === 'on account')) {
-                        // Handle On Account payment
-                        setSelectedPaymentMethod(method);
-                        if (paymentAmount) {
-                          handlePaymentMethodClick(method);
-                        } else {
-                          // Auto-fill with remaining balance
-                          handlePaymentMethodClick(method);
-                        }
                       } else if ((method.name?.toLowerCase() === 'loyalty' || method.type?.toLowerCase() === 'loyalty')) {
                         // Open loyalty payment dialog
                         if (customerLoyaltyInfo && customerLoyaltyInfo.loyaltyPoints > 0) {
@@ -613,25 +603,15 @@ const FinalizeSaleDialog = ({
                           alert('Customer does not have any loyalty points available for redemption.');
                         }
                       } else {
-                        setSelectedPaymentMethod(method);
-                        if (
-                          paymentAmount ||
-                          isEftposMethod(method) ||
-                          remainingBalance < -PAYMENT_TOLERANCE
-                        ) {
-                          // EFTPOS must always route through the PIN pad flow,
-                          // even with no amount typed (charges remaining balance).
-                          // A refund also routes here — the handler signs the tender.
-                          handlePaymentMethodClick(method);
-                        } else if (remainingBalance > PAYMENT_TOLERANCE) {
-                          // Tap payment method with no amount: pay remaining balance
-                          onAddPayment({
-                            amount: roundTender(remainingBalance, method),
-                            method: method.name || method.type,
-                            description: method.name || method.type,
-                          });
-                          setSelectedPaymentMethod(null);
-                        }
+                        // One path for every tender. handlePaymentMethodClick already
+                        // covers all four cases: refund, On Account, Loyalty, and a
+                        // plain tender — and an empty input there means "the whole
+                        // remaining balance" (tenderRows, line ~332). A second inline
+                        // copy of that used to live here and called roundTender direct,
+                        // so a rounded-down cash tender left a few cents "remaining"
+                        // and the sale could never finish; tenderRows adds the Rounding
+                        // row that closes it.
+                        handlePaymentMethodClick(method);
                       }
                     }}
                     sx={{
@@ -652,12 +632,12 @@ const FinalizeSaleDialog = ({
                         border: '1px solid currentColor',
                         bgcolor: 'transparent',
                       },
-                      // Cash-locked tiles look identical to enabled ones (reference);
+                      // Amount-locked tiles look identical to enabled ones (reference);
                       // the order-reference gate keeps its greyed affordance.
                       '&.Mui-disabled': {
-                        color: cashLocked && !needsOrderRef ? '#000' : '#737373',
+                        color: amountLocked && !needsOrderRef ? '#000' : '#737373',
                         borderColor: '#000',
-                        cursor: cashLocked && !needsOrderRef ? 'pointer' : 'default',
+                        cursor: amountLocked && !needsOrderRef ? 'pointer' : 'default',
                       },
                     }}
                   >

@@ -47,7 +47,6 @@ const PRODUCT_FIELD_OPTIONS = [
   'additional',
   'averageCost',
   'barcodes',
-  'basketItems',
   'brandId',
   'caseQuantity',
   'categoryId',

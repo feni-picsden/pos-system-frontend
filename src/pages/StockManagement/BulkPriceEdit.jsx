@@ -25,7 +25,6 @@ import {
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
-import productComboService from '../../services/productComboService';
 
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
@@ -42,7 +41,6 @@ const fieldSx = {
 const BulkPriceEdit = () => {
   const [products, setProducts] = useState([]);
   const [classifications, setClassifications] = useState([]);
-  const [combos, setCombos] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // search combobox
@@ -76,12 +74,6 @@ const BulkPriceEdit = () => {
       } catch (error) {
         console.error('Error loading classifications:', error);
       }
-      try {
-        const response = await productComboService.getProductCombos({ isActive: true });
-        setCombos(response?.combos || response?.productCombos || []);
-      } catch (error) {
-        console.error('Error loading combos:', error);
-      }
     };
     load();
   }, []);
@@ -93,9 +85,6 @@ const BulkPriceEdit = () => {
       rows = rows.filter((p) => p.id === selection.id);
     } else if (selection?.type === 'classification') {
       rows = rows.filter((p) => p.categoryId === selection.id);
-    } else if (selection?.type === 'combo') {
-      const memberIds = new Set((selection.items || []).map((it) => it.productId));
-      rows = rows.filter((p) => memberIds.has(p.id));
     }
     if (onlyStock && selection?.type !== 'product') {
       rows = rows.filter((p) => p.currentStockItems > 0);
@@ -127,13 +116,8 @@ const BulkPriceEdit = () => {
       .filter((c) => c.name?.toLowerCase().includes(q))
       .slice(0, 50)
       .map((c) => ({ type: 'classification', id: c.id, name: c.name }));
-    // Combos are a local-only feature: they must appear alongside products.
-    const comboOpts = combos
-      .filter((c) => c.name?.toLowerCase().includes(q))
-      .slice(0, 50)
-      .map((c) => ({ type: 'combo', id: c.id, name: c.name, imageUrl: c.imageUrl, items: c.items }));
-    return [...classOpts, ...productOpts, ...comboOpts];
-  }, [query, products, classifications, combos, selection]);
+    return [...classOpts, ...productOpts];
+  }, [query, products, classifications, selection]);
 
   const showKeepTyping = open && !selection && query.trim().length === 1;
   const showPanel = open && !selection && (showKeepTyping || options.length > 0);
@@ -291,7 +275,6 @@ const BulkPriceEdit = () => {
                 [
                   { type: 'classification', label: 'Categories' },
                   { type: 'product', label: 'Products' },
-                  { type: 'combo', label: 'Combos' },
                 ].map(({ type: group, label }) => {
                   const items = options.filter((o) => o.type === group);
                   if (!items.length) return null;

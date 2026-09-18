@@ -1364,8 +1364,12 @@ const ProductMerge = () => {
                               onChange={(e) => handleInputChange('currentStockCases', parseInt(e.target.value) || 0)} />
                           </Box>
                           <Box sx={{ p: 0.5 }}>
+                            {/* Loose items are held to two decimal places (a basket
+                                can spend 0.04 of a component), so parseInt here
+                                would drop the fraction on merge. */}
                             <TextField size="small" type="number" fullWidth value={mergedProduct.currentStockItems}
-                              onChange={(e) => handleInputChange('currentStockItems', parseInt(e.target.value) || 0)} />
+                              inputProps={{ step: 'any' }}
+                              onChange={(e) => handleInputChange('currentStockItems', parseFloat(e.target.value) || 0)} />
                           </Box>
                         </Box>
 

@@ -13,13 +13,8 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import classificationService from '../../services/classificationService';
-import productComboService from '../../services/productComboService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
-
-// Combos carry only a category/brand link in the schema, so they can only be
-// assigned to those two classification types.
-const COMBO_FIELD = { CATEGORY: 'categoryId', BRAND: 'brandId' };
 
 // Thin-stroke +/- to match the reference's FontAwesome-light fa-plus / fa-minus
 // (MUI Add/Remove icons render a heavier stroke).
@@ -112,32 +107,10 @@ const ClassificationAssignment = () => {
       const assigned = data.assignedProducts || [];
       const available = data.availableProducts || [];
 
-      // Product combos are a local-only feature: they belong in the same
-      // available/assigned lists as normal products (category/brand only).
-      const comboField = COMBO_FIELD[data.classification?.type];
-      let combos = [];
-      if (comboField) {
-        try {
-          const comboData = await productComboService.getProductCombos({ limit: 500, status: 'Active' });
-          combos = (comboData.combos || []).map(c => ({
-            id: `combo-${c.id}`,
-            comboId: c.id,
-            isCombo: true,
-            name: c.name,
-            categoryId: c.categoryId,
-            brandId: c.brandId
-          }));
-        } catch (comboErr) {
-          console.error('Error loading product combos:', comboErr);
-        }
-      }
-      const assignedCombos = combos.filter(c => String(c[comboField]) === String(id));
-      const availableCombos = combos.filter(c => String(c[comboField]) !== String(id));
-
       setClassification(data.classification);
-      setAssignedProducts([...assigned, ...assignedCombos]);
-      setInitialAssignedIds([...assigned, ...assignedCombos].map(p => p.id));
-      setAvailableProducts([...available, ...availableCombos]);
+      setAssignedProducts(assigned);
+      setInitialAssignedIds(assigned.map(p => p.id));
+      setAvailableProducts(available);
       setError('');
     } catch (err) {
       setError('Failed to load classification data');
@@ -148,10 +121,6 @@ const ClassificationAssignment = () => {
   };
 
   const productLacksCurrentType = (product) => {
-    if (product.isCombo) {
-      const field = COMBO_FIELD[classification?.type];
-      return field ? !product[field] : true;
-    }
     switch (classification?.type) {
       case 'CATEGORY': return !product.category;
       case 'BRAND': return !product.brand;
@@ -161,12 +130,6 @@ const ClassificationAssignment = () => {
   };
 
   const productMatchesClassification = (product, name) => {
-    if (product.isCombo) {
-      return allClassifications.some(c =>
-        c.name === name &&
-        (String(c.id) === String(product.categoryId) || String(c.id) === String(product.brandId))
-      );
-    }
     return (
       product.category?.name === name ||
       product.brand?.name === name ||
@@ -241,9 +204,8 @@ const ClassificationAssignment = () => {
     const added = assignedProducts.filter(p => !initial.has(p.id));
     const removed = initialAssignedIds.filter(pid => !currentIds.has(pid)).map(pid => byId.get(pid)).filter(Boolean);
 
-    const toAssign = added.filter(p => !p.isCombo).map(p => p.id);
-    const toUnassign = removed.filter(p => !p.isCombo).map(p => p.id);
-    const comboField = COMBO_FIELD[classification.type];
+    const toAssign = added.map(p => p.id);
+    const toUnassign = removed.map(p => p.id);
 
     // Reference: adding products to a family rewrites their prices and tax rates, so
     // Save asks first. Only removing products aligns nothing, so it does not ask.
@@ -259,14 +221,6 @@ const ClassificationAssignment = () => {
       setSaving(true);
       if (toAssign.length) await classificationService.assignProducts(id, toAssign, 'assign');
       if (toUnassign.length) await classificationService.assignProducts(id, toUnassign, 'unassign');
-      if (comboField) {
-        for (const combo of added.filter(p => p.isCombo)) {
-          await productComboService.updateProductCombo(combo.comboId, { [comboField]: parseInt(id, 10) });
-        }
-        for (const combo of removed.filter(p => p.isCombo)) {
-          await productComboService.updateProductCombo(combo.comboId, { [comboField]: null });
-        }
-      }
       navigate('/stock-management/classifications');
     } catch (err) {
       setError('Failed to save changes');

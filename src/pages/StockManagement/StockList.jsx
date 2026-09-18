@@ -25,7 +25,6 @@ import {
   ArrowDropDown as ArrowDropDownIcon,
 } from "@mui/icons-material";
 import productService from "../../services/productService";
-import productComboService from "../../services/productComboService";
 import shelfTicketService from "../../services/shelfTicketService";
 
 // Shared style for the inline-editable grid inputs (1px #404040, radius 8px)
@@ -49,16 +48,10 @@ const StockList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOption, setSelectedOption] = useState(null);
   const [onlyWithStock, setOnlyWithStock] = useState(false);
-  const [combos, setCombos] = useState([]);
 
   // Fetch products on component mount
   useEffect(() => {
     fetchProducts();
-    // Product COMBOS are a local-only feature; they appear as Product search options too.
-    productComboService
-      .getProductCombos()
-      .then((res) => setCombos(Array.isArray(res?.combos) ? res.combos : Array.isArray(res) ? res : []))
-      .catch(() => setCombos([]));
   }, []);
 
   // Filter products when search term or stock filter changes
@@ -102,11 +95,9 @@ const StockList = () => {
     const productOptions = list
       .filter((p) => p.name)
       .map((p) => ({ type: "Products", label: p.name, id: p.id }));
-    const comboOptions = (Array.isArray(combos) ? combos : [])
-      .filter((c) => c.name)
-      .map((c) => ({ type: "Products", label: c.name, id: `combo-${c.id}`, isCombo: true }));
-    return [...categories, ...productOptions, ...comboOptions];
-  }, [products, combos]);
+    // A Combo Product is an ordinary product row, so it is already in productOptions.
+    return [...categories, ...productOptions];
+  }, [products]);
 
   const calculateProfitPercentage = (cost, price) => {
     if (!price || price <= 0) return 0;

@@ -61,6 +61,9 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
   const { user: currentUser, isTrueSuperAdmin } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
+    // The credential typed at the sign-in screen, separate from the display
+    // name and required: login matches the username and nothing else.
+    username: '',
     password: '',
     confirmPassword: '',
     role: 'user',
@@ -118,6 +121,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
               : [];
         setFormData({
           name: user.name || '',
+          username: user.username || '',
           password: '',
           confirmPassword: '',
           role: user.hasAllPermission ? 'NO_ROLE_ALL_PERMISSIONS' : (user.role || ''),
@@ -130,6 +134,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
       } else {
         setFormData({
           name: '',
+          username: '',
           password: '',
           confirmPassword: '',
           role: '',
@@ -272,6 +277,9 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     const errors = {};
 
     // Name validation
+    if (!formData.username.trim()) {
+      errors.username = 'Username is required';
+    }
     if (!formData.name.trim()) {
       errors.name = 'Name is required';
     }
@@ -326,6 +334,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     try {
       const userData = {
         name: formData.name.trim(),
+        username: formData.username.trim(),
         isActive: formData.isActive,
         hasAllPermission: formData.hasAllPermission,
       };
@@ -445,13 +454,17 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
             sx={inputSx}
           />
 
-          {/* Username (login credential — this system logs in with the name) */}
+          {/* Username — the login credential. Its own field, and required: the
+              reference refuses to save a user without one, because the display
+              name above is never matched at sign-in. */}
           <TextField
-            placeholder="Username"
-            value={formData.name}
-            InputProps={{ readOnly: true }}
-            helperText="Used to log in — matches the name above."
+            label="Username"
+            value={formData.username}
+            onChange={(e) => handleInputChange('username', e.target.value)}
+            error={!!validationErrors.username}
+            helperText={validationErrors.username || 'What this person types to log in. Must be unique.'}
             fullWidth
+            required
             sx={inputSx}
           />
 

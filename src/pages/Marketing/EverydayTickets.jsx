@@ -29,7 +29,6 @@ import {
   CheckBoxOutlined as SquareCheckedIcon,
 } from '@mui/icons-material';
 import productService from '../../services/productService';
-import productComboService from '../../services/productComboService';
 import shelfTicketService from '../../services/shelfTicketService';
 import priceListService from '../../services/priceListService';
 import classificationService from '../../services/classificationService';
@@ -309,7 +308,7 @@ const GROUP_HEADER_SX = {
   color: '#bdbdbd',
 };
 
-/** One typeahead result line (products and product combos share it). */
+/** One typeahead result line. */
 const ResultRow = ({ imageUrl, name, query, onClick }) => (
   <Box
     component="button"
@@ -348,7 +347,6 @@ const EverydayTickets = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
-  const [comboResults, setComboResults] = useState([]);
   const [classificationResults, setClassificationResults] = useState([]);
   const [grouping, setGrouping] = useState('No Grouping');
   const [priceSet, setPriceSet] = useState('');
@@ -514,20 +512,15 @@ const EverydayTickets = () => {
 
     if (value.trim().length < 2) {
       setSearchResults([]);
-      setComboResults([]);
       setClassificationResults([]);
       return;
     }
 
     // 'Search to add additional products individually or by classification' — so the panel
-    // offers products, our Product Combos, and every classification the term matches.
-    const [productResponse, comboResponse, classificationResponse] = await Promise.all([
+    // offers products and every classification the term matches.
+    const [productResponse, classificationResponse] = await Promise.all([
       productService.getProducts({ search: value, limit: 10 }, ALL_OUTLETS).catch((error) => {
         console.error('Error searching products:', error);
-        return null;
-      }),
-      productComboService.getProductCombos({ search: value, limit: 10, status: 'Active' }).catch((error) => {
-        console.error('Error searching product combos:', error);
         return null;
       }),
       classificationService.getClassifications({ search: value }).catch((error) => {
@@ -536,14 +529,12 @@ const EverydayTickets = () => {
       }),
     ]);
     setSearchResults(productResponse?.products || productResponse?.data || []);
-    setComboResults(comboResponse?.combos || []);
     setClassificationResults(classificationResponse?.classifications || []);
   };
 
   const clearSearch = () => {
     setSearchTerm('');
     setSearchResults([]);
-    setComboResults([]);
     setClassificationResults([]);
     setSearchOpen(false);
   };
@@ -608,9 +599,6 @@ const EverydayTickets = () => {
     }
   };
 
-  // A combo has no product row of its own, so ticketing a combo means ticketing its members.
-  const handleAddCombo = (combo) =>
-    addProductIds((combo.items || []).map((item) => item.productId), combo.name);
 
   // 'Search to add additional products individually or by classification' — picking a
   // category/brand/family/tag tickets every product assigned to it.
@@ -900,11 +888,11 @@ const EverydayTickets = () => {
           <Box sx={PANEL_SX}>
             {searchTerm.trim().length < 2 ? (
               <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>Start typing to search...</Box>
-            ) : productResults.length === 0 && comboResults.length === 0 && classificationSections.length === 0 ? (
+            ) : productResults.length === 0 && classificationSections.length === 0 ? (
               <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>No results</Box>
             ) : (
               <>
-                {/* Results are grouped by entity type: products, our combos, then classifications. */}
+                {/* Results are grouped by entity type: products, then classifications. */}
                 {productResults.length > 0 && (
                   <>
                     <Box sx={GROUP_HEADER_SX}>Products</Box>
@@ -915,20 +903,6 @@ const EverydayTickets = () => {
                         name={product.name}
                         query={searchTerm}
                         onClick={() => handleAddProduct(product)}
-                      />
-                    ))}
-                  </>
-                )}
-                {comboResults.length > 0 && (
-                  <>
-                    <Box sx={GROUP_HEADER_SX}>Product Combos</Box>
-                    {comboResults.map((combo) => (
-                      <ResultRow
-                        key={`combo-${combo.id}`}
-                        imageUrl={combo.imageUrl}
-                        name={combo.name}
-                        query={searchTerm}
-                        onClick={() => handleAddCombo(combo)}
                       />
                     ))}
                   </>

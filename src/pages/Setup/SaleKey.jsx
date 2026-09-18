@@ -49,7 +49,6 @@ import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { productOptionLabel } from '../../utils/productOptionLabel';
 import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
 import productService from '../../services/productService';
-import productComboService from '../../services/productComboService';
 import paymentMethodService from '../../services/paymentMethodService';
 import classificationService from '../../services/classificationService';
 import MediaDialog from '../../components/Common/MediaDialog';
@@ -73,8 +72,6 @@ const SaleKey = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [availableProducts, setAvailableProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [availableCombos, setAvailableCombos] = useState([]);
-  const [loadingCombos, setLoadingCombos] = useState(false);
   const [availableFolders, setAvailableFolders] = useState([]);
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
@@ -535,34 +532,6 @@ const SaleKey = () => {
     }
   };
 
-  const loadCombos = async () => {
-    setLoadingCombos(true);
-    try {
-      if (posLocalDb.isReady()) {
-        const memoryCombos = posLocalDb.getCombos();
-        if (memoryCombos.length > 0) { setAvailableCombos(memoryCombos); return; }
-      }
-      await posLocalDb.init();
-      const cached = await posLocalDb.getStoreAll('combos');
-      if (cached.length > 0) {
-        setAvailableCombos(cached);
-        const stale = await posLocalDb.isStoreStale('combos');
-        if (stale) {
-          productComboService.getProductCombos({ limit: 1000, status: 'Active' })
-            .then((r) => { if (r?.combos?.length) setAvailableCombos(r.combos); })
-            .catch(() => {});
-        }
-        return;
-      }
-      const response = await productComboService.getProductCombos({ limit: 1000, status: 'Active' });
-      setAvailableCombos(response.combos || []);
-    } catch (error) {
-      console.error('Error loading combos:', error);
-      setAvailableCombos([]);
-    } finally {
-      setLoadingCombos(false);
-    }
-  };
 
   const loadProducts = async () => {
     setLoadingProducts(true);
@@ -689,7 +658,6 @@ const SaleKey = () => {
   // Load products, folders, and payment methods on component mount
   useEffect(() => {
     loadProducts();
-    loadCombos();
     loadFolders();
     loadPaymentMethods();
     loadClassifications();
@@ -1087,7 +1055,6 @@ const SaleKey = () => {
                   <MenuItem value="pay-amount">Pay a Specified Amount</MenuItem>
                   <MenuItem value="pay-exact-amount">Pay Exact Amount</MenuItem>
                   <MenuItem value="add-product">Add Product</MenuItem>
-                  <MenuItem value="add-product-combo">Add Product Combo</MenuItem>
                   <MenuItem value="add-gift-card">Add Gift Card</MenuItem>
                   <MenuItem value="subtract-quantity">Subtract Quantity from Current Product</MenuItem>
                   <MenuItem value="add-quantity">Add Quantity to Current Product</MenuItem>
@@ -1158,40 +1125,6 @@ const SaleKey = () => {
                 />
               )}
 
-              {selectedKey.action === 'add-product-combo' && (
-                <Autocomplete
-                  fullWidth
-                  options={availableCombos}
-                  getOptionLabel={productOptionLabel}
-                  value={selectedKey.selectedCombo || null}
-                  loading={loadingCombos}
-                  onChange={(event, newValue) => {
-                    handlePropertyChange('selectedCombo', newValue);
-                    handlePropertyChange('comboId', newValue?.id || null);
-                    // Auto-set the name and amount if combo is selected
-                    if (newValue) {
-                      handlePropertyChange('name', newValue.name);
-                      handlePropertyChange('amount', (newValue.calculatedTotalPrice || newValue.totalPrice || 0).toString());
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Select Product Combo"
-                      placeholder="Choose a product combo..."
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      }}
-                    />
-                  )}
-                  sx={{ mb: 2 }}
-                />
-              )}
 
               {selectedKey.action === 'add-product' && (
                 <Autocomplete

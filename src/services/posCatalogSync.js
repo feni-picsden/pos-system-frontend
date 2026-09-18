@@ -2,7 +2,6 @@ import productService from './productService';
 import customerService from './customerService';
 import promotionService from './promotionService';
 import paymentMethodService from './paymentMethodService';
-import productComboService from './productComboService';
 import { taxRateService } from './taxRateService';
 import posLocalDb from './posLocalDb';
 
@@ -78,15 +77,6 @@ async function fetchPaymentMethods() {
   }
 }
 
-async function fetchCombos(outletId) {
-  try {
-    const res = await productComboService.getProductCombos({ outletId, isActive: true });
-    return res?.combos || res?.productCombos || extractList(res, 'combos');
-  } catch {
-    return [];
-  }
-}
-
 async function fetchTaxRates() {
   try {
     const res = await taxRateService.getTaxRates();
@@ -102,15 +92,18 @@ async function fetchTaxRates() {
 export async function syncPosCatalog(outletId) {
   await posLocalDb.init();
 
-  const [products, customers, promotions, paymentMethods, combos, taxRates] =
+  const [products, customers, promotions, paymentMethods, taxRates] =
     await Promise.all([
       fetchAllProducts(outletId),
       fetchAllCustomers(),
       fetchPromotions(outletId),
       fetchPaymentMethods(),
-      fetchCombos(outletId),
       fetchTaxRates(),
     ]);
+  // A Combo Product is an ordinary product row, so it syncs with the products.
+  // The (now always empty) combos store is kept so an existing IndexedDB does
+  // not need a version bump just to drop it.
+  const combos = [];
 
   let categories = [];
   let brands = [];

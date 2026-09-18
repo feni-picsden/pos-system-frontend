@@ -97,6 +97,7 @@ import priceListService from '../services/priceListService';
 import { priceSetService } from '../services/priceSetService';
 import { applyPriceListToLine } from '../utils/priceListEngine';
 import { lineSavings, itemsPerCase } from '../utils/saleTotals';
+import { isCaseLine, lineStep, displayQuantity, toggleCase } from '../utils/caseLine';
 import { formatMoney } from '../utils/currency';
 import { effectiveUnitCost } from '../utils/productCost';
 import { surchargeService } from '../services/surchargeService';
@@ -106,6 +107,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAppDialogs } from '../components/Common/AppDialogProvider';
 import { useSelectedOutlet } from '../contexts/SelectedOutletContext';
 import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
+import { useActivePriceSet } from '../contexts/ActivePriceSetContext';
 import RegisterSelectButton from '../components/Common/RegisterSelectButton';
 import { usePermissions } from '../hooks/usePermissions';
 import CreateCustomerWizardModal from '../components/Customers/CreateCustomerWizardModal';
@@ -122,7 +124,6 @@ import paymentMethodService, { allowsCashOut, getPaymentMethodSettings } from '.
 import loyaltyService from '../services/loyaltyService';
 import cashManagementService from '../services/cashManagementService';
 import { tiersKey, groupFamilyLines, shareByQuantity, bestRateTier } from '../utils/familyOverride';
-import productComboService from '../services/productComboService';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
@@ -250,7 +251,7 @@ const SaleKeyPage = () => {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { user, getOutletId } = useAuth();
+  const { user, getOutletId, logout } = useAuth();
   const { hasPermission } = usePermissions();
   const canViewLiveProfit = hasPermission('register.view_live_profit');
   // Shopfront's per-register-user "Discount" permission gates manual price edits
@@ -368,16 +369,22 @@ const SaleKeyPage = () => {
   // whenever the cluster or the window resizes. 250 is the cluster without a name.
   const [headerClusterWidth, setHeaderClusterWidth] = useState(250);
   useEffect(() => {
-    const clusterStart = document.querySelector('.MuiAppBar-root [aria-label="online status"]');
-    const profile = document.querySelector('.MuiAppBar-root [title="Profile"]');
+    // The whole right cluster, price-set pill included. Measuring from the
+    // ONLINE icon left everything before it (the pill) under this strip, and
+    // the strip's signpost was drawn straight over the set's name.
+    const clusterStart =
+      document.querySelector('.MuiAppBar-root [data-header-cluster]') ||
+      document.querySelector('.MuiAppBar-root [aria-label="online status"]');
     if (!clusterStart) return undefined;
     const measure = () => {
       const width = Math.round(window.innerWidth - clusterStart.getBoundingClientRect().left);
       if (width > 0) setHeaderClusterWidth(width);
     };
     measure();
+    // Observing the cluster itself catches the pill appearing (register settings
+    // load after mount) and the user name changing, not just the profile cell.
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    if (observer && profile) observer.observe(profile);
+    if (observer) observer.observe(clusterStart);
     window.addEventListener('resize', measure);
     return () => {
       observer?.disconnect();
@@ -456,6 +463,7 @@ const SaleKeyPage = () => {
     openRegister: handleOpenRegister,
     openingRegister,
   } = useSelectedRegister();
+  const { setActivePriceSetName } = useActivePriceSet();
   const [outlets, setOutlets] = useState([]);
   const [showControlTakenDialog, setShowControlTakenDialog] = useState(false);
   const [controlTakenByName, setControlTakenByName] = useState('');
@@ -535,14 +543,6 @@ const SaleKeyPage = () => {
     isTransactionComplete,
   ]);
   const [activePromotions, setActivePromotions] = useState([]);
-  // F5: Product Combos (Stock Management > Product Combos) that reprice the
-  // cart alongside Combo Deal promotions. See hydrateActiveCombos().
-  const [activeCombos, setActiveCombos] = useState([]);
-  // Guards hydrateActiveCombos against stale async responses (rapid outlet switches)
-  const comboFetchSeqRef = useRef(0);
-  // True once combos were confirmed by the API — stops the local-cache
-  // fallback from resurrecting combos the server says no longer exist.
-  const combosConfirmedRef = useRef(false);
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
   const [showCustomerDetailsModal, setShowCustomerDetailsModal] = useState(false);
   const [customerWizardData, setCustomerWizardData] = useState(null);
@@ -682,6 +682,30 @@ const SaleKeyPage = () => {
     loadRegisterDefaultPriceSet();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRegister?.id]);
+
+  // Publish the active set's NAME to the header. Driven off activePriceSetId so
+  // every route in — the register default, a change-price-set key, and that
+  // key's toggle back to default — lands here without each one remembering to
+  // announce itself. null (Default Price Set) shows nothing.
+  useEffect(() => {
+    let cancelled = false;
+    if (!activePriceSetId) { setActivePriceSetName(null); return undefined; }
+    (async () => {
+      try {
+        const { priceSets } = await priceSetService.getPriceSets();
+        if (cancelled) return;
+        const match = (priceSets || []).find((ps) => ps.id === Number(activePriceSetId));
+        setActivePriceSetName(match?.name || null);
+      } catch {
+        if (!cancelled) setActivePriceSetName(null); // no name, no badge
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activePriceSetId, setActivePriceSetName]);
+
+  // Leaving the sell screen leaves the sale behind, so the badge must go too —
+  // otherwise it hangs around on Stock Management, Reports and the rest.
+  useEffect(() => () => setActivePriceSetName(null), [setActivePriceSetName]);
 
   // Reference rule: if the product has ANY price rows in the active set, that set
   // replaces the entire default group; otherwise the default (null-set) rows apply.
@@ -925,15 +949,6 @@ const SaleKeyPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart.length, activePromotions.length]);
 
-  // F5: same fallback for Product Combos — if the cart has items but no combos
-  // were hydrated yet (e.g. the promotions load path never fired), pick them up
-  // from the in-memory cache. Local read only, so this cannot spam the API.
-  useEffect(() => {
-    if (cart.length === 0 || activeCombos.length > 0 || combosConfirmedRef.current) return;
-    const local = normalizeActiveCombos(posLocalDb.getCombos(), getOutletIdForPromotions());
-    if (local.length) setActiveCombos(local);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart.length, activeCombos.length]);
 
   // F4/F5: reprice the cart whenever it (or the promotion/combo set) changes
   // so that complete Combo Deal / Product Combo sets are charged at the combo
@@ -949,9 +964,9 @@ const SaleKeyPage = () => {
     // empty defs makes applyComboDealsToCart restore any combo line back to its base
     // price, so a "no promotions" member is never charged a combo deal.
     const noPromos = getEffectiveCustomerSettings(selectedCustomer).disablePromotions;
-    setCart((prev) => applyComboDealsToCart(prev, noPromos ? [] : activePromotions, noPromos ? [] : activeCombos) ?? prev);
+    setCart((prev) => applyComboDealsToCart(prev, noPromos ? [] : activePromotions, []) ?? prev);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, activePromotions, activeCombos, selectedCustomer?.id]);
+  }, [cart, activePromotions, selectedCustomer?.id]);
 
   // This page owns the takeover dialog while it's mounted, so the global
   // RegisterTakeoverWatcher stays quiet and they don't stack.
@@ -1512,36 +1527,38 @@ const SaleKeyPage = () => {
     }
 
     // Normal search: match BOTH products and customers from the IndexedDB cache.
-    const [products, customers] = await Promise.all([
+    // A Combo Product is an ordinary product row, so it is found here like any
+    // other product — no combo-specific lookup is needed.
+    //
+    // The API runs ALONGSIDE the cache rather than only as a fallback. The
+    // catalog cache is refreshed on a timer (5 minutes), so a product created
+    // moments ago is not in it yet — and because any other match used to end
+    // the search, that new product stayed invisible until the next sync. Asking
+    // both and merging makes it sellable straight away, while a failed API call
+    // still leaves the cached results standing (offline keeps working).
+    const [products, customers, apiProducts] = await Promise.all([
       posLocalDb.searchProductsAsync(term, 10, outletId),
       posLocalDb.searchCustomersAsync(term, 10, outletId),
+      productService
+        .getProducts({ search: term, limit: 10 })
+        .then((r) => r?.products || [])
+        .catch(() => []),
     ]);
     if (seq !== searchSeqRef.current) return false;
-    if (products.length > 0 || customers.length > 0) {
-      setSearchResults({ products, customers });
-      setShowSearchResults(true);
-      return true;
-    }
 
-    // Local cache had no match (stale/partial outlet cache, or first visit):
-    // fall back to the API so products missing from the IndexedDB cache are
-    // still findable by name.
-    try {
-      const productsResponse = await productService.getProducts({
-        search: term,
-        limit: 10,
-      });
-      if (seq !== searchSeqRef.current) return false;
-      const apiProducts = productsResponse.products || [];
-      setSearchResults({ products: apiProducts, customers: [] });
-      setShowSearchResults(true);
-      return apiProducts.length > 0;
-    } catch {
-      if (seq === searchSeqRef.current) {
-        setSearchResults({ products: [], customers: [] });
+    // Cached rows win on id: they carry the enrichment the catalog sync adds.
+    const merged = [...products];
+    const seenIds = new Set(products.map((p) => p.id));
+    apiProducts.forEach((p) => {
+      if (p?.id != null && !seenIds.has(p.id)) {
+        seenIds.add(p.id);
+        merged.push(p);
       }
-    }
-    return false;
+    });
+
+    setSearchResults({ products: merged, customers });
+    setShowSearchResults(true);
+    return merged.length > 0 || customers.length > 0;
   };
 
   // Debounced search effect. Barcode-shaped input auto-adds to the sale
@@ -1778,8 +1795,10 @@ const SaleKeyPage = () => {
     // "Use Case Quantity" modifier (one-shot): a plain single-unit add (search
     // click / add-to-sale) becomes a case. Callers that pass an explicit quantity
     // (barcode packs, the classification view's Add Case) are left alone.
+    let asCase = false;
     if (useCaseQuantity && !isPromotionItem && promotionQuantity === 1 && getItemsPerCase(product) > 1) {
       promotionQuantity = getItemsPerCase(product);
+      asCase = true;
       setUseCaseQuantity(false);
     }
 
@@ -1808,8 +1827,10 @@ const SaleKeyPage = () => {
 
     setCart(prev => {
       // A requested price is per ADD, so it never merges into an existing line.
+      // Reference merges only into a line of the same kind: units never fold
+      // into a "(Case)" line and a case never into loose units.
       const existingItemIndex = priceOverride != null ? -1 : prev.findIndex(item =>
-        item.id === product.id || item.productId === product.id
+        !!item.isCase === asCase && (item.id === product.id || item.productId === product.id)
       );
       
       if (existingItemIndex !== -1) {
@@ -1890,6 +1911,7 @@ const SaleKeyPage = () => {
           taxPercent: getTaxRatePercent(product.retailTaxRate),
           // Case Price Override divides the entered case price by this.
           caseQuantity: getItemsPerCase(product),
+          isCase: asCase,
           // Reference .product-family-colour: 10px strip on the cart line in
           // the product's family colour (only when the family has one).
           familyColor: product.family?.color || null,
@@ -1958,6 +1980,14 @@ const SaleKeyPage = () => {
           name: it.productName,
           price: -lineTotal,
           quantity: -qty,
+          // Locked at what the customer actually paid per unit, the way the
+          // reference does it (`basePrice = |totalPrice / quantity|`). Changing
+          // the returned quantity scales this, never re-prices from the ladder.
+          priceLocked: true,
+          lockedUnitPrice: qty > 0 ? lineTotal / qty : 0,
+          // A case sold comes back as a case: "-1 … (Case)", stepped by cases.
+          isCase: !!it.isCase,
+          caseQuantity: getItemsPerCase(product),
           retailTaxRate: product?.retailTaxRate || null,
           taxPercent: getTaxRatePercent(product?.retailTaxRate),
           unitCost: getUnitCost(product, qty > 0 ? lineTotal / qty : 0),
@@ -2635,8 +2665,10 @@ const SaleKeyPage = () => {
 
           // "Use Case Quantity" modifier (one-shot): the next product added uses
           // its case quantity instead.
+          let asCase = false;
           if (useCaseQuantity) {
             resolvedQuantity *= getItemsPerCase(latestProduct);
+            asCase = getItemsPerCase(latestProduct) > 1;
             setUseCaseQuantity(false);
           }
 
@@ -2665,9 +2697,12 @@ const SaleKeyPage = () => {
 
           setCart(prev => {
             // A requested price is per ADD, so it never merges into an existing line.
+            // Same-kind merge only (a unit add never joins a "(Case)" line).
             const existingItemIndex = requestedPrice != null ? -1 : prev.findIndex(item =>
-              item.productId === (latestProduct?.id || resolvedProductId) ||
-              (item.name === resolvedName && item.price === resolvedPrice)
+              !!item.isCase === asCase && (
+                item.productId === (latestProduct?.id || resolvedProductId) ||
+                (item.name === resolvedName && item.price === resolvedPrice)
+              )
             );
             if (existingItemIndex !== -1) {
               const updatedCart = [...prev];
@@ -2697,6 +2732,7 @@ const SaleKeyPage = () => {
               taxPercent: getTaxRatePercent(latestProduct?.retailTaxRate),
               unitCost: getUnitCost(latestProduct, resolvedQuantity > 0 ? resolvedPrice / resolvedQuantity : 0),
               caseQuantity: getItemsPerCase(latestProduct),
+              isCase: asCase,
               familyColor: latestProduct?.family?.color || null,
               quantity: resolvedQuantity,
               timestamp: Date.now(),
@@ -2741,11 +2777,18 @@ const SaleKeyPage = () => {
 
           // Calculate case price using case pricing logic
           const resolvedPrice = calculateCasePriceForQuantity(latestProduct, resolvedCaseQuantity);
+          // Sold AS A CASE (reference `isCase`): shown as "1 … (Case)", stepped by
+          // whole cases. A product that packs 1 per case is just an item.
+          const asCase = itemsPerCase > 1;
 
           setCart(prev => {
-            const existingItemIndex = prev.findIndex(item => 
-              item.productId === (latestProduct?.id || resolvedProductId) ||
-              (item.name === resolvedName && item.price === resolvedPrice)
+            // Reference merges only into a line of the SAME kind (case with case,
+            // units with units) — a case never folds into a loose-units line.
+            const existingItemIndex = prev.findIndex(item =>
+              !!item.isCase === asCase && (
+                item.productId === (latestProduct?.id || resolvedProductId) ||
+                (item.name === resolvedName && item.price === resolvedPrice)
+              )
             );
             if (existingItemIndex !== -1) {
               const updatedCart = [...prev];
@@ -2777,7 +2820,8 @@ const SaleKeyPage = () => {
               retailTaxRate: latestProduct?.retailTaxRate || null,
               taxPercent: getTaxRatePercent(latestProduct?.retailTaxRate),
               unitCost: getUnitCost(latestProduct, resolvedQuantity > 0 ? resolvedPrice / resolvedQuantity : 0),
-              caseQuantity: getItemsPerCase(latestProduct),
+              caseQuantity: itemsPerCase,
+              isCase: asCase,
               familyColor: latestProduct?.family?.color || null,
               quantity: resolvedQuantity,
               timestamp: Date.now(),
@@ -2786,104 +2830,6 @@ const SaleKeyPage = () => {
             setSelectedCartItem(newItem);
             return [...prev, newItem];
           });
-        })();
-        break;
-      case 'add-product-combo':
-        // Add the combo as ONE cart line (combo name @ combo price). Its member
-        // products live on the line as comboItems and are only split back out at
-        // save time (expandCartForSale). Keeping them off the cart as loose lines
-        // is what lets a product bought on top of a combo stay a separate,
-        // normally-priced line instead of being swallowed by the combo.
-        if (isTransactionComplete) return;
-        (async () => {
-          const resolvedComboId = saleKey.comboId || saleKey.selectedCombo?.id || null;
-          if (!resolvedComboId) {
-            alert('This combo key is not properly configured. Please edit it and select a combo.');
-            return;
-          }
-          try {
-            let combo = posLocalDb.getComboById(resolvedComboId);
-            if (!combo) {
-              const { combo: apiCombo } = await productComboService.getProductCombo(resolvedComboId);
-              combo = apiCombo;
-            }
-            if (!combo || !Array.isArray(combo.items) || combo.items.length === 0) {
-              alert('The selected combo has no items configured.');
-              return;
-            }
-            // Member products at their normal prices — used to allocate the combo
-            // price back across them at save time and to blend cost/tax for the line.
-            const comboItems = [];
-            combo.items.forEach(comboItem => {
-              const product = resolveProductLocal(comboItem.product || comboItem.productId);
-              if (!product) return;
-              const qty = comboItem.quantity || 1;
-              const normalPrice = calculatePriceForQuantity(product, qty);
-              comboItems.push({
-                productId: product.id,
-                name: product.name,
-                quantity: qty,
-                normalPrice,
-                retailTaxRate: product.retailTaxRate,
-                taxPercent: getTaxRatePercent(product.retailTaxRate),
-                unitCost: getUnitCost(product, qty > 0 ? normalPrice / qty : 0)
-              });
-            });
-            if (comboItems.length === 0) {
-              alert('The products in this combo could not be found.');
-              return;
-            }
-
-            const normalTotal = comboItems.reduce((sum, ci) => sum + (parseFloat(ci.normalPrice) || 0), 0);
-            const comboPrice = parseFloat(combo.comboPrice ?? combo.totalPrice) || 0;
-            const setPrice = comboPrice > 0 ? comboPrice : normalTotal;
-            // Line-level tax/cost are the blend of the members, so live profit and
-            // the tax-exclusive subtotal stay correct for a mixed-tax combo.
-            const setTaxPercent = normalTotal > 0
-              ? comboItems.reduce((sum, ci) => sum + (ci.taxPercent || 0) * ((parseFloat(ci.normalPrice) || 0) / normalTotal), 0)
-              : 0;
-            const setCost = comboItems.reduce((sum, ci) => sum + (parseFloat(ci.unitCost) || 0) * (ci.quantity || 1), 0);
-            // All members on ONE rate -> the line carries that rate NAME, so the tax
-            // summary labels the combo the same live as on a reprint (which reads the
-            // name banked on the members). Mixed rates stay unnamed on both paths.
-            const setTaxRate = comboItems.every(ci => ci.retailTaxRate === comboItems[0].retailTaxRate)
-              ? comboItems[0].retailTaxRate || null
-              : null;
-
-            setCart(prevCart => {
-              const existingIndex = prevCart.findIndex(item => item.isCombo && item.comboId === combo.id);
-              if (existingIndex !== -1) {
-                const updatedCart = [...prevCart];
-                const existing = updatedCart[existingIndex];
-                const newQuantity = (existing.quantity || 1) + 1;
-                const updated = { ...existing, quantity: newQuantity, price: setPrice * newQuantity };
-                updatedCart[existingIndex] = updated;
-                setSelectedCartItem(updated);
-                return updatedCart;
-              }
-              const newItem = {
-                id: `combo-${combo.id}-${Date.now()}`,
-                productId: null,
-                comboId: combo.id,
-                isCombo: true,
-                name: combo.name || 'Combo',
-                price: setPrice,
-                quantity: 1,
-                unitCost: setCost,
-                retailTaxRate: setTaxRate,
-                taxPercent: setTaxPercent,
-                comboItems,
-                comboNormalTotal: normalTotal,
-                timestamp: Date.now(),
-                action: 'add-product-combo'
-              };
-              setSelectedCartItem(newItem);
-              return [...prevCart, newItem];
-            });
-          } catch (error) {
-            console.error('Error adding product combo from sale key:', error);
-            alert('Failed to add product combo. Please try again.');
-          }
         })();
         break;
       case 'display-product-details':
@@ -2913,9 +2859,13 @@ const SaleKeyPage = () => {
           
           if (itemIndex !== -1) {
             const item = cart[itemIndex];
-            if (item.quantity > 1) {
-              const newQuantity = item.quantity - 1;
-              
+            // One step down, on either side of zero: 3 → 2, and a return −1 → −2.
+            // Only landing exactly on 0 removes the line — `> 1` used to delete
+            // every returned line the moment − was pressed.
+            // A case line steps by a whole case (reference: amount = caseQuantity).
+            const newQuantity = (parseFloat(item.quantity) || 1) - lineStep(item);
+            if (newQuantity !== 0) {
+
               // Recalculate price based on new quantity
               const productData = item.productId
                 ? resolveProductLocal(item.productId, item.name)
@@ -2964,8 +2914,16 @@ const SaleKeyPage = () => {
           
           if (itemIndex !== -1) {
             const item = cart[itemIndex];
-            const newQuantity = (item.quantity || 1) + 1;
-            
+            // A case line steps by a whole case (reference: amount = caseQuantity).
+            const newQuantity = (parseFloat(item.quantity) || 1) + lineStep(item);
+            // A return of −1 stepped up lands on 0: nothing left to return, so
+            // the line goes, mirroring what − does at 0 on a sale line.
+            if (newQuantity === 0) {
+              setCart(prev => prev.filter((_, i) => i !== itemIndex));
+              setSelectedCartItem(null);
+              return;
+            }
+
             const productData = item.productId
               ? resolveProductLocal(item.productId, item.name)
               : null;
@@ -2976,7 +2934,7 @@ const SaleKeyPage = () => {
               quantity: newQuantity,
               ...priceLineForQuantity(productData, newQuantity, item),
             };
-            
+
             setCart(prev => {
               const updatedCart = [...prev];
               updatedCart[itemIndex] = updatedItem;
@@ -2991,8 +2949,12 @@ const SaleKeyPage = () => {
         // Prevent additional payments if transaction is already complete
         if (isTransactionComplete) return;
         
-        // Handle payment - extract amount from key name or amount field
-        const paymentAmount = parseFloat(saleKey.amount) || parseFloat(saleKey.name.match(/\$(\d+(?:\.\d{2})?)/)?.[1]) || 0;
+        // Handle payment - extract amount from key name or amount field.
+        // Reference: a payment key with NO amount set tenders the exact remaining
+        // balance (the same `exact` path the Pay the Exact Amount key uses) —
+        // it used to do nothing at all, silently.
+        const configuredAmount = parseFloat(saleKey.amount) || parseFloat(saleKey.name.match(/\$(\d+(?:\.\d{2})?)/)?.[1]) || 0;
+        const paymentAmount = configuredAmount > 0 ? configuredAmount : Math.max(0, calculateRemainingBalance());
         // Card/EFTPOS methods must charge the PIN pad first; the payment is only
         // recorded in onApproved of the page-level PayByCardDialog. Resolve the
         // method record first so routing keys off its integration TYPE.
@@ -3161,6 +3123,7 @@ const SaleKeyPage = () => {
         setShowReceipt(false);
         setTransactionId(null);
         setReceiptData(null);
+        logoutAfterSaleIfRequired();
         break;
       case 'add-gift-card':
         // Prevent adding gift cards if payment is complete
@@ -3343,9 +3306,7 @@ const SaleKeyPage = () => {
         const flipReason = cart.some(i => (parseFloat(i.quantity) || 1) > 0) ? await askRefundReason() : '';
         if (flipReason === null) break;
         setCart(prev => prev.map(i => ({
-          ...i,
-          quantity: -(parseFloat(i.quantity) || 1),
-          price: -(parseFloat(i.price) || 0),
+          ...flipLineSign(i),
           ...(flipReason ? { refundReason: flipReason } : {}),
         })));
         setSelectedCartItem(null);
@@ -3356,9 +3317,7 @@ const SaleKeyPage = () => {
         const returnReason = (parseFloat(selectedCartItem.quantity) || 1) > 0 ? await askRefundReason() : '';
         if (returnReason === null) break;
         const flip = (i) => ({
-          ...i,
-          quantity: -(parseFloat(i.quantity) || 1),
-          price: -(parseFloat(i.price) || 0),
+          ...flipLineSign(i),
           ...(returnReason ? { refundReason: returnReason } : {}),
         });
         setCart(prev => prev.map(i =>
@@ -3379,7 +3338,8 @@ const SaleKeyPage = () => {
         if (idx === -1) break;
         const item = cart[idx];
         const newQty = (parseFloat(item.quantity) || 1) + step;
-        if (newQty <= 0) {
+        // Crossing to the other sign is allowed (a return is negative); only 0 removes.
+        if (newQty === 0) {
           setCart(prev => prev.filter((_, i) => i !== idx));
           setSelectedCartItem(null);
           break;
@@ -3390,10 +3350,26 @@ const SaleKeyPage = () => {
         setSelectedCartItem(updatedItem);
         break;
       }
-      case 'use-case-quantity':
-        // Modifier: toggle case-quantity mode for the next add / selected line.
+      case 'use-case-quantity': {
+        // Reference: with a line selected the key converts THAT line — N units
+        // become N cases, N cases become N units — and re-prices it from the new
+        // unit count. With nothing selected it arms the one-shot "next product
+        // added is a case" modifier.
+        if (selectedCartItem && !isTransactionComplete) {
+          const idx = cart.findIndex(i => i.id === selectedCartItem.id && i.timestamp === selectedCartItem.timestamp);
+          const item = idx === -1 ? null : cart[idx];
+          if (item && !item.isCombo && !item.giftCardId && (Number(item.caseQuantity) || 1) > 1) {
+            const { isCase, quantity } = toggleCase(item);
+            const product = item.productId ? resolveProductLocal(item.productId, item.name) : null;
+            const updatedItem = { ...item, isCase, quantity, ...priceLineForQuantity(product, quantity, item) };
+            setCart(prev => prev.map((it, i) => (i === idx ? updatedItem : it)));
+            setSelectedCartItem(updatedItem);
+            break;
+          }
+        }
         setUseCaseQuantity(prev => !prev);
         break;
+      }
       case 'add-component-to-current':
       case 'remove-component-from-current': {
         if (isTransactionComplete) return;
@@ -3515,7 +3491,13 @@ const SaleKeyPage = () => {
               const match = (sets || []).find(ps => ps.id === Number(psId))
                 || (sets || []).find(ps => ps.name === psName);
               if (!match) { alert(`Price set "${psName || psId}" was not found.`); return; }
-              applyActivePriceSet(match.id);
+              // Reference reducer toggles on the same set:
+              //   priceSet: action.priceSet === state.priceSet ? "" : action.priceSet
+              // so pressing the key for the set that is already active returns the
+              // sale to the products' Default Price Set. Without this there is no
+              // way back to default short of clearing the sale.
+              const wasActive = activePriceSetRef.current === Number(match.id);
+              applyActivePriceSet(wasActive ? null : match.id);
               // Combos, gift cards and return (negative) lines keep their prices.
               // ponytail: reprice = base price through the new set (+ the sale's
               // current price-list layer); the promotion best-of re-check is
@@ -3530,7 +3512,7 @@ const SaleKeyPage = () => {
                 return { ...item, price: computePriceListTotal(product, qty, base) };
               }));
               setSelectedCartItem(null);
-              notify(`Price set: ${match.name}`);
+              notify(wasActive ? 'Price set: Default' : `Price set: ${match.name}`);
               return;
             }
             // Legacy keys configured against a customer Price List.
@@ -3653,7 +3635,10 @@ const SaleKeyPage = () => {
       const saleItems = expandCartForSale(cart).map(item => {
         const taxPercent = getPercent(item.retailTaxRate || item.taxRateName);
         const totalPrice = parseFloat(item.price || 0); // item.price now contains total price
-        const quantity = parseInt(item.quantity) || 1;
+        // parseFloat, not parseInt: a combo member can come out of expandCartForSale
+        // as a fraction (.57 of a keg for a pint), and parseInt turned that into 0
+        // and then into 1 — a whole keg off stock for one pint.
+        const quantity = parseFloat(item.quantity) || 1;
         const unitPrice = totalPrice / quantity; // Calculate unit price for storage
         // Retail prices are tax-inclusive: tax component = inc * rate / (100 + rate)
         const itemTaxIncluded = taxPercent > 0 ? (totalPrice * taxPercent / (100 + taxPercent)) : 0;
@@ -3704,6 +3689,8 @@ const SaleKeyPage = () => {
             item.refundReason ? `Refund reason: ${item.refundReason}` : null,
           ].filter(Boolean).join(' | ') || null,
           productId: item.productId || item.id || null, // CRITICAL: Include productId for loyalty calculation
+          // Sold as a case — history, reprints and returns show it as one.
+          isCase: isCaseLine(item),
           surchargeBreakdown: surchargeBreakdown // Also pass directly for backend processing
         };
       });
@@ -3753,6 +3740,11 @@ const SaleKeyPage = () => {
         // "Returned" filter reads (reference behaviour).
         returnedFromSaleNumber:
           (Array.isArray(cart) && cart.find((i) => i && i._recalledFrom)?._recalledFrom) || undefined,
+        // The till already collects this — FinalizeSaleDialog refuses to finalize when
+        // the customer's group has requireOrderReference — but it was never put in the
+        // body, so sales.js rejected the very sales that dialog had just validated.
+        // Such a customer could not be sold to at all.
+        orderReference: orderReference?.trim() || undefined,
         isDiscounted: parseFloat(discount) > 0,
         customerId: selectedCustomer?.id || null,
         outletId: getEffectiveOutletId(),
@@ -3763,6 +3755,23 @@ const SaleKeyPage = () => {
       };
 
       return saleData;
+  };
+
+  // The server always says WHY it refused a sale — an outlet mismatch, an account limit,
+  // a missing order reference, a crash. Discarding that left one identical popup for every
+  // cause, so a 403 the operator could fix on the spot read the same as a server fault and
+  // nobody could tell which had happened.
+  const describeSaveFailure = (error) => {
+    const data = error?.response?.data;
+    const reason = data?.error || data?.message || data?.details;
+    if (reason) return `${reason}\n\nFix the problem and take the sale again, or retry from Sales History.`;
+    // A timeout is the dangerous case: the request may well have committed server-side,
+    // so re-selling blind would double up. Send the operator to Sales History first.
+    if (error?.code === 'ECONNABORTED') {
+      return 'The server did not respond in time. The sale may still have saved — check Sales History before selling it again.';
+    }
+    if (!error?.response) return 'Could not reach the server. Check the connection, then take the sale again.';
+    return 'Please contact support, or retry from Sales History.';
   };
 
   const saveSaleToHistory = async (finalPayments, cartTotal, transactionId, changeValue = 0, invoiceNumber = null) => {
@@ -3977,15 +3986,20 @@ const SaleKeyPage = () => {
       } catch (error) {
         console.error('Error completing resumed parked sale:', error);
         completedEpochRef.current = -1; // allow a retry
-        alert('Failed to complete sale. Please try again.');
+        alert(`Failed to complete sale.\n\n${describeSaveFailure(error)}`, 'error');
       }
       return;
     }
     
-    // Regular sale completion — show receipt immediately, save in background
+    // Regular sale completion — BANK THE SALE FIRST, then print.
+    //
+    // This used to print the receipt and save in the background, which meant every
+    // server-side refusal (a customer on another outlet, an account limit, an order
+    // reference the group requires, a crash) landed AFTER the paper was out: the
+    // customer held a receipt for a sale that existed nowhere, stock never moved, and
+    // the day's cash never balanced. Waiting for the save costs one round-trip and
+    // makes that state impossible — nothing prints unless the sale is really banked.
     const newTransactionId = `TXN-${Date.now()}`;
-    setTransactionId(newTransactionId);
-    setIsTransactionComplete(true);
 
     // Change is still computed here (saveSaleToHistory banks it as a Cash (Change)
     // row), but the receipt is built from the GROSS tendered payments so a $50 cash
@@ -3994,6 +4008,35 @@ const SaleKeyPage = () => {
     // reprint from Sales History (which also renders gross tender + a change line).
     const { change } = normalizeCashForChange(finalPayments, cartTotal);
     const invoiceNumber = takeInvoiceNumber();
+
+    setLastSaleId(null); // stays null until this sale's save resolves, so Email can't send a stale id
+
+    let saleId = null;
+    try {
+      saleId = await saveSaleToHistory(finalPayments, cartTotal, newTransactionId, change, invoiceNumber);
+    } catch (error) {
+      console.error('Error saving sale to history:', error);
+      // Hand the number back: nothing was printed, so the register's sequence must not
+      // skip one for every refused attempt.
+      if (invoiceNumber != null) {
+        setSelectedRegister((prev) =>
+          prev && prev.invoiceNumber === invoiceNumber + 1 ? { ...prev, invoiceNumber } : prev
+        );
+      }
+      // Release the epoch so the operator can fix the problem and take the sale again.
+      // The cart is left exactly as it was — nothing is cleared on a failure.
+      completedEpochRef.current = -1;
+      // Severity passed explicitly: AppDialogProvider infers it from keywords, and the
+      // timeout text ("may still have saved") would otherwise infer 'success' and flash
+      // past as a green toast instead of a modal the operator has to acknowledge.
+      alert(`Sale not completed — nothing was printed or saved.\n\n${describeSaveFailure(error)}`, 'error');
+      return;
+    }
+
+    // Banked. From here the sale is real, so everything below is safe to do.
+    setTransactionId(newTransactionId);
+    setIsTransactionComplete(true);
+    setLastSaleId(saleId); // real id for the manual Email button
     generateReceipt(newTransactionId, finalPayments, cartTotal, change, invoiceNumber);
 
     // EFTPOS Refund Item lines: load the gift card(s) via a terminal refund.
@@ -4002,24 +4045,14 @@ const SaleKeyPage = () => {
     const hasOnAccountPayment = finalPayments.some(p =>
       (p.method || '').toLowerCase().includes('account')
     );
-
-    setLastSaleId(null); // stays null until this sale's save resolves, so Email can't send a stale id
-    saveSaleToHistory(finalPayments, cartTotal, newTransactionId, change, invoiceNumber)
-      .then(async (saleId) => {
-        setLastSaleId(saleId); // real id for the manual Email button
-        if (hasOnAccountPayment && selectedCustomer?.id) {
-          await refreshCustomerData(selectedCustomer.id);
-        }
-        // ponytail: autoEmailReceipt (group flag) — auto-send the receipt to the customer's
-        // email once the sale exists (needs the real saleId). No-op without flag/email/id.
-        maybeAutoEmailReceipt(saleId);
-        // Decrement any gift cards tendered on this sale — exactly once, here.
-        await redeemPendingGiftCards(saleId);
-      })
-      .catch((error) => {
-        console.error('Error saving sale to history:', error);
-        alert('Receipt shown, but the sale failed to save. Please contact support or retry from sales history.');
-      });
+    if (hasOnAccountPayment && selectedCustomer?.id) {
+      await refreshCustomerData(selectedCustomer.id);
+    }
+    // ponytail: autoEmailReceipt (group flag) — auto-send the receipt to the customer's
+    // email once the sale exists (needs the real saleId). No-op without flag/email/id.
+    maybeAutoEmailReceipt(saleId);
+    // Decrement any gift cards tendered on this sale — exactly once, here.
+    await redeemPendingGiftCards(saleId);
   };
 
   // Decrement each gift card tendered on this sale, exactly once, after the sale is saved.
@@ -4113,7 +4146,8 @@ const SaleKeyPage = () => {
           totalPrice: totalPrice,
           discount: getItemDiscount(item),
           tax: itemTaxIncluded,
-          productId: item.productId || item.id || null
+          productId: item.productId || item.id || null,
+          isCase: isCaseLine(item),
         };
       });
 
@@ -4152,6 +4186,7 @@ const SaleKeyPage = () => {
       await loadParkedSales();
       
       alert('Sale parked successfully!');
+      logoutAfterSaleIfRequired();
     } catch (error) {
       console.error('Error parking sale:', error);
       alert('Failed to park sale. Please try again.');
@@ -4464,6 +4499,8 @@ const SaleKeyPage = () => {
         };
       }),
       payments: receiptPayments,
+      // Word printed after a case line's name ("Name (Case)").
+      caseText: generalSettings.caseText || 'Case',
       discount: saleDiscount,
       savings: saleSavings,
       customer: selectedCustomer,
@@ -4740,7 +4777,8 @@ const SaleKeyPage = () => {
   const handleOpenQuantityKeypad = (item, e) => {
     e.stopPropagation();
     setQuantityKeypadItem(item);
-    setKeypadValue(String(item.quantity || 1));
+    // A case line is edited in CASES (what the line shows), not units.
+    setKeypadValue(String(displayQuantity(item) || 1));
     setKeypadAnchorEl(e.currentTarget);
     setShowQuantityKeypad(true);
   };
@@ -4809,9 +4847,12 @@ const SaleKeyPage = () => {
   };
 
   const handleUpdateQuantityFromKeypad = async () => {
-    const newQuantity = parseFloat(keypadValue);
-    
-    if (!newQuantity || newQuantity <= 0 || !quantityKeypadItem) {
+    // Typed in cases on a case line: 2 → 12 units of a 6-pack.
+    const newQuantity = parseFloat(keypadValue) * lineStep(quantityKeypadItem);
+
+    // Negative is a return, typed straight in — the reference keypad carries a
+    // sign toggle (⊖ … ⊕) for exactly this. Only zero and garbage are refused.
+    if (!Number.isFinite(newQuantity) || newQuantity === 0 || !quantityKeypadItem) {
       setShowQuantityKeypad(false);
       return;
     }
@@ -4950,42 +4991,6 @@ const SaleKeyPage = () => {
   // refreshes from the API because posCatalogSync only re-syncs when the
   // catalog is >5 min stale — without this a freshly created combo would be
   // invisible on the sell screen until the next full sync.
-  // Keep only combos that are active, priced, have items, and belong to the
-  // current outlet (or are outlet-agnostic).
-  const normalizeActiveCombos = (list, outletId) =>
-    (list || []).filter(
-      (c) =>
-        c &&
-        c.isActive !== false &&
-        Array.isArray(c.items) &&
-        c.items.length > 0 &&
-        (c.outletId == null || outletId == null || Number(c.outletId) === Number(outletId)) &&
-        (parseFloat(c.comboPrice ?? c.totalPrice) || 0) > 0
-    );
-
-  const hydrateActiveCombos = async (outletOverride) => {
-    const outletId = outletOverride ?? getOutletIdForPromotions();
-    setActiveCombos(normalizeActiveCombos(posLocalDb.getCombos(), outletId));
-    const seq = ++comboFetchSeqRef.current;
-    try {
-      // status/limit are the params the API actually consumes (isActive is
-      // ignored server-side; default limit is 50). A successful response is
-      // authoritative — it also clears combos deleted since the last catalog
-      // sync so they stop repricing the cart.
-      const res = await productComboService.getProductCombos({
-        outletId,
-        status: 'Active',
-        limit: 500,
-      });
-      if (seq !== comboFetchSeqRef.current) return; // a newer hydrate superseded this one
-      combosConfirmedRef.current = true;
-      setActiveCombos(normalizeActiveCombos(res?.combos || [], outletId));
-    } catch {
-      // Offline / API error — keep whatever the local cache provided.
-    }
-  };
-
-  // F4/F5 sell-screen combo engine (see COMBO DEAL DATA CONTRACT above).
   // Reprices cart lines so every complete set of an active Combo Deal
   // promotion OR Product Combo is charged at its combo price, with remainder
   // units at normal price (e.g. a 7-item combo + an 8th item = combo price +
@@ -5196,12 +5201,10 @@ const SaleKeyPage = () => {
 
   const loadActivePromotionsWithoutOutlet = async () => {
     hydrateActivePromotionsFromLocal();
-    hydrateActiveCombos();
   };
 
   const loadActivePromotions = async () => {
     hydrateActivePromotionsFromLocal();
-    hydrateActiveCombos();
   };
 
   // Get effective outlet ID - prioritizes superadmin selection, then context, then user, then register
@@ -6063,7 +6066,12 @@ const SaleKeyPage = () => {
     if (!product) return 0;
 
     const qty = Number(quantity);
-    if (qty <= 0) return 0;
+    if (!Number.isFinite(qty) || qty === 0) return 0;
+    // A return is priced the way the reference prices it: |quantity| goes through
+    // the very same price ladder as a sale and the sign is put back afterwards
+    // (calculateEverydayPrice: `if (e < 0) { u = -1; e *= -1 }` … `* u`). Refusing
+    // negatives here made every returned line worth $0.
+    if (qty < 0) return -calculateBasePriceForQuantity(product, -qty);
 
     // Price tier matching against the ACTIVE price set's rows (falls back to the
     // default group when the product has no rows in the set).
@@ -6137,7 +6145,10 @@ const SaleKeyPage = () => {
     if (!product) return 0;
 
     const qty = Number(quantity);
-    if (qty <= 0) return 0;
+    if (!Number.isFinite(qty) || qty === 0) return 0;
+    // Same sign handling as calculateBasePriceForQuantity: a return follows the
+    // sale's quantity breaks, promotions and price list, then flips sign.
+    if (qty < 0) return -calculatePriceForQuantity(product, -qty);
 
     // Everyday total, then the customer's price-list price (replaces everyday).
     const basePrice = calculateBasePriceForQuantity(product, qty);
@@ -6187,7 +6198,8 @@ const SaleKeyPage = () => {
   const calculateNormalPriceForQuantity = (product, quantity) => {
     if (!product) return 0;
     const qty = Number(quantity);
-    if (qty <= 0) return 0;
+    if (!Number.isFinite(qty) || qty === 0) return 0;
+    if (qty < 0) return -calculateNormalPriceForQuantity(product, -qty);
     return computePriceListTotal(product, qty, calculateBasePriceForQuantity(product, qty));
   };
 
@@ -6197,9 +6209,53 @@ const SaleKeyPage = () => {
   // instead of being frozen. Every quantity-change caller spreads this whole
   // result, so the line price and discountInfo.discountAmount (what the cart
   // footer and the saved sale read) can never drift apart.
+  // Flips a cart line between sale and return. Going negative locks the line at
+  // its current unit price (reference: a returned line is `edited`, carrying
+  // |totalPrice / quantity|), so reducing the returned quantity afterwards
+  // refunds exactly what was paid per unit. Going back to positive unlocks it —
+  // a sale line prices off the ladder like any other.
+  const flipLineSign = (line) => {
+    const qty = parseFloat(line.quantity) || 1;
+    const price = parseFloat(line.price) || 0;
+    const nextQty = -qty;
+    const nextPrice = -price;
+    if (nextQty < 0) {
+      return {
+        ...line,
+        quantity: nextQty,
+        price: nextPrice,
+        priceLocked: true,
+        lockedUnitPrice: Math.abs(price / qty),
+      };
+    }
+    const { priceLocked: _unlocked, lockedUnitPrice: _unit, ...rest } = line;
+    return { ...rest, quantity: nextQty, price: nextPrice };
+  };
+
   const priceLineForQuantity = (product, quantity, fallback = null) => {
     const info = fallback?.discountInfo;
     const oldAmount = Math.max(0, parseFloat(info?.discountAmount) || 0);
+
+    // A locked line keeps the unit price it was given and never goes back through
+    // the price ladder. The reference marks every returned line `edited` with the
+    // paid unit price on it (`basePrice = |totalPrice / quantity|`, shown as
+    // "Item price: $18.29" under the line) — which is why returning 1 of a
+    // "6 for $30" case refunds $5.00 and not today's single price. Sitting here,
+    // it covers every quantity path: +/- keys, the keypad, weight, recall.
+    const lockedUnit = Number(fallback?.lockedUnitPrice);
+    if (fallback?.priceLocked && Number.isFinite(lockedUnit)) {
+      const price = Math.round(lockedUnit * quantity * 100) / 100;
+      const oldQty = parseFloat(fallback?.quantity) || 1;
+      return {
+        price,
+        // Savings on a return read $0.00 in the reference: the locked price is
+        // the normal price, there is nothing to compare it against.
+        normalPrice: price,
+        ...(info
+          ? { discountInfo: { ...info, discountAmount: Math.round((oldAmount / oldQty) * quantity * 100) / 100 } }
+          : {}),
+      };
+    }
 
     if (!product) {
       const oldQty = parseFloat(fallback?.quantity) || 1;
@@ -6312,6 +6368,26 @@ const SaleKeyPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, isTransactionComplete, priceListConfig]);
 
+  // Setup > Registers > "Login After Sale": whether the user has to sign in again
+  // once a sale is finished. The reference logs out after a sale is COMPLETED,
+  // PARKED or CANCELLED — never mid-sale — so every caller here runs after the
+  // cart has already been cleared, and a sale can never be stranded by it.
+  //
+  // `skip` mirrors the reference's skipLogoutCheck: a flow that must stay signed
+  // in (a follow-on refund, a voucher retry) passes it and keeps the session.
+  const logoutAfterSaleIfRequired = async ({ skip = false } = {}) => {
+    if (skip || !selectedRegister?.id) return;
+    try {
+      const res = await settingsService.getRegisterSettings(selectedRegister.id);
+      if (res?.settings?.loginAfterSale !== true) return;
+      await logout();
+    } catch (error) {
+      // Never let this stop the till: the sale is already done and saved, so a
+      // failure here just means the user stays signed in.
+      console.error('Login-after-sale logout failed:', error);
+    }
+  };
+
   // Done on the completed-sale panel: clear everything for the next sale.
   const startNextSale = () => {
     saleEpochRef.current++;
@@ -6324,6 +6400,7 @@ const SaleKeyPage = () => {
     setReceiptData(null);
     setLoyaltyRedemption(null);
     setLoyaltyCalculation(null);
+    logoutAfterSaleIfRequired();
   };
 
   // Automatic Done: a completed sale that needs nothing more from the cashier (no
@@ -6344,16 +6421,23 @@ const SaleKeyPage = () => {
 
   // Cart-line padlock: one click strips the manual price and re-prices the line
   // through the automatic waterfall (reference unlock, no confirmation).
+  // The padlock on a line. Two things lock a line — a manual discount, and being
+  // a return (locked at the unit price actually paid). Unlocking either sends the
+  // line back through the price ladder, the reference's RESET (`edited: false`).
+  // On a return that means today's price, which is exactly what the operator is
+  // asking for by clicking the lock.
   const handleUnlockPrice = (item) => {
-    if (!item?.discountInfo) return;
+    if (!item?.discountInfo && !item?.priceLocked) return;
     const updated = { ...item };
     delete updated.discountInfo;
+    delete updated.priceLocked;
+    delete updated.lockedUnitPrice;
     const product = item.productId ? resolveProductLocal(item.productId, item.name) : null;
     if (product) {
       Object.assign(updated, priceLineForQuantity(product, parseFloat(item.quantity) || 1, updated));
     } else {
       // ponytail: product no longer resolvable — add the recorded discount back
-      updated.price = (parseFloat(item.price) || 0) + Math.max(0, parseFloat(item.discountInfo.discountAmount) || 0);
+      updated.price = (parseFloat(item.price) || 0) + Math.max(0, parseFloat(item.discountInfo?.discountAmount) || 0);
     }
     setCart(prev => prev.map(i => (i.id === item.id && i.timestamp === item.timestamp ? updated : i)));
     setSelectedCartItem(prev => (prev && prev.id === item.id && prev.timestamp === item.timestamp ? updated : prev));

@@ -159,13 +159,6 @@ const menuItems = [
         permissions: ["stocktakes.view"],
       },
       {
-        id: "product-combos",
-        title: "Product Combos",
-        icon: <ShoppingCart />,
-        path: "/stock-management/product-combos",
-        permissions: ["products.view"],
-      },
-      {
         id: "more",
         title: "More",
         icon: <Add />,

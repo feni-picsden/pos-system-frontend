@@ -21,6 +21,8 @@ import { userService } from "../services/userService";
 import customerService from "../services/customerService";
 import productService from "../services/productService";
 import paymentMethodService from "../services/paymentMethodService";
+import outletService from "../services/outletService";
+import registerService from "../services/registerService";
 import settingsService from "../services/settingsService";
 import { useAuth } from "../contexts/AuthContext";
 import PrintReceiptDialog from "../components/PrintReceiptDialog";
@@ -232,6 +234,8 @@ const SalesHistory = () => {
     maxAmount: "",
     paymentMethod: "",
     userId: "",
+    outletId: "",
+    registerId: "",
     status: "",
     invoiceNumber: "",
     orderReference: "",
@@ -256,6 +260,8 @@ const SalesHistory = () => {
   const [users, setUsers] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [outlets, setOutlets] = useState([]);
+  const [registers, setRegisters] = useState([]);
 
   // Assign Customer / Cancel Sale dialogs
   const [assignCustomerOpen, setAssignCustomerOpen] = useState(false);
@@ -377,6 +383,11 @@ const SalesHistory = () => {
       const paymentMethodsResponse =
         await paymentMethodService.getPaymentMethods();
       setPaymentMethods(paymentMethodsResponse.paymentMethods || []);
+
+      // Outlet / Register lists for the advanced filter row.
+      const outletsResponse = await outletService.getAllOutlets();
+      setOutlets(outletsResponse.outlets || []);
+      setRegisters(await registerService.list());
     } catch (err) {
       console.error("Error loading dropdown data:", err);
     }
@@ -386,6 +397,9 @@ const SalesHistory = () => {
     setFilters((prev) => ({
       ...prev,
       [field]: value,
+      // Switching outlet drops a register that belongs to the old one, which
+      // would otherwise stay selected and return an empty list.
+      ...(field === "outletId" ? { registerId: "" } : {}),
     }));
   };
 
@@ -538,6 +552,17 @@ const SalesHistory = () => {
   const userOptions = users
     .map((u) => ({ value: u.id, label: u.name }))
     .sort(byLabel);
+  const outletOptions = outlets
+    .map((o) => ({ value: o.id, label: o.name }))
+    .sort(byLabel);
+  // Picking an outlet narrows the register list to that outlet's registers —
+  // registers are outlet-scoped, so the full list would offer impossible pairs.
+  const registerOptions = registers
+    .filter((r) =>
+      !filters.outletId || String(r.outletId) === String(filters.outletId)
+    )
+    .map((r) => ({ value: r.id, label: r.name }))
+    .sort(byLabel);
   // The picker label carries the code so two same-named customers can be told
   // apart; the option itself is keyed by id (getOptionKey) — MUI keys options by
   // label by default, which collides for duplicate names.
@@ -689,10 +714,12 @@ const SalesHistory = () => {
                 },
               }}
             >
-              {/* Filter set is deliberately limited to the reference's: the reference
-                  advanced block has no Outlet or Register filter. Outlet scoping is still
-                  available through the top-bar outlet selector. */}
+              {/* Reference advanced grid order: User / Outlet / Register, then
+                  Status / Invoice Number / Order Reference, then Customer /
+                  Product / Gift Card Code. */}
               {renderCombo("User", "userId", userOptions)}
+              {renderCombo("Outlet", "outletId", outletOptions)}
+              {renderCombo("Register", "registerId", registerOptions)}
               {renderCombo("Status", "status", STATUS_OPTIONS)}
               {renderText("Invoice Number", "invoiceNumber")}
               {renderText("Order Reference", "orderReference")}
@@ -955,6 +982,16 @@ const SalesHistory = () => {
         onSend={handleSendEmail}
         saleId={selectedSale?.id}
         senderEmail={replyToEmail}
+        customer={selectedSale?.customer}
+        onUpdateCustomerEmail={async (customer, email) => {
+          const res = await customerService.addEmail(customer, email);
+          const updated = res?.customer || null;
+          if (updated) {
+            // Keep the open sale (and the list) showing the new address.
+            setSales((prev) => prev.map((s) => (s.customer?.id === updated.id ? { ...s, customer: { ...s.customer, emails: updated.emails } } : s)));
+            setSelectedSale((prev) => (prev?.customer?.id === updated.id ? { ...prev, customer: { ...prev.customer, emails: updated.emails } } : prev));
+          }
+        }}
       />
 
       {/* Assign Customer — attach a customer to an already-completed sale */}

@@ -186,8 +186,6 @@ const COLUMNS = [
   { key: 'transferValueOut', label: 'Transfer Value Out', numeric: true, currency: true },
   { key: 'stocktakeAdjustmentQuantity', label: 'Stocktake Adjustment Quantity', numeric: true },
   { key: 'stocktakeAdjustmentValue', label: 'Stocktake Adjustment Value', numeric: true, currency: true },
-  { key: 'basketQuantity', label: 'Basket Quantity', numeric: true },
-  { key: 'basketValue', label: 'Basket Value', numeric: true, currency: true },
   { key: 'manualAdjustmentQuantity', label: 'Manual Adjustment Quantity', numeric: true },
   { key: 'manualAdjustmentValue', label: 'Manual Adjustment Value', numeric: true, currency: true },
   { key: 'closingQuantity', label: 'Closing Quantity', numeric: true },
@@ -203,7 +201,6 @@ const VALUE_PAIRS = [
   ['transferQuantityIn', 'transferValueIn'],
   ['transferQuantityOut', 'transferValueOut'],
   ['stocktakeAdjustmentQuantity', 'stocktakeAdjustmentValue'],
-  ['basketQuantity', 'basketValue'],
   ['manualAdjustmentQuantity', 'manualAdjustmentValue'],
   ['closingQuantity', 'closingValue'],
 ];

@@ -6,6 +6,10 @@
 // Only rows of the SAME price set are linked — a different price set is a
 // different customer group and must not be touched.
 
+// Extension is explicit: the .mjs unit tests run under plain Node, which does not
+// do Vite's extensionless resolution.
+import { profitPercent } from './productCost.js';
+
 /** 2-decimal money rounding, matching the price table's own rounding. */
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -23,8 +27,13 @@ export const rowQuantity = (row) => {
 /** Same price set = same customer group. Missing/null/'' all mean "default". */
 const samePriceSet = (a, b) => (a?.priceSetId ?? null) === (b?.priceSetId ?? null);
 
-/** Margin % for a row, so the table's GP column stays truthful after a re-price. */
-const percentageFor = (cost, price) => (!price ? 0 : round2((1 - cost / price) * 100));
+/**
+ * Profit % for a row, so the table's column stays truthful after a re-price.
+ * Follows Setup > General > "Profitability Display" — this used to be a hardcoded
+ * gross profit margin, so a company on Markup saw the wrong number here.
+ */
+const percentageFor = (cost, price, display) =>
+  (!price ? 0 : round2(profitPercent(price, cost, display)));
 
 /**
  * After `rows[index]` was edited: refresh its cost / GP%, and when it is a pack
@@ -40,8 +49,9 @@ const percentageFor = (cost, price) => (!price ? 0 : round2((1 - cost / price) *
  * @param {Array} rows      formData.prices
  * @param {number} index    row the user just edited
  * @param {number} itemCost per-unit cost, for the cost/% columns
+ * @param {string} display  Setup > General > Profitability Display
  */
-export function syncPriceRows(rows, index, itemCost = 0) {
+export function syncPriceRows(rows, index, itemCost = 0, display = 'Gross Profit Margin') {
   if (!Array.isArray(rows) || !rows[index]) return rows;
 
   const edited = rows[index];
@@ -55,12 +65,12 @@ export function syncPriceRows(rows, index, itemCost = 0) {
   return rows.map((row, i) => {
     if (i === index) {
       const cost = round2(unitCost * qty);
-      return { ...row, cost, percentage: percentageFor(cost, price) };
+      return { ...row, cost, percentage: percentageFor(cost, price, display) };
     }
     if (qty > 1 && rowQuantity(row) === 1 && samePriceSet(row, edited)) {
       const single = round2(unitPrice);
       const cost = round2(unitCost);
-      return { ...row, price: single, cost, percentage: percentageFor(cost, single) };
+      return { ...row, price: single, cost, percentage: percentageFor(cost, single, display) };
     }
     return row;
   });

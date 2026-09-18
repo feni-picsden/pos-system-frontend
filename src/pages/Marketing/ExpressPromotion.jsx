@@ -37,7 +37,6 @@ import promotionCategoryService from '../../services/promotionCategoryService';
 import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import customerGroupService from '../../services/customerGroupService';
 import productService from '../../services/productService';
-import productComboService from '../../services/productComboService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { getBaseTier } from '../../utils/baseTier';
 
@@ -270,21 +269,16 @@ const ExpressPromotion = () => {
     }
   };
 
-  // Product combos are a feature of this app, so every product search here lists
+  // A Combo Product is an ordinary product row, so every product search here lists
   // them alongside normal products (same grouping the create wizard uses).
   const searchCatalog = async (term) => {
     const query = term.trim();
     if (!query) return [];
-    const [products, combos] = await Promise.all([
+    const [products] = await Promise.all([
       productService.getProducts({ search: query, limit: 20 }).then((r) => r?.products || []).catch(() => []),
-      productComboService
-        .getProductCombos({ search: query, status: 'Active', limit: 20 })
-        .then((r) => r?.combos || [])
-        .catch(() => [])
     ]);
     return [
       ...products.map((p) => ({ ...p, resultType: 'PRODUCT' })),
-      ...combos.map((c) => ({ ...c, resultType: 'COMBO' }))
     ];
   };
 
@@ -342,21 +336,8 @@ const ExpressPromotion = () => {
     };
   };
 
-  // A combo is shorthand for its member products: expand it so every promotion
-  // row still carries a real productId (what the sell screen matches on).
-  const expandCombo = async (selection) => {
-    let combo = selection;
-    if (!Array.isArray(combo.items) || combo.items.length === 0) {
-      combo = await productComboService
-        .getProductCombo(selection.id)
-        .then((r) => r?.combo || r || selection)
-        .catch(() => selection);
-    }
-    return (combo.items || []).map((i) => i.product).filter(Boolean);
-  };
-
   const handleAddProduct = async (entry) => {
-    const products = entry.resultType === 'COMBO' ? await expandCombo(entry) : [entry];
+    const products = [entry];
 
     setFormData(prev => ({
       ...prev,
@@ -373,7 +354,7 @@ const ExpressPromotion = () => {
   };
 
   const handleSimulatorAdd = async (entry) => {
-    const products = entry.resultType === 'COMBO' ? await expandCombo(entry) : [entry];
+    const products = [entry];
     setBasket(prev => {
       const next = [...prev];
       products.forEach((product) => {
@@ -738,9 +719,7 @@ const ExpressPromotion = () => {
               >
                 <Typography variant="subtitle2">{product.name}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {product.resultType === 'COMBO'
-                    ? `COMBO · $${(product.totalPrice || 0).toFixed(2)}`
-                    : `$${(getBaseTier(product.prices)?.price || 0).toFixed(2)}`}
+                  {`$${(getBaseTier(product.prices)?.price || 0).toFixed(2)}`}
                 </Typography>
               </Box>
             ))}
@@ -910,9 +889,7 @@ const ExpressPromotion = () => {
                 >
                   <Typography variant="subtitle2">{entry.name}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {entry.resultType === 'COMBO'
-                      ? `COMBO · $${(entry.totalPrice || 0).toFixed(2)}`
-                      : `$${(getBaseTier(entry.prices)?.price || 0).toFixed(2)}`}
+                    {`$${(getBaseTier(entry.prices)?.price || 0).toFixed(2)}`}
                   </Typography>
                 </Box>
               ))}

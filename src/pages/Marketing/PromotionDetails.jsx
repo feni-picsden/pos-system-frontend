@@ -43,7 +43,6 @@ import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete
 import customerGroupService from '../../services/customerGroupService';
 import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
-import productComboService from '../../services/productComboService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { getBaseTier } from '../../utils/baseTier';
 
@@ -594,8 +593,8 @@ const PromotionDetails = () => {
     setScheduleOpen(false);
   };
 
-  // The criteria search matches products, classifications AND product combos.
-  // A classification or a combo is shorthand for its member products: picking one
+  // The criteria search matches products and classifications. A classification is
+  // shorthand for its member products: picking one
   // expands into individual PRODUCT items (see handleAddItemToCriterion) so the
   // rebate/exclude/profit columns and the sell-screen matcher — which keys on
   // productId — keep working unchanged.
@@ -605,23 +604,21 @@ const PromotionDetails = () => {
       setSearchResults(prev => ({ ...prev, [criterionId]: [] }));
       return;
     }
-    const [products, classifications, combos] = await Promise.all([
+    const [products, classifications] = await Promise.all([
       productService.getProducts({ search: searchValue, limit: 20 })
         .then(r => r.products || [])
         .catch(() => []),
       classificationService.getClassifications({ search: searchValue })
         .then(r => r.classifications || [])
         .catch(() => []),
-      productComboService.getProductCombos({ search: searchValue, status: 'Active', limit: 20 })
-        .then(r => r.combos || [])
-        .catch(() => []),
     ]);
+    // A Combo Product is an ordinary product row, so it already arrives with the
+    // products — no separate combo lookup is needed.
     setSearchResults(prev => ({
       ...prev,
       [criterionId]: [
         ...products.map(p => ({ ...p, resultType: 'PRODUCT' })),
         ...classifications.map(c => ({ ...c, resultType: 'CLASSIFICATION' })),
-        ...combos.map(c => ({ ...c, resultType: 'COMBO' })),
       ],
     }));
   };
@@ -760,22 +757,6 @@ const PromotionDetails = () => {
       }
       if (products.length === 0) {
         showSnackbar(`"${result.name}" has no products assigned`, 'warning');
-        return null;
-      }
-    } else if (result.resultType === 'COMBO') {
-      sourceLabel = `Combo: ${result.name}`;
-      let combo = result;
-      if (!Array.isArray(combo.items) || combo.items.length === 0) {
-        try {
-          const response = await productComboService.getProductCombo(result.id);
-          combo = response.combo || response;
-        } catch (error) {
-          console.error('Error fetching combo:', error);
-        }
-      }
-      products = (combo.items || []).map(i => i.product).filter(Boolean);
-      if (products.length === 0) {
-        showSnackbar(`"${result.name}" has no products in it`, 'warning');
         return null;
       }
     } else {
@@ -1644,17 +1625,15 @@ const PromotionDetails = () => {
                                   {result.resultType !== 'PRODUCT' && (
                                     <Chip
                                       size="small"
-                                      label={result.resultType === 'COMBO' ? 'Combo' : 'Classification'}
+                                      label="Classification"
                                       sx={{ height: 18, fontSize: '0.65rem' }}
                                     />
                                   )}
                                 </Box>
                                 <Typography variant="caption" color="text.secondary">
-                                  {result.resultType === 'COMBO'
-                                    ? `$${parseFloat(result.comboPrice ?? result.totalPrice ?? result.calculatedTotalPrice ?? 0).toFixed(2)} · ${(result.items || []).length} products`
-                                    : result.resultType === 'CLASSIFICATION'
-                                      ? `${result.type || 'Classification'} · adds its products`
-                                      : `$${result.prices?.[0]?.price || 0}`}
+                                  {result.resultType === 'CLASSIFICATION'
+                                    ? `${result.type || 'Classification'} · adds its products`
+                                    : `$${result.prices?.[0]?.price || 0}`}
                                 </Typography>
                               </Box>
                             ))}
@@ -2014,7 +1993,7 @@ const PromotionDetails = () => {
                         {result.resultType !== 'PRODUCT' && (
                           <Chip
                             size="small"
-                            label={result.resultType === 'COMBO' ? 'Combo' : 'Classification'}
+                            label="Classification"
                             sx={{ height: 18, fontSize: '0.65rem' }}
                           />
                         )}

@@ -123,6 +123,7 @@ export default function Stocktakes() {
   const [status, setStatus] = useState('');
   const [created, setCreated] = useState({ startDate: null, endDate: null });
   const [completed, setCompleted] = useState({ startDate: null, endDate: null });
+  const [outletFilter, setOutletFilter] = useState('');
 
   // Renders from IndexedDB first, then revalidates in the background.
   const { data: allStocktakes, refresh: refreshStocktakes } = usePageCache(
@@ -158,10 +159,12 @@ export default function Stocktakes() {
     return allStocktakes.filter(
       (r) =>
         (!status || r.status === status) &&
+        (!outletFilter ||
+          String(r.outlet?.id ?? r.outletId ?? '') === String(outletFilter)) &&
         within(r.createdAt, created) &&
         within(r.completedAt, completed)
     );
-  }, [allStocktakes, status, created, completed]);
+  }, [allStocktakes, status, outletFilter, created, completed]);
 
   const handleExpress = () => navigate('/stock-management/stocktakes/express');
   const handleExternal = () => navigate('/stock-management/external-stocktake');
@@ -237,7 +240,7 @@ export default function Stocktakes() {
 
       {/* Filters — single row directly on the page background, apply live */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={4} md={3.5}>
+        <Grid item xs={12} sm={6} md={3}>
           <SectionLabel>Status</SectionLabel>
           <FormControl fullWidth size="small">
             <Select
@@ -272,7 +275,7 @@ export default function Stocktakes() {
           </FormControl>
         </Grid>
 
-        <Grid item xs={12} sm={4} md={4.25}>
+        <Grid item xs={12} sm={6} md={3}>
           <SectionLabel>Created Between</SectionLabel>
           <DateRangePicker
             label=""
@@ -284,7 +287,7 @@ export default function Stocktakes() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={4} md={4.25}>
+        <Grid item xs={12} sm={6} md={3}>
           <SectionLabel>Completed Between</SectionLabel>
           <DateRangePicker
             label=""
@@ -294,6 +297,43 @@ export default function Stocktakes() {
             placeholder="DD/MM/YYYY — DD/MM/YYYY"
             inputSx={inputSx}
           />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <SectionLabel>Outlets</SectionLabel>
+          <FormControl fullWidth size="small">
+            <Select
+              value={outletFilter}
+              onChange={(e) => setOutletFilter(e.target.value)}
+              displayEmpty
+              input={<OutlinedInput />}
+              IconComponent={ArrowDropDown}
+              renderValue={(selected) =>
+                outlets.find((o) => String(o.id) === String(selected))?.name || (
+                  <span style={{ color: '#808080' }}>Select...</span>
+                )
+              }
+              endAdornment={
+                outletFilter ? (
+                  <InputAdornment position="end" sx={{ mr: 2 }}>
+                    <IconButton
+                      size="small"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => setOutletFilter('')}
+                    >
+                      <Close fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null
+              }
+              MenuProps={selectMenuProps}
+              sx={selectSx}
+            >
+              {outlets.map((o) => (
+                <MenuItem key={o.id} value={o.id} sx={menuItemSx}>{o.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Grid>
       </Grid>
 

@@ -96,7 +96,13 @@ const DEFAULT_SETTINGS = {
   alwaysPrintReceipt: false,
   useRounding: false,
   allowCashOut: false,
-  defaultToPayExact: false,
+  // "Default to Pay Exact" = can this method be used without typing an amount
+  // first? On by default for every method, Cash included: pressing a tender with
+  // an empty input takes the exact remaining balance. Turn it off per method to
+  // force a typed amount (the reference ships Cash that way; we don't).
+  // A blanket false here used to stamp "needs an amount first" onto EFTPOS the
+  // moment anyone opened a method and pressed Save, disabling its tile.
+  defaultToPayExact: true,
   closeRegisterDenominations: '',
   predictionDenominations: '',
   buttonBackgroundColour: '#ffffff',

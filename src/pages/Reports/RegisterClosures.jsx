@@ -1,12 +1,28 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Typography, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  FormControl,
+  Select,
+  MenuItem,
+  OutlinedInput,
+  InputAdornment,
+  IconButton
+} from '@mui/material';
 import {
   VisibilityOutlined as ViewIcon,
   Remove as RemoveIcon,
   CalendarTodayOutlined,
   AccessTimeOutlined,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowDropDown,
+  Close
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -23,6 +39,8 @@ import {
   isSameMonth
 } from 'date-fns';
 import apiClient from '../../services/apiClient';
+import outletService from '../../services/outletService';
+import registerService from '../../services/registerService';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -346,14 +364,76 @@ const DateRangeFilter = ({ start, end, onChange }) => {
   );
 };
 
+const filterLabelSx = { mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' };
+
+// Reference filter select: flat 42px box, "Select..." placeholder, clear (x)
+// once something is picked. Options are plain {id, name} rows.
+const ClosureSelect = ({ value, onChange, options }) => (
+  <FormControl fullWidth size="small">
+    <Select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      displayEmpty
+      input={<OutlinedInput />}
+      IconComponent={ArrowDropDown}
+      renderValue={(selected) =>
+        options.find((o) => String(o.id) === String(selected))?.name || (
+          <span style={{ color: '#808080' }}>Select...</span>
+        )
+      }
+      endAdornment={
+        value ? (
+          <InputAdornment position="end" sx={{ mr: 2 }}>
+            <IconButton
+              size="small"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => onChange('')}
+            >
+              <Close fontSize="small" />
+            </IconButton>
+          </InputAdornment>
+        ) : null
+      }
+      sx={{ bgcolor: '#fff', borderRadius: 0, minHeight: 42, fontSize: 16, transition: INSTANT }}
+    >
+      {options.map((o) => (
+        <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+);
+
 const RegisterClosures = () => {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [, setLoading] = useState(false);
   // Single source of truth for both ends so neither handler can ship a stale sibling value.
   const [range, setRange] = useState({ start: null, end: null });
+  // Reference filter row: Outlets / Registers / Date Range.
+  const [outletId, setOutletId] = useState('');
+  const [registerId, setRegisterId] = useState('');
+  const [outlets, setOutlets] = useState([]);
+  const [registers, setRegisters] = useState([]);
   const reqId = useRef(0);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [outletRes, registerList] = await Promise.all([
+          outletService.getAllOutlets(),
+          registerService.list()
+        ]);
+        if (cancelled) return;
+        setOutlets(outletRes.outlets || []);
+        setRegisters(registerList || []);
+      } catch {
+        // The filters just stay empty — the list itself still loads.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const load = useCallback(async () => {
     const id = ++reqId.current;
@@ -362,7 +442,9 @@ const RegisterClosures = () => {
       // Same endpoint the service uses; called directly so the grand total survives.
       const query = new URLSearchParams({
         ...(range.start ? { from: range.start.toISOString() } : {}),
-        ...(range.end ? { to: range.end.toISOString() } : {})
+        ...(range.end ? { to: range.end.toISOString() } : {}),
+        ...(outletId ? { outletId } : {}),
+        ...(registerId ? { registerId } : {})
       }).toString();
       const res = await apiClient.get(`/register-closures${query ? `?${query}` : ''}`);
       if (id !== reqId.current) return; // a newer request already answered
@@ -372,11 +454,19 @@ const RegisterClosures = () => {
     } finally {
       if (id === reqId.current) setLoading(false);
     }
-  }, [range]);
+  }, [range, outletId, registerId]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Registers are outlet-scoped, so picking an outlet narrows the list rather
+  // than offering pairs that can never match a closure.
+  const visibleRegisters = registers.filter(
+    (r) => !outletId || String(r.outletId) === String(outletId)
+  );
+  const outletNameById = (id) =>
+    outlets.find((o) => String(o.id) === String(id))?.name || '';
 
   const cellSx = { p: '8px', fontSize: 16, color: '#000', border: '1px solid #000' };
   const headerCellSx = { ...cellSx, fontWeight: 700, textTransform: 'none', bgcolor: 'transparent' };
@@ -391,15 +481,39 @@ const RegisterClosures = () => {
         Register Closures
       </Typography>
 
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' }}>
-          Date Range
-        </Typography>
-        <DateRangeFilter
-          start={range.start}
-          end={range.end}
-          onChange={(next) => setRange((prev) => ({ ...prev, ...next }))}
-        />
+      <Box
+        sx={{
+          mb: 3,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 2,
+          '@media (max-width:900px)': { gridTemplateColumns: '1fr' }
+        }}
+      >
+        <Box>
+          <Typography variant="body2" sx={filterLabelSx}>Outlets</Typography>
+          <ClosureSelect
+            value={outletId}
+            onChange={(next) => { setOutletId(next); setRegisterId(''); }}
+            options={outlets}
+          />
+        </Box>
+        <Box>
+          <Typography variant="body2" sx={filterLabelSx}>Registers</Typography>
+          <ClosureSelect
+            value={registerId}
+            onChange={setRegisterId}
+            options={visibleRegisters}
+          />
+        </Box>
+        <Box>
+          <Typography variant="body2" sx={filterLabelSx}>Date Range</Typography>
+          <DateRangeFilter
+            start={range.start}
+            end={range.end}
+            onChange={(next) => setRange((prev) => ({ ...prev, ...next }))}
+          />
+        </Box>
       </Box>
 
       <Typography sx={{ textAlign: 'right', fontSize: '12.8px', color: '#676b72', mb: 1 }}>
@@ -410,6 +524,7 @@ const RegisterClosures = () => {
         <TableHead>
           <TableRow>
             <TableCell sx={headerCellSx}>Register</TableCell>
+            <TableCell sx={headerCellSx}>Outlet</TableCell>
             <TableCell sx={headerCellSx}>Open Time</TableCell>
             <TableCell sx={headerCellSx}>Close Time</TableCell>
             <TableCell sx={headerCellSx}>Expected</TableCell>
@@ -421,6 +536,9 @@ const RegisterClosures = () => {
           {rows.map((rc) => (
             <TableRow key={rc.id}>
               <TableCell sx={cellSx}>{rc.register?.name || rc.registerId}</TableCell>
+              {/* RegisterClosure stores outletId with no outlet relation, so the
+                  name comes from the list loaded for the filter. */}
+              <TableCell sx={cellSx}>{outletNameById(rc.outletId)}</TableCell>
               <TableCell sx={cellSx}>{fmtDateTime(rc.openedAt)}</TableCell>
               <TableCell sx={cellSx}>{fmtDateTime(rc.closedAt)}</TableCell>
               <TableCell sx={cellSx}>${(rc.expectedAmount ?? 0).toFixed(2)}</TableCell>
