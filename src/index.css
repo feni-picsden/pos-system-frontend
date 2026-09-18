@@ -181,10 +181,13 @@ body {
   }
 }
 
-/* Custom focus styles - more subtle */
+/* Keyboard focus: a ring around the button, never a change to its fill.
+   `background-color: unset` here used to strip the fill off a focused dialog
+   button, leaving white text on the pale dialog — Tab made "Cancel" or
+   "Load as return" vanish. */
 .MuiButtonBase-root:focus-visible {
-  outline: none;
-  background-color: unset;
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
 }
 
 /* Custom Utilities */

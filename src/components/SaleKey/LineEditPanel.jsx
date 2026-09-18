@@ -57,9 +57,11 @@ export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = 
     else write(touched ? v + k : k);
     inputRef.current?.focus();
   };
+  // Steps run through zero in qty mode: the reference keypad reads "⊖ −3 ⊕" on a
+  // returned line, and ⊖ from 1 goes 0, −1, −2… A negative quantity is a return.
   const step = (delta) => {
     const n = (parseFloat(v) || 0) + delta;
-    write(String(Math.max(0, n)));
+    write(String(mode === 'qty' ? n : Math.max(0, n)));
   };
   return (
     <>
@@ -78,9 +80,13 @@ export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = 
             inputMode="decimal"
             value={v}
             onChange={(e) => {
-              const next = e.target.value.replace(/[^0-9.]/g, '');
+              const raw = e.target.value;
+              // qty mode accepts one leading minus (a typed return); the money
+              // and percent modes never do.
+              const sign = mode === 'qty' && raw.trimStart().startsWith('-') ? '-' : '';
+              const digits = raw.replace(/[^0-9.]/g, '');
               // one decimal point max
-              write(next.split('.').length > 2 ? v : next);
+              write(digits.split('.').length > 2 ? v : sign + digits);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') { e.preventDefault(); onOk(); }

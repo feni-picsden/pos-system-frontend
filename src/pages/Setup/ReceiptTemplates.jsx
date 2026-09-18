@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import receiptTemplateService from '../../services/receiptTemplateService';
+import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 import usePageCache from '../../hooks/usePageCache';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -411,6 +412,8 @@ const ReceiptTemplates = () => {
         <Typography sx={{ textAlign: 'center', color: '#000', fontWeight: 700, fontSize: 20, pt: 4.5, pb: 0.5, px: 3 }}>
           Create New Receipt
         </Typography>
+        {/* This form sends no outletId: a global admin creates a global template. Say so. */}
+        <CreatingForOutlet sx={{ mx: 3, mt: 1 }} />
 
         <DialogContent sx={{ p: 3 }}>
           {errorAlert}

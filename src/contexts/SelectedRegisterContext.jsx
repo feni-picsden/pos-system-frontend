@@ -198,13 +198,13 @@ export const SelectedRegisterProvider = ({ children }) => {
       const registers = await registerService.list({ isActive: true });
       setAvailableRegisters(registers);
 
-      // Check if any register is already assigned to the current user
-      const userRegister = !force && registers.find(reg =>
-        reg.currentUser &&
-        reg.currentUser.id &&
-        user &&
-        reg.currentUser.id === user.id
-      );
+      // Check if any register is already assigned to the current user. The one
+      // this tab last chose wins over any other the server still lists for the
+      // user, so a leftover hold elsewhere can never pull the screen to it.
+      const heldByMe = (reg) => reg.currentUser && reg.currentUser.id && user && reg.currentUser.id === user.id;
+      const savedId = parseInt(localStorage.getItem('selectedRegisterId'), 10);
+      const userRegister =
+        !force && (registers.find((reg) => heldByMe(reg) && reg.id === savedId) || registers.find(heldByMe));
 
       // If a register is already assigned to the current user, automatically select it
       if (userRegister) {

@@ -27,6 +27,11 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
   const isTrueSuperAdmin =
     (user?.isSuperAdmin === true || user?.hasAllPermission === true) &&
     user?.outletId == null;
+  // Who may pick "Not at an Outlet (Global Mode)" in the Location Selector:
+  // any admin account, pinned to an outlet or not. The reference offers that row
+  // per session; going global from a pinned outlet un-pins the session
+  // server-side (POST /auth/switch-outlet with outletId null).
+  const canGoGlobal = user?.isSuperAdmin === true || user?.hasAllPermission === true;
 
   // Dropping a stale cross-outlet register used to live here, racing
   // SelectedRegisterContext's hydration (it edited localStorage behind the
@@ -94,7 +99,10 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
       // "Not at an Outlet" (there is no global session to switch to). Both wiped
       // the local catalog while leaving selectedOutletId untouched — and nothing
       // re-warms the cache unless that id changes.
-      if (next === selectedOutletId || (!isTrueSuperAdmin && next == null)) return;
+      // A pinned admin choosing "Not at an Outlet" is the one null pick that DOES
+      // change something: it un-pins the session (switchOutlet(null) below).
+      const adminGoingGlobal = !isTrueSuperAdmin && next == null && canGoGlobal;
+      if (next === selectedOutletId || (!isTrueSuperAdmin && next == null && !adminGoingGlobal)) return;
       // No switchOutlet to call = nothing would change, so don't wipe the catalog.
       if (!isTrueSuperAdmin && !switchOutlet) return;
       // Wipe cached catalog/page data so the previously selected outlet's
@@ -116,6 +124,10 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
         // Regular user: actually switch outlet session
         try {
           await switchOutlet(next);
+          // Going global: the session is now unscoped, so make sure a filter
+          // left behind by an earlier global session in this browser does not
+          // silently narrow it back to one outlet. "All Outlets" it is.
+          if (adminGoingGlobal) localStorage.removeItem(LS_KEY);
           setSelectedOutletIdState(next);
         } catch (err) {
           console.error('SelectedOutletContext: switchOutlet failed', err);
@@ -132,7 +144,7 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
       // A register belonging to the outlet we just left is dropped by
       // SelectedRegisterContext's hydration effect, which re-runs on this id.
     },
-    [isTrueSuperAdmin, switchOutlet, selectedOutletId]
+    [isTrueSuperAdmin, canGoGlobal, switchOutlet, selectedOutletId]
   );
 
   const selectedOutlet = outlets.find((o) => o.id === selectedOutletId) || null;
@@ -147,6 +159,7 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
         setSelectedOutletId,
         isAllOutlets,
         isTrueSuperAdmin,
+        canGoGlobal,
       }}
     >
       {children}

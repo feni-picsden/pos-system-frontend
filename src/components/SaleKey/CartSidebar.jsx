@@ -28,6 +28,7 @@ import LoyaltyDisplay from '../Loyalty/LoyaltyDisplay';
 import ReceiptRenderer from '../Receipt/ReceiptRenderer';
 import ScaleToFit from '../Receipt/ScaleToFit';
 import { lineSavings } from '../../utils/saleTotals';
+import { isCaseLine, displayQuantity, displayName, countCartLines, formatCountLine, plural } from '../../utils/caseLine';
 import LineEditPanel, {
   KeypadPopover,
   LabelValueRow,
@@ -479,7 +480,8 @@ const CartSidebar = ({
                     onClick={(e) => onQuantityKeypadClick(item, e)}
                     sx={{ width: 36, flex: '0 1 auto', mr: '8px', textAlign: 'center', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: '#000', cursor: 'pointer' }}
                   >
-                    {item.quantity || 1}
+                    {/* A case line shows CASES (reference: quantity / caseQuantity) */}
+                    {displayQuantity(item) || 1}
                   </Typography>
                   {/* Line-note icon — only when the line carries a note (reference
                       .product-line-note: #313439, hover #676B72, opens the editor) */}
@@ -494,11 +496,14 @@ const CartSidebar = ({
                     onClick={(e) => onProductDetailClick(item, e)}
                     sx={{ flex: '1 1 0px', mr: '16px', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: '#000', cursor: item.productId ? 'pointer' : 'default' }}
                   >
-                    {item.name}
+                    {/* Reference: a case line reads "Name (Case)" — the word from Setup > General */}
+                    {displayName(item, settingsService.getCachedGeneralSettings().caseText || 'Case')}
                   </Typography>
                   {/* Manual-price padlock — one click reverts to the automatic price
                       (reference .product-line-locked; hidden on gift-card lines) */}
-                  {item.discountInfo && !item.giftCardId && (
+                  {/* Also on every returned line: it is locked at the unit price
+                      the customer paid, and the reference draws the padlock there. */}
+                  {(item.discountInfo || item.priceLocked) && !item.giftCardId && (
                     <Box
                       onClick={(e) => {
                         e.stopPropagation();
@@ -515,9 +520,11 @@ const CartSidebar = ({
                     onClick={(e) => openDiscountEditor(item, e)}
                     sx={{ flex: '0 1 auto', mr: '16px', textAlign: 'start', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: '#000', cursor: 'pointer' }}
                   >
-                    ${(() => {
+                    {(() => {
                       const price = parseFloat(item.price);
-                      return isNaN(price) ? '0.00' : price.toFixed(2);
+                      if (isNaN(price)) return '$0.00';
+                      // Sign before the currency, as the reference writes a return: -$30.00
+                      return price < 0 ? `-$${Math.abs(price).toFixed(2)}` : `$${price.toFixed(2)}`;
                     })()}
                   </Typography>
                   <Box
@@ -544,14 +551,23 @@ const CartSidebar = ({
                     row under the top row, right-aligned with the line's trash icon.
                     Shown only on the SELECTED line and only when it holds more than
                     one unit. Line `price` is the LINE TOTAL. */}
-                {isSelected && (parseFloat(item.quantity) || 1) > 1 && (
+                {/* |quantity|: a return of −3 shows "Item price: $18.29" too (reference). */}
+                {/* A case line shows its per-CASE price whenever selected (reference
+                    `case-price` = unit price × caseQuantity), a unit line its per-unit
+                    price only when it holds more than one. */}
+                {isSelected && (isCaseLine(item) || Math.abs(parseFloat(item.quantity) || 1) > 1) && (
                   <Typography
                     component="div"
                     // The row is a wrapping flex container: without the full basis this
                     // box shrinks to its text and sits at the left, ignoring textAlign.
                     sx={{ position: 'relative', flexBasis: '100%', mt: '0.5rem', textAlign: 'right', fontSize: 16, lineHeight: 'normal', letterSpacing: 'normal', color: '#000' }}
                   >
-                    Item price: ${((parseFloat(item.price) || 0) / (parseFloat(item.quantity) || 1)).toFixed(2)}
+                    {(() => {
+                      const unit = (parseFloat(item.price) || 0) / (parseFloat(item.quantity) || 1);
+                      if (!isCaseLine(item)) return `Item price: $${unit.toFixed(2)}`;
+                      const caseWord = settingsService.getCachedGeneralSettings().caseText || 'Case';
+                      return `${caseWord} price: $${(unit * Number(item.caseQuantity)).toFixed(2)}`;
+                    })()}
                   </Typography>
                 )}
                 {/* Live profit of the SELECTED line, right-aligned. Reference: the
@@ -787,17 +803,20 @@ const CartSidebar = ({
                 // Products (line count), both pluralised by count. They go solid
                 // black once the sale has content; Savings/Discount are grey
                 // (.not-in-use) ONLY while their amount is $0.00.
-                const itemCount = cart.reduce((sum, item) => sum + (parseFloat(item.quantity) || 1), 0);
+                // Cases and items are counted apart ("2 Cases and 3 Items"), the
+                // words from Setup > General (Case / Item), each pluralised.
+                const { caseText, singleText } = settingsService.getCachedGeneralSettings();
+                const countLine = formatCountLine(countCartLines(cart), singleText || 'Item', caseText || 'Case');
                 const lineSx = { fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal' };
                 return (
                   <>
-                    {!cartEmpty && (
+                    {!cartEmpty && countLine && (
                       <Typography component="div" sx={{ ...lineSx, color: 'inherit' }}>
-                        {itemCount} Item{itemCount === 1 ? '' : 's'}
+                        {countLine}
                       </Typography>
                     )}
                     <Typography component="div" sx={{ ...lineSx, color: 'inherit' }}>
-                      {cart.length} Product{cart.length === 1 ? '' : 's'}
+                      {cart.length} {plural('Product', cart.length)}
                     </Typography>
                     <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && savings > 0 ? '#000' : 'rgba(189, 189, 189, 0.7)' }}>
                       Savings: <SmallCentsMoney value={savings} />

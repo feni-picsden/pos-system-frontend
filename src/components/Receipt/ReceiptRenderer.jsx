@@ -780,11 +780,16 @@ const renderProductsComponent = (receiptData, component, index) => {
             // reference-shaped path uses. Never print $0.00 as a "normal price".
             const normalPrice = parseFloat(item.normalPrice || item.regularPrice || 0)
               || (parseFloat(item.price ?? item.totalPrice ?? 0) || 0) + itemSavings;
-            const quantity = parseFloat(item.quantity || 1) || 1;
+            const unitQuantity = parseFloat(item.quantity || 1) || 1;
+            // Sold as a case: the reference prints "Name (Case)" and the qty in cases.
+            const asCase = item.isCase === true && caseQty > 1;
+            const quantity = asCase ? Math.floor(unitQuantity / caseQty) : unitQuantity;
+            const caseSuffix = asCase ? ` (${receiptData?.caseText || 'Case'})` : '';
             const totalPrice = parseFloat(item.price ?? item.totalPrice ?? 0) || 0;
+            // Item price is always PER UNIT, even when the qty column shows cases.
             const itemPrice = item.unitPrice != null
               ? parseFloat(item.unitPrice) || 0
-              : totalPrice / quantity;
+              : totalPrice / unitQuantity;
             // ponytail: Case Price stays whatever the line carries — a derived
             // unitPrice * caseQty would be wrong under case-tier promo pricing.
             // Missing stays missing: printing $0.00 on a tax invoice claims a
@@ -808,7 +813,7 @@ const renderProductsComponent = (receiptData, component, index) => {
                     py: 1.25,
                     px: 0.625
                   }}>
-                    {item.name || item.productName || item.description || ''}{isTaxed ? ' *' : ''}
+                    {item.name || item.productName || item.description || ''}{caseSuffix}{isTaxed ? ' *' : ''}
                     {props.showProductNote !== false && item.note ? (
                       <Box sx={{ fontSize: `${fontSize - 2}px`, color: fontColor }}>- {item.note}</Box>
                     ) : null}

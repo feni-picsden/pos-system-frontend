@@ -890,6 +890,8 @@ const CustomerGroupView = () => {
         onClose={() => setShowEmailModal(false)}
         onSend={handleSendEmail}
         saleId={selectedSale?.id}
+        customer={selectedSale?.customer}
+        onUpdateCustomerEmail={(c, email) => customerService.addEmail(c, email)}
       />
 
       {/* Delete confirmation */}

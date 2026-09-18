@@ -48,7 +48,9 @@ const SaleKeyTileContent = ({ saleKey }) => {
   // A payment key leads with the amount, large and bold, and carries its name
   // underneath; every other key shows the amount under its name at label size.
   const isPaymentKey = saleKey.action === 'payment' || saleKey.action === 'pay-amount';
-  const amount = saleKey.amount ? formatMoney(saleKey.amount) : null;
+  // Only a real amount is printed: an empty / "0" amount (Pay the Exact Amount
+  // keys carry no amount at all) must not label the tile "$0.00".
+  const amount = parseFloat(saleKey.amount) > 0 ? formatMoney(saleKey.amount) : null;
   const now = useNow(saleKey.action);
   const liveText = getSaleKeyLiveText(saleKey, now);
 

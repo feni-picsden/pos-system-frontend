@@ -1,16 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import ShopfrontDialog, { DialogButton } from '../Common/ShopfrontDialog';
+import { useAppDialogs } from '../Common/AppDialogProvider';
 
 // Reference "Email" dialog: one row per address, a validity glyph inside each
 // box (green tick / red cross), a green "Add Email Address" bar that is disabled
 // until the last row has something in it, then Cancel / Send.
+//
+// Reference defaultMail: when the sale has a customer the rows open PRE-FILLED
+// with the customer's address(es); after sending to a different address it asks
+// "Update Email" — save that address on the customer.
 const isEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
-const EmailReceiptModal = ({ open, onClose, onSend, saleId, senderEmail }) => {
+const EmailReceiptModal = ({ open, onClose, onSend, saleId, senderEmail, customer, onUpdateCustomerEmail }) => {
   const [emails, setEmails] = useState(['']);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
+  const { confirm } = useAppDialogs();
+
+  const customerEmails = (Array.isArray(customer?.emails) ? customer.emails : [])
+    .map((e) => String(e || '').trim())
+    .filter(isEmail);
+
+  // Pre-fill from the customer every time the dialog opens (the customer differs per sale).
+  useEffect(() => {
+    if (open) setEmails(customerEmails.length ? customerEmails : ['']);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, customer?.id]);
 
   const setEmailAt = (index, value) => {
     setEmails((prev) => prev.map((e, i) => (i === index ? value : e)));
@@ -35,6 +51,17 @@ const EmailReceiptModal = ({ open, onClose, onSend, saleId, senderEmail }) => {
     try {
       await onSend(saleId, unique, senderEmail);
       handleClose();
+      // Reference: sent somewhere other than the customer's stored address -> offer to
+      // update the customer. Only the first new address is offered, like the reference.
+      const fresh = unique.find((e) => !customerEmails.includes(e.toLowerCase()) && !customerEmails.includes(e));
+      if (customer?.id && onUpdateCustomerEmail && fresh) {
+        const ok = await confirm(`Update the customer's email to be ${fresh}?`, {
+          title: 'Update Email',
+          confirmText: 'Update',
+          cancelText: 'No',
+        });
+        if (ok) await onUpdateCustomerEmail(customer, fresh);
+      }
     } catch (err) {
       setError(
         err.response?.data?.details ||
@@ -57,12 +84,15 @@ const EmailReceiptModal = ({ open, onClose, onSend, saleId, senderEmail }) => {
           <DialogButton tone="cancel" onClick={handleClose}>
             Cancel
           </DialogButton>
+          {/* The label stays "Send" while sending — the 32px "Sending..." overflowed
+              the half-width button; the disabled/dimmed state is the busy cue. */}
           <DialogButton
             tone="send"
             onClick={handleSend}
             disabled={sending || valid.length === 0}
+            sx={sending ? { opacity: 0.6 } : undefined}
           >
-            {sending ? 'Sending...' : 'Send'}
+            Send
           </DialogButton>
         </>
       }

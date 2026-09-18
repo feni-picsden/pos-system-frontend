@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import loyaltyProgramService from '../../services/loyaltyProgramService';
+import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Reference-style flat input: static label above, 1px #000 border, radius 0, h53
@@ -145,6 +146,8 @@ const LoyaltySettings = () => {
       <Typography variant="h4" gutterBottom sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
         Loyalty Settings
       </Typography>
+      {/* Saved with the session outlet, or as a global program for a global admin. Say so. */}
+      <CreatingForOutlet sx={{ maxWidth: 520 }} />
 
       <Typography paragraph sx={{ fontSize: 16, color: '#000' }}>
         Please note: The highest earn value will be selected and the lowest redeem value will be selected on conflicts, however values with zero will take highest priority.

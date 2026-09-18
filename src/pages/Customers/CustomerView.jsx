@@ -1411,6 +1411,11 @@ const CustomerView = () => {
         onClose={() => setShowEmailModal(false)}
         onSend={handleSendEmail}
         saleId={selectedSale?.id}
+        customer={customer}
+        onUpdateCustomerEmail={async (c, email) => {
+          await customerService.addEmail(c, email);
+          await loadCustomerData();
+        }}
       />
 
       <ConfirmDeleteDialog

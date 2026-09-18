@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
+import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 import usePageCache from '../../hooks/usePageCache';
 import PerformanceGraph from '../../components/Classifications/PerformanceGraph';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -512,6 +513,8 @@ const Suppliers = () => {
 
       <Dialog open={pickerOpen} onClose={() => setPickerOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontSize: 20, fontWeight: 400 }}>Add a Supplier</DialogTitle>
+        {/* This form sends no outletId: a global admin creates a global supplier. Say so. */}
+        <CreatingForOutlet sx={{ mx: 3 }} />
         <DialogContent>
           <TextField
             autoFocus

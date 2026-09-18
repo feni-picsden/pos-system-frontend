@@ -26,6 +26,7 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { priceSetService } from '../../services/priceSetService';
+import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useHasPermission } from '../../hooks/usePermissions';
 
@@ -216,6 +217,8 @@ const PriceSets = () => {
       {/* Create / rename */}
       <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{editing ? 'Rename Price Set' : 'New Price Set'}</DialogTitle>
+        {/* This form sends no outletId: a global admin creates a global set. Say so. */}
+        {!editing && <CreatingForOutlet sx={{ mx: 3 }} />}
         <DialogContent>
           <TextField
             autoFocus fullWidth margin="normal" label="Name" required

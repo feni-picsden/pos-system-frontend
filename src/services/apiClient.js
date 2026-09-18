@@ -131,12 +131,27 @@ apiClient.interceptors.request.use(
       // skipOutletScope lets a caller opt out of the auto outletId injection
       // (e.g. the buying-period item picker must find products across ALL
       // outlets AND global products, not just the selected outlet).
-      if (isSuperAdmin && config.method === 'get' && config.skipOutletScope !== true) {
+      if (isSuperAdmin && config.skipOutletScope !== true) {
         const savedOutletId = localStorage.getItem('selectedOutletId');
+        // No saved outlet = "All Outlets" in the navbar: reads are unscoped and
+        // anything created is global, which is what that choice means.
         if (savedOutletId) {
-          config.params = config.params || {};
-          if (!config.params.outletId) {
-            config.params.outletId = parseInt(savedOutletId, 10);
+          const selectedOutletId = parseInt(savedOutletId, 10);
+          if (config.method === 'get') {
+            config.params = config.params || {};
+            if (!config.params.outletId) {
+              config.params.outletId = selectedOutletId;
+            }
+          } else if (isOutletScopedWrite(config)) {
+            // A global admin working "in Outlet A" creates records FOR Outlet A.
+            // Without this the backend stores outletId null — a global record
+            // that shows up in every outlet — for any form that does not send
+            // one itself (promotions, suppliers, customer groups, price sets,
+            // receipt templates, classifications, shelf tickets…). Forms that
+            // do send outletId, including an explicit null for "global", win.
+            if (!Object.prototype.hasOwnProperty.call(config.data, 'outletId')) {
+              config.data = { ...config.data, outletId: selectedOutletId };
+            }
           }
         }
       }

@@ -28,6 +28,22 @@ const customerService = {
     return response.data;
   },
 
+  // Reference "Update Email" (after emailing a receipt to a new address): add the
+  // address to the customer. Fetches the row first so the name fields the update
+  // route requires are real, whatever shape the caller's customer object had.
+  addEmail: async (customer, email) => {
+    const id = customer?.id;
+    if (!id || !email) return null;
+    const res = await customerService.getCustomer(id);
+    const row = res?.customer || res || customer;
+    const emails = [...new Set([...(Array.isArray(row.emails) ? row.emails : []).filter(Boolean), email])];
+    return customerService.updateCustomer(id, {
+      firstName: row.firstName || customer.firstName || '',
+      lastName: row.lastName || customer.lastName || '',
+      emails,
+    });
+  },
+
   deleteCustomer: async (id) => {
     const response = await apiClient.delete(`/customers/${id}`);
     return response.data;

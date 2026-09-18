@@ -29,6 +29,8 @@ const lineTax = (item) => {
 
 export const buildReferenceData = (receiptData = {}) => {
   const items = receiptData.items || [];
+  // Setup > General's word for a case ("Case" unless the shop renamed it).
+  const caseText = receiptData.caseText || 'Case';
 
   // One entry per tax rate that appears on the sale, keyed by its name (we have no
   // tax uuids locally — the name is the stable id).
@@ -50,15 +52,19 @@ export const buildReferenceData = (receiptData = {}) => {
     const qty = parseFloat(item.quantity) || 1;
     const discount = parseFloat(item.discount) || 0;
     const savings = parseFloat(item.savings) || 0;
+    // Same resolver the renderer and the sell screen use — a line with no case
+    // size is 1 per case, never 0 (that was the live-vs-reprint difference).
+    const caseQty = Number(item.caseQty) || itemsPerCase(item.product || item);
+    // Reference: a line sold as a case prints "Name (Case)", its qty in CASES
+    // (total-items keeps the units) and always carries the case price.
+    const asCase = item.isCase === true && caseQty > 1;
     return {
-      product: item.name || item.productName || '',
-      qty,
-      // Same resolver the renderer and the sell screen use — a line with no case
-      // size is 1 per case, never 0 (that was the live-vs-reprint difference).
-      'case-qty': Number(item.caseQty) || itemsPerCase(item.product || item),
+      product: `${item.name || item.productName || ''}${asCase ? ` (${caseText})` : ''}`,
+      qty: asCase ? Math.floor(qty / caseQty) : qty,
+      'case-qty': caseQty,
       'total-items': qty,
       'item-price': money(qty ? price / qty : price),
-      'case-price': item.caseQty ? money((price / qty) * item.caseQty) : '',
+      'case-price': asCase || item.caseQty ? money((price / qty) * caseQty) : '',
       discount: money(discount),
       price: money(price),
       'normal-price': money(price + savings),

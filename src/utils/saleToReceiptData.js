@@ -25,6 +25,8 @@ export function saleToReceiptData(sale) {
       unitPrice: Number(item.unitPrice) || 0,
       price,
       caseQty: itemsPerCase(product),
+      // Banked at sale time: the line was sold as a case ("Name (Case)", qty in cases).
+      isCase: item.isCase === true,
       // Banked at sale time: the promotion/combo normal price and the savings.
       // Neither survives a promotion change, so neither is re-derived here.
       normalPrice: item.normalPrice != null ? Number(item.normalPrice) : undefined,
@@ -126,6 +128,8 @@ export function saleToReceiptData(sale) {
     }));
 
   return {
+    // Word printed after a case line's name ("Name (Case)").
+    caseText: settingsService.getCachedGeneralSettings().caseText || 'Case',
     transactionId: sale.saleNumber || (sale.id ? `#${String(sale.id).padStart(8, '0')}` : 'N/A'),
     // Reprint the invoice number the sale was issued, not a derived one.
     // Zero-padded to the "Invoice number length" setting (Setup > General).

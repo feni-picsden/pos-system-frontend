@@ -11,6 +11,7 @@ import {
   ClickAwayListener,
 } from '@mui/material';
 import { Check as CheckIcon } from '@mui/icons-material';
+import CreatingForOutlet from '../Common/CreatingForOutlet';
 
 // Reference has no transitions anywhere.
 const INSTANT = 'all 0s ease';
@@ -205,6 +206,8 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
           {paymentMethod ? 'Edit Payment Method' : 'Create Payment Method'}
         </Typography>
       </Box>
+      {/* This form sends no outletId: a global admin creates a global method. Say so. */}
+      {!paymentMethod && <CreatingForOutlet sx={{ mx: 3, mt: 2, mb: 0 }} />}
 
       <form onSubmit={handleSubmit}>
         <DialogContent sx={{ px: 3, py: 2.5, overflow: 'visible' }}>

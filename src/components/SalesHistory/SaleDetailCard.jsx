@@ -2,7 +2,9 @@ import React from "react";
 import { Box, MenuItem, Select } from "@mui/material";
 import { CheckCircleOutlined } from "@mui/icons-material";
 import settingsService from "../../services/settingsService";
-import { saleBasePrice } from "../../utils/saleTotals";
+import { saleBasePrice, itemsPerCase } from "../../utils/saleTotals";
+import { saleItemDisplay } from "../../utils/caseLine";
+import posLocalDb from "../../services/posLocalDb";
 import { formatCurrency } from "../../utils/currency";
 
 // One place builds a customer's display name — list rows, sale details and both
@@ -194,28 +196,34 @@ const SaleDetailCard = ({
       {/* .sale-line-center — products, payments, balance */}
       <Box sx={{ gridColumn: "1", display: "flex", flexDirection: "column" }}>
         <Box>
-          {sale.items?.map((item, index) => (
-            <Box
-              key={index}
-              sx={{
-                display: "flex",
-                fontSize: "19.2px",
-                lineHeight: "23px",
-                mb: "16px",
-              }}
-            >
-              <Box sx={{ mr: "16px" }}>{item.quantity}</Box>
-              {/* ponytail: sale items don't record case vs unit, so the type
-                  word is just the pluralised Item. */}
-              <Box sx={{ mr: "16px" }}>
-                {Math.abs(item.quantity) === 1 ? "Item" : "Items"}
+          {sale.items?.map((item, index) => {
+            // A line sold as a case reads "1 Case <name>" (reference); the case
+            // size comes from the cached product, the words from Setup > General.
+            const { caseText, singleText } = settingsService.getCachedGeneralSettings();
+            const shown = saleItemDisplay(
+              item,
+              itemsPerCase(item.productId ? posLocalDb.getProductById(item.productId) : null),
+              { caseText: caseText || "Case", singleText: singleText || "Item" }
+            );
+            return (
+              <Box
+                key={index}
+                sx={{
+                  display: "flex",
+                  fontSize: "19.2px",
+                  lineHeight: "23px",
+                  mb: "16px",
+                }}
+              >
+                <Box sx={{ mr: "16px" }}>{shown.qty}</Box>
+                <Box sx={{ mr: "16px" }}>{shown.word}</Box>
+                <Box sx={{ flex: 1, minWidth: 0, mr: "16px" }}>
+                  {item.comboName || item.productName}
+                </Box>
+                <Box>{formatCurrency(item.totalPrice)}</Box>
               </Box>
-              <Box sx={{ flex: 1, minWidth: 0, mr: "16px" }}>
-                {item.comboName || item.productName}
-              </Box>
-              <Box>{formatCurrency(item.totalPrice)}</Box>
-            </Box>
-          ))}
+            );
+          })}
         </Box>
 
         {/* Payments — the name becomes a method select while editing */}

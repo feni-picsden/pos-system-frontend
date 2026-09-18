@@ -28,7 +28,9 @@ import {
   Cancel,
   CheckCircle
 } from '@mui/icons-material';
-import { saleBasePrice } from '../../utils/saleTotals';
+import { saleBasePrice, itemsPerCase } from '../../utils/saleTotals';
+import { saleItemDisplay } from '../../utils/caseLine';
+import posLocalDb from '../../services/posLocalDb';
 
 const SaleDetailsModal = ({
   open,
@@ -153,7 +155,11 @@ const SaleDetailsModal = ({
                         primary={
                           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography variant="body2">
-                              {item.quantity} {item.productName}
+                              {(() => {
+                                // Case line: "1 ZZ Case Test (Case)" like the sell screen.
+                                const shown = saleItemDisplay(item, itemsPerCase(item.productId ? posLocalDb.getProductById(item.productId) : null));
+                                return `${shown.qty} ${shown.name}`;
+                              })()}
                             </Typography>
                             <Typography variant="body2" fontWeight="bold">
                               {formatCurrency(item.totalPrice)}
