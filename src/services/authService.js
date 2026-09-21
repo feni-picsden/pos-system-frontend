@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { announceQuickMenu } from '../utils/quickLinks';
 import clearLocalSession from './clearLocalSession';
 
 export const authService = {
@@ -100,6 +101,8 @@ export const authService = {
       reportingAccess: response.data?.reportingAccess ?? current.reportingAccess,
     };
     localStorage.setItem('user', JSON.stringify(merged));
+    // The cloud-logo Quick Menu redraws from this, whichever screen did the save.
+    if (Array.isArray(response.data?.quickMenuItems)) announceQuickMenu(response.data.quickMenuItems);
     return response.data;
   },
 

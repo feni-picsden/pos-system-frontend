@@ -42,6 +42,8 @@ import UserFormDialog from '../../components/Users/UserFormDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import PageLoader from '../../components/Common/PageLoader';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import QuickLinkTargetField from '../../components/Common/QuickLinkTargetField';
+import { announceQuickMenu } from '../../utils/quickLinks';
 import apiClient, { resolveAssetUrl } from '../../services/apiClient';
 import { userService } from '../../services/userService';
 import usePageCache from '../../hooks/usePageCache';
@@ -526,6 +528,11 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
 
       const passwordSaved = Boolean(showPasswordFields && form.password);
       await userService.updateUser(user.id, payload);
+      // Editing MY OWN quick menu here: the cloud-logo menu redraws at once (it is
+      // the same database list, not a second one).
+      if (payload.quickMenuItems && user.id === currentUser?.id) {
+        announceQuickMenu(payload.quickMenuItems.filter((i) => i.name?.trim() && i.url?.trim()));
+      }
       setSuccess('User updated successfully.');
       setForm((prev) => ({
         ...prev,
@@ -921,7 +928,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
         <Box sx={tabPanelSx}>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 40px', gap: 1.5, mb: 1 }}>
             <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>Name</Typography>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>URL</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>Page</Typography>
             <Box />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -939,14 +946,16 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                   placeholder="Sell Screen"
                   sx={editInputSx}
                 />
-                <TextField
+                {/* Searchable page dropdown instead of a typed route path; picking a
+                    page fills an empty name with the page's title. */}
+                <QuickLinkTargetField
                   value={item.url}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setQuickMenu((prev) => prev.map((x, i) => (i === idx ? { ...x, url: v } : x)));
-                  }}
-                  placeholder="/sale-key"
-                  sx={editInputSx}
+                  inputSx={editInputSx}
+                  onChange={(url, page) =>
+                    setQuickMenu((prev) => prev.map((x, i) => (
+                      i === idx ? { ...x, url, ...(page && !x.name.trim() ? { name: page.title } : {}) } : x
+                    )))
+                  }
                 />
                 <IconButton
                   disableRipple

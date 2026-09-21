@@ -43,7 +43,7 @@ import {
 import * as XLSX from 'xlsx';
 const { jsPDF } = await import('jspdf');
 import autoTable from 'jspdf-autotable';
-import { useAuth } from '../../contexts/AuthContext';
+import ReportOutletSelect from '../../components/Reports/ReportOutletSelect';
 import purchaseReportService from '../../services/purchaseReportService';
 import favouriteReportService from '../../services/favouriteReportService';
 
@@ -231,7 +231,8 @@ CONSOLIDATED`,
 
 const PurchaseQueryEditor = () => {
   const navigate = useNavigate();
-  const { getOutletId } = useAuth();
+  // '' = every outlet this user may report on (Setup > Users > Reporting Access).
+  const [reportOutletId, setReportOutletId] = useState('');
 
   // Query editor states — a ?query= handed over from the report page wins over the default
   const [customQuery, setCustomQuery] = useState(
@@ -276,7 +277,7 @@ const PurchaseQueryEditor = () => {
       const filters = {
         query: customQuery,
         includeDeleted: false,
-        outletId: getOutletId(),
+        outletId: reportOutletId || undefined,
       };
 
       const response = await purchaseReportService.getPurchaseReport(filters);
@@ -1013,15 +1014,18 @@ const PurchaseQueryEditor = () => {
             Save
           </Button>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<PlayArrowIcon />}
-          onClick={parseAndExecuteQuery}
-          disabled={loading || !customQuery.trim()}
-          sx={primaryBtnSx}
-        >
-          Execute
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <ReportOutletSelect value={reportOutletId} onChange={setReportOutletId} />
+          <Button
+            variant="contained"
+            startIcon={<PlayArrowIcon />}
+            onClick={parseAndExecuteQuery}
+            disabled={loading || !customQuery.trim()}
+            sx={primaryBtnSx}
+          >
+            Execute
+          </Button>
+        </Box>
       </Box>
 
       {/* Results Table */}

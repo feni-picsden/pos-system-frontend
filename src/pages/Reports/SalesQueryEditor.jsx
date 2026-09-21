@@ -45,7 +45,7 @@ import {
 import * as XLSX from 'xlsx';
 const { jsPDF } = await import('jspdf');
 import autoTable from 'jspdf-autotable';
-import { useAuth } from '../../contexts/AuthContext';
+import ReportOutletSelect from '../../components/Reports/ReportOutletSelect';
 import salesReportService from '../../services/salesReportService';
 import favouriteReportService from '../../services/favouriteReportService';
 
@@ -107,7 +107,9 @@ const inputSx = {
 
 const SalesQueryEditor = () => {
   const [searchParams] = useSearchParams();
-  const { getOutletId } = useAuth();
+  // '' = every outlet this user may report on (Setup > Users > Reporting Access);
+  // the report is no longer tied to the outlet the user is standing in.
+  const [reportOutletId, setReportOutletId] = useState('');
 
   // Query editor states
   const [customQuery, setCustomQuery] = useState('');
@@ -227,7 +229,7 @@ CONSOLIDATED`
       const filters = {
         query: customQuery,
         includeDeleted: false,
-        outletId: getOutletId(),
+        outletId: reportOutletId || undefined,
       };
 
       console.log('Sending filters:', filters);
@@ -1005,7 +1007,8 @@ CONSOLIDATED`
             Save
           </Button>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <ReportOutletSelect value={reportOutletId} onChange={setReportOutletId} />
           <Button
             variant="outlined"
             startIcon={editorVisible ? <ChevronUpIcon /> : <ChevronDownIcon />}

@@ -56,6 +56,12 @@ import ProfileDrawer from './ProfileDrawer';
 import ShopfrontSwitch from '../Common/ShopfrontSwitch';
 import { styled } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
+import { authService } from '../../services/authService';
+import QuickLinkTargetField from '../Common/QuickLinkTargetField';
+import {
+  SELL_SCREEN_ITEM, isSellScreenItem, withSellScreen, toQuickItems, toServerItems,
+  isExternalUrl, QUICK_MENU_EVENT,
+} from '../../utils/quickLinks';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useThemeMode } from '../../contexts/themeMode';
 import { useActivePriceSet } from '../../contexts/ActivePriceSetContext';
@@ -186,11 +192,6 @@ const quickToolSx = {
   ...pressableSx,
 };
 
-// The cloud icon no longer links to the sell screen, so the quick menu always
-// keeps a Sell Screen row: renameable, but its URL and delete are locked.
-const SELL_SCREEN_ITEM = { name: 'Sell Screen', url: '/', external: false };
-const isSellScreenItem = (item) => item.url === '/' && !item.external;
-const withSellScreen = (items) => (items.some(isSellScreenItem) ? items : [SELL_SCREEN_ITEM, ...items]);
 
 const quickInputSx = {
   '& .MuiOutlinedInput-root': {
@@ -286,20 +287,52 @@ const DashboardLayout = ({ children }) => {
   // ── Quick Menu (cloud logo click/tap dropdown) ─────────────────────────────
   // Opens on click or tap only (no hover) so mouse, touchpad and touchscreen
   // all behave the same; closes on outside tap, item pick, Esc or navigation.
-  const quickKey = `quickMenu:${user?.id ?? 'default'}`;
+  // The list lives on the USER's record in the database (reference `quick_menu`),
+  // so it follows the person to every computer. It used to sit in this browser's
+  // localStorage only — invisible on the next till, and never the list that
+  // Setup > Users > Quick Menu edits.
+  const legacyQuickKey = `quickMenu:${user?.id ?? 'default'}`;
   const [quickItems, setQuickItems] = useState([]);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
 
+  // Saves the list for the signed-in user; the menu shows it straight away and the
+  // server copy is what every other device loads.
+  const persistQuickItems = React.useCallback((items) => {
+    const next = withSellScreen(items);
+    setQuickItems(next);
+    authService
+      .updateProfilePreferences({ quickMenuItems: toServerItems(next) })
+      .catch((error) => console.error('Quick menu save failed:', error));
+    return next;
+  }, []);
+
   React.useEffect(() => {
-    // ponytail: quick menu is per-user localStorage; move to backend if cross-device sync matters
-    try {
-      const saved = JSON.parse(localStorage.getItem(quickKey));
-      setQuickItems(withSellScreen(Array.isArray(saved) ? saved : []));
-    } catch {
-      setQuickItems([SELL_SCREEN_ITEM]);
+    if (!user?.id) { setQuickItems([SELL_SCREEN_ITEM]); return; }
+    const serverRows = Array.isArray(user.quickMenuItems) ? user.quickMenuItems : [];
+    // One-time move of links pinned on this browser before the list went to the
+    // database: only when the server has none yet, so nothing a user built is lost
+    // and a server list is never overwritten by an old browser copy.
+    let legacy = [];
+    try { legacy = JSON.parse(localStorage.getItem(legacyQuickKey)) || []; } catch { legacy = []; }
+    const legacyLinks = (Array.isArray(legacy) ? legacy : []).filter((i) => i && i.url && i.url !== '/');
+    if (serverRows.length === 0 && legacyLinks.length > 0) {
+      persistQuickItems(toQuickItems(legacy));
+    } else {
+      setQuickItems(toQuickItems(serverRows));
     }
-  }, [quickKey]);
+    try { localStorage.removeItem(legacyQuickKey); } catch { /* ignore */ }
+    // Keyed on the server list's content too: the cached user paints first and the
+    // fresh profile (same id, possibly edited on another device) lands after it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, JSON.stringify(user?.quickMenuItems || [])]);
+
+  // Saved somewhere else for this user (profile dialog, Setup > Users) → redraw.
+  React.useEffect(() => {
+    const onUpdated = (e) => setQuickItems(toQuickItems(e.detail?.items || []));
+    window.addEventListener(QUICK_MENU_EVENT, onUpdated);
+    return () => window.removeEventListener(QUICK_MENU_EVENT, onUpdated);
+  }, []);
 
   // Row index of the locked Sell Screen entry (the menu and the editor share one list).
   const sellScreenIdx = quickItems.findIndex(isSellScreenItem);
@@ -315,14 +348,15 @@ const DashboardLayout = ({ children }) => {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [quickOpen]);
 
-  const saveQuickItems = (items) => {
-    const next = withSellScreen(items);
-    setQuickItems(next);
-    try { localStorage.setItem(quickKey, JSON.stringify(next)); } catch { /* ignore */ }
-  };
-
+  // The editor works on the on-screen list and saves ONCE when it closes (a save
+  // per keystroke would hammer the server); the star saves immediately.
+  const draftQuickItems = (items) => setQuickItems(withSellScreen(items));
   const updateQuickItem = (idx, patch) =>
-    saveQuickItems(quickItems.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+    draftQuickItems(quickItems.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  const closeQuickEditor = () => {
+    setQuickEditOpen(false);
+    persistQuickItems(quickItems);
+  };
 
   const currentPinned = quickItems.some((i) => i.url === location.pathname);
 
@@ -344,9 +378,9 @@ const DashboardLayout = ({ children }) => {
   const handleStarClick = () => {
     if (starLocked) return;
     if (currentPinned) {
-      saveQuickItems(quickItems.filter((i) => i.url !== location.pathname));
+      persistQuickItems(quickItems.filter((i) => i.url !== location.pathname));
     } else {
-      saveQuickItems([...quickItems, { name: currentPageName(), url: location.pathname, external: false }]);
+      persistQuickItems([...quickItems, { name: currentPageName(), url: location.pathname }]);
     }
   };
 
@@ -358,7 +392,7 @@ const DashboardLayout = ({ children }) => {
   // Either way the browser gets an href, which is what the context menu needs.
   const quickItemLinkProps = (item) => {
     if (!item.url) return {};
-    return item.external
+    return isExternalUrl(item.url)
       ? { component: 'a', href: item.url, target: '_blank', rel: 'noopener noreferrer' }
       : { component: RouterLink, to: item.url };
   };
@@ -1105,7 +1139,7 @@ const DashboardLayout = ({ children }) => {
       </Drawer>
 
       {/* Quick Menu editor */}
-      <Dialog open={quickEditOpen} onClose={() => setQuickEditOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={quickEditOpen} onClose={closeQuickEditor} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Quick Menu</DialogTitle>
         <DialogContent>
           {quickItems.map((item, idx) => {
@@ -1118,23 +1152,18 @@ const DashboardLayout = ({ children }) => {
                   onChange={(e) => updateQuickItem(idx, { name: e.target.value })}
                   sx={{ ...quickInputSx, width: 180 }}
                 />
-                <TextField
-                  label="URL"
+                {/* Page dropdown with search — nobody at the till knows a route path.
+                    Picking a page fills an empty name with the page's title. */}
+                <QuickLinkTargetField
                   value={item.url}
                   disabled={locked}
-                  onChange={(e) => updateQuickItem(idx, { url: e.target.value })}
-                  sx={{ ...quickInputSx, flex: 1 }}
+                  inputSx={quickInputSx}
+                  onChange={(url, page) =>
+                    updateQuickItem(idx, { url, ...(page && !item.name.trim() ? { name: page.title } : {}) })
+                  }
                 />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <ShopfrontSwitch
-                    checked={!!item.external}
-                    disabled={locked}
-                    onChange={(e) => updateQuickItem(idx, { external: e.target.checked })}
-                  />
-                  <Typography sx={{ fontSize: 13, color: '#676b72' }}>External</Typography>
-                </Box>
                 <IconButton
-                  onClick={() => saveQuickItems(quickItems.filter((_, i) => i !== idx))}
+                  onClick={() => draftQuickItems(quickItems.filter((_, i) => i !== idx))}
                   disabled={locked}
                   title={locked ? 'Sell Screen is always in the Quick Menu' : 'Delete'}
                   aria-label="delete quick menu item"
@@ -1146,7 +1175,7 @@ const DashboardLayout = ({ children }) => {
             );
           })}
           <Button
-            onClick={() => saveQuickItems([...quickItems, { name: '', url: '/', external: false }])}
+            onClick={() => setQuickItems([...quickItems, { name: '', url: '' }])}
             sx={{ textTransform: 'none', color: '#5ebbeb', fontWeight: 700 }}
           >
             + Add
@@ -1154,7 +1183,7 @@ const DashboardLayout = ({ children }) => {
         </DialogContent>
         <DialogActions>
           <Button
-            onClick={() => setQuickEditOpen(false)}
+            onClick={closeQuickEditor}
             sx={{
               bgcolor: '#5ebbeb',
               color: '#fff',

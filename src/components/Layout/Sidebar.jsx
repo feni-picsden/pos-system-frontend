@@ -841,4 +841,24 @@ const Sidebar = ({ onClick }) => {
   );
 };
 
+// Every page the menu can reach, flattened for pickers (Quick Menu "Page" dropdown):
+// [{ id, label: "Stock Management > Products", title, path, permissions }]. Derived
+// from the ONE menu definition above, so a page added to the sidebar is pickable
+// with no second list to maintain. Group rows that only open a sub-menu are skipped.
+export const APP_PAGES = menuItems.flatMap((item) => {
+  const children = Array.isArray(item.children) ? item.children : [];
+  if (children.length === 0) {
+    return item.path ? [{ id: item.id, label: item.title, title: item.title, path: item.path, permissions: item.permissions || [] }] : [];
+  }
+  return children
+    .filter((child) => child.path)
+    .map((child) => ({
+      id: child.id,
+      label: `${item.title} > ${child.title}`,
+      title: child.title,
+      path: child.path,
+      permissions: child.permissions || [],
+    }));
+});
+
 export default Sidebar;

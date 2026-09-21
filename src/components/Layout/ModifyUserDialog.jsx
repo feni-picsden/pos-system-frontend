@@ -20,7 +20,6 @@ import {
   Paper,
   Switch,
   FormControlLabel,
-  InputAdornment,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -32,6 +31,7 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material';
 import { authService } from '../../services/authService';
+import QuickLinkTargetField from '../Common/QuickLinkTargetField';
 import { roleService } from '../../services/roleService';
 
 import { resolveAssetUrl } from '../../services/apiClient';
@@ -526,7 +526,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
             >
               <Box />
               <Typography variant="caption" color="text.secondary" fontWeight={700}>Name</Typography>
-              <Typography variant="caption" color="text.secondary" fontWeight={700}>URL</Typography>
+              <Typography variant="caption" color="text.secondary" fontWeight={700}>Page</Typography>
               <Box />
             </Box>
 
@@ -576,17 +576,14 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
                     placeholder="Sell Screen"
                   />
 
-                  <TextField
-                    size="small"
+                  {/* Searchable page dropdown instead of a typed route path. */}
+                  <QuickLinkTargetField
                     value={item.url || ''}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setQuickMenuItems((prev) => prev.map((x, i) => (i === idx ? { ...x, url: v } : x)));
-                    }}
-                    placeholder="/"
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">/</InputAdornment>,
-                    }}
+                    onChange={(url, page) =>
+                      setQuickMenuItems((prev) => prev.map((x, i) => (
+                        i === idx ? { ...x, url, ...(page && !String(x.name || '').trim() ? { name: page.title } : {}) } : x
+                      )))
+                    }
                   />
 
                   <IconButton
