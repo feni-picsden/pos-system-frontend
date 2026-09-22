@@ -1453,11 +1453,15 @@ const OrderDetails = () => {
 
                 // Total (ex) should NOT include payment fees
                 const rowTotalEx = baseCost + fees + freight - rebate;
-                // Total (inc) includes payment fees and tax; tax-inclusive
-                // invoice costs already contain their tax
+                // Total (inc) = the invoice amount with its tax, PLUS the payment fee.
+                // The payment fee sits on top of the invoice (reference: "added on top
+                // of invoices… charges not provided on an invoice"), so it carries no
+                // GST — receive stores it that way (purchase.tax excludes it), and
+                // taxing it here made the line ($145.20) disagree with the Total row
+                // ($144.00). Tax-inclusive invoice costs already contain their tax.
                 const rowTotalInc = order.costsIncludeTax
                   ? rowTotalEx + paymentFees
-                  : (rowTotalEx + paymentFees) * (1 + itemTaxRate(item));
+                  : rowTotalEx * (1 + itemTaxRate(item)) + paymentFees;
 
                 return (
                   <TableRow key={index}>

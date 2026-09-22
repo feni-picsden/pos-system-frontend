@@ -17,6 +17,7 @@ import {
   FormControlLabel,
   Box,
   InputAdornment,
+  TableSortLabel,
 } from "@mui/material";
 import {
   IosShareOutlined as ExportIcon,
@@ -48,6 +49,9 @@ const StockList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOption, setSelectedOption] = useState(null);
   const [onlyWithStock, setOnlyWithStock] = useState(false);
+  // Column sort (an addition — the reference Stock List has none). null = the
+  // server's order. One click sorts ascending, a second flips it.
+  const [sort, setSort] = useState({ key: null, dir: "asc" });
 
   // Fetch products on component mount
   useEffect(() => {
@@ -87,6 +91,63 @@ const StockList = () => {
   }, [products, searchTerm, selectedOption, onlyWithStock]);
 
   // Grouped autocomplete options: Categories first, then Products
+  // The grid is one row per PRICE POINT. Flatten once, with the same per-row
+  // figures the cells show, so sorting and the CSV export share one list.
+  const SORT_COLUMNS = [
+    { key: "name", label: "Product" },
+    { key: "category", label: "Category" },
+    { key: "priceSet", label: "Price Set" },
+    { key: "caseQuantity", label: "Case Quantity", numeric: true },
+    { key: "casesOnHand", label: "Cases on Hand", numeric: true },
+    { key: "itemsOnHand", label: "Items on Hand", numeric: true },
+    { key: "quantity", label: "Quantity", numeric: true },
+    { key: "cost", label: "Cost", numeric: true },
+    { key: "price", label: "Price", numeric: true },
+    { key: "profit", label: "Profit %", numeric: true },
+  ];
+  const sortedRows = useMemo(() => {
+    const list = Array.isArray(filteredProducts) ? filteredProducts : [];
+    const rows = list.flatMap((product) => {
+      const prices = product.prices?.length ? product.prices : [{ price: 0, quantity: 1, profitPercentage: 0 }];
+      return prices.map((pricePoint, priceIndex) => {
+        const quantity = Number(pricePoint.quantity) || 1;
+        const cost = (product.itemCost || 0) * quantity;
+        const price = Number(pricePoint.price) || 0;
+        const saved = pricePoint.profitPercentage;
+        const profit = saved !== undefined && saved !== null && saved !== ""
+          ? Number(saved)
+          : (price > 0 ? ((price - cost) / price) * 100 : 0);
+        return {
+          product, pricePoint, priceIndex,
+          values: {
+            name: product.name || "",
+            category: product.category?.name || "",
+            priceSet: pricePoint.priceSet?.name || pricePoint.priceSetName || "",
+            caseQuantity: product.caseQuantity || 0,
+            casesOnHand: product.currentStockCases || 0,
+            itemsOnHand: product.currentStockItems || 0,
+            quantity, cost, price, profit,
+          },
+        };
+      });
+    });
+    if (!sort.key) return rows;
+    const numeric = SORT_COLUMNS.find((c) => c.key === sort.key)?.numeric;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    // stable: equal keys keep the server's order
+    return rows
+      .map((row, i) => ({ row, i }))
+      .sort((a, b) => {
+        const x = a.row.values[sort.key], y = b.row.values[sort.key];
+        const c = numeric ? (Number(x) || 0) - (Number(y) || 0) : String(x).localeCompare(String(y), undefined, { sensitivity: "base" });
+        return (c || a.i - b.i) * (c ? dir : 1);
+      })
+      .map(({ row }) => row);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredProducts, sort]);
+  const toggleSort = (key) =>
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+
   const searchOptions = useMemo(() => {
     const list = Array.isArray(products) ? products : [];
     const categories = [...new Set(list.map((p) => p.category?.name).filter(Boolean))]
@@ -318,9 +379,7 @@ const StockList = () => {
     // silently vanished).
     const csvContent = [
       headers.join(","),
-      ...(Array.isArray(filteredProducts) ? filteredProducts : []).flatMap(product => {
-        const prices = product.prices?.length ? product.prices : [{ price: 0, quantity: 1, profitPercentage: 0 }];
-        return prices.map(pricePoint => {
+      ...sortedRows.map(({ product, pricePoint }) => {
           const quantity = Number(pricePoint.quantity) || 1;
           const totalCost = (product.itemCost || 0) * quantity;
           const totalPrice = Number(pricePoint.price) || 0;
@@ -339,7 +398,6 @@ const StockList = () => {
             totalPrice.toFixed(2),
             profitPercent.toFixed(2)
           ].join(",");
-        });
       })
     ].join("\n");
 
@@ -537,32 +595,34 @@ const StockList = () => {
                   height: 51,
                   py: 0,
                   borderBottom: "none",
-                  cursor: "auto",
+                  cursor: "pointer",
+                  userSelect: "none",
                 },
                 "& th:first-of-type": { borderTopLeftRadius: "12px" },
                 "& th:last-of-type": { borderTopRightRadius: "12px" },
               }}
             >
-              <TableCell>Product</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Price Set</TableCell>
-              <TableCell>Case Quantity</TableCell>
-              <TableCell>Cases on Hand</TableCell>
-              <TableCell>Items on Hand</TableCell>
-              <TableCell>Quantity</TableCell>
-              <TableCell>Cost</TableCell>
-              <TableCell>Price</TableCell>
-              <TableCell>Profit %</TableCell>
+              {SORT_COLUMNS.map((col) => (
+                <TableCell
+                  key={col.key}
+                  onClick={() => toggleSort(col.key)}
+                  sortDirection={sort.key === col.key ? sort.dir : false}
+                >
+                  <TableSortLabel
+                    active={sort.key === col.key}
+                    direction={sort.key === col.key ? sort.dir : "asc"}
+                    sx={{ color: "inherit !important", "& .MuiTableSortLabel-icon": { color: "inherit !important", opacity: sort.key === col.key ? 1 : 0.35 } }}
+                  >
+                    {col.label}
+                  </TableSortLabel>
+                </TableCell>
+              ))}
             </TableRow>
           </TableHead>
           <TableBody
             sx={{ "& td": { fontSize: 16, color: "#000", borderBottom: "none" } }}
           >
-            {(Array.isArray(filteredProducts) ? filteredProducts : []).map((product) => {
-              // If product has multiple prices, create multiple rows
-              const prices = product.prices || [{ price: 0, quantity: 1, profitPercentage: 0 }];
-
-              return prices.map((pricePoint, priceIndex) => (
+            {sortedRows.map(({ product, pricePoint, priceIndex }) => (
                 <TableRow key={`${product.id}-${priceIndex}`}>
                   <TableCell>
                     {renderEditableCell(product, "name", product.name, priceIndex, { width: 480, type: "text" })}
@@ -602,8 +662,7 @@ const StockList = () => {
                     })()}
                   </TableCell>
                 </TableRow>
-              ));
-            })}
+            ))}
           </TableBody>
         </Table>
       </TableContainer>

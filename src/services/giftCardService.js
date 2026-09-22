@@ -43,6 +43,19 @@ const giftCardService = {
     }
   },
 
+  // Selling a card on the sell screen: what is this code right now?
+  // -> { exists:false } | { exists:true, usable:true, balance } | { exists:true, usable:false, reason }
+  checkGiftCardCode: async (code) => {
+    const response = await apiClient.get(`/gift-cards/check/${encodeURIComponent(code)}`);
+    return response.data;
+  },
+
+  // Load what a completed sale took for a gift card line (creates the card or tops it up).
+  loadGiftCard: async (code, amount, { saleId } = {}) => {
+    const response = await apiClient.post(`/gift-cards/${encodeURIComponent(code)}/load`, { amount, saleId });
+    return response.data;
+  },
+
   // Create a new gift card
   createGiftCard: async (giftCardData) => {
     try {

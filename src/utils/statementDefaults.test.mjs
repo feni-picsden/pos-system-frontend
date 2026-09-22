@@ -56,5 +56,7 @@ assert.equal(groupActivitiesByAge(acts, end)[0].transactions.length, 1);
 // Empty buckets are dropped, not rendered as bare headings.
 assert.deepEqual(groupActivitiesByAge([acts[1]], end).map((g) => g.category), ['Current']);
 assert.deepEqual(groupActivitiesByAge([], end), []);
+// rows brought forward from before the range lead under 'Overdue'
+assert.deepEqual(groupActivitiesByAge([{ ...acts[1], overdue: true }, acts[1]], end).map((g) => [g.category, g.transactions.length]), [['Overdue', 1], ['Current', 1]]);
 
 console.log('statementDefaults: all checks passed');

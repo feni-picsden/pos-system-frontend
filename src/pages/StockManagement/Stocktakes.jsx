@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import stocktakeService from '../../services/stocktakeService';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import usePageCache from '../../hooks/usePageCache';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
@@ -116,8 +117,21 @@ const selectMenuProps = {
   },
 };
 
+// Statuses are compared and shown in ONE spelling. Rows written outside the app
+// (demo seed / imports) carried "IN_PROGRESS" / "COMPLETED"; the exact-match checks
+// below then offered an in-progress stocktake no Continue / Cancel at all.
+const statusOf = (row) => {
+  const key = String(row?.status || '').trim().toLowerCase().replace(/[_\s]+/g, ' ');
+  if (key === 'in progress' || key === 'draft') return 'In Progress';
+  if (key.startsWith('completed')) return 'Completed';
+  if (key === 'applied') return 'Applied';
+  if (key === 'cancelled' || key === 'canceled') return 'Cancelled';
+  return row?.status || '';
+};
+
 export default function Stocktakes() {
   const navigate = useNavigate();
+  const { confirm, notify } = useAppDialogs();
   const { outlets, selectedOutletId } = useSelectedOutlet();
 
   const [status, setStatus] = useState('');
@@ -158,7 +172,7 @@ export default function Stocktakes() {
     };
     return allStocktakes.filter(
       (r) =>
-        (!status || r.status === status) &&
+        (!status || statusOf(r) === status) &&
         (!outletFilter ||
           String(r.outlet?.id ?? r.outletId ?? '') === String(outletFilter)) &&
         within(r.createdAt, created) &&
@@ -203,12 +217,15 @@ export default function Stocktakes() {
     navigate(`/stock-management/stocktakes/advanced?id=${id}`);
   };
 
-  const cancelStocktake = async (id) => {
+  const cancelStocktake = async (row) => {
+    const ok = await confirm(`Are you sure you wish to cancel "${row.name}"? Its counts will not be applied.`, { title: 'Cancel Stocktake' });
+    if (!ok) return;
     try {
-      await stocktakeService.updateStocktake(id, { status: 'Cancelled' });
+      await stocktakeService.updateStocktake(row.id, { status: 'Cancelled' });
       await refreshStocktakes();
-    } catch {
-      // ignore
+    } catch (err) {
+      // Used to be swallowed: the button looked dead while the server said 400.
+      notify(err?.response?.data?.error || 'The stocktake could not be cancelled', 'error');
     }
   };
 
@@ -367,11 +384,11 @@ export default function Stocktakes() {
                 <TableCell>{r.name}</TableCell>
                 <TableCell>{r.outlet?.name || r.outlet || ''}</TableCell>
                 <TableCell>{formatDate(r.createdAt)}</TableCell>
-                <TableCell>{r.status}{r.completedBy?.name ? ` by ${r.completedBy.name}` : ''}</TableCell>
+                <TableCell>{statusOf(r)}{r.completedBy?.name ? ` by ${r.completedBy.name}` : ''}</TableCell>
                 <TableCell>{formatDate(r.completedAt)}</TableCell>
                 <TableCell>{formatDate(r.appliedAt)}</TableCell>
                 <TableCell>
-                  {String(r.status || '').toLowerCase().startsWith('completed') && (
+                  {['Completed', 'Applied'].includes(statusOf(r)) && (
                     <Button
                       size="small"
                       startIcon={<VisibilityOutlined />}
@@ -381,10 +398,10 @@ export default function Stocktakes() {
                       View
                     </Button>
                   )}
-                  {String(r.status || '') === 'In Progress' && (
+                  {statusOf(r) === 'In Progress' && (
                     <Stack direction="row" spacing={1}>
                       <Button size="small" onClick={() => continueStocktake(r.id)} sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}>Continue</Button>
-                      <Button size="small" onClick={() => cancelStocktake(r.id)} sx={{ color: '#dc2626', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}>Cancel</Button>
+                      <Button size="small" onClick={() => cancelStocktake(r)} sx={{ color: '#dc2626', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}>Cancel</Button>
                     </Stack>
                   )}
                 </TableCell>

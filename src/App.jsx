@@ -176,6 +176,38 @@ const SetupToSettingsRedirect = () => {
   return <Navigate to={`${target}${location.search}${location.hash}`} replace />;
 };
 
+// Route aliases for URLs people GUESS or carry over from Shopfront. The canonical
+// paths mirror the reference (root for products / suppliers / orders, a prefix for
+// the stock utilities), so nothing here changes a real route — each alias only
+// forwards to the page that already owns it, keeping the query string and hash.
+// Anything not listed still lands on NotFound.
+const ROUTE_ALIASES = [
+  // reference spellings
+  [/^\/classifications(?=\/|$)/, '/stock-management/classifications'],
+  [/^\/stock\/prices(?=\/|$)/, '/stock-management/bulk-price-edit'],
+  [/^\/stock\/list(?=\/|$)/, '/stock-management/stock-list'],
+  [/^\/stock\/stocktaker(?=\/|$)/, '/stock-management/stocktakes'],
+  [/^\/stock\/capped-pricing(?=\/|$)/, '/stock-management/capped-pricing'],
+  [/^\/stock\/buying-periods(?=\/|$)/, '/stock-management/product-buying-periods'],
+  [/^\/stock\/supplier-import(?=\/|$)/, '/stock-management/import-supplier-products'],
+  [/^\/stock\/more(?=\/|$)/, '/stock-management/more'],
+  [/^\/stock(?=\/|$)/, '/stock-management'],
+  [/^\/orders(?=\/|$)/, '/orders-invoices'],
+  // "everything stock lives under the prefix" guesses
+  [/^\/stock-management\/products(?=\/|$)/, '/products'],
+  [/^\/stock-management\/suppliers(?=\/|$)/, '/suppliers'],
+  [/^\/stock-management\/orders-invoices(?=\/|$)/, '/orders-invoices'],
+  [/^\/stock-management\/orders(?=\/|$)/, '/orders-invoices'],
+];
+
+const RouteAliasRedirect = () => {
+  const location = useLocation();
+  const hit = ROUTE_ALIASES.find(([from]) => from.test(location.pathname));
+  if (!hit) return <NotFound />;
+  const target = location.pathname.replace(hit[0], hit[1]);
+  return <Navigate to={`${target}${location.search}${location.hash}`} replace />;
+};
+
 const AuthBridge = ({ children }) => {
   const { user, switchOutlet } = useAuth();
   return (
@@ -1690,7 +1722,8 @@ function App() {
                         {/* Any remaining old /setup/* deep link → /settings/* equivalent */}
                         <Route path="/setup/*" element={<SetupToSettingsRedirect />} />
 
-                        <Route path="*" element={<NotFound />} />
+                        {/* Guessed / reference-style URLs → the page that owns them; else 404 */}
+                        <Route path="*" element={<RouteAliasRedirect />} />
                       </Routes>
                       </FreshPerOutletAndRoute>
                     </DashboardLayout>

@@ -57,6 +57,42 @@ export function deriveFamilyTemplate(members) {
   };
 }
 
+// --- Picking a family: what the user is told before it happens -------------------
+//
+// Joining a family REPLACES this product's prices with the family's, and at the till
+// the family's quantity breaks are reached by adding its members together. Putting a
+// product in the wrong family is therefore a pricing mistake (go-live audit:
+// Coca-Cola 1.25L in "Beer Stubbies 375ml" took the beers' prices). The editor asks
+// first, showing exactly what will change.
+
+/** "1 for $5.00, 6 for $16.00" — a product's default price points, for display. */
+export function formatTiers(product) {
+  return defaultTiers(product)
+    .map((t) => `${t.quantity} for $${t.price.toFixed(2)}`)
+    .join(', ');
+}
+
+const categoryName = (product) =>
+  (typeof product?.category === 'string' ? product.category : product?.category?.name) || '';
+
+/**
+ * Is this product a stranger in the family? Compares its category with the ACTIVE
+ * members' categories.
+ * @returns {{ mismatch: boolean, familyCategories: string[] }}
+ *          mismatch is false when either side has no category to compare.
+ */
+export function familyCategoryCheck(productCategory, members) {
+  const familyCategories = [...new Set(
+    (Array.isArray(members) ? members : [])
+      .filter((m) => m && m.isActive !== false)
+      .map(categoryName)
+      .filter(Boolean),
+  )].sort();
+  const mine = String(productCategory || '').trim();
+  const mismatch = !!mine && familyCategories.length > 0 && !familyCategories.includes(mine);
+  return { mismatch, familyCategories };
+}
+
 // --- Price points: best rate --------------------------------------------------------
 //
 // Shopfront "Quantity Rate": a quantity sells at the BEST (lowest) per-unit rate among
@@ -177,6 +213,64 @@ export function shareByQuantity(total, quantities) {
     shares[byRemainder[k][1]] += 1;
   }
   return shares.map((c) => c / 100);
+}
+
+// --- Family vs promotion at the register: the cheaper one wins ---------------------
+//
+// Reference (promotion worker): a line on promotion is NOT left out of its family.
+// Every way of pricing the basket is totalled and the LOWEST total is applied —
+// "the best price for the customer". Two ways matter for a family group:
+//
+//   all-family   every line sells on the family's combined quantity
+//   promo-kept   promotion lines keep their promotion price; the OTHER lines still
+//                group as a family among themselves (the reference re-prices the
+//                "remaining" family quantity the same way)
+//
+// Before this, a promotion line was simply excluded from the family, so
+// 3 x VB + 3 x Carlton(promo $3.50) cost $15 + $10.50 = $25.50 although the family's
+// "6 for $16" was cheaper — the promotion made the basket dearer.
+//
+// Pure. `familyTotalFor(quantity)` is the family's everyday price for a combined
+// quantity; `finalize(line, share)` turns a line's share into its final price (the
+// customer's price list), defaulting to the share itself.
+//
+// @param group  lines of ONE family group (2+): { quantity, ownPrice, promoPriced }
+// @returns one entry per line, same order: { price, familyPriced }
+export function chooseFamilyPricing(group, familyTotalFor, finalize = (line, share) => share) {
+  const cents = (n) => Math.round((Number(n) || 0) * 100) / 100;
+  const sum = (arr) => cents(arr.reduce((a, b) => a + b, 0));
+  // Family prices for a subset of the lines, or null when it is not a group.
+  const asFamily = (subset) => {
+    if (subset.length < 2) return null;
+    const quantities = subset.map((l) => l.quantity);
+    const total = familyTotalFor(quantities.reduce((a, b) => a + b, 0));
+    const shares = shareByQuantity(total, quantities);
+    return subset.map((l, i) => cents(finalize(l, shares[i])));
+  };
+
+  const lines = Array.isArray(group) ? group : [];
+  const allFamily = asFamily(lines);
+  if (!allFamily) return lines.map((l) => ({ price: cents(l.ownPrice), familyPriced: false }));
+
+  const promo = lines.filter((l) => l.promoPriced);
+  if (promo.length === 0) return allFamily.map((price) => ({ price, familyPriced: true }));
+
+  const rest = lines.filter((l) => !l.promoPriced);
+  const restFamily = asFamily(rest);
+  const keptTotal = sum(promo.map((l) => l.ownPrice))
+    + (restFamily ? sum(restFamily) : sum(rest.map((l) => l.ownPrice)));
+
+  // Strictly cheaper only: on a tie the promotion stays (its saving stays visible).
+  if (sum(allFamily) < keptTotal - 0.005) {
+    return allFamily.map((price) => ({ price, familyPriced: true }));
+  }
+  return lines.map((l) => {
+    if (l.promoPriced) return { price: cents(l.ownPrice), familyPriced: false };
+    const i = rest.indexOf(l);
+    return restFamily
+      ? { price: restFamily[i], familyPriced: true }
+      : { price: cents(l.ownPrice), familyPriced: false };
+  });
 }
 
 /**

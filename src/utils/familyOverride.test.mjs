@@ -221,4 +221,71 @@ const tiers = (...pairs) =>
   assert.deepEqual(shareByQuantity(16, [0, 0]), [0, 0], 'no quantity, no share');
 }
 
+// --- picking a family: what the confirm dialog is built from
+{
+  const { formatTiers, familyCategoryCheck } = await import('./familyOverride.js');
+  const beer = (name, extra = {}) => ({ name, isActive: true, category: { name: 'Beer' }, prices: [{ quantity: 6, price: 16 }, { quantity: 1, price: 5 }], ...extra });
+
+  assert.equal(formatTiers(beer('Carlton')), '1 for $5.00, 6 for $16.00', 'ordered by quantity');
+  assert.equal(formatTiers({ prices: [{ quantity: 1, price: 9, priceSetId: 2 }] }), '', 'price-set rows are not the family price');
+
+  assert.deepEqual(familyCategoryCheck('Soft Drinks', [beer('Carlton'), beer('VB')]),
+    { mismatch: true, familyCategories: ['Beer'] }, 'a soft drink is a stranger among beers');
+  assert.equal(familyCategoryCheck('Beer', [beer('Carlton')]).mismatch, false, 'same category is fine');
+  assert.equal(familyCategoryCheck('', [beer('Carlton')]).mismatch, false, 'no category of its own: nothing to compare');
+  assert.equal(familyCategoryCheck('Wine', []).mismatch, false, 'empty family: nothing to compare');
+  assert.equal(familyCategoryCheck('Wine', [beer('Old', { isActive: false })]).mismatch, false, 'inactive members are ignored');
+  assert.equal(familyCategoryCheck('Beer', [beer('A', { category: 'Beer' })]).mismatch, false, 'string category');
+}
+
+// --- family vs promotion: the cheaper basket wins (reference behaviour)
+{
+  const { chooseFamilyPricing } = await import('./familyOverride.js');
+  // Family ladder 1@5, 6@16, 24@80 — highest break that fits, the rest at the single price.
+  const ladder = (q) => { let left = q, total = 0; for (const [n, p] of [[24, 80], [6, 16], [1, 5]]) { total += Math.floor(left / n) * p; left %= n; } return total; };
+  const line = (quantity, ownPrice, promoPriced = false) => ({ quantity, ownPrice, promoPriced });
+  const prices = (r) => r.map((x) => x.price);
+
+  // The audit case: 3 VB + 3 Carlton on a $3.50 promotion. Family 6-for-$16 beats $25.50.
+  let r = chooseFamilyPricing([line(3, 15), line(3, 10.5, true)], ladder);
+  assert.deepEqual(prices(r), [8, 8], 'family deal is cheaper than keeping the promotion');
+  assert.deepEqual(r.map((x) => x.familyPriced), [true, true]);
+
+  // Still dearer with a deep promotion ($15 + $3 = $18 > $16): the family wins again.
+  r = chooseFamilyPricing([line(3, 15), line(3, 3, true)], ladder);
+  assert.deepEqual(prices(r), [8, 8], '$18 with the promotion is still dearer than the $16 family');
+}
+{
+  const { chooseFamilyPricing } = await import('./familyOverride.js');
+  const ladder = (q) => { let left = q, total = 0; for (const [n, p] of [[24, 80], [6, 16], [1, 5]]) { total += Math.floor(left / n) * p; left %= n; } return total; };
+  const line = (quantity, ownPrice, promoPriced = false) => ({ quantity, ownPrice, promoPriced });
+  const prices = (r) => r.map((x) => x.price);
+
+  // Promotion cheaper than the family: 1 + 1 (family 2 x $5 = $10) vs promo line $1 -> $6.
+  let r = chooseFamilyPricing([line(1, 5), line(1, 1, true)], ladder);
+  assert.deepEqual(prices(r), [5, 1], 'a genuinely cheaper promotion is kept');
+  assert.deepEqual(r.map((x) => x.familyPriced), [false, false]);
+
+  // Promotion kept AND the other two lines still group as a family among themselves.
+  r = chooseFamilyPricing([line(3, 15), line(3, 15), line(1, 0.5, true)], ladder);
+  assert.deepEqual(prices(r), [8, 8, 0.5], 'rest of the family still gets 6 for $16');
+  assert.deepEqual(r.map((x) => x.familyPriced), [true, true, false]);
+
+  // No promotion in the group: exactly the behaviour there was before.
+  r = chooseFamilyPricing([line(3, 15), line(3, 15)], ladder);
+  assert.deepEqual(prices(r), [8, 8]);
+  r = chooseFamilyPricing([line(4, 20), line(2, 10)], ladder);
+  assert.deepEqual(prices(r), [10.67, 5.33], 'split by quantity, to the cent');
+
+  // A tie keeps the promotion (its saving stays visible).
+  r = chooseFamilyPricing([line(3, 15), line(3, 1, true)], (q) => (q === 6 ? 16 : q * 5));
+  assert.deepEqual(prices(r), [15, 1], 'tie -> promotion stays');
+
+  // The customer's price list is applied to each family share.
+  r = chooseFamilyPricing([line(3, 15), line(3, 15)], ladder, (l, share) => share * 0.9);
+  assert.deepEqual(prices(r), [7.2, 7.2]);
+
+  assert.deepEqual(prices(chooseFamilyPricing([line(2, 10)], ladder)), [10], 'a single line is not a group');
+}
+
 console.log('familyOverride: all assertions passed');

@@ -17,6 +17,7 @@ import {
   MenuItem,
   Checkbox,
   ListItemText,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -25,6 +26,7 @@ import {
   HubOutlined as AssignIcon,
   DeleteOutline as DeleteIcon,
   ArrowDropDown as ArrowDropDownIcon,
+  WarningAmber as WarningIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import ClassificationDialog from '../../components/Classifications/ClassificationDialog';
@@ -394,6 +396,28 @@ const Classifications = () => {
                   >
                     {classification.name}
                   </Typography>
+                  {/* Family audit: members that do not belong together (mixed categories,
+                      or prices that are not aligned). A wrong family is a PRICING error —
+                      the product takes the family's prices and counts toward its
+                      quantity breaks at the till — so it is flagged right on the list. */}
+                  {classification.audit?.issues?.length > 0 && (
+                    <Tooltip
+                      arrow
+                      title={
+                        <Box sx={{ fontSize: 13, lineHeight: 1.4 }}>
+                          {classification.audit.issues.map((issue) => (
+                            <Box key={issue} sx={{ mb: 0.5 }}>• {issue}</Box>
+                          ))}
+                          <Box sx={{ mt: 0.5, opacity: 0.85 }}>Open the family to review its products.</Box>
+                        </Box>
+                      }
+                    >
+                      <WarningIcon
+                        aria-label="Family needs review"
+                        sx={{ fontSize: 20, color: '#d97706', ml: 1, verticalAlign: 'text-bottom', cursor: 'help' }}
+                      />
+                    </Tooltip>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Typography sx={{ fontSize: 16, color: '#000' }}>

@@ -153,6 +153,7 @@ const EditOrder = () => {
   const [orderedQuantities, setOrderedQuantities] = useState({}); // snapshot of ordered quantities (Details View)
   const [supplierCodes, setSupplierCodes] = useState({}); // { productId: supplierId }
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchedTerm, setSearchedTerm] = useState(''); // last term a search FINISHED for
   const [allSuppliersToggle, setAllSuppliersToggle] = useState(false); // Toggle for "All Suppliers" - default OFF (reference)
   const [checkedRows, setCheckedRows] = useState({}); // { productId: bool } - row selection for bulk actions
   const [detailsView, setDetailsView] = useState(false); // footer "Details View" toggle
@@ -290,6 +291,11 @@ const EditOrder = () => {
               };
             }
             
+            // A RETURN linked to a received invoice is valued at what the goods cost on
+            // THAT invoice. Lines added by hand already got this (applyReturnCost); lines
+            // loaded from the saved return showed the product's CURRENT cost instead
+            // (invoice $10/unit -> screen $1.40/unit).
+            product = applyReturnCost(product);
             initialProducts.push(product);
             
             let cases = 0;
@@ -541,9 +547,21 @@ const EditOrder = () => {
     }
   };
 
-  const handleSearch = async (searchValue) => {
+  // Only the LATEST search may write results: keystrokes fire overlapping requests
+  // and a slow early one ("Dr") used to land on top of the final one ("Draught").
+  const searchSeqRef = useRef(0);
+  const searchInputRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+  useEffect(() => () => clearTimeout(searchDebounceRef.current), []);
+
+  // `allSuppliers` is passed in by the toggle: state set in the same handler is not
+  // visible yet, so reading `allSuppliersToggle` there searched with the OLD value
+  // (toggle ON -> still filtered to the order's supplier -> no results).
+  const handleSearch = async (searchValue, allSuppliers = allSuppliersToggle) => {
+    const seq = ++searchSeqRef.current;
     if (!searchValue || searchValue.trim().length < 2) {
       setSearchResults([]);
+      setSearchedTerm('');
       return;
     }
 
@@ -574,7 +592,7 @@ const EditOrder = () => {
         };
       } else if (!isTransfer) {
         const supplierFilter =
-          !allSuppliersToggle && order?.from && order.from !== 'all'
+          !allSuppliers && order?.from && order.from !== 'all'
             ? parseInt(order.from, 10)
             : null;
         if (supplierFilter) {
@@ -622,7 +640,7 @@ const EditOrder = () => {
       }
 
       const matchingSuppliers =
-        !isTransfer && allSuppliersToggle
+        !isTransfer && allSuppliers
           ? (suppliersResponse.suppliers || [])
               .filter((s) => s.name.toLowerCase().includes(searchLower))
               .map((s) => ({ ...s, type: 'supplier' }))
@@ -637,14 +655,37 @@ const EditOrder = () => {
 
       // Combine all results
       const allResults = [...products, ...matchingSuppliers, ...matchingClassifications];
+      if (seq !== searchSeqRef.current) return; // a newer search took over
       setSearchResults(allResults);
+      setSearchedTerm(searchValue.trim());
     } catch (err) {
       console.error('Error searching:', err);
+      if (seq !== searchSeqRef.current) return;
       setSearchResults([]);
+      setSearchedTerm(searchValue.trim());
     } finally {
-      setSearchLoading(false);
+      if (seq === searchSeqRef.current) setSearchLoading(false);
     }
   };
+
+  const queueSearch = (value, allSuppliers = allSuppliersToggle) => {
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => handleSearch(value, allSuppliers), 300);
+  };
+
+  // Why an empty list is empty: with All Suppliers off only the order's own supplier
+  // is searched, which reads as "search is broken" when the product is simply not
+  // linked to that supplier.
+  const supplierScoped =
+    order?.type !== 'TRANSFER' && !allSuppliersToggle && !!order?.from && order.from !== 'all';
+  const noResultsText = supplierScoped
+    ? `No products found for ${order?.supplier?.name || 'this supplier'} — turn on All Suppliers to search every product`
+    : 'No results found';
+  const showNoResults =
+    !searchLoading &&
+    searchResults.length === 0 &&
+    searchedTerm !== '' &&
+    searchedTerm === (searchTerm || '').trim();
 
   const handleSearchSelect = async (result) => {
     if (order?.type === 'TRANSFER' && result.type !== 'product') {
@@ -1922,6 +1963,13 @@ const EditOrder = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <Autocomplete
           freeSolo
+          // Controlled: uncontrolled MUI kept the picked option's label in the box
+          // after the product was added (searchTerm was cleared, the input was not),
+          // and held the option as `value`, so picking the same product again did
+          // not fire onChange. value stays null: the box is a search field, never
+          // a "selected product".
+          inputValue={searchTerm}
+          value={null}
           options={searchResults}
           getOptionLabel={(option) => {
             if (typeof option === 'string') return option;
@@ -1953,12 +2001,25 @@ const EditOrder = () => {
             </li>
           )}
           loading={searchLoading}
-          onInputChange={(event, newValue) => {
+          // Clicking the All Suppliers switch blurs the box and closes the list; the
+          // switch hands focus back, and this lets the refreshed list open again.
+          openOnFocus
+          // Results are already matched by the server (name, description, barcode);
+          // MUI's own label filter would drop barcode / description matches.
+          filterOptions={(options) => options}
+          onInputChange={(event, newValue, reason) => {
+            // 'reset' is MUI writing the picked option's label back into the box
+            // on selection — the very text this bug was about. Ignore it; the
+            // selection handler clears the term itself.
+            if (reason === 'reset') return;
             setSearchTerm(newValue);
             if (newValue) {
-              handleSearch(newValue);
+              queueSearch(newValue);
             } else {
+              clearTimeout(searchDebounceRef.current);
+              searchSeqRef.current += 1;
               setSearchResults([]);
+              setSearchedTerm('');
             }
           }}
           onChange={(event, newValue) => {
@@ -1988,6 +2049,7 @@ const EditOrder = () => {
           renderInput={(params) => (
             <TextField
               {...params}
+              inputRef={searchInputRef}
               placeholder="Search for a product, supplier or classification"
               sx={sfField}
             />
@@ -2006,9 +2068,12 @@ const EditOrder = () => {
             <ShopfrontSwitch
               checked={allSuppliersToggle}
               onChange={(e) => {
-                setAllSuppliersToggle(e.target.checked);
+                const next = e.target.checked;
+                setAllSuppliersToggle(next);
                 if (searchTerm && searchTerm.trim().length >= 2) {
-                  handleSearch(searchTerm);
+                  clearTimeout(searchDebounceRef.current);
+                  handleSearch(searchTerm, next);
+                  searchInputRef.current?.focus();
                 }
               }}
             />
@@ -2018,6 +2083,12 @@ const EditOrder = () => {
           </Box>
         )}
       </Box>
+      {/* A freeSolo Autocomplete shows nothing at all when a search comes back empty. */}
+      {showNoResults && (
+        <Typography sx={{ mt: -2, mb: 3, fontSize: 14, color: '#676b72' }}>
+          {noResultsText}
+        </Typography>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>

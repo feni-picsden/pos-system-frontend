@@ -52,9 +52,14 @@ export const applyStatementVariables = (html, customer, business) => {
 // ponytail: two buckets only — the statement endpoint exposes no finer aging.
 export const groupActivitiesByAge = (activities = [], rangeEnd = new Date()) => {
   const cutoff = new Date(rangeEnd).getTime() - 30 * 24 * 60 * 60 * 1000;
-  const older = activities.filter((a) => new Date(a.date).getTime() < cutoff);
-  const current = activities.filter((a) => new Date(a.date).getTime() >= cutoff);
+  // Rows the statement endpoint brought forward from BEFORE the range (reference:
+  // "invoices outside the date range appear as overdue") lead, under their own heading.
+  const overdue = activities.filter((a) => a.overdue);
+  const inRange = activities.filter((a) => !a.overdue);
+  const older = inRange.filter((a) => new Date(a.date).getTime() < cutoff);
+  const current = inRange.filter((a) => new Date(a.date).getTime() >= cutoff);
   return [
+    ...(overdue.length ? [{ category: 'Overdue', transactions: overdue }] : []),
     ...(older.length ? [{ category: '30 days', transactions: older }] : []),
     ...(current.length ? [{ category: 'Current', transactions: current }] : []),
   ];

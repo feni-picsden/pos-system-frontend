@@ -24,6 +24,8 @@ import { format } from "date-fns";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import PageLoader from "../../components/Common/PageLoader";
 import { getBaseTier } from "../../utils/baseTier";
+import { criteriaOfPromotion } from "../../utils/promotionCriteria";
+import settingsService from "../../services/settingsService";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import {
   WIDGET_SHADOW,
@@ -178,7 +180,11 @@ const PromotionView = () => {
 
     const baseTier = getBaseTier(item.pricingTiers);
     const pricePerUnit = parseFloat(baseTier?.price ?? item.originalPrice) || 0;
-    const rawCostPerUnit = parseFloat(baseTier?.cost ?? item.cost) || 0;
+    // Per-unit cost: the base row's cost (divided by its quantity), else the cost
+    // snapshotted on the item. `??` alone kept a row cost of 0 and showed N/A even
+    // when the item carried a real cost.
+    const tierUnitCost = (parseFloat(baseTier?.cost) || 0) / (parseFloat(baseTier?.quantity) || 1);
+    const rawCostPerUnit = tierUnitCost > 0 ? tierUnitCost : parseFloat(item.cost) || 0;
     if (!(rawCostPerUnit > 0)) return null;
 
     const rebatePerUnit = parseFloat(item.rebateAmount) || 0;
@@ -282,7 +288,12 @@ const PromotionView = () => {
     },
   ];
 
-  const criteria = promotion.conditions?.criteria || [];
+  // Stored criteria, else rebuilt from the promotion's item rows — a wizard / express /
+  // seeded promotion has no stored criteria and this page used to come up empty.
+  const criteria = criteriaOfPromotion(
+    promotion,
+    settingsService.getCachedGeneralSettings().costCalculationMethod || 'Last Cost'
+  );
 
   return (
     <Box

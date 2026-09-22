@@ -117,7 +117,12 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   const getOutletName = useCallback(() => {
-    return user?.outlet?.name || null;
+    // `user.outlet` is only sent while the session sits on the user's HOME outlet;
+    // after a switch it is null, so fall back to the assigned-outlets list.
+    if (user?.outlet?.name && (user.outletId == null || user.outlet.id === user.outletId)) return user.outlet.name;
+    if (user?.outletId == null) return null;
+    const assigned = (user.assignedOutlets || []).find((o) => String(o.id) === String(user.outletId));
+    return assigned?.name || null;
   }, [user]);
 
   const value = {

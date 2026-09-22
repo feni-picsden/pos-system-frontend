@@ -58,7 +58,7 @@ const footerButtonSx = (bg, fg, hoverBg) => ({
 });
 
 const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
-  const { user: currentUser, isTrueSuperAdmin } = useAuth();
+  const { user: currentUser, isTrueSuperAdmin, getOutletName } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     // The credential typed at the sign-in screen, separate from the display
@@ -711,7 +711,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
                                        Outlet: <strong>
                        {canPickAnyOutlet 
                          ? (outlets.find(o => o.id === formData.outletId)?.name || 'Unknown')
-                         : (currentUser?.outlet?.name || 'Your Outlet')
+                         : (getOutletName() || outlets.find(o => o.id === formData.outletId)?.name || '—')
                        }
                      </strong>
                   </Typography>

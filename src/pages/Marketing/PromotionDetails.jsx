@@ -45,6 +45,8 @@ import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { getBaseTier } from '../../utils/baseTier';
+import { criteriaFromItems, hydrateCriteria, unitCostOf } from '../../utils/promotionCriteria';
+import settingsService from '../../services/settingsService';
 
 // --- Recurring schedule helpers -------------------------------------------
 // The reference stores every schedule part as a raw ISO 8601 string
@@ -278,60 +280,8 @@ const DateTimeField = ({ value, onChange }) => {
   );
 };
 
-// Promotions built by the create wizard / express editor store their contents as
-// PromotionItem rows only (conditions.criteria is empty). Fold those rows into the
-// criteria this editor edits, so the promotion's contents are visible and re-saveable
-// instead of reading "No criteria in promotion".
-const receiveFromItem = (item) => {
-  const promoPrice = parseFloat(item.promoPrice) || 0;
-  const percentage = parseFloat(item.discountPercentage) || 0;
-  const amount = parseFloat(item.discountAmount) || 0;
-  if (promoPrice > 0) return { receiveType: 'total_price', receiveValue: promoPrice };
-  if (percentage > 0) return { receiveType: 'percentage_discount', receiveValue: percentage };
-  if (amount > 0) return { receiveType: 'discount_each_item', receiveValue: amount };
-  return { receiveType: 'quantity_only', receiveValue: 0 };
-};
-
-const criteriaFromItems = (items) => {
-  const groups = new Map();
-  items.forEach((item, index) => {
-    const { receiveType, receiveValue } = receiveFromItem(item);
-    const quantity = parseInt(item.quantity, 10) || 1;
-    // Wizard "get" rows are isRequired:false — that is the Optional criteria flag
-    const isOptional = item.isRequired === false;
-    const key = `${quantity}|${receiveType}|${receiveValue}|${isOptional}`;
-    if (!groups.has(key)) {
-      groups.set(key, {
-        id: Date.now() + groups.size,
-        isOptional,
-        purchaseType: 'purchase',
-        purchaseValue: quantity,
-        receiveType,
-        receiveValue,
-        items: [],
-        profit: 0
-      });
-    }
-    const price = parseFloat(item.normalPrice)
-      || parseFloat(getBaseTier(item.product?.prices)?.price)
-      || 0;
-    const rebate = parseFloat(item.rebate) || 0;
-    groups.get(key).items.push({
-      id: item.id ?? Date.now() + 1000 + index,
-      productId: item.productId,
-      name: item.productName || item.product?.name || 'Unknown Product',
-      type: 'PRODUCT',
-      sourceLabel: null,
-      originalPrice: price,
-      pricingTiers: item.product?.prices || [],
-      cost: parseFloat(item.product?.cost) || 0,
-      rebateAmount: rebate,
-      rebatePercentage: price > 0 ? (rebate / price) * 100 : 0,
-      excluded: false
-    });
-  });
-  return Array.from(groups.values());
-};
+// criteriaFromItems / unitCostOf live in utils/promotionCriteria (shared with the
+// promotion VIEW, with the cost lookup that used to leave PROFIT at "N/A").
 
 // Reference labels its fields above the box (no notched legend, no placeholder)
 const LabeledField = ({ label, children }) => (
@@ -360,6 +310,8 @@ const PromotionDetails = () => {
   const draft = useLocation().state?.draft;
   const id = idParam === 'new' ? '' : idParam;
   const { getOutletId } = useAuth();
+  // Setup > General > Cost Calculation Method decides which unit cost a margin uses.
+  const costMethod = settingsService.getCachedGeneralSettings().costCalculationMethod || 'Last Cost';
 
   // getOutletId() reads the logged-in user's own outlet and returns null for
   // super admins, who instead pick an outlet in the navbar
@@ -494,7 +446,8 @@ const PromotionDetails = () => {
       } else {
         // Criteria saved by older builds (and the express editor) can omit the
         // rebate fields, so coerce them here — the rows render them unguarded.
-        const savedCriteria = (promotion.conditions?.criteria || []).map((c, i) => ({
+        // Saved item snapshots can carry a stale cost (0) — refresh from the current product.
+        const savedCriteria = hydrateCriteria(promotion.conditions?.criteria || [], promotion.items, costMethod).map((c, i) => ({
           ...c,
           id: c.id ?? Date.now() + i,
           items: (c.items || []).map((item) => ({
@@ -504,7 +457,7 @@ const PromotionDetails = () => {
           })),
         }));
         const loadedCriteria = savedCriteria.length === 0 && Array.isArray(promotion.items) && promotion.items.length > 0
-          ? criteriaFromItems(promotion.items)
+          ? criteriaFromItems(promotion.items, costMethod)
           : savedCriteria;
         setCriteria(loadedCriteria);
         // Match reference: the "Criteria" panel is active (blue) and expanded by default
@@ -718,12 +671,9 @@ const PromotionDetails = () => {
     // Criterion maths is per unit, so snapshot the base tier — prices[0] can be
     // a bulk/case tier and would inflate cost and price by the case size.
     const baseTier = getBaseTier(product?.prices);
-    let productCost = 0;
-    if (product.cost !== undefined && product.cost !== null) {
-      productCost = parseFloat(product.cost) || 0;
-    } else if (baseTier?.cost !== undefined && baseTier.cost !== null) {
-      productCost = parseFloat(baseTier.cost) || 0;
-    }
+    // One cost rule everywhere (utils/promotionCriteria): the quantity-1 row's cost,
+    // else the product's unit cost. `product.cost` is not a real column.
+    const productCost = unitCostOf(product, costMethod);
 
     return {
       id: idSeed,

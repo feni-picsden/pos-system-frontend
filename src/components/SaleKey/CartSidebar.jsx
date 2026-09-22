@@ -108,6 +108,7 @@ const CartSidebar = ({
   onCartItemSelect,
   onRemoveItem,
   onDiscountConfirm,
+  discountRequest,
   isManualDiscountBlocked,
   canDiscount = true,
   // Reference-style warning toast (page-level); replaces blocking alert()s.
@@ -177,7 +178,7 @@ const CartSidebar = ({
   const closeDiscountEditor = () => setDiscountEditKey(null);
 
   const openDiscountEditor = (item, e) => {
-    e.stopPropagation();
+    e?.stopPropagation();
     if (!canDiscount) {
       onWarn?.('You do not have permission to discount');
       return;
@@ -191,6 +192,16 @@ const CartSidebar = ({
     if (discountEditKey === key) { setKeypadNonce((n) => n + 1); return; }
     setDiscountEditKey(key);
   };
+
+  // A Discount sale key with no predefined type/value asks for the SAME editor the
+  // line's price opens (one discount UI, one set of permission / blocked-product
+  // checks). `nonce` makes a repeated press count as a new request.
+  useEffect(() => {
+    if (!discountRequest?.nonce) return;
+    const item = cart.find((i) => i.id === discountRequest.id && i.timestamp === discountRequest.timestamp);
+    if (item) openDiscountEditor(item);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discountRequest?.nonce]);
 
   // Sale-level discount: both reference types re-price the LINES proportionally.
   const cartBaseTotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);

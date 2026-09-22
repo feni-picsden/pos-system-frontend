@@ -166,7 +166,7 @@ const trimOrNull = (value) => (typeof value === 'string' ? value.trim() : '') ||
 const SupplierDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isTrueSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId, getOutletName } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -859,7 +859,12 @@ const SupplierDetails = () => {
                     borderColor: 'info.main'
                   }}>
                     <Typography variant="body2" color="info.contrastText">
-                      This supplier will be created in your assigned outlet: <strong>{outlets.find(o => o.id === getOutletId())?.name || 'Your Outlet'}</strong>
+                      {/* "will be created" is only true for a NEW supplier; an existing one says where it lives */}
+                      {!isEditMode
+                        ? <>This supplier will be created in your assigned outlet{getOutletName() ? <>: <strong>{getOutletName()}</strong></> : ''}</>
+                        : formData.outletId == null
+                          ? <>This is a <strong>global supplier</strong> — it is shared by All outlet</>
+                          : <>This supplier belongs to your outlet{getOutletName() ? <>: <strong>{getOutletName()}</strong></> : ''}</>}
                     </Typography>
                   </Box>
                 </Grid>

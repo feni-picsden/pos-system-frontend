@@ -24,6 +24,8 @@ import {
 } from '@mui/icons-material';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import productService from '../../services/productService';
+import settingsService from '../../services/settingsService';
+import { effectiveUnitCost, profitPercent } from '../../utils/productCost';
 import classificationService from '../../services/classificationService';
 
 const fieldSx = {
@@ -169,6 +171,21 @@ const BulkPriceEdit = () => {
     return existing ? existing.price : null;
   };
 
+  // Profit under each price, live as the price is typed (go-live audit: "bulk price
+  // edit shows profit after sales price computed"). Same figure Sell & Cost shows:
+  // unit cost per the company's Cost Calculation Method x quantity, expressed per
+  // the Profitability Display setting (Gross Profit Margin or Markup). Not on the
+  // reference's Bulk Price Edit — verified 22/09 — so it is an addition, kept
+  // small and grey so the grid still reads like the reference.
+  const { costCalculationMethod = 'Last Cost', profitabilityDisplay = 'Gross Profit Margin' } =
+    settingsService.getCachedGeneralSettings() || {};
+  const profitFor = (product, quantity) => {
+    const price = getProductPrice(product.id, quantity);
+    const cost = effectiveUnitCost(product, costCalculationMethod) * quantity;
+    if (!(price > 0) || !(cost > 0)) return null;
+    return profitPercent(price, cost, profitabilityDisplay);
+  };
+
   const handlePriceChange = (productId, quantity, value) => {
     setProductPrices((prev) => ({
       ...prev,
@@ -183,8 +200,10 @@ const BulkPriceEdit = () => {
     const product = products.find((p) => p.id === productId);
     if (product?.prices?.find((p) => p.quantity === quantity)?.price === price) return;
 
-    const cost = (product?.itemCost || 0) * quantity;
-    const percentage = cost > 0 ? Math.round(((price - cost) / price) * 10000) / 100 : 0;
+    // Stored on the price row the way Sell & Cost stores it: unit cost per the
+    // company's cost method x quantity, and the percentage per its display setting.
+    const cost = effectiveUnitCost(product, costCalculationMethod) * quantity;
+    const percentage = cost > 0 ? Math.round(profitPercent(price, cost, profitabilityDisplay) * 100) / 100 : 0;
     try {
       await productService.bulkUpdatePrices([
         { productId, prices: [{ quantity, price, cost, percentage }] },
@@ -412,6 +431,9 @@ const BulkPriceEdit = () => {
               {quantities.map((quantity) => (
                 <TableCell key={quantity} align="center">
                   {quantity}
+                  <Typography component="span" sx={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85 }}>
+                    {profitabilityDisplay === 'Markup' ? 'Markup' : 'Profit'}
+                  </Typography>
                 </TableCell>
               ))}
             </TableRow>
@@ -446,6 +468,12 @@ const BulkPriceEdit = () => {
                         startAdornment: <InputAdornment position="start">$</InputAdornment>,
                       }}
                     />
+                    <Typography sx={{ fontSize: 12, color: '#676b72', mt: 0.5 }}>
+                      {(() => {
+                        const pct = profitFor(product, quantity);
+                        return pct == null ? '–' : `${pct.toFixed(1)}%`;
+                      })()}
+                    </Typography>
                   </TableCell>
                 ))}
               </TableRow>

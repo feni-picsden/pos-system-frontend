@@ -64,6 +64,12 @@ const customerService = {
     return response.data;
   },
 
+  // { [customerId]: balance } as at the end of the given instant's day
+  getBalancesAsOf: async (asOf) => {
+    const response = await apiClient.get('/customers/balances', { params: { asOf } });
+    return response.data;
+  },
+
   getCustomerStatement: async (id, startDate, endDate) => {
     const params = {};
     if (startDate) params.startDate = startDate;

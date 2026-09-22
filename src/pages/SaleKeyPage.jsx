@@ -123,7 +123,7 @@ import { isEftposMethod } from '../services/linklyService';
 import paymentMethodService, { allowsCashOut, getPaymentMethodSettings } from '../services/paymentMethodService';
 import loyaltyService from '../services/loyaltyService';
 import cashManagementService from '../services/cashManagementService';
-import { tiersKey, groupFamilyLines, shareByQuantity, bestRateTier } from '../utils/familyOverride';
+import { tiersKey, groupFamilyLines, chooseFamilyPricing, bestRateTier } from '../utils/familyOverride';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
@@ -242,9 +242,13 @@ const SaleKeyPage = () => {
 
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert, confirm, prompt, notify } = useAppDialogs();
+  // { id, timestamp, nonce } — asks the cart to open a line's discount editor
+  const [discountRequest, setDiscountRequest] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [restoredSale] = useState(readActiveSale);
   const [cart, setCart] = useState(() => (Array.isArray(restoredSale.cart) ? restoredSale.cart : []));
+  // A finished / cleared sale must not leave a stale request behind for the next one.
+  useEffect(() => { if (cart.length === 0) setDiscountRequest(null); }, [cart.length]);
   const [taxRates, setTaxRates] = useState([]);
   const [payments, setPayments] = useState(() =>
     Array.isArray(restoredSale.payments) ? restoredSale.payments : []
@@ -414,6 +418,7 @@ const SaleKeyPage = () => {
 
   const [showGiftCardPopup, setShowGiftCardPopup] = useState(false);
   const [giftCardCode, setGiftCardCode] = useState('');
+  const [giftCardAmount, setGiftCardAmount] = useState(''); // 'sell' mode: the value to put on the card
   const [giftCardLoading, setGiftCardLoading] = useState(false);
   const [giftCardError, setGiftCardError] = useState('');
   // 'sell' = add-gift-card action loads a card as a positive line; 'pay' = redeem a card as a tender.
@@ -3130,6 +3135,7 @@ const SaleKeyPage = () => {
         if (isTransactionComplete) return;
         setGiftCardMode('sell');
         setGiftCardCode('');
+        setGiftCardAmount('');
         setGiftCardError('');
         setShowGiftCardPopup(true);
         break;
@@ -3261,8 +3267,21 @@ const SaleKeyPage = () => {
         await handleAddCustomerClick();
         break;
       case 'apply-discount': {
-        if (!selectedCartItem) { alert('Select a product in the cart to discount.'); return; }
-        const updated = computeConfiguredDiscount(selectedCartItem, saleKey.discountType, saleKey.discountValue);
+        if (isTransactionComplete) return;
+        if (cart.length === 0) { alert('Add a product to the sale before discounting.'); return; }
+        // Same permission the cart's price editor enforces (the key used to skip it).
+        if (!canDiscount) { alert('You do not have permission to discount'); return; }
+        // Reference: the key works on "the currently active product" — the selected
+        // line, else the one added last (it is the active line on the reference).
+        const target = selectedCartItem || cart[cart.length - 1];
+        if (!selectedCartItem) setSelectedCartItem(target);
+        if (!saleKey.discountType) {
+          // No predefined discount on the key: open the line's own discount editor so
+          // the operator enters it (used to be a dead key on the seeded "Discount").
+          setDiscountRequest((prev) => ({ id: target.id, timestamp: target.timestamp, nonce: (prev?.nonce || 0) + 1 }));
+          break;
+        }
+        const updated = computeConfiguredDiscount(target, saleKey.discountType, saleKey.discountValue);
         if (updated) handleDiscountConfirm(updated);
         break;
       }
@@ -3978,6 +3997,7 @@ const SaleKeyPage = () => {
         startEftposGiftCardLoads(cart);
 
         // Decrement any gift cards tendered on this (resumed) sale — exactly once.
+        await loadSoldGiftCards(currentParkedSaleId, cart);
         await redeemPendingGiftCards(currentParkedSaleId);
 
         // Clear parked sale tracking and reload parked sales
@@ -4051,7 +4071,8 @@ const SaleKeyPage = () => {
     // ponytail: autoEmailReceipt (group flag) — auto-send the receipt to the customer's
     // email once the sale exists (needs the real saleId). No-op without flag/email/id.
     maybeAutoEmailReceipt(saleId);
-    // Decrement any gift cards tendered on this sale — exactly once, here.
+    // Put the money on any gift cards SOLD on this sale, then decrement the ones tendered.
+    await loadSoldGiftCards(saleId, cart);
     await redeemPendingGiftCards(saleId);
   };
 
@@ -6295,8 +6316,13 @@ const SaleKeyPage = () => {
   //
   // One pass after every cart change covers every add / quantity / remove path and a
   // restored sale without touching them. Lines that carry their own price keep it: a
-  // promotion, a manual price or discount, a requested price, combos, gift cards and
-  // returns. Only prices that actually differ are rewritten, so it settles at once.
+  // manual price or discount, a requested price, combos, gift cards and returns.
+  // Only prices that actually differ are rewritten, so it settles at once.
+  //
+  // A line on an automatic PROMOTION still belongs to its family (reference): the
+  // family deal and the promotion are both totalled and the cheaper basket is
+  // applied — see chooseFamilyPricing. It used to be left out of the family, so
+  // 3 x VB + 3 x Carlton(promo) cost $25.50 although "6 for $16" was cheaper.
   useEffect(() => {
     if (isTransactionComplete || !Array.isArray(cart) || cart.length === 0) return;
 
@@ -6307,13 +6333,18 @@ const SaleKeyPage = () => {
       if (quantity <= 0) return;
       const product = resolveProductLocal(item.productId, item.name);
       if (!product || product.familyId == null || product.requestPrice) return;
-      // An automatic promotion already prices this line; the promotion keeps it.
-      if (calculatePriceForQuantity(product, quantity) < calculateNormalPriceForQuantity(product, quantity) - 0.005) return;
+      // What this line costs on its own (promotion and price list included) and
+      // without any promotion; cheaper than normal = an automatic promotion prices it.
+      const ownPrice = calculatePriceForQuantity(product, quantity);
+      const ownNormal = calculateNormalPriceForQuantity(product, quantity);
       candidates.push({
         index,
         item,
         product,
         quantity,
+        ownPrice,
+        ownNormal,
+        promoPriced: ownPrice < ownNormal - 0.005,
         familyId: product.familyId,
         tiersKey: tiersKey(effectivePrices(product)),
       });
@@ -6322,25 +6353,27 @@ const SaleKeyPage = () => {
     // cart index -> the price that line should carry
     const targets = new Map();
     for (const group of groupFamilyLines(candidates)) {
-      const totalQuantity = group.reduce((sum, line) => sum + line.quantity, 0);
-      const familyTotal = calculateBasePriceForQuantity(group[0].product, totalQuantity);
-      const shares = shareByQuantity(familyTotal, group.map((line) => line.quantity));
+      const chosen = chooseFamilyPricing(
+        group,
+        (totalQuantity) => calculateBasePriceForQuantity(group[0].product, totalQuantity),
+        (line, share) => computePriceListTotal(line.product, line.quantity, share),
+      );
       group.forEach((line, i) => {
-        const price = Math.round(computePriceListTotal(line.product, line.quantity, shares[i]) * 100) / 100;
+        const { price, familyPriced } = chosen[i];
         // Family pricing is the everyday price, not a promotion: normalPrice follows
-        // it so the footer does not report the family deal as a "saving".
-        targets.set(line.index, { price, normalPrice: price, familyPriced: true });
+        // it so the footer does not report the family deal as a "saving". A line that
+        // keeps its own price (its promotion won) keeps its own normal price too, so
+        // the promotion's saving stays on the footer.
+        targets.set(line.index, familyPriced
+          ? { price, normalPrice: price, familyPriced: true }
+          : { price: line.ownPrice, normalPrice: line.ownNormal, familyPriced: false });
       });
     }
     // A line that was family-priced but no longer has a family partner in the cart
     // (the other line was removed) goes back to its own price.
     candidates.forEach((line) => {
       if (targets.has(line.index) || !line.item.familyPriced) return;
-      targets.set(line.index, {
-        price: calculatePriceForQuantity(line.product, line.quantity),
-        normalPrice: calculateNormalPriceForQuantity(line.product, line.quantity),
-        familyPriced: false,
-      });
+      targets.set(line.index, { price: line.ownPrice, normalPrice: line.ownNormal, familyPriced: false });
     });
 
     let changed = false;
@@ -6711,6 +6744,10 @@ const SaleKeyPage = () => {
     setGiftCardError('');
 
     try {
+      if (giftCardMode === 'sell') {
+        await addGiftCardLine();
+        return;
+      }
       const giftCard = await giftCardService.getGiftCardByCode(giftCardCode.trim());
       
       if (!giftCard) {
@@ -6735,13 +6772,24 @@ const SaleKeyPage = () => {
       // balance or the card's balance as a tender, and queue the code+amount to decrement ONCE
       // at sale completion (backend sales.js never touches the card, so no double-redeem).
       if (giftCardMode === 'pay') {
+        const code = giftCardCode.trim();
         const remaining = Math.max(0, calculateRemainingBalance());
-        const amount = Math.round(Math.min(remaining, cardBalance) * 100) / 100;
+        // The card is only decremented when the sale completes, so its balance here is
+        // still the full one. Using the same card twice in a sale must not spend the
+        // money already tendered from it (a $64.50 card used to "pay" a whole $100).
+        const alreadyTendered = pendingGiftCardRef.current
+          .filter((g) => String(g.code).toLowerCase() === code.toLowerCase())
+          .reduce((sum, g) => sum + (parseFloat(g.amount) || 0), 0);
+        const cardLeft = Math.round((cardBalance - alreadyTendered) * 100) / 100;
+        if (alreadyTendered > 0 && cardLeft <= 0) {
+          setGiftCardError(`This gift card is already fully used on this sale ($${alreadyTendered.toFixed(2)}).`);
+          return;
+        }
+        const amount = Math.round(Math.min(remaining, cardLeft) * 100) / 100;
         if (amount <= 0) {
           setGiftCardError('Nothing left to pay on this sale.');
           return;
         }
-        const code = giftCardCode.trim();
         // Record the redemption BEFORE adding the tender: adding a fully-covering tender
         // schedules completion, which reads this ref — it must already hold the entry.
         // Capture the card's display figures here (the record is in hand) so the
@@ -6751,7 +6799,7 @@ const SaleKeyPage = () => {
           code,
           amount,
           original: parseFloat(giftCard.originalAmount) || cardBalance,
-          current: Math.round((cardBalance - amount) * 100) / 100,
+          current: Math.round((cardLeft - amount) * 100) / 100,
           expiry: giftCard.expiryDate ? new Date(giftCard.expiryDate).toLocaleDateString() : '',
         }];
         await handleAddPaymentFromDialog({
@@ -6766,26 +6814,72 @@ const SaleKeyPage = () => {
         return;
       }
 
-      const newItem = {
-        id: `gift-card-${Date.now()}`,
-        productId: null,
-        giftCardId: giftCard.id,
-        name: `Gift Card - ${giftCardCode.trim()}`,
-        price: giftCard.balance,
-        quantity: 1,
-        timestamp: Date.now(),
-        action: 'add-gift-card',
-        giftCardCode: giftCardCode.trim()
-      };
-
-      setCart(prev => [...prev, newItem]);
-      setShowGiftCardPopup(false);
-      setGiftCardCode('');
     } catch (error) {
       console.error('Error looking up gift card:', error);
       setGiftCardError('Gift card not found or error occurred');
     } finally {
       setGiftCardLoading(false);
+    }
+  };
+
+  // SELL a gift card (reference "Add Gift Card": the amount the customer wants on the
+  // card + the card's code). The line ADDS to the sale; the card itself is created /
+  // topped up only when the sale completes (loadSoldGiftCards), so a cleared or
+  // cancelled sale never leaves money on a card.
+  const addGiftCardLine = async () => {
+    const code = giftCardCode.trim();
+    const amount = Math.round((parseFloat(giftCardAmount) || 0) * 100) / 100;
+    if (!(amount > 0)) {
+      setGiftCardError('Enter the amount to put on the gift card');
+      return;
+    }
+    // One line per card: adding the same code again silently doubled the charge.
+    if (cart.some((i) => i.action === 'add-gift-card' && String(i.giftCardCode).toLowerCase() === code.toLowerCase())) {
+      setGiftCardError('This gift card is already in the sale. Remove that line to change its amount.');
+      return;
+    }
+    const check = await giftCardService.checkGiftCardCode(code);
+    if (check.exists && !check.usable) {
+      setGiftCardError(check.reason || 'This gift card cannot be used');
+      return;
+    }
+    if (check.exists) {
+      const balance = parseFloat(check.balance) || 0;
+      const ok = await confirm(
+        `Gift card ${code} already exists with a balance of $${balance.toFixed(2)}. Top it up by $${amount.toFixed(2)}?`,
+        { title: 'Top up gift card' },
+      );
+      if (!ok) return;
+    }
+    const stamp = Date.now();
+    setCart((prev) => [...prev, {
+      id: `gift-card-${stamp}`,
+      productId: null,
+      giftCardId: `card-${code}`, // marks the line as a gift card (no case / family / promo logic)
+      name: `Gift Card - ${code}`,
+      price: amount,
+      quantity: 1,
+      timestamp: stamp,
+      action: 'add-gift-card',
+      giftCardCode: code,
+    }]);
+    setShowGiftCardPopup(false);
+    setGiftCardCode('');
+    setGiftCardAmount('');
+  };
+
+  // After the sale is saved: put the money on every gift card it sold. The backend
+  // load is idempotent per (sale, card, amount), so a retry cannot load twice.
+  const loadSoldGiftCards = async (saleId, lines) => {
+    for (const line of (lines || []).filter((i) => i.action === 'add-gift-card' && i.giftCardCode)) {
+      const amount = Math.round((parseFloat(line.price) || 0) * 100) / 100;
+      if (!(amount > 0)) continue; // a returned / zeroed line loads nothing
+      try {
+        await giftCardService.loadGiftCard(line.giftCardCode, amount, { saleId });
+      } catch (e) {
+        console.warn('[GiftCard] Load failed for', line.giftCardCode, e?.message || e);
+        notify(`Gift card ${line.giftCardCode} could not be loaded: ${e?.response?.data?.error || 'load it from Customers > Gift Cards'}`, 'error');
+      }
     }
   };
 
@@ -8276,6 +8370,7 @@ const SaleKeyPage = () => {
               </Box>
             ) : (
               <CartSidebar
+                discountRequest={discountRequest}
                 isTransactionComplete={isTransactionComplete}
                 receiptData={receiptData}
                 selectedTemplate={selectedTemplate}
@@ -8478,7 +8573,7 @@ const SaleKeyPage = () => {
         open={showControlTakenDialog}
         icon={<InfoOutlinedIcon sx={{ fontSize: 'inherit' }} />}
         title="Register Takeover"
-        message={`${controlTakenByName} has taken over this register.`}
+        message={`${controlTakenByName} has taken over this register on another device. Only one device can use a register at a time.`}
         actions={[
           {
             label: 'Choose Location',
@@ -8548,12 +8643,30 @@ const SaleKeyPage = () => {
           </Box>
 
           <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-            Gift Card Code
+            {giftCardMode === 'sell' ? 'Add Gift Card' : 'Redeem Gift Card'}
           </Typography>
 
           <Typography variant="body1" sx={{ mb: 4, color: 'text.secondary' }}>
-            Please enter or scan the gift card's code
+            {giftCardMode === 'sell'
+              ? "Enter the amount the customer wants on the gift card, then enter or scan the card's code"
+              : "Please enter or scan the gift card's code"}
           </Typography>
+
+          {giftCardMode === 'sell' && (
+            <TextField
+              fullWidth
+              autoFocus
+              type="number"
+              value={giftCardAmount}
+              onChange={(e) => setGiftCardAmount(e.target.value)}
+              placeholder="Amount"
+              variant="outlined"
+              inputProps={{ min: 0, step: '0.01' }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+              sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '1.1rem' } }}
+              disabled={giftCardLoading}
+            />
+          )}
 
           <TextField
             fullWidth

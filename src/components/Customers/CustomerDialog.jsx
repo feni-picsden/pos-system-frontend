@@ -25,7 +25,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import CreatableAutocomplete from '../Common/CreatableAutocomplete';
 
 const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
-  const { isTrueSuperAdmin, getOutletId } = useAuth();
+  const { isTrueSuperAdmin, getOutletId, getOutletName } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -423,7 +423,8 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
           )}
 
           {/* Info for non-super admin users */}
-          {!isTrueSuperAdmin() && (
+          {/* only when ADDING: an existing customer is not being "created" anywhere */}
+          {!isTrueSuperAdmin() && !customer && (
             <Box sx={{ 
               p: 2, 
               bgcolor: 'info.light', 
@@ -432,7 +433,7 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
               borderColor: 'info.main'
             }}>
               <Typography variant="body2" color="info.contrastText">
-                This customer will be created in your assigned outlet: <strong>{outlets.find(o => o.id === getOutletId())?.name || 'Your Outlet'}</strong>
+                This customer will be created in your assigned outlet{getOutletName() ? <>: <strong>{getOutletName()}</strong></> : ''}
               </Typography>
             </Box>
           )}

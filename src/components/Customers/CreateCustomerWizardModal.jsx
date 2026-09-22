@@ -44,7 +44,7 @@ const steps = [
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
 const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDetailsModal }) => {
-  const { isTrueSuperAdmin, getOutletId, user } = useAuth();
+  const { isTrueSuperAdmin, getOutletId, getOutletName, user } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
   // Custom Page Rule (Settings > Page Rules > Customers). When a valid rule is
   // stored it replaces this built-in wizard; a broken rule falls back here.
@@ -324,7 +324,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                   mb: 2
                 }}>
                   <Typography variant="body2" sx={{ color: '#ffffff' }}>
-                    This customer will be created in your assigned outlet: <strong>{outlets.find(o => o.id === getOutletId())?.name || 'Your Outlet'}</strong>
+                    This customer will be created in your assigned outlet{getOutletName() ? <>: <strong>{getOutletName()}</strong></> : ''}
                   </Typography>
                 </Box>
               )}

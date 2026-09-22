@@ -318,6 +318,9 @@ const Balance = () => {
   const [appliedMaxBalance, setAppliedMaxBalance] = useState("");
   // ...and neither is the customer group (reference: nothing changes until Filter)
   const [appliedCustomerGroup, setAppliedCustomerGroup] = useState("");
+  // "Balances as of", applied by Filter like the other criteria. null = today (live
+  // balances); otherwise { date, balances: { [customerId]: owed at the end of that day } }.
+  const [appliedAsOf, setAppliedAsOf] = useState(null);
   const [viewStatementDialogOpen, setViewStatementDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   // Statement run: one customer (row action) or every filtered customer (View All Statements)
@@ -397,7 +400,7 @@ const Balance = () => {
 
   useEffect(() => {
     filterCustomers();
-  }, [customers, searchTerm, appliedCustomerGroup, appliedMinBalance, appliedMaxBalance]);
+  }, [customers, searchTerm, appliedCustomerGroup, appliedMinBalance, appliedMaxBalance, appliedAsOf]);
 
   // Deep link from the customer page ("View Statement" on Balance & Payments):
   // /customers/balance?customerId=31 opens that customer's statement dialog.
@@ -436,6 +439,12 @@ const Balance = () => {
     }
   };
 
+  // The balance the LIST shows: today's live figure, or the as-of one once a date has
+  // been filtered. A customer with no activity by that day owed nothing.
+  const balanceOf = (customer) => (appliedAsOf
+    ? parseFloat(appliedAsOf.balances[customer.id] || 0)
+    : parseFloat(customer.currentOwing || 0));
+
   const filterCustomers = () => {
     let filtered = customers.filter((customer) => {
       const matchesSearch =
@@ -447,7 +456,7 @@ const Balance = () => {
         !appliedCustomerGroup ||
         customer.customerGroupId?.toString() === appliedCustomerGroup;
 
-      const currentBalance = parseFloat(customer.currentOwing || 0);
+      const currentBalance = balanceOf(customer);
       // A non-numeric bound must be ignored, not silently empty the whole list.
       const min = Number.isFinite(parseFloat(appliedMinBalance)) ? parseFloat(appliedMinBalance) : -Infinity;
       const max = Number.isFinite(parseFloat(appliedMaxBalance)) ? parseFloat(appliedMaxBalance) : Infinity;
@@ -460,14 +469,30 @@ const Balance = () => {
   };
 
   // Help docs: "enter a minimum and a maximum customer balance and then press Filter"
-  const handleApplyFilter = () => {
+  const handleApplyFilter = async () => {
+    // The date used to be ignored entirely: every day showed today's balances.
+    if (balanceDate) {
+      try {
+        const dayEnd = new Date(balanceDate);
+        dayEnd.setHours(23, 59, 59, 999); // the picked LOCAL day, through its last instant
+        const { balances } = await customerService.getBalancesAsOf(dayEnd.toISOString());
+        setAppliedAsOf({ date: new Date(balanceDate), balances: balances || {} });
+        setError("");
+      } catch (err) {
+        console.error("Error loading balances as of date:", err);
+        setError("Failed to load the balances for that date");
+        return; // keep the list as it was rather than mixing criteria
+      }
+    } else {
+      setAppliedAsOf(null);
+    }
     setAppliedMinBalance(minBalance);
     setAppliedMaxBalance(maxBalance);
     setAppliedCustomerGroup(selectedCustomerGroup);
   };
 
   const totalBalance = filteredCustomers.reduce(
-    (sum, customer) => sum + parseFloat(customer.currentOwing || 0),
+    (sum, customer) => sum + balanceOf(customer),
     0
   );
 
@@ -505,8 +530,13 @@ const Balance = () => {
 
   const buildStatement = async (customer) => {
     // Fetch statement data from API
-    const startDate = statementDateRange[0].toISOString().split('T')[0];
-    const endDate = statementDateRange[1].toISOString().split('T')[0];
+    // The picked LOCAL days, first instant to last instant. `toISOString().split('T')[0]`
+    // shifted them to UTC — east of Greenwich that is the PREVIOUS day — and the end date
+    // landed on 00:00, so a one-day statement (17/09 - 17/09) came back empty.
+    const dayStart = new Date(statementDateRange[0]); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(statementDateRange[1]); dayEnd.setHours(23, 59, 59, 999);
+    const startDate = dayStart.toISOString();
+    const endDate = dayEnd.toISOString();
     const statementData = await customerService.getCustomerStatement(
       customer.id,
       startDate,
@@ -1046,7 +1076,9 @@ const Balance = () => {
               }}
             >
               <TableCell sx={{ width: "40%" }}>Customer</TableCell>
-              <TableCell sx={{ width: "20%" }}>Total Balance</TableCell>
+              <TableCell sx={{ width: "20%" }}>
+                Total Balance{appliedAsOf ? ` as of ${appliedAsOf.date.toLocaleDateString("en-AU")}` : ""}
+              </TableCell>
               <TableCell sx={{ width: "40%" }} align="center">
                 Actions
               </TableCell>
@@ -1071,7 +1103,7 @@ const Balance = () => {
                     )}
                   </Box>
                 </TableCell>
-                <TableCell>{formatCurrency(customer.currentOwing)}</TableCell>
+                <TableCell>{formatCurrency(balanceOf(customer))}</TableCell>
                 <TableCell align="center">
                   <Box
                     sx={{
@@ -1417,8 +1449,15 @@ const Balance = () => {
                   </TableHead>
                   <TableBody>
                     {generatedStatement.data.activities && generatedStatement.data.activities.length > 0 ? (
-                      generatedStatement.data.activities.map((activity, index) => (
-                        <TableRow key={index}>
+                      generatedStatement.data.activities.map((activity, index, rows) => (
+                        // Reference: a dotted line separates the overdue invoices (from
+                        // before the range) from the range's own transactions.
+                        <TableRow
+                          key={index}
+                          sx={activity.overdue && !rows[index + 1]?.overdue
+                            ? { '& td': { borderBottom: '2px dotted #676b72' } }
+                            : undefined}
+                        >
                           <TableCell>
                             {new Date(activity.date).toLocaleDateString('en-GB', {
                               day: '2-digit',
@@ -1426,7 +1465,7 @@ const Balance = () => {
                               year: 'numeric'
                             })}
                           </TableCell>
-                          <TableCell>{activity.activity}</TableCell>
+                          <TableCell>{activity.overdue ? `${activity.activity} (Overdue)` : activity.activity}</TableCell>
                           <TableCell>{activity.reference || '-'}</TableCell>
                           <TableCell>
                             {formatCurrency(activity.total)}
