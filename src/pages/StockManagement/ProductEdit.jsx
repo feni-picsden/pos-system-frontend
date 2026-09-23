@@ -507,6 +507,11 @@ const TabPanel = ({ children, value, index, ...other }) => (
   </div>
 );
 
+// Supplier "Replacement Cost": the DB keeps this sentinel string for "no
+// supplier-specific cost, use the product's" — the form shows it as a placeholder.
+const INHERIT_COST = 'Inherit From Product';
+const isInheritCost = (v) => v === undefined || v === null || v === '' || v === INHERIT_COST;
+
 const ProductEdit = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert, prompt, confirm, notify } = useAppDialogs();
@@ -1769,7 +1774,8 @@ const ProductEdit = () => {
       <Box sx={{ backgroundColor: 'rgb(226, 232, 240)', flexShrink: 0 }}>
         <Box sx={{ maxWidth: '820px', margin: '0 auto', padding: '24px 24px 16px' }}>
           <Typography sx={{ fontSize: 20, fontWeight: 700, color: 'rgb(90, 90, 90)' }}>
-            {isNewProduct ? 'Creating' : 'Editing'} <Box component="span" sx={{ color: '#000' }}>{formData.name || ''}</Box>
+            {/* Until a name is typed the band read just "Creating" — fall back to "Product". */}
+            {isNewProduct ? 'Creating' : 'Editing'} <Box component="span" sx={{ color: '#000' }}>{formData.name || 'Product...'}</Box>
           </Typography>
         </Box>
 
@@ -3221,16 +3227,22 @@ const ProductEdit = () => {
                         </Box>
                       </Grid>
                       <Grid item xs={12}>
+                        {/* Reference: a $ number box; "Inherit From Product" is the grey
+                            placeholder for an EMPTY value (stored as that sentinel). */}
                         <TextField
                           fullWidth
                           label="Replacement Cost"
                           size="small"
-                          value={supplier.replacementCost || 'Inherit From Product'}
+                          type="number"
+                          placeholder="Inherit From Product"
+                          value={isInheritCost(supplier.replacementCost) ? '' : supplier.replacementCost}
                           onChange={(e) => {
                             const newSuppliers = [...formData.suppliers];
-                            newSuppliers[index].replacementCost = e.target.value;
+                            newSuppliers[index].replacementCost = e.target.value === '' ? INHERIT_COST : e.target.value;
                             handleInputChange('suppliers', newSuppliers);
                           }}
+                          inputProps={{ min: 0, step: '0.01' }}
+                          InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                         />
                       </Grid>
                     </Grid>
@@ -3336,8 +3348,12 @@ const ProductEdit = () => {
                               fullWidth
                               label="Replacement Cost"
                               size="small"
-                              value={supplierFormData.replacementCost}
-                              onChange={(e) => handleSupplierFormChange('replacementCost', e.target.value)}
+                              type="number"
+                              placeholder="Inherit From Product"
+                              value={isInheritCost(supplierFormData.replacementCost) ? '' : supplierFormData.replacementCost}
+                              onChange={(e) => handleSupplierFormChange('replacementCost', e.target.value === '' ? INHERIT_COST : e.target.value)}
+                              inputProps={{ min: 0, step: '0.01' }}
+                              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                             />
                           </Grid>
                         </Grid>

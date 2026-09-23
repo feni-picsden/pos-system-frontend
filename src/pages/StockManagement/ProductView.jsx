@@ -27,6 +27,8 @@ import {
 } from "@mui/icons-material";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import productService from "../../services/productService";
+import settingsService from "../../services/settingsService";
+import { pricingUnitCost, profitPercent } from "../../utils/productCost";
 import { priceSourceLabel } from "../../utils/priceSourceLabel";
 import { priceSetService } from "../../services/priceSetService";
 import PageLoader from "../../components/Common/PageLoader";
@@ -116,6 +118,21 @@ const ProductView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [product, setProduct] = useState(null);
+  // The price table's Cost/% follow Setup > General ("Set Prices Based On",
+  // "Cost Calculation Method", "Profitability Display") — same helper as Product
+  // Edit. The sync cache read only returns defaults until the blob has loaded, so
+  // await it and re-render (see the same note in ProductEdit).
+  const [generalSettings, setGeneralSettings] = useState(
+    () => settingsService.getCachedGeneralSettings() || {}
+  );
+  useEffect(() => {
+    let cancelled = false;
+    settingsService
+      .loadCachedGeneralSettings()
+      .then((loaded) => { if (!cancelled && loaded) setGeneralSettings(loaded); })
+      .catch(() => { /* defaults already in state */ });
+    return () => { cancelled = true; };
+  }, []);
   const sectionParam = searchParams.get("section");
   const activeTab = NAV_ITEMS.some((n) => n.id === sectionParam)
     ? sectionParam
@@ -866,9 +883,12 @@ const ProductView = () => {
                   .map((p, idx) => {
                     const qty = p.quantity || 1;
                     const price = Number(p.price) || 0;
-                    // Cost is derived from the product cost; stored 0 (legacy bad rows) falls back too
-                    const cost = Number(p.cost) || (Number(product?.itemCost || 0) * qty) || 0;
-                    const margin = price > 0 ? (((price - cost) / price) * 100) : 0;
+                    // Reference: the Cost column is the product's CURRENT cost (per
+                    // "Set Prices Based On" / Cost Calculation Method), not the snapshot
+                    // saved on the price row - that only refreshed on a product Save, so
+                    // a received invoice left it (and the %) stale.
+                    const cost = pricingUnitCost(product, generalSettings) * qty;
+                    const margin = profitPercent(price, cost, generalSettings.profitabilityDisplay);
                     return (
                       <TableRow key={`price-${idx}`}>
                         <TableCell sx={{ padding: "16px 10px !important" }}>
