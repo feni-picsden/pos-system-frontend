@@ -859,7 +859,8 @@ const Products = () => {
                 <TableCell>Inventory</TableCell>
                 <TableCell>Price</TableCell>
                 <TableCell>Performance</TableCell>
-                <TableCell>Actions</TableCell>
+                {/* Centred like the row cell so the label sits over the three buttons. */}
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody
@@ -955,13 +956,14 @@ const Products = () => {
                     <TableCell>
                       <PerformanceSparkline productId={product.id} width={120} height={30} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="center">
                       <Box
                         sx={{
                           display: "flex",
                           flexDirection: "row",
                           alignItems: "center",
-                          gap: 2,
+                          justifyContent: "center",
+                          gap: 3,
                         }}
                       >
                         <Button

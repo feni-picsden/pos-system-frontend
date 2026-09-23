@@ -1232,7 +1232,8 @@ const Promotions = () => {
                 <TableCell sx={{ width: '20%' }}>Start</TableCell>
                 <TableCell sx={{ width: '20%' }}>End</TableCell>
                 <TableCell sx={{ width: '16.8%' }}>Outlets</TableCell>
-                <TableCell sx={{ pr: '20px', width: '20%' }}>Actions</TableCell>
+                {/* Centred, same as the row cell, so the label sits over the three buttons. */}
+                <TableCell align="center" sx={{ width: '20%' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody
@@ -1306,8 +1307,8 @@ const Promotions = () => {
                         </Box>
                       )}
                     </TableCell>
-                    <TableCell align="right" sx={{ pr: '20px' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                         <Button
                           disableRipple
                           startIcon={<ViewIcon />}

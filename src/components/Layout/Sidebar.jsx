@@ -133,7 +133,7 @@ const menuItems = [
         id: "classifications",
         title: "Classifications",
         icon: <Category />,
-        path: "/stock-management/classifications",
+        path: "/classifications",
         permissions: ["classifications.view"],
       },
     

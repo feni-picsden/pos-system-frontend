@@ -69,7 +69,10 @@ const SaleKey = () => {
   const [error, setError] = useState('');
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [colorPickerType, setColorPickerType] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [snackbar, setSnackbarState] = useState({ open: false, message: '', severity: 'success', nonce: 0 });
+  // Every new message gets a fresh nonce, used as the Snackbar's `key`, so adding a
+  // second key within the 3s window restarts the auto-hide instead of being a no-op.
+  const setSnackbar = (next) => setSnackbarState({ ...next, nonce: next.open ? Date.now() : snackbar.nonce });
   const [availableProducts, setAvailableProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [availableFolders, setAvailableFolders] = useState([]);
@@ -1657,9 +1660,15 @@ const SaleKey = () => {
 
       {/* Snackbar */}
       <Snackbar
+        key={snackbar.nonce}
         open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        // Ignore "clickaway": the click that adds the next key landed outside the
+        // toast and closed it instantly, so every second add showed no message.
+        onClose={(event, reason) => {
+          if (reason === 'clickaway') return;
+          setSnackbar({ ...snackbar, open: false });
+        }}
         // Top centre, matching SaleKeyEditor - the default bottom-left corner
         // sat under the grid, furthest from the key the message is about.
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}

@@ -221,7 +221,7 @@ const ClassificationAssignment = () => {
       setSaving(true);
       if (toAssign.length) await classificationService.assignProducts(id, toAssign, 'assign');
       if (toUnassign.length) await classificationService.assignProducts(id, toUnassign, 'unassign');
-      navigate('/stock-management/classifications');
+      navigate('/classifications');
     } catch (err) {
       setError('Failed to save changes');
       console.error('Error saving classification assignments:', err);

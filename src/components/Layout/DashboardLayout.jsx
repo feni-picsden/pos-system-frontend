@@ -353,6 +353,18 @@ const DashboardLayout = ({ children }) => {
   const draftQuickItems = (items) => setQuickItems(withSellScreen(items));
   const updateQuickItem = (idx, patch) =>
     draftQuickItems(quickItems.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  // Cancel puts back the list as it was when the editor opened (edits are drafted
+  // straight into the on-screen list, so there is nothing else to undo from).
+  const quickItemsOnOpenRef = React.useRef([]);
+  const openQuickEditor = () => {
+    quickItemsOnOpenRef.current = quickItems;
+    setQuickOpen(false);
+    setQuickEditOpen(true);
+  };
+  const cancelQuickEditor = () => {
+    setQuickEditOpen(false);
+    setQuickItems(quickItemsOnOpenRef.current);
+  };
   const closeQuickEditor = () => {
     setQuickEditOpen(false);
     persistQuickItems(quickItems);
@@ -667,7 +679,7 @@ const DashboardLayout = ({ children }) => {
                         <Box
                           component="button"
                           type="button"
-                          onClick={() => { setQuickOpen(false); setQuickEditOpen(true); }}
+                          onClick={openQuickEditor}
                           title="Edit Quick Menu"
                           aria-label="Edit Quick Menu"
                           sx={{ ...quickToolSx, border: 0, p: 0 }}
@@ -1139,7 +1151,7 @@ const DashboardLayout = ({ children }) => {
       </Drawer>
 
       {/* Quick Menu editor */}
-      <Dialog open={quickEditOpen} onClose={closeQuickEditor} maxWidth="md" fullWidth>
+      <Dialog open={quickEditOpen} onClose={cancelQuickEditor} maxWidth="md" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Quick Menu</DialogTitle>
         <DialogContent>
           {quickItems.map((item, idx) => {
@@ -1181,9 +1193,28 @@ const DashboardLayout = ({ children }) => {
             + Add
           </Button>
         </DialogContent>
-        <DialogActions>
+        {/* Same inset as the content (24px) so the buttons line up with the rows above. */}
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, gap: 1.25 }}>
+          <Button
+            onClick={cancelQuickEditor}
+            disableElevation
+            sx={{
+              bgcolor: '#8a8d91',
+              color: '#fff',
+              borderRadius: '12px',
+              height: 42,
+              fontWeight: 700,
+              fontSize: 16,
+              textTransform: 'none',
+              px: 3,
+              '&:hover': { bgcolor: '#76797d' },
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             onClick={closeQuickEditor}
+            disableElevation
             sx={{
               bgcolor: '#5ebbeb',
               color: '#fff',
@@ -1193,8 +1224,7 @@ const DashboardLayout = ({ children }) => {
               fontSize: 16,
               textTransform: 'none',
               px: 3,
-              boxShadow: 'none',
-              '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+              '&:hover': { bgcolor: '#4aa9dd' },
             }}
           >
             Done

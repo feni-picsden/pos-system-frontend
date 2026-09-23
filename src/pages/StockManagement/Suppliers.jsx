@@ -721,7 +721,7 @@ const Suppliers = () => {
               >
                 {/* reference column split: 35.5% / 21.6% / 37.3% / 105px */}
                 <TableCell sx={{ width: '35.5%' }}>Name</TableCell>
-                <TableCell sx={{ width: '21.6%' }}>Product Count</TableCell>
+                <TableCell align="center" sx={{ width: '21.6%' }}>Product Count</TableCell>
                 <TableCell sx={{ width: '37.3%' }}>Performance</TableCell>
                 <TableCell sx={{ width: 105, whiteSpace: 'nowrap' }}>Actions</TableCell>
               </TableRow>
@@ -740,7 +740,7 @@ const Suppliers = () => {
                       {supplier.name}
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell align="center">
                     <Typography sx={{ fontSize: 16, color: '#000' }}>
                       {supplier.productCount || 0}
                     </Typography>

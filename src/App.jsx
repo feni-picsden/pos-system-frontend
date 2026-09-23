@@ -183,7 +183,8 @@ const SetupToSettingsRedirect = () => {
 // Anything not listed still lands on NotFound.
 const ROUTE_ALIASES = [
   // reference spellings
-  [/^\/classifications(?=\/|$)/, '/stock-management/classifications'],
+  // Classifications moved to the root (reference: /classifications); old links forward.
+  [/^\/stock-management\/classifications(?=\/|$)/, '/classifications'],
   [/^\/stock\/prices(?=\/|$)/, '/stock-management/bulk-price-edit'],
   [/^\/stock\/list(?=\/|$)/, '/stock-management/stock-list'],
   [/^\/stock\/stocktaker(?=\/|$)/, '/stock-management/stocktakes'],
@@ -193,6 +194,9 @@ const ROUTE_ALIASES = [
   [/^\/stock\/more(?=\/|$)/, '/stock-management/more'],
   [/^\/stock(?=\/|$)/, '/stock-management'],
   [/^\/orders(?=\/|$)/, '/orders-invoices'],
+  // Reference report URLs; /revisions/<product id> opens the report with that product picked.
+  [/^\/reports\/misc\/revisions\/(\d+)$/, '/reports/product-revision-history?productId=$1'],
+  [/^\/reports\/misc\/revisions$/, '/reports/product-revision-history'],
   // "everything stock lives under the prefix" guesses
   [/^\/stock-management\/products(?=\/|$)/, '/products'],
   [/^\/stock-management\/suppliers(?=\/|$)/, '/suppliers'],
@@ -522,7 +526,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/stock-management/classifications"
+                          path="/classifications"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["classifications.view"]}
@@ -532,7 +536,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/stock-management/classifications/:id"
+                          path="/classifications/:id"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["classifications.view"]}
@@ -542,7 +546,7 @@ function App() {
                           }
                         />
                         <Route
-                          path="/stock-management/classifications/:id/assign"
+                          path="/classifications/:id/assign"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["classifications.edit"]}
@@ -1053,7 +1057,7 @@ function App() {
                           path="/reports/product-revision-history"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["products.view"]}
+                              requiredPermissions={["run_actions_reports"]}
                             >
                               <ProductRevisionHistory />
                             </PermissionProtectedRoute>

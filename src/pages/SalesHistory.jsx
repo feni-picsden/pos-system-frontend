@@ -41,6 +41,10 @@ const labelSx = { fontSize: 12, color: "#676b72", mb: 0.5, lineHeight: 1.2 };
 
 // .sales-history-filter — one grid cell, 1rem of padding.
 const cellSx = { p: "16px", minWidth: 0 };
+// Combo/text cells carry their label INSIDE the box, while Date and Amount have
+// a caption above theirs; bottom-aligning the box keeps every field on one
+// baseline across the row instead of the combo sitting a caption higher.
+const fieldCellSx = { ...cellSx, display: "flex", flexDirection: "column", justifyContent: "flex-end" };
 
 const fieldSx = {
   width: "100%",
@@ -578,7 +582,7 @@ const SalesHistory = () => {
     const selected =
       options.find((o) => String(o.value) === String(filters[field])) || null;
     return (
-      <Box sx={cellSx}>
+      <Box sx={fieldCellSx}>
       <Autocomplete
         options={options}
         value={selected}
@@ -596,7 +600,7 @@ const SalesHistory = () => {
   };
 
   const renderText = (label, field) => (
-    <Box sx={cellSx}>
+    <Box sx={fieldCellSx}>
       <TextField
         size="small"
         label={label}

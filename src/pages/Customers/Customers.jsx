@@ -70,7 +70,8 @@ const rowActionSx = (color) => ({
   fontSize: 16,
   height: 42,
   borderRadius: '12px',
-  px: 4.25,
+  minWidth: 0,
+  px: 1.5, // same footprint as the Products / Promotions / Orders row actions
   transition: 'none',
   '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
 });
@@ -634,7 +635,7 @@ const Customers = () => {
                 <TableCell>Group</TableCell>
                 <TableCell>Contact</TableCell>
                 <TableCell>Performance</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody
@@ -680,8 +681,8 @@ const Customers = () => {
                       showAmount={false}
                     />
                   </TableCell>
-                  <TableCell align="right">
-                    <Box sx={{ display: 'flex', gap: 3, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center' }}>
                       <Button
                         component={RouterLink}
                         to={`/customers/${customer.id}/view`}

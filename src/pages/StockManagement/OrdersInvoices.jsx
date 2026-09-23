@@ -809,14 +809,17 @@ const OrdersInvoices = () => {
               }}
             >
               <TableCell sx={{ width: 48 }} />
-              <TableCell sx={{ width: '26%' }}>From</TableCell>
-              <TableCell sx={{ width: '20%' }}>To</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Invoice Number</TableCell>
-              <TableCell>Reference</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell />
-              <TableCell>Actions</TableCell>
+              {/* From / To values are left-aligned text blocks; their labels follow them. */}
+              {/* Even split: From/To used to take 46% between them, squeezing the rest. */}
+              <TableCell sx={{ width: '15%', textAlign: 'left !important' }}>From</TableCell>
+              <TableCell sx={{ width: '15%', textAlign: 'left !important' }}>To</TableCell>
+              <TableCell sx={{ width: '10%' }}>Date</TableCell>
+              <TableCell sx={{ width: '12%' }}>Invoice Number</TableCell>
+              <TableCell sx={{ width: '10%' }}>Reference</TableCell>
+              <TableCell sx={{ width: '8%' }}>Status</TableCell>
+              <TableCell sx={{ width: '8%' }} />
+              {/* Wide enough for View + Edit + Receive on one line. */}
+              <TableCell sx={{ width: '20%', whiteSpace: 'nowrap' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody
@@ -877,7 +880,7 @@ const OrdersInvoices = () => {
                       {item.status}
                     </Box>
                   </TableCell>
-                  <TableCell>
+                  <TableCell align="center">
                     <Typography sx={{ fontSize: 16, color: '#000', fontWeight: 700, lineHeight: 1.2 }}>
                       {formatCurrency(item.totalAmount)}
                     </Typography>

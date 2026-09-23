@@ -283,7 +283,7 @@ const ClassificationDetails = () => {
     try {
       setDeleting(true);
       await classificationService.deleteClassification(id);
-      navigate('/stock-management/classifications');
+      navigate('/classifications');
     } catch (err) {
       setError('Failed to delete classification');
       console.error('Error deleting classification:', err);
@@ -664,7 +664,7 @@ const ClassificationDetails = () => {
       label: 'Assign',
       icon: CallSplitOutlinedIcon,
       description: `Assign products to the ${typeLower}`,
-      to: `/stock-management/classifications/${id}/assign`
+      to: `/classifications/${id}/assign`
     }
   ];
 

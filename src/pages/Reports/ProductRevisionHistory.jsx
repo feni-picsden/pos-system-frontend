@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -41,6 +42,7 @@ import {
 } from 'date-fns';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import productService from '../../services/productService';
+import { userService } from '../../services/userService';
 
 const PRODUCT_FIELD_OPTIONS = [
   'active',
@@ -93,10 +95,10 @@ const toolbarBtnSx = (minWidth) => ({
   '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
 });
 
-// Reference filter field: 452x42, 8px radius, 1px #5e5e5e rail.
+// Reference filter field: 42px tall, 8px radius, 1px #5e5e5e rail; the four
+// fields share one row equally (flex: 1 in the row below).
 const fieldSx = {
-  width: 452,
-  maxWidth: '100%',
+  width: '100%',
   bgcolor: '#fff',
   '& .MuiOutlinedInput-root': {
     minHeight: 42,
@@ -108,6 +110,9 @@ const fieldSx = {
     '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
   },
   '& .MuiInputLabel-root': { fontSize: 16, color: 'rgba(103,107,114,0.6)' },
+  // Resting label sits vertically centred in the 44px box, 16px in — same spot
+  // as the date field's placeholder text beside it.
+  '& .MuiInputLabel-root:not(.MuiInputLabel-shrink)': { transform: 'translate(16px, 11px) scale(1)' },
   '& .MuiInputLabel-root.MuiInputLabel-shrink': {
     color: '#313439',
     transform: 'translate(14px, -9px) scale(0.8)',
@@ -399,22 +404,35 @@ const DateRangeField = ({ value, onChange, label }) => {
     );
   };
 
+  // Reference: empty field shows the label INSIDE as a placeholder; once a date
+  // is picked the label moves above the box (same as the combos' floating label).
+  const hasValue = Boolean(startDate || endDate);
+
   return (
-    <Box sx={{ width: 452, maxWidth: '100%' }}>
-      <Typography sx={{ fontSize: 12.8, color: '#6f6f6f', mb: '2px' }}>{label}</Typography>
+    <Box sx={{ width: '100%', position: 'relative' }}>
+      {hasValue && (
+        <Typography
+          sx={{ position: 'absolute', top: -20, left: 0, fontSize: 12.8, color: '#6f6f6f', lineHeight: '18px' }}
+        >
+          {label}
+        </Typography>
+      )}
       <Box
         onClick={(e) => setAnchorEl(e.currentTarget)}
         sx={{
           display: 'flex',
           alignItems: 'center',
-          height: 42,
+          height: 44, // same rendered height as the combos beside it
           bgcolor: '#fff',
           border: '1px solid #5e5e5e',
           borderRadius: '8px',
           cursor: 'pointer',
         }}
       >
-        {['start', 'end'].map((which, i) => {
+        {!hasValue && (
+          <Typography sx={{ px: '16px', fontSize: 16, color: 'rgba(103,107,114,0.6)' }}>{label}</Typography>
+        )}
+        {hasValue && ['start', 'end'].map((which, i) => {
           const d = which === 'start' ? startDate : endDate;
           return (
             <React.Fragment key={which}>
@@ -423,8 +441,8 @@ const DateRangeField = ({ value, onChange, label }) => {
                 component="button"
                 type="button"
                 sx={{
-                  width: 215,
-                  maxWidth: '100%',
+                  flex: 1,
+                  minWidth: 0,
                   padding: '8px 16px',
                   border: 0,
                   bgcolor: 'transparent',
@@ -525,10 +543,16 @@ const ProductRevisionHistory = () => {
   const [selectedKeys, setSelectedKeys] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [products, setProducts] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [users, setUsers] = useState([]);
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  // Reference /reports/misc/revisions/<product id>: open with that product picked
+  // (all dates) and the report already run.
+  const [searchParams] = useSearchParams();
+  const presetProductId = searchParams.get('productId');
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -540,12 +564,33 @@ const ProductRevisionHistory = () => {
           ? result
           : [];
         setProducts(list);
+        if (presetProductId) {
+          const preset = list.find((p) => String(p.id) === String(presetProductId));
+          if (preset) {
+            setSelectedProducts([preset]);
+            setDateRange({ startDate: null, endDate: null, preset: 'custom' });
+            setAutoRunFor(preset.id);
+          }
+        }
       } catch (error) {
         console.error('Error loading products for revision history:', error);
       }
     };
 
     loadProducts();
+
+    // Reference "Users" filter: who made the change.
+    const loadUsers = async () => {
+      try {
+        const result = await userService.getUsers();
+        const list = Array.isArray(result?.users) ? result.users : Array.isArray(result) ? result : [];
+        setUsers(list);
+      } catch (error) {
+        console.error('Error loading users for revision history:', error);
+      }
+    };
+
+    loadUsers();
   }, []);
 
   const activeFilters = {
@@ -554,13 +599,14 @@ const ProductRevisionHistory = () => {
     endDate: dateRange.endDate ? endOfDay(dateRange.endDate).toISOString() : undefined,
     fields: selectedKeys,
     productIds: selectedProducts.map((p) => p.id),
+    userIds: selectedUsers.map((u) => u.id),
     searchTerm,
   };
 
-  const handleRun = async () => {
+  const handleRun = async (filters = activeFilters) => {
     setLoading(true);
     try {
-      const response = await productService.getProductRevisionHistory(activeFilters);
+      const response = await productService.getProductRevisionHistory(filters);
       if (response.success) {
         setReportData(response.data || []);
       } else {
@@ -573,6 +619,16 @@ const ProductRevisionHistory = () => {
       setLoading(false);
     }
   };
+
+  // Auto-run once the preset product is in state (state is set asynchronously above).
+  const [autoRunFor, setAutoRunFor] = useState(null);
+  useEffect(() => {
+    if (autoRunFor && selectedProducts.some((p) => p.id === autoRunFor)) {
+      setAutoRunFor(null);
+      handleRun({ fields: [], productIds: [autoRunFor], userIds: [], searchTerm: '' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRunFor, selectedProducts]);
 
   const formatTimestamp = (date) => {
     if (!date) return '';
@@ -739,7 +795,19 @@ const ProductRevisionHistory = () => {
         </Button>
       </Box>
 
-      <Box className="revision-noprint" sx={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
+      {/* Reference: the four filters share ONE row, equal widths (labels float
+          above once a value is set, so leave room for them). */}
+      <Box
+        className="revision-noprint"
+        sx={{
+          display: 'flex',
+          gap: '16px',
+          alignItems: 'flex-end',
+          mt: '24px',
+          '& > *': { flex: 1, minWidth: 0 },
+          '@media (max-width: 1100px)': { flexWrap: 'wrap', '& > *': { flex: '1 1 45%' } },
+        }}
+      >
         <DateRangeField value={dateRange} onChange={setDateRange} label="Date Range (inclusive)" />
         {/* Blank Keys = all revision types; blank Products = all products. */}
         <SearchMultiSelect label="Keys" options={PRODUCT_FIELD_OPTIONS} value={selectedKeys} onChange={setSelectedKeys} />
@@ -750,7 +818,17 @@ const ProductRevisionHistory = () => {
           onChange={setSelectedProducts}
           getLabel={(o) => o?.name || ''}
         />
+        <SearchMultiSelect
+          label="Users"
+          options={users}
+          value={selectedUsers}
+          onChange={setSelectedUsers}
+          getLabel={(o) => o?.name || o?.username || ''}
+        />
+      </Box>
+      <Box className="revision-noprint" sx={{ mt: '16px', maxWidth: 452 }}>
         <TextField
+          size="small"
           label="Search by product or field"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -760,7 +838,7 @@ const ProductRevisionHistory = () => {
 
       <Box className="revision-noprint" sx={{ mt: '32px', mb: '16px' }}>
         <Button
-          onClick={handleRun}
+          onClick={() => handleRun()}
           disabled={loading}
           disableElevation
           disableRipple
@@ -787,6 +865,12 @@ const ProductRevisionHistory = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress sx={{ color: '#5ebbeb' }} />
         </Box>
+      ) : reportData.length === 0 ? (
+        // Reference: before Run, and when Run finds nothing, there is no table at
+        // all — just this one line under the Run button.
+        <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'center', py: 4 }}>
+          No revisions found, check the filters above and press run
+        </Typography>
       ) : (
         <TableContainer className="revision-results" sx={{ borderRadius: 0, boxShadow: 'none', overflowX: 'auto' }}>
           <Table size="small">
@@ -813,14 +897,7 @@ const ProductRevisionHistory = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {reportData.length === 0 ? (
-                <TableRow sx={{ '& td': { borderBottom: 'none', fontSize: 16, color: '#000' } }}>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    No revisions found for the selected criteria.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                reportData.map((row, index) => (
+              {reportData.map((row, index) => (
                   <TableRow
                     key={index}
                     sx={{
@@ -844,8 +921,7 @@ const ProductRevisionHistory = () => {
                     <TableCell>{row.user}</TableCell>
                     <TableCell>{formatTimestamp(row.timestamp)}</TableCell>
                   </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
         </TableContainer>

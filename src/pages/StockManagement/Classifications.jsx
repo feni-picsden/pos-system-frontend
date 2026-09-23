@@ -121,7 +121,7 @@ const Classifications = () => {
   };
 
   const handleViewClassification = (classification) => {
-    navigate(`/stock-management/classifications/${classification.id}`);
+    navigate(`/classifications/${classification.id}`);
   };
 
   const handleDeleteClassification = (classification) => {
@@ -147,7 +147,7 @@ const Classifications = () => {
   };
 
   const handleAssignClassification = (classification) => {
-    navigate(`/stock-management/classifications/${classification.id}/assign`);
+    navigate(`/classifications/${classification.id}/assign`);
   };
 
 
@@ -364,7 +364,7 @@ const Classifications = () => {
               <TableCell>
                 Type
               </TableCell>
-              <TableCell>
+              <TableCell align="center">
                 Product Count
               </TableCell>
               <TableCell>
@@ -387,7 +387,7 @@ const Classifications = () => {
                 <TableCell>
                   <Typography
                     component="a"
-                    href={`/stock-management/classifications/${classification.id}`}
+                    href={`/classifications/${classification.id}`}
                     onClick={(e) => {
                       e.preventDefault();
                       handleViewClassification(classification);
@@ -424,7 +424,7 @@ const Classifications = () => {
                     {formatType(classification.type)}
                   </Typography>
                 </TableCell>
-                <TableCell>
+                <TableCell align="center">
                   <Typography sx={{ fontSize: 16, color: '#000' }}>
                     {classification.productCount}
                   </Typography>

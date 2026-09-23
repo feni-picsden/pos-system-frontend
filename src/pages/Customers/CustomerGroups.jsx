@@ -175,7 +175,7 @@ const CustomerGroups = () => {
                 }}
               >
                 <TableCell sx={{ pl: '20px' }}>Customer Group</TableCell>
-                <TableCell>Number of Customers</TableCell>
+                <TableCell align="center">Number of Customers</TableCell>
                 <TableCell align="center" sx={{ width: 480, pr: '20px' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -203,7 +203,7 @@ const CustomerGroups = () => {
                       </Typography>
                     )}
                   </TableCell>
-                  <TableCell>{group.customerCount}</TableCell>
+                  <TableCell align="center">{group.customerCount}</TableCell>
                   <TableCell align="center" sx={{ width: 480, pr: '20px' }}>
                     <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', alignItems: 'center' }}>
                       <Button

@@ -54,7 +54,9 @@ const SaleKeySets = () => {
     description: '',
     template: 'no-template',
   });
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [snackbar, setSnackbarState] = useState({ open: false, message: '', severity: 'success', nonce: 0 });
+  // Fresh nonce per message (Snackbar `key`) so back-to-back messages each get their full 3s.
+  const setSnackbar = (next) => setSnackbarState({ ...next, nonce: next.open ? Date.now() : snackbar.nonce });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [setToDelete, setSetToDelete] = useState(null);
   const navigate = useNavigate();
@@ -467,9 +469,14 @@ const SaleKeySets = () => {
       />
 
       <Snackbar
+        key={snackbar.nonce}
         open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        // Ignore "clickaway" so a click elsewhere on the page does not swallow the message.
+        onClose={(event, reason) => {
+          if (reason === 'clickaway') return;
+          setSnackbar({ ...snackbar, open: false });
+        }}
       >
         <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}

@@ -57,6 +57,31 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
+  // Cross-tab sync. Every tab of this browser shares one localStorage token, so
+  // a logout in one tab already kills the others' session on the server — they
+  // just didn't know until their next request (an idle Products tab kept showing
+  // the page). The browser fires `storage` in every OTHER tab when the token is
+  // written or removed, so react to that instead of waiting for a request:
+  //   removed -> drop the user (ProtectedRoute then sends the tab to /login);
+  //   written -> a login (or outlet switch) elsewhere: adopt that session from
+  //              the server (Login redirects an authenticated tab to /).
+  // Nothing here talks to the server about logging out — the tab that acted
+  // did that once; this tab only mirrors local state.
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== 'authToken') return;
+      if (!event.newValue) {
+        setUser(null);
+        return;
+      }
+      authService.getProfile()
+        .then((res) => setUser(res.user))
+        .catch(() => { /* the next request re-validates; leave state alone */ });
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const login = useCallback(async (credentials) => {
     try {
       const response = await authService.login(credentials);
