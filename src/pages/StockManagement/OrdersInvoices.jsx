@@ -17,6 +17,7 @@ import {
   MenuItem,
   Popover,
   IconButton,
+  InputAdornment,
 } from '@mui/material';
 import {
   VisibilityOutlined as ViewIcon,
@@ -33,9 +34,10 @@ import {
   CalendarToday as CalendarIcon,
   KeyboardArrowLeft,
   KeyboardArrowRight,
+  Close as ClearDateIcon,
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addMonths, startOfMonth, endOfMonth, parse, isValid } from 'date-fns';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import supplierService from '../../services/supplierService';
 import transfereeService from '../../services/transfereeService';
@@ -159,13 +161,20 @@ const DateRangeField = ({ value, onChange }) => {
   const [tempStart, setTempStart] = useState(null);
   const [tempEnd, setTempEnd] = useState(null);
   const [baseMonth, setBaseMonth] = useState(startOfMonth(new Date()));
+  // Reference: the two popover boxes are typeable (dd/mm/yyyy). Text is kept
+  // separately while the operator types; it becomes a date on blur / Enter.
+  const [startText, setStartText] = useState('');
+  const [endText, setEndText] = useState('');
 
   const start = value?.startDate || null;
   const end = value?.endDate || null;
+  const fmt = (d) => (d ? format(d, 'dd/MM/yyyy') : '');
 
   const handleOpen = (e) => {
     setTempStart(start);
     setTempEnd(end);
+    setStartText(fmt(start));
+    setEndText(fmt(end));
     setBaseMonth(startOfMonth(start || new Date()));
     setAnchorEl(e.currentTarget);
   };
@@ -180,15 +189,66 @@ const DateRangeField = ({ value, onChange }) => {
     if (!tempStart || (tempStart && tempEnd) || date < tempStart) {
       setTempStart(date);
       setTempEnd(null);
+      setStartText(fmt(date));
+      setEndText('');
     } else {
       setTempEnd(date);
+      setEndText(fmt(date));
       apply(tempStart, date);
     }
   };
 
+  // Typed date: accepts dd/mm/yyyy or dd-mm-yyyy. Invalid text is reverted to
+  // the last good value so a typo never filters on a bogus date.
+  const parseTyped = (text) => {
+    const t = String(text || '').trim().replace(/-/g, '/');
+    if (!t) return null;
+    const d = parse(t, 'dd/MM/yyyy', new Date());
+    return isValid(d) && t.length === 10 ? d : undefined; // undefined = invalid
+  };
+  const commitStart = () => {
+    const d = parseTyped(startText);
+    if (d === undefined) { setStartText(fmt(tempStart)); return; }
+    if (d && tempStart && sameDay(d, tempStart)) return; // unchanged: leave the picker open
+    if (!d && !tempStart) return;
+    if (!d) { clearStart(); return; }
+    let e = tempEnd && tempEnd < d ? null : tempEnd;
+    setTempStart(d); setTempEnd(e); setEndText(fmt(e));
+    setBaseMonth(startOfMonth(d));
+    if (e) apply(d, e); else onChange({ startDate: d, endDate: null, preset: 'custom' });
+  };
+  const commitEnd = () => {
+    const d = parseTyped(endText);
+    if (d === undefined) { setEndText(fmt(tempEnd)); return; }
+    if (d && tempEnd && sameDay(d, tempEnd)) return; // unchanged: leave the picker open
+    if (!d && !tempEnd) return;
+    if (!d) { clearEnd(); return; }
+    if (!tempStart || d < tempStart) { setEndText(fmt(tempEnd)); return; } // end before start: ignore
+    setTempEnd(d);
+    apply(tempStart, d);
+  };
+  const onEnter = (commit) => (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } };
+
   const handleCurrentDay = () => {
     const today = new Date();
     apply(today, today);
+  };
+
+  // Reference: each date box in the popover carries an X. Clearing the end
+  // keeps the start (range becomes open-ended until a new end is picked);
+  // clearing the start empties the whole range. The picker stays open and
+  // Status/Type are untouched - "All" and the date filter are independent.
+  const clearEnd = () => {
+    setTempEnd(null);
+    setEndText('');
+    onChange(tempStart ? { startDate: tempStart, endDate: null, preset: 'custom' } : null);
+  };
+  const clearStart = () => {
+    setTempStart(null);
+    setTempEnd(null);
+    setStartText('');
+    setEndText('');
+    onChange(null);
   };
 
   const inRange = (day) => {
@@ -275,15 +335,21 @@ const DateRangeField = ({ value, onChange }) => {
           cursor: 'pointer',
         }}
       >
-        <Box component="span" sx={segSx(!!start)}>
-          {start ? format(start, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
-        </Box>
-        <Box component="span" sx={{ color: '#808080' }}>
-          –
-        </Box>
-        <Box component="span" sx={segSx(!!end)}>
-          {end ? format(end, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
-        </Box>
+        {/* Reference: blank until a range is picked; the DD/MM/YYYY guide shows
+            only while the picker is open (focused state). */}
+        {(start || end || Boolean(anchorEl)) && (
+          <>
+            <Box component="span" sx={segSx(!!start)}>
+              {start ? format(start, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
+            </Box>
+            <Box component="span" sx={{ color: '#808080' }}>
+              –
+            </Box>
+            <Box component="span" sx={segSx(!!end)}>
+              {end ? format(end, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
+            </Box>
+          </>
+        )}
       </Box>
       <Popover
         open={Boolean(anchorEl)}
@@ -308,17 +374,42 @@ const DateRangeField = ({ value, onChange }) => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <TextField
             size="small"
-            value={tempStart ? format(tempStart, 'dd/MM/yyyy') : ''}
+            value={startText}
+            onChange={(e) => setStartText(e.target.value)}
+            onBlur={commitStart}
+            onKeyDown={onEnter(commitStart)}
             placeholder="dd/mm/yyyy"
-            InputProps={{ readOnly: true }}
+            autoFocus
+            inputProps={{ 'aria-label': 'Start date', maxLength: 10 }}
+            InputProps={{
+              endAdornment: tempStart ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" aria-label="Clear start date" onMouseDown={(e) => e.preventDefault()} onClick={clearStart}>
+                    <ClearDateIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            }}
             sx={{ flex: 1 }}
           />
           <Typography sx={{ color: '#676b72' }}>-</Typography>
           <TextField
             size="small"
-            value={tempEnd ? format(tempEnd, 'dd/MM/yyyy') : ''}
+            value={endText}
+            onChange={(e) => setEndText(e.target.value)}
+            onBlur={commitEnd}
+            onKeyDown={onEnter(commitEnd)}
             placeholder="dd/mm/yyyy"
-            InputProps={{ readOnly: true }}
+            inputProps={{ 'aria-label': 'End date', maxLength: 10 }}
+            InputProps={{
+              endAdornment: tempEnd ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" aria-label="Clear end date" onMouseDown={(e) => e.preventDefault()} onClick={clearEnd}>
+                    <ClearDateIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            }}
             sx={{ flex: 1 }}
           />
         </Box>

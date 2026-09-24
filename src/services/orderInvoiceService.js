@@ -1,4 +1,14 @@
 import apiClient from './apiClient';
+import posLocalDb from './posLocalDb';
+
+// Receiving stock (orders, transfers) changes product rows: inventory, landed
+// cost, and a transfer may auto-create the product at the destination outlet.
+// The Products page serves a 5-minute IndexedDB cache, so without this the
+// list kept showing the pre-receipt catalog (the new outlet copy was missing).
+const invalidateProductCaches = async () => {
+  apiClient.bustCache('/products');
+  try { await posLocalDb.invalidateStore('products'); } catch { /* best effort */ }
+};
 
 const orderInvoiceService = {
   // Get all orders and invoices
@@ -54,6 +64,7 @@ const orderInvoiceService = {
       `/orders-invoices/${id}/receive`,
       receivedQuantities ? { receivedQuantities } : {}
     );
+    await invalidateProductCaches();
     return response.data;
   },
 
@@ -80,12 +91,14 @@ const orderInvoiceService = {
   // Send/execute a transfer (deducts source outlet, marks in-transit, notifies destination)
   sendTransfer: async (id) => {
     const response = await apiClient.patch(`/orders-invoices/${id}/transfer-send`);
+    await invalidateProductCaches();
     return response.data;
   },
 
   // Receive an in-transit transfer at the destination outlet (adds stock, auto-creates products)
   receiveTransfer: async (id) => {
     const response = await apiClient.patch(`/orders-invoices/${id}/transfer-receive`);
+    await invalidateProductCaches();
     return response.data;
   },
 

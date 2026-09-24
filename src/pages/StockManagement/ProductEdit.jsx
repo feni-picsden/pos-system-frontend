@@ -1041,9 +1041,13 @@ const ProductEdit = () => {
   // rather than in the JSX — the tax-inclusive passthrough stays raw so typing is free.
   // Any of the four cost fields (last/average × case/item). Stored tax-inclusive;
   // the toggle only changes what is shown.
+  // Costs are currency: show at most 2 decimals (reference shows "150", "15"),
+  // never the raw float a landed-cost division produced (7.647058823529413).
+  // A string the operator is still typing is left untouched.
+  const round2 = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 100) / 100 : v);
   const getDisplayedCost = (field) => {
     const stored = formData[field] ?? '';
-    if (formData.showCostsIncludingTax) return stored;
+    if (formData.showCostsIncludingTax) return round2(stored);
     return Math.round(removeTaxFromCost(stored, getCostTaxRateName()) * 100) / 100;
   };
 

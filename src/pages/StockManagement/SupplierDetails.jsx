@@ -1258,6 +1258,7 @@ const SupplierDetails = () => {
                   value={formData.freightTax}
                   onChange={(e) => handleInputChange('freightTax', e.target.value)}
                 >
+                  <MenuItem value="No Tax">No Tax</MenuItem>
                   <MenuItem value="GST">GST</MenuItem>
                   <MenuItem value="VAT">VAT</MenuItem>
                 </RefSelect>
@@ -1268,6 +1269,7 @@ const SupplierDetails = () => {
                   value={formData.feesTax}
                   onChange={(e) => handleInputChange('feesTax', e.target.value)}
                 >
+                  <MenuItem value="No Tax">No Tax</MenuItem>
                   <MenuItem value="GST">GST</MenuItem>
                   <MenuItem value="VAT">VAT</MenuItem>
                 </RefSelect>

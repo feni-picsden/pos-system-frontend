@@ -14,6 +14,8 @@ import {
   Dialog,
   DialogContent,
   DialogActions,
+  MenuItem,
+  CircularProgress,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -66,13 +68,22 @@ const sfBtn = {
 };
 
 // Shopfront reference input: square, h53
+// x-date-pickers v8 renders its own input classes (MuiPickersOutlinedInput-*),
+// so each rule needs the picker twin - otherwise a date box sits 56px tall with
+// rounded corners next to 53px square fields.
 const sfField = {
   backgroundColor: '#fff',
-  '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53 },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
+  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': { borderRadius: 0, height: 53 },
+  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-root:hover .MuiPickersOutlinedInput-notchedOutline': { borderColor: '#404040' },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-root.Mui-focused .MuiPickersOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
   '& input::placeholder': { color: '#808080', opacity: 1 },
+};
+
+// The notes boxes take the same rail as sfField, minus its fixed height.
+const sfTextarea = {
+  ...sfField,
+  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': { borderRadius: 0, height: 'auto' },
 };
 
 const sfCaption = {
@@ -98,6 +109,25 @@ const parityBtn = {
   whiteSpace: 'nowrap',
   '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' },
   '&.Mui-disabled': { backgroundColor: '#e0e0e0', color: '#9e9e9e' },
+};
+
+// Edit Details Save (reference): blue stays blue on hover (darker), white text;
+// while saving it is disabled and shows a spinner + "Saving...".
+const sfDialogSave = {
+  backgroundColor: '#5ebbeb',
+  color: '#fff',
+  height: 42,
+  minWidth: 100,
+  borderRadius: 0,
+  fontSize: 16,
+  fontWeight: 400,
+  textTransform: 'none',
+  boxShadow: 'none',
+  px: 3,
+  whiteSpace: 'nowrap',
+  transition: 'background 0.2s ease',
+  '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' },
+  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: '#fff', opacity: 0.7 },
 };
 
 // Gray boxed button (dialog Cancel / OK)
@@ -182,6 +212,8 @@ const EditOrder = () => {
 
   useEffect(() => {
     loadInitialData();
+    // Load once per order id; loadInitialData reads fresh state when called.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Populate edit form data when dialog opens
@@ -291,6 +323,23 @@ const EditOrder = () => {
               };
             }
             
+            // A saved line carries the cost agreed on THAT document; the product's
+            // own cost is only the comparison base for the cost-change indicator.
+            // Loading the product's current cost into the Case Cost box made every
+            // save rewrite the line - an order placed at $100/case came back as the
+            // product's $50 and was persisted that way by the next Save.
+            const savedLineUnit = Number(item.unitPrice);
+            if (product && typeof product.id === 'number' && Number.isFinite(savedLineUnit) && savedLineUnit > 0) {
+              const lineCaseQty = product.caseQuantity || 1;
+              product = {
+                ...product,
+                _baseItemCost: product.itemCost,
+                _baseCaseCost: product.caseCost,
+                itemCost: savedLineUnit,
+                caseCost: savedLineUnit * lineCaseQty,
+              };
+            }
+
             // A RETURN linked to a received invoice is valued at what the goods cost on
             // THAT invoice. Lines added by hand already got this (applyReturnCost); lines
             // loaded from the saved return showed the product's CURRENT cost instead
@@ -354,6 +403,8 @@ const EditOrder = () => {
       
       loadOrderProducts();
     }
+    // Re-run only when the order record changes; applyReturnCost is a stable helper.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order]);
 
   // Load heavy product performance details ONLY when user opens the detail view.
@@ -1769,6 +1820,34 @@ const EditOrder = () => {
   // surface (per-line To Receive inputs, Case Cost, Save, Save & Receive).
   const isSentOrder = order.type !== 'TRANSFER' && order.status === 'SENT';
 
+  // Reference "Edit Details": From is an editable supplier dropdown and To a
+  // locked one - the same pair Create Order shows. The supplier may only change
+  // while the document is still open: a received one already wrote its purchase
+  // and product costs against the old supplier.
+  const supplierEditable = ['ORDER', 'INVOICE'].includes(order.type)
+    && !['RECEIVED', 'CANCELLED', 'APPLIED'].includes(String(order.status || '').toUpperCase());
+  const editFromOptions = (() => {
+    if (!['ORDER', 'INVOICE'].includes(order.type)) {
+      return [{ value: String(order.from ?? ''), label: getOutletNameById(order?.from) || String(order.from ?? '') }];
+    }
+    const options = [
+      { value: 'all', label: 'All Suppliers' },
+      ...suppliers.map((sup) => ({ value: String(sup.id), label: sup.name })),
+    ];
+    // The order's own supplier may be inactive (absent from the list) - keep it
+    // selectable so opening the dialog never blanks the field.
+    const current = String(editFormData.from ?? order.from ?? 'all');
+    if (!options.some((o) => o.value === current)) {
+      options.push({ value: current, label: order?.supplier?.name || current });
+    }
+    return options;
+  })();
+  const editToLabel = order?.type === 'TRANSFER'
+    ? getTransferTargetName(order?.to)
+    : order?.customer
+      ? [order.customer.firstName, order.customer.lastName].filter(Boolean).join(' ')
+      : getDocumentOutletName();
+
   return (
     <Box sx={{ p: 3, backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
       {/* Header */}
@@ -1817,16 +1896,16 @@ const EditOrder = () => {
             </Box>
             <Box>
               <Typography sx={{ fontSize: 13, color: '#676b72', mb: 0.5 }}>
-                Invoice Fees ($)
+                Invoice Fees ({usePctFees ? '%' : '$'})
               </Typography>
               <TextField
                 type="number"
                 value={invoiceFees}
                 onChange={(e) => setInvoiceFees(e.target.value)}
                 sx={{ ...sfField, width: 160 }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
+                InputProps={usePctFees
+                  ? { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                  : { startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               />
             </Box>
             <Box>
@@ -1838,7 +1917,7 @@ const EditOrder = () => {
                 value={invoiceFreight}
                 onChange={(e) => setInvoiceFreight(e.target.value)}
                 placeholder="Supplier per-case freight"
-                sx={{ ...sfField, width: 220 }}
+                sx={{ ...sfField, width: 260 }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
@@ -1846,16 +1925,16 @@ const EditOrder = () => {
             </Box>
             <Box>
               <Typography sx={{ fontSize: 13, color: '#676b72', mb: 0.5 }}>
-                Invoice Discount ($)
+                Invoice Discount ({usePctFees ? '%' : '$'})
               </Typography>
               <TextField
                 type="number"
                 value={invoiceDiscount}
                 onChange={(e) => setInvoiceDiscount(e.target.value)}
                 sx={{ ...sfField, width: 160 }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
+                InputProps={usePctFees
+                  ? { endAdornment: <InputAdornment position="end">%</InputAdornment> }
+                  : { startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               />
             </Box>
           </Box>
@@ -2242,7 +2321,8 @@ const EditOrder = () => {
                   <Grid item xs={6} sm={1.5}>
                     <TextField
                       type="number"
-                      value={product.caseCost ?? 0}
+                      // Landed costs are divisions (49.999992000); show currency at 2 dp
+                      value={typeof product.caseCost === 'number' ? Math.round(product.caseCost * 100) / 100 : (product.caseCost ?? 0)}
                       onChange={(e) => handleCaseCostChange(product.id, e.target.value)}
                       fullWidth
                       sx={sfField}
@@ -2551,24 +2631,29 @@ const EditOrder = () => {
             Edit Details
           </Typography>
 
-          <DialogContent sx={{ pt: 0 }}>
+          <DialogContent sx={{ pt: 1 }}>
             <Grid container spacing={2}>
-              {/* From / To - read-only plain text (reference parity) */}
+              {/* From: supplier dropdown (editable until received); To: locked
+                  dropdown - reference parity with the Create Order form. */}
               <Grid item xs={6}>
-                <Typography sx={{ fontSize: 12, color: '#676b72', textTransform: 'uppercase' }}>From</Typography>
-                <Typography sx={{ fontWeight: 500 }}>
-                  {order?.type === 'TRANSFER'
-                    ? getOutletNameById(order?.from)
-                    : order?.from === 'all' ? 'All Suppliers' : order?.supplier?.name || order?.from}
-                </Typography>
+                <TextField
+                  select
+                  fullWidth
+                  label="From"
+                  value={String(editFormData.from ?? 'all')}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, from: e.target.value }))}
+                  disabled={!supplierEditable}
+                  sx={sfField}
+                >
+                  {editFromOptions.map((o) => (
+                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                  ))}
+                </TextField>
               </Grid>
               <Grid item xs={6}>
-                <Typography sx={{ fontSize: 12, color: '#676b72', textTransform: 'uppercase' }}>To</Typography>
-                <Typography sx={{ fontWeight: 500 }}>
-                  {order?.type === 'TRANSFER'
-                    ? getTransferTargetName(order?.to)
-                    : order?.customer ? `${order.customer.firstName} ${order.customer.lastName}` : getDocumentOutletName()}
-                </Typography>
+                <TextField select fullWidth label="To" value="to" disabled sx={sfField}>
+                  <MenuItem value="to">{editToLabel}</MenuItem>
+                </TextField>
               </Grid>
 
               {/* Order / Invoice Date */}
@@ -2578,21 +2663,7 @@ const EditOrder = () => {
                     label="Order / Invoice Date"
                     value={editFormData.orderDate}
                     onChange={(newValue) => setEditFormData(prev => ({ ...prev, orderDate: newValue }))}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        sx={sfField}
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <DateIcon sx={{ color: '#666', mr: 1 }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    )}
+                    slotProps={{ textField: { fullWidth: true, sx: sfField } }}
                   />
                 </LocalizationProvider>
               </Grid>
@@ -2622,21 +2693,7 @@ const EditOrder = () => {
                     label="Due Date"
                     value={editFormData.dueDate}
                     onChange={(newValue) => setEditFormData(prev => ({ ...prev, dueDate: newValue }))}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        sx={sfField}
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <DateIcon sx={{ color: '#666', mr: 1 }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    )}
+                    slotProps={{ textField: { fullWidth: true, sx: sfField } }}
                   />
                 </LocalizationProvider>
               </Grid>
@@ -2676,6 +2733,7 @@ const EditOrder = () => {
                   onChange={(e) => setEditFormData(prev => ({ ...prev, publicNotes: e.target.value }))}
                   multiline
                   rows={2}
+                  sx={sfTextarea}
                 />
               </Grid>
 
@@ -2688,6 +2746,7 @@ const EditOrder = () => {
                   onChange={(e) => setEditFormData(prev => ({ ...prev, internalNotes: e.target.value }))}
                   multiline
                   rows={2}
+                  sx={sfTextarea}
                 />
               </Grid>
             </Grid>
@@ -2695,16 +2754,16 @@ const EditOrder = () => {
 
           {/* Cancel bottom-left (gray boxed), Save bottom-right (#5ebbeb) */}
           <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
-            <Button onClick={() => setEditDetailsDialogOpen(false)} sx={grayBtn}>
+            <Button onClick={() => setEditDetailsDialogOpen(false)} disabled={saving} sx={grayBtn}>
               Cancel
             </Button>
             <Button
               onClick={handleSaveEditDetails}
               disabled={saving}
-              startIcon={<SaveIcon />}
-              sx={{ ...sfBtn, height: 42, minWidth: 100 }}
+              startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
+              sx={sfDialogSave}
             >
-              Save
+              {saving ? 'Saving...' : 'Save'}
             </Button>
           </DialogActions>
         </Box>

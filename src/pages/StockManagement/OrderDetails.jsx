@@ -24,6 +24,8 @@ import {
   Chip,
   Grid,
   InputAdornment,
+  MenuItem,
+  CircularProgress,
 } from '@mui/material';
 import {
   LocalShipping as ReceiveIcon,
@@ -65,6 +67,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
+import supplierService from '../../services/supplierService';
 import { resolveAssetUrl } from '../../services/apiClient';
 import { outletService } from '../../services/outletService';
 import { userService } from '../../services/userService';
@@ -131,9 +134,28 @@ const metaLabelSx = {
 };
 const metaValueSx = { fontSize: 16, color: '#000' };
 
+// Edit Details Save (reference): blue stays blue on hover (darker), white text;
+// while saving it is disabled and shows a spinner + "Saving...".
+const sfDialogSave = {
+  backgroundColor: '#5ebbeb',
+  color: '#fff',
+  height: 42,
+  minWidth: 100,
+  borderRadius: 0,
+  fontSize: 16,
+  fontWeight: 400,
+  textTransform: 'none',
+  boxShadow: 'none',
+  px: 3,
+  whiteSpace: 'nowrap',
+  transition: 'background 0.2s ease',
+  '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' },
+  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: '#fff', opacity: 0.7 },
+};
+
 const OrderDetails = () => {
-  // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
-  const { alert, prompt } = useAppDialogs();
+  // In-app dialog — shadows window.prompt on purpose.
+  const { prompt } = useAppDialogs();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, getOutletName } = useAuth();
@@ -153,6 +175,7 @@ const OrderDetails = () => {
   const [reviewUsers, setReviewUsers] = useState([]);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
+    from: 'all',
     orderDate: null,
     orderNumber: '',
     dueDate: null,
@@ -161,6 +184,15 @@ const OrderDetails = () => {
     publicNotes: '',
     internalNotes: '',
   });
+  // Edit Details lets the supplier be corrected (reference), so the dropdown
+  // needs the supplier list - same source as Create Order.
+  const [suppliers, setSuppliers] = useState([]);
+  useEffect(() => {
+    supplierService
+      .getSuppliers()
+      .then((res) => setSuppliers(res?.suppliers || []))
+      .catch(() => setSuppliers([]));
+  }, []);
   // Generic confirm dialog: { title, message, label, onConfirm }
   const [confirmDialog, setConfirmDialog] = useState(null);
 
@@ -176,6 +208,8 @@ const OrderDetails = () => {
   useEffect(() => {
     loadOrder();
     loadUserOutlet();
+    // Load once per order/user; the loaders read fresh state when called.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
 
   const loadUserOutlet = async () => {
@@ -345,6 +379,24 @@ const OrderDetails = () => {
   const wasSent = Boolean(order?.sentAt || order?.sentBy);
   const fromDisplay = isReturn ? outletSideDisplay : supplierSideDisplay;
   const toDisplay = isReturn ? supplierSideDisplay : outletSideDisplay;
+  // Only an open purchase document may change supplier: a received one already
+  // wrote its purchase record and product costs against the current supplier.
+  const supplierEditable = ['ORDER', 'INVOICE'].includes(order?.type)
+    && !['RECEIVED', 'CANCELLED', 'APPLIED'].includes(String(order?.status || '').toUpperCase());
+  const editFromOptions = (() => {
+    if (!['ORDER', 'INVOICE'].includes(order?.type)) {
+      return [{ value: String(order?.from ?? ''), label: fromDisplay || String(order?.from ?? '') }];
+    }
+    const options = [
+      { value: 'all', label: 'All Suppliers' },
+      ...suppliers.map((sup) => ({ value: String(sup.id), label: sup.name })),
+    ];
+    const current = String(editFormData.from ?? order?.from ?? 'all');
+    if (!options.some((o) => o.value === current)) {
+      options.push({ value: current, label: fromDisplay || current });
+    }
+    return options;
+  })();
 
   const handleOpenEmailOrderDialog = () => {
     if (!order) return;
@@ -405,6 +457,7 @@ const OrderDetails = () => {
   const handleOpenEditDetails = () => {
     if (!order) return;
     setEditFormData({
+      from: String(order.from ?? 'all'),
       orderDate: order.orderDate ? new Date(order.orderDate) : new Date(),
       orderNumber: order.orderNumber || '',
       dueDate: order.dueDate ? new Date(order.dueDate) : null,
@@ -422,7 +475,7 @@ const OrderDetails = () => {
       // Detail fields only — no `items` key, so the backend preserves the
       // existing order lines instead of recreating them.
       await orderInvoiceService.updateOrderInvoice(id, {
-        from: order.from,
+        from: editFormData.from ?? order.from,
         to: order.to,
         orderDate: editFormData.orderDate,
         orderNumber: editFormData.orderNumber,
@@ -953,9 +1006,13 @@ const OrderDetails = () => {
   const itemTaxRate = (item) =>
     order?.type === 'TRANSFER' ? 0 : (item?.taxRatePercent ?? 10) / 100;
 
-  // Freight flag: supplier setting, or actual freight charged on the received purchase
+  // Freight flag. A received document shows the flag snapshotted on it at receive
+  // time (history must not change when the supplier's setting changes later);
+  // an unreceived one previews the supplier's current default.
   const includesFreight = Boolean(
-    order?.supplier?.freightIncludedOnInvoices || (order?.purchases?.[0]?.freight || 0) > 0
+    order?.status === 'RECEIVED'
+      ? (order?.freightIncluded || (order?.purchases?.[0]?.freight || 0) > 0)
+      : (order?.supplier?.freightIncludedOnInvoices || (order?.purchases?.[0]?.freight || 0) > 0)
   );
 
   // Helper to calculate cases and items from quantity
@@ -966,9 +1023,13 @@ const OrderDetails = () => {
   };
 
   // Helper to calculate totals with tax
+  // Ordered totals. When "Costs on supplier invoice is inclusive of tax" is on,
+  // the entered cost already contains its tax, so inc == ex (receive backs the
+  // tax out instead of adding it; the columns used to show 143.00 beside a
+  // received Total (inc) of 130.00).
   const calculateTotals = (quantity, unitPrice, taxRate = 0.1) => {
     const totalEx = quantity * unitPrice;
-    const totalInc = totalEx * (1 + taxRate);
+    const totalInc = order?.costsIncludeTax ? totalEx : totalEx * (1 + taxRate);
     return { totalEx, totalInc };
   };
 
@@ -1211,30 +1272,32 @@ const OrderDetails = () => {
             Return Items
           </Button>
         )}
-        {/* Create/View Review: unsent docs, and sent orders/invoices/transfers (not sent returns) */}
-        {!isCreditNote && (isUnsent || (order.status === 'SENT' && order.type !== 'RETURN')) && (
-          order.reviewStatus ? (
-            <Button
-              variant="contained"
-              disableElevation
-              startIcon={<PencilIcon />}
-              component={RouterLink} to={`/orders-invoices/${id}/review`}
-              sx={toolbarBtnSx}
-            >
-              View Review
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              disableElevation
-              startIcon={<PencilIcon />}
-              onClick={handleOpenCreateReview}
-              disabled={reviewDialogOpen}
-              sx={toolbarBtnSx}
-            >
-              Create Review
-            </Button>
-          )
+        {/* View Review: any document that has a review, including received ones.
+            Reference ("Accessing Existing Reviews"): historical reviews are shown
+            on the order view page. Create Review stays limited to unsent docs and
+            sent orders/invoices/transfers (not sent returns). */}
+        {!isCreditNote && order.reviewStatus && (
+          <Button
+            variant="contained"
+            disableElevation
+            startIcon={<PencilIcon />}
+            component={RouterLink} to={`/orders-invoices/${id}/review`}
+            sx={toolbarBtnSx}
+          >
+            View Review
+          </Button>
+        )}
+        {!isCreditNote && !order.reviewStatus && (isUnsent || (order.status === 'SENT' && order.type !== 'RETURN')) && (
+          <Button
+            variant="contained"
+            disableElevation
+            startIcon={<PencilIcon />}
+            onClick={handleOpenCreateReview}
+            disabled={reviewDialogOpen}
+            sx={toolbarBtnSx}
+          >
+            Create Review
+          </Button>
         )}
         {/* Cancel: unsent documents (before Upload in reference) */}
         {isUnsent && !isCreditNote && (
@@ -1453,15 +1516,19 @@ const OrderDetails = () => {
 
                 // Total (ex) should NOT include payment fees
                 const rowTotalEx = baseCost + fees + freight - rebate;
-                // Total (inc) = the invoice amount with its tax, PLUS the payment fee.
-                // The payment fee sits on top of the invoice (reference: "added on top
-                // of invoices… charges not provided on an invoice"), so it carries no
-                // GST — receive stores it that way (purchase.tax excludes it), and
-                // taxing it here made the line ($145.20) disagree with the Total row
-                // ($144.00). Tax-inclusive invoice costs already contain their tax.
-                const rowTotalInc = order.costsIncludeTax
-                  ? rowTotalEx + paymentFees
-                  : rowTotalEx * (1 + itemTaxRate(item)) + paymentFees;
+                // Total (inc) = Total (ex) + tax + payment fee, exactly as receive
+                // stores it on the Purchase: tax is charged on the line COST only
+                // (fees, freight, rebate and the payment fee carry no GST), and a
+                // tax-inclusive cost already contains its tax. Taxing fees/freight
+                // here made the line ($143.00) disagree with the Total row ($141.00).
+                // Fees and freight are taxed at the supplier's Fees Tax / Freight Tax
+                // rate (0 when "No Tax"), served by the API as *TaxPercent.
+                const feesTaxRate = (order.feesTaxPercent ?? 0) / 100;
+                const freightTaxRate = (order.freightTaxPercent ?? 0) / 100;
+                const rowTax = order.costsIncludeTax
+                  ? 0
+                  : baseCost * itemTaxRate(item) + (fees - rebate) * feesTaxRate + freight * freightTaxRate;
+                const rowTotalInc = rowTotalEx + rowTax + paymentFees;
 
                 return (
                   <TableRow key={index}>
@@ -1757,15 +1824,28 @@ const OrderDetails = () => {
           <Typography sx={{ textAlign: 'center', fontWeight: 700, fontSize: 22, mb: 2 }}>
             Edit Details
           </Typography>
-          <DialogContent sx={{ pt: 0 }}>
+          <DialogContent sx={{ pt: 1 }}>
             <Grid container spacing={2}>
+              {/* From: supplier dropdown (editable until received); To: locked
+                  dropdown - reference parity with the Create Order form. */}
               <Grid item xs={6}>
-                <Typography sx={{ fontSize: 12, color: '#676b72', textTransform: 'uppercase' }}>From</Typography>
-                <Typography sx={{ fontWeight: 500 }}>{fromDisplay}</Typography>
+                <TextField
+                  select
+                  fullWidth
+                  label="From"
+                  value={String(editFormData.from ?? 'all')}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, from: e.target.value }))}
+                  disabled={!supplierEditable}
+                >
+                  {editFromOptions.map((o) => (
+                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                  ))}
+                </TextField>
               </Grid>
               <Grid item xs={6}>
-                <Typography sx={{ fontSize: 12, color: '#676b72', textTransform: 'uppercase' }}>To</Typography>
-                <Typography sx={{ fontWeight: 500 }}>{toDisplay}</Typography>
+                <TextField select fullWidth label="To" value="to" disabled>
+                  <MenuItem value="to">{toDisplay}</MenuItem>
+                </TextField>
               </Grid>
               <Grid item xs={6}>
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -1773,20 +1853,7 @@ const OrderDetails = () => {
                     label="Order / Invoice Date"
                     value={editFormData.orderDate}
                     onChange={(newValue) => setEditFormData(prev => ({ ...prev, orderDate: newValue }))}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <DateIcon sx={{ color: '#666', mr: 1 }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    )}
+                    slotProps={{ textField: { fullWidth: true } }}
                   />
                 </LocalizationProvider>
               </Grid>
@@ -1811,20 +1878,7 @@ const OrderDetails = () => {
                     label="Due Date"
                     value={editFormData.dueDate}
                     onChange={(newValue) => setEditFormData(prev => ({ ...prev, dueDate: newValue }))}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <DateIcon sx={{ color: '#666', mr: 1 }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    )}
+                    slotProps={{ textField: { fullWidth: true } }}
                   />
                 </LocalizationProvider>
               </Grid>
@@ -1884,10 +1938,8 @@ const OrderDetails = () => {
             <Button
               onClick={handleSaveEditDetails}
               disabled={saving}
-              variant="contained"
-              disableElevation
-              startIcon={<SaveIcon />}
-              sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', minWidth: 100, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
+              startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
+              sx={sfDialogSave}
             >
               {saving ? 'Saving...' : 'Save'}
             </Button>

@@ -272,14 +272,18 @@ const ReviewOrder = () => {
   const fromDisplay = isReturn ? outletSide : supplierSide;
   const toDisplay = isReturn ? supplierSide : outletSide;
 
+  // Received: use the flag snapshotted at receive time, not the supplier's live setting.
   const includesFreight = Boolean(
-    order.supplier?.freightIncludedOnInvoices || (order.purchases?.[0]?.freight || 0) > 0
+    order.status === 'RECEIVED'
+      ? (order.freightIncluded || (order.purchases?.[0]?.freight || 0) > 0)
+      : (order.supplier?.freightIncludedOnInvoices || (order.purchases?.[0]?.freight || 0) > 0)
   );
   const getCaseQuantity = (item) => item?.caseQuantity || 1;
   const itemTaxRate = (item) => (order.type === 'TRANSFER' ? 0 : (item?.taxRatePercent ?? 10) / 100);
   const lineTotals = (item) => {
     const totalEx = (item.quantity || 0) * (item.unitPrice || 0);
-    return { totalEx, totalInc: totalEx * (1 + itemTaxRate(item)) };
+    // Tax-inclusive costs already contain their tax (same rule as Order Details).
+    return { totalEx, totalInc: order.costsIncludeTax ? totalEx : totalEx * (1 + itemTaxRate(item)) };
   };
   const totalEx = (order.items || []).reduce((sum, item) => sum + lineTotals(item).totalEx, 0);
   const totalInc = (order.items || []).reduce((sum, item) => sum + lineTotals(item).totalInc, 0);
