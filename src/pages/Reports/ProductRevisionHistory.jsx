@@ -58,6 +58,7 @@ const PRODUCT_FIELD_OPTIONS = [
   'costTaxRateId',
   'costs',
   'createdAt',
+  'deletedAt',
   'description',
   'familyId',
   'image',
@@ -754,6 +755,11 @@ const ProductRevisionHistory = () => {
   };
 
   const renderValueCell = (field, value, otherValue, isFrom) => {
+    // Lifecycle rows (createdAt / deletedAt) carry a timestamp: show it the way
+    // the Timestamp column does, not as a raw ISO string.
+    if (field === 'createdAt' || field === 'deletedAt') {
+      return <span>{value ? formatTimestamp(value) : ''}</span>;
+    }
     if (field === 'prices' || field === 'costs') {
       return renderPriceTable(value, otherValue, isFrom);
     }
@@ -897,6 +903,12 @@ const ProductRevisionHistory = () => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {/* Reference prints this notice as the first body row of the report. */}
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ color: '#000', fontSize: 16, padding: '8px', borderBottom: 'none' }}>
+                  Please Note: Revisions may take up to five minutes to appear
+                </TableCell>
+              </TableRow>
               {reportData.map((row, index) => (
                   <TableRow
                     key={index}

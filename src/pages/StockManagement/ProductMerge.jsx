@@ -72,6 +72,9 @@ const ProductMerge = () => {
     purchaseTaxRate: 'Inherit',
     itemCost: 0,
     caseCost: 0,
+    averageItemCost: 0,
+    averageCaseCost: 0,
+    tags: [],
     costPercentage: false,
     preventManualDiscounts: false,
     requestPrice: false,
@@ -99,10 +102,28 @@ const ProductMerge = () => {
   // State for dialogs
   const [productSelectDialogOpen, setProductSelectDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [confirmMergeOpen, setConfirmMergeOpen] = useState(false);
   const [mergeResults, setMergeResults] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Helpers
+  const formatTags = (tags) => {
+    if (!Array.isArray(tags) || tags.length === 0) return 'No Value';
+    const names = tags.map((t) => t?.tag?.name || t?.name).filter(Boolean);
+    return names.length ? names.join(', ') : 'No Value';
+  };
+
+  // Last cost is entered per CASE (as the reference shows it); keep the item
+  // cost the backend stores in step so the merged product is not costed at a
+  // stale per-item figure.
+  const handleCaseCostChange = (value) => {
+    const caseCost = parseFloat(value) || 0;
+    setMergedProduct((prev) => {
+      const caseQty = Number(prev.caseQuantity) > 0 ? Number(prev.caseQuantity) : 1;
+      return { ...prev, caseCost, itemCost: Math.round((caseCost / caseQty) * 100) / 100 };
+    });
+  };
+
   const formatPrices = (prices) => {
     if (!prices || prices.length === 0) return 'No Value';
     try {
@@ -258,8 +279,8 @@ const ProductMerge = () => {
     // Define which fields belong to each section
     const sectionFields = {
       general: ['name', 'type', 'status', 'description', 'caseQuantity'],
-      classifications: ['category', 'brand', 'family'],
-      sellCost: ['retailTaxRate', 'purchaseTaxRate', 'costPercentage', 'itemCost', 'caseCost', 'requestPrice', 'requestQuantity', 'prices'],
+      classifications: ['category', 'brand', 'family', 'tags'],
+      sellCost: ['retailTaxRate', 'purchaseTaxRate', 'costPercentage', 'itemCost', 'caseCost', 'averageItemCost', 'averageCaseCost', 'requestPrice', 'requestQuantity', 'preventManualDiscounts', 'prices'],
       inventory: ['trackInventory', 'currentStockCases', 'currentStockItems', 'reorderLevelCases', 'reorderLevelItems', 'reorderAmountCases', 'reorderAmountItems', 'reorderLimitCases', 'reorderLimitItems', 'maxOnHandCases', 'maxOnHandItems', 'reorderRounding'],
       suppliers: ['orderNotes', 'invoiceNotes', 'suppliers'],
       barcodes: ['barcodes'],
@@ -303,6 +324,11 @@ const ProductMerge = () => {
             quantity: p.quantity || 1,
             price: p.price || 0,
           }));
+        }
+        // Tags are shown for the chosen product only; the merge itself keeps
+        // every source's tags (the backend unions them).
+        if (field === 'tags') {
+          updated.tags = Array.isArray(selectedProduct.tags) ? [...selectedProduct.tags] : [];
         }
 
         // Inventory fields
@@ -392,6 +418,9 @@ const ProductMerge = () => {
         purchaseTaxRate: 'Inherit',
         itemCost: 0,
         caseCost: 0,
+        averageItemCost: 0,
+        averageCaseCost: 0,
+        tags: [],
         costPercentage: false,
         preventManualDiscounts: false,
         requestPrice: false,
@@ -638,13 +667,30 @@ const ProductMerge = () => {
                 {product.family || 'No Value'}
               </Typography>
             </Grid>
+
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                  Tags
+                </Typography>
+                {fieldSelections.tags === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
+              </Box>
+              <Typography variant="body2" sx={{
+                p: 1,
+                backgroundColor: fieldSelections.tags === index ? '#e3f2fd' : '#f5f5f5',
+                borderRadius: 1,
+                border: fieldSelections.tags === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
+              }}>
+                {formatTags(product.tags)}
+              </Typography>
+            </Grid>
           </Grid>
         </Box>
 
         {/* Sell & Cost Prices Section */}
-        <Box sx={{ 
-          mb: 3, 
-          p: 2, 
+        <Box sx={{
+          mb: 3,
+          p: 2,
           borderRadius: 1,
           backgroundColor: fieldSelections.retailTaxRate === index || fieldSelections.purchaseTaxRate === index || fieldSelections.costPercentage === index || fieldSelections.itemCost === index || fieldSelections.caseCost === index || fieldSelections.requestPrice === index || fieldSelections.requestQuantity === index ? '#e3f2fd' : '#fff',
           border: fieldSelections.retailTaxRate === index || fieldSelections.purchaseTaxRate === index || fieldSelections.costPercentage === index || fieldSelections.itemCost === index || fieldSelections.caseCost === index || fieldSelections.requestPrice === index || fieldSelections.requestQuantity === index ? '2px solid #1976d2' : '1px solid transparent'
@@ -688,15 +734,18 @@ const ProductMerge = () => {
                 <Typography variant="body2" sx={{ flexGrow: 1 }}>
                   Global Average Cost
                 </Typography>
-                {fieldSelections.itemCost === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
+                {fieldSelections.averageCaseCost === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
               </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.itemCost === index ? '#e3f2fd' : '#f5f5f5', 
+              {/* Both cost rows are CASE costs, as the reference shows them; the
+                  running average falls back to the last cost on a product that
+                  has never been received. */}
+              <Typography variant="body2" sx={{
+                p: 1,
+                backgroundColor: fieldSelections.averageCaseCost === index ? '#e3f2fd' : '#f5f5f5',
                 borderRadius: 1,
-                border: fieldSelections.itemCost === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
+                border: fieldSelections.averageCaseCost === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
               }}>
-                ${Number(product.itemCost || 0).toFixed(2)}
+                ${Number(product.averageCaseCost || product.caseCost || 0).toFixed(2)}
               </Typography>
             </Grid>
 
@@ -742,6 +791,23 @@ const ProductMerge = () => {
                 border: fieldSelections.requestPrice === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
               }}>
                 {product.requestPrice ? '✓ On' : '× Off'}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                  Prevent Manual Discounts
+                </Typography>
+                {fieldSelections.preventManualDiscounts === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
+              </Box>
+              <Typography variant="body2" sx={{
+                p: 1,
+                backgroundColor: fieldSelections.preventManualDiscounts === index ? '#e3f2fd' : '#f5f5f5',
+                borderRadius: 1,
+                border: fieldSelections.preventManualDiscounts === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
+              }}>
+                {product.preventManualDiscounts ? '✓ On' : '× Off'}
               </Typography>
             </Grid>
           </Grid>
@@ -1184,6 +1250,15 @@ const ProductMerge = () => {
                         </Select>
                       </FormControl>
                     </Grid>
+
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
+                        Tags
+                      </Typography>
+                      <Typography variant="body2" sx={{ p: 1, backgroundColor: '#fff', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+                        {formatTags(mergedProduct.tags)}
+                      </Typography>
+                    </Grid>
                   </Grid>
                 </Box>
 
@@ -1231,13 +1306,15 @@ const ProductMerge = () => {
                       <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
                         Global Average Cost
                       </Typography>
+                      {/* Read-only: the merge recomputes the average from the
+                          sources' stock-weighted costs; only the last (case)
+                          cost below is taken from the form. */}
                       <TextField
                         fullWidth
                         size="small"
-                        type="number"
-                        value={mergedProduct.itemCost}
-                        onChange={(e) => handleInputChange('itemCost', parseFloat(e.target.value) || 0)}
+                        value={Number(mergedProduct.averageCaseCost || mergedProduct.caseCost || 0).toFixed(2)}
                         InputProps={{
+                          readOnly: true,
                           startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
                         }}
                       />
@@ -1252,13 +1329,25 @@ const ProductMerge = () => {
                         size="small"
                         type="number"
                         value={mergedProduct.caseCost}
-                        onChange={(e) => handleInputChange('caseCost', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => handleCaseCostChange(e.target.value)}
                         InputProps={{
                           startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
                         }}
                       />
                     </Grid>
-                    
+
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={!!mergedProduct.preventManualDiscounts}
+                            onChange={(e) => handleInputChange('preventManualDiscounts', e.target.checked)}
+                          />
+                        }
+                        label="Prevent Manual Discounts"
+                      />
+                    </Grid>
+
                     <Grid item xs={12}>
                       <FormControlLabel
                         control={
@@ -1522,7 +1611,7 @@ const ProductMerge = () => {
                   variant="contained"
                   size="large"
                   fullWidth
-                  onClick={handleMerge}
+                  onClick={() => setConfirmMergeOpen(true)}
                   disabled={productsToMerge.length < 2 || !mergedProduct.name.trim() || loading}
                 >
                   {loading ? 'Merging...' : 'Complete Merge'}
@@ -1596,6 +1685,30 @@ const ProductMerge = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setProductSelectDialogOpen(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm before merging: a merge cannot be undone (the reference asks
+          to confirm on Complete). */}
+      <Dialog open={confirmMergeOpen} onClose={() => setConfirmMergeOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Complete Merge?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" gutterBottom>
+            {productsToMerge.length} products will be merged into "{mergedProduct.name.trim()}".
+            Their sales and purchase history moves to the new product and the originals are sent to Trashed Items.
+          </Typography>
+          <Typography variant="body2" color="error">
+            This cannot be reversed.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmMergeOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => { setConfirmMergeOpen(false); handleMerge(); }}
+          >
+            Complete Merge
+          </Button>
         </DialogActions>
       </Dialog>
 

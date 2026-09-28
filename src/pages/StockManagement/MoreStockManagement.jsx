@@ -53,8 +53,14 @@ const stockManagementCards = [
     description: "View and edit the buying periods for products",
     icon: BuyingPeriodsIcon,
     path: "/stock-management/product-buying-periods",
+    // Go-live audit: unused for now, so hidden from the menu but NOT removed —
+    // the page, route (/stock-management/product-buying-periods) and API stay
+    // in place and come back by dropping this flag.
+    hidden: true,
   },
 ];
+
+const visibleCards = stockManagementCards.filter((card) => !card.hidden);
 
 const MoreStockManagement = () => (
   <Box
@@ -66,7 +72,7 @@ const MoreStockManagement = () => (
       p: "16px",
     }}
   >
-    {stockManagementCards.map((card) => {
+    {visibleCards.map((card) => {
       const Icon = card.icon;
       return (
         <Card

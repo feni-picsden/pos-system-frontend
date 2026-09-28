@@ -785,6 +785,9 @@ const ProductEdit = () => {
     setFormData(prev => ({
       ...prev,
       prices: prev.prices.map(price => {
+        // A blank "New Price Point" row stays blank; recosting would turn its
+        // empty price into $0.00 under the operator.
+        if (isBlankPriceRow(price)) return { ...price, cost: calculateBaseCost(effectiveItemCost, 1) };
         const newBaseCost = calculateBaseCost(effectiveItemCost, price.quantity);
         return {
           ...price,
@@ -1256,7 +1259,7 @@ const ProductEdit = () => {
     // Same rule the server enforces: a sellable product keeps at least one price
     // (request-price and cost-percentage products are the exceptions). Caught here
     // so the user is sent straight to Sell & Cost instead of waiting on a round trip.
-    if ((formData.prices || []).length === 0 && !formData.requestPrice && !formData.costPercentage) {
+    if ((formData.prices || []).filter((p) => !isBlankPriceRow(p)).length === 0 && !formData.requestPrice && !formData.costPercentage) {
       reportSaveProblem('This product has no price. Add at least one price, then press Save again.', {
         tab: 2,
         severity: 'warning',
@@ -1398,7 +1401,9 @@ const ProductEdit = () => {
           .map(({ imageUrl, isMain, altText, sortOrder }) => ({ imageUrl, isMain, altText, sortOrder })),
         // The price cell holds what was typed (so "5.05" survives mid-keystroke);
         // the API takes numbers, so the rows are coerced once, here at the edge.
-        prices: (source.prices || []).map((p) => ({
+        // An untouched "New Price Point" row is not a price point: drop it rather
+        // than save a phantom "1 for $0.00".
+        prices: (source.prices || []).filter((p) => !isBlankPriceRow(p)).map((p) => ({
           ...p,
           quantity: parseInt(p.quantity, 10) || 1,
           price: Math.round((parseFloat(p.price) || 0) * 100) / 100,
@@ -1582,14 +1587,20 @@ const ProductEdit = () => {
     return Math.round(profitPercent(price, cost, profitabilityDisplay) * 100) / 100;
   };
 
+  // Reference "New Price Point": a BLANK row (quantity, price and % all empty) added
+  // at the top of the table, with no default price and no margin applied — the
+  // operator types the point. A blank row is dropped again on save (see payload).
   const addPriceRow = () => {
     const baseCost = calculateBaseCost(effectiveItemCost, 1);
-    const price = calculatePrice(effectiveItemCost, 1, 0);
     setFormData(prev => ({
       ...prev,
-      prices: [...prev.prices, { quantity: 1, price: price, cost: baseCost, percentage: 0 }]
+      prices: [{ quantity: '', price: '', cost: baseCost, percentage: '' }, ...prev.prices]
     }));
   };
+
+  /** Rows the operator never filled in (blank quantity AND blank price). */
+  const isBlankPriceRow = (row) =>
+    (row?.quantity === '' || row?.quantity == null) && (row?.price === '' || row?.price == null);
 
   const removePriceRow = (index) => {
     setFormData(prev => ({
@@ -2680,7 +2691,14 @@ const ProductEdit = () => {
                                 // Raw text, not the rounded value: rounding every
                                 // keystroke fights the cashier typing "5.05".
                                 const inputPrice = e.target.value;
-                                newPrices[index] = { ...newPrices[index], price: inputPrice };
+                                // A cleared / zero price has no margin to show: blank the %
+                                // rather than leave the previous figure standing.
+                                const hasPrice = parseFloat(inputPrice) > 0;
+                                newPrices[index] = {
+                                  ...newPrices[index],
+                                  price: inputPrice,
+                                  ...(hasPrice ? {} : { percentage: '' }),
+                                };
                                 // Pricing a pack sets the single ($30 for 6 → $5); pricing
                                 // the single afterwards ($8) leaves the packs alone.
                                 handleInputChange(
@@ -2695,7 +2713,8 @@ const ProductEdit = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            ${(effectiveItemCost * price.quantity).toFixed(2)}
+                            {/* A blank (new) row reads as one unit, as the reference shows. */}
+                            ${(effectiveItemCost * (rowQuantity(price) || 1)).toFixed(2)}
                           </TableCell>
                           <TableCell>
                             <TextField

@@ -471,7 +471,9 @@ const BulkPriceEdit = () => {
                     <Typography sx={{ fontSize: 12, color: '#676b72', mt: 0.5 }}>
                       {(() => {
                         const pct = profitFor(product, quantity);
-                        return pct == null ? '–' : `${pct.toFixed(1)}%`;
+                        // Two decimals, the precision the Sell & Cost tab shows
+                        // and stores, so both screens read the same figure.
+                        return pct == null ? '–' : `${pct.toFixed(2)}%`;
                       })()}
                     </Typography>
                   </TableCell>

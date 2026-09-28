@@ -114,7 +114,18 @@ const ProductRevisionHistory = ({ productId }) => {
   // rows that are only on one side highlighted red (removed) or green (added).
   const renderNested = (rows, otherRows, isFrom) => {
     const other = Array.isArray(otherRows) ? otherRows : [];
-    const keys = [...new Set(rows.flatMap((r) => Object.keys(r || {})))];
+    // Internal ids are not part of the reference's design: rows written before the
+    // bulk price update named the outlet still carry a raw outletId, so drop it here
+    // and keep the human-readable "outlet" name column.
+    // Reference column order: Quantity, Price, Price Set, then anything else
+    // (JSON key order is whatever the writer happened to use).
+    const PREFERRED = ['quantity', 'price', 'priceSet', 'code', 'outlet'];
+    const keys = [...new Set(rows.flatMap((r) => Object.keys(r || {})))]
+      .filter((k) => !/^(outletId|productId|id)$/.test(k))
+      .sort((a, b) => {
+        const ia = PREFERRED.indexOf(a), ib = PREFERRED.indexOf(b);
+        return (ia === -1 ? PREFERRED.length : ia) - (ib === -1 ? PREFERRED.length : ib);
+      });
     const same = (a, b) => keys.every((k) => String(a?.[k] ?? '') === String(b?.[k] ?? ''));
     return (
       <Box component="table" sx={NESTED_TABLE_SX}>
@@ -157,7 +168,14 @@ const ProductRevisionHistory = ({ productId }) => {
       ? [v]
       : null;
 
+  // Reference labels the lifecycle rows in plain words on the product's own
+  // Revision History ("Product Created"); the report keeps the raw key.
+  const FIELD_LABELS = { createdAt: 'Product Created', deletedAt: 'Product Deleted' };
+  const fieldLabel = (field) => FIELD_LABELS[field] || field || '';
+  const isLifecycle = (field) => field === 'createdAt' || field === 'deletedAt';
+
   const renderSide = (field, value, otherValue, isFrom) => {
+    if (isLifecycle(field)) return value ? formatDateTime(value) : '';
     const rows = asRows(value);
     if (rows && rows.length > 0) {
       return renderNested(rows, asRows(otherValue) || [], isFrom);
@@ -226,7 +244,7 @@ const ProductRevisionHistory = ({ productId }) => {
                 const toValue = parse(rev.to);
                 return (
                   <TableRow key={`rev-${idx}`}>
-                    <TableCell>{rev.field || ''}</TableCell>
+                    <TableCell>{fieldLabel(rev.field)}</TableCell>
                     <TableCell>
                       {renderSide(rev.field, fromValue, toValue, true)}
                     </TableCell>

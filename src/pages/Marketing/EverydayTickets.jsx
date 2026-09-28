@@ -833,9 +833,10 @@ const EverydayTickets = () => {
       </Typography>
 
       {/* One filter row: [search 600][grouping][price set][added by], 8px gaps, never wrapping. */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flexWrap: 'nowrap', mb: 4 }}>
-      {/* mt = the selects' 16px caption line, so every field box shares one top edge. */}
-      <Box ref={searchRef} sx={{ position: 'relative', width: 600, maxWidth: '100%', mt: '16px' }}>
+      {/* Bottom-aligned: the selects carry a 16px caption above their 42px field, the search
+          has no caption, so aligning the row's bottom edge puts all four fields on one line. */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, flexWrap: 'nowrap', mb: 4 }}>
+      <Box ref={searchRef} sx={{ position: 'relative', flex: '1 1 600px', minWidth: 280, maxWidth: '100%' }}>
         <TextField
           fullWidth
           placeholder="Search for a product, category, brand, family or tag"
@@ -869,7 +870,8 @@ const EverydayTickets = () => {
           sx={{
             bgcolor: '#fff',
             '& .MuiOutlinedInput-root': {
-              height: 53,
+              // Same 42px as the three selects beside it, so the filter row reads as one line.
+              height: 42,
               borderRadius: 0,
               fontSize: 16,
               '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
@@ -1107,7 +1109,7 @@ const EverydayTickets = () => {
       <Dialog
         open={addAllOpen}
         onClose={() => setAddAllOpen(false)}
-        PaperProps={{ sx: { borderRadius: '8px', width: 440, maxWidth: '92vw' } }}
+        PaperProps={{ sx: { borderRadius: '8px', width: 520, maxWidth: '92vw' } }}
       >
         <Box sx={{ px: 3, pt: 2.5 }}>
           <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#313439' }}>Add All Products</Typography>
@@ -1117,6 +1119,8 @@ const EverydayTickets = () => {
             Add products with a current stock of at least one item, or every product in your file?
           </Typography>
         </DialogContent>
+        {/* Two equal-width, single-line buttons: the bar button's 32px side padding
+            made "Only Positive Inventory" wrap and spill out of its 42px height. */}
         <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1.25 }}>
           <Button
             disableRipple
@@ -1124,6 +1128,10 @@ const EverydayTickets = () => {
             onClick={() => handleAddAllProducts(true)}
             sx={{
               ...BAR_BUTTON_SX,
+              flex: 1,
+              minWidth: 0,
+              px: 3,
+              whiteSpace: 'nowrap',
               bgcolor: '#d4d4d4',
               color: '#000',
               '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' },
@@ -1137,6 +1145,10 @@ const EverydayTickets = () => {
             onClick={() => handleAddAllProducts(false)}
             sx={{
               ...BAR_BUTTON_SX,
+              flex: 1,
+              minWidth: 0,
+              px: 3,
+              whiteSpace: 'nowrap',
               bgcolor: '#5ebbeb',
               color: '#fff',
               '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' },
