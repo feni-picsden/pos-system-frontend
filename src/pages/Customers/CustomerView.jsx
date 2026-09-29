@@ -42,9 +42,11 @@ import {
   Home as HomeIcon,
   History as HistoryIcon,
   RestoreFromTrash as RevisionIcon,
+  CheckCircleOutlined as CheckCircleOutlinedIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import customerService from "../../services/customerService";
+import loyaltyService from "../../services/loyaltyService";
 import paymentService from "../../services/paymentService";
 import paymentMethodService from "../../services/paymentMethodService";
 import registerService from "../../services/registerService";
@@ -56,6 +58,7 @@ import EmailReceiptModal from "../../components/SalesHistory/EmailReceiptModal";
 import { saleBasePrice, saleLineTotal } from "../../utils/saleTotals";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { formatCurrency } from "../../utils/currency";
+import { saleOutstanding, INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
 import { useAppDialogs } from "../../components/Common/AppDialogProvider";
 
 const CustomerView = () => {
@@ -88,6 +91,7 @@ const CustomerView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState(null);
+  const [loyaltyInfo, setLoyaltyInfo] = useState(null); // { enabled, points }
   const [sales, setSales] = useState([]);
   // Sales History tab shows every sale, not the Home tab's last-10 preview.
   const [historySales, setHistorySales] = useState([]);
@@ -157,6 +161,11 @@ const CustomerView = () => {
       setLoading(true);
       const response = await customerService.getCustomer(id);
       setCustomer(response.customer);
+      // Reference Customer Management: "view current total loyalty points". The
+      // strip shows them only while the store's loyalty program is on.
+      loyaltyService.getCustomerLoyalty(id)
+        .then((r) => setLoyaltyInfo({ enabled: Boolean(r?.program?.isEnabled), points: r?.customer?.loyaltyPoints ?? 0 }))
+        .catch(() => setLoyaltyInfo(null));
     } catch (err) {
       setError("Failed to load customer");
       console.error("Error loading customer:", err);
@@ -448,6 +457,12 @@ const CustomerView = () => {
     ["Mobile", customer.mobile],
     ["Customer Group", customer.customerGroup?.name],
     ["Price List", effectivePriceList?.name],
+    // Loyalty program on + this customer (or their group) earns -> show the balance
+    // (as text, so 0 still shows).
+    ["Loyalty Points",
+      loyaltyInfo?.enabled && (customer.loyaltyEnabled || customer.customerGroup?.loyaltyEnabled)
+        ? Number(loyaltyInfo.points || 0).toLocaleString()
+        : null],
   ].filter(([, value]) => value);
 
   const navigationItems = [
@@ -578,7 +593,7 @@ const CustomerView = () => {
                       "&:hover": { bgcolor: "#115293" },
                       px: 3,
                     }}
-                    component={RouterLink} to={`/customers/balance?customerId=${id}`}
+                    component={RouterLink} to={`/customers/balance?customerId=${id}&returnTo=customer`}
                   >
                     View Statement
                   </Button>
@@ -772,7 +787,8 @@ const CustomerView = () => {
                             )
                           }
                         >
-                          {/* Leading circle */}
+                          {/* Reference: purple hollow circle while the sale still
+                              owes money (On Account, unpaid); black tick once paid. */}
                           <Box
                             sx={{
                               width: 32,
@@ -780,14 +796,19 @@ const CustomerView = () => {
                               justifyContent: "center",
                             }}
                           >
-                            <Box
-                              sx={{
-                                width: 20,
-                                height: 20,
-                                borderRadius: "50%",
-                                border: "2px solid #b388ff",
-                              }}
-                            />
+                            {saleOutstanding(sale) > 0 ? (
+                              <Box
+                                title="Incomplete"
+                                sx={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: "50%",
+                                  border: `2px solid ${INCOMPLETE_PURPLE}`,
+                                }}
+                              />
+                            ) : (
+                              <CheckCircleOutlinedIcon titleAccess="Complete" sx={{ fontSize: 28, color: "#000" }} />
+                            )}
                           </Box>
 
                           {/* Date/time + invoice number */}
@@ -815,6 +836,12 @@ const CustomerView = () => {
                             <Typography variant="h5" sx={{ fontWeight: 700 }}>
                               {formatCurrency(computeSaleTotal(sale))}
                             </Typography>
+                            {/* Reference: the amount still owed, small, under the total */}
+                            {saleOutstanding(sale) > 0 && (
+                              <Typography variant="body2" display="block">
+                                {formatCurrency(saleOutstanding(sale))}
+                              </Typography>
+                            )}
                             <Typography
                               variant="caption"
                               color="text.secondary"
@@ -844,34 +871,26 @@ const CustomerView = () => {
                               borderBottom: "1px solid #e0e0e0",
                             }}
                           >
-                            {/* Status + header info line like screenshot */}
+                            {/* Status: reference "○ Incomplete" (purple) while money is
+                                owed, "✓ Complete" once paid. */}
                             <Box
                               sx={{
-                                width: 36,
+                                minWidth: 36,
+                                mr: 2,
                                 display: "flex",
-                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: "6px",
+                                color: saleOutstanding(sale) > 0 ? INCOMPLETE_PURPLE : "#000",
                               }}
                             >
-                              <Box
-                                sx={{
-                                  width: 24,
-                                  height: 24,
-                                  borderRadius: "50%",
-                                  border: "3px solid #4caf50",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <Box
-                                  sx={{
-                                    width: 10,
-                                    height: 10,
-                                    borderRadius: "50%",
-                                    bgcolor: "#4caf50",
-                                  }}
-                                />
-                              </Box>
+                              {saleOutstanding(sale) > 0 ? (
+                                <Box sx={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${INCOMPLETE_PURPLE}` }} />
+                              ) : (
+                                <CheckCircleOutlinedIcon sx={{ fontSize: 18 }} />
+                              )}
+                              <Typography variant="body2" sx={{ color: "inherit" }}>
+                                {saleOutstanding(sale) > 0 ? "Incomplete" : "Complete"}
+                              </Typography>
                             </Box>
                             <Box
                               sx={{

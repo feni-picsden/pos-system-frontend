@@ -433,8 +433,13 @@ const PaymentMethods = () => {
     const slug = (pm.name || '').trim().toLowerCase();
     return saleKeySlugs.has(slug) || saleKeySlugs.has(slug.replace(/\s+/g, '-'));
   };
-  // Ref keeps the Delete button visible but disabled for system/locked methods.
-  const isDeletable = (pm) => !pm.isDefault && pm.name !== 'Cash' && !isLocked(pm);
+  // Ref keeps the Delete button visible but disabled for system/locked methods and
+  // for every method wired to a sale key (the keyboard glyph) - deleting it would
+  // break that key. The server enforces the same rules.
+  const isDeletable = (pm) => !pm.isDefault && pm.name !== 'Cash' && !isLocked(pm) && !isBoundToSaleKey(pm);
+  // Reference lists the methods A-Z by name.
+  const sortedMethods = [...paymentMethods].sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
 
   if (loading) {
     return <PageLoader />;
@@ -505,7 +510,7 @@ const PaymentMethods = () => {
               '& td': { border: 0, fontSize: 16, color: '#000', py: 1 },
             }}
           >
-            {paymentMethods.map((paymentMethod) => (
+            {sortedMethods.map((paymentMethod) => (
               <TableRow key={paymentMethod.id}>
                 <TableCell sx={{ pl: '20px' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

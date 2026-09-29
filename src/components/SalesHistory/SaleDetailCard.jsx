@@ -6,6 +6,7 @@ import { saleBasePrice, itemsPerCase } from "../../utils/saleTotals";
 import { saleItemDisplay } from "../../utils/caseLine";
 import posLocalDb from "../../services/posLocalDb";
 import { formatCurrency } from "../../utils/currency";
+import { saleOutstanding, isOnAccountPayment, INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
 
 // One place builds a customer's display name — list rows, sale details and both
 // customer pickers all route through it.
@@ -62,6 +63,12 @@ const SaleDetailCard = ({
       : [{ paymentMethod: sale.paymentMethod, amount: sale.totalAmount }];
 
   const cell = { fontSize: 16, lineHeight: "19px" };
+
+  // Reference: a sale that still owes money (On Account, unpaid) reads
+  // "○ Incomplete" in purple, lists no "On Account" tender (it is money owed, not
+  // money taken) and its Balance is what is still owed.
+  const owed = saleOutstanding(sale);
+  const incomplete = owed > 0;
 
   return (
     <Box
@@ -143,12 +150,19 @@ const SaleDetailCard = ({
               alignItems: "center",
               justifyContent: "center",
               gap: "6px",
+              color: incomplete ? INCOMPLETE_PURPLE : "inherit",
             }}
           >
-            <CheckCircleOutlined sx={{ fontSize: 18 }} />
-            {sale.status
-              ? sale.status.charAt(0) + sale.status.slice(1).toLowerCase()
-              : ""}
+            {incomplete ? (
+              <Box sx={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${INCOMPLETE_PURPLE}`, boxSizing: "border-box" }} />
+            ) : (
+              <CheckCircleOutlined sx={{ fontSize: 18 }} />
+            )}
+            {incomplete
+              ? "Incomplete"
+              : sale.status
+                ? sale.status.charAt(0) + sale.status.slice(1).toLowerCase()
+                : ""}
           </Box>
           <Box sx={cell}>{sale.outlet?.name || outletName || ""}</Box>
           <Box sx={cell}>
@@ -228,7 +242,7 @@ const SaleDetailCard = ({
 
         {/* Payments — the name becomes a method select while editing */}
         <Box sx={{ my: "8px" }}>
-          {payments.map((p, idx) => (
+          {payments.map((p, idx) => (!editing && isOnAccountPayment(p)) ? null : (
             <Box
               key={idx}
               sx={{ display: "flex", alignItems: "center", ...cell, mb: editing ? "8px" : 0 }}
@@ -284,7 +298,7 @@ const SaleDetailCard = ({
         >
           <Box sx={{ flex: 1, textAlign: "right", mr: "16px" }}>Balance</Box>
           <Box>
-            <SplitPrice value={sale.balance} />
+            <SplitPrice value={incomplete ? owed : sale.balance} />
           </Box>
         </Box>
       </Box>

@@ -63,6 +63,7 @@ import outletService from "../../services/outletService";
 import receiptTemplateService from "../../services/receiptTemplateService";
 import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 import StatementRenderer from "../../components/Statement/StatementRenderer";
+import DateRangePicker from "../../components/Common/DateRangePicker";
 import ReceiptRenderer from "../../components/Receipt/ReceiptRenderer";
 import { buildReceiptPrintHtml } from "../../utils/receiptPrintHtml";
 import { printHtmlDocument } from "../../utils/printHtmlDocument";
@@ -404,14 +405,37 @@ const Balance = () => {
 
   // Deep link from the customer page ("View Statement" on Balance & Payments):
   // /customers/balance?customerId=31 opens that customer's statement dialog.
+  // Opened from the customer page: closing the statement (Cancel / ✕) goes back
+  // to that customer's Balance & Payments, as the reference keeps you there.
+  const returnToCustomerRef = React.useRef(null);
   useEffect(() => {
     const id = searchParams.get("customerId");
     if (!id || customers.length === 0) return;
     const customer = customers.find((c) => String(c.id) === id);
-    if (customer) handleViewStatement(customer);
+    if (customer) {
+      returnToCustomerRef.current = searchParams.get("returnTo") === "customer" ? customer.id : null;
+      handleViewStatement(customer);
+    }
     setSearchParams({}, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customers, searchParams]);
+
+  const returnToCustomerIfNeeded = () => {
+    const customerId = returnToCustomerRef.current;
+    if (customerId == null) return;
+    returnToCustomerRef.current = null;
+    navigate(`/customers/${customerId}/view?section=balance`, { replace: true });
+  };
+  const closeStatementOptions = () => {
+    setViewStatementDialogOpen(false);
+    returnToCustomerIfNeeded();
+  };
+  // Statement ✕ steps back to the "View Statement" popup (date range / template /
+  // View) so another range can be run; Cancel there leaves the flow.
+  const closeStatementViewer = () => {
+    setStatementViewerOpen(false);
+    setViewStatementDialogOpen(true);
+  };
 
   // showLoader=false keeps the page (and its success banner) on screen while a
   // post-payment refresh runs — the whole page used to blank for ~2s.
@@ -1182,13 +1206,13 @@ const Balance = () => {
       </TableContainer>
 
       <Dialog 
-        open={viewStatementDialogOpen} 
-        onClose={() => setViewStatementDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        open={viewStatementDialogOpen}
+        onClose={closeStatementOptions}
+        // Reference (SS 318): a narrow popup, date range + template stacked
+        PaperProps={{ sx: { width: 420, maxWidth: "calc(100% - 32px)", m: 2 } }}
       >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+        <DialogTitle sx={{ pb: 0 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 1 }}>
             <Avatar sx={{ bgcolor: '#1976d2', width: 56, height: 56, mb: 2 }}>
               <HelpIcon sx={{ fontSize: 32, color: 'white' }} />
             </Avatar>
@@ -1198,42 +1222,21 @@ const Balance = () => {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enAU}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <InputLabel>Date Range</InputLabel>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <DatePicker
-                    label="Start Date"
-                    value={statementDateRange[0]}
-                    onChange={(newValue) => {
-                      setStatementDateRange([newValue, statementDateRange[1]]);
-                    }}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        size: "small",
-                        sx: textFieldSx
-                      }
-                    }}
-                  />
-                  <DatePicker
-                    label="End Date"
-                    value={statementDateRange[1]}
-                    onChange={(newValue) => {
-                      setStatementDateRange([statementDateRange[0], newValue]);
-                    }}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        size: "small",
-                        sx: textFieldSx
-                      }
-                    }}
-                  />
-                </Box>
-              </Box>
-            </LocalizationProvider>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
+            {/* Reference (SS 318): ONE Date Range box "31/07/2026 — 31/08/2026" opening a
+                single two-month calendar, same control as Sales History / Orders. */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <InputLabel>Date Range</InputLabel>
+              <DateRangePicker
+                value={{ startDate: statementDateRange[0], endDate: statementDateRange[1], preset: 'custom' }}
+                onChange={(range) => setStatementDateRange([range.startDate, range.endDate])}
+                label=""
+                hideIcon
+                popoverIcons
+                separator="—"
+                inputSx={textFieldSx}
+              />
+            </Box>
 
             <FormControl fullWidth>
               <InputLabel>Statement Template</InputLabel>
@@ -1256,7 +1259,7 @@ const Balance = () => {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button
-            onClick={() => setViewStatementDialogOpen(false)}
+            onClick={closeStatementOptions}
             sx={{ textTransform: "none", fontWeight: 700, fontSize: 16 }}
           >
             Cancel
@@ -1272,8 +1275,8 @@ const Balance = () => {
       </Dialog>
 
       <Dialog 
-        open={statementViewerOpen} 
-        onClose={() => setStatementViewerOpen(false)}
+        open={statementViewerOpen}
+        onClose={closeStatementViewer}
         maxWidth="lg"
         fullWidth
         PaperProps={{
@@ -1337,7 +1340,7 @@ const Balance = () => {
               >
                 Email
               </Button>
-              <IconButton onClick={() => setStatementViewerOpen(false)} size="small">
+              <IconButton onClick={closeStatementViewer} size="small">
                 <CloseIcon />
               </IconButton>
             </Box>

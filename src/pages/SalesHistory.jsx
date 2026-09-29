@@ -13,6 +13,7 @@ import {
   FormControlLabel,
 } from "@mui/material";
 import { CheckCircleOutlined } from "@mui/icons-material";
+import { saleOutstanding, INCOMPLETE_PURPLE } from "../utils/saleOutstanding";
 import DateRangePicker from "../components/Common/DateRangePicker";
 import ShopfrontSwitch from "../components/Common/ShopfrontSwitch";
 import salesService from "../services/salesService";
@@ -842,7 +843,16 @@ const SalesHistory = () => {
                               lineHeight: 0,
                             }}
                           >
-                            <CheckCircleOutlined sx={{ fontSize: 32, color: "#000" }} />
+                            {/* Reference: purple hollow circle while the sale still owes
+                                money (On Account, unpaid); black tick once paid. */}
+                            {saleOutstanding(sale) > 0 ? (
+                              <Box
+                                title="Incomplete"
+                                sx={{ width: 28, height: 28, m: "2px auto", borderRadius: "50%", border: `2px solid ${INCOMPLETE_PURPLE}` }}
+                              />
+                            ) : (
+                              <CheckCircleOutlined sx={{ fontSize: 32, color: "#000" }} />
+                            )}
                           </Box>
 
                           {/* .sale-line-timestamp — date / time / invoice, centred.
@@ -882,6 +892,12 @@ const SalesHistory = () => {
                             }}
                           >
                             <SplitPrice value={sale.totalAmount} />
+                            {/* Reference: amount still owed, small, under the total */}
+                            {saleOutstanding(sale) > 0 && (
+                              <Box sx={{ fontSize: 16, lineHeight: "18px" }}>
+                                <SplitPrice value={saleOutstanding(sale)} />
+                              </Box>
+                            )}
                           </Box>
                         </Box>
                       </Box>

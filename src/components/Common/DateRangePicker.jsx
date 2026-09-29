@@ -47,6 +47,9 @@ const DateRangePicker = ({
   // ponytail: opt-in reference trigger — one bordered field holding two separately
   // clickable DD/MM/YYYY date buttons split by a dash (instead of one readonly input).
   splitTrigger = false,
+  // Opt-in reference popover chrome: calendar icon top-left, and an X at the end
+  // of each typed date box (end X clears the end only; start X clears both).
+  popoverIcons = false,
 }) => {
   const emptyDefault = allowEmpty ? null : new Date();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -468,7 +471,8 @@ const DateRangePicker = ({
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Shortcuts — reference pins 'Current Day' to the top-RIGHT of the popover. */}
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: popoverIcons ? 'space-between' : 'flex-end', alignItems: 'center' }}>
+              {popoverIcons && <CalendarIcon fontSize="small" sx={{ color: '#5ebbeb' }} />}
               <Button
                 size="small"
                 onClick={handleCurrentDay}
@@ -487,6 +491,17 @@ const DateRangePicker = ({
                 onChange={(e) => handleTypedDate('start', e.target.value)}
                 placeholder="dd/mm/yyyy"
                 sx={{ flex: 1 }}
+                InputProps={popoverIcons && (tempStartDate || startInput) ? {
+                  endAdornment: (
+                    <IconButton size="small" aria-label="Clear start date" onClick={() => {
+                      setTempStartDate(null); setTempEndDate(null);
+                      setStartInput(''); setEndInput('');
+                      commit(null, null, 'custom');
+                    }}>
+                      <Close sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  ),
+                } : undefined}
               />
               {!single && (
                 <>
@@ -498,6 +513,16 @@ const DateRangePicker = ({
                     onChange={(e) => handleTypedDate('end', e.target.value)}
                     placeholder="dd/mm/yyyy"
                     sx={{ flex: 1 }}
+                    InputProps={popoverIcons && (tempEndDate || endInput) ? {
+                      endAdornment: (
+                        <IconButton size="small" aria-label="Clear end date" onClick={() => {
+                          setTempEndDate(null); setEndInput('');
+                          commit(committedRef.current.start, null, 'custom');
+                        }}>
+                          <Close sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      ),
+                    } : undefined}
                   />
                 </>
               )}

@@ -14,6 +14,8 @@ import {
 } from '@mui/icons-material';
 import productService from '../../services/productService';
 import salesService from '../../services/salesService';
+import DateRangeField from '../Common/DateRangeField';
+import { saleOutstanding, isOnAccountPayment, INCOMPLETE_PURPLE } from '../../utils/saleOutstanding';
 import {
   EVENT_ROOT_SX,
   eventRowSx,
@@ -56,17 +58,21 @@ const ProductSalesHistory = ({ productId }) => {
   const [selectedSale, setSelectedSale] = useState(null);
   const [page, setPage] = useState(1);
   const [saleDetailsById, setSaleDetailsById] = useState({});
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // One From–To date box (same control as Orders & Invoices); null = all dates.
+  const [dateRange, setDateRange] = useState(null);
   // Last-write-wins guard: a cached (instant) response must not be overwritten
   // by an older filter's request that is still in flight.
   const reqRef = useRef(0);
+
+  const rangeStart = dateRange?.startDate ? new Date(new Date(dateRange.startDate).setHours(0, 0, 0, 0)) : null;
+  const rangeEnd = dateRange?.endDate ? new Date(new Date(dateRange.endDate).setHours(23, 59, 59, 999)) : null;
+  const rangeKey = `${rangeStart?.getTime() ?? ''}-${rangeEnd?.getTime() ?? ''}`;
 
   useEffect(() => {
     if (productId) {
       loadSalesHistory();
     }
-  }, [productId, startDate, endDate]);
+  }, [productId, rangeKey]);
 
   const loadSalesHistory = async () => {
     const seq = ++reqRef.current;
@@ -78,8 +84,9 @@ const ProductSalesHistory = ({ productId }) => {
       const response = await productService.getProductSalesHistory(productId, {
         page: 1,
         limit: 10000,
-        startDate: startDate ? new Date(startDate).toISOString() : undefined,
-        endDate: endDate ? new Date(endDate).toISOString() : undefined,
+        // Whole days: from 00:00 of the first day to 23:59:59 of the last.
+        startDate: rangeStart ? rangeStart.toISOString() : undefined,
+        endDate: rangeEnd ? rangeEnd.toISOString() : undefined,
       });
       if (seq !== reqRef.current) return;
       // Sale details are fetched lazily when a row is expanded. Prefetching
@@ -182,6 +189,8 @@ const ProductSalesHistory = ({ productId }) => {
       ['Loyalty Value', String(Number(det.loyaltyValue) || 0)],
     ];
     const payments = det.payments || [];
+    // Still owed on this sale (server figure from the list row)
+    const owed = saleOutstanding(sale);
 
     return (
       <Box sx={EVENT_EXPANDED_SX}>
@@ -205,10 +214,15 @@ const ProductSalesHistory = ({ productId }) => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '4px',
+                color: owed > 0 ? INCOMPLETE_PURPLE : 'inherit',
               }}
             >
-              <CheckCircleIcon sx={{ fontSize: '17.6px' }} />
-              {titleCase(sale.status || 'Completed')}
+              {owed > 0 ? (
+                <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${INCOMPLETE_PURPLE}`, boxSizing: 'border-box' }} />
+              ) : (
+                <CheckCircleIcon sx={{ fontSize: '17.6px' }} />
+              )}
+              {owed > 0 ? 'Incomplete' : titleCase(sale.status || 'Completed')}
             </Box>
             <Box sx={{ fontSize: 16, mb: '8px' }}>{sale.outlet || ''}</Box>
             <Box sx={{ fontSize: 16 }}>{sale.salesperson || ''}</Box>
@@ -252,7 +266,7 @@ const ProductSalesHistory = ({ productId }) => {
           </Box>
 
           <Box sx={{ my: '8px' }}>
-            {payments.map((p) => (
+            {payments.filter((p) => !isOnAccountPayment(p)).map((p) => (
               <Box key={p.id} sx={{ display: 'flex', fontSize: 16 }}>
                 <Box sx={{ flex: 1, textAlign: 'right', mr: '16px' }}>
                   {p.paymentMethod}
@@ -265,7 +279,7 @@ const ProductSalesHistory = ({ productId }) => {
           <Box sx={EVENT_BALANCE_SX}>
             <Box sx={{ flex: 1, textAlign: 'right', mr: '16px' }}>Balance</Box>
             <Box>
-              <Money value={det.balance ?? sale.balance} />
+              <Money value={owed > 0 ? owed : (det.balance ?? sale.balance)} />
             </Box>
           </Box>
         </Box>
@@ -279,28 +293,16 @@ const ProductSalesHistory = ({ productId }) => {
 
   return (
     <Box sx={EVENT_ROOT_SX}>
-      {/* Local-only control (the reference has no date filter here) */}
-      <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-        <TextField
-          type="datetime-local"
-          size="small"
-          label="From"
-          InputLabelProps={{ shrink: true }}
-          value={startDate}
-          onChange={(e) => {
+      {/* Local-only control (the reference has no date filter here): one
+          From–To box, same as the Orders & Invoices date filter. */}
+      <Box sx={{ p: 2, maxWidth: 390 }}>
+        <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5, lineHeight: 1.2 }}>Date</Typography>
+        <DateRangeField
+          value={dateRange}
+          onChange={(range) => {
             setPage(1);
-            setStartDate(e.target.value);
-          }}
-        />
-        <TextField
-          type="datetime-local"
-          size="small"
-          label="To"
-          InputLabelProps={{ shrink: true }}
-          value={endDate}
-          onChange={(e) => {
-            setPage(1);
-            setEndDate(e.target.value);
+            setSelectedSale(null);
+            setDateRange(range);
           }}
         />
       </Box>
@@ -321,7 +323,12 @@ const ProductSalesHistory = ({ productId }) => {
               {isSelected ? null : (
                 <Box sx={EVENT_LINE_SX} onClick={() => handleSaleSelect(sale)}>
                   <Box sx={EVENT_STATUS_SX}>
-                    <CheckCircleIcon sx={{ fontSize: 32, display: 'block' }} />
+                    {/* Reference: purple hollow circle while the sale still owes money */}
+                    {saleOutstanding(sale) > 0 ? (
+                      <Box title="Incomplete" sx={{ width: 28, height: 28, m: '2px', borderRadius: '50%', border: `2px solid ${INCOMPLETE_PURPLE}` }} />
+                    ) : (
+                      <CheckCircleIcon sx={{ fontSize: 32, display: 'block' }} />
+                    )}
                   </Box>
                   <Box sx={EVENT_TIMESTAMP_SX}>
                     <Box sx={EVENT_DATE_SX}>{dt.date}</Box>

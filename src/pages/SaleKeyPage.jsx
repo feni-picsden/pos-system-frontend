@@ -2019,6 +2019,23 @@ const SaleKeyPage = () => {
         };
       })]);
       setSelectedCartItem(null);
+      // The return belongs to the original sale's customer: attach them (when the
+      // cart has no customer yet) so their account, history and loyalty points are
+      // adjusted by the return, as the original sale adjusted them.
+      const originalCustomerId = sale.customerId || sale.customer?.id;
+      if (originalCustomerId && !selectedCustomer) {
+        const cachedCustomer = posLocalDb.getCustomerById(originalCustomerId);
+        if (cachedCustomer) {
+          setSelectedCustomer(cachedCustomer);
+        } else {
+          try {
+            const full = await customerService.getCustomer(originalCustomerId);
+            setSelectedCustomer(full.customer || full);
+          } catch {
+            if (sale.customer) setSelectedCustomer(sale.customer);
+          }
+        }
+      }
       return true;
     } catch (error) {
       console.error('Error recalling sale:', error);

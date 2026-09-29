@@ -22,7 +22,7 @@ const LoyaltyDisplay = ({
   items, 
   outletId, 
   onLoyaltyCalculated,
-  onRedemptionApplied 
+  onRedemptionApplied
 }) => {
   const [loading, setLoading] = useState(false);
   const [loyaltyInfo, setLoyaltyInfo] = useState(null);
@@ -276,8 +276,8 @@ const LoyaltyDisplay = ({
   // Don't show if customer loyalty is disabled
   if (!customer.loyaltyEnabled) {
     return (
-      <Paper elevation={1} sx={{ p: 2, bgcolor: 'warning.light' }}>
-        <Typography variant="body2" color="warning.dark">
+      <Paper elevation={0} square sx={{ px: 2, py: 0.5, bgcolor: 'warning.light', borderBottom: '1px solid #e0e0e0' }}>
+        <Typography variant="body2" color="warning.dark" sx={{ fontSize: 12 }}>
           Loyalty is disabled for this customer
         </Typography>
       </Paper>
@@ -285,28 +285,28 @@ const LoyaltyDisplay = ({
   }
 
   return (
-    <Paper elevation={2} sx={{ p: 2 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <LoyaltyIcon color="primary" />
-        <Typography variant="h6">Loyalty Program</Typography>
+    <Paper elevation={0} square sx={{ px: 2, py: 0.75, borderBottom: '1px solid #e0e0e0' }}>
+      <Box display="flex" alignItems="center" gap={0.75} mb={0.5}>
+        <LoyaltyIcon color="primary" sx={{ fontSize: 18 }} />
+        <Typography variant="subtitle2" sx={{ lineHeight: 1.2 }}>Loyalty Program</Typography>
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+        <Alert severity="error" sx={{ mb: 0.5, py: 0 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
 
       {/* Customer Loyalty Info */}
       {customerLoyalty && (
-        <Box mb={2}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+        <Box mb={0.5}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.25}>
             <Typography variant="body2" color="text.secondary">
               Available Points
             </Typography>
-            <Chip 
-              label={customerLoyalty.loyaltyPoints.toLocaleString()} 
-              color="primary" 
+            <Chip
+              label={customerLoyalty.loyaltyPoints.toLocaleString()}
+              color="primary"
               size="small"
             />
           </Box>
@@ -323,18 +323,18 @@ const LoyaltyDisplay = ({
         </Box>
       )}
 
-      <Divider sx={{ my: 2 }} />
+      <Divider sx={{ my: 0.5 }} />
 
       {/* Loyalty Calculation */}
       {loading ? (
-        <Box display="flex" justifyContent="center" p={2}>
-          <CircularProgress size={24} />
+        <Box display="flex" justifyContent="center" p={0.5}>
+          <CircularProgress size={18} />
         </Box>
       ) : loyaltyInfo ? (
         <Box>
           {loyaltyInfo.eligible ? (
             <>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.25}>
                 <Typography variant="body2" color="text.secondary">
                   Eligible Amount
                 </Typography>
@@ -342,13 +342,13 @@ const LoyaltyDisplay = ({
                   ${loyaltyInfo.totalEligibleAmount.toFixed(2)}
                 </Typography>
               </Box>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
                 <Typography variant="body2" color="text.secondary">
                   Points to Earn
                 </Typography>
-                <Chip 
-                  label={loyaltyInfo.totalPointsEarned.toLocaleString()} 
-                  color="success" 
+                <Chip
+                  label={loyaltyInfo.totalPointsEarned.toLocaleString()}
+                  color="success"
                   size="small"
                 />
               </Box>
@@ -362,14 +362,14 @@ const LoyaltyDisplay = ({
           {/* Redemption Section */}
           {customerLoyalty && customerLoyalty.loyaltyPoints > 0 && loyaltyInfo.eligible && (
             <>
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="subtitle2" gutterBottom>
+              <Divider sx={{ my: 0.5 }} />
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
                 Redeem Points
               </Typography>
-              
+
               {redemptionApplied ? (
                 <Box>
-                  <Alert severity="success" sx={{ mb: 1 }}>
+                  <Alert severity="success" sx={{ mb: 0.5, py: 0 }}>
                     Redeemed {redemptionApplied.pointsRedeemed} points (${redemptionApplied.redemptionAmount.toFixed(2)})
                   </Alert>
                   <Button
