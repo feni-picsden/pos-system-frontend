@@ -47,6 +47,13 @@ const DERIVED_RESOURCES = {
   '/classifications': ['/products'],
 };
 
+// Writes that MOVE STOCK (sale/refund/cancel, order send/receive, return,
+// transfer, stocktake apply). They only drop the in-memory GET cache of the
+// Products list and the stock reports - the list kept showing the pre-sale
+// Inventory for the whole 2-minute TTL. The IndexedDB catalog is left alone:
+// clearing it per sale would force a full catalog re-sync on every sale.
+const STOCK_MOVING_RESOURCES = new Set(['/sales', '/orders-invoices', '/stocktakes']);
+
 function invalidateStoreFor(prefix) {
   const store = STORE_BY_RESOURCE[prefix];
   if (!store) return Promise.resolve();
@@ -184,6 +191,10 @@ apiClient.interceptors.response.use(
       // Doing it here means every mutation in the app invalidates its store,
       // instead of each call site having to remember to.
       apiClient.invalidateResource(prefix);
+      if (STOCK_MOVING_RESOURCES.has(prefix)) {
+        apiClient.bustCache('/products');
+        apiClient.bustCache('/reports');
+      }
       // Customers: don't just drop the cache — refill it, so the sell search
       // and the list see a just-created/edited customer without a re-sync.
       if (prefix === '/customers') scheduleCustomersRefresh();
@@ -216,6 +227,15 @@ apiClient.interceptors.response.use(
       }
       // An expired session must leave no more behind than a clean logout does —
       // same teardown, and the redirect waits so the IndexedDB wipe isn't aborted.
+      // Remember the page so Login can return to it after signing back in.
+      if (!window.location.pathname.includes('/login')) {
+        try {
+          sessionStorage.setItem(
+            'postLoginRedirect',
+            `${window.location.pathname}${window.location.search}${window.location.hash}`
+          );
+        } catch { /* storage unavailable: land on home instead */ }
+      }
       clearLocalSession().finally(() => {
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';

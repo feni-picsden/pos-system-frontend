@@ -70,6 +70,7 @@ import notificationService from '../../services/notificationService';
 import apiClient, { resolveAssetUrl } from '../../services/apiClient';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import settingsService from '../../services/settingsService';
+import offlineSales from '../../services/offlineSales';
 import useAutoLogout from '../../hooks/useAutoLogout';
 import { useAppDialogs } from '../Common/AppDialogProvider';
 import { playNotificationSound } from '../../utils/notificationSounds';
@@ -204,7 +205,7 @@ const quickInputSx = {
 
 const DashboardLayout = ({ children }) => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
-  const { alert, confirm } = useAppDialogs();
+  const { alert, confirm, notify } = useAppDialogs();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(false);
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
@@ -431,16 +432,82 @@ const DashboardLayout = ({ children }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncAnchorEl, setSyncAnchorEl] = useState(null);
 
+  // Offline sales waiting to upload (reference "What is Offline Mode"). Shown on the badge.
+  const [pendingOfflineSales, setPendingOfflineSales] = useState(() => offlineSales.count());
+
+  // Upload queued offline sales. Quiet unless something uploaded, the server
+  // refused a sale (it stays queued with its reason), or the user pressed a button.
+  const uploadOfflineSales = React.useCallback(async ({ announce = false } = {}) => {
+    if (offlineSales.count() === 0) {
+      if (announce) alert('Nothing queued to be uploaded', 'info');
+      return { uploaded: 0, failed: 0, remaining: 0, offline: false };
+    }
+    const r = await offlineSales.upload();
+    setPendingOfflineSales(offlineSales.count());
+    if (r.offline) {
+      setIsOnline(false);
+      if (announce) alert(`Still offline. ${r.remaining} sale${r.remaining === 1 ? ' is' : 's are'} waiting to upload.`, 'warning');
+      return r;
+    }
+    setIsOnline(true);
+    if (r.uploaded > 0) notify(`${r.uploaded} offline sale${r.uploaded === 1 ? '' : 's'} uploaded`, 'success');
+    if (r.failed > 0) {
+      const first = offlineSales.list().find((s) => s.error);
+      alert(`${r.failed} offline sale${r.failed === 1 ? ' was' : 's were'} refused by the server and kept on this device.\n\n${first?.error || ''}`, 'error');
+    }
+    return r;
+  }, [alert, notify]);
+
   React.useEffect(() => {
-    const goOnline = () => setIsOnline(true);
+    const goOnline = () => { setIsOnline(true); uploadOfflineSales(); };
     const goOffline = () => setIsOnline(false);
+    const onQueueChange = () => setPendingOfflineSales(offlineSales.count());
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
+    window.addEventListener(offlineSales.EVENT, onQueueChange);
+    // On load and every 30s while sales are queued: covers a server that was
+    // down while the browser itself stayed "online" (no 'online' event then).
+    uploadOfflineSales();
+    const timer = setInterval(() => {
+      if (offlineSales.count() > 0 && navigator.onLine) uploadOfflineSales();
+    }, 30000);
     return () => {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
+      window.removeEventListener(offlineSales.EVENT, onQueueChange);
+      clearInterval(timer);
     };
-  }, []);
+  }, [uploadOfflineSales]);
+
+  // Reference offline menu "Reconnect": try the server again and upload anything queued.
+  const handleReconnect = async () => {
+    if (!navigator.onLine) {
+      alert('Still offline. Check the device\'s network connection and try again.', 'warning');
+      return;
+    }
+    if (offlineSales.count() > 0) {
+      await uploadOfflineSales({ announce: true });
+      return;
+    }
+    try {
+      await apiClient.get('/permissions/me', { silent: true, noCache: true });
+      setIsOnline(true);
+      notify('Reconnected', 'success');
+    } catch (e) {
+      if (!e?.response) {
+        setIsOnline(false);
+        alert('Still offline. The server could not be reached.', 'warning');
+      } else {
+        setIsOnline(true);
+      }
+    }
+  };
+
+  const handleOfflineSaleBackup = () => {
+    const n = offlineSales.downloadBackup();
+    if (n === 0) alert('No offline sales to back up', 'info');
+    else notify(`Backed up ${n} offline sale${n === 1 ? '' : 's'}`, 'success');
+  };
 
   const handleExportLogging = () => {
     const log = {
@@ -461,8 +528,9 @@ const DashboardLayout = ({ children }) => {
   };
 
   const handleClearLocalData = async () => {
+    const outstanding = offlineSales.count();
     if (await confirm(
-      'Clearing local data removes any outstanding sales and all other local data. You will need to log in again.',
+      `${outstanding > 0 ? `WARNING: ${outstanding} offline sale${outstanding === 1 ? ' has' : 's have'} not been uploaded and will be lost. Use Offline Sale Backup first.\n\n` : ''}Clearing local data removes any outstanding sales and all other local data. You will need to log in again.`,
       { title: 'Clear local data', confirmText: 'Clear and log out' }
     )) {
       try { localStorage.clear(); } catch { /* ignore */ }
@@ -473,11 +541,17 @@ const DashboardLayout = ({ children }) => {
 
   const syncButtons = [
     { label: 'Export Logging', icon: <DescriptionIcon />, bg: 'rgb(199,235,204)', accent: '#32b643', onClick: handleExportLogging },
-    // ponytail: no offline sale queue locally — backup/upload report "nothing queued" like the reference does when empty
-    { label: 'Offline Sale Backup', icon: <SaveOutlinedIcon />, bg: 'rgb(188,219,251)', accent: '#0284c7', onClick: () => alert('No offline sales to back up', 'info') },
+    { label: 'Offline Sale Backup', icon: <SaveOutlinedIcon />, bg: 'rgb(188,219,251)', accent: '#0284c7', onClick: handleOfflineSaleBackup },
     { label: 'Force Synchronisation', icon: <SyncIcon />, bg: 'rgb(188,219,251)', accent: '#0284c7', onClick: () => window.location.reload() },
-    { label: 'Force Upload', icon: <CloudUploadIcon />, bg: 'rgb(188,219,251)', accent: '#0284c7', onClick: () => alert('Nothing queued to be uploaded', 'info') },
+    { label: 'Force Upload', icon: <CloudUploadIcon />, bg: 'rgb(188,219,251)', accent: '#0284c7', onClick: () => uploadOfflineSales({ announce: true }) },
     { label: 'Clear Local Data', icon: <DeleteIcon />, bg: 'rgb(247,198,197)', accent: '#e33430', onClick: handleClearLocalData },
+  ];
+
+  // Reference offline menu (SS 306): only Reconnect and Offline Sale Backup —
+  // the other functions need the server.
+  const offlineSyncButtons = [
+    { label: 'Reconnect', icon: <SyncIcon />, bg: 'rgb(0,122,255)', accent: 'rgb(0,122,255)', color: '#fff', onClick: handleReconnect },
+    { label: 'Offline Sale Backup', icon: <SaveOutlinedIcon />, bg: 'rgb(238,238,238)', accent: 'rgb(49,52,57)', onClick: handleOfflineSaleBackup },
   ];
 
   // ── Notifications (bell-icon panel) ────────────────────────────────────────
@@ -859,6 +933,14 @@ const DashboardLayout = ({ children }) => {
               <Typography sx={{ fontSize: 16, color: isOnline ? 'rgb(50,182,67)' : 'rgb(227,52,47)' }}>
                 {isOnline ? 'ONLINE' : 'OFFLINE'}
               </Typography>
+              {pendingOfflineSales > 0 && (
+                <Box
+                  title={`${pendingOfflineSales} offline sale${pendingOfflineSales === 1 ? '' : 's'} waiting to upload`}
+                  sx={{ ml: 0.5, minWidth: 20, height: 20, px: 0.5, borderRadius: '10px', bgcolor: 'rgb(227,52,47)', color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {pendingOfflineSales}
+                </Box>
+              )}
             </Box>
             <Popover
               open={Boolean(syncAnchorEl)}
@@ -878,13 +960,26 @@ const DashboardLayout = ({ children }) => {
                 },
               }}
             >
-              <Typography sx={{ fontSize: '14.4px', color: '#313439' }}>
-                Please note, clearing local data or forcing a synchronise will <b>clear</b> any outstanding sales and all other local data.
-              </Typography>
-              <Typography sx={{ fontSize: '14.4px', color: '#313439', mt: 1 }}>
-                Use these only if you know what you are doing
-              </Typography>
-              {syncButtons.map((b) => (
+              {isOnline ? (
+                <>
+                  <Typography sx={{ fontSize: '14.4px', color: '#313439' }}>
+                    Please note, clearing local data or forcing a synchronise will <b>clear</b> any outstanding sales and all other local data.
+                  </Typography>
+                  <Typography sx={{ fontSize: '14.4px', color: '#313439', mt: 1 }}>
+                    Use these only if you know what you are doing
+                  </Typography>
+                </>
+              ) : (
+                <Typography sx={{ fontSize: '14.4px', color: '#313439', fontWeight: 700, textAlign: 'center' }}>
+                  You have access to less sync functions whilst offline
+                </Typography>
+              )}
+              {pendingOfflineSales > 0 && (
+                <Typography sx={{ fontSize: '14.4px', color: 'rgb(227,52,47)', mt: 1 }}>
+                  {pendingOfflineSales} offline sale{pendingOfflineSales === 1 ? ' is' : 's are'} waiting to upload.
+                </Typography>
+              )}
+              {(isOnline ? syncButtons : offlineSyncButtons).map((b) => (
                 <Button
                   key={b.label}
                   disableRipple
@@ -899,12 +994,12 @@ const DashboardLayout = ({ children }) => {
                     bgcolor: b.bg,
                     borderLeft: `4px solid ${b.accent}`,
                     borderRadius: 0,
-                    color: '#313439',
+                    color: b.color || '#313439',
                     fontSize: 16,
                     textTransform: 'none',
                     px: 1.5,
                     '&:hover': { bgcolor: b.bg },
-                    '& .MuiSvgIcon-root': { color: '#313439' },
+                    '& .MuiSvgIcon-root': { color: b.color || '#313439' },
                   }}
                 >
                   {b.label}

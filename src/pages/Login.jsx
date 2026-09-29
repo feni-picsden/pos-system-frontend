@@ -23,7 +23,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import settingsService from '../services/settingsService';
 import apiClient from '../services/apiClient';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { TopProgressBar } from '../components/Common/GlobalTopBar';
 
 const Login = () => {
@@ -65,6 +65,22 @@ const Login = () => {
   
   const { login, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Where to land after signing in (reference: a link opened while signed out
+  // returns to that page once logged in). ProtectedRoute passes the blocked
+  // route in state; an expired session (apiClient 401) leaves it in
+  // sessionStorage because it redirects with a full page load. Only in-app
+  // paths are honoured, never /login itself or an external URL.
+  const redirectTarget = (() => {
+    const from = location.state?.from;
+    let target = from ? `${from.pathname || ''}${from.search || ''}${from.hash || ''}` : '';
+    if (!target) {
+      try { target = sessionStorage.getItem('postLoginRedirect') || ''; } catch { target = ''; }
+    }
+    if (!target.startsWith('/') || target.startsWith('//') || target.startsWith('/login')) return '/';
+    return target;
+  })();
 
   // Check for session expired message on mount
   useEffect(() => {
@@ -139,7 +155,8 @@ const Login = () => {
 
     try {
       await login(credentials);
-      navigate('/'); // Redirect to dashboard
+      try { sessionStorage.removeItem('postLoginRedirect'); } catch { /* ignore */ }
+      navigate(redirectTarget, { replace: true }); // back to the page that asked for sign-in (else home)
     } catch (err) {
       const errorMessage = err.response?.data?.error || 'Login failed';
       const errorDetails = err.response?.data?.message || '';

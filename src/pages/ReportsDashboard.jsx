@@ -86,6 +86,11 @@ const KPI_CARDS = [
   { title: 'Profit Percentage', metric: 'profitPercentage', format: (v) => `${Number(v || 0).toFixed(2)}%` },
 ];
 
+// No HTTP response = the device could not reach the server (offline).
+const dashboardLoadError = (e) => (!e?.response
+  ? 'Failed to load the dashboard — you appear to be offline. Check your connection and try again.'
+  : 'Failed to load the dashboard');
+
 const ReportsDashboard = () => {
   const { getOutletName } = useAuth();
   const [timelineValue, setTimelineValue] = useState('count');
@@ -127,6 +132,7 @@ const ReportsDashboard = () => {
         });
       } catch (e) {
         console.error('Failed to load main chart data:', e);
+        setError(dashboardLoadError(e));
       }
     };
     fetchMainChartData();
@@ -155,8 +161,8 @@ const ReportsDashboard = () => {
           timeline: data?.timeline || [],
           comparisonTimeline: data?.comparisonTimeline || [],
         });
-      } catch {
-        setError('Failed to load live stats. Showing placeholder data.');
+      } catch (e) {
+        setError(dashboardLoadError(e));
       } finally {
         setLoading(false);
       }
@@ -342,24 +348,27 @@ const ReportsDashboard = () => {
         </FilterGroup>
       </Box>
 
+      {/* Load failure (e.g. offline): reference shows "Failed to load the user
+          dashboard"; an empty chart saying "No data available" reads as "no sales". */}
+      {error && !loading && (
+        <Box sx={{ bgcolor: 'rgb(227,52,47)', color: '#fff', px: 2, py: 1.5, mb: 2, fontSize: 15 }}>
+          {error}
+        </Box>
+      )}
+
       {/* Timeline: no card, 400px tall (reference .report-dashboard-timeline) */}
       <Box sx={{ height: 400, backgroundColor: 'transparent', p: 0 }}>
-        {loading ? null : (
-          <>
-            <SalesChart
-              height={400}
-              type="bar"
-              data={mainChartData.timeline}
-              comparisonData={mainChartData.comparisonTimeline || []}
-              timelineValue={timelineValue}
-              compare="none"
-              period="day"
-              isMainChart
-            />
-            {error && (
-              <Typography variant="caption" color="warning.main">{error}</Typography>
-            )}
-          </>
+        {loading || error ? null : (
+          <SalesChart
+            height={400}
+            type="bar"
+            data={mainChartData.timeline}
+            comparisonData={mainChartData.comparisonTimeline || []}
+            timelineValue={timelineValue}
+            compare="none"
+            period="day"
+            isMainChart
+          />
         )}
       </Box>
 

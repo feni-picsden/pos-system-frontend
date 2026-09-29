@@ -167,6 +167,25 @@ const FinalizeSaleDialog = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, showLoyaltyDialog, cardCharge, cashOutPrompt, onReturnToSale]);
 
+  // Reference ("How to Pay During a Sale"): Enter while the currency input is
+  // focused puts the payment through on the DEFAULT payment method (the one
+  // flagged default in Setup > Payment Methods, else the first tile). No amount
+  // typed = the whole balance, exactly as tapping that tile would.
+  const enterTenderRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onEnter = (e) => {
+      if (e.key !== 'Enter') return;
+      if (document.activeElement !== amountInputRef.current) return;
+      if (enterTenderRef.current) {
+        e.preventDefault();
+        enterTenderRef.current();
+      }
+    };
+    window.addEventListener('keydown', onEnter);
+    return () => window.removeEventListener('keydown', onEnter);
+  }, [open]);
+
   const PAYMENT_TOLERANCE = 0.01;
   // Refund/return sales have a negative total; |remaining| within tolerance means settled either way.
   const isFullyPaid =
@@ -335,6 +354,18 @@ const FinalizeSaleDialog = ({
       setPaymentAmount('');
       setSelectedPaymentMethod(null);
     }
+  };
+
+  // Enter on the amount box tenders on the default method (see the keydown
+  // effect above). Kept in a ref so the listener always calls the fresh closure.
+  enterTenderRef.current = () => {
+    if (showLoyaltyDialog || cardCharge || cashOutPrompt || tyroPairingMethod) return;
+    if (Math.abs(remainingBalance) <= PAYMENT_TOLERANCE) return;
+    const method =
+      visiblePaymentMethods.find((m) => m.isDefault) ||
+      visiblePaymentMethods.find((m) => isCashMethod(m)) ||
+      visiblePaymentMethods[0];
+    if (method) handlePaymentMethodClick(method);
   };
 
   const handlePayExactAmount = () => {

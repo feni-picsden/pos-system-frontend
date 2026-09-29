@@ -952,7 +952,9 @@ const SalesHistory = () => {
               </List>
             )}
 
-            {sales.length === 0 && !loading && (
+            {/* A failed load already shows its error above; "No sales found" would
+                read as "there were no sales" (reference shows only the error). */}
+            {sales.length === 0 && !loading && !error && (
               <Box sx={{ textAlign: "center", p: 4 }}>
                 <Typography variant="h6" color="text.secondary">
                   No sales found

@@ -133,7 +133,12 @@ const CartSidebar = ({
   setCart,
   setLoyaltyRedemption,
   setLoyaltyCalculation,
-  
+  // Setup > Loyalty "Enable Loyalty": off hides the loyalty section entirely.
+  loyaltyProgramEnabled = false,
+  // Name of the price list the customer is sold at (reference shows it under
+  // the customer name, e.g. "COST"); falls back to the group name.
+  priceListName = '',
+
   // Actions
   onFinalize,
   
@@ -289,9 +294,9 @@ const CartSidebar = ({
             <Typography sx={{ fontSize: 24, fontWeight: 400, color: '#000', lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {`${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
             </Typography>
-            {(selectedCustomer.customerGroup?.name || selectedCustomer.company) && (
-              <Typography sx={{ fontSize: 12, fontWeight: 400, color: '#676B72', lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {selectedCustomer.customerGroup?.name || selectedCustomer.company}
+            {(priceListName || selectedCustomer.customerGroup?.name || selectedCustomer.company) && (
+              <Typography sx={{ fontSize: 12, fontWeight: 400, color: '#676B72', lineHeight: 'normal', letterSpacing: 'normal', textTransform: priceListName ? 'uppercase' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {priceListName || selectedCustomer.customerGroup?.name || selectedCustomer.company}
               </Typography>
             )}
           </Box>
@@ -346,9 +351,10 @@ const CartSidebar = ({
         </Box>
       )}
 
-      {/* Loyalty Display — only once a customer is attached; the reference shows
-          nothing (no helper line) between the Add Customer row and the list. */}
-      {selectedCustomer && (
+      {/* Loyalty Display — only once a customer is attached AND the loyalty program
+          is enabled (reference: loyalty off = no loyalty section anywhere in the
+          sale); nothing (no helper line) between the Add Customer row and the list. */}
+      {selectedCustomer && loyaltyProgramEnabled && (
       <LoyaltyDisplay
         customer={selectedCustomer}
         items={cart.map(item => {

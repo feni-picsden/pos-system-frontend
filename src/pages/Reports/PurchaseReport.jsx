@@ -295,6 +295,7 @@ const PurchaseReport = () => {
   const [searchTerm, setSearchTerm] = useState(initialState.searchTerm);
   const [includeDeleted, setIncludeDeleted] = useState(initialState.includeDeleted);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [reportData, setReportData] = useState([]);
   const [expandedRows, setExpandedRows] = useState({});
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -320,6 +321,7 @@ const PurchaseReport = () => {
   // Load report data
   const loadReportData = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const filters = {
         reportType,
@@ -340,10 +342,13 @@ const PurchaseReport = () => {
       } else {
         console.error('Failed to load report data');
         setReportData([]);
+        setLoadError('We encountered an error with that report type, check your filters and report type to make sure they aren\'t contradictory.');
       }
     } catch (error) {
       console.error('Error loading report:', error);
       setReportData([]);
+      // Reference shows a red error bar; an empty table would read as "no data".
+      setLoadError(!error?.response ? 'Unable to load the report — you appear to be offline. Check your connection and try again.' : 'We encountered an error with that report type, check your filters and report type to make sure they aren\'t contradictory.');
     } finally {
       setLoading(false);
     }
@@ -1476,9 +1481,15 @@ const PurchaseReport = () => {
                   {reportData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={(isPrecisionMode ? getTimePeriodColumns().length : allColumns.filter(col => visibleColumns[col.key]).length) + 1} align="center" sx={{ py: 4 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          No data available for the selected filters
-                        </Typography>
+                        {loadError ? (
+                          <Box sx={{ bgcolor: 'rgb(227,52,47)', color: '#fff', px: 2, py: 1.5, fontSize: 15, textAlign: 'left' }}>
+                            {loadError}
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            No data available for the selected filters
+                          </Typography>
+                        )}
                       </TableCell>
                     </TableRow>
                   ) : (

@@ -321,6 +321,7 @@ const InventoryReport = () => {
   // Data states
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [expandedRows, setExpandedRows] = useState({});
   
   // Column visibility
@@ -397,6 +398,7 @@ const InventoryReport = () => {
 
   const loadReportData = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const filters = {
         reportType,
@@ -421,10 +423,14 @@ const InventoryReport = () => {
       } else {
         console.error('Failed to load inventory report');
         setReportData([]);
+        setLoadError('We encountered an error with that report type, check your filters and report type to make sure they aren\'t contradictory.');
       }
     } catch (error) {
       console.error('Error loading inventory report:', error);
       setReportData([]);
+      setLoadError(!error?.response
+        ? 'Unable to load the report — you appear to be offline. Check your connection and try again.'
+        : 'We encountered an error with that report type, check your filters and report type to make sure they aren\'t contradictory.');
     } finally {
       setLoading(false);
     }
@@ -990,6 +996,14 @@ const InventoryReport = () => {
         })}
       </Menu>
 
+      {/* Load failure (e.g. offline): reference shows a red bar instead of an
+          empty "No data available" table, so an outage is not read as "no stock". */}
+      {loadError && !loading && (
+        <Box sx={{ bgcolor: 'rgb(227,52,47)', color: '#fff', px: 2, py: 1.5, fontSize: 15 }}>
+          {loadError}
+        </Box>
+      )}
+
       {/* Data Table */}
       <Paper elevation={0} sx={{ borderRadius: 0 }}>
         {loading ? (
@@ -1018,7 +1032,7 @@ const InventoryReport = () => {
                       sx={{ py: 5 }}
                     >
                       <Typography color="text.secondary">
-                        No data available
+                        {loadError ? 'Report could not be loaded' : 'No data available'}
                       </Typography>
                     </TableCell>
                   </TableRow>

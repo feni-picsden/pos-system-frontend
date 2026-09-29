@@ -73,6 +73,7 @@ import {
   ArrowBack as ArrowBackIcon,
   TvOutlined as TvOutlinedIcon,
   VisibilityOutlined as VisibilityOutlinedIcon,
+  VisibilityOffOutlined as VisibilityOffOutlinedIcon,
   Dashboard as DashboardIcon,
   PointOfSale as PointOfSaleIcon,
   KeyboardOutlined as KeyboardOutlinedIcon,
@@ -116,6 +117,7 @@ import CustomerDialog from '../components/Customers/CustomerDialog';
 import RequestValueDialog from '../components/SaleKey/RequestValueDialog';
 import RequestReasonDialog from '../components/SaleKey/RequestReasonDialog';
 import LoyaltyDisplay from '../components/Loyalty/LoyaltyDisplay';
+import offlineSales, { isConnectionError } from '../services/offlineSales';
 import FinalizeSaleDialog from '../components/FinalizeSale/FinalizeSaleDialog';
 import PayByCardDialog from '../components/Payment/PayByCardDialog';
 import CashOutDialog from '../components/Payment/CashOutDialog';
@@ -322,6 +324,7 @@ const SaleKeyPage = () => {
   const [orderReference, setOrderReference] = useState(restoredSale.orderReference || '');
   // Effective price-list configuration for the attached customer (null when none / no customer).
   const [priceListConfig, setPriceListConfig] = useState(null);
+  const [priceListName, setPriceListName] = useState('');
   const [isTransactionComplete, setIsTransactionComplete] = useState(false);
 
   const [showReceipt, setShowReceipt] = useState(false);
@@ -348,6 +351,9 @@ const SaleKeyPage = () => {
   const [componentPicker, setComponentPicker] = useState(null);
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
   const [customerLoyaltyInfo, setCustomerLoyaltyInfo] = useState(null);
+  // Setup > Loyalty "Enable Loyalty". Off = no loyalty section, tender or
+  // receipt summary anywhere on the sell screen (reference hides it entirely).
+  const [loyaltyProgramEnabled, setLoyaltyProgramEnabled] = useState(false);
   const [registerPayments, setRegisterPayments] = useState(null);
   // Setup > General (company blob): cash-out gate, reason/note prompts and the
   // sale-keys position all read from the one cached copy.
@@ -561,10 +567,12 @@ const SaleKeyPage = () => {
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [productDetailCartItem, setProductDetailCartItem] = useState(null);
   const [showDetailCosts, setShowDetailCosts] = useState(false);
-  // Reference: all four detail accordions start collapsed
+  // Purchases accordion rows (reference: Order / Quantity / Order Date), loaded
+  // once per opened product from its purchase history.
+  const [productDetailPurchases, setProductDetailPurchases] = useState([]);
+  // Reference: the detail accordions start collapsed
   const [productDetailExpanded, setProductDetailExpanded] = useState({
     prices: false,
-    additionalFields: false,
     purchases: false,
     inventory: false
   });
@@ -922,12 +930,17 @@ const SaleKeyPage = () => {
     const plId = getEffectiveCustomerSettings(selectedCustomer).priceListId;
     if (!plId) {
       setPriceListConfig(null);
+      setPriceListName('');
       return;
     }
     let cancelled = false;
     priceListService.getPriceListConfiguration(plId)
       .then((res) => { if (!cancelled) setPriceListConfig(res?.configuration || res || null); })
       .catch(() => { if (!cancelled) setPriceListConfig(null); });
+    // The customer band shows the list's NAME under the customer (reference: "COST").
+    priceListService.getPriceList(plId)
+      .then((res) => { if (!cancelled) setPriceListName(res?.priceList?.name || ''); })
+      .catch(() => { if (!cancelled) setPriceListName(''); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomer?.id]);
@@ -1012,6 +1025,9 @@ const SaleKeyPage = () => {
       lastRegisterControlCheckRef.current = now;
       return true;
     } catch (e) {
+      // Offline (reference Offline Mode): the takeover check needs the server,
+      // but the sell screen must keep selling on the register already chosen.
+      if (isConnectionError(e) && localStorage.getItem('selectedRegisterId')) return true;
       return false;
     }
   };
@@ -2262,6 +2278,13 @@ const SaleKeyPage = () => {
     // faster than React re-renders, so the state closure can lag a scan
     // behind (which caused duplicate adds and dropped scans).
     const code = sanitizeScanInput(e.target.value);
+    // Reference ("Using the Sell Screen"): Enter with NOTHING in the search box
+    // activates Finalise Sale - the keyboard equivalent of the Finalize button.
+    if (!code && cart.length > 0 && !associatingBarcode && !showFinalizeDialog) {
+      e.preventDefault();
+      handleOpenFinalizeDialog();
+      return;
+    }
     // Scanners emit the code then Enter. Treat Enter as a scan for barcode-shaped
     // input AND for anything the catalog knows as a barcode (alphanumeric codes
     // included); typed product names keep the normal dropdown behavior.
@@ -3803,9 +3826,28 @@ const SaleKeyPage = () => {
       // the register's counter past it.
       saleData.invoiceNumber = invoiceNumber || undefined;
 
-      const created = await salesService.createSale(saleData);
-      // Return the created sale id so the caller can auto-email the receipt (group flag).
-      return created?.sale?.id ?? created?.id ?? null;
+      try {
+        const created = await salesService.createSale(saleData);
+        // Return the created sale id so the caller can auto-email the receipt (group flag).
+        return { saleId: created?.sale?.id ?? created?.id ?? null, offline: false };
+      } catch (error) {
+        // Offline Mode (reference): no connection => keep the sale on this device
+        // and upload it when back online. Only tenders that need no server-side
+        // check can be taken offline: On Account (limits/balance), gift cards
+        // (balances) and loyalty redemption must be confirmed by the server.
+        if (!isConnectionError(error)) throw error;
+        const needsServer = (finalPayments || []).some((p) => {
+          const m = String(p?.method || '').toLowerCase();
+          return m.includes('account') || m.includes('gift') || m.includes('loyalty');
+        }) || (loyaltyRedemption?.pointsRedeemed > 0);
+        if (needsServer) {
+          const err = new Error('offline-tender');
+          err.offlineTender = true;
+          throw err;
+        }
+        offlineSales.enqueue(saleData, { registerId: saleData.registerId, outletId: saleData.outletId });
+        return { saleId: null, offline: true };
+      }
     } catch (error) {
       console.error('Error saving sale to history:', error);
       throw error;
@@ -4032,9 +4074,22 @@ const SaleKeyPage = () => {
     setLastSaleId(null); // stays null until this sale's save resolves, so Email can't send a stale id
 
     let saleId = null;
+    let savedOffline = false;
     try {
-      saleId = await saveSaleToHistory(finalPayments, cartTotal, newTransactionId, change, invoiceNumber);
+      const saved = await saveSaleToHistory(finalPayments, cartTotal, newTransactionId, change, invoiceNumber);
+      saleId = saved?.saleId ?? null;
+      savedOffline = Boolean(saved?.offline);
     } catch (error) {
+      if (error?.offlineTender) {
+        if (invoiceNumber != null) {
+          setSelectedRegister((prev) =>
+            prev && prev.invoiceNumber === invoiceNumber + 1 ? { ...prev, invoiceNumber } : prev
+          );
+        }
+        completedEpochRef.current = -1;
+        alert('You are offline. On Account, gift card and loyalty payments need a connection — take this sale with Cash or another payment, or wait until back online.', 'error');
+        return;
+      }
       console.error('Error saving sale to history:', error);
       // Hand the number back: nothing was printed, so the register's sequence must not
       // skip one for every refused attempt.
@@ -4058,6 +4113,13 @@ const SaleKeyPage = () => {
     setIsTransactionComplete(true);
     setLastSaleId(saleId); // real id for the manual Email button
     generateReceipt(newTransactionId, finalPayments, cartTotal, change, invoiceNumber);
+
+    if (savedOffline) {
+      // Kept on this device; the upload runs when the connection returns
+      // (DashboardLayout). Nothing below can run without the server.
+      notify('Offline — sale saved on this device and will upload when back online', 'warning');
+      return;
+    }
 
     // EFTPOS Refund Item lines: load the gift card(s) via a terminal refund.
     startEftposGiftCardLoads(cart);
@@ -4451,7 +4513,8 @@ const SaleKeyPage = () => {
     const spent = loyaltyRedemption?.pointsRedeemed ?? 0;
     const beforeSale = selectedCustomer?.loyaltyPoints;
     let loyalty = null;
-    if (selectedCustomer && (earned || spent || beforeSale != null)) {
+    // No loyalty block on the receipt while the program is switched off.
+    if (loyaltyProgramEnabled && selectedCustomer && (earned || spent || beforeSale != null)) {
       const before = beforeSale != null ? beforeSale : null;
       const after = before != null ? before + earned - spent : null;
       loyalty = {
@@ -4812,8 +4875,14 @@ const SaleKeyPage = () => {
       setSelectedProductDetail(productData);
       setProductDetailCartItem(item);
       setShowDetailCosts(false);
-      setProductDetailExpanded({ prices: false, additionalFields: false, purchases: false, inventory: false });
+      setProductDetailExpanded({ prices: false, purchases: false, inventory: false });
       setShowProductDetail(true);
+      // Purchases rows for the accordion (reference lists the product's orders).
+      setProductDetailPurchases([]);
+      productService
+        .getProductPurchaseHistory(productData.id, { page: 1, limit: 10 })
+        .then((res) => setProductDetailPurchases(res?.data?.purchases || res?.purchases || []))
+        .catch(() => setProductDetailPurchases([]));
     }
   };
 
@@ -5286,13 +5355,17 @@ const SaleKeyPage = () => {
   // Load customer loyalty info
   const loadCustomerLoyaltyInfo = async () => {
     if (!selectedCustomer?.id) return;
-    
+
     try {
       const response = await loyaltyService.getCustomerLoyalty(selectedCustomer.id);
       setCustomerLoyaltyInfo(response.customer);
+      // Loyalty program switched off in Setup > Loyalty: the API returns no
+      // enabled program. The sell screen then hides every loyalty element.
+      setLoyaltyProgramEnabled(Boolean(response.program?.isEnabled));
     } catch (error) {
       console.error('Error loading customer loyalty info:', error);
       setCustomerLoyaltyInfo(null);
+      setLoyaltyProgramEnabled(false);
     }
   };
 
@@ -5331,8 +5404,8 @@ const SaleKeyPage = () => {
       method.name?.toLowerCase() === 'loyalty' || method.type?.toLowerCase() === 'loyalty'
     );
     
-    // If customer has loyalty points, ensure Loyalty method is available
-    if (selectedCustomer && customerLoyaltyInfo && customerLoyaltyInfo.loyaltyPoints > 0) {
+    // If customer has loyalty points (and the program is on), ensure Loyalty method is available
+    if (loyaltyProgramEnabled && selectedCustomer && customerLoyaltyInfo && customerLoyaltyInfo.loyaltyPoints > 0) {
       if (!hasLoyaltyMethod) {
         // Add Loyalty payment method if it doesn't exist
         methods.push({
@@ -8213,16 +8286,38 @@ const SaleKeyPage = () => {
                     <Typography sx={{ fontSize: 16, color: '#000' }}>Add Note</Typography>
                   </Box>
 
-                  {/* Show Costs button (reference: gray eye button, not a switch) */}
-                  <Box sx={{ height: 40, borderBottom: '1px solid #000', display: 'flex', alignItems: 'center', px: '16px' }}>
-                    <Box
-                      onClick={() => setShowDetailCosts(v => !v)}
-                      sx={{ width: 130, height: 39, p: '4px 8px', bgcolor: showDetailCosts ? '#d1d5db' : '#e5e7eb', color: '#000', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '6px', cursor: 'pointer', transition: 'background-color 0.2s, color 0.2s', userSelect: 'none' }}
-                    >
-                      <VisibilityOutlinedIcon sx={{ fontSize: 18 }} />
-                      Show Costs
-                    </Box>
-                  </Box>
+                  {/* Show/Hide Costs (reference: gray eye button at the left edge; when
+                      on, a Cost / Profit / % strip fills the rest of the row) */}
+                  {(() => {
+                    const sellPrice = Number(selectedProductDetail.retailPrice || selectedProductDetail.prices?.[0]?.price || 0);
+                    const unitCost = Number(selectedProductDetail.itemCost || 0);
+                    const profit = sellPrice - unitCost;
+                    const pct = sellPrice > 0 ? (profit / sellPrice) * 100 : 0;
+                    const cell = (label, value) => (
+                      <Box sx={{ textAlign: 'center', fontSize: 16, color: '#000', lineHeight: 1.2 }}>
+                        <Box>{label}</Box>
+                        <Box>{value}</Box>
+                      </Box>
+                    );
+                    return (
+                      <Box sx={{ height: 40, borderBottom: '1px solid #000', display: 'flex', alignItems: 'stretch' }}>
+                        <Box
+                          onClick={() => setShowDetailCosts(v => !v)}
+                          sx={{ width: 130, flexShrink: 0, px: '8px', bgcolor: showDetailCosts ? '#d1d5db' : '#e5e7eb', color: '#000', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRight: '1px solid #000', cursor: 'pointer', transition: 'background-color 0.2s', userSelect: 'none' }}
+                        >
+                          {showDetailCosts ? <VisibilityOffOutlinedIcon sx={{ fontSize: 18 }} /> : <VisibilityOutlinedIcon sx={{ fontSize: 18 }} />}
+                          {showDetailCosts ? 'Hide Costs' : 'Show Costs'}
+                        </Box>
+                        {showDetailCosts && (
+                          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-around', px: 1 }}>
+                            {cell('Cost', `$${unitCost.toFixed(2)}`)}
+                            {cell('Profit', `$${profit.toFixed(2)}`)}
+                            {cell('%', `${pct.toFixed(2)}%`)}
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })()}
 
                   {/* Inventory band */}
                   <Box sx={{ height: 40, borderBottom: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
@@ -8240,19 +8335,25 @@ const SaleKeyPage = () => {
                       <Box sx={{ width: 110, flexShrink: 0 }}>Case Quantity</Box>
                       <Box>{selectedProductDetail.caseQuantity || 1}</Box>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: '#000' }}>
-                      <Box sx={{ width: 110, flexShrink: 0 }}>Category</Box>
-                      <Box>{selectedProductDetail.category?.name || 'OTHER'}</Box>
-                    </Box>
+                    {/* Reference: no "OTHER" placeholder - the row is only there when the
+                        product has a category; with costs shown, Case Cost follows. */}
+                    {selectedProductDetail.category?.name && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: '#000' }}>
+                        <Box sx={{ width: 110, flexShrink: 0 }}>Category</Box>
+                        <Box>{selectedProductDetail.category.name}</Box>
+                      </Box>
+                    )}
                     {showDetailCosts && (
                       <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: '#000' }}>
-                        <Box sx={{ width: 110, flexShrink: 0 }}>Cost</Box>
-                        <Box>${Number(selectedProductDetail.itemCost || 0).toFixed(2)}</Box>
+                        <Box sx={{ width: 110, flexShrink: 0 }}>Case Cost</Box>
+                        <Box>${Number(selectedProductDetail.caseCost ?? (Number(selectedProductDetail.itemCost || 0) * (selectedProductDetail.caseQuantity || 1))).toFixed(2)}</Box>
                       </Box>
                     )}
                   </Box>
 
-                  {/* Prices Section */}
+                  {/* Prices Section (reference: absent for a product with no price rows,
+                      e.g. a "Price Requested" product; listed otherwise) */}
+                  {Array.isArray(selectedProductDetail.prices) && selectedProductDetail.prices.length > 0 && (
                   <Box sx={{ borderBottom: '1px solid #000' }}>
                     <Box
                       onClick={() => setProductDetailExpanded(prev => ({ ...prev, prices: !prev.prices }))}
@@ -8291,29 +8392,9 @@ const SaleKeyPage = () => {
                       </Box>
                     )}
                   </Box>
+                  )}
 
-                  {/* Additional Fields Section */}
-                  <Box sx={{ borderBottom: '1px solid #000' }}>
-                    <Box
-                      onClick={() => setProductDetailExpanded(prev => ({ ...prev, additionalFields: !prev.additionalFields }))}
-                      sx={{ height: 33, px: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                    >
-                      <Typography sx={{ fontSize: 16, fontWeight: 400 }}>Additional Fields</Typography>
-                      {productDetailExpanded.additionalFields ? <RemoveIcon sx={{ fontSize: 16 }} /> : <AddIcon sx={{ fontSize: 16 }} />}
-                    </Box>
-                    {productDetailExpanded.additionalFields && (
-                    <Box sx={{ px: 2, pb: 2 }}>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12}>
-                          <Typography variant="caption" color="text.secondary">Sell on Shop MyLocal</Typography>
-                          <Typography variant="body2">{selectedProductDetail.sellOnShopMyLocal ? 'True' : 'False'}</Typography>
-                        </Grid>
-                      </Grid>
-                    </Box>
-                    )}
-                  </Box>
-
-                  {/* Purchases Section */}
+                  {/* Purchases Section (reference: Order / Quantity / Order Date rows) */}
                   <Box sx={{ borderBottom: '1px solid #000' }}>
                     <Box
                       onClick={() => setProductDetailExpanded(prev => ({ ...prev, purchases: !prev.purchases }))}
@@ -8335,6 +8416,23 @@ const SaleKeyPage = () => {
                           <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Order Date</Typography>
                         </Grid>
                       </Grid>
+                      {productDetailPurchases.map((p) => (
+                        <Grid container spacing={2} key={p.id || p.orderNumber} sx={{ mb: 0.5 }}>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">{p.orderNumber || '-'}</Typography>
+                          </Grid>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">
+                              {(p.cases ?? 0)} Cases {(p.items ?? 0)} Items
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={4}>
+                            <Typography variant="body2">
+                              {p.orderDate ? new Date(p.orderDate).toLocaleDateString('en-GB') : '-'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      ))}
                     </Box>
                     )}
                   </Box>
@@ -8350,8 +8448,9 @@ const SaleKeyPage = () => {
                     </Box>
                     {productDetailExpanded.inventory && (
                     <Box sx={{ px: 2, pb: 2 }}>
+                      {/* The register's outlet (was a hard-coded store name). */}
                       <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Top Drops Rossmore
+                        {outlets.find((o) => Number(o.id) === Number(selectedProductDetail.outletId))?.name || getOutletName() || 'Outlet'}
                       </Typography>
                       <Grid container spacing={2}>
                         <Grid item xs={6}>
@@ -8449,6 +8548,8 @@ const SaleKeyPage = () => {
                 setCart={setCart}
                 setLoyaltyRedemption={setLoyaltyRedemption}
                 setLoyaltyCalculation={setLoyaltyCalculation}
+                loyaltyProgramEnabled={loyaltyProgramEnabled}
+                priceListName={priceListName}
                 onParkSale={parkCurrentSale}
                 onFinalize={handleOpenFinalizeDialog}
                 showPromotionView={showPromotionView}

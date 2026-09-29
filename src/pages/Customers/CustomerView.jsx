@@ -436,11 +436,18 @@ const CustomerView = () => {
   const currentOwing = Number(customer.currentOwing) || 0;
   const [owingDollars, owingCents] = formatCurrency(currentOwing).split(".");
 
-  // Reference strip = Email, Mobile, Customer Group only (3 cols).
+  // Reference strip: Email, Mobile, Customer Group, Price List (the list the
+  // customer is sold at - their own under "override group", else the group's).
+  const effectivePriceList =
+    (customer.overrideCustomerGroup && customer.priceList) ||
+    customer.customerGroup?.priceList ||
+    customer.priceList ||
+    null;
   const detailPairs = [
     ["Email", (customer.emails || []).filter(Boolean).join(", ")],
     ["Mobile", customer.mobile],
     ["Customer Group", customer.customerGroup?.name],
+    ["Price List", effectivePriceList?.name],
   ].filter(([, value]) => value);
 
   const navigationItems = [
