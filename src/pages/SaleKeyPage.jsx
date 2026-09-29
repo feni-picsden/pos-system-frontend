@@ -986,6 +986,45 @@ const SaleKeyPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, activePromotions, selectedCustomer?.id]);
 
+  // Reference sell screen: above the totals, every active promotion that one of
+  // the cart's products takes part in is named - grey while it is not applied
+  // (quantity not reached yet), blue once it is. Same price maths the cart uses.
+  const [cartPromotionStatus, setCartPromotionStatus] = useState([]);
+  useEffect(() => {
+    if (!cart.length || !activePromotions.length || getEffectiveCustomerSettings(selectedCustomer).disablePromotions) {
+      setCartPromotionStatus((prev) => (prev.length ? [] : prev));
+      return;
+    }
+    const byId = new Map();
+    // One product can sit on several lines: judge it on its total quantity.
+    const qtyByProduct = new Map();
+    cart.forEach((item) => {
+      const q = parseFloat(item.quantity) || 0;
+      if (!item.productId || item.giftCardId || q <= 0) return;
+      qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) || 0) + q);
+    });
+    qtyByProduct.forEach((qty, productId) => {
+      const product = posLocalDb.getProductById(productId) || { id: productId };
+      let promos = [];
+      try { promos = findApplicablePromotions(product); } catch { promos = []; }
+      promos.forEach((promo) => {
+        if (!promo || promo.promotionType === 'Combo Deal') return;
+        let applied = false;
+        try {
+          const promoTotal = calculatePromotionPrice(product, qty, promo);
+          const normalTotal = calculateBasePriceForQuantity(product, qty);
+          applied = promoTotal !== null && promoTotal > 0 && promoTotal < normalTotal - 0.004;
+        } catch { applied = false; }
+        const key = promo.id ?? promo.name;
+        const prev = byId.get(key);
+        byId.set(key, { id: key, name: promo.name || 'Promotion', applied: Boolean(prev?.applied || applied) });
+      });
+    });
+    const next = Array.from(byId.values());
+    setCartPromotionStatus((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, activePromotions, selectedCustomer?.id]);
+
   // This page owns the takeover dialog while it's mounted, so the global
   // RegisterTakeoverWatcher stays quiet and they don't stack.
   useEffect(() => claimTakeoverUI(), []);
@@ -8567,6 +8606,7 @@ const SaleKeyPage = () => {
                 setLoyaltyCalculation={setLoyaltyCalculation}
                 loyaltyProgramEnabled={loyaltyProgramEnabled}
                 priceListName={priceListName}
+                cartPromotions={cartPromotionStatus}
                 onParkSale={parkCurrentSale}
                 onFinalize={handleOpenFinalizeDialog}
                 showPromotionView={showPromotionView}

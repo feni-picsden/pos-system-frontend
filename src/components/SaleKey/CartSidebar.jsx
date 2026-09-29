@@ -138,6 +138,8 @@ const CartSidebar = ({
   // Name of the price list the customer is sold at (reference shows it under
   // the customer name, e.g. "COST"); falls back to the group name.
   priceListName = '',
+  // [{ id, name, applied }] - promotions the cart's products take part in.
+  cartPromotions = [],
 
   // Actions
   onFinalize,
@@ -726,6 +728,34 @@ const CartSidebar = ({
             onOk={applySaleDiscount}
             mode={saleDiscountMode === 'discount_percentage' ? 'percent' : 'price'}
           />
+        </Box>
+      )}
+      {/* Reference promotion strip, directly above the totals: each promotion the
+          cart's products are on, grey while not applied, blue once applied. */}
+      {!paymentView && cartPromotions.length > 0 && (
+        // Reference (SS 389/390): full-width band ruled above AND below, name
+        // left-aligned, 8px in, ~36px tall; grey = not applied, blue = applied.
+        <Box sx={{ borderTop: '1px solid #000', borderBottom: '1px solid #000', bgcolor: '#fff', px: '8px', py: '8px', flexShrink: 0 }}>
+          {cartPromotions.map((p) => (
+            <Typography
+              key={p.id}
+              component="div"
+              title={p.applied ? 'Promotion applied' : 'Promotion not applied yet'}
+              sx={{
+                fontSize: 15,
+                fontWeight: 400,
+                lineHeight: '20px',
+                letterSpacing: '0.2px',
+                textTransform: 'uppercase',
+                color: p.applied ? '#5ebbeb' : '#737373',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {p.name}
+            </Typography>
+          ))}
         </Box>
       )}
       {/* Payment view footer: Total / Remaining centred, then Return to Sale. */}
