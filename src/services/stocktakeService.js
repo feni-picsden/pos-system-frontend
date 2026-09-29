@@ -59,12 +59,20 @@ const stocktakeService = {
     }
   },
 
-  // Apply stocktake (update inventory)
-  applyStocktake: async (id) => {
+  // Live event feed (all devices' scans/counts + sales during the session)
+  getActivities: async (id, since = null) => {
+    const params = since ? { since } : {};
+    const response = await apiClient.get(`/stocktakes/${id}/activities`, { params, noCache: true });
+    return response.data;
+  },
+
+  // Apply stocktake (update inventory).
+  // options: { mode: 'ignore' | 'zero', categoryIds: [], applyToAll: bool }
+  applyStocktake: async (id, options = {}) => {
     try {
       apiClient.bustCache('/stocktakes');
       apiClient.bustCache('/products');
-      const response = await apiClient.post(`/stocktakes/${id}/apply`);
+      const response = await apiClient.post(`/stocktakes/${id}/apply`, options);
       return response.data;
     } catch (error) {
       console.error('Error applying stocktake:', error);

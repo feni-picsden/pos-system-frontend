@@ -375,7 +375,11 @@ const GeneralSettings = () => {
     
     // Transfers
     updateLastCostWhenReceivingTransfers: true,
-    
+    // Reference (Settings > Outlets > Transfers): send at average cost or last
+    // cost; receiving may update the average cost as well as the last cost.
+    sendTransfersUsingAverageCost: false,
+    updateAverageCostWhenReceivingTransfers: true,
+
     // Metcash Integration
     b2bAccount: '',
     b2bPassword: '',
@@ -1857,20 +1861,49 @@ const GeneralSettings = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-              Update last cost when receiving transfers
+        {/* Reference layout: title + last updated, description, switch with state label */}
+        {[
+          {
+            key: 'sendTransfersUsingAverageCost',
+            title: 'Send Transfers Using Average Cost',
+            description: 'If enabled, transfers will be sent using the current average cost, otherwise transfers will be sent using the current last cost',
+            onLabel: 'Use average cost',
+            offLabel: 'Use last cost',
+          },
+          {
+            key: 'updateLastCostWhenReceivingTransfers',
+            title: 'Update Last Cost When Receiving Transfers',
+            description: 'If enabled, transfers will update the last cost of the product when received, otherwise the last cost will not be modified',
+            onLabel: 'Transfers update last cost',
+            offLabel: 'Transfers ignore last cost',
+          },
+          {
+            key: 'updateAverageCostWhenReceivingTransfers',
+            title: 'Update Average Cost When Receiving Transfers',
+            description: 'If enabled, transfers will update the average cost of the product when received, otherwise the average cost will not be modified',
+            onLabel: 'Transfers update average cost',
+            offLabel: 'Transfers ignore average cost',
+          },
+        ].map((s) => (
+          <Box key={s.key} sx={{ mb: 3 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              {s.title}
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                - Last updated {stampFor('outlet', s.key)}
+              </Typography>
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Updated {stampFor('outlet', 'updateLastCostWhenReceivingTransfers')}
-            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{s.description}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Switch
+                checked={Boolean(outletSettings[s.key])}
+                onChange={handleOutletSettingChange(s.key)}
+              />
+              <Typography variant="body2" color="text.secondary">
+                {outletSettings[s.key] ? s.onLabel : s.offLabel}
+              </Typography>
+            </Box>
           </Box>
-          <Switch
-            checked={outletSettings.updateLastCostWhenReceivingTransfers}
-            onChange={handleOutletSettingChange('updateLastCostWhenReceivingTransfers')}
-          />
-        </Box>
+        ))}
       </Box>
 
       <Divider sx={{ my: 4 }} />

@@ -506,6 +506,8 @@ const OrderDetails = () => {
   const handleReturnItems = async () => {
     try {
       setSaving(true);
+      // Reference dialog is a plain confirm (Base cost); the Base + Fees +
+      // Freight choice lives on the Return Stock form's "Return Cost" field.
       const response = await orderInvoiceService.returnItems(id);
       setConfirmDialog(null);
       setSnackbar({ open: true, message: 'Return created successfully', severity: 'success' });

@@ -46,6 +46,7 @@ import classificationService from '../../services/classificationService';
 import buyingPeriodService from '../../services/buyingPeriodService';
 import { outletService } from '../../services/outletService';
 import transfereeService from '../../services/transfereeService';
+import settingsService from '../../services/settingsService';
 import { stripHtml } from '../../services/posLocalDb';
 import { useAuth } from '../../contexts/AuthContext';
 import ProductDetailView from '../../components/OrdersInvoices/ProductDetailView';
@@ -197,6 +198,9 @@ const EditOrder = () => {
   const [invoiceFreight, setInvoiceFreight] = useState(''); // blank = supplier per-case freight
   const [invoiceDiscount, setInvoiceDiscount] = useState('');
   const [selectedProductForDetail, setSelectedProductForDetail] = useState(null);
+  // Transfers post at cost: the source outlet's "Transfer cost" setting picks
+  // the product's last cost or its average cost for each new line (reference).
+  const [transferCostBasis, setTransferCostBasis] = useState('last');
   const [productDetailsMap, setProductDetailsMap] = useState({}); // { productId: { productData, salesData, purchaseData, lastCost, lastSentDate, lastReceivedDate } }
   const [editFormData, setEditFormData] = useState({
     from: 'all',
@@ -430,6 +434,16 @@ const EditOrder = () => {
       const orderResponse = await orderInvoiceService.getOrderInvoice(id);
       const orderData = orderResponse.orderInvoice;
       setOrder(orderData);
+
+      if (orderData?.type === 'TRANSFER') {
+        try {
+          const fromOutletId = parseInt(orderData.from, 10);
+          const res = await settingsService.getOutletSettings(Number.isInteger(fromOutletId) ? fromOutletId : null);
+          setTransferCostBasis(res?.settings?.sendTransfersUsingAverageCost === true ? 'average' : 'last');
+        } catch (_) {
+          setTransferCostBasis('last');
+        }
+      }
 
       // Options panel: order values win, supplier defaults fill the gaps
       const sup = orderData?.supplier;
@@ -771,6 +785,17 @@ const EditOrder = () => {
     return { ...product, itemCost: unit, caseCost: unit * cq, _baseItemCost: unit, _baseCaseCost: unit * cq };
   };
 
+  // TRANSFER line default cost per the source outlet's "Transfer cost" setting:
+  // the product's average cost when chosen (falls back to last cost when the
+  // product has no average yet), otherwise its last cost.
+  const applyTransferCost = (product) => {
+    if (order?.type !== 'TRANSFER' || transferCostBasis !== 'average') return product;
+    const cq = product.caseQuantity || 1;
+    const avg = Number(product.averageItemCost);
+    if (!Number.isFinite(avg) || avg <= 0) return product;
+    return { ...product, itemCost: avg, caseCost: avg * cq, _baseItemCost: avg, _baseCaseCost: avg * cq };
+  };
+
   const addProductToOrder = (product) => {
     if (!product || !product.id) return;
 
@@ -778,12 +803,12 @@ const EditOrder = () => {
       return;
     }
 
-    const newProduct = applyReturnCost({
+    const newProduct = applyTransferCost(applyReturnCost({
       ...product,
       supplier: product.suppliers?.[0]?.supplier || null,
       _baseCaseCost: product.caseCost,
       _baseItemCost: product.itemCost,
-    });
+    }));
 
     const updatedProducts = [...selectedProducts, newProduct];
     setSelectedProducts(updatedProducts);
@@ -2492,7 +2517,8 @@ const EditOrder = () => {
         >
           {saving ? 'Saving...' : 'Save'}
         </Button>
-        {order?.type !== 'RETURN' && !isSentOrder && (
+        {/* Returns too (reference: sending a return is what deducts the stock) */}
+        {!isSentOrder && (
           <Button
             startIcon={<SendIcon />}
             onClick={() => handleSave(true)}

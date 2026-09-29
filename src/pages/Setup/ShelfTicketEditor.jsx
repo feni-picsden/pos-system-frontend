@@ -48,6 +48,10 @@ import MediaDialog from '../../components/Common/MediaDialog';
 
 const MM_TO_PX = 3.7795275591; // 96 DPI
 
+// Same price-token resolution the printed ticket uses, so the canvas previews
+// a 2nd/3rd/carton price element with that figure rather than the single.
+import { priceValueFor, replaceVars as replaceTicketVars } from '../../utils/shelfTicketPrint.jsx';
+
 const ELEMENT_TYPES = {
   TEXT: 'text',
   PRICE: 'price',
@@ -61,6 +65,16 @@ const FIELD_VARIABLES = [
   { key: '{productName}', label: 'Product Name' },
   { key: '{price}', label: 'Regular Price' },
   { key: '{salePrice}', label: 'Sale Price' },
+  // Multi-buy price points (reference DesignPro: PRICE_IND1/LBLPRICE1, LBLPRICEC…)
+  { key: '{qty2}', label: '2nd Price Qty' },
+  { key: '{price2}', label: '2nd Price' },
+  { key: '{qty3}', label: '3rd Price Qty' },
+  { key: '{price3}', label: '3rd Price' },
+  { key: '{caseQty}', label: 'Carton Qty' },
+  { key: '{casePrice}', label: 'Carton Price' },
+  { key: '{unitPrice2}', label: '2nd Price Per Unit' },
+  { key: '{unitPriceCase}', label: 'Carton Price Per Unit' },
+  { key: '{multiBuy}', label: 'All Pack Prices (6 for $36 · 24 for $120)' },
   { key: '{barcode}', label: 'Barcode' },
   { key: '{category}', label: 'Category' },
   { key: '{brand}', label: 'Brand' },
@@ -73,6 +87,15 @@ const PREVIEW_VALUES = {
   productName: 'Premium Coffee Blend',
   price: '12.99',
   salePrice: '9.99',
+  qty2: '6',
+  price2: '69.00',
+  qty3: '',
+  price3: '',
+  caseQty: '24',
+  casePrice: '240.00',
+  unitPrice2: '11.50',
+  unitPriceCase: '10.00',
+  multiBuy: '6 for $69.00 · 24 for $240.00',
   barcode: '5901234123457',
   category: 'Beverages',
   brand: 'BrandName',
@@ -125,17 +148,9 @@ const createDefaultElement = (type, canvasWidth = 100, canvasHeight = 70) => {
 
 // ------- Replace variables -------
 
-const replaceVars = (content = '', data = PREVIEW_VALUES) =>
-  content
-    .replace(/\{productName\}/g, data.productName || '')
-    .replace(/\{price\}/g, data.price || '')
-    .replace(/\{salePrice\}/g, data.salePrice || '')
-    .replace(/\{barcode\}/g, data.barcode || '')
-    .replace(/\{category\}/g, data.category || '')
-    .replace(/\{brand\}/g, data.brand || '')
-    .replace(/\{sku\}/g, data.sku || '')
-    .replace(/\{description\}/g, data.description || '')
-    .replace(/\{unit\}/g, data.unit || '');
+// One substitution table for the canvas and the printed ticket, so a field the
+// print knows ({multiBuy}, {price2}, …) never shows as a raw token in the editor.
+const replaceVars = (content = '', data = PREVIEW_VALUES) => replaceTicketVars(content, data);
 
 // ------- Render element content -------
 
@@ -162,7 +177,7 @@ const renderContent = (el, zoom, data = PREVIEW_VALUES) => {
       );
 
     case ELEMENT_TYPES.PRICE: {
-      const val = el.content?.includes('{salePrice}') ? data.salePrice : data.price;
+      const { value: val } = priceValueFor(el, data);
       const justifyMap = { left: 'flex-start', center: 'center', right: 'flex-end' };
       return (
         <Box sx={{
@@ -854,11 +869,16 @@ const ShelfTicketEditor = () => {
           <InputLabel>Price Type</InputLabel>
           <Select
             label="Price Type"
-            value={el.content?.includes('{salePrice}') ? '{salePrice}' : '{price}'}
+            value={
+              ['{salePrice}', '{price2}', '{price3}', '{casePrice}'].find((t) => el.content?.includes(t)) || '{price}'
+            }
             onChange={(e) => updateElHistory({ content: e.target.value })}
           >
             <MenuItem value="{price}">Regular Price</MenuItem>
             <MenuItem value="{salePrice}">Sale Price</MenuItem>
+            <MenuItem value="{price2}">2nd Price (pack)</MenuItem>
+            <MenuItem value="{price3}">3rd Price (pack)</MenuItem>
+            <MenuItem value="{casePrice}">Carton Price</MenuItem>
           </Select>
         </FormControl>
         <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>

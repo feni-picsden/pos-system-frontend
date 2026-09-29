@@ -139,8 +139,9 @@ const orderInvoiceService = {
   },
 
   // Create a RETURN document copying all items from a received order/invoice
-  returnItems: async (id) => {
-    const response = await apiClient.post(`/orders-invoices/${id}/return-items`);
+  // returnCostBasis: 'BASE' | 'BASE_FEES_FREIGHT' (reference: "Base Cost Only" / "Base + Fees + Freight")
+  returnItems: async (id, returnCostBasis = 'BASE') => {
+    const response = await apiClient.post(`/orders-invoices/${id}/return-items`, { returnCostBasis });
     return response.data;
   },
 

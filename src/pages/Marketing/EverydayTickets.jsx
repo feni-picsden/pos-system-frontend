@@ -30,7 +30,7 @@ import {
 } from '@mui/icons-material';
 import productService from '../../services/productService';
 import shelfTicketService from '../../services/shelfTicketService';
-import priceListService from '../../services/priceListService';
+import { priceSetService } from '../../services/priceSetService';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { SquareCheckButton, TicketCounter } from '../../components/ShelfTickets/TicketControls';
@@ -65,6 +65,18 @@ const BAR_BUTTON_SX = {
   textTransform: 'none',
   boxShadow: 'none',
   transition: 'none',
+};
+
+// The checkbox column: one fixed width and the glyph centred in it, so the header,
+// group-header and row squares share a vertical line (reference: ~14px in from the edge).
+const CHECK_CELL_SX = {
+  width: 44,
+  minWidth: 44,
+  maxWidth: 44,
+  boxSizing: 'border-box',
+  paddingLeft: '10px',
+  paddingRight: '10px',
+  '& > button': { margin: '0 auto' },
 };
 
 const PANEL_SX = {
@@ -367,11 +379,11 @@ const EverydayTickets = () => {
   const showSnackbar = (message, severity) => setSnackbar({ open: true, message, severity });
 
   /**
-   * The whole Everyday list is loaded once, unnarrowed. A ticket is unique per
-   * product+type+outlet — price set is NOT part of that key — so asking the server for one
-   * price set's tickets would hand back a guard set with holes, and every add path
-   * (suggestion, combo, classification, Add All) would re-offer products the server then
-   * rejects with a 400. Price Set is applied client-side, for display only.
+   * The whole Everyday list is always loaded, unnarrowed: a ticket is unique per
+   * product+type+outlet, so every add path keeps a complete guard set. The Price Set
+   * selector never removes rows — reference (verified 28/09/2026): switching the set
+   * keeps every ticket and swaps the price points shown under each product — so it is
+   * sent to the server only to choose which set's prices come back.
    */
   const loadTickets = useCallback(async () => {
     try {
@@ -379,6 +391,7 @@ const EverydayTickets = () => {
       const response = await shelfTicketService.getShelfTickets({
         ticketType: 'Everyday',
         limit: 1000,
+        priceSet: priceSet || undefined,
       });
       setTickets(response.tickets || []);
     } catch (error) {
@@ -387,18 +400,20 @@ const EverydayTickets = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [priceSet]);
 
   useEffect(() => {
     loadTickets();
   }, [loadTickets]);
 
-  // Price Sets are data-driven: the selector shows 'No Options' when the outlet has none.
+  // Price Sets are the PRODUCT price sets (Setup > Price Sets — "Default Price Set",
+  // outlet sets), the same ones a product's Sell & Cost rows belong to. Not customer
+  // price lists, which this selector loaded before and which no ticket price uses.
   useEffect(() => {
     const loadPriceSets = async () => {
       try {
-        const response = await priceListService.getPriceLists();
-        const lists = Array.isArray(response) ? response : response?.priceLists || response?.data || [];
+        const response = await priceSetService.getPriceSets();
+        const lists = Array.isArray(response) ? response : response?.priceSets || response?.data || [];
         setPriceSets(lists.filter((l) => l?.name).map((l) => l.name));
       } catch (error) {
         console.error('Error loading price sets:', error);
@@ -451,10 +466,8 @@ const EverydayTickets = () => {
 
   // 'You can choose to print tickets for a specific price set' — a display narrowing over the
   // full list, so the rows and the creator options follow it but the duplicate guard does not.
-  const priceSetTickets = useMemo(
-    () => (priceSet ? tickets.filter((t) => (t.priceSet || '') === priceSet) : tickets),
-    [tickets, priceSet]
-  );
+  // Price Set is not a row filter (see loadTickets); the list is the whole list.
+  const priceSetTickets = tickets;
 
   const addedByOptions = useMemo(
     () => [...new Set(priceSetTickets.map((t) => t.addedBy).filter(Boolean))].sort(),
@@ -717,6 +730,9 @@ const EverydayTickets = () => {
         name: ticket.name,
         price: ticket.price,
         salePrice: ticket.price,
+        // Multi-buy price points for the template's {qty2}/{price2}/{casePrice}/{multiBuy}.
+        priceBreaks: ticket.priceBreaks || [],
+        caseQuantity: ticket.caseQuantity,
         barcode: ticket.barcode || '',
         sku: ticket.sku || ticket.productId,
         category: ticket.category || '',
@@ -761,7 +777,7 @@ const EverydayTickets = () => {
       return (
         <React.Fragment key={ticket.id}>
           <TableRow sx={{ height: 70 }} className={viewPrices ? 'everyday-ticket-open' : undefined}>
-            <TableCell sx={{ width: 32, px: 0 }}>
+            <TableCell sx={CHECK_CELL_SX}>
               <SquareCheckButton
                 checked={selectedTickets.includes(ticket.id)}
                 onClick={() => toggleTicket(ticket.id)}
@@ -769,6 +785,7 @@ const EverydayTickets = () => {
               />
             </TableCell>
             <TableCell>{ticket.name}</TableCell>
+            <TableCell>{ticket.outlet || ''}</TableCell>
             <TableCell>{ticket.category || ''}</TableCell>
             <TableCell>{ticket.addedBy || ''}</TableCell>
             <TableCell>{ticket.addedAt}</TableCell>
@@ -801,7 +818,7 @@ const EverydayTickets = () => {
           {/* Prices expand into their own full-width row, indented under the Name column. */}
           {viewPrices && (
             <TableRow className="everyday-ticket-prices">
-              <TableCell colSpan={6}>
+              <TableCell colSpan={7}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', pl: '78px' }}>
                   {breaks.length === 0 ? (
                     <Box sx={{ fontSize: '12.8px', color: '#000' }}>No Prices</Box>
@@ -978,13 +995,16 @@ const EverydayTickets = () => {
                 },
               }}
             >
-              <TableCell sx={{ width: 32, px: 0 }}>
+              {/* Reference: the 16px square sits ~14px in from the table edge, centred in its cell. */}
+              <TableCell sx={CHECK_CELL_SX}>
                 <SquareCheckButton checked={allSelected} onClick={toggleAll} light label="Select all tickets" />
               </TableCell>
-              <TableCell sx={{ width: '25%' }}>Name</TableCell>
-              <TableCell sx={{ width: '25%' }}>Category</TableCell>
-              <TableCell sx={{ width: '25%' }}>Added By</TableCell>
-              <TableCell sx={{ width: '25%' }}>Added At</TableCell>
+              {/* Reference columns: Name, Outlet, Category, Added By, Added At. */}
+              <TableCell sx={{ width: '20%' }}>Name</TableCell>
+              <TableCell sx={{ width: '20%' }}>Outlet</TableCell>
+              <TableCell sx={{ width: '20%' }}>Category</TableCell>
+              <TableCell sx={{ width: '20%' }}>Added By</TableCell>
+              <TableCell sx={{ width: '20%' }}>Added At</TableCell>
               <TableCell sx={{ width: 48, px: 0 }} />
             </TableRow>
           </TableHead>
@@ -1016,7 +1036,7 @@ const EverydayTickets = () => {
               <React.Fragment key={group.label ?? 'all'}>
                 {group.label && (
                   <TableRow className="everyday-ticket-group" sx={{ height: 52 }}>
-                    <TableCell sx={{ width: 32 }}>
+                    <TableCell sx={{ ...CHECK_CELL_SX, padding: '0 10px !important' }}>
                       <SquareCheckButton
                         checked={groupSelected(group.rows)}
                         onClick={() => toggleGroup(group.rows)}
@@ -1024,7 +1044,7 @@ const EverydayTickets = () => {
                         label={`Select all in ${group.label}`}
                       />
                     </TableCell>
-                    <TableCell colSpan={5}>{group.label}</TableCell>
+                    <TableCell colSpan={6}>{group.label}</TableCell>
                   </TableRow>
                 )}
                 {renderRows(group.rows)}

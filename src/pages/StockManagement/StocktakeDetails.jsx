@@ -21,6 +21,8 @@ import {
   AvatarGroup,
   Tooltip,
   InputAdornment,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Download,
@@ -52,6 +54,26 @@ function timeAgo(dateString) {
   if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`;
   const years = Math.floor(months / 12);
   return `${years} year${years !== 1 ? 's' : ''} ago`;
+}
+
+// " zeroing other stock" / " ignoring other stock" (reference header wording)
+function applyModeText(mode) {
+  if (mode === 'zero') return ' zeroing other stock';
+  if (mode === 'ignore') return ' ignoring other stock';
+  return '';
+}
+
+// "-$120.00", never "$-120.00"
+function money(value) {
+  const n = Number(value) || 0;
+  return `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)}`;
+}
+
+function formatTimestamp(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 function initials(name) {
@@ -181,8 +203,10 @@ export default function StocktakeDetails() {
       filtered = filtered.filter(i => (i.product?.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
     }
     if (tab !== 'all') {
-      // "Scanned" = counted during the stocktake (barcode scan OR manual count)
-      const counted = (i) => (i.scanCount > 0) || ((parseFloat(i.actualQuantity) || 0) > 0);
+      // "Scanned" = counted during the stocktake (barcode scan OR manual count).
+      // Items the apply step added for uncounted products carry the NOT_SCANNED
+      // marker (reference: the Not Scanned tab lists every product in scope).
+      const counted = (i) => i.notes !== 'NOT_SCANNED' && ((i.scanCount > 0) || ((parseFloat(i.actualQuantity) || 0) > 0));
       filtered = filtered.filter(i => (tab === 'scanned' ? counted(i) : !counted(i)));
     }
 
@@ -325,10 +349,15 @@ export default function StocktakeDetails() {
           </Typography>
           {(() => {
             const when = stocktake.appliedAt || stocktake.completedAt || stocktake.createdAt;
-            const label = stocktake.appliedAt ? 'Applied' : stocktake.completedAt ? 'Completed' : 'Created';
-            const by = stocktake.appliedAt || stocktake.completedAt
-              ? (stocktake.completedBy?.name || stocktake.completedBy || '-')
-              : (stocktake.createdBy?.name || stocktake.createdBy || '-');
+            // Reference: "Applied zeroing other stock 2 months ago by Vipul"
+            const label = stocktake.appliedAt
+              ? `Applied${applyModeText(stocktake.userStats?.applyMode)}`
+              : stocktake.completedAt ? 'Completed' : 'Created';
+            const by = stocktake.appliedAt
+              ? (stocktake.appliedBy?.name || stocktake.completedBy?.name || '-')
+              : stocktake.completedAt
+                ? (stocktake.completedBy?.name || stocktake.completedBy || '-')
+                : (stocktake.createdBy?.name || stocktake.createdBy || '-');
             return (
               <Typography sx={{ fontSize: 14, color: '#676b72' }}>{label} {timeAgo(when)} by {by}</Typography>
             );
@@ -407,9 +436,13 @@ export default function StocktakeDetails() {
                   <SortHeader label="Product" col="product" />
                   <TableCell sx={th}>Cost</TableCell>
                   <TableCell sx={th}>Case Quantity</TableCell>
+                  {/* Reference: the $ value sits in its own column beside the quantity */}
                   <SortHeader label="Expected" col="expected" />
+                  <TableCell sx={th} />
                   <SortHeader label="Actual" col="actual" />
+                  <TableCell sx={th} />
                   <SortHeader label="Difference" col="difference" />
+                  <TableCell sx={th} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -424,19 +457,15 @@ export default function StocktakeDetails() {
                     <TableCell>{item.product.name}</TableCell>
                     <TableCell>{`$${getItemCost(item.product).toFixed(2)}`}</TableCell>
                     <TableCell>{item.product.caseQuantity ?? '-'}</TableCell>
-                    <TableCell>
-                      <Typography fontWeight={700}>{item.expected}</Typography>
-                      <Typography variant="caption" color="text.secondary">{`$${(item.expected * getItemCost(item.product)).toFixed(2)}`}</Typography>
+                    <TableCell>{item.expected}</TableCell>
+                    <TableCell>{money(item.expected * getItemCost(item.product))}</TableCell>
+                    <TableCell>{item.actual}</TableCell>
+                    <TableCell>{money(item.actual * getItemCost(item.product))}</TableCell>
+                    <TableCell sx={{ color: `${item.difference === 0 ? '#000' : item.difference > 0 ? '#16a34a' : '#dc2626'} !important` }}>
+                      {item.difference}
                     </TableCell>
-                    <TableCell>
-                      <Typography fontWeight={700}>{item.actual}</Typography>
-                      <Typography variant="caption" color="text.secondary">{`$${(item.actual * getItemCost(item.product)).toFixed(2)}`}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box component="span" sx={{ fontWeight: 700, color: item.difference === 0 ? '#000' : item.difference > 0 ? '#16a34a' : '#dc2626' }}>
-                        {item.difference > 0 ? '+' : ''}{item.difference}
-                        <Typography variant="caption" display="block" color="inherit">{`${item.difference > 0 ? '+' : ''}$${(item.difference * getItemCost(item.product)).toFixed(2)}`}</Typography>
-                      </Box>
+                    <TableCell sx={{ color: `${item.difference === 0 ? '#000' : item.difference > 0 ? '#16a34a' : '#dc2626'} !important` }}>
+                      {money(item.difference * getItemCost(item.product))}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -445,13 +474,12 @@ export default function StocktakeDetails() {
                   <TableCell>TOTAL</TableCell>
                   <TableCell />
                   <TableCell />
-                  <TableCell>{stats.expectedQty.toFixed(2)} • ${stats.expectedValue.toFixed(2)}</TableCell>
-                  <TableCell>{stats.actualQty.toFixed(2)} • ${stats.actualValue.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Box component="span" sx={{ color: stats.differenceQty === 0 ? '#f8f8f8' : stats.differenceQty > 0 ? '#16a34a' : '#dc2626' }}>
-                      {stats.differenceQty > 0 ? '+' : ''}{stats.differenceQty.toFixed(2)} • {stats.differenceValue > 0 ? '+' : ''}${stats.differenceValue.toFixed(2)}
-                    </Box>
-                  </TableCell>
+                  <TableCell>{stats.expectedQty.toFixed(2)}</TableCell>
+                  <TableCell>{money(stats.expectedValue)}</TableCell>
+                  <TableCell>{stats.actualQty.toFixed(2)}</TableCell>
+                  <TableCell>{money(stats.actualValue)}</TableCell>
+                  <TableCell>{stats.differenceQty.toFixed(2)}</TableCell>
+                  <TableCell>{money(stats.differenceValue)}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -503,35 +531,25 @@ function StatisticsView({ statistics, loading }) {
         ))}
       </Grid>
 
-      {/* Activity feed */}
-      {(statistics.appliedAt || (statistics.activities && statistics.activities.length > 0)) && (
-        <Box sx={{ mb: 4 }}>
-          {statistics.appliedAt && (
-            <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 1.5 }}>
-              <Avatar sx={{ width: 36, height: 36, fontSize: 14, bgcolor: '#5ebbeb', color: '#f8f8f8' }}>
-                {initials(statistics.appliedBy?.name)}
-              </Avatar>
-              <Typography sx={{ fontSize: 16, color: '#000' }}>
-                <b>Applied</b> this stocktake {timeAgo(statistics.appliedAt)} by <b>{statistics.appliedBy?.name || '-'}</b>
-              </Typography>
-            </Stack>
-          )}
-          {(statistics.activities || []).slice(0, 20).map((activity) => (
-            <Stack key={activity.id} direction="row" spacing={2} alignItems="center" sx={{ py: 1.5 }}>
-              <Avatar sx={{ width: 36, height: 36, fontSize: 14, bgcolor: '#5ebbeb', color: '#f8f8f8' }}>
-                {initials(activity.user)}
-              </Avatar>
-              <Typography sx={{ fontSize: 16, color: '#000' }}>
-                <b>{activity.eventType}</b>{activity.productName ? <> — <b>{activity.productName}</b> x {activity.count}</> : null} {timeAgo(activity.timestamp)} by <b>{activity.user}</b>
-              </Typography>
-            </Stack>
-          ))}
+      {/* Applied by (reference: "Applied this stocktake 2 months ago, zeroing other stock") */}
+      {statistics.appliedAt && (
+        <Box sx={{ py: 3, borderTop: '1px solid #e0e0e0' }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+            <Avatar sx={{ width: 36, height: 36, fontSize: 14, bgcolor: '#5ebbeb', color: '#f8f8f8' }}>
+              {initials(statistics.appliedBy?.name)}
+            </Avatar>
+            <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>{statistics.appliedBy?.name || '-'}</Typography>
+          </Stack>
+          <Typography sx={{ fontSize: 15, color: '#000' }}>
+            Applied this stocktake <b>{timeAgo(statistics.appliedAt)}</b>
+            {statistics.applyMode ? <>, <b>{statistics.applyMode === 'zero' ? 'zeroing' : 'ignoring'}</b> other stock</> : null}
+          </Typography>
         </Box>
       )}
 
       {/* Per-user blocks */}
       {(statistics.userBreakdown || []).map((user) => (
-        <Box key={user.userId} sx={{ mb: 4 }}>
+        <Box key={user.userId} sx={{ py: 3, borderTop: '1px solid #e0e0e0' }}>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
             <Avatar sx={{ width: 36, height: 36, fontSize: 14, bgcolor: '#5ebbeb', color: '#f8f8f8' }}>
               {initials(user.userName)}
@@ -550,6 +568,68 @@ function StatisticsView({ statistics, loading }) {
           </Stack>
         </Box>
       ))}
+
+      <ActivityTable activities={statistics.activities || []} />
+    </Box>
+  );
+}
+
+// Reference: activity table under the statistics - Filter by Users / Filter by
+// Products, columns Product | Event | Count | User | Timestamp (Sale rows too).
+function ActivityTable({ activities }) {
+  const [userFilter, setUserFilter] = useState('');
+  const [productFilter, setProductFilter] = useState('');
+  const users = [...new Set(activities.map((a) => a.user).filter(Boolean))].sort();
+  const products = [...new Set(activities.map((a) => a.productName).filter(Boolean))].sort();
+  const rows = activities.filter((a) => (!userFilter || a.user === userFilter) && (!productFilter || a.productName === productFilter));
+
+  const selectSx = {
+    height: 44,
+    borderRadius: 0,
+    fontSize: 15,
+    '& fieldset': { border: '1px solid #000' },
+    '&:hover fieldset': { border: '1px solid #000' },
+    '&.Mui-focused fieldset': { border: '2px solid #000' },
+  };
+
+  return (
+    <Box sx={{ pt: 3, borderTop: '1px solid #e0e0e0' }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <Select fullWidth displayEmpty value={userFilter} onChange={(e) => setUserFilter(e.target.value)} sx={selectSx}>
+          <MenuItem value=""><span style={{ color: '#808080' }}>Filter by Users</span></MenuItem>
+          {users.map((u) => <MenuItem key={u} value={u}>{u}</MenuItem>)}
+        </Select>
+        <Select fullWidth displayEmpty value={productFilter} onChange={(e) => setProductFilter(e.target.value)} sx={selectSx}>
+          <MenuItem value=""><span style={{ color: '#808080' }}>Filter by Products</span></MenuItem>
+          {products.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+        </Select>
+        <Button sx={{ ...primaryBtn, height: 44, minWidth: 98 }} startIcon={<FilterAlt />} onClick={() => { setUserFilter(''); setProductFilter(''); }}>Filter</Button>
+      </Stack>
+      <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              {['Product', 'Event', 'Count', 'User', 'Timestamp'].map((h) => (
+                <TableCell key={h} sx={{ ...th, textTransform: 'none' }}>{h}</TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.length === 0 && (
+              <TableRow><TableCell colSpan={5} sx={{ color: '#676b72' }}>No activity recorded.</TableCell></TableRow>
+            )}
+            {rows.map((a, index) => (
+              <TableRow key={a.id} sx={{ bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8', '& td': { color: '#000', fontSize: 16, padding: '10px 8px 10px 10px', borderBottom: 'none' } }}>
+                <TableCell>{a.productName || '-'}</TableCell>
+                <TableCell>{a.eventType}</TableCell>
+                <TableCell>{a.count}</TableCell>
+                <TableCell>{a.user}</TableCell>
+                <TableCell>{formatTimestamp(a.timestamp)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Box>
   );
 }

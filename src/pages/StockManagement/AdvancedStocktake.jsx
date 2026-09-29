@@ -21,8 +21,9 @@ import {
   Divider,
   Chip,
   IconButton,
+  Button,
 } from '@mui/material';
-import { Search, BarChart, Close, Person, Assessment, Delete, QrCodeScanner, ImageOutlined } from '@mui/icons-material';
+import { Search, BarChart, Close, Person, Assessment, Delete, QrCodeScanner, ImageOutlined, ShoppingCartOutlined, HelpOutline, WarningAmberOutlined } from '@mui/icons-material';
 import stocktakeService from '../../services/stocktakeService';
 import productService from '../../services/productService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -54,6 +55,52 @@ export default function AdvancedStocktake() {
   const [statistics, setStatistics] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const saveTimer = useRef(null);
+  // Finish flow (reference): Complete -> "finished my part / other users /
+  // complete" -> Finalise (categories) -> variances + apply options.
+  const [completeStep, setCompleteStep] = useState(null); // null | 'ask' | 'finalise' | 'apply'
+  const [finaliseCategories, setFinaliseCategories] = useState([]);
+  const [applyToAll, setApplyToAll] = useState(false);
+  const [categorySearch, setCategorySearch] = useState('');
+  const [allCategories, setAllCategories] = useState([]);
+  const [variances, setVariances] = useState([]);
+  const [finishing, setFinishing] = useState(false);
+  const seenSaleIds = useRef(new Set());
+
+  // Events come from the server so every device in the session sees the same
+  // list: other users' scans/counts and sales rung up while counting.
+  const mapActivity = (a) => {
+    const type = String(a.eventType || 'Scan').toLowerCase();
+    return {
+      id: a.id,
+      type,
+      user: a.user || 'Unknown',
+      action: type === 'sale' ? 'sold' : type === 'count' ? 'counted' : 'scanned',
+      quantity: a.count,
+      product: a.productName || 'Product',
+      productId: a.productId,
+      timestamp: new Date(a.timestamp),
+    };
+  };
+  const refreshActivities = async () => {
+    if (!stocktakeId) return;
+    try {
+      const { activities: rows } = await stocktakeService.getActivities(stocktakeId);
+      const mapped = (rows || []).map(mapActivity);
+      setActivities(mapped);
+      // A sale of a counted product comes off this device's count too
+      // (reference: "it will automatically deduct the sold quantity from the count").
+      const newSales = mapped.filter((a) => a.type === 'sale' && !seenSaleIds.current.has(a.id));
+      if (newSales.length > 0) {
+        newSales.forEach((a) => seenSaleIds.current.add(a.id));
+        setItems((prev) => prev.map((row) => {
+          const sold = newSales.filter((a) => a.productId === row.productId).reduce((s, a) => s + (Number(a.quantity) || 0), 0);
+          if (!sold || row.cancelled) return row;
+          const total = Math.max(0, (Number(row.scanned) || 0) - sold);
+          return { ...row, scanned: total, accumulated: total, lastScan: -sold };
+        }));
+      }
+    } catch (_) {}
+  };
 
   // Load existing stocktake (draft) items so continue shows same
   useEffect(() => {
@@ -74,11 +121,14 @@ export default function AdvancedStocktake() {
             barcode: (it.product?.barcodes && it.product.barcodes[0]) || '',
             caseQuantity: it.product?.caseQuantity || 1,
             cost: it.product?.itemCost || it.product?.caseCost || 0,
+            categoryId: it.product?.category?.id ?? it.product?.categoryId ?? null,
+            categoryName: it.product?.category?.name || null,
           },
           // One reloaded row represents the product's whole stored count: its
           // "scanned" must equal actualQuantity (units, not scan events) so the
           // collapsed save round-trips without changing the count.
           scanned: it.actualQuantity ?? 0,
+          lastScan: it.actualQuantity ?? 0,
           accumulated: it.actualQuantity ?? 0,
           cancelled: false,
         }));
@@ -87,6 +137,25 @@ export default function AdvancedStocktake() {
     }
     loadExisting();
     return () => { isMounted = false; };
+  }, [stocktakeId]);
+
+  // Auto-refresh the Events list: sales already recorded before this device
+  // joined are not re-deducted (they are already in the stored counts).
+  useEffect(() => {
+    if (!stocktakeId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { activities: rows } = await stocktakeService.getActivities(stocktakeId);
+        if (cancelled) return;
+        const mapped = (rows || []).map(mapActivity);
+        mapped.filter((a) => a.type === 'sale').forEach((a) => seenSaleIds.current.add(a.id));
+        setActivities(mapped);
+      } catch (_) {}
+    })();
+    const timer = setInterval(refreshActivities, 5000);
+    return () => { cancelled = true; clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stocktakeId]);
 
   // One row per product; the true count is the SUM of its non-cancelled scans.
@@ -117,40 +186,72 @@ export default function AdvancedStocktake() {
     return () => saveTimer.current && clearTimeout(saveTimer.current);
   }, [items, stocktakeId]);
 
+  // Barcodes are stored as [{ code, quantity }] (older rows may be plain strings).
+  // The quantity is the BARCODE's pack size — a six-pack barcode is 6 — which the
+  // reference applies per scan ("scanning a six pack barcode and entering a
+  // quantity of five will result in 30 items being counted").
+  const barcodeQuantityOf = (product, code) => {
+    const rows = Array.isArray(product?.barcodes) ? product.barcodes : [];
+    const hit = rows.find((b) => String(typeof b === 'string' ? b : b?.code || '').trim() === String(code).trim());
+    const qty = hit && typeof hit !== 'string' ? parseInt(hit.quantity, 10) : 1;
+    return Number.isFinite(qty) && qty > 0 ? qty : 1;
+  };
+  const mapProduct = (p, scannedCode = null) => ({
+    id: p.id,
+    name: p.name,
+    barcode: scannedCode || (p.barcodes && (typeof p.barcodes[0] === 'string' ? p.barcodes[0] : p.barcodes[0]?.code)) || '',
+    // Searching by name applies the base quantity (reference note: "usually one").
+    barcodeQuantity: scannedCode ? barcodeQuantityOf(p, scannedCode) : 1,
+    caseQuantity: p.caseQuantity || 1,
+    cost: p.itemCost || p.caseCost || 0,
+    currentStock: p.inventory ?? (p.currentStockItems || p.currentStockCases || 0),
+    categoryId: p.category?.id ?? p.categoryId ?? null,
+    categoryName: p.category?.name || null,
+  });
+  // A scanner types the whole code then Enter; anything 6+ characters without
+  // spaces is tried as an exact barcode first (the products search only matches
+  // names). Debounced so a code typed by hand is not looked up per keystroke.
+  const looksLikeBarcode = (term) => /^[A-Za-z0-9-]{6,}$/.test(term);
+
   useEffect(() => {
     let isMounted = true;
+    const term = searchTerm.trim();
     async function run() {
       if (selectedProduct) { setShowResults(false); setResults([]); return; }
-      if (searchTerm.length < 3) { setShowResults(false); setResults([]); return; }
+      if (term.length < 3) { setShowResults(false); setResults([]); return; }
       try {
-        const { products } = await productService.getProducts({ search: searchTerm, limit: 20 });
-        if (!isMounted) return;
-        const mapped = (products || []).map(p => ({
-          id: p.id,
-          name: p.name,
-          barcode: (p.barcodes && p.barcodes[0]) || '',
-          caseQuantity: p.caseQuantity || 1,
-          cost: p.itemCost || p.caseCost || 0,
-          currentStock: p.currentStockItems || p.currentStockCases || 0,
-        }));
-        
-        // Check if searchTerm is a barcode (exact match)
-        const barcodeMatch = mapped.find(p => p.barcode === searchTerm);
-        if (barcodeMatch && quickScan) {
-          // Barcode scan in quick scan mode - add immediately
-          scanProduct(barcodeMatch);
-          return;
+        if (looksLikeBarcode(term)) {
+          try {
+            const found = await productService.getProductByBarcode(term);
+            const hit = found?.product;
+            if (!isMounted) return;
+            if (hit) {
+              const mapped = mapProduct(hit, term);
+              setShowResults(false);
+              setResults([]);
+              // Quick Scan: the barcode quantity is counted straight away.
+              // Default mode: the product is selected and waits for a quantity.
+              if (quickScan) scanProduct(mapped, true);
+              else selectProduct(mapped);
+              return;
+            }
+          } catch (_) {
+            // not a known barcode — fall through to the name search
+          }
         }
-        
-        setResults(mapped);
+        const { products } = await productService.getProducts({ search: term, limit: 20 });
+        if (!isMounted) return;
+        setResults((products || []).map((p) => mapProduct(p)));
         setShowResults(true);
       } catch (e) {
+        if (!isMounted) return;
         setResults([]);
         setShowResults(false);
       }
     }
-    run();
-    return () => { isMounted = false; };
+    const handle = setTimeout(run, looksLikeBarcode(term) ? 150 : 0);
+    return () => { isMounted = false; clearTimeout(handle); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, selectedProduct, quickScan]);
 
   // Events sidebar product autocomplete (same PRODUCTS dropdown, sidebar width)
@@ -196,37 +297,40 @@ export default function AdvancedStocktake() {
     const productToScan = product || selectedProduct;
     if (!productToScan) return;
 
-    const qty = quantity === '' ? 1 : (parseInt(quantity) || 1);
     const isScanMode = isQuickScan !== null ? isQuickScan : quickScan;
-    
+    // Units counted by this scan: the typed quantity (Quick Scan has none, so 1)
+    // times the scanned barcode's quantity — a six-pack barcode counts 6 each.
+    const count = isScanMode ? 1 : (quantity === '' ? 1 : (parseInt(quantity) || 1));
+    const qty = count * (productToScan.barcodeQuantity || 1);
+
     setItems(prev => {
-      // Calculate current accumulated total for this product (excluding cancelled items)
-      const productTotal = prev
-        .filter(i => i.productId === productToScan.id && !i.cancelled)
-        .reduce((sum, i) => sum + i.scanned, 0);
-      
-      const newAccumulated = productTotal + qty;
-      
-      // Always add a new row for each scan at the top
-      return [{
-        id: Date.now(),
+      // One row per product (reference: a product's scanned amount is one figure).
+      // Scanning the same barcode again adds to that row and brings it to the top;
+      // it never creates a second row for the product.
+      const existing = prev.find(i => i.productId === productToScan.id && !i.cancelled);
+      const total = (existing ? Number(existing.scanned) || 0 : 0) + qty;
+      const row = {
+        id: existing ? existing.id : Date.now(),
         productId: productToScan.id,
         product: productToScan,
-        scanned: qty,
-        accumulated: newAccumulated,
+        scanned: total,        // the product's whole count (what is saved)
+        lastScan: qty,         // units this scan added
+        accumulated: total,
         cancelled: false,
         isScanned: isScanMode, // Track if this was a scan or manual count
-      }, ...prev];
+      };
+      return [row, ...prev.filter(i => i !== existing)];
     });
 
-    // Add to activity feed
+    // Shown at once on this device; the server copy replaces it on the next poll.
     const activity = {
-      id: Date.now(),
+      id: `local-${Date.now()}`,
       type: isScanMode ? 'scan' : 'count',
       user: user?.name || 'Unknown',
       action: isScanMode ? 'scanned' : 'counted',
       quantity: qty,
       product: productToScan.name,
+      productId: productToScan.id,
       timestamp: new Date(),
     };
     setActivities(prev => [activity, ...prev]);
@@ -239,6 +343,7 @@ export default function AdvancedStocktake() {
           count: qty,
           eventType: isScanMode ? 'Scan' : 'Count', // Differentiate between scan and count
         });
+        refreshActivities();
       } catch (e) {
         console.error('Failed to record scan:', e);
       }
@@ -258,19 +363,128 @@ export default function AdvancedStocktake() {
     return activities.filter(a => a.product === eventProduct.name);
   }, [activities, eventProduct]);
 
-  const complete = async () => {
-    if (!stocktakeId || items.length === 0) return;
+  // Push this device's counts to the server now (the debounced autosave may
+  // still be pending) so the other devices / the completing device see them.
+  const syncCounts = async () => {
+    if (!stocktakeId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const rows = collapseItemsForSave(items);
+    if (rows.length === 0) return;
+    await stocktakeService.updateStocktake(stocktakeId, { items: rows });
+  };
+
+  // Complete button: ask whether every device has finished (reference wording).
+  const complete = () => {
+    if (!stocktakeId) return;
+    setCompleteStep('ask');
+  };
+
+  // "I have finished my part of the stocktake" - sync and leave; the session
+  // stays In Progress for the other devices.
+  const finishMyPart = async () => {
     try {
-      await stocktakeService.updateStocktake(stocktakeId, {
-        status: 'Completed',
-        items: collapseItemsForSave(items)
-      });
+      setFinishing(true);
+      await syncCounts();
       navigate('/stock-management/stocktakes');
     } catch (e) {
-      console.error('Failed to complete stocktake:', e);
-      alert('Failed to complete stocktake. Please try again.');
+      alert('Your counts could not be synced. Check the connection and try again.', 'error');
+    } finally {
+      setFinishing(false);
     }
   };
+
+  // "There are still other users in the Stocktake" - sync, keep counting.
+  const othersStillCounting = async () => {
+    try {
+      setFinishing(true);
+      await syncCounts();
+      alert('Your counts are synced. Complete the stocktake once every device has finished.', 'info');
+    } catch (_) {
+      alert('Your counts could not be synced. Check the connection and try again.', 'error');
+    } finally {
+      setFinishing(false);
+      setCompleteStep(null);
+    }
+  };
+
+  // Finalise: list the categories of every counted product (all devices) so
+  // the operator can add/remove the ones whose uncounted products get zeroed.
+  const openFinalise = async () => {
+    try {
+      setFinishing(true);
+      await syncCounts();
+      const [{ stocktake: fresh }, cats] = await Promise.all([
+        stocktakeService.getStocktake(stocktakeId),
+        productService.getCategories().catch(() => []),
+      ]);
+      const categoryList = (cats || []).map((c) => ({ id: c.id, name: c.name }));
+      setAllCategories(categoryList);
+      const seen = new Map();
+      (fresh?.items || []).forEach((it) => {
+        const cat = it.product?.category;
+        if (cat?.id && !seen.has(cat.id)) seen.set(cat.id, { id: cat.id, name: cat.name });
+      });
+      setFinaliseCategories(Array.from(seen.values()));
+      setApplyToAll(false);
+      setCategorySearch('');
+      setCompleteStep('finalise');
+    } catch (e) {
+      alert('The stocktake could not be loaded for finalising. Please try again.', 'error');
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  // Finalise -> Complete: the session closes (sales no longer deduct), then the
+  // counted-vs-expected variances are shown with the apply options.
+  const finaliseComplete = async () => {
+    try {
+      setFinishing(true);
+      await stocktakeService.completeStocktake(stocktakeId, collapseItemsForSave(items));
+      const { stocktake: fresh } = await stocktakeService.getStocktake(stocktakeId);
+      const diffs = (fresh?.items || [])
+        .map((it) => ({
+          productId: it.productId,
+          name: it.product?.name || 'Product',
+          expected: Number(it.expectedQuantity) || 0,
+          counted: Number(it.actualQuantity) || 0,
+          difference: (Number(it.actualQuantity) || 0) - (Number(it.expectedQuantity) || 0),
+        }))
+        .filter((d) => d.difference !== 0)
+        .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+      setVariances(diffs);
+      setCompleteStep('apply');
+    } catch (e) {
+      console.error('Failed to complete stocktake:', e);
+      alert('Failed to complete stocktake. Please try again.', 'error');
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  // Apply options (reference): Review | Ignore Other Stock | Zero Other Stock
+  const applyStocktake = async (mode) => {
+    try {
+      setFinishing(true);
+      await stocktakeService.applyStocktake(stocktakeId, {
+        mode,
+        applyToAll,
+        categoryIds: finaliseCategories.map((c) => c.id),
+      });
+      navigate(`/stock-management/stocktakes/${stocktakeId}`);
+    } catch (e) {
+      alert(e?.response?.data?.error || 'Failed to apply stocktake. Please try again.', 'error');
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  const categoryMatches = useMemo(() => {
+    const term = categorySearch.trim().toLowerCase();
+    if (!term) return [];
+    const chosen = new Set(finaliseCategories.map((c) => c.id));
+    return allCategories.filter((c) => !chosen.has(c.id) && c.name.toLowerCase().includes(term)).slice(0, 8);
+  }, [categorySearch, allCategories, finaliseCategories]);
 
   const loadStatistics = async () => {
     if (!stocktakeId) {
@@ -427,7 +641,7 @@ export default function AdvancedStocktake() {
                   <Box sx={{ textAlign: 'right' }}>
                     <Typography sx={{ fontSize: 16, fontWeight: 600 }}>{selectedProduct.name}</Typography>
                     <Typography sx={{ fontSize: 13, color: '#676b72' }}>
-                      Barcode quantity {selectedProduct.caseQuantity || 1}
+                      Barcode quantity {selectedProduct.barcodeQuantity || 1}
                     </Typography>
                   </Box>
                 </Stack>
@@ -520,7 +734,8 @@ export default function AdvancedStocktake() {
                             color: item.cancelled ? 'text.disabled' : 'text.primary',
                             fontSize: '0.95rem'
                           }}>
-                            {item.scanned}
+                            {/* SCANNED = units the latest scan added; ACCUMULATED = the product's total. */}
+                            {item.lastScan ?? item.scanned}
                           </Typography>
                           {!item.cancelled && (
                             <IconButton 
@@ -604,9 +819,9 @@ export default function AdvancedStocktake() {
             {filteredActivities.map((activity) => (
                 <Paper key={activity.id} variant="outlined" sx={{ p: 2 }}>
                   <Stack direction="row" spacing={2} alignItems="flex-start">
-                    <Box sx={{ 
-                      bgcolor: activity.type === 'scan' ? '#e3f2fd' : '#f3e5f5', 
-                      p: 1.5, 
+                    <Box sx={{
+                      bgcolor: activity.type === 'scan' ? '#e3f2fd' : activity.type === 'sale' ? '#fff3e0' : '#f3e5f5',
+                      p: 1.5,
                       borderRadius: 1,
                       minWidth: 48,
                       height: 48,
@@ -616,6 +831,8 @@ export default function AdvancedStocktake() {
                     }}>
                       {activity.type === 'scan' ? (
                         <QrCodeScanner color="primary" />
+                      ) : activity.type === 'sale' ? (
+                        <ShoppingCartOutlined sx={{ color: '#ef6c00' }} />
                       ) : (
                         <BarChart sx={{ color: '#9c27b0' }} />
                       )}
@@ -658,7 +875,146 @@ export default function AdvancedStocktake() {
           </Box>
         </Grid>
       </Grid>
+
+      {/* Step 1 - has every device finished? (reference wording) */}
+      <FinishDialog open={completeStep === 'ask'} onClose={() => !finishing && setCompleteStep(null)} title="Complete Stocktake" icon={<HelpOutline sx={{ color: 'rgb(38,99,143)', fontSize: 20 }} />}>
+        <Typography sx={{ fontSize: 15, color: '#313439', mb: 2 }}>
+          If the stocktake has been performed with multiple devices, make sure every device has synced its counts before one device completes the stocktake. Any sales made after completion are no longer deducted from the counted inventory.
+        </Typography>
+        <Stack spacing={1.25}>
+          <Button fullWidth disabled={finishing} onClick={finishMyPart} sx={FINISH_OPTION_SX}>I have finished my part of the stocktake</Button>
+          <Button fullWidth disabled={finishing} onClick={othersStillCounting} sx={FINISH_OPTION_SX}>There are still other users in the Stocktake</Button>
+          <Button fullWidth disabled={finishing} onClick={openFinalise} sx={FINISH_PRIMARY_SX}>Complete the Stocktake</Button>
+        </Stack>
+      </FinishDialog>
+
+      {/* Step 2 - Finalise: categories whose uncounted products may be zeroed */}
+      <FinishDialog open={completeStep === 'finalise'} onClose={() => !finishing && setCompleteStep(null)} title="Finalise Stocktake" width={520} icon={<HelpOutline sx={{ color: 'rgb(38,99,143)', fontSize: 20 }} />}>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#000', mb: 0.5 }}>Select which categories should be affected by applying the stocktake</Typography>
+        <Typography sx={{ fontSize: 14, color: '#676b72', mb: 2 }}>
+          Every category with a counted product is listed. Remove a category to keep its uncounted products as they are, or search to add a category whose products should be zeroed.
+        </Typography>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+          <Box
+            onClick={() => setApplyToAll((v) => !v)}
+            sx={{ width: 48, height: 24, borderRadius: 12, bgcolor: applyToAll ? '#4caf50' : '#a3a3a3', cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s' }}
+          >
+            <Box sx={{ position: 'absolute', top: 2, left: applyToAll ? 26 : 2, width: 20, height: 20, borderRadius: '50%', bgcolor: 'white', transition: 'left 0.3s' }} />
+          </Box>
+          <Typography sx={{ fontSize: 15 }}>Apply the Stocktake to all Products</Typography>
+        </Stack>
+        {!applyToAll && (
+          <>
+            <Box sx={{ position: 'relative', mb: 1.5 }}>
+              <Box
+                component="input"
+                placeholder="Search for a category to add..."
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                sx={{ width: '100%', height: 44, boxSizing: 'border-box', border: '1px solid #000', borderRadius: 0, fontSize: 15, px: '12px', outline: 'none', '&:focus': { border: '2px solid #000' } }}
+              />
+              {categoryMatches.length > 0 && (
+                <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #d9d9d9', maxHeight: 200, overflow: 'auto' }}>
+                  {categoryMatches.map((c) => (
+                    <Typography key={c.id} onClick={() => { setFinaliseCategories((prev) => [...prev, c]); setCategorySearch(''); }} sx={{ px: 1.5, py: 1, fontSize: 15, cursor: 'pointer', '&:hover': { bgcolor: '#f8f8f8' } }}>
+                      {c.name}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
+            </Box>
+            <Stack direction="row" flexWrap="wrap" gap={1} sx={{ minHeight: 36 }}>
+              {finaliseCategories.length === 0 && (
+                <Typography sx={{ fontSize: 14, color: '#676b72' }}>No categories selected - only the counted products will be applied.</Typography>
+              )}
+              {finaliseCategories.map((c) => (
+                <Chip key={c.id} label={c.name} onDelete={() => setFinaliseCategories((prev) => prev.filter((x) => x.id !== c.id))} sx={{ borderRadius: '6px', bgcolor: '#e3f2fd', fontSize: 14 }} />
+              ))}
+            </Stack>
+          </>
+        )}
+        <Stack direction="row" justifyContent="flex-end" spacing={1.5} sx={{ mt: 2.5 }}>
+          <Button disabled={finishing} onClick={() => setCompleteStep('ask')} sx={FINISH_OPTION_SX}>Back</Button>
+          <Button disabled={finishing} onClick={finaliseComplete} sx={FINISH_PRIMARY_SX}>{finishing ? 'Completing...' : 'Complete'}</Button>
+        </Stack>
+      </FinishDialog>
+
+      {/* Step 3 - potential variances + apply options */}
+      <FinishDialog
+        open={completeStep === 'apply'}
+        onClose={() => {}}
+        width={560}
+        title={variances.length > 0 ? 'Potential Variances' : 'Apply Stocktake'}
+        icon={variances.length > 0 ? <WarningAmberOutlined sx={{ color: '#b45309', fontSize: 20 }} /> : <HelpOutline sx={{ color: 'rgb(38,99,143)', fontSize: 20 }} />}
+        headerBg={variances.length > 0 ? '#fdf3d7' : undefined}
+        headerColor={variances.length > 0 ? '#b45309' : undefined}
+      >
+        {variances.length > 0 ? (
+          <>
+            <Typography sx={{ fontSize: 15, color: '#313439', mb: 1.5 }}>
+              The stocktake is completed. {variances.length} counted product{variances.length === 1 ? ' differs' : 's differ'} from the expected stock on hand. Review the counts before applying, or apply now.
+            </Typography>
+            <TableContainer sx={{ maxHeight: 240, border: '1px solid #e0e0e0', mb: 2 }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Product</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Expected</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Counted</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Difference</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {variances.map((v) => (
+                    <TableRow key={v.productId}>
+                      <TableCell>{v.name}</TableCell>
+                      <TableCell align="right">{v.expected}</TableCell>
+                      <TableCell align="right">{v.counted}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: v.difference > 0 ? '#16a34a' : '#dc2626' }}>{v.difference > 0 ? '+' : ''}{v.difference}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        ) : (
+          <Typography sx={{ fontSize: 15, color: '#313439', mb: 2 }}>
+            The stocktake is completed and every counted product matches the expected stock on hand. Choose how to apply it.
+          </Typography>
+        )}
+        <Typography sx={{ fontSize: 13, color: '#676b72', mb: 1.5 }}>
+          <strong>Ignore Other Stock</strong> applies only the counted products. <strong>Zero Other Stock</strong> also sets the uncounted products in the selected categories{applyToAll ? ' (all products)' : ''} to zero.
+        </Typography>
+        <Stack direction="row" justifyContent="flex-end" spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Button disabled={finishing} onClick={() => navigate(`/stock-management/stocktakes/${stocktakeId}`)} sx={FINISH_OPTION_SX}>Review</Button>
+          <Button disabled={finishing} onClick={() => applyStocktake('ignore')} sx={FINISH_PRIMARY_SX}>Ignore Other Stock</Button>
+          <Button disabled={finishing || (!applyToAll && finaliseCategories.length === 0)} onClick={() => applyStocktake('zero')} sx={{ ...FINISH_PRIMARY_SX, bgcolor: '#dc2626', '&:hover': { bgcolor: '#b91c1c' } }}>Zero Other Stock</Button>
+        </Stack>
+      </FinishDialog>
     </Box>
+  );
+}
+
+const FINISH_OPTION_SX = {
+  textTransform: 'none', fontSize: 15, fontWeight: 600, borderRadius: '6px', px: 2.5,
+  bgcolor: '#e5e5e5', color: '#313439', boxShadow: 'none', '&:hover': { bgcolor: '#d4d4d4', boxShadow: 'none' },
+};
+const FINISH_PRIMARY_SX = {
+  textTransform: 'none', fontSize: 15, fontWeight: 600, borderRadius: '6px', px: 2.5,
+  bgcolor: '#5ebbeb', color: '#fff', boxShadow: 'none', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: '#a3d5ef', color: '#fff' },
+};
+
+// Finish-flow dialog shell (same light-blue header bar as the New Stocktake dialog).
+function FinishDialog({ open, onClose, title, icon, children, width = 420, headerBg, headerColor }) {
+  return (
+    <Dialog open={open} onClose={onClose} PaperProps={{ sx: { borderRadius: '8px', width, maxWidth: '95vw' } }}>
+      <Box sx={{ bgcolor: headerBg || 'rgb(190,227,248)', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25 }}>
+        {icon}
+        <Typography sx={{ color: headerColor || 'rgb(38,99,143)', fontSize: 18, fontWeight: 700 }}>{title}</Typography>
+      </Box>
+      <Box sx={{ px: 2, py: 2 }}>{children}</Box>
+    </Dialog>
   );
 }
 

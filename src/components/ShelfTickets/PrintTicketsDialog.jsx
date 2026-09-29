@@ -14,7 +14,7 @@ import {
   GridView as GridIcon,
   ViewStream as ListIcon,
 } from '@mui/icons-material';
-import { handlePrintPreview, renderPrintElement } from '../../utils/shelfTicketPrint.jsx';
+import { handlePrintPreview, renderPrintElement, multiBuyData } from '../../utils/shelfTicketPrint.jsx';
 import shelfTicketTemplateService from '../../services/shelfTicketTemplateService';
 import { extractBarcodeValue } from '../../utils/barcodeSvg';
 
@@ -28,6 +28,10 @@ const PREVIEW_PLACEHOLDER = {
   sku: 'SKU001',
   description: 'Product description',
   unit: 'EA',
+  multiBuySample: {
+    qty2: '6', price2: '36.00', qty3: '', price3: '', caseQty: '24', casePrice: '120.00',
+    unitPrice2: '6.00', unitPriceCase: '5.00', multiBuy: '6 for $36.00 · 24 for $120.00',
+  },
 };
 
 const MM_TO_PX = 3.7795275591; // 96 DPI
@@ -83,6 +87,12 @@ const toTemplateData = (input) => ({
   name: input?.name || input?.productName || PREVIEW_PLACEHOLDER.productName,
   price: input?.price != null ? String(parseFloat(input.price).toFixed(2)) : PREVIEW_PLACEHOLDER.price,
   salePrice: input?.salePrice != null ? String(parseFloat(input.salePrice).toFixed(2)) : PREVIEW_PLACEHOLDER.salePrice,
+  // A real ticket prints its own price points (blank when it has none); only the
+  // no-ticket sample preview shows the typical pack. The breaks are carried
+  // through because this mapping runs twice (once per list, once per preview).
+  priceBreaks: Array.isArray(input?.priceBreaks) ? input.priceBreaks : [],
+  caseQuantity: input?.caseQuantity,
+  ...(input ? multiBuyData(input) : PREVIEW_PLACEHOLDER.multiBuySample),
   barcode:
     extractBarcodeValue(input?.barcode) ||
     extractBarcodeValue(input?.ean) ||

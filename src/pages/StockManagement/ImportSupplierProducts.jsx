@@ -144,45 +144,14 @@ const ImportSupplierProducts = () => {
         setLoadingSuppliers(true);
         setImportError('');
 
-        const normalize = (value) => String(value || '').trim().toUpperCase();
-        const filters = {};
-
-        const supplierResponse = await supplierService.getSuppliers(filters);
-        let candidateSuppliers = supplierResponse.suppliers || [];
-
-        if (isGlobalSuperAdmin) {
-          const masterResponse = await masterDatabaseService.getSuppliers();
-          const masterSuppliers = masterResponse.suppliers || [];
-
-          const masterReferenceSet = new Set(
-            masterSuppliers.map((item) => normalize(item.reference)).filter(Boolean)
-          );
-          const masterNameSet = new Set(
-            masterSuppliers.map((item) => normalize(item.name)).filter(Boolean)
-          );
-          const masterProviderSet = new Set(
-            masterSuppliers.map((item) => normalize(item.provider)).filter(Boolean)
-          );
-
-          candidateSuppliers = candidateSuppliers.filter((supplier) => {
-            const supplierRef = normalize(supplier.masterDatabaseRef);
-            const supplierName = normalize(supplier.name);
-
-            const refMatches =
-              supplierRef &&
-              (masterReferenceSet.has(supplierRef) ||
-                masterNameSet.has(supplierRef) ||
-                masterProviderSet.has(supplierRef));
-
-            const nameMatches = supplierName && masterNameSet.has(supplierName);
-
-            return Boolean(refMatches || nameMatches);
-          });
-        } else {
-          candidateSuppliers = candidateSuppliers.filter(
-            (supplier) => String(supplier.masterDatabaseRef || '').trim() !== ''
-          );
-        }
+        // Reference (verified 28/09/2026): the Supplier list offers EVERY supplier, not
+        // only those linked to the master database. A supplier without a Master
+        // Database Reference is refused at Import time (handleImport / the server),
+        // which tells the operator what to fix instead of hiding the supplier.
+        const supplierResponse = await supplierService.getSuppliers({});
+        const candidateSuppliers = (supplierResponse.suppliers || [])
+          .filter((supplier) => (supplier.status || 'Active') === 'Active')
+          .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
         setSuppliers(candidateSuppliers);
       } catch (err) {
@@ -213,21 +182,28 @@ const ImportSupplierProducts = () => {
     }
   }, [isGlobalSuperAdmin, selectedSupplier, masterSupplierReference, masterSupplierName]);
 
+  // One code per line is the documented format; commas, semicolons, slashes and
+  // spaces are accepted too so "ZZ001 / ZZ002" is not read as a single code.
   const parsedCodes = useMemo(
-    () => productList.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+    () => [...new Set(productList.split(/[\r\n,;/\s]+/).map((code) => code.trim()).filter(Boolean))],
     [productList]
   );
 
   const handleImport = async () => {
     setImportError('');
+    // A fresh attempt clears the previous result table, so a validation error is
+    // not shown above stale Copied / Not Found rows.
+    setImportResponse(null);
 
     if (!selectedSupplierId) {
       setImportError('Please select a supplier');
       return;
     }
 
-    if (!selectedSupplier?.masterDatabaseRef) {
-      setImportError('Selected supplier is missing Master Database Reference');
+    if (!String(selectedSupplier?.masterDatabaseRef || '').trim()) {
+      setImportError(
+        `"${selectedSupplier?.name || 'This supplier'}" has no Master Database Reference. Set one on the supplier (Stock Management > Suppliers > Edit) before importing.`
+      );
       return;
     }
 
@@ -238,9 +214,10 @@ const ImportSupplierProducts = () => {
 
     try {
       setImporting(true);
+      // Send the parsed codes only; the raw text would be re-split by line on the
+      // server and re-introduce a "ZZ001 / ZZ002" one-line entry as a single code.
       const payload = {
         codes: parsedCodes,
-        productList,
       };
 
       if (isGlobalSuperAdmin && selectedOutletId !== null && selectedOutletId !== undefined) {
@@ -322,7 +299,11 @@ const ImportSupplierProducts = () => {
         </Typography>
       </Box>
 
-      {importError && <Alert severity="error">{importError}</Alert>}
+      {importError && (
+        <Alert severity="error" onClose={() => setImportError('')}>
+          {importError}
+        </Alert>
+      )}
 
       <Box>
         <Typography sx={fieldLabelSx}>Supplier</Typography>
@@ -336,7 +317,7 @@ const ImportSupplierProducts = () => {
           onChange={(event, option) => setSelectedSupplierId(option ? option.id : '')}
           disabled={loadingSuppliers || importing}
           loading={loadingSuppliers}
-          noOptionsText="No suppliers linked to master database"
+          noOptionsText="No suppliers"
           componentsProps={{
             paper: {
               sx: {
@@ -504,13 +485,13 @@ const ImportSupplierProducts = () => {
           </Typography>
 
           {masterError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMasterError('')}>
               {masterError}
             </Alert>
           )}
 
           {masterParseErrors.length > 0 && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMasterParseErrors([])}>
               {masterParseErrors.map((msg) => (
                 <Typography key={msg} variant="body2">{msg}</Typography>
               ))}
