@@ -628,9 +628,10 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               <Avatar
                 src={avatarSrc || undefined}
                 onClick={() => fileInputRef.current?.click()}
-                sx={{ width: 90, height: 90, bgcolor: '#e0e0e0', color: '#666', cursor: 'pointer' }}
+                sx={{ width: 90, height: 90, bgcolor: avatarSrc ? '#e0e0e0' : '#1976d2', color: '#fff', fontSize: 30, cursor: 'pointer' }}
               >
-                {!avatarSrc && <PersonIcon sx={{ fontSize: 40 }} />}
+                {/* Same placeholder as Modify User / the header: the user's initials. */}
+                {!avatarSrc && (initialsOf(form.name || user.name) || <PersonIcon sx={{ fontSize: 40 }} />)}
               </Avatar>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <input
@@ -926,7 +927,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
       {/* Quick Menu */}
       {tab === 3 && (
         <Box sx={tabPanelSx}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 40px', gap: 1.5, mb: 1 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 40px', gap: 1.5, mb: 1 }}>
             <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>Name</Typography>
             <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>Page</Typography>
             <Box />
@@ -935,7 +936,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
             {quickMenu.map((item, idx) => (
               <Box
                 key={idx}
-                sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 40px', gap: 1.5, alignItems: 'center' }}
+                sx={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 40px', gap: 1.5, alignItems: 'center' }}
               >
                 <TextField
                   value={item.name}
@@ -1002,6 +1003,9 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
     </Box>
   );
 };
+
+// "SA" for "Super Admin3" - same rule as the header avatar.
+const initialsOf = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
 const Users = () => {
   const { user: currentUser } = useAuth();

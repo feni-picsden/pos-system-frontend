@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { spinSx } from '../../utils/spinSx';
+import useSpinOnce from '../../hooks/useSpinOnce';
 import {
   Box,
   CssBaseline,
@@ -578,7 +580,10 @@ const DashboardLayout = ({ children }) => {
     } catch { /* ignore */ }
   }, []);
 
+  const [notifSpinning, spinNotif] = useSpinOnce(notifLoading);
   const refreshNotifications = async () => {
+
+    spinNotif();
     setNotifLoading(true);
     try {
       const r = await notificationService.getNotifications({ limit: 50 });
@@ -1159,7 +1164,7 @@ const DashboardLayout = ({ children }) => {
         <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center' }}>
           <Typography sx={{ fontSize: 20, fontWeight: 700 }}>Notifications</Typography>
           <IconButton size="small" disableRipple onClick={refreshNotifications} aria-label="refresh notifications" sx={{ ml: 0.5 }}>
-            <RefreshIcon fontSize="small" />
+            <RefreshIcon fontSize="small" sx={spinSx(notifSpinning)} />
           </IconButton>
           <Button
             disableRipple
@@ -1190,7 +1195,9 @@ const DashboardLayout = ({ children }) => {
                     // Sit the dot and bin level with the TITLE. Centred (MUI's
                     // default) they drifted down beside the message on tall rows,
                     // which is what made the dot look mixed into the text.
-                    '& .MuiListItemSecondaryAction-root': { top: 20, transform: 'none' },
+                    // top 8: the 30px bin button then centres on the same line as the
+                    // 24px inbox icon and the 16px title (both centre ~22px from the top).
+                    '& .MuiListItemSecondaryAction-root': { top: 8, transform: 'none' },
                   }}
                   secondaryAction={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

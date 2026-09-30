@@ -112,6 +112,8 @@ import FamilyPickConfirmDialog from '../../components/StockManagement/FamilyPick
 import { buildAdjustments, applyAdjustments } from '../../utils/caseQuantityAdjust';
 import CaseQuantityAdjustmentsDialog from '../../components/StockManagement/CaseQuantityAdjustmentsDialog';
 import settingsService from '../../services/settingsService';
+import shelfTicketService from '../../services/shelfTicketService';
+import { sellPricesChanged, queueEverydayTicket } from '../../utils/priceChangeTicket';
 import { pricingUnitCost, profitPercent, priceFromPercent } from '../../utils/productCost';
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
@@ -543,6 +545,9 @@ const ProductEdit = () => {
   // Set once a pick is applied, so the save tells the server the stock fields are
   // already resolved at the new case size and must not be re-read (see products.js).
   const caseQtyResolvedRef = useRef(false);
+  // Price rows as loaded, so Save can tell a sell-price change (-> Everyday shelf
+  // ticket, like Stock List / Capped Pricing and the reference) from a cost-only edit.
+  const loadedPricesRef = useRef(null);
   // Cost Percentage repurposes formData.itemCost (dollars -> percent) and forces
   // Request Price on; stash the pair so switching back restores what was there.
   const costPercentageStashRef = useRef(null);
@@ -815,6 +820,7 @@ const ProductEdit = () => {
       // The family this product arrived in. Re-picking it is not a change, so the
       // override offer must not fire for it.
       savedFamilyIdRef.current = response.product.familyId || null;
+      loadedPricesRef.current = response.product.prices || [];
       setFormData({
         name: response.product.name || '',
         type: response.product.type || 'Normal Product',
@@ -1455,6 +1461,11 @@ const ProductEdit = () => {
         }
       } else {
         savedProduct = await productService.updateProduct(id, payload);
+        // Reference: a changed sell price (any tier) queues the product for an
+        // Everyday shelf ticket the moment it is saved.
+        if (loadedPricesRef.current && sellPricesChanged(loadedPricesRef.current, payload.prices)) {
+          await queueEverydayTicket(shelfTicketService, id);
+        }
       }
       caseQtyResolvedRef.current = false;
       // Ref: saving lands on the product's View page (with its success context),

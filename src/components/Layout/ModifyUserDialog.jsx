@@ -34,7 +34,8 @@ import { authService } from '../../services/authService';
 import QuickLinkTargetField from '../Common/QuickLinkTargetField';
 import { roleService } from '../../services/roleService';
 
-import { resolveAssetUrl } from '../../services/apiClient';
+import apiClient, { resolveAssetUrl } from '../../services/apiClient';
+import posLocalDb from '../../services/posLocalDb';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const TabPanel = ({ children, value, index }) => (
@@ -88,6 +89,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
 
   const [form, setForm] = useState({
     name: '',
+    username: '',
     email: '',
     phone: '',
     password: '',
@@ -105,6 +107,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
 
     setForm({
       name: user.name || '',
+      username: user.username || '',
       email: user.email || '',
       phone: user.phone || '',
       password: '',
@@ -184,6 +187,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
     try {
       const payload = {
         name: form.name,
+        username: form.username.trim(),
         email: form.email,
         phone: form.phone,
       };
@@ -212,6 +216,12 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
       setAvatarFile(null);
       setAvatarCleared(false);
       setForm((prev) => ({ ...prev, password: '', confirmPassword: '' }));
+      // Settings > Users reads the cached users list (IndexedDB store + 2-minute GET
+      // cache); refresh both so the new name/username shows there at once.
+      try {
+        apiClient.bustCache('/users');
+        if (result?.user?.id != null) await posLocalDb.putStoreItem('users', { ...(user || {}), ...result.user });
+      } catch { /* cache only */ }
       if (onUserUpdated) {
         // merge both profile + preferences into parent
         const merged = {
@@ -354,14 +364,16 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
             />
           </FieldRow>
 
-          {/* Username (read-only) */}
+          {/* Username: the LOGIN name, which can differ from the display name
+              (Super Admin3 logs in as "Super Admin33"). Editable here exactly as on
+              Settings > Users; the server refuses a blank or already-taken one. */}
           <FieldRow label="Username">
             <TextField
-              value={form.name}
+              value={form.username}
+              onChange={handleField('username')}
               size="small"
               fullWidth
-              disabled
-              helperText="Username equals the display name used to log in."
+              helperText="What this person types to log in. Must be unique."
               InputProps={{
                 endAdornment: (
                   <Box sx={{ color: 'success.main', pl: 1, lineHeight: 1 }}>✓</Box>

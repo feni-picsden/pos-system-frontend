@@ -1392,7 +1392,7 @@ const CreatePromotion = () => {
         onClose={() => setSkipDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 2, textAlign: 'center', py: 3 } }}
+        PaperProps={{ sx: { borderRadius: 2, textAlign: 'center', py: 3, userSelect: 'none' } }}
       >
         <DialogContent sx={{ pb: 2 }}>
           <Box
@@ -1406,7 +1406,7 @@ const CreatePromotion = () => {
               justifyContent: 'center',
               margin: '0 auto 24px auto',
               position: 'relative',
-              top: -40
+              top: 0
             }}
           >
             <Typography sx={{ color: NEAR_WHITE, fontWeight: 700, fontSize: '2.5rem' }}>?</Typography>

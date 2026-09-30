@@ -222,6 +222,7 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
         )}
         <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {o.name}
+          {o.isActive === false && <Box component="span" sx={{ color: '#737373' }}>{' - Inactive'}</Box>}
         </Box>
       </Box>
     );
@@ -562,7 +563,7 @@ const DateRangeFilter = ({ start, end, onChange }) => {
           >
             {startDate ? format(startDate, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
           </Box>
-          <RemoveIcon sx={{ color: '#737373', fontSize: 18, mx: 0.5, flexShrink: 0 }} />
+          <RemoveIcon sx={{ color: '#737373', fontSize: 18, mx: 1.5, flexShrink: 0 }} />
           <Box
             component="button"
             type="button"
@@ -586,6 +587,17 @@ const DateRangeFilter = ({ start, end, onChange }) => {
           >
             {endDate ? format(endDate, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
           </Box>
+          {(start || end) && (
+            <Box
+              component="button"
+              type="button"
+              aria-label="Clear date range"
+              onClick={(e) => { e.stopPropagation(); onChange('', ''); }}
+              sx={{ border: 0, bgcolor: 'transparent', cursor: 'pointer', p: 0.5, display: 'flex', alignItems: 'center', color: '#737373', flexShrink: 0, '&:hover': { color: '#000' } }}
+            >
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </Box>
+          )}
         </Box>
 
         <Popper
@@ -901,13 +913,14 @@ const Promotions = () => {
         return false;
       }
 
-      // Date range: keep promotions whose window overlaps the selected window
-      // (a null promotion start/end is open-ended).
+      // Promotion Range (reference, live 30/09: 01/10-31/10 lists only the three
+      // promotions ENDING 04/10; open-ended ones started in 2025 drop out): keep a
+      // promotion whose start date or end date falls inside the selected range.
       if (fromMs || toMs) {
+        const inRange = (ms) => ms != null && (fromMs == null || ms >= fromMs) && (toMs == null || ms <= toMs);
         const ps = p.startDate ? new Date(p.startDate).getTime() : null;
         const pe = p.endDate ? new Date(p.endDate).getTime() : null;
-        if (toMs && ps && ps > toMs) return false;
-        if (fromMs && pe && pe < fromMs) return false;
+        if (!inRange(ps) && !inRange(pe)) return false;
       }
 
       return true;
@@ -1247,7 +1260,7 @@ const Promotions = () => {
                 <TableRow>
                   <TableCell colSpan={6} align="center">
                     <Typography variant="body2" color="text.secondary">
-                      No promotions found
+                      No results found. Try changing the search filters
                     </Typography>
                   </TableCell>
                 </TableRow>

@@ -42,6 +42,7 @@ const QuickLinkTargetField = ({ value, onChange, disabled = false, sx, inputSx }
         />
       ) : (
         <Autocomplete
+          fullWidth
           options={options}
           value={selected || orphan}
           disabled={disabled}

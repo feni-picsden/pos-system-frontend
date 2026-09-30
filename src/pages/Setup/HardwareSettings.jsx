@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { spinSx } from '../../utils/spinSx';
+import useSpinOnce from '../../hooks/useSpinOnce';
 import {
   Box,
   Typography,
@@ -37,7 +39,10 @@ const HardwareSettings = () => {
   const showSuccess = (message) => setSnackbar({ open: true, message, severity: 'success' });
   const showError = (message) => setSnackbar({ open: true, message, severity: 'error' });
 
+  const [printersSpinning, spinPrinters] = useSpinOnce(loadingPrinters);
   const loadPrinters = async () => {
+
+    spinPrinters();
     setLoadingPrinters(true);
     try {
       const available = await drawerService.isQzAvailable();
@@ -141,7 +146,7 @@ const HardwareSettings = () => {
                         <Tooltip title="Refresh printer list">
                           <span>
                             <Button size="small" onClick={loadPrinters} disabled={loadingPrinters} sx={{ minWidth: 0, px: 1 }}>
-                              <RefreshIcon fontSize="small" />
+                              <RefreshIcon fontSize="small" sx={spinSx(printersSpinning)} />
                             </Button>
                           </span>
                         </Tooltip>

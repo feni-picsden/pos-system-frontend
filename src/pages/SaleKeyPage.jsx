@@ -98,6 +98,7 @@ import priceListService from '../services/priceListService';
 import { priceSetService } from '../services/priceSetService';
 import { applyPriceListToLine } from '../utils/priceListEngine';
 import { lineSavings, itemsPerCase } from '../utils/saleTotals';
+import { allocateCriteriaSets, allocateSpendPromotion, mergeCriteriaGroups, RECEIVE_TYPES as SPEND_RECEIVE_TYPES } from '../utils/criteriaPromotion';
 import { isCaseLine, lineStep, displayQuantity, toggleCase } from '../utils/caseLine';
 import { formatMoney } from '../utils/currency';
 import { effectiveUnitCost } from '../utils/productCost';
@@ -986,9 +987,11 @@ const SaleKeyPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, activePromotions, selectedCustomer?.id]);
 
-  // Reference sell screen: above the totals, every active promotion that one of
-  // the cart's products takes part in is named - grey while it is not applied
-  // (quantity not reached yet), blue once it is. Same price maths the cart uses.
+  // Reference sell screen (live SS 538, 548-553): above the totals, the promotions
+  // of the SELECTED cart line's product are named - grey while not applied (no set
+  // reached yet), blue once at least one set applies. Selecting a line whose
+  // product is on no promotion leaves the strip empty even while other lines are
+  // discounted. With nothing selected the most recently added line counts.
   const [cartPromotionStatus, setCartPromotionStatus] = useState([]);
   useEffect(() => {
     if (!cart.length || !activePromotions.length || getEffectiveCustomerSettings(selectedCustomer).disablePromotions) {
@@ -996,11 +999,15 @@ const SaleKeyPage = () => {
       return;
     }
     const byId = new Map();
+    const focusLine = (selectedCartItem && cart.find((i) => i.id === selectedCartItem.id && i.timestamp === selectedCartItem.timestamp))
+      || cart[cart.length - 1];
+    const focusProductId = focusLine?.productId ?? null;
     // One product can sit on several lines: judge it on its total quantity.
     const qtyByProduct = new Map();
     cart.forEach((item) => {
       const q = parseFloat(item.quantity) || 0;
       if (!item.productId || item.giftCardId || q <= 0) return;
+      if (String(item.productId) !== String(focusProductId)) return;
       qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) || 0) + q);
     });
     qtyByProduct.forEach((qty, productId) => {
@@ -1020,10 +1027,37 @@ const SaleKeyPage = () => {
         byId.set(key, { id: key, name: promo.name || 'Promotion', applied: Boolean(prev?.applied || applied) });
       });
     });
+    // Cart-wide advanced promotions: reference colour rule - blue only when every
+    // eligible unit is inside a set (planCriteriaPromotions decides).
+    const plan = planCriteriaPromotions(cart);
+    // Promotions the plan priced the FOCUSED product's line(s) with.
+    const focusPromoIds = new Set();
+    cart.forEach((item, i) => {
+      if (String(item.productId) !== String(focusProductId)) return;
+      const t = plan.targets.get(i);
+      if (t?.promoId != null) focusPromoIds.add(t.promoId);
+    });
+    const isAnyProductSpend = (p) => (p?.conditions?.criteria || []).some((c) => c
+      && c.purchaseType === 'spend' && !(c.items || []).some((i) => !i.excluded && i.productId != null));
+    plan.handled.forEach((key) => {
+      if (!byId.has(key)) {
+        // A "spend ... of any product" promotion matches no single product, so the
+        // product pass above never lists it; the plan is the only place it shows.
+        // Only when the plan found cart lines for it (status set), and - like the
+        // product pass - only for the focused line: a cart-wide promotion priced on
+        // ANOTHER line's product stays off the strip (reference SS 555/559).
+        if (!plan.status.has(key)) return;
+        const promo = (activePromotions || []).find((p) => (p.id ?? p.name) === key);
+        if (!promo) return;
+        if (!isAnyProductSpend(promo) && !focusPromoIds.has(key)) return;
+        byId.set(key, { id: key, name: promo.name || 'Promotion', applied: false });
+      }
+      byId.set(key, { ...byId.get(key), applied: Boolean(plan.status.get(key)?.applied) });
+    });
     const next = Array.from(byId.values());
     setCartPromotionStatus((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, activePromotions, selectedCustomer?.id]);
+  }, [cart, activePromotions, selectedCustomer?.id, selectedCartItem?.id, selectedCartItem?.timestamp]);
 
   // This page owns the takeover dialog while it's mounted, so the global
   // RegisterTakeoverWatcher stays quiet and they don't stack.
@@ -5821,14 +5855,10 @@ const SaleKeyPage = () => {
               const basePriceTotal = basePricePerUnit * promotionQty;
               
               if (item.promoPrice && item.promoPrice > 0) {
-                // promoPrice might be per unit or total - check if it's reasonable
-                if (item.promoPrice < basePricePerUnit * 10) {
-                  // Likely per unit, multiply by quantity
-                  promoPrice = item.promoPrice * promotionQty;
-                } else {
-                  // Likely total price
-                  promoPrice = item.promoPrice;
-                }
+                // Reference Express: the Promo Price IS the total for the line's
+                // quantity (48 Corona = $110). The old "per unit or total?" guess
+                // turned "10 for $39.99" into $399.90.
+                promoPrice = item.promoPrice;
               } else if (item.discountPercentage && item.discountPercentage > 0) {
                 // Percentage discount
                 promoPrice = basePriceTotal * (1 - item.discountPercentage / 100);
@@ -6104,8 +6134,16 @@ const SaleKeyPage = () => {
       
       if (isPriceOverride || isBuyXGetY) {
         if (promoPrice > 0) {
-          const totalPrice = promoPrice * quantity;
-          console.log(`Price Override/Buy X Get Y: promoPrice=${promoPrice} (per unit), requiredQty=${requiredQty}, quantity=${quantity}, totalPrice=${totalPrice}`);
+          // Reference Express (live: 48 Corona = $110, 96 = $220, SS 425-426): the
+          // Promo Price is the total for the line's Quantity, charged per COMPLETE
+          // set; extra units sell at their normal unit price. Quantity 1 = per unit,
+          // exactly as before.
+          const setQty = Math.max(1, parseInt(requiredQty, 10) || 1);
+          const sets = Math.floor(quantity / setQty);
+          const leftover = quantity - sets * setQty;
+          const unitBase = quantity > 0 ? basePrice / quantity : 0;
+          const totalPrice = Math.round((sets * promoPrice + leftover * unitBase) * 100) / 100;
+          console.log(`Price Override: promoPrice=${promoPrice} per ${setQty}, quantity=${quantity}, sets=${sets}, totalPrice=${totalPrice}`);
           return totalPrice;
         }
         return null;
@@ -6436,6 +6474,206 @@ const SaleKeyPage = () => {
     };
   };
 
+  // ADVANCED PROMOTION "a total price of" across the whole cart (reference, verified
+  // on the live POS):
+  //   * the criterion's products COUNT TOGETHER: "Purchase 6 -> $37" over two
+  //     products, 3 + 3 in the cart = one set = $37 (per-line maths never saw 6);
+  //   * it REPEATS per complete set: "Purchase 1 -> $67.99", 2 units = 2 x $67.99;
+  //   * units left over sell at their normal price;
+  //   * the promo total is split over the lines by units ($37 / 6 = $6.17 each,
+  //     a 3-unit line = $18.50);
+  //   * it only applies when it is cheaper than the normal price of those units;
+  //   * the promotion reads "applied" (blue) only when every eligible unit in the
+  //     cart sits in a set; with units left over it reads grey.
+  // Handled here: promotions whose criteria are ALL Required, "purchase", "a total
+  // price of", quantity "exactly" - one criterion or several (several = every one
+  // must be met for a set; reference De Bortoli Muscat / Prosecco). Mix criteria and
+  // Max Applications Per Sale are honoured. Anything else keeps the per-line
+  // calculatePromotionPrice() behaviour.
+  // Pure over the cart: returns { targets: Map(cartIndex -> {price, normalPrice,
+  // promoId}), status: Map(promoId -> {applied}), handled: Set(promoId) }.
+  const planCriteriaPromotions = (cartItems) => {
+    const targets = new Map();
+    const status = new Map();
+    const handled = new Set();
+    if (!Array.isArray(cartItems) || cartItems.length === 0) return { targets, status, handled };
+    if (getEffectiveCustomerSettings(selectedCustomer).disablePromotions) return { targets, status, handled };
+    const expressTypes = ['Price Override', 'Discount Percentage', 'Discount Amount',
+      'express_buy_x_get_y', 'express_discount', 'express_total_price', 'Combo Deal'];
+    const simpleCriterion = (c) => c
+      && !c.isOptional
+      && (c.purchaseType || 'purchase') === 'purchase'
+      && c.receiveType === 'total_price'
+      && (parseFloat(c.purchaseValue) || 0) >= 1
+      && (parseFloat(c.receiveValue) || 0) > 0
+      && c.quantityType !== 'more';
+    // Reference ignores an EMPTY criterion ("Purchase 0 to receive a total price of
+    // $0.00", no products - 5th Day of Xmas shows its profit as "-"); only the live
+    // criteria count.
+    // A "spend" criterion with no products is the reference "Spend $X or more of
+    // ANY product": the whole cart counts, so it stays live without items.
+    const liveCriteria = (p) => (p.conditions?.criteria || []).filter((c) => c
+      && (parseFloat(c.purchaseValue) || 0) > 0
+      && (c.purchaseType === 'spend' || (c.items || []).some((i) => !i.excluded && i.productId != null)));
+    const promos = (activePromotions || []).filter((p) => {
+      if (!p || expressTypes.includes(p.promotionType) || !isPromotionActive(p)) return false;
+      if (p.conditions?.quantityType === 'more') return false;
+      const crit = liveCriteria(p);
+      return crit.length >= 1 && crit.every(simpleCriterion);
+    });
+    const claimed = new Set();
+    promos.forEach((p) => {
+      const key = p.id ?? p.name;
+      const idsOf = (c) => new Set((c.items || []).filter((i) => !i.excluded && i.productId != null).map((i) => String(i.productId)));
+      const crits = liveCriteria(p).map((c) => ({ c, ids: idsOf(c) }));
+      if (crits.some((x) => x.ids.size === 0)) return;
+      handled.add(key);
+      const takenHere = new Set();
+      const builtGroups = crits.map(({ c, ids }) => {
+        const lines = [];
+        cartItems.forEach((item, index) => {
+          if (claimed.has(index) || takenHere.has(index)) return;
+          if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem || item.priceLocked) return;
+          if (!ids.has(String(item.productId))) return;
+          const q = parseFloat(item.quantity) || 0;
+          if (q <= 0 || !Number.isInteger(q)) return;
+          const product = resolveProductLocal(item.productId, item.name);
+          if (!product) return;
+          const normalTotal = calculateNormalPriceForQuantity(product, q);
+          takenHere.add(index);
+          lines.push({ index, q, normalTotal, unit: q > 0 ? normalTotal / q : 0 });
+        });
+        return { lines, setQty: Math.floor(parseFloat(c.purchaseValue)), setPrice: parseFloat(c.receiveValue) };
+      });
+      // Mix Criteria ON (help article: criteria "mix together as if they were a
+      // single criteria"): one pool, quantities and totals added up.
+      const groups = p.conditions?.mixCriteria ? mergeCriteriaGroups(builtGroups) : builtGroups;
+      const allLines = groups.flatMap((g) => g.lines);
+      if (allLines.length === 0) return;
+      // Sets (every criterion met), leftovers and the split over the lines:
+      // utils/criteriaPromotion.js, tested against the live reference sales.
+      const plan = allocateCriteriaSets(groups, { maxSets: parseInt(p.conditions?.maxApplicationsPerSale, 10) });
+      // Reference (live SS 551: 7 units on "6 for $37" = 1 set + 1 leftover, strip
+      // BLUE): blue once at least one set applies; grey only when no set applies.
+      status.set(key, { applied: plan.sets > 0 });
+      allLines.forEach((l) => {
+        claimed.add(l.index);
+        targets.set(l.index, {
+          price: plan.prices.get(l.index),
+          normalPrice: Math.round(l.normalTotal * 100) / 100,
+          promoId: key,
+        });
+      });
+    });
+    // SPEND & GET (reference help article): a "spend $X" criterion plus, usually,
+    // an Optionally criterion for the discounted product. utils/criteriaPromotion.js
+    // allocateSpendPromotion (tested) decides; nothing changes unless it saves.
+    const spendPromos = (activePromotions || []).filter((p) => {
+      if (!p || expressTypes.includes(p.promotionType) || !isPromotionActive(p)) return false;
+      if (handled.has(p.id ?? p.name)) return false;
+      const crit = liveCriteria(p);
+      return crit.length >= 1
+        && crit.some((c) => c && c.purchaseType === 'spend' && (parseFloat(c.purchaseValue) || 0) > 0)
+        && crit.every((c) => c && (parseFloat(c.purchaseValue) || 0) > 0 && SPEND_RECEIVE_TYPES.includes(c.receiveType || 'quantity_only'));
+    });
+    spendPromos.forEach((p) => {
+      const key = p.id ?? p.name;
+      const takenHere = new Set();
+      const groups = liveCriteria(p).map((c) => {
+        const ids = new Set((c.items || []).filter((i) => !i.excluded && i.productId != null).map((i) => String(i.productId)));
+        const anyProduct = c.purchaseType === 'spend' && ids.size === 0;
+        const lines = [];
+        cartItems.forEach((item, index) => {
+          if (claimed.has(index) || takenHere.has(index)) return;
+          if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem || item.priceLocked) return;
+          if (!anyProduct && !ids.has(String(item.productId))) return;
+          const q = parseFloat(item.quantity) || 0;
+          if (q <= 0 || !Number.isInteger(q)) return;
+          const product = resolveProductLocal(item.productId, item.name);
+          if (!product) return;
+          const normalTotal = calculateNormalPriceForQuantity(product, q);
+          // The reference measures "spend" on the normal sell price; the $ off then
+          // comes off what the line currently costs, so a line already on an Express
+          // promotion keeps that price and is never made dearer by the spend reward.
+          // Reference (Promotion Stacker / Cross Promotion Count articles): standard
+          // promotions never stack - each is worked out from the EVERYDAY price and
+          // a line gets whichever single promotion is cheaper. So the spend reward is
+          // priced from the normal value; the line's own price-list / Express price
+          // (recomputed, not read back from item.price) competes with it below.
+          let own = 0;
+          try { own = parseFloat(calculatePriceForQuantity(product, q)) || 0; } catch { own = 0; }
+          takenHere.add(index);
+          lines.push({ index, q, normalTotal, unit: q > 0 ? normalTotal / q : 0, ownPrice: own > 0 ? own : normalTotal });
+        });
+        return {
+          kind: c.purchaseType === 'spend' ? 'spend' : 'purchase',
+          threshold: parseFloat(c.purchaseValue) || 0,
+          optional: Boolean(c.isOptional),
+          receiveType: c.receiveType || 'quantity_only',
+          receiveValue: parseFloat(c.receiveValue) || 0,
+          lines,
+        };
+      });
+      const allLines = groups.flatMap((g) => g.lines);
+      if (allLines.length === 0) return;
+      handled.add(key);
+      const plan = allocateSpendPromotion(groups);
+      // Cheaper-of-the-two per line: a line already cheaper on its own promotion
+      // keeps that price and is not claimed by the spend promotion.
+      let anySpend = false;
+      allLines.forEach((l) => {
+        const spendPrice = plan.prices.get(l.index);
+        if (!plan.applied || spendPrice == null || spendPrice >= l.ownPrice - 0.004) return;
+        anySpend = true;
+        claimed.add(l.index);
+        targets.set(l.index, { price: spendPrice, normalPrice: Math.round(l.normalTotal * 100) / 100, promoId: key });
+      });
+      status.set(key, { applied: anySpend });
+    });
+    return { targets, status, handled };
+  };
+
+  // Applies planCriteriaPromotions to the cart after every change (same settle-once
+  // pattern as the family pass below). A line it priced before that is no longer
+  // on such a promotion goes back to its own price.
+  useEffect(() => {
+    if (isTransactionComplete || !Array.isArray(cart) || cart.length === 0) return;
+    const { targets } = planCriteriaPromotions(cart);
+    let changed = false;
+    const next = cart.map((item, index) => {
+      const target = targets.get(index);
+      if (target) {
+        const same = Math.abs((parseFloat(item.price) || 0) - target.price) < 0.005
+          && item.criteriaPromo === target.promoId
+          && Math.abs((parseFloat(item.normalPrice) || 0) - target.normalPrice) < 0.005;
+        if (same) return item;
+        changed = true;
+        return { ...item, price: target.price, normalPrice: target.normalPrice, criteriaPromo: target.promoId };
+      }
+      if (item.criteriaPromo != null) {
+        changed = true;
+        const restored = { ...item };
+        delete restored.criteriaPromo;
+        const q = parseFloat(item.quantity) || 0;
+        const product = item.productId ? resolveProductLocal(item.productId, item.name) : null;
+        if (product && q > 0 && !item.discountInfo && !item.priceLocked) {
+          restored.price = calculatePriceForQuantity(product, q);
+          restored.normalPrice = calculateNormalPriceForQuantity(product, q);
+        }
+        return restored;
+      }
+      return item;
+    });
+    if (!changed) return;
+    setCart((prev) => (prev === cart ? next : prev));
+    setSelectedCartItem((prev) => {
+      if (!prev) return prev;
+      const match = next.find((i) => i.id === prev.id && i.timestamp === prev.timestamp);
+      return match || prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, isTransactionComplete, activePromotions, selectedCustomer?.id]);
+
   // Family quantity pricing. Lines whose products share a family (and the same price
   // points) sell on their COMBINED quantity: 3 x Beer A + 3 x Beer B in a family
   // priced "6 for $16" is one 6-pack at $16, not two lines of 3 at the single price.
@@ -6457,7 +6695,9 @@ const SaleKeyPage = () => {
 
     const candidates = [];
     cart.forEach((item, index) => {
-      if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem) return;
+      // criteriaPromo: priced by the cart-wide advanced promotion pass above,
+      // which owns that line (otherwise the two passes would keep re-pricing it).
+      if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem || item.criteriaPromo != null) return;
       const quantity = parseFloat(item.quantity) || 0;
       if (quantity <= 0) return;
       const product = resolveProductLocal(item.productId, item.name);

@@ -24,6 +24,8 @@ import {
 } from '@mui/icons-material';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import productService from '../../services/productService';
+import shelfTicketService from '../../services/shelfTicketService';
+import { queueEverydayTicket } from '../../utils/priceChangeTicket';
 import settingsService from '../../services/settingsService';
 import { effectiveUnitCost, profitPercent } from '../../utils/productCost';
 import classificationService from '../../services/classificationService';
@@ -219,6 +221,8 @@ const BulkPriceEdit = () => {
         })
       );
       setSnackbar({ open: true, message: 'Price updated', severity: 'success' });
+      // Reference: a saved sell-price change queues the product for an Everyday shelf ticket.
+      await queueEverydayTicket(shelfTicketService, productId);
     } catch (error) {
       console.error('Error saving price:', error);
       setSnackbar({ open: true, message: 'Error saving price', severity: 'error' });

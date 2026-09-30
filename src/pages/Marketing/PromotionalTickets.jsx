@@ -381,10 +381,7 @@ const PromotionalTickets = () => {
 
       <Box sx={{ ...TICKET_BAR_SX, justifyContent: 'flex-end', gap: 2 }}>
         <TicketCounter count={selected.length} />
-        {/* Print (ours) stays; Export matches the reference and its DesignPro data file. */}
-        <Button disableRipple disableElevation onClick={handlePrint} sx={EXPORT_BUTTON_SX}>
-          Print
-        </Button>
+        {/* Reference bar: Export only - printing is done from the exported file. */}
         <Button disableRipple disableElevation onClick={handleExport} sx={EXPORT_BUTTON_SX}>
           Export
         </Button>

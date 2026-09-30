@@ -38,6 +38,7 @@ import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete
 import customerGroupService from '../../services/customerGroupService';
 import productService from '../../services/productService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import useResultKeys, { ACTIVE_ROW_SX } from '../../components/Common/useResultKeys';
 import { getBaseTier } from '../../utils/baseTier';
 
 // The reference shows the date as plain text "26/07/2026 19:30:00" with only its own
@@ -107,6 +108,8 @@ const ExpressPromotion = () => {
   const [customerGroups, setCustomerGroups] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  // Reference: the top search result is highlighted; Up/Down move, Enter adds it.
+  const resultKeys = useResultKeys();
   const [, setSearchLoading] = useState(false);
   const [showSimulator, setShowSimulator] = useState(false);
   const [simSearch, setSimSearch] = useState('');
@@ -167,13 +170,15 @@ const ExpressPromotion = () => {
       const itemsWithCost = await Promise.all(
         (promotion.items || []).map(async (item) => {
           let cost = 0;
-          
+          let unitNormal = 0;
+
           console.log('Processing item:', item);
-          
+
           if (item.product) {
             const product = item.product;
             console.log('Item has product data:', product);
             cost = product.itemCost || product.cost || getBaseTier(product.prices)?.cost || 0;
+            unitNormal = getBaseTier(product.prices)?.price || 0;
             console.log('Cost from product data:', cost);
           } else if (item.productId) {
             try {
@@ -181,19 +186,25 @@ const ExpressPromotion = () => {
               const product = productResponse.product || productResponse;
               console.log('Fetched product:', product);
               cost = product.itemCost || product.cost || getBaseTier(product.prices)?.cost || 0;
+              unitNormal = getBaseTier(product.prices)?.price || 0;
               console.log('Cost from fetched product:', cost);
             } catch (error) {
               console.error(`Error fetching product ${item.productId} for cost:`, error);
             }
           }
-          
+
+          // Reference Express: Cost and Normal Price are totals for the line's
+          // Quantity (Promo Price is stored as that set's total).
+          const qty = item.quantity || 1;
           const processedItem = {
             ...item,
             productId: item.productId,
             productName: item.productName || item.product?.name,
-            quantity: item.quantity || 1,
-            cost: cost,
-            normalPrice: item.normalPrice || 0,
+            quantity: qty,
+            unitCost: cost,
+            unitNormal: unitNormal || ((item.normalPrice || 0) / qty),
+            cost: cost * qty,
+            normalPrice: unitNormal ? unitNormal * qty : (item.normalPrice || 0),
             promoPrice: item.promoPrice || 0,
             rebate: item.rebate || 0,
             rebatePercentage: item.rebatePercentage || 0,
@@ -320,15 +331,21 @@ const ExpressPromotion = () => {
   };
 
   const toPromotionItem = (product) => {
-    // prices[0] is the oldest price row, which can be a bulk/case tier — an
-    // express promotion is priced per unit, so read the base tier.
+    // prices[0] is the oldest price row, which can be a bulk/case tier - read the
+    // base (single-unit) tier. Reference Express: Cost, Normal Price and Promo
+    // Price are TOTALS for the line's Quantity (48 Corona -> Promo $110), so the
+    // per-unit figures are kept to rescale them when the quantity changes.
     const baseTier = getBaseTier(product.prices);
+    const unitCost = product.cost || baseTier?.cost || 0;
+    const unitNormal = baseTier?.price || 0;
     return {
       productId: product.id,
       productName: product.name,
       quantity: 1,
-      cost: product.cost || baseTier?.cost || 0,
-      normalPrice: baseTier?.price || 0,
+      unitCost,
+      unitNormal,
+      cost: unitCost,
+      normalPrice: unitNormal,
       promoPrice: 0,
       rebate: 0,
       rebatePercentage: 0,
@@ -383,10 +400,15 @@ const ExpressPromotion = () => {
     return row && row.quantity >= (item.quantity || 1);
   });
 
+  // Reference Express (live: 48 Corona = $110, 96 = $220): every COMPLETE set of
+  // the line's Quantity sells at its Promo Price (a set total), extra units at
+  // the normal price.
   const simulatedTotal = basket.reduce((sum, row) => {
     const promoItem = promotionActive ? formData.items.find(i => i.productId === row.productId) : null;
-    const unit = promoItem && promoItem.promoPrice > 0 ? promoItem.promoPrice : row.price;
-    return sum + unit * row.quantity;
+    if (!promoItem || !(promoItem.promoPrice > 0)) return sum + row.price * row.quantity;
+    const setQty = Math.max(1, parseInt(promoItem.quantity, 10) || 1);
+    const sets = Math.floor(row.quantity / setQty);
+    return sum + sets * promoItem.promoPrice + (row.quantity - sets * setQty) * row.price;
   }, 0);
 
   const handleRemoveItem = (index) => {
@@ -410,57 +432,51 @@ const ExpressPromotion = () => {
     return profit;
   };
 
+  // Reference Express: Cost, Normal Price, Promo Price and Rebate are all TOTALS
+  // for the line's Quantity (14th Day of Xmas: 10 x -196 Grape, Cost $40.49,
+  // Normal $51.99, Promo $39.99 -> -1.25%). A quantity change rescales Cost and
+  // Normal from the per-unit figures and keeps the discount the same share.
   const handleUpdateItem = (index, field, value) => {
     setFormData(prev => ({
       ...prev,
       items: prev.items.map((item, i) => {
-        if (i === index) {
-          const updated = { ...item, [field]: value };
-          
-          if (formData.promotionType === 'Discount Percentage') {
-            if (field === 'discountPercentage' && updated.normalPrice > 0) {
-              const discountDecimal = (value || 0) / 100;
-              updated.promoPrice = updated.normalPrice * (1 - discountDecimal);
-              const totalNormalPrice = updated.normalPrice * (updated.quantity || 1);
-              const totalPromoPrice = updated.promoPrice * (updated.quantity || 1);
-              updated.rebate = totalNormalPrice - totalPromoPrice;
-              updated.rebatePercentage = (updated.rebate / totalNormalPrice) * 100;
-            } else if (field === 'quantity' && updated.normalPrice > 0 && updated.discountPercentage > 0) {
-              const discountDecimal = (updated.discountPercentage || 0) / 100;
-              updated.promoPrice = updated.normalPrice * (1 - discountDecimal);
-              const totalNormalPrice = updated.normalPrice * (updated.quantity || 1);
-              const totalPromoPrice = updated.promoPrice * (updated.quantity || 1);
-              updated.rebate = totalNormalPrice - totalPromoPrice;
-              updated.rebatePercentage = (updated.rebate / totalNormalPrice) * 100;
-            }
-          } else {
-            if (field === 'promoPrice' && updated.normalPrice > 0) {
-              const totalNormalPrice = updated.normalPrice * (updated.quantity || 1);
-              const totalPromoPrice = value * (updated.quantity || 1);
-              const discount = totalNormalPrice - totalPromoPrice;
-              updated.rebate = discount;
-              updated.rebatePercentage = (discount / totalNormalPrice) * 100;
-            } else if (field === 'rebate' && updated.normalPrice > 0) {
-              const totalNormalPrice = updated.normalPrice * (updated.quantity || 1);
-              const totalPromoPrice = totalNormalPrice - value;
-              updated.promoPrice = (updated.quantity || 1) > 0 ? totalPromoPrice / (updated.quantity || 1) : totalPromoPrice;
-              updated.rebatePercentage = (value / totalNormalPrice) * 100;
-            } else if (field === 'rebatePercentage' && updated.normalPrice > 0) {
-              const totalNormalPrice = updated.normalPrice * (updated.quantity || 1);
-              const discount = (totalNormalPrice * value) / 100;
-              updated.rebate = discount;
-              const totalPromoPrice = totalNormalPrice - discount;
-              updated.promoPrice = (updated.quantity || 1) > 0 ? totalPromoPrice / (updated.quantity || 1) : totalPromoPrice;
-            } else if (field === 'quantity' && updated.normalPrice > 0 && updated.promoPrice > 0) {
-              const totalNormalPrice = updated.normalPrice * (updated.quantity || 1);
-              const totalPromoPrice = updated.promoPrice * (updated.quantity || 1);
-              updated.rebate = totalNormalPrice - totalPromoPrice;
-              updated.rebatePercentage = (updated.rebate / totalNormalPrice) * 100;
-            }
+        if (i !== index) return item;
+        const updated = { ...item, [field]: value };
+        const qty = Math.max(1, parseInt(updated.quantity, 10) || 1);
+        if (field === 'quantity') {
+          const unitNormal = Number(item.unitNormal) || ((Number(item.normalPrice) || 0) / Math.max(1, parseInt(item.quantity, 10) || 1));
+          const unitCost = Number(item.unitCost) || ((Number(item.cost) || 0) / Math.max(1, parseInt(item.quantity, 10) || 1));
+          updated.unitNormal = unitNormal;
+          updated.unitCost = unitCost;
+          updated.normalPrice = Math.round(unitNormal * qty * 100) / 100;
+          updated.cost = Math.round(unitCost * qty * 10000) / 10000;
+        }
+        const normal = Number(updated.normalPrice) || 0;
+        if (!(normal > 0)) return updated;
+        const round = (n) => Math.round(n * 100) / 100;
+
+        if (formData.promotionType === 'Discount Percentage') {
+          if (field === 'discountPercentage' || (field === 'quantity' && updated.discountPercentage > 0)) {
+            updated.promoPrice = round(normal * (1 - (Number(updated.discountPercentage) || 0) / 100));
+            updated.rebate = round(normal - updated.promoPrice);
+            updated.rebatePercentage = (updated.rebate / normal) * 100;
           }
           return updated;
         }
-        return item;
+        if (field === 'promoPrice') {
+          updated.rebate = round(normal - (Number(value) || 0));
+          updated.rebatePercentage = (updated.rebate / normal) * 100;
+        } else if (field === 'rebate') {
+          updated.promoPrice = round(normal - (Number(value) || 0));
+          updated.rebatePercentage = ((Number(value) || 0) / normal) * 100;
+        } else if (field === 'rebatePercentage') {
+          updated.rebate = round((normal * (Number(value) || 0)) / 100);
+          updated.promoPrice = round(normal - updated.rebate);
+        } else if (field === 'quantity' && updated.promoPrice > 0) {
+          updated.rebate = round(normal - updated.promoPrice);
+          updated.rebatePercentage = (updated.rebate / normal) * 100;
+        }
+        return updated;
       })
     }));
   };
@@ -559,8 +575,9 @@ const ExpressPromotion = () => {
             />
           </Grid>
           
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
             <FormControlLabel
+              sx={{ ml: 0, gap: 1 }}
               control={
                 <ShopfrontSwitch
                   checked={formData.isRecurring}
@@ -640,8 +657,9 @@ const ExpressPromotion = () => {
             </FormControl>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
             <FormControlLabel
+              sx={{ ml: 0, gap: 1 }}
               control={
                 <ShopfrontSwitch
                   checked={formData.isActive}
@@ -696,8 +714,10 @@ const ExpressPromotion = () => {
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value);
+            resultKeys.reset('items');
             searchProducts(e.target.value);
           }}
+          onKeyDown={resultKeys.handleKeyDown('items', searchResults, handleAddProduct, () => setSearchResults([]))}
           InputProps={{
             startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
           }}
@@ -706,7 +726,7 @@ const ExpressPromotion = () => {
 
         {searchResults.length > 0 && (
           <Paper sx={{ mb: 2, maxHeight: 200, overflow: 'auto' }}>
-            {searchResults.map((product) => (
+            {searchResults.map((product, i) => (
               <Box
                 key={`${product.resultType}-${product.id}`}
                 onClick={() => handleAddProduct(product)}
@@ -714,7 +734,8 @@ const ExpressPromotion = () => {
                   p: 1.5,
                   borderBottom: '1px solid #e0e0e0',
                   cursor: 'pointer',
-                  '&:hover': { backgroundColor: '#f5f5f5' }
+                  '&:hover': { backgroundColor: '#f5f5f5' },
+                  ...(resultKeys.isActive('items', i) ? ACTIVE_ROW_SX : {})
                 }}
               >
                 <Typography variant="subtitle2">{product.name}</Typography>
@@ -873,19 +894,21 @@ const ExpressPromotion = () => {
             value={simSearch}
             onChange={(e) => {
               setSimSearch(e.target.value);
+              resultKeys.reset('sim');
               searchSimulator(e.target.value);
             }}
+            onKeyDown={resultKeys.handleKeyDown('sim', simResults, handleSimulatorAdd, () => setSimResults([]))}
             InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
             sx={{ mb: 2 }}
           />
 
           {simResults.length > 0 && (
             <Paper sx={{ mb: 2, maxHeight: 200, overflow: 'auto' }}>
-              {simResults.map((entry) => (
+              {simResults.map((entry, i) => (
                 <Box
                   key={`${entry.resultType}-${entry.id}`}
                   onClick={() => handleSimulatorAdd(entry)}
-                  sx={{ p: 1.5, borderBottom: '1px solid #e0e0e0', cursor: 'pointer', '&:hover': { backgroundColor: '#f5f5f5' } }}
+                  sx={{ p: 1.5, borderBottom: '1px solid #e0e0e0', cursor: 'pointer', '&:hover': { backgroundColor: '#f5f5f5' }, ...(resultKeys.isActive('sim', i) ? ACTIVE_ROW_SX : {}) }}
                 >
                   <Typography variant="subtitle2">{entry.name}</Typography>
                   <Typography variant="body2" color="text.secondary">

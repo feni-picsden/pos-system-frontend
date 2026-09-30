@@ -33,6 +33,7 @@ import shelfTicketService from '../../services/shelfTicketService';
 import { priceSetService } from '../../services/priceSetService';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import useResultKeys from '../../components/Common/useResultKeys';
 import { SquareCheckButton, TicketCounter } from '../../components/ShelfTickets/TicketControls';
 import {
   INSTANT,
@@ -321,12 +322,13 @@ const GROUP_HEADER_SX = {
 };
 
 /** One typeahead result line. */
-const ResultRow = ({ imageUrl, name, query, onClick }) => (
+const ResultRow = ({ imageUrl, name, query, onClick, active = false }) => (
   <Box
     component="button"
     type="button"
     onClick={onClick}
     sx={{
+      ...(active ? { bgcolor: '#8bcef1 !important', color: '#f8f8f8 !important' } : {}),
       display: 'flex',
       alignItems: 'center',
       gap: 1,
@@ -486,6 +488,19 @@ const EverydayTickets = () => {
     [searchResults, ticketedProductIds]
   );
 
+  // Reference: the top result is highlighted; Up/Down move, Enter adds it. The rows
+  // are keyed in the order they render - products first, then each classification group.
+  const resultKeys = useResultKeys();
+  const flatResults = useMemo(
+    () => [
+      ...productResults.map((product) => ({ kind: 'product', row: product })),
+      ...classificationSections.flatMap(([, items]) => items.map((item) => ({ kind: 'classification', row: item }))),
+    ],
+    [productResults, classificationSections]
+  );
+  const flatIndexOf = (kind, row) => flatResults.findIndex((r) => r.kind === kind && r.row === row);
+  const pickResult = (r) => (r.kind === 'product' ? handleAddProduct(r.row) : handleAddClassification(r.row));
+
   // 'Added By' is a client-side narrowing: /shelf-tickets has no addedBy filter param.
   // Multi-select — an empty selection means "all creators".
   const visibleTickets = useMemo(
@@ -522,6 +537,7 @@ const EverydayTickets = () => {
   const handleSearch = async (value) => {
     setSearchTerm(value);
     setSearchOpen(true);
+    resultKeys.reset('search');
 
     if (value.trim().length < 2) {
       setSearchResults([]);
@@ -531,12 +547,14 @@ const EverydayTickets = () => {
 
     // 'Search to add additional products individually or by classification' — so the panel
     // offers products and every classification the term matches.
+    // Trim: the API matches the raw string, so a trailing space found nothing.
+    const term = value.trim();
     const [productResponse, classificationResponse] = await Promise.all([
-      productService.getProducts({ search: value, limit: 10 }, ALL_OUTLETS).catch((error) => {
+      productService.getProducts({ search: term, limit: 10 }, ALL_OUTLETS).catch((error) => {
         console.error('Error searching products:', error);
         return null;
       }),
-      classificationService.getClassifications({ search: value }).catch((error) => {
+      classificationService.getClassifications({ search: term }).catch((error) => {
         console.error('Error searching classifications:', error);
         return null;
       }),
@@ -860,7 +878,7 @@ const EverydayTickets = () => {
           value={searchTerm}
           onChange={(e) => handleSearch(e.target.value)}
           onFocus={() => setSearchOpen(true)}
-          onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+          onKeyDown={resultKeys.handleKeyDown('search', flatResults, pickResult, () => setSearchOpen(false))}
           InputProps={{
             endAdornment: searchTerm ? (
               <InputAdornment position="end">
@@ -922,6 +940,7 @@ const EverydayTickets = () => {
                         name={product.name}
                         query={searchTerm}
                         onClick={() => handleAddProduct(product)}
+                        active={resultKeys.isActive('search', flatIndexOf('product', product))}
                       />
                     ))}
                   </>
@@ -935,6 +954,7 @@ const EverydayTickets = () => {
                         name={item.name}
                         query={searchTerm}
                         onClick={() => handleAddClassification(item)}
+                        active={resultKeys.isActive('search', flatIndexOf('classification', item))}
                       />
                     ))}
                   </React.Fragment>
@@ -1116,10 +1136,7 @@ const EverydayTickets = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TicketCounter count={selectedTickets.length} />
-          {/* Print (ours) stays; Export matches the reference and its DesignPro data file. */}
-          <Button disableRipple disableElevation onClick={handlePrint} sx={EXPORT_BUTTON_SX}>
-            Print
-          </Button>
+          {/* Reference bar: Export only - printing is done from the exported file. */}
           <Button disableRipple disableElevation onClick={handleExport} sx={EXPORT_BUTTON_SX}>
             Export
           </Button>

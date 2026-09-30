@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { spinSx } from '../../utils/spinSx';
+import useSpinOnce from '../../hooks/useSpinOnce';
 import {
   Box,
   Typography,
@@ -46,6 +48,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*' }) => {
   const [expandedFolders, setExpandedFolders] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [refreshSpinning, spinRefresh] = useSpinOnce(loading);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
@@ -396,8 +399,8 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*' }) => {
                   >
                     Upload
                   </Button>
-                  <IconButton onClick={() => fetchFiles(currentPath)}>
-                    <RefreshIcon />
+                  <IconButton onClick={() => { spinRefresh(); fetchFiles(currentPath); }}>
+                    <RefreshIcon sx={spinSx(refreshSpinning)} />
                   </IconButton>
                 </Box>
               </Box>

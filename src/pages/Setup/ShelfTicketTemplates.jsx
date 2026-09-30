@@ -1,4 +1,6 @@
 import React, { useState, useRef } from 'react';
+import { spinSx } from '../../utils/spinSx';
+import useSpinOnce from '../../hooks/useSpinOnce';
 import {
   Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, Snackbar, Card, CardContent, CardActions,
@@ -38,6 +40,9 @@ const ShelfTicketTemplates = () => {
     }
     return list;
   });
+
+  // Refresh icon turns a full circle on every click, and keeps turning while loading.
+  const [templatesSpinning, spinTemplates] = useSpinOnce(loading);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, template: null });
   const [newTemplateDialog, setNewTemplateDialog] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
@@ -132,9 +137,10 @@ const ShelfTicketTemplates = () => {
           </Typography>
         </Box>
         <Tooltip title="Refresh">
+
           <span>
-            <IconButton onClick={() => loadTemplates(false)} disabled={loading}>
-              <RefreshIcon />
+            <IconButton onClick={() => { spinTemplates(); loadTemplates(false); }} disabled={loading}>
+              <RefreshIcon sx={spinSx(templatesSpinning)} />
             </IconButton>
           </span>
         </Tooltip>

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { spinSx } from '../../utils/spinSx';
+import useSpinOnce from '../../hooks/useSpinOnce';
 import {
   Box,
   Typography,
@@ -212,6 +214,7 @@ const Media = () => {
   const [sortBy, setSortBy] = useState('Created At');
   const [sortAsc, setSortAsc] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [refreshSpinning, spinRefresh] = useSpinOnce(loading);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
@@ -814,8 +817,8 @@ const Media = () => {
 
             {/* File viewer actions: refresh | sort direction | sort by */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton disableRipple onClick={() => fetchFiles(currentPath)} sx={chipBtnSx} title="Refresh">
-                <RefreshIcon sx={{ fontSize: 16 }} />
+              <IconButton disableRipple onClick={() => { spinRefresh(); fetchFiles(currentPath); }} sx={chipBtnSx} title="Refresh">
+                <RefreshIcon sx={{ fontSize: 16, ...spinSx(refreshSpinning) }} />
               </IconButton>
               <IconButton
                 disableRipple

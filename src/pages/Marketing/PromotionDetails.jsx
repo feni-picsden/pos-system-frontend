@@ -44,8 +44,11 @@ import customerGroupService from '../../services/customerGroupService';
 import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import useResultKeys, { ACTIVE_ROW_SX } from '../../components/Common/useResultKeys';
 import { getBaseTier } from '../../utils/baseTier';
 import { criteriaFromItems, hydrateCriteria, unitCostOf } from '../../utils/promotionCriteria';
+import { allocateCriteriaSets, allocateSpendPromotion, mergeCriteriaGroups, RECEIVE_TYPES as SPEND_RECEIVE_TYPES } from '../../utils/criteriaPromotion';
+import { bestRateTier } from '../../utils/familyOverride';
 import settingsService from '../../services/settingsService';
 
 // --- Recurring schedule helpers -------------------------------------------
@@ -363,6 +366,8 @@ const PromotionDetails = () => {
   const [criteria, setCriteria] = useState([]);
   const [searchTerms, setSearchTerms] = useState({});
   const [searchResults, setSearchResults] = useState({});
+  // Reference: the top search result is highlighted; Up/Down move, Enter adds it.
+  const resultKeys = useResultKeys();
   const [expandedCriteria, setExpandedCriteria] = useState({});
   const [expandedItems, setExpandedItems] = useState({});
 
@@ -553,6 +558,7 @@ const PromotionDetails = () => {
   // productId — keep working unchanged.
   const handleSearch = async (criterionId, searchValue) => {
     setSearchTerms(prev => ({ ...prev, [criterionId]: searchValue }));
+    resultKeys.reset(criterionId);
     if (searchValue.length <= 2) {
       setSearchResults(prev => ({ ...prev, [criterionId]: [] }));
       return;
@@ -634,26 +640,17 @@ const PromotionDetails = () => {
     setExpandedItems(prev => ({ ...prev, [newCriterion.id]: false }));
   };
 
+  // Reference: exactly one of the two panels is open at any time. Clicking a
+  // header opens that panel (and closes the other); clicking the open one
+  // keeps it open - the pair never collapses to an empty box.
   const toggleCriteriaExpansion = (criterionId) => {
-    setExpandedCriteria(prev => ({
-      ...prev,
-      [criterionId]: !prev[criterionId]
-    }));
-    setExpandedItems(prev => ({
-      ...prev,
-      [criterionId]: false
-    }));
+    setExpandedCriteria(prev => ({ ...prev, [criterionId]: true }));
+    setExpandedItems(prev => ({ ...prev, [criterionId]: false }));
   };
 
   const toggleItemsExpansion = (criterionId) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [criterionId]: !prev[criterionId]
-    }));
-    setExpandedCriteria(prev => ({
-      ...prev,
-      [criterionId]: false
-    }));
+    setExpandedItems(prev => ({ ...prev, [criterionId]: true }));
+    setExpandedCriteria(prev => ({ ...prev, [criterionId]: false }));
   };
 
   const handleUpdateCriterion = (criterionId, field, value) => {
@@ -848,7 +845,9 @@ const PromotionDetails = () => {
     const rawCostPerUnit = tier.costPerUnit || tier.cost || parseFloat(item.cost) || 0;
     if (!(rawCostPerUnit > 0)) return null; // no real cost -> cannot compute margin
 
-    const rebatePerUnit = parseFloat(item.rebateAmount) || 0;
+    // Reference: the rebate is for the criterion's purchase quantity as a whole
+    // ($1 on "purchase 6" takes 1/6 off each unit's cost).
+    const rebatePerUnit = (parseFloat(item.rebateAmount) || 0) / qty;
     const costPerUnit = Math.max(0, rawCostPerUnit - rebatePerUnit);
 
     const rv = parseFloat(criterion.receiveValue) || 0;
@@ -1074,7 +1073,8 @@ const PromotionDetails = () => {
             productId: p.id,
             name: p.name,
             quantity: 1,
-            price: parseFloat(getBaseTier(p.prices)?.price) || 0
+            price: parseFloat(getBaseTier(p.prices)?.price) || 0,
+            prices: Array.isArray(p.prices) ? p.prices : [],
           });
         }
       });
@@ -1084,29 +1084,68 @@ const PromotionDetails = () => {
     setSearchResults(prev => ({ ...prev, sim: [] }));
   };
 
-  // ponytail: models the criteria quantity/spend thresholds and the price
-  // modification only — max applications per sale and mix criteria are not
-  // simulated; add them here if the simulator has to match the sell screen exactly.
+  // The simulator prices the basket with the SAME engine as the sell screen
+  // (utils/criteriaPromotion): sets repeat per complete set, leftovers sell at
+  // normal, a set applies only when every Required criterion is met, Mix Criteria
+  // pools the criteria, Max Applications caps the sets, Spend & Get measures the
+  // normal value. "Active" = at least one set / reward applied (reference blue).
+  // Sell-screen ladder (calculateBasePriceForQuantity): the price point with the
+  // lowest per-unit rate at or below the quantity, times the quantity.
+  const simUnit = (i) => {
+    const tier = bestRateTier(i.prices, i.quantity);
+    if (tier) return (Number(tier.price) || 0) / (Number(tier.quantity) || 1);
+    return parseFloat(i.price) || 0;
+  };
+  const simLineTotal = (i) => Math.round(simUnit(i) * (parseInt(i.quantity, 10) || 0) * 100) / 100;
   const evaluateSimulator = () => {
-    const normalTotal = simBasket.reduce((s, i) => s + i.price * i.quantity, 0);
-    if (simBasket.length === 0 || criteria.length === 0) {
+    const normalTotal = simBasket.reduce((s, i) => s + simLineTotal(i), 0);
+    const live = criteria.filter((c) => c && (parseFloat(c.purchaseValue) || 0) > 0
+      && (c.purchaseType === 'spend' || (c.items || []).some((i) => !i.excluded && i.productId != null)));
+    if (simBasket.length === 0 || live.length === 0) {
       return { active: false, normalTotal, expected: normalTotal };
     }
+    const linesFor = (c) => {
+      const ids = new Set((c.items || []).filter((i) => !i.excluded && i.productId != null).map((i) => String(i.productId)));
+      const any = c.purchaseType === 'spend' && ids.size === 0;
+      return simBasket
+        .map((i, index) => ({ i, index }))
+        .filter(({ i }) => any || ids.has(String(i.productId)))
+        .map(({ i, index }) => ({ index, q: parseInt(i.quantity, 10) || 0, unit: simUnit(i) }))
+        .filter((l) => l.q > 0);
+    };
+    const total = (prices) => simBasket.reduce((s, i, index) => s + (prices.has(index) ? prices.get(index) : simLineTotal(i)), 0);
+
+    const isSets = live.every((c) => !c.isOptional && (c.purchaseType || 'purchase') === 'purchase' && c.receiveType === 'total_price' && (parseFloat(c.receiveValue) || 0) > 0);
+    if (isSets) {
+      let groups = live.map((c) => ({ lines: linesFor(c), setQty: Math.floor(parseFloat(c.purchaseValue)), setPrice: parseFloat(c.receiveValue) }));
+      if (formData.mixCriteria) groups = mergeCriteriaGroups(groups);
+      const plan = allocateCriteriaSets(groups, { maxSets: parseInt(formData.maxApplicationsPerSale, 10) });
+      return { active: plan.sets > 0, normalTotal, expected: total(plan.prices) };
+    }
+    if (live.some((c) => c.purchaseType === 'spend') && live.every((c) => SPEND_RECEIVE_TYPES.includes(c.receiveType || 'quantity_only'))) {
+      const plan = allocateSpendPromotion(live.map((c) => ({
+        kind: c.purchaseType === 'spend' ? 'spend' : 'purchase',
+        threshold: parseFloat(c.purchaseValue) || 0,
+        optional: Boolean(c.isOptional),
+        receiveType: c.receiveType || 'quantity_only',
+        receiveValue: parseFloat(c.receiveValue) || 0,
+        lines: linesFor(c),
+      })));
+      return { active: plan.applied, normalTotal, expected: total(plan.prices) };
+    }
+
+    // Other receive types (each item for, % off, same sell rate...): per-criterion
+    // reading, as before.
     let discount = 0;
     let allRequiredMet = true;
     let anyMet = false;
-
-    criteria.forEach((c) => {
-      const ids = new Set((c.items || []).filter(i => !i.excluded).map(i => String(i.productId)));
-      const matched = simBasket.filter(i => ids.has(String(i.productId)));
-      const qty = matched.reduce((s, i) => s + i.quantity, 0);
-      const subtotal = matched.reduce((s, i) => s + i.price * i.quantity, 0);
+    live.forEach((c) => {
+      const ls = linesFor(c);
+      const qty = ls.reduce((s, l) => s + l.q, 0);
+      const subtotal = ls.reduce((s, l) => s + l.q * l.unit, 0);
       const measured = c.purchaseType === 'spend' ? subtotal : qty;
-      const met = c.purchaseValue > 0 && measured >= c.purchaseValue;
-      if (!met) {
-        if (!c.isOptional) allRequiredMet = false;
-        return;
-      }
+      const met = measured >= c.purchaseValue;
+      if (!met) { if (!c.isOptional) allRequiredMet = false; return; }
       anyMet = true;
       const v = parseFloat(c.receiveValue) || 0;
       let d = 0;
@@ -1117,8 +1156,7 @@ const PromotionDetails = () => {
       else if (c.receiveType === 'percentage_discount') d = subtotal * (v / 100);
       discount += Math.max(0, Math.min(d, subtotal));
     });
-
-    const active = anyMet && allRequiredMet;
+    const active = anyMet && allRequiredMet && discount > 0;
     return { active, normalTotal, expected: active ? normalTotal - discount : normalTotal };
   };
 
@@ -1522,23 +1560,23 @@ const PromotionDetails = () => {
                     item 
                     xs={12} 
                     md={expandedItems[criterion.id] ? 6 : expandedCriteria[criterion.id] ? 4 : 6} 
-                    sx={{ borderRight: '1px solid #e0e0e0' }}
+                    sx={{ borderRight: '1px solid #e0e0e0', transition: 'flex-basis 0.25s ease, max-width 0.25s ease' }}
                   >
                     <Box 
                       sx={{ 
-                        bgcolor: expandedItems[criterion.id] ? '#5ebbeb' : (criterion.items.length > 0 ? '#676b72' : '#5ebbeb'),
+                        bgcolor: expandedItems[criterion.id] ? '#5ebbeb' : '#676b72',
                         color: 'white', 
                         p: 1.5,
                         cursor: 'pointer',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        '&:hover': { bgcolor: expandedItems[criterion.id] ? '#4aa9dd' : (criterion.items.length > 0 ? '#565a60' : '#4aa9dd') }
+                        '&:hover': { bgcolor: expandedItems[criterion.id] ? '#4aa9dd' : '#565a60' }
                       }}
                       onClick={() => toggleItemsExpansion(criterion.id)}
                     >
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                        {criterion.items.length > 0 ? 'Edit Items and Rebate' : 'Items and Rebate'}
+                        {expandedItems[criterion.id] ? 'Items and Rebate' : 'Edit Items and Rebate'}
                       </Typography>
                     </Box>
                     {expandedItems[criterion.id] ? (
@@ -1548,6 +1586,7 @@ const PromotionDetails = () => {
                           placeholder="Search for a product, classification or combo..."
                           value={searchTerms[criterion.id] || ''}
                           onChange={(e) => handleSearch(criterion.id, e.target.value)}
+                          onKeyDown={resultKeys.handleKeyDown(criterion.id, searchResults[criterion.id], (r) => handleAddItemToCriterion(criterion.id, r), () => setSearchResults((prev) => ({ ...prev, [criterion.id]: [] })))}
                               size="small"
                           sx={{ mb: 2 }}
                           InputProps={{
@@ -1557,7 +1596,7 @@ const PromotionDetails = () => {
 
                         {searchResults[criterion.id] && searchResults[criterion.id].length > 0 && (
                           <Paper sx={{ mb: 2, maxHeight: 200, overflow: 'auto' }}>
-                            {searchResults[criterion.id].map((result) => (
+                            {searchResults[criterion.id].map((result, i) => (
                               <Box
                                 key={`${result.resultType}-${result.id}`}
                                 onClick={() => handleAddItemToCriterion(criterion.id, result)}
@@ -1565,7 +1604,8 @@ const PromotionDetails = () => {
                                   p: 1.5,
                                   cursor: 'pointer',
                                   borderBottom: '1px solid #f0f0f0',
-                                  '&:hover': { bgcolor: '#f5f5f5' }
+                                  '&:hover': { bgcolor: '#f5f5f5' },
+                                  ...(resultKeys.isActive(criterion.id, i) ? ACTIVE_ROW_SX : {})
                                 }}
                               >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1600,7 +1640,7 @@ const PromotionDetails = () => {
                           <Box>
                             <Box sx={{ 
                               display: 'grid', 
-                              gridTemplateColumns: '60px 1fr 120px 80px 100px 40px',
+                              gridTemplateColumns: '60px 1fr 120px 80px 40px',
                               gap: 2,
                               p: 1.5,
                               bgcolor: '#e3f2fd',
@@ -1613,7 +1653,6 @@ const PromotionDetails = () => {
                               <Box>Item</Box>
                               <Box>Rebate</Box>
                               <Box>%</Box>
-                              <Box>Profit</Box>
                               <Box></Box>
                             </Box>
 
@@ -1624,7 +1663,7 @@ const PromotionDetails = () => {
                                   key={item.id} 
                                   sx={{ 
                                     display: 'grid', 
-                                    gridTemplateColumns: '60px 1fr 120px 80px 100px 40px',
+                                    gridTemplateColumns: '60px 1fr 120px 80px 40px',
                                     gap: 2,
                                     p: 1.5,
                                     borderBottom: '1px solid #f0f0f0',
@@ -1636,12 +1675,9 @@ const PromotionDetails = () => {
                                     onChange={(e) => handleUpdateItem(criterion.id, item.id, 'excluded', e.target.checked)}
                                   />
                                   <Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <CheckCircleIcon sx={{ color: '#4caf50', fontSize: 18 }} />
-                                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                        {item.name && item.name.length > 25 ? `${item.name.substring(0, 25)}...` : (item.name || item.productName || 'Unknown Product')}
-                                      </Typography>
-                                    </Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      {item.name || item.productName || 'Unknown Product'}
+                                    </Typography>
                                     <Typography variant="caption" color="text.secondary">
                                       {item.sourceLabel || item.type}
                                     </Typography>
@@ -1655,21 +1691,12 @@ const PromotionDetails = () => {
                                       startAdornment: <Typography sx={{ mr: 0.5 }}>$</Typography>
                                     }}
                                   />
-                                  <Typography 
-                                    variant="body2" 
-                                    sx={{ 
-                                      color: item.rebatePercentage < 0 ? 'error.main' : 'success.main',
-                                      fontWeight: 500
-                                    }}
-                                  >
-                                    {item.rebatePercentage.toFixed(2)}%
-                                  </Typography>
-                                  <Typography 
-                                    variant="body2" 
-                                    sx={{ 
+                                  {/* Reference "%": the item's profit after the rebate. */}
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
                                       color: itemProfit < 0 ? 'error.main' : itemProfit > 0 ? 'success.main' : 'text.secondary',
-                                      fontWeight: 600,
-                                      fontSize: '0.9rem'
+                                      fontWeight: 500
                                     }}
                                   >
                                     {formatProfitPct(itemProfit)}
@@ -1718,6 +1745,7 @@ const PromotionDetails = () => {
                     item 
                     xs={12} 
                     md={expandedCriteria[criterion.id] ? 8 : expandedItems[criterion.id] ? 6 : 6}
+                    sx={{ transition: 'flex-basis 0.25s ease, max-width 0.25s ease' }}
                   >
                     <Box 
                       sx={{ 
@@ -1775,7 +1803,7 @@ const PromotionDetails = () => {
                           />
                           
                           <Button variant="outlined" size="small" disabled>
-                            exactly
+                            {criterion.purchaseType === 'spend' ? 'or more' : 'exactly'}
                           </Button>
                           
                           <Button variant="outlined" size="small" disabled>
@@ -1920,6 +1948,7 @@ const PromotionDetails = () => {
                 placeholder="Search for a product, classification or combo to add to the basket..."
                 value={searchTerms.sim || ''}
                 onChange={(e) => handleSearch('sim', e.target.value)}
+                onKeyDown={resultKeys.handleKeyDown('sim', searchResults.sim, handleAddSimProduct, () => setSearchResults((prev) => ({ ...prev, sim: [] })))}
                 size="small"
                 sx={{ mb: 2, maxWidth: 480 }}
                 InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
@@ -1927,7 +1956,7 @@ const PromotionDetails = () => {
 
               {searchResults.sim && searchResults.sim.length > 0 && (
                 <Paper sx={{ mb: 2, maxHeight: 200, overflow: 'auto', maxWidth: 480 }}>
-                  {searchResults.sim.map((result) => (
+                  {searchResults.sim.map((result, i) => (
                     <Box
                       key={`${result.resultType}-${result.id}`}
                       onClick={() => handleAddSimProduct(result)}
@@ -1935,7 +1964,8 @@ const PromotionDetails = () => {
                         p: 1.5,
                         cursor: 'pointer',
                         borderBottom: '1px solid #f0f0f0',
-                        '&:hover': { bgcolor: '#f5f5f5' }
+                        '&:hover': { bgcolor: '#f5f5f5' },
+                        ...(resultKeys.isActive('sim', i) ? ACTIVE_ROW_SX : {})
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1982,7 +2012,7 @@ const PromotionDetails = () => {
                         }}
                       />
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.name}</Typography>
-                      <Typography variant="body2">${(item.price * item.quantity).toFixed(2)}</Typography>
+                      <Typography variant="body2">${simLineTotal(item).toFixed(2)}</Typography>
                       <IconButton
                         size="small"
                         color="error"

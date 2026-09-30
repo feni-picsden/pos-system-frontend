@@ -187,7 +187,8 @@ const PromotionView = () => {
     const rawCostPerUnit = tierUnitCost > 0 ? tierUnitCost : parseFloat(item.cost) || 0;
     if (!(rawCostPerUnit > 0)) return null;
 
-    const rebatePerUnit = parseFloat(item.rebateAmount) || 0;
+    // Reference: the rebate covers the criterion's purchase quantity as a whole.
+    const rebatePerUnit = (parseFloat(item.rebateAmount) || 0) / (qty > 0 ? qty : 1);
     const costPerUnit = Math.max(0, rawCostPerUnit - rebatePerUnit);
 
     const rv = parseFloat(criterion.receiveValue) || 0;
