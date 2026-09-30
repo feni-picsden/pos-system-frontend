@@ -103,7 +103,7 @@ const SortAmountIcon = ({ up, ...props }) => (
  * circular question badge overhanging the top edge.
  * Declared at module scope so the input keeps focus between keystrokes.
  */
-const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfirm, confirmText }) => (
+const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfirm, confirmText, confirmDisabled = false }) => (
   <Dialog
     open={open}
     onClose={onCancel}
@@ -145,7 +145,7 @@ const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfir
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onConfirm();
+          if (e.key === 'Enter' && !confirmDisabled) onConfirm();
         }}
         sx={{
           width: 257,
@@ -181,6 +181,7 @@ const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfir
         </Button>
         <Button
           onClick={onConfirm}
+          disabled={confirmDisabled}
           variant="contained"
           sx={{
             width: 121,
@@ -327,7 +328,7 @@ const Media = () => {
     try {
       await apiClient.post('/media/folder', {
         folderPath: currentPath,
-        folderName: newFolderName
+        folderName: newFolderName.trim()
       });
       setSuccess('Folder created successfully');
       fetchFolders();
@@ -954,7 +955,7 @@ const Media = () => {
               </Paper>
 
               {/* "New Folder" tile – second tile of every directory */}
-              <Paper sx={tileSx(false)} onDoubleClick={() => setFolderDialogOpen(true)}>
+              <Paper sx={tileSx(false)} onClick={() => setFolderDialogOpen(true)}>
                 <Box sx={{ width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <NewFolderIcon sx={{ fontSize: 92, color: '#1c86f2' }} />
                 </Box>
@@ -1175,6 +1176,7 @@ const Media = () => {
         }}
         onConfirm={handleCreateFolder}
         confirmText="Create"
+        confirmDisabled={!newFolderName.trim()}
       />
 
       {/* Rename Dialog */}
