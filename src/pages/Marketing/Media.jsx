@@ -834,16 +834,17 @@ const Media = () => {
                 IconComponent={ArrowDropDown}
                 sx={{
                   width: 150,
-                  height: 32,
+                  height: 34, // same height as the two chip buttons beside it
                   bgcolor: '#f8f8f8',
                   borderRadius: '6px',
                   fontSize: 14,
                   p: 0,
                   transition: 'background 0.2s, color 0.2s',
                   '& .MuiSelect-select': {
-                    padding: '0 8px 0 0 !important',
+                    padding: '0 8px 0 10px !important',
                     minHeight: 'unset',
-                    height: 32,
+                    height: 34,
+                    lineHeight: '34px',
                     display: 'flex',
                     alignItems: 'center',
                   },

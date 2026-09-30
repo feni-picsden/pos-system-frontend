@@ -119,6 +119,9 @@ const ComboItemsPanel = ({ items = [], excludeProductId = null, outletId = null,
   return (
     <Box>
       <Autocomplete
+        // Reference search boxes: the top result is highlighted as you type, so
+        // Enter adds it and Up/Down move from there (MUI handles the keys).
+        autoHighlight
         options={options}
         getOptionLabel={(option) => option?.name || ''}
         filterOptions={(opts) => opts}
