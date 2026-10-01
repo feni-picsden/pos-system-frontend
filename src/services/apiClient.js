@@ -45,6 +45,10 @@ const DERIVED_RESOURCES = {
   // Assigning products to a classification (or deleting one) rewrites the products'
   // category/brand/family links — and for a family, aligns their prices and tax rate.
   '/classifications': ['/products'],
+  // A product save can change its category/brand/family/tags, which is what the
+  // Classifications list counts and audits — otherwise the list showed a family
+  // with 0 products for up to 5 minutes after one had just been put into it.
+  '/products': ['/classifications'],
 };
 
 // Writes that MOVE STOCK (sale/refund/cancel, order send/receive, return,

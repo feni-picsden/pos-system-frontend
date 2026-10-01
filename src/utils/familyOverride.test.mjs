@@ -288,4 +288,32 @@ const tiers = (...pairs) =>
   assert.deepEqual(prices(chooseFamilyPricing([line(2, 10)], ladder)), [10], 'a single line is not a group');
 }
 
+// --- measured on the live reference (ZZTEST family 1@$5 / 6@$24, A on a criteria
+// promotion "2 for $8", 01/10/2026): the register prices the whole basket both ways
+// and charges the lower total. A criteria-promotion line is NOT left out of its family.
+{
+  const { chooseFamilyPricing, groupFamilyLines } = await import('./familyOverride.js');
+  const ladder = (q) => Math.floor(q / 6) * 24 + (q % 6) * 5;
+  const promoA = (q) => Math.floor(q / 2) * 8 + (q % 2) * 5; // what the criteria pass charges A
+  const line = (quantity, ownPrice, promoPriced = false) => ({ familyId: 1, tiersKey: '1@5|6@24', quantity, ownPrice, promoPriced });
+  const prices = (r) => r.map((x) => x.price);
+
+  // A 3 (promo $13) + B 3 ($15) = $28  vs  family 6 for $24  -> $12 + $12 (live SS 691)
+  let r = chooseFamilyPricing([line(3, promoA(3), true), line(3, 15)], ladder);
+  assert.deepEqual(prices(r), [12, 12], 'live: 3 + 3 -> $24 family, promotion loses');
+  assert.deepEqual(r.map((x) => x.familyPriced), [true, true]);
+
+  // A 4 (promo $16) + B 2 ($10) = $26  vs  family $24 -> $16 + $8 (live SS 693)
+  r = chooseFamilyPricing([line(4, promoA(4), true), line(2, 10)], ladder);
+  assert.deepEqual(prices(r), [16, 8], 'live: 4 + 2 -> $24 family');
+
+  // A 2 (promo $8) + B 3 ($15) = $23  vs  family 5 singles $25 -> promotion kept (live SS 692)
+  r = chooseFamilyPricing([line(2, promoA(2), true), line(3, 15)], ladder);
+  assert.deepEqual(prices(r), [8, 15], 'live: 2 + 3 -> promotion $23 beats $25');
+  assert.deepEqual(r.map((x) => x.familyPriced), [false, false]);
+
+  // A 3 alone: no family partner -> not a group, the promotion price stands ($13, live SS 694)
+  assert.equal(groupFamilyLines([line(3, promoA(3), true)]).length, 0, 'a lone line never forms a family group');
+}
+
 console.log('familyOverride: all assertions passed');

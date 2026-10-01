@@ -1034,6 +1034,9 @@ const SaleKeyPage = () => {
     const focusPromoIds = new Set();
     cart.forEach((item, i) => {
       if (String(item.productId) !== String(focusProductId)) return;
+      // A line whose family deal beat the promotion is not on it (live reference:
+      // no promotion strip, no saving, once the family price applies).
+      if (item.familyPriced) return;
       const t = plan.targets.get(i);
       if (t?.promoId != null) focusPromoIds.add(t.promoId);
     });
@@ -6643,17 +6646,33 @@ const SaleKeyPage = () => {
     const next = cart.map((item, index) => {
       const target = targets.get(index);
       if (target) {
+        // A line the FAMILY pass priced (its family deal beat this promotion, see
+        // below - live reference: 3 x A on "2 for $8" + 3 x B, family "6 for $24",
+        // charged $24 not $28) keeps the family price. The promotion's own price is
+        // banked on the line as criteriaPrice so the family pass can keep comparing
+        // the two after every cart change; it is only rewritten here when the
+        // promotion's answer itself changes (quantity edit), which hands the line
+        // back for a fresh comparison.
+        if (item.familyPriced && item.criteriaPromo === target.promoId
+          && Math.abs((parseFloat(item.criteriaPrice) || 0) - target.price) < 0.005) {
+          return item;
+        }
         const same = Math.abs((parseFloat(item.price) || 0) - target.price) < 0.005
           && item.criteriaPromo === target.promoId
+          && Math.abs((parseFloat(item.criteriaPrice) || 0) - target.price) < 0.005
           && Math.abs((parseFloat(item.normalPrice) || 0) - target.normalPrice) < 0.005;
         if (same) return item;
         changed = true;
-        return { ...item, price: target.price, normalPrice: target.normalPrice, criteriaPromo: target.promoId };
+        const priced = { ...item, price: target.price, normalPrice: target.normalPrice, criteriaPromo: target.promoId, criteriaPrice: target.price };
+        delete priced.familyPriced;
+        return priced;
       }
       if (item.criteriaPromo != null) {
         changed = true;
         const restored = { ...item };
         delete restored.criteriaPromo;
+        delete restored.criteriaPrice;
+        delete restored.familyPriced;
         const q = parseFloat(item.quantity) || 0;
         const product = item.productId ? resolveProductLocal(item.productId, item.name) : null;
         if (product && q > 0 && !item.discountInfo && !item.priceLocked) {
@@ -6695,17 +6714,23 @@ const SaleKeyPage = () => {
 
     const candidates = [];
     cart.forEach((item, index) => {
-      // criteriaPromo: priced by the cart-wide advanced promotion pass above,
-      // which owns that line (otherwise the two passes would keep re-pricing it).
-      if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem || item.criteriaPromo != null) return;
+      if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem) return;
       const quantity = parseFloat(item.quantity) || 0;
       if (quantity <= 0) return;
       const product = resolveProductLocal(item.productId, item.name);
       if (!product || product.familyId == null || product.requestPrice) return;
       // What this line costs on its own (promotion and price list included) and
       // without any promotion; cheaper than normal = an automatic promotion prices it.
-      const ownPrice = calculatePriceForQuantity(product, quantity);
+      // A line on a cart-wide (criteria) promotion still belongs to its family -
+      // measured on the live reference (ZZTEST, 01/10/2026): 3 x A on "2 for $8" +
+      // 3 x B in a "6 for $24" family rang up $24, and 4 x A + 2 x B $24 too, the
+      // promotion ($8 + $5 / 2 x $8 + $10) losing to the family deal. Its own price
+      // is what that pass worked out (criteriaPrice), kept on the line even while
+      // the family price is showing, so the comparison survives every cart change.
       const ownNormal = calculateNormalPriceForQuantity(product, quantity);
+      const ownPrice = item.criteriaPromo != null
+        ? (parseFloat(item.criteriaPrice ?? item.price) || ownNormal)
+        : calculatePriceForQuantity(product, quantity);
       candidates.push({
         index,
         item,
