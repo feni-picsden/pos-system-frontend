@@ -79,9 +79,9 @@ const selectMenuProps = {
       borderRadius: '8px',
       '& .MuiMenuItem-root': { minHeight: 56, fontSize: 16, padding: '16px' },
       '& .MuiMenuItem-root:hover': { backgroundColor: 'rgb(125,211,252)' },
-      '& .MuiMenuItem-root.Mui-selected': { backgroundColor: 'rgb(125,211,252)' },
+      '& .MuiMenuItem-root.Mui-selected': { backgroundColor: 'transparent', color: '#38bdf8' },
       '& .MuiMenuItem-root.Mui-selected:hover': { backgroundColor: 'rgb(125,211,252)' },
-      '& .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { backgroundColor: 'rgb(125,211,252)' },
+      '& .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { backgroundColor: 'transparent' },
     },
   },
 };
@@ -515,7 +515,7 @@ const CreateOrder = () => {
               sx: {
                 '& .MuiAutocomplete-option': { minHeight: 45, fontSize: 16 },
                 '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
-                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
+                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38bdf8' },
                 '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
               },
             }}
@@ -768,7 +768,7 @@ const CreateOrder = () => {
                   sx: {
                     '& .MuiAutocomplete-option': { minHeight: 45, fontSize: 16 },
                     '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
-                    '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
+                    '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38bdf8' },
                     '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
                   },
                 }}

@@ -3068,9 +3068,12 @@ const ProductEdit = () => {
                         value={barcode.quantity}
                         onChange={(e) => {
                           const newBarcodes = [...formData.barcodes];
-                          newBarcodes[index].quantity = parseInt(e.target.value) || 1;
+                          // Units one scan adds: a whole number, at least 1 (the
+                          // register ignores anything less, so never store it).
+                          newBarcodes[index].quantity = Math.max(1, parseInt(e.target.value, 10) || 1);
                           handleInputChange('barcodes', newBarcodes);
                         }}
+                        inputProps={{ min: 1, step: 1 }}
                         size="small"
                       />
                     </TableCell>

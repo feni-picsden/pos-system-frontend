@@ -54,7 +54,7 @@ const AssociateBarcodeDialog = ({ open, barcode, product, saving, onAssociate, o
           boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
         },
       }}
-      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.5)' } } }}
+      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.65)' } } }}
     >
       {/* Light blue titled header, matching the reference's dialog chrome */}
       <Box
@@ -90,7 +90,8 @@ const AssociateBarcodeDialog = ({ open, barcode, product, saving, onAssociate, o
             them out on the results list, where they can be as tall as they need
             to be without pushing the keypad and Associate button off the bottom
             of this dialog. */}
-        <KeypadBody value={value} setValue={setValue} onOk={confirm} mode="qty" showOk={false} />
+        {/* Reference: plain keypad, no ⊖/⊕ and no minus - a pack size is 1 or more. */}
+        <KeypadBody value={value} setValue={setValue} onOk={confirm} mode="qty" showOk={false} min={1} steppers={false} />
 
         {/* Same button pair as the "Product Not Found" step this flow started
             from — the orange Confirm of the line editor read as a warning here. */}

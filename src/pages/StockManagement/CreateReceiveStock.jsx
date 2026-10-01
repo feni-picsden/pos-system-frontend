@@ -483,7 +483,7 @@ const CreateReceiveStock = () => {
               sx: {
                 '& .MuiAutocomplete-option': { minHeight: 45, fontSize: 16 },
                 '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
-                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
+                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38bdf8' },
                 '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
               },
             }}

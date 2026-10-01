@@ -30,7 +30,7 @@ const BarcodeNotFoundDialog = ({ open, barcode, onAssociate, onClose }) => (
         bgcolor: '#fff',
       },
     }}
-    slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.5)' } } }}
+    slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.65)' } } }}
   >
     {/* Orange "!" badge, half above the dialog's top edge */}
     <Box

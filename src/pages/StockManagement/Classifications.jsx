@@ -364,13 +364,15 @@ const Classifications = () => {
               <TableCell>
                 Type
               </TableCell>
-              <TableCell align="center">
+              <TableCell align="center" sx={{ width: 160 }}>
                 Product Count
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ width: 180 }}>
                 Performance
               </TableCell>
-              <TableCell align="center">
+              {/* Just wide enough for the four buttons, so they sit at the right
+                  edge under the heading instead of floating mid-table */}
+              <TableCell align="center" sx={{ width: 540 }}>
                 Actions
               </TableCell>
             </TableRow>
@@ -379,7 +381,9 @@ const Classifications = () => {
             sx={{
               '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
               '& tr:nth-of-type(even)': { bgcolor: '#f8f8f8' },
-              '& td': { border: 0, fontSize: 16, color: '#000', py: '35px' }
+              // Same row rhythm as every other list (Customers, Price Lists, Gift
+              // Cards): 12px; 35px made each row twice the height of its content.
+              '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 }
             }}
           >
             {filteredClassifications.map((classification) => (

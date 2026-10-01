@@ -58,7 +58,7 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
         },
       }}
       slotProps={{
-        backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.5)' } },
+        backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.65)' } },
       }}
     >
       {/* Blue question-mark badge, half above the dialog's top edge */}

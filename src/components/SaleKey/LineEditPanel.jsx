@@ -34,7 +34,9 @@ const keyCellSx = {
 // pointing at the triggering cell, real focused decimal input, Enter=Ok,
 // Escape closes only the popup). mode: 'price' ($ prefix) | 'percent'
 // (% suffix) | 'qty' (steppers, value prefilled + text-selected).
-export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = true, showOk = true }) => {
+// `min`: a floor for qty mode (the barcode pack size can never be negative - the
+// reference keypad there has no minus at all); `steppers` hides the ⊖/⊕ pair.
+export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = true, showOk = true, min = null, steppers = true }) => {
   // qty mode keeps the reference seed behavior for the on-screen keys: the
   // seeded quantity is replaced by the first key press instead of appended to.
   const typedRef = useRef(null);
@@ -61,12 +63,14 @@ export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = 
   // returned line, and ⊖ from 1 goes 0, −1, −2… A negative quantity is a return.
   const step = (delta) => {
     const n = (parseFloat(v) || 0) + delta;
-    write(String(mode === 'qty' ? n : Math.max(0, n)));
+    const floor = min != null ? min : (mode === 'qty' ? -Infinity : 0);
+    write(String(Math.max(floor, n)));
   };
+  const allowMinus = mode === 'qty' && !(min != null && min >= 0);
   return (
     <>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        {mode === 'qty' && (
+        {mode === 'qty' && steppers && (
           <StepDownIcon onClick={() => step(-1)} sx={{ color: KEY_BORDER, fontSize: 22, cursor: 'pointer' }} />
         )}
         <Box sx={{ position: 'relative', flex: 1, height: 50, borderRadius: '8px', bgcolor: '#fff', border: '1px solid #404040', display: 'flex', alignItems: 'center' }}>
@@ -83,7 +87,7 @@ export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = 
               const raw = e.target.value;
               // qty mode accepts one leading minus (a typed return); the money
               // and percent modes never do.
-              const sign = mode === 'qty' && raw.trimStart().startsWith('-') ? '-' : '';
+              const sign = allowMinus && raw.trimStart().startsWith('-') ? '-' : '';
               const digits = raw.replace(/[^0-9.]/g, '');
               // one decimal point max
               write(digits.split('.').length > 2 ? v : sign + digits);
@@ -107,7 +111,7 @@ export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = 
             <Box component="span" sx={{ position: 'absolute', right: 12, color: '#404040', fontSize: 16, pointerEvents: 'none' }}>%</Box>
           )}
         </Box>
-        {mode === 'qty' && (
+        {mode === 'qty' && steppers && (
           <StepUpIcon onClick={() => step(1)} sx={{ color: KEY_BORDER, fontSize: 22, cursor: 'pointer' }} />
         )}
       </Box>

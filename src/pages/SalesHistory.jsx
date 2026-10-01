@@ -11,6 +11,7 @@ import {
   List,
   Alert,
   FormControlLabel,
+  InputAdornment,
 } from "@mui/material";
 import { CheckCircleOutlined } from "@mui/icons-material";
 import { saleOutstanding, INCOMPLETE_PURPLE } from "../utils/saleOutstanding";
@@ -623,6 +624,10 @@ const SalesHistory = () => {
           />
         }
         label={label}
+        // MUI's -11px left margin assumes a padded Switch; the flat Shopfront
+        // switch has none, so it hung left of the field edge. Flush with the
+        // fields above, 8px between pill and label (reference).
+        sx={{ m: 0, "& .MuiFormControlLabel-label": { ml: 1, fontSize: 16 } }}
       />
     </Box>
   );
@@ -678,20 +683,22 @@ const SalesHistory = () => {
             <Box sx={cellSx}>
               <Typography sx={labelSx}>Amount</Typography>
               <Box sx={{ display: "flex", gap: "0.25rem" }}>
+                {/* Reference keeps the "$" as a fixed prefix ("$ 11"), not a
+                    placeholder that vanishes once a figure is typed. */}
                 <TextField
                   size="small"
                   type="number"
-                  placeholder="$"
                   value={filters.minAmount}
                   onChange={(e) => handleFilterChange("minAmount", e.target.value)}
+                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   sx={fieldSx}
                 />
                 <TextField
                   size="small"
                   type="number"
-                  placeholder="$"
                   value={filters.maxAmount}
                   onChange={(e) => handleFilterChange("maxAmount", e.target.value)}
+                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   sx={fieldSx}
                 />
               </Box>
@@ -867,7 +874,7 @@ const SalesHistory = () => {
                             {/* Invoice number, zero-padded to the configured
                                 length; falls back to the sale number. */}
                             <Box sx={{ fontSize: "13.44px", lineHeight: "16px" }}>
-                              {settingsService.padInvoice(sale.invoiceNumber) || sale.saleNumber}
+                              #{settingsService.padInvoice(sale.invoiceNumber) || sale.saleNumber}
                             </Box>
                           </Box>
 
@@ -896,6 +903,13 @@ const SalesHistory = () => {
                             {saleOutstanding(sale) > 0 && (
                               <Box sx={{ fontSize: 16, lineHeight: "18px" }}>
                                 <SplitPrice value={saleOutstanding(sale)} />
+                              </Box>
+                            )}
+                            {/* Reference: the outlet the sale was made at, small,
+                                under the figures */}
+                            {sale.outlet?.name && (
+                              <Box sx={{ fontSize: "13.44px", lineHeight: "16px", textTransform: "uppercase" }}>
+                                {sale.outlet.name}
                               </Box>
                             )}
                           </Box>

@@ -35,6 +35,7 @@ import {
   Close as CloseIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  DeleteOutline as DeleteOutlineIcon,
   Check as CheckIcon,
   Clear as ClearIcon,
   Search as SearchIcon
@@ -1400,7 +1401,10 @@ const ProductMerge = () => {
                                 startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
                               }}
                             />
-                            <Button size="small" color="error" onClick={() => removePriceRow(idx)}>Remove</Button>
+                            {/* Same red bin as the Product Edit price/barcode rows */}
+                            <IconButton size="small" color="error" title="Remove price" onClick={() => removePriceRow(idx)}>
+                              <DeleteOutlineIcon />
+                            </IconButton>
                           </Box>
                         ))}
                         <Box>
@@ -1623,6 +1627,10 @@ const ProductMerge = () => {
           {/* Product Columns */}
           {productsToMerge.map((product, index) => (
             <Grid item xs={12} md={3} key={product.id}>
+              {/* Same heading row as "Results" so every column's card starts on one line */}
+              <Typography variant="h6" sx={{ mb: 2, visibility: 'hidden' }} aria-hidden>
+                Results
+              </Typography>
               {renderProductColumn(product, index)}
             </Grid>
           ))}
@@ -1630,6 +1638,9 @@ const ProductMerge = () => {
           {/* Add Product Column */}
           {productsToMerge.length < 4 && (
             <Grid item xs={12} md={3}>
+              <Typography variant="h6" sx={{ mb: 2, visibility: 'hidden' }} aria-hidden>
+                Results
+              </Typography>
               {renderAddProductColumn()}
             </Grid>
           )}
