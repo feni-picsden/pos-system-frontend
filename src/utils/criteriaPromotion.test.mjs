@@ -101,6 +101,41 @@ assert.equal(sum(s.prices), 100); assert.equal(s.applied, true);
 s = allocateSpendPromotion([{ kind: 'spend', threshold: 100, receiveType: 'discount_total', receiveValue: 10, lines: [{ index: 'jb', q: 16, unit: 5.5 }] }]);
 assert.equal(sum(s.prices), 88); assert.equal(s.applied, false);   // $88: not met
 
+// Measured on the LIVE reference (ZZTEST Spend & Get, 01/10/2026): A $60, B $50,
+// "Spend $100 (amount only)" on A + B, plus a purchase criterion on the SAME A + B.
+{
+  const A = (q) => ({ index: 'A', q, unit: 60 });
+  const B = (q) => ({ index: 'B', q, unit: 50 });
+  const live = (purchase, cart, opts) => allocateSpendPromotion([
+    { kind: 'spend', threshold: 100, receiveType: 'quantity_only', receiveValue: 0, lines: cart },
+    { kind: 'purchase', ...purchase, lines: cart },
+  ], opts);
+  // Required "purchase 1 -> a discount on each item worth $10": every unit $10 off
+  let l = live({ threshold: 1, receiveType: 'discount_each_item', receiveValue: 10 }, [A(1), B(2)]);   // SS 729
+  assert.equal(l.prices.get('A'), 50); assert.equal(l.prices.get('B'), 80); assert.equal(sum(l.prices), 130);
+  l = live({ threshold: 1, receiveType: 'discount_each_item', receiveValue: 10 }, [A(1), B(1)]);       // SS 730
+  assert.equal(sum(l.prices), 90);
+  l = live({ threshold: 1, receiveType: 'discount_each_item', receiveValue: 10 }, [B(1)]);             // SS 731: $50 < $100
+  assert.equal(sum(l.prices), 50); assert.equal(l.applied, false);
+  // Required "purchase 1 -> a discount off the total worth $10": one set per unit -> same money
+  l = live({ threshold: 1, receiveType: 'discount_total', receiveValue: 10 }, [A(1), B(1)]);           // SS 732
+  assert.equal(l.prices.get('A'), 50); assert.equal(l.prices.get('B'), 40);
+  l = live({ threshold: 1, receiveType: 'discount_total', receiveValue: 10 }, [A(1), B(2)]);           // SS 733
+  assert.equal(sum(l.prices), 130);
+  // Required "purchase 2 -> $10 off the total": $5 off EACH unit of the set, not by value
+  l = live({ threshold: 2, receiveType: 'discount_total', receiveValue: 10 }, [A(1), B(1)]);           // SS 735
+  assert.equal(l.prices.get('A'), 55); assert.equal(l.prices.get('B'), 45);
+  l = live({ threshold: 2, receiveType: 'discount_total', receiveValue: 10 }, [A(2), B(2)]);           // SS 736: 2 sets
+  assert.equal(l.prices.get('A'), 110); assert.equal(l.prices.get('B'), 90); assert.equal(sum(l.prices), 200);
+  l = live({ threshold: 2, receiveType: 'discount_total', receiveValue: 10 }, [A(2), B(2)], { maxSets: 1 });
+  assert.equal(sum(l.prices), 210, 'Max Applications Per Sale caps the sets');
+  // OPTIONAL purchase criterion on the same products as the spend: never rewarded (SS 738, 740, 742, 743)
+  l = live({ threshold: 2, optional: true, receiveType: 'discount_total', receiveValue: 10 }, [A(1), B(1)]);
+  assert.equal(sum(l.prices), 110); assert.equal(l.applied, false);
+  l = live({ threshold: 1, optional: true, receiveType: 'discount_total', receiveValue: 10 }, [A(1), B(2)]);
+  assert.equal(sum(l.prices), 160); assert.equal(l.applied, false);
+}
+
 // Two criteria where one criterion's promo total is ABOVE its own normal value
 // (found by the random-cart pass): the set still applies because the other
 // criterion saves more, but no line is ever charged more than its normal price.

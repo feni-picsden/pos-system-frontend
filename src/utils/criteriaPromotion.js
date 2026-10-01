@@ -110,8 +110,16 @@ export const allocateCriteriaSets = (groups, { maxSets } = {}) => {
 export const RECEIVE_TYPES = ['total_price', 'each_item_for', 'discount_each_item', 'discount_total', 'discount', 'percentage_discount', 'quantity_only'];
 
 // New price (in cents) for `units` units of each line (dearest first when a
-// count is given), under one "to receive" rule. Returns Map(index -> cents).
-const receiveOn = (lines, units, receiveType, value) => {
+// count is given), under one "to receive" rule applied `sets` times (a purchase
+// criterion is one set of N units; `sets` sets cover sets x N units and the
+// reward is counted per set). Returns Map(index -> cents).
+//
+// Measured on the live reference (ZZTEST Spend & Get, 01/10/2026): "a discount
+// off the total worth $10" on a set of 2 took $5 off EACH unit ($60 -> $55,
+// $50 -> $45), not $5.45 / $4.55 by value - so a money-off reward is split
+// equally per unit. "a total price of" keeps the by-value split the Buy X for Y
+// sets use (not measured in a spend promotion).
+const receiveOn = (lines, units, receiveType, value, sets = 1) => {
   const out = new Map();
   const v = Number(value) || 0;
   const byPrice = [...lines].sort((a, b) => b.unit - a.unit);
@@ -121,18 +129,43 @@ const receiveOn = (lines, units, receiveType, value) => {
   const coveredLines = lines.filter((l) => (cover.get(l.index) || 0) > 0);
   const coveredNormalCents = coveredLines.reduce((s, l) => s + cents((cover.get(l.index) || 0) * l.unit), 0);
   const coveredUnits = coveredLines.reduce((s, l) => s + (cover.get(l.index) || 0), 0);
+  const perSet = units === Infinity ? 1 : Math.max(1, sets);
 
-  // Target price (cents) for ALL covered units together, then split like the
-  // set maths: proportional to each line's covered normal value, last absorbs.
+  // Target price (cents) for ALL covered units together.
   let target = coveredNormalCents;
+  let equalSplit = false;
   switch (receiveType) {
-    case 'total_price': target = cents(v); break;
-    case 'each_item_for': target = cents(v * coveredUnits); break;
-    case 'discount_each_item': target = Math.max(0, coveredNormalCents - cents(v * coveredUnits)); break;
+    case 'total_price': target = cents(v * perSet); break;
+    case 'each_item_for': target = cents(v * coveredUnits); equalSplit = true; break;
+    case 'discount_each_item': target = Math.max(0, coveredNormalCents - cents(v * coveredUnits)); equalSplit = true; break;
     case 'discount_total':
-    case 'discount': target = Math.max(0, coveredNormalCents - cents(v)); break;
+    case 'discount': target = Math.max(0, coveredNormalCents - cents(v * perSet)); equalSplit = true; break;
     case 'percentage_discount': target = Math.max(0, Math.round(coveredNormalCents * (1 - v / 100))); break;
     default: target = coveredNormalCents; // quantity_only
+  }
+  const offCents = coveredNormalCents - target; // what comes off, spread over the covered units
+  // Equal split: the same money off every covered unit. A line too cheap to carry
+  // its share is taken to $0 and the rest moves to the other lines, so the total
+  // taken off is always exactly the reward (the last open line absorbs the cent).
+  const equalOff = new Map();
+  if (equalSplit) {
+    const pool = coveredLines.map((l) => ({ l, cu: cover.get(l.index) || 0, own: cents((cover.get(l.index) || 0) * l.unit), off: 0 }));
+    let remaining = offCents;
+    for (let pass = 0; pass < 8 && remaining > 0; pass += 1) {
+      const open = pool.filter((p) => p.off < p.own);
+      if (!open.length) break;
+      const units = open.reduce((s, p) => s + p.cu, 0);
+      let given = 0;
+      open.forEach((p, i) => {
+        const want = i === open.length - 1 ? remaining - given : Math.round((remaining * p.cu) / units);
+        const take = Math.max(0, Math.min(want, p.own - p.off));
+        p.off += take;
+        given += take;
+      });
+      remaining -= given;
+      if (given === 0) break;
+    }
+    pool.forEach((p) => equalOff.set(p.l.index, p.off));
   }
   let allocated = 0;
   lines.forEach((l) => {
@@ -140,8 +173,14 @@ const receiveOn = (lines, units, receiveType, value) => {
     const rest = cents((l.q - cu) * l.unit);
     if (cu === 0 || coveredNormalCents === 0) { out.set(l.index, cents(l.q * l.unit)); return; }
     const last = l === coveredLines[coveredLines.length - 1];
-    const share = last ? target - allocated : Math.round((target * cents(cu * l.unit)) / coveredNormalCents);
-    allocated += share;
+    const own = cents(cu * l.unit);
+    let share;
+    if (equalSplit) {
+      share = own - (equalOff.get(l.index) || 0);
+    } else {
+      share = last ? target - allocated : Math.round((target * own) / coveredNormalCents);
+      allocated += share;
+    }
     out.set(l.index, share + rest);
   });
   return out;
@@ -153,9 +192,21 @@ const receiveOn = (lines, units, receiveType, value) => {
  *   lines:Array<{index:any, q:number, unit:number}>}>} groups  one per criterion
  * @returns {{applied:boolean, prices: Map<any, number>}}  price for every line.
  */
-export const allocateSpendPromotion = (groups) => {
+// Measured on the live reference (ZZTEST Spend & Get, 01/10/2026; Spend $100 on
+// A+B "(amount only)" + purchase criterion on A+B):
+//   * a REQUIRED purchase criterion repeats per set: units / N sets, every set
+//     rewarded (1 x A + 2 x B on "purchase 1 -> $10 off each" took $10 off all
+//     three; 2 + 2 on "purchase 2 -> $10 off the total" saved $20); the spend
+//     criterion does not use the units up, so the same lines serve both;
+//   * an OPTIONAL purchase criterion whose lines are ALSO in a spend criterion
+//     never pays out (the spend criterion takes those units first) - 1 + 1,
+//     1 + 2 and 2 + 2 all rang up at full price. With its own products (the help
+//     article's "spend $30 on beer, get the coke for $1") it pays once.
+// `maxSets` = the editor's Max Applications Per Sale.
+export const allocateSpendPromotion = (groups, { maxSets } = {}) => {
   const prices = new Map();
   const normalCents = (l) => cents(l.q * l.unit);
+  const spendIndexes = new Set(groups.filter((g) => g.kind === 'spend').flatMap((g) => g.lines.map((l) => l.index)));
   const met = groups.map((g) => {
     if (!(g.threshold > 0)) return false;
     // "spend" is measured on the NORMAL sell value (l.spendValue when the caller
@@ -173,8 +224,22 @@ export const allocateSpendPromotion = (groups) => {
   if (requiredMet && anyMet) {
     groups.forEach((g, i) => {
       if (!met[i]) return;
-      const units = g.kind === 'spend' ? Infinity : Math.floor(g.threshold);
-      const r = receiveOn(g.lines, units, g.receiveType, g.receiveValue);
+      let units = Infinity;
+      let sets = 1;
+      if (g.kind !== 'spend') {
+        const n = Math.max(1, Math.floor(g.threshold));
+        if (g.optional) {
+          // Shares its units with a spend criterion: nothing left to reward.
+          if (g.lines.some((l) => spendIndexes.has(l.index))) return;
+          sets = 1;
+        } else {
+          sets = Math.floor(g.lines.reduce((s, l) => s + l.q, 0) / n);
+          if (Number.isFinite(maxSets) && maxSets > 0) sets = Math.min(sets, maxSets);
+          if (sets < 1) return;
+        }
+        units = sets * n;
+      }
+      const r = receiveOn(g.lines, units, g.receiveType, g.receiveValue, sets);
       g.lines.forEach((l) => {
         const c = r.get(l.index);
         if (c == null) return;

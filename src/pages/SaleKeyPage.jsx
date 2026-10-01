@@ -6029,7 +6029,14 @@ const SaleKeyPage = () => {
         console.log(`Promotion ${promotion.name || promotion.id}: Not active (date check failed)`);
         return false;
       }
-      
+      // A Spend & Get promotion is priced over the WHOLE cart by planCriteriaPromotions
+      // (the spend threshold is a cart condition). Pricing its purchase criterion here,
+      // per line, handed out the reward with the threshold unmet: re-adding a product
+      // after Clear Sale came back at the "$1 off each" price on a $15 cart.
+      if ((promotion.conditions?.criteria || []).some((c) => c && c.purchaseType === 'spend')) {
+        return false;
+      }
+
       const isExpress = expressTypes.includes(promotion.promotionType);
       
       if (isExpress) {
@@ -6581,13 +6588,16 @@ const SaleKeyPage = () => {
     });
     spendPromos.forEach((p) => {
       const key = p.id ?? p.name;
-      const takenHere = new Set();
+      // No "one criterion per line" here: on the live reference the same products
+      // sit in the spend criterion AND the rewarded purchase criterion (the spend
+      // criterion does not use the units up). allocateSpendPromotion handles the
+      // overlap (and refuses it for an Optional criterion, as the reference does).
       const groups = liveCriteria(p).map((c) => {
         const ids = new Set((c.items || []).filter((i) => !i.excluded && i.productId != null).map((i) => String(i.productId)));
         const anyProduct = c.purchaseType === 'spend' && ids.size === 0;
         const lines = [];
         cartItems.forEach((item, index) => {
-          if (claimed.has(index) || takenHere.has(index)) return;
+          if (claimed.has(index)) return;
           if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem || item.priceLocked) return;
           if (!anyProduct && !ids.has(String(item.productId))) return;
           const q = parseFloat(item.quantity) || 0;
@@ -6605,7 +6615,6 @@ const SaleKeyPage = () => {
           // (recomputed, not read back from item.price) competes with it below.
           let own = 0;
           try { own = parseFloat(calculatePriceForQuantity(product, q)) || 0; } catch { own = 0; }
-          takenHere.add(index);
           lines.push({ index, q, normalTotal, unit: q > 0 ? normalTotal / q : 0, ownPrice: own > 0 ? own : normalTotal });
         });
         return {
@@ -6620,11 +6629,15 @@ const SaleKeyPage = () => {
       const allLines = groups.flatMap((g) => g.lines);
       if (allLines.length === 0) return;
       handled.add(key);
-      const plan = allocateSpendPromotion(groups);
+      const plan = allocateSpendPromotion(groups, { maxSets: parseInt(p.conditions?.maxApplicationsPerSale, 10) });
       // Cheaper-of-the-two per line: a line already cheaper on its own promotion
-      // keeps that price and is not claimed by the spend promotion.
+      // keeps that price and is not claimed by the spend promotion. A line may sit
+      // in several criteria of this promotion: price it once.
       let anySpend = false;
+      const seen = new Set();
       allLines.forEach((l) => {
+        if (seen.has(l.index)) return;
+        seen.add(l.index);
         const spendPrice = plan.prices.get(l.index);
         if (!plan.applied || spendPrice == null || spendPrice >= l.ownPrice - 0.004) return;
         anySpend = true;

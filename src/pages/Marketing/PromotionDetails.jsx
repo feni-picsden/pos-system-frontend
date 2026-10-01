@@ -1130,7 +1130,7 @@ const PromotionDetails = () => {
         receiveType: c.receiveType || 'quantity_only',
         receiveValue: parseFloat(c.receiveValue) || 0,
         lines: linesFor(c),
-      })));
+      })), { maxSets: parseInt(formData.maxApplicationsPerSale, 10) });
       return { active: plan.applied, normalTotal, expected: total(plan.prices) };
     }
 
