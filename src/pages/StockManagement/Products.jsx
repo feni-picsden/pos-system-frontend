@@ -121,7 +121,10 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
-    maxWidth: "100%",
+    // Chips shrink (ellipsis) instead of wrapping: the field stays one line high
+    // so the five filters keep the same height and the caret/clear icons stay put.
+    flex: "0 1 auto",
+    minWidth: 32,
   };
 
   return (
@@ -134,9 +137,9 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
         sx={{
           display: "flex",
           alignItems: "center",
-          flexWrap: "wrap",
+          flexWrap: "nowrap",
           gap: "4px",
-          minHeight: 42,
+          height: 42,
           boxSizing: "border-box",
           bgcolor: "#fff",
           border: "1px solid #404040",
@@ -168,8 +171,9 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
             if (e.key === "Escape") closePanel();
           }}
           sx={{
-            flex: 1,
-            minWidth: 40,
+            flex: "1 1 20px",
+            minWidth: 20,
+            width: 0,
             border: 0,
             outline: "none",
             fontSize: 16,
@@ -190,7 +194,7 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
               onChange([]);
               setQuery("");
             }}
-            sx={{ p: "2px", color: "#808080" }}
+            sx={{ p: "2px", color: "#808080", flexShrink: 0 }}
           >
             <ClearIcon sx={{ fontSize: 18 }} />
           </IconButton>
@@ -202,7 +206,7 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
             if (open) closePanel();
             else openPanel();
           }}
-          sx={{ color: "#404040", cursor: "pointer" }}
+          sx={{ color: "#404040", cursor: "pointer", flexShrink: 0 }}
         />
       </Box>
       {open && (
@@ -623,13 +627,16 @@ const Products = () => {
     });
     return [...seen].sort().map((type) => ({ id: type, name: type }));
   }, [allProducts]);
-  const retailTaxRateOptions = [
-    { id: "No Tax", name: "No Tax" },
-    ...taxRates.map((tax) => ({ id: tax.name, name: `${tax.name} (${tax.amount}%)` })),
-  ];
+  // Reference lists the tax rates by name only (GST, No Tax ...), one entry each.
+  // "No Tax" is itself a row of the tax-rate table, so it is not added by hand -
+  // doing so listed it twice under the same id (both ticked together).
+  const taxRateOptions = taxRates
+    .filter((tax, i, arr) => arr.findIndex((t) => t.name === tax.name) === i)
+    .map((tax) => ({ id: tax.name, name: tax.name }));
+  const retailTaxRateOptions = taxRateOptions;
   const purchaseTaxRateOptions = [
     { id: "Inherit", name: "Inherit from Retail Tax Rate" },
-    ...taxRates.map((tax) => ({ id: tax.name, name: `${tax.name} (${tax.amount}%)` })),
+    ...taxRateOptions,
   ];
   const sellOnShopOptions = [
     { id: "Ignore", name: "Ignore" },

@@ -54,7 +54,7 @@ const AssociateBarcodeDialog = ({ open, barcode, product, saving, onAssociate, o
           boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
         },
       }}
-      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.3)' } } }}
+      slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.5)' } } }}
     >
       {/* Light blue titled header, matching the reference's dialog chrome */}
       <Box
