@@ -706,6 +706,7 @@ const Products = () => {
       </Typography>
       <TextField
         fullWidth
+        spellCheck={false}
         placeholder="Search Products..."
         sx={{
           mb: 2,

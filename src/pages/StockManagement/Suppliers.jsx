@@ -519,6 +519,7 @@ const Suppliers = () => {
           <TextField
             autoFocus
             fullWidth
+            spellCheck={false}
             placeholder="Search for Suppliers"
             value={pickerSearch}
             onChange={(e) => setPickerSearch(e.target.value)}
@@ -682,6 +683,7 @@ const Suppliers = () => {
       {/* Search */}
       <Box sx={{ mb: '31px' }}>
         <TextField
+          spellCheck={false}
           placeholder="Search for Suppliers"
           variant="outlined"
           size="small"

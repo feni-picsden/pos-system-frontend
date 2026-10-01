@@ -366,15 +366,15 @@ const Customers = () => {
   }, []);
 
   useEffect(() => {
-    const q = searchTerm.toLowerCase();
+    // Every typed word must match somewhere (name, company, email, phone) - in
+    // any order, like the customers API: "loyalty zztest" finds "ZZTEST Loyalty".
+    const words = searchTerm.toLowerCase().trim().split(/s+/).filter(Boolean);
+    const haystack = (customer) => [
+      customer.firstName, customer.lastName, customer.company, ...emailsOf(customer), ...phonesOf(customer),
+    ].filter(Boolean).join(' ').toLowerCase();
     const filtered = customers.filter((customer) => {
-      const matchesSearch =
-        !q ||
-        customer.firstName?.toLowerCase().includes(q) ||
-        customer.lastName?.toLowerCase().includes(q) ||
-        customer.company?.toLowerCase().includes(q) ||
-        emailsOf(customer).some((e) => e.toLowerCase().includes(q)) ||
-        phonesOf(customer).some((p) => p.toLowerCase().includes(q));
+      const text = words.length ? haystack(customer) : '';
+      const matchesSearch = words.every((w) => text.includes(w));
       const matchesGroup =
         selectedGroups.length === 0 ||
         selectedGroups.includes(customer.customerGroupId ? String(customer.customerGroupId) : '__none__');
@@ -591,6 +591,7 @@ const Customers = () => {
         <Typography sx={{ mb: 0.5, fontSize: 14, color: '#676b72' }}>Search</Typography>
         <TextField
           fullWidth
+          spellCheck={false}
           placeholder="Search Customers..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}

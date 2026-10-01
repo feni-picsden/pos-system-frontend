@@ -7658,6 +7658,7 @@ const SaleKeyPage = () => {
               <Box sx={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, flex: searchResultsVisible ? 1 : '0 0 auto', zIndex: 10 }}>
             <TextField
               ref={searchRef}
+              spellCheck={false}
               placeholder={
                 associatingBarcode
                   ? 'Search for the product to associate...'
