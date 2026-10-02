@@ -40,6 +40,7 @@ import productService from '../../services/productService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import posLocalDb from '../../services/posLocalDb';
+import settingsService from '../../services/settingsService';
 import PageLoader from '../../components/Common/PageLoader';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -136,6 +137,21 @@ const loadRegisterSettings = (id) => {
     return JSON.parse(localStorage.getItem(settingsKey(id))) || {};
   } catch {
     return {};
+  }
+};
+
+// Payment-method toggles are the exception: the sell screen reads them from the
+// server setting register_profile_<id>.payments ({ methodId: enabled }), so they
+// must live there - a toggle saved only in this browser would not reach the
+// register (reference: "available after the register next synchronises").
+const profileKey = (id) => `register_profile_${id}`;
+const loadRegisterProfile = async (id) => {
+  try {
+    const res = await settingsService.getSetting(profileKey(id));
+    const value = res?.setting?.value;
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {}; // nothing saved yet - every method stays available
   }
 };
 
@@ -365,8 +381,9 @@ const Registers = () => {
   };
 
   // ─── Full-page edit surface ────────────────────────────────────────────────
-  const openEditPage = (register) => {
+  const openEditPage = async (register) => {
     const saved = loadRegisterSettings(register.id);
+    const profile = await loadRegisterProfile(register.id);
     setEditingRegister(register);
     setEditTab(0);
     setInvoiceEditing(false);
@@ -382,7 +399,7 @@ const Registers = () => {
       // The next invoice number lives on the register row (it drives the sale receipt),
       // not in localStorage like the rest of these settings.
       invoiceNumber: String(register.invoiceNumber ?? saved.invoiceNumber ?? '1'),
-      paymentMethods: saved.paymentMethods || {},
+      paymentMethods: profile.payments || {},
       closure: {
         print: {},
         notes: true,
@@ -427,8 +444,18 @@ const Registers = () => {
         name, code, isActive, isDefault, status,
         invoiceNumber: nextInvoice > 0 ? nextInvoice : undefined,
       });
+      // Payment toggles go to the server profile (merged, so the closure print
+      // settings the General > Registers editor keeps there are untouched).
+      const profile = await loadRegisterProfile(editingRegister.id);
+      await settingsService.updateSetting(
+        profileKey(editingRegister.id),
+        { ...profile, payments: editSettings.paymentMethods || {} },
+        'register',
+        'Register profile'
+      );
       try {
-        localStorage.setItem(settingsKey(editingRegister.id), JSON.stringify(editSettings));
+        const { paymentMethods: _unused, ...local } = editSettings;
+        localStorage.setItem(settingsKey(editingRegister.id), JSON.stringify(local));
       } catch { /* storage full — register update itself already succeeded */ }
       showSnackbar('Register updated successfully');
       await posLocalDb.invalidateStore('registers');

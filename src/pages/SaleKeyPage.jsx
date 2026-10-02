@@ -43,6 +43,7 @@ import {
   TableCell,
   Snackbar,
   GlobalStyles,
+  ButtonBase,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -3249,6 +3250,8 @@ const SaleKeyPage = () => {
       case 'add-gift-card':
         // Prevent adding gift cards if payment is complete
         if (isTransactionComplete) return;
+        // Setup > Outlets > Gift Cards > Enable Gift Cards (reference honours it)
+        if (!(await giftCardsEnabledHere())) return;
         setGiftCardMode('sell');
         setGiftCardCode('');
         setGiftCardAmount('');
@@ -5723,10 +5726,24 @@ const SaleKeyPage = () => {
     });
   };
 
+  // Setup > Outlets > Gift Cards > "Enable Gift Cards": when it is off for the
+  // sale's outlet, neither selling nor redeeming a card is offered (reference).
+  const giftCardsEnabledHere = async () => {
+    try {
+      const res = await settingsService.getOutletSettings(getEffectiveOutletId());
+      if (res?.settings?.enableGiftCards === false) {
+        notify('Gift cards are not enabled for this outlet (Setup > Outlets > Gift Cards)', 'warning');
+        return false;
+      }
+    } catch { /* unreadable settings never block a sale */ }
+    return true;
+  };
+
   // Handle selecting payment method (for special cases like Gift Card)
-  const handleSelectPaymentMethodFromDialog = (method) => {
+  const handleSelectPaymentMethodFromDialog = async (method) => {
     // Handle special payment methods like Gift Card
     if (method.type === 'Gift Card' || method.name === 'Vii Gift Card') {
+      if (!(await giftCardsEnabledHere())) return;
       setGiftCardMode('pay'); // redeem a card as a tender, not sell one
       setGiftCardCode('');
       setGiftCardError('');
@@ -9050,40 +9067,48 @@ const SaleKeyPage = () => {
         onAddSaleKey={handleAddSaleKey}
       />
 
+      {/* Same card as the barcode dialogs (Product Not Found / Associate): 460px,
+          badge over the top edge, two equal full-width buttons. */}
       <Dialog
         open={showGiftCardPopup}
         onClose={handleGiftCardCancel}
-        maxWidth="sm"
-        fullWidth
+        maxWidth={false}
         PaperProps={{
           sx: {
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+            width: 460,
+            maxWidth: 'calc(100% - 32px)',
+            m: 2,
+            borderRadius: '12px',
+            overflow: 'visible',
+            boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
+            bgcolor: '#fff',
           }
         }}
+        slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.65)' } } }}
       >
-        <DialogContent sx={{ p: 4, textAlign: 'center' }}>
-          <Box
-            sx={{
-              width: 80,
-              height: 80,
-              borderRadius: '50%',
-              backgroundColor: '#2196F3',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mx: 'auto',
-              mb: 3
-            }}
-          >
-            <OfferIcon sx={{ fontSize: 40, color: 'white' }} />
-          </Box>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -44,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 88,
+            height: 88,
+            borderRadius: '50%',
+            bgcolor: '#2196F3',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <OfferIcon sx={{ fontSize: 44, color: '#fff' }} />
+        </Box>
 
-          <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+        <Box sx={{ px: 3, pt: 7, pb: 3 }}>
+          <Typography align="center" sx={{ fontWeight: 700, color: '#111827', fontSize: 20, mb: 1 }}>
             {giftCardMode === 'sell' ? 'Add Gift Card' : 'Redeem Gift Card'}
           </Typography>
-
-          <Typography variant="body1" sx={{ mb: 4, color: 'text.secondary' }}>
+          <Typography align="center" sx={{ fontSize: 15, color: '#5f6b76', lineHeight: 1.6, mb: 3 }}>
             {giftCardMode === 'sell'
               ? "Enter the amount the customer wants on the gift card, then enter or scan the card's code"
               : "Please enter or scan the gift card's code"}
@@ -9100,24 +9125,19 @@ const SaleKeyPage = () => {
               variant="outlined"
               inputProps={{ min: 0, step: '0.01' }}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-              sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '1.1rem' } }}
+              sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 17, height: 52 } }}
               disabled={giftCardLoading}
             />
           )}
 
           <TextField
             fullWidth
+            autoFocus={giftCardMode !== 'sell'}
             value={giftCardCode}
             onChange={(e) => setGiftCardCode(e.target.value)}
             placeholder="Enter gift card code..."
             variant="outlined"
-            sx={{
-              mb: 3,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                fontSize: '1.1rem'
-              }
-            }}
+            sx={{ mb: giftCardError ? 1.5 : 3, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 17, height: 52 } }}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 handleGiftCardSubmit();
@@ -9127,44 +9147,51 @@ const SaleKeyPage = () => {
           />
 
           {giftCardError && (
-            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+            <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>
               {giftCardError}
             </Alert>
           )}
 
-         
-        </DialogContent>
-
-        <DialogActions sx={{ p: 3, gap: 2 }}>
-          <Button
-            onClick={handleGiftCardCancel}
-            variant="outlined"
-            sx={{
-              borderColor: '#ddd',
-              color: '#666',
-              '&:hover': {
-                borderColor: '#bbb',
-                backgroundColor: '#f5f5f5'
-              }
-            }}
-            disabled={giftCardLoading}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleGiftCardSubmit}
-            variant="contained"
-            sx={{
-              backgroundColor: '#2196F3',
-              '&:hover': {
-                backgroundColor: '#1976D2'
-              }
-            }}
-            disabled={giftCardLoading || !giftCardCode.trim()}
-          >
-            Add
-          </Button>
-        </DialogActions>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <ButtonBase
+              onClick={handleGiftCardCancel}
+              disabled={giftCardLoading}
+              sx={{
+                flex: 1,
+                height: 48,
+                bgcolor: '#f4f5f7',
+                border: '1px solid #dfe3e8',
+                borderRadius: '8px',
+                color: '#5f6b76',
+                fontSize: 18,
+                fontWeight: 500,
+                justifyContent: 'center',
+                '&:hover': { bgcolor: '#e9ebee' },
+              }}
+            >
+              Cancel
+            </ButtonBase>
+            <ButtonBase
+              onClick={handleGiftCardSubmit}
+              disabled={giftCardLoading || !giftCardCode.trim() || (giftCardMode === 'sell' && !(parseFloat(giftCardAmount) > 0))}
+              sx={{
+                flex: 1,
+                height: 48,
+                bgcolor: '#2196F3',
+                border: '1px solid #2196F3',
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: 18,
+                fontWeight: 700,
+                justifyContent: 'center',
+                '&:hover': { bgcolor: '#1a86dd', borderColor: '#1a86dd' },
+                '&.Mui-disabled': { bgcolor: '#a9d4f7', borderColor: '#a9d4f7', color: '#fff' },
+              }}
+            >
+              {giftCardMode === 'sell' ? 'Add' : 'Redeem'}
+            </ButtonBase>
+          </Box>
+        </Box>
       </Dialog>
 
 

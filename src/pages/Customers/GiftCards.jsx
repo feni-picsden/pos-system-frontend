@@ -33,7 +33,6 @@ import giftCardService from '../../services/giftCardService';
 import usePageCache from '../../hooks/usePageCache';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
-import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 
 const GiftCards = () => {
   const navigate = useNavigate();
@@ -54,7 +53,10 @@ const GiftCards = () => {
     )
   );
   const [searchTerm, setSearchTerm] = useState('');
-  const [showRedeemedExpired, setShowRedeemedExpired] = useState(false);
+  // Reference (live, SS 751): a Status multi-select with Current / Expired /
+  // Redeemed chips, Current pre-selected - not an either/or toggle.
+  const [statusFilter, setStatusFilter] = useState(['Current']);
+  const showRedeemedExpired = !statusFilter.includes('Current'); // export param
   const [selectedOutlet, setSelectedOutlet] = useState('');
   const [functionsOpen, setFunctionsOpen] = useState(false);
   const [outlets, setOutlets] = useState([]);
@@ -140,15 +142,16 @@ const GiftCards = () => {
 
   // Status / outlet / search all filter locally off the cached list — the API is
   // only hit by the background sync, never per keystroke or toggle.
-  const filteredGiftCards = giftCards.filter((card) => {
-    // Mirrors the API's either/or split: the toggle shows redeemed/expired cards
-    // INSTEAD of the live ones, not in addition to them.
+  // What the Status chips mean for a card: Redeemed (drained), Expired (by date or
+  // status), otherwise Current.
+  const cardStatus = (card) => {
+    if (card.status === 'Redeemed' || (card.status === 'Active' && (card.balance ?? 0) <= 0)) return 'Redeemed';
     const expired = !!card.expiryDate && new Date(card.expiryDate) < new Date();
-    const isPast =
-      card.status === 'Expired' ||
-      card.status === 'Redeemed' ||
-      (card.status === 'Active' && expired);
-    if (showRedeemedExpired ? !isPast : isPast || card.status !== 'Active') return false;
+    if (card.status === 'Expired' || expired) return 'Expired';
+    return 'Current';
+  };
+  const filteredGiftCards = giftCards.filter((card) => {
+    if (statusFilter.length && !statusFilter.includes(cardStatus(card))) return false;
     if (selectedOutlet && String(card.outletId) !== String(selectedOutlet)) return false;
     const q = searchTerm.toLowerCase();
     if (!q) return true;
@@ -315,8 +318,7 @@ const GiftCards = () => {
               pl: 2,
               pr: 1,
               bgcolor: 'white',
-              // Right corners square: the toggle box is fused onto this edge
-              borderRadius: '8px 0px 0px 8px',
+              borderRadius: '8px',
               fontSize: 16,
               // Match Shopfront: dark-gray border, turns solid black on focus/click
               '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
@@ -326,30 +328,73 @@ const GiftCards = () => {
             '& .MuiOutlinedInput-input': { p: 0 },
           }}
         />
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            flexShrink: 0,
-            width: 232,
-            height: 42,
-            px: 2,
-            bgcolor: 'white',
-            border: '1px solid #000',
-            borderLeft: 0,
-            borderRadius: '0px 8px 8px 0px',
-          }}
-        >
-          <ShopfrontSwitch
-            checked={showRedeemedExpired}
-            onChange={(e) => setShowRedeemedExpired(e.target.checked)}
-            inputProps={{ 'aria-label': 'Redeemed / Expired' }}
-          />
-          <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000', whiteSpace: 'nowrap' }}>
-            Redeemed / Expired
-          </Typography>
-        </Box>
+      </Box>
+
+      {/* Status - reference: multi-select with Current / Expired / Redeemed chips */}
+      <Box sx={{ mb: 2 }}>
+        <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Status</Typography>
+        <FormControl fullWidth>
+          <Select
+            multiple
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+            displayEmpty
+            IconComponent={ArrowDropDownIcon}
+            renderValue={(selected) =>
+              selected.length === 0
+                ? <span style={{ color: '#808080' }}>Select...</span>
+                : (
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'nowrap', overflow: 'hidden' }}>
+                    {selected.map((s) => (
+                      <Box key={s} component="span" sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', px: 1, fontSize: 14, lineHeight: '24px', color: '#000', whiteSpace: 'nowrap' }}>
+                        {s}
+                      </Box>
+                    ))}
+                  </Box>
+                )
+            }
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  mt: 0,
+                  borderRadius: '8px',
+                  border: '1px solid #000',
+                  boxShadow: 'none',
+                  '& .MuiMenuItem-root': { fontSize: 16, color: '#000', gap: 1.5, '&:hover': { bgcolor: '#7dd3fc' } },
+                  '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#38bdf8' },
+                  '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#7dd3fc', color: '#000' },
+                },
+              },
+            }}
+            sx={{
+              bgcolor: 'white',
+              fontSize: 16,
+              height: 42,
+              '&.MuiOutlinedInput-root': { borderRadius: '8px' },
+              '& .MuiSelect-select': { py: '8px', display: 'flex', alignItems: 'center' },
+              '& .MuiSelect-icon': { color: '#404040' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+            }}
+          >
+            {['Current', 'Expired', 'Redeemed'].map((s) => {
+              const on = statusFilter.includes(s);
+              return (
+                <MenuItem key={s} value={s}>
+                  <Box sx={{ width: 16, height: 16, flex: '0 0 16px', border: on ? '1px solid #38bdf8' : '1px solid #767676', bgcolor: on ? '#38bdf8' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {on && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="#fff" />
+                      </svg>
+                    )}
+                  </Box>
+                  {s}
+                </MenuItem>
+              );
+            })}
+          </Select>
+        </FormControl>
       </Box>
 
       {/* Outlet Filter - Only show for super admin. Flat (radius 0), placeholder 'Outlet' like the reference react-select */}

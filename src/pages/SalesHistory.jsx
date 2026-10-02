@@ -453,7 +453,10 @@ const SalesHistory = () => {
       setCancelReason("");
     } catch (err) {
       console.error("Error cancelling sale:", err);
-      alert("Failed to cancel sale. Please try again.");
+      // The server's own reason when it refuses (a gift card was sold or redeemed on
+      // the sale - reference wording), otherwise the generic message.
+      alert(err?.response?.data?.error || "Failed to cancel sale. Please try again.");
+      setCancelStep(null);
     } finally {
       setActionBusy(false);
     }
