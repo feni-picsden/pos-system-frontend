@@ -752,7 +752,7 @@ export const LOCAL_TAB_FIELDS = [
   ]),
   ...local('Outlets', 1, 'Miscellaneous', ['Discounting Below Cost Behaviour']),
   ...local('Registers', 2, 'General', [
-    'Safe drop alert amount', 'Default Receipt Template'
+    'Safe drop alert amount', 'Default Payment Method', 'Default Receipt Template'
   ]),
   ...local('Registers', 2, 'Sell Screen', [
     'Login after sale', 'Never open cash drawer', 'Print receipt on refund',

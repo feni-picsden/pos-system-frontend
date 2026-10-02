@@ -32,7 +32,7 @@ import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { format } from 'date-fns';
 
 const EMPTY_RANGE = { startDate: null, endDate: null };
-const RANGE_PLACEHOLDER = 'DD/MM/YYYY HH:mm:ss';
+const RANGE_PLACEHOLDER = 'DD/MM/YYYY HH:MM:SS';
 
 // Reference option labels -> values the backend switch actually accepts (routes/barcodes.js)
 const INVENTORY_LEVELS = [

@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import registerService from '../../services/registerService';
 import linklyService from '../../services/linklyService';
+import paymentMethodService, { getPaymentMethodSettings } from '../../services/paymentMethodService';
 import NiceError from '../../components/Common/NiceError';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
 
@@ -91,7 +92,16 @@ const SUB_METHODS = {
   Linkly: ['EFTPOS', 'EFTPOS Cash Out'],
   Voucher: ['Uber Eats Delivery', 'Shop MyLocal'],
 };
-const DENOMINATIONS = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
+// Default coin/note list. Setup > Payment Methods > Cash > "Close Register
+// Denominations" (comma separated) replaces it when set.
+const DEFAULT_DENOMINATIONS = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
+const parseDenominations = (csv) => {
+  const list = String(csv || '')
+    .split(',')
+    .map((s) => parseFloat(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return list.length ? Array.from(new Set(list)).sort((a, b) => a - b) : null;
+};
 
 // Reference money input: borderless field in a rounded white shell with a grey
 // "$" prefix. 40px tall, 8px radius.
@@ -141,6 +151,9 @@ const CloseRegister = () => {
     ? parseInt(localStorage.getItem('selectedRegisterId'))
     : null;
 
+  const [denominations, setDenominations] = useState(DEFAULT_DENOMINATIONS);
+  const DENOMINATIONS = denominations;
+
   useEffect(() => {
     if (!registerId) return;
     registerService.previewClosure(registerId).then(setPreview).catch(() => {});
@@ -148,6 +161,17 @@ const CloseRegister = () => {
       .getPinpadStatus()
       .then((res) => setPinpadPaired(!!res.paired))
       .catch(() => setPinpadPaired(false));
+    // Cash method's configured denominations (cached list; falls back to default).
+    paymentMethodService
+      .getPaymentMethods({ isActive: true })
+      .then((r) => {
+        const cash = (r?.paymentMethods || []).find(
+          (m) => String(m.type || '').toLowerCase() === 'cash' || String(m.name || '').trim().toLowerCase() === 'cash'
+        );
+        const configured = parseDenominations(getPaymentMethodSettings(cash).closeRegisterDenominations);
+        if (configured) setDenominations(configured);
+      })
+      .catch(() => {});
   }, [registerId]);
 
   const expectedFor = (method) => {

@@ -10,9 +10,12 @@ const refreshCache = async () => {
   try {
     const response = await apiClient.get('/payment-methods', { noCache: true });
     await posLocalDb.init();
-    await posLocalDb.putStoreAll('paymentMethods', response.data?.paymentMethods || []);
+    const methods = response.data?.paymentMethods || [];
+    await posLocalDb.putStoreAll('paymentMethods', methods);
+    return methods;
   } catch {
     // A failed refresh only costs staleness; never break the mutation itself.
+    return null;
   }
 };
 
@@ -36,6 +39,10 @@ export const allowsCashOut = (method) => getPaymentMethodSettings(method).allowC
 const paymentMethodService = {
   // Get all payment methods. The full list is cached in IndexedDB and the
   // isActive flag is applied locally, so no picker waits on the network.
+  // Fresh list from the server (cache updated). null when offline/unreachable,
+  // so the caller keeps whatever it already has.
+  syncPaymentMethods: refreshCache,
+
   getPaymentMethods: async (params = {}, requestOptions = {}) => {
     try {
       const keys = Object.keys(params);

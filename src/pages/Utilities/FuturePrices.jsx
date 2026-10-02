@@ -312,7 +312,7 @@ const DIALOG_INPUT_SX = {
 };
 
 const DT_FORMAT = 'dd/MM/yyyy HH:mm:ss';
-const DT_MASK = 'DD/MM/YYYY HH:mm:ss';
+const DT_MASK = 'DD/MM/YYYY HH:MM:SS';
 const ACCEPTED_FORMATS = [DT_FORMAT, 'dd/MM/yyyy HH:mm', 'dd/MM/yyyy'];
 
 // Accepts a fully or partially timed DD/MM/YYYY string; null when unparseable.

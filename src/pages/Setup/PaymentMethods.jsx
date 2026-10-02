@@ -88,8 +88,9 @@ const INPUT_SX = {
   '&::placeholder': { color: '#808080', opacity: 1 },
 };
 
-// Integration/API-locked types get the padlock (ref: e.g. IBA Loyalty).
-const LOCKED_TYPES = ['Linkly', 'Linkly Value Added Applications', 'Tyro', 'Custom'];
+// Integration-managed types get the padlock (ref: Linkly / Tyro tenders). An
+// External "Custom" method is an ordinary record. Same list as the server.
+const LOCKED_TYPES = ['Linkly', 'Linkly Value Added Applications', 'Tyro'];
 
 const DEFAULT_SETTINGS = {
   alwaysOpenCashDrawer: false,
@@ -175,6 +176,9 @@ const EditPaymentMethodView = ({ method, onBack, onSaved }) => {
   const [error, setError] = useState('');
 
   const setSetting = (key, value) => setSettings((prev) => ({ ...prev, [key]: value }));
+  // Typing again clears a stale save error (e.g. the rename refusal) so the
+  // banner does not outlive the mistake it reported.
+  const setNameAndClear = (value) => { setName(value); if (error) setError(''); };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -229,7 +233,7 @@ const EditPaymentMethodView = ({ method, onBack, onSaved }) => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
@@ -240,7 +244,7 @@ const EditPaymentMethodView = ({ method, onBack, onSaved }) => {
           component="input"
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => setNameAndClear(e.target.value)}
           sx={{ ...INPUT_SX, mb: 2.5 }}
         />
 
@@ -362,6 +366,24 @@ const PaymentMethods = () => {
   }, []);
 
   const loadPaymentMethods = async () => {
+    // A global admin who has picked an outlet in the navbar sees that outlet's
+    // methods plus the global ones - the list that outlet's own users get -
+    // not every outlet's records merged into one table. (The server ignores
+    // the parameter for outlet-pinned users, so it is safe to always send.)
+    if (selectedOutletId) {
+      try {
+        setLoading(true);
+        const response = await paymentMethodService.getPaymentMethods({ outletId: selectedOutletId });
+        setPaymentMethods(response.paymentMethods || []);
+        setError('');
+      } catch (err) {
+        setError('Failed to load payment methods');
+        console.error('Error loading payment methods:', err);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     await posLocalDb.init();
     const cached = await posLocalDb.getStoreAll('paymentMethods');
     if (cached.length > 0) {
@@ -481,7 +503,7 @@ const PaymentMethods = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}

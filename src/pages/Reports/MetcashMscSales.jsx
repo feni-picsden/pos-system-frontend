@@ -95,7 +95,7 @@ const POPOVER_FIELD_SX = {
 };
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const DATE_TIME_MASK = 'DD/MM/YYYY HH:mm:ss';
+const DATE_TIME_MASK = 'DD/MM/YYYY HH:MM:SS';
 const DISPLAY_FORMAT = 'dd/MM/yyyy HH:mm:ss';
 const POPOVER_FORMAT = 'dd/MM/yyyy, HH:mm:ss';
 

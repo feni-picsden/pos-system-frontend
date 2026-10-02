@@ -319,12 +319,16 @@ const DashboardLayout = ({ children }) => {
     let legacy = [];
     try { legacy = JSON.parse(localStorage.getItem(legacyQuickKey)) || []; } catch { legacy = []; }
     const legacyLinks = (Array.isArray(legacy) ? legacy : []).filter((i) => i && i.url && i.url !== '/');
+    // The browser copy is removed BEFORE the save, so a second run of this
+    // effect (React StrictMode mounts twice in development; a re-render with
+    // the same server list) finds nothing to migrate and cannot fire a second,
+    // racing save - two concurrent saves wrote every link twice.
+    try { localStorage.removeItem(legacyQuickKey); } catch { /* ignore */ }
     if (serverRows.length === 0 && legacyLinks.length > 0) {
       persistQuickItems(toQuickItems(legacy));
     } else {
       setQuickItems(toQuickItems(serverRows));
     }
-    try { localStorage.removeItem(legacyQuickKey); } catch { /* ignore */ }
     // Keyed on the server list's content too: the cached user paints first and the
     // fresh profile (same id, possibly edited on another device) lands after it.
     // eslint-disable-next-line react-hooks/exhaustive-deps

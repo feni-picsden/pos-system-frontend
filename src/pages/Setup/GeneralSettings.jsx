@@ -397,6 +397,7 @@ const GeneralSettings = () => {
   const [registerSettings, setRegisterSettings] = useState({
     // General
     safeDropAlertAmount: 0,
+    defaultPaymentMethodId: '',
     defaultReceiptTemplateId: '',
     defaultPriceSetId: '',
 
@@ -2366,6 +2367,45 @@ const GeneralSettings = () => {
               size="small"
               fullWidth
             />
+          </Box>
+
+          {/* Default payment method — reference: "The default payment method to use for
+              paying on the sell screen. This is typically used when pressing enter on
+              the keyboard in the finalise sale screen". Per register. */}
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                Default Payment Method
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Updated {stampFor('register', 'defaultPaymentMethodId')}
+              </Typography>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              The default payment method to use for paying on the sell screen. This is typically used when pressing enter on the keyboard in the finalise sale screen
+            </Typography>
+            <FormControl fullWidth size="small">
+              <Select
+                value={
+                  // Nothing saved for this register = the system default (the method
+                  // flagged default in Setup > Payment Methods, Cash) - shown selected,
+                  // as the reference does, rather than an empty "Select...".
+                  (paymentMethods.some((pm) => String(pm.id) === String(registerSettings.defaultPaymentMethodId))
+                    ? String(registerSettings.defaultPaymentMethodId)
+                    : String(paymentMethods.find((pm) => pm.isDefault)?.id
+                      ?? paymentMethods.find((pm) => (pm.name || '').toLowerCase() === 'cash')?.id
+                      ?? ''))
+                }
+                onChange={handleRegisterSettingChange('defaultPaymentMethodId')}
+                displayEmpty
+              >
+                {[...paymentMethods]
+                  .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                  .map((pm) => (
+                    <MenuItem key={pm.id} value={String(pm.id)}>{pm.name}</MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
           </Box>
 
           {/* Default receipt template */}

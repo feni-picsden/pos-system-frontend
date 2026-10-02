@@ -13,18 +13,31 @@ export const isSellScreenItem = (item) => item?.url === '/';
 export const withSellScreen = (items = []) =>
   (items.some(isSellScreenItem) ? items : [SELL_SCREEN_ITEM, ...items]);
 
+// One row per target: a link is identified by its url, so a list that reached
+// the database twice (two saves racing) draws each entry once, first wins.
+export const dedupeByUrl = (items = []) => {
+  const seen = new Set();
+  return items.filter((i) => {
+    const key = String(i?.url || '').trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 // Server rows / older browser rows -> the shape the menu renders.
 export const toQuickItems = (rows = []) =>
   withSellScreen(
-    (Array.isArray(rows) ? rows : [])
-      .filter((r) => r && String(r.url || '').trim())
-      .map((r) => ({ name: String(r.name || '').trim(), url: String(r.url).trim() })),
+    dedupeByUrl(
+      (Array.isArray(rows) ? rows : [])
+        .filter((r) => r && String(r.url || '').trim())
+        .map((r) => ({ name: String(r.name || '').trim(), url: String(r.url).trim() })),
+    ),
   );
 
 // What is sent to the server: complete rows only, in menu order.
 export const toServerItems = (items = []) =>
-  items
-    .filter((i) => i && String(i.name || '').trim() && String(i.url || '').trim())
+  dedupeByUrl(items.filter((i) => i && String(i.name || '').trim() && String(i.url || '').trim()))
     .map((i, idx) => ({ name: String(i.name).trim(), url: String(i.url).trim(), sortOrder: idx }));
 
 // Fired after the signed-in user's list is saved anywhere (cloud menu, profile

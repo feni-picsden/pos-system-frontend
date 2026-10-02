@@ -46,7 +46,7 @@ import registerService from '../../services/registerService';
 const INSTANT = 'all 0s ease';
 
 const FMT = 'dd/MM/yyyy HH:mm:ss';
-const MASK = 'DD/MM/YYYY HH:mm:ss';
+const MASK = 'DD/MM/YYYY HH:MM:SS';
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MODES = [
   { key: 'date', Icon: CalendarTodayOutlined },

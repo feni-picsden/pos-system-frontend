@@ -495,7 +495,6 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
         username: form.username.trim(),
         email: form.email,
         phone: form.phone,
-        isActive: form.isActive,
         hasAllPermission: form.role === 'NO_ROLE_ALL_PERMISSIONS',
         role: form.role === 'NO_ROLE_ALL_PERMISSIONS' ? 'No Role' : form.role,
         requiresPasswordReset: form.requiresPasswordReset,
@@ -834,14 +833,11 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
             </FieldRow>
           )}
 
-          <FieldRow label="Active">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <ShopfrontSwitch checked={form.isActive} onChange={(e) => setField('isActive')(e.target.checked)} />
-              <Typography sx={{ fontSize: 16, color: '#676b72' }}>
-                {form.isActive ? 'User can log in' : 'User cannot log in'}
-              </Typography>
-            </Box>
-          </FieldRow>
+          {/* Reference (Adding and Editing Users): the edit page has no Active
+              switch - a user is deactivated from the list action, which refuses
+              your own account and the last super admin. The switch that used to
+              live here saved through PUT with no such guard and could lock the
+              last admin out. */}
 
           <FieldRow label="Requires Password Reset">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -1003,7 +999,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
     </Box>
   );
 };
-
+
 // "SA" for "Super Admin3" - same rule as the header avatar.
 const initialsOf = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 

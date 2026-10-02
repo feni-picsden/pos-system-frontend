@@ -357,6 +357,7 @@ const SaleKeyPage = () => {
   // receipt summary anywhere on the sell screen (reference hides it entirely).
   const [loyaltyProgramEnabled, setLoyaltyProgramEnabled] = useState(false);
   const [registerPayments, setRegisterPayments] = useState(null);
+  const [registerDefaultPaymentId, setRegisterDefaultPaymentId] = useState(null);
   // Setup > General (company blob): cash-out gate, reason/note prompts and the
   // sale-keys position all read from the one cached copy.
   const allowCashOutNoSaleRef = useRef(true);
@@ -666,7 +667,13 @@ const SaleKeyPage = () => {
       }
       try {
         const res = await settingsService.getSetting(`register_profile_${selectedRegister.id}`);
-        setRegisterPayments(res?.setting?.value?.payments || null);
+        const value = res?.setting?.value;
+        // { map, complete }: with a complete profile (saved with every method
+        // listed) a method missing from the map was created since and starts
+        // OFF (reference: "newly created payment methods will need to be
+        // enabled for each individual register"). An older, partial profile
+        // keeps treating a missing method as ON.
+        setRegisterPayments(value?.payments ? { map: value.payments, complete: value.paymentsComplete === true } : null);
       } catch {
         setRegisterPayments(null); // no profile saved yet — every method stays available
       }
@@ -690,8 +697,11 @@ const SaleKeyPage = () => {
       try {
         const res = await settingsService.getRegisterSettings(selectedRegister.id);
         applyActivePriceSet(res?.settings?.defaultPriceSetId || null);
+        // Setup > General > Registers > Default Payment Method (Enter on finalise)
+        setRegisterDefaultPaymentId(res?.settings?.defaultPaymentMethodId || null);
       } catch {
         applyActivePriceSet(null); // no register settings saved yet — default prices
+        setRegisterDefaultPaymentId(null);
       }
     };
     loadRegisterDefaultPriceSet();
@@ -4201,6 +4211,14 @@ const SaleKeyPage = () => {
       // timeout text ("may still have saved") would otherwise infer 'success' and flash
       // past as a green toast instead of a modal the operator has to acknowledge.
       alert(`Sale not completed — nothing was printed or saved.\n\n${describeSaveFailure(error)}`, 'error');
+      // The tenders still cover the total, so Finalize would only retry the same
+      // refused save. Show the payment list so the operator can remove the
+      // refused tender (x) and pay another way - with the method list re-synced
+      // so a method Setup has deleted is no longer offered. The dialog opens
+      // FIRST: while it is closed the fully-paid auto-complete effect would
+      // retry the refused save and raise this popup a second time.
+      setShowFinalizeDialog(true);
+      syncPaymentMethods();
       return;
     }
 
@@ -5448,6 +5466,15 @@ const SaleKeyPage = () => {
     }
   };
 
+  // Reference: a method deleted (or switched off for the register) in Setup is
+  // gone from the register once it next synchronises. We have no sync loop, so
+  // the finalize step is the sync point: fetch the live list before offering
+  // tenders, keeping the cached one when offline.
+  const syncPaymentMethods = async () => {
+    const fresh = await paymentMethodService.syncPaymentMethods();
+    if (Array.isArray(fresh)) setAvailablePaymentMethods(fresh.filter((m) => m.isActive !== false));
+  };
+
   // Load customer loyalty info
   const loadCustomerLoyaltyInfo = async () => {
     if (!selectedCustomer?.id) return;
@@ -5469,12 +5496,12 @@ const SaleKeyPage = () => {
     // A method the register's editor switched off is not offered here (absent
     // from the map = on, so a register with no saved profile keeps them all).
     let methods = availablePaymentMethods.filter(
-      (m) => !registerPayments || registerPayments[m.id] !== false
+      (m) => !registerPayments || (registerPayments.map[m.id] ?? !registerPayments.complete)
     );
 
     // Check if customer's group has account sales enabled
     const hasAccountSales = selectedCustomer?.customerGroup?.allowAccountSales || false;
-    const hasOnAccountMethod = methods.some(method => 
+    const hasOnAccountMethod = methods.some(method =>
       method.name?.toLowerCase() === 'on account' || method.type?.toLowerCase() === 'on account'
     );
     
@@ -5490,8 +5517,8 @@ const SaleKeyPage = () => {
     
     // Remove "On Account" if customer doesn't have account sales enabled
     if (!hasAccountSales) {
-      methods = methods.filter(method => 
-        method.name?.toLowerCase() !== 'on account' && 
+      methods = methods.filter(method =>
+        method.name?.toLowerCase() !== 'on account' &&
         method.type?.toLowerCase() !== 'on account'
       );
     }
@@ -5550,6 +5577,7 @@ const SaleKeyPage = () => {
       return;
     }
 
+    await syncPaymentMethods();
     setShowFinalizeDialog(true);
   };
 
@@ -7614,6 +7642,7 @@ const SaleKeyPage = () => {
               total={calculateTotal()}
               remainingBalance={calculateRemainingBalance()}
               availablePaymentMethods={getFilteredPaymentMethods()}
+              defaultPaymentMethodId={registerDefaultPaymentId}
               onAddPayment={handleAddPaymentFromDialog}
               onRemovePayment={handleRemovePaymentFromDialog}
               onSelectPaymentMethod={handleSelectPaymentMethodFromDialog}

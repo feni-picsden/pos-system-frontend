@@ -100,6 +100,7 @@ const FinalizeSaleDialog = ({
   total,
   remainingBalance,
   availablePaymentMethods,
+  defaultPaymentMethodId = null, // register's Default Payment Method (Setup > General > Registers)
   onAddPayment,
   onRemovePayment,
   onSelectPaymentMethod,
@@ -361,7 +362,11 @@ const FinalizeSaleDialog = ({
   enterTenderRef.current = () => {
     if (showLoyaltyDialog || cardCharge || cashOutPrompt || tyroPairingMethod) return;
     if (Math.abs(remainingBalance) <= PAYMENT_TOLERANCE) return;
+    // Register setting first (reference), then the method flagged default in
+    // Setup > Payment Methods, then Cash, then the first tile.
     const method =
+      (defaultPaymentMethodId != null && defaultPaymentMethodId !== '' &&
+        visiblePaymentMethods.find((m) => String(m.id) === String(defaultPaymentMethodId))) ||
       visiblePaymentMethods.find((m) => m.isDefault) ||
       visiblePaymentMethods.find((m) => isCashMethod(m)) ||
       visiblePaymentMethods[0];
@@ -612,12 +617,17 @@ const FinalizeSaleDialog = ({
                 // takes the exact remaining balance. Only an explicit false gates the
                 // tile, so an unconfigured method is never silently locked.
                 // A refund (negative balance) has nothing to type — the tile stays live.
-                const needsAmountFirst =
-                  getPaymentMethodSettings(method).defaultToPayExact === false;
+                const methodSettings = getPaymentMethodSettings(method);
+                const needsAmountFirst = methodSettings.defaultToPayExact === false;
                 const amountLocked =
                   needsAmountFirst &&
                   !paymentAmount.trim() &&
                   remainingBalance > -PAYMENT_TOLERANCE;
+                // Setup > Payment Methods > "Payment Button Background / Text
+                // Colour" (hex). Unset or invalid = the plain white/black tile.
+                const hex = (v) => (/^#[0-9a-fA-F]{6}$/.test(String(v || '')) ? v : null);
+                const tileBg = hex(methodSettings.buttonBackgroundColour);
+                const tileFg = hex(methodSettings.buttonTextColour);
                 return (
                   <Button
                     key={method.id || index}
@@ -650,8 +660,8 @@ const FinalizeSaleDialog = ({
                       p: 2,
                       textTransform: 'none',
                       border: '1px solid currentColor',
-                      bgcolor: 'transparent',
-                      color: '#000',
+                      bgcolor: tileBg || 'transparent',
+                      color: tileFg || '#000',
                       borderRadius: 0,
                       fontSize: 24,
                       fontWeight: 400,
@@ -661,7 +671,7 @@ const FinalizeSaleDialog = ({
                         'color 0.15s, background-color 0.15s, border-color 0.15s, outline-color 0.15s, text-decoration-color 0.15s, fill 0.15s, stroke 0.15s',
                       '&:hover': {
                         border: '1px solid currentColor',
-                        bgcolor: 'transparent',
+                        bgcolor: tileBg || 'transparent',
                       },
                       // Amount-locked tiles look identical to enabled ones (reference);
                       // the order-reference gate keeps its greyed affordance.

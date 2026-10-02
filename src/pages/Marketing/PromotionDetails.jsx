@@ -157,7 +157,7 @@ const DateTimeField = ({ value, onChange }) => {
         fullWidth
         size="small"
         value={text}
-        placeholder="DD/MM/YYYY HH:mm:ss"
+        placeholder="DD/MM/YYYY HH:MM:SS"
         onChange={(e) => setText(e.target.value)}
         onBlur={commitText}
         onKeyDown={(e) => { if (e.key === 'Enter') commitText(); }}

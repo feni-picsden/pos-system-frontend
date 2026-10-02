@@ -519,7 +519,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
 
       {/* ── Quick Menu tab ─────────────────────────────────────────────────── */}
       <TabPanel value={tab} index={3}>
-        <Box sx={{ maxWidth: 680, mx: 'auto' }}>
+        <Box sx={{ maxWidth: 860, mx: 'auto' }}>
           <SectionHeading>Quick Menu</SectionHeading>
           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
             <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
@@ -530,7 +530,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: '28px 1fr 1fr 40px',
+                gridTemplateColumns: '28px 1fr 1.7fr 40px',
                 gap: 1.5,
                 mb: 1,
                 px: 0.5,
@@ -563,7 +563,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
                   onDragEnd={() => { dragFromRef.current = null; setDragRow(null); }}
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: '28px 1fr 1fr 40px',
+                    gridTemplateColumns: '28px 1fr 1.7fr 40px',
                     gap: 1.5,
                     alignItems: 'center',
                     opacity: dragRow === idx ? 0.6 : 1,

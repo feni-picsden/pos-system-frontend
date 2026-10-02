@@ -400,6 +400,12 @@ const Registers = () => {
       // not in localStorage like the rest of these settings.
       invoiceNumber: String(register.invoiceNumber ?? saved.invoiceNumber ?? '1'),
       paymentMethods: profile.payments || {},
+      // Once this register's toggles have been saved with every method listed,
+      // a method missing from the map is one created since - and the reference
+      // says a new method "will need to be enabled for each individual
+      // register", so it starts OFF. Older profiles (toggled entries only) keep
+      // treating a missing method as ON.
+      paymentsComplete: profile.paymentsComplete === true,
       closure: {
         print: {},
         notes: true,
@@ -419,7 +425,8 @@ const Registers = () => {
   };
 
   const isMethodEnabled = (method) =>
-    editSettings.paymentMethods?.[method.id] ?? method.isActive !== false;
+    editSettings.paymentMethods?.[method.id]
+      ?? (editSettings.paymentsComplete ? false : method.isActive !== false);
 
   const toggleMethod = (method, checked) => {
     setEditSettings(prev => ({
@@ -447,9 +454,14 @@ const Registers = () => {
       // Payment toggles go to the server profile (merged, so the closure print
       // settings the General > Registers editor keeps there are untouched).
       const profile = await loadRegisterProfile(editingRegister.id);
+      // Write an explicit on/off for EVERY method listed, so the sell screen can
+      // tell "switched off" from "created after this was saved" (see
+      // paymentsComplete above).
+      const payments = {};
+      for (const method of paymentMethods) payments[method.id] = isMethodEnabled(method);
       await settingsService.updateSetting(
         profileKey(editingRegister.id),
-        { ...profile, payments: editSettings.paymentMethods || {} },
+        { ...profile, payments, paymentsComplete: true },
         'register',
         'Register profile'
       );
