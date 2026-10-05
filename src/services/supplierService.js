@@ -52,7 +52,11 @@ const supplierService = {
     const params = new URLSearchParams();
     if (filters.search) params.append('search', filters.search);
     if (filters.unassignedOnly) params.append('unassignedOnly', filters.unassignedOnly);
-    
+    if (filters.classificationType && filters.classificationValue !== undefined && filters.classificationValue !== '') {
+      params.append('classificationType', filters.classificationType);
+      params.append('classificationValue', filters.classificationValue);
+    }
+
     const response = await apiClient.get(`/suppliers/${id}/products?${params.toString()}`);
     return response.data;
   },

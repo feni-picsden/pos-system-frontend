@@ -9,9 +9,7 @@ import {
   FormControlLabel,
   IconButton,
   InputAdornment,
-  Select,
-  MenuItem,
-  ListSubheader,
+  Autocomplete,
   Snackbar
 } from '@mui/material';
 import {
@@ -65,51 +63,37 @@ const fieldIconButtonSx = {
   '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' }
 };
 
-const classificationSelectSx = {
-  height: 42,
-  borderRadius: '8px',
-  backgroundColor: '#fff',
-  fontSize: 16,
-  color: '#000',
-  '& .MuiSelect-select': {
-    padding: '8px 32px 8px 16px',
-    height: 42,
-    boxSizing: 'border-box',
-    display: 'flex',
-    alignItems: 'center',
-    color: '#000'
+// Classification is a type-to-search combobox (reference), same 42px field as Search.
+const classificationFieldSx = {
+  ...searchFieldSx,
+  '& .MuiOutlinedInput-root': {
+    ...searchFieldSx['& .MuiOutlinedInput-root'],
+    padding: '0 72px 0 0 !important'
   },
-  '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040', top: 0 },
-  '& legend': { display: 'none' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-  '&.Mui-focused': { outline: '3px solid #000', outlineOffset: 0 },
-  // caret rendered as the reference's 25x24 hoverable button
-  '& .MuiSelect-icon': {
+  '& .MuiOutlinedInput-root .MuiAutocomplete-input': { padding: '8px 16px', color: '#000' },
+  '& .MuiAutocomplete-endAdornment': { right: 8 },
+  '& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator': {
     ...fieldIconButtonSx,
-    padding: '5px 4px',
-    boxSizing: 'border-box',
-    right: 8,
-    top: 'calc(50% - 12px)',
-    pointerEvents: 'auto',
-    cursor: 'pointer',
-    transition: 'transform 0.15s cubic-bezier(0.4,0,0.2,1)'
+    visibility: 'visible'
   }
 };
 
-const classificationMenuProps = {
-  transitionDuration: 0,
-  anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-  transformOrigin: { vertical: 'top', horizontal: 'left' },
-  PaperProps: {
-    sx: {
-      mt: '10px',
-      borderRadius: '8px',
-      border: '1px solid #000',
-      maxHeight: 288,
-      backgroundColor: '#fff',
-      boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-      '& .MuiList-root': { paddingTop: 0, paddingBottom: 0 }
+const classificationPaperSx = {
+  mt: '10px',
+  borderRadius: '8px',
+  border: '1px solid #000',
+  backgroundColor: '#fff',
+  boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+  '& .MuiAutocomplete-listbox': { padding: 0, maxHeight: 288 },
+  '& .MuiAutocomplete-noOptions': { fontSize: 16, color: '#808080', padding: '16px' },
+  '& .MuiAutocomplete-option': {
+    fontSize: 16,
+    color: '#0a0a0a',
+    minHeight: 56,
+    padding: '16px',
+    transition: 'none',
+    '&.Mui-focused, &[aria-selected="true"], &[aria-selected="true"].Mui-focused': {
+      backgroundColor: '#7dd3fc'
     }
   }
 };
@@ -124,21 +108,22 @@ const classificationHeaderSx = {
   padding: '16px',
   lineHeight: '25px',
   borderTop: '1px solid #a3a3a3',
-  cursor: 'auto'
+  position: 'sticky',
+  top: 0,
+  zIndex: 1
 };
 
-const classificationOptionSx = {
-  fontSize: 16,
-  color: '#0a0a0a',
-  minHeight: 56,
-  height: 56,
-  padding: '16px',
-  transition: 'none',
-  '&:hover': { backgroundColor: '#7dd3fc' },
-  '&.Mui-selected': { backgroundColor: '#7dd3fc' },
-  '&.Mui-selected:hover': { backgroundColor: '#7dd3fc' },
-  '&.Mui-focusVisible': { backgroundColor: '#7dd3fc' }
-};
+// Reference popup groups, in its order
+const CLASSIFICATION_GROUPS = [
+  { type: 'category', dbType: 'CATEGORY', header: 'Categories' },
+  { type: 'brand', dbType: 'BRAND', header: 'Brands' },
+  { type: 'family', dbType: 'FAMILY', header: 'Families' },
+  { type: 'tag', dbType: 'TAG', header: 'Tags' },
+  { type: 'supplier', dbType: null, header: 'Suppliers' }
+];
+
+const isInactiveProduct = (product) => String(product?.status || '').toLowerCase() === 'inactive';
+const productLabel = (product) => (isInactiveProduct(product) ? `${product.name} - Inactive` : product.name);
 
 // Reference toggle: OFF #a3a3a3 (hover #737373), ON #3b82f6, 19px thumb inset 2.4px.
 // Page-local so the shared ShopfrontSwitch (used by many other pages) is untouched.
@@ -176,9 +161,11 @@ const SupplierAssignment = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [unassignedOnly, setUnassignedOnly] = useState(false);
-  const [classification, setClassification] = useState('');
-  const [classificationOpen, setClassificationOpen] = useState(false);
+  // Selected filter option: { type, value, label, header } or null
+  const [classification, setClassification] = useState(null);
   const [allClassifications, setAllClassifications] = useState([]);
+  const [allSuppliers, setAllSuppliers] = useState([]);
+  const [availableTruncated, setAvailableTruncated] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
   // Load the full classification list so the filter dropdown offers every
@@ -191,6 +178,12 @@ const SupplierAssignment = () => {
         if (!cancelled) setAllClassifications(data.classifications || []);
       } catch (err) {
         console.error('Error loading classification list:', err);
+      }
+      try {
+        const data = await supplierService.getSuppliers();
+        if (!cancelled) setAllSuppliers(data.suppliers || []);
+      } catch (err) {
+        console.error('Error loading supplier list:', err);
       }
     })();
     return () => { cancelled = true; };
@@ -207,12 +200,15 @@ const SupplierAssignment = () => {
       try {
         const data = await supplierService.getSupplierProducts(id, {
           search: term,
-          unassignedOnly
+          unassignedOnly,
+          classificationType: classification?.type,
+          classificationValue: classification?.value
         });
         if (cancelled) return;
         setSupplier(data.supplier);
         setAssignedProducts(data.assignedProducts || []);
         setAvailableProducts(data.availableProducts || []);
+        setAvailableTruncated(Boolean(data.availableTruncated));
         setError('');
       } catch (err) {
         console.error('Error loading supplier data:', err);
@@ -229,22 +225,32 @@ const SupplierAssignment = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [id, unassignedOnly, searchTerm]);
+  }, [id, unassignedOnly, searchTerm, classification]);
 
-  // Grouped options for the classification filter: the store's FULL
-  // classification list grouped by its DB type (reference popup shows all)
-  const classificationGroups = useMemo(() => {
-    const groups = { CATEGORY: [], BRAND: [], FAMILY: [] };
-    allClassifications.forEach((item) => {
-      if (!item?.name || !groups[item.type]) return;
-      if (!groups[item.type].includes(item.name)) groups[item.type].push(item.name);
+  // Flat, group-ordered options for the classification filter: the store's FULL
+  // classification list by DB type, plus the other suppliers (reference popup).
+  const classificationOptions = useMemo(() => {
+    const options = [];
+    CLASSIFICATION_GROUPS.forEach((group) => {
+      const seen = new Set();
+      if (group.type === 'supplier') {
+        allSuppliers.forEach((s) => {
+          if (!s?.name || String(s.id) === String(id) || seen.has(s.id)) return;
+          seen.add(s.id);
+          options.push({ type: group.type, value: String(s.id), label: s.name, header: group.header });
+        });
+        return;
+      }
+      allClassifications.forEach((item) => {
+        if (!item?.name || item.type !== group.dbType) return;
+        const key = item.name.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        options.push({ type: group.type, value: item.name, label: item.name, header: group.header });
+      });
     });
-    return [
-      { header: 'Categories', options: groups.CATEGORY },
-      { header: 'Brands', options: groups.BRAND },
-      { header: 'Families', options: groups.FAMILY }
-    ];
-  }, [allClassifications]);
+    return options;
+  }, [allClassifications, allSuppliers, id]);
 
   // Reference behavior: the search narrows BOTH panes (server-side + this instant pass)
   const filteredAssigned = useMemo(() => {
@@ -253,22 +259,17 @@ const SupplierAssignment = () => {
     return assignedProducts.filter((p) => (p.name || '').toLowerCase().includes(searchLower));
   }, [assignedProducts, searchTerm]);
 
-  // Classification filter applies to the Available list only
+  // The classification filter (Available list only) is applied by the server,
+  // by type + value, so it is not limited to the rows already loaded.
   const filteredAvailable = useMemo(() => {
     const searchLower = searchTerm.trim().toLowerCase();
     return availableProducts.filter((product) => {
       if (!(product.name || '').toLowerCase().includes(searchLower)) return false;
-      if (
-        classification &&
-        product.category?.name !== classification &&
-        product.brand?.name !== classification &&
-        product.family?.name !== classification
-      ) return false;
       // ponytail: unassignedOnly is also applied server-side; extra client guard when supplier data present
       if (unassignedOnly && product.suppliers?.length) return false;
       return true;
     });
-  }, [availableProducts, searchTerm, classification, unassignedOnly]);
+  }, [availableProducts, searchTerm, unassignedOnly]);
 
   const handleAssignProduct = async (product) => {
     try {
@@ -395,64 +396,41 @@ const SupplierAssignment = () => {
         </Box>
         <Box sx={{ flex: 1 }}>
           <Typography sx={captionSx}>Classification</Typography>
-          <Select
+          <Autocomplete
             fullWidth
-            displayEmpty
-            open={classificationOpen}
-            onOpen={() => setClassificationOpen(true)}
-            onClose={() => setClassificationOpen(false)}
+            openOnFocus
+            options={classificationOptions}
             value={classification}
-            onChange={(e) => setClassification(e.target.value)}
-            // The caret is a hoverable button in the reference, so it takes pointer
-            // events back from MUI and opens the list itself.
-            IconComponent={(iconProps) => (
-              <ArrowDropDown
-                {...iconProps}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setClassificationOpen(true);
-                }}
+            onChange={(_event, option) => setClassification(option)}
+            groupBy={(option) => option.header}
+            getOptionLabel={(option) => option?.label || ''}
+            isOptionEqualToValue={(option, value) =>
+              option.type === value.type && option.value === value.value
+            }
+            noOptionsText="No classifications found"
+            popupIcon={<ArrowDropDown sx={{ fontSize: 16 }} />}
+            clearIcon={<CloseIcon sx={{ fontSize: 16 }} />}
+            clearText="Clear classification"
+            componentsProps={{ paper: { sx: classificationPaperSx } }}
+            renderGroup={(params) => (
+              <li key={params.key}>
+                <Box sx={classificationHeaderSx}>{params.group}</Box>
+                <Box component="ul" sx={{ p: 0, m: 0 }}>{params.children}</Box>
+              </li>
+            )}
+            renderOption={(props, option) => (
+              <li {...props} key={`${option.type}:${option.value}`}>
+                {option.label}
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Filter by Classification..."
+                sx={classificationFieldSx}
               />
             )}
-            renderValue={() =>
-              classification ? (
-                <span style={{ color: '#000' }}>{classification}</span>
-              ) : (
-                <span style={{ color: '#808080' }}>Filter by Classification...</span>
-              )
-            }
-            endAdornment={
-              classification ? (
-                <IconButton
-                  disableRipple
-                  aria-label="Clear classification"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={() => setClassification('')}
-                  sx={{ ...fieldIconButtonSx, mr: '33px' }}
-                >
-                  <CloseIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              ) : null
-            }
-            MenuProps={classificationMenuProps}
-            sx={classificationSelectSx}
-          >
-            {classificationGroups.flatMap((group) =>
-              group.options.length === 0
-                ? []
-                : [
-                    <ListSubheader key={group.header} sx={classificationHeaderSx}>
-                      {group.header}
-                    </ListSubheader>,
-                    ...group.options.map((name) => (
-                      <MenuItem key={`${group.header}:${name}`} value={name} sx={classificationOptionSx}>
-                        {name}
-                      </MenuItem>
-                    ))
-                  ]
-            )}
-          </Select>
+          />
         </Box>
       </Box>
 
@@ -481,7 +459,7 @@ const SupplierAssignment = () => {
                 backgroundColor: index % 2 === 1 ? '#f7f7f7' : 'transparent'
               }}
             >
-              <Typography sx={{ fontSize: 16, color: '#000' }}>{product.name}</Typography>
+              <Typography sx={{ fontSize: 16, color: '#000' }}>{productLabel(product)}</Typography>
               <IconButton
                 disableRipple
                 onClick={() => handleUnassignProduct(product)}
@@ -538,7 +516,7 @@ const SupplierAssignment = () => {
                     ))}
                   </Box>
                 )}
-                <Typography sx={{ fontSize: 16, color: '#000' }}>{product.name}</Typography>
+                <Typography sx={{ fontSize: 16, color: '#000' }}>{productLabel(product)}</Typography>
               </Box>
               <IconButton
                 disableRipple
@@ -553,6 +531,11 @@ const SupplierAssignment = () => {
           {filteredAvailable.length === 0 && (
             <Typography sx={{ textAlign: 'center', color: '#8e8e8e', mt: 4, fontSize: 16 }}>
               No available products
+            </Typography>
+          )}
+          {availableTruncated && (
+            <Typography sx={{ textAlign: 'center', color: '#8e8e8e', my: 2, fontSize: 14 }}>
+              Showing the first 1000 products. Use Search or Classification to narrow the list.
             </Typography>
           )}
         </Box>
