@@ -120,11 +120,17 @@ const ClassificationAssignment = () => {
     }
   };
 
+  // Reference: "Only show Products without a Brand / Category / Family / Tag"
+  // keeps the products that have NO classification of this screen's type at
+  // all. A tag is a list, so "without a Tag" means the product carries no tag;
+  // the old default branch looked at category/brand/family instead and showed
+  // the wrong products on a tag's assign screen.
   const productLacksCurrentType = (product) => {
-    switch (classification?.type) {
+    switch (String(classification?.type || '').toUpperCase()) {
       case 'CATEGORY': return !product.category;
       case 'BRAND': return !product.brand;
       case 'FAMILY': return !product.family;
+      case 'TAG': return !(Array.isArray(product.tags) && product.tags.length > 0);
       default: return !product.category && !product.brand && !product.family;
     }
   };

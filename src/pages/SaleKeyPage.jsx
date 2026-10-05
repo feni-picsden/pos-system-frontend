@@ -8369,10 +8369,20 @@ const SaleKeyPage = () => {
                             const search = classificationSearchTerm.toLowerCase();
                             return product.name?.toLowerCase().includes(search);
                           })
-                          .map((product) => (
+                          .map((product) => {
+                            // Price the way the Add button prices it: the local
+                            // catalog row (live price table) first, else the row the
+                            // classification route returned. A product has no
+                            // `retailPrice` column - reading it printed $0.00 for
+                            // every product in the list.
+                            const priced = resolveProductLocal(product, product.name) || product;
+                            const listPrice = parseFloat(priced.retailPrice)
+                              || parseFloat(priced.prices?.[0]?.price)
+                              || 0;
+                            return (
                             <TableRow key={product.id} hover>
                               <TableCell>{product.name}</TableCell>
-                              <TableCell align="right">${(product.retailPrice || 0).toFixed(2)}</TableCell>
+                              <TableCell align="right">${listPrice.toFixed(2)}</TableCell>
                               <TableCell align="center">
                                 <Button
                                   variant="contained"
@@ -8414,7 +8424,8 @@ const SaleKeyPage = () => {
                                 </Button>
                               </TableCell>
                             </TableRow>
-                          ))}
+                            );
+                          })}
                       </TableBody>
                     </Table>
                   )}
