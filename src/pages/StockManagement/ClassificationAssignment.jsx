@@ -312,7 +312,9 @@ const ClassificationAssignment = () => {
   };
 
   return (
-    <Box>
+    // Reference draws this page on white; without an explicit background the
+    // layout's grey showed through around the fields and the two lists.
+    <Box sx={{ bgcolor: '#fff', minHeight: '100%' }}>
       {/* Slate title bar with the without-a-classification toggle at its right edge */}
       <Box
         sx={{
@@ -578,6 +580,9 @@ const ClassificationAssignment = () => {
           </Box>
 
           <Box sx={{ flex: 1, height: 545, overflowY: 'auto' }}>
+            {filteredAvailable.length === 0 && (
+              <Box sx={emptyStateSx}>No products found...</Box>
+            )}
             {filteredAvailable.map((product, index) => (
               <Box key={product.id} sx={zebraRowSx(index)}>
                 <Typography component="span" noWrap sx={{ fontSize: 16, color: '#000', minWidth: 0 }}>
