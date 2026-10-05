@@ -32,6 +32,7 @@ import {
   SaveOutlined as SaveIcon,
 } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
+import apiClient from "../../services/apiClient";
 import outletService from "../../services/outletService";
 import registerService from "../../services/registerService";
 import settingsService from "../../services/settingsService";
@@ -39,6 +40,7 @@ import MapLocationPicker from "../../components/MapLocationPicker";
 import posLocalDb from "../../services/posLocalDb";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import ShopfrontSwitch from "../../components/Common/ShopfrontSwitch";
+import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 
 // Reference has no transitions on its action links.
 const INSTANT = "all 0s ease";
@@ -208,6 +210,14 @@ const Outlets = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Per-outlet "Add Register" dialog + register delete
+  const [registerDialogOutlet, setRegisterDialogOutlet] = useState(null);
+  const [registerForm, setRegisterForm] = useState({ name: "", code: "", isActive: true, isDefault: false });
+  const [registerErrors, setRegisterErrors] = useState({});
+  const [registerSaving, setRegisterSaving] = useState(false);
+  const [registerDeleteTarget, setRegisterDeleteTarget] = useState(null);
+  const [registerDeleting, setRegisterDeleting] = useState(false);
+
 
   useEffect(() => {
     fetchOutlets();
@@ -217,9 +227,12 @@ const Outlets = () => {
   // Keep local state and the IDB cache in lockstep after a mutation we already
   // know succeeded — never depend on an immediate refetch (transient 401/503
   // used to resurrect deleted rows).
+  const { refreshOutlets } = useSelectedOutlet() || {};
   const applyOutlets = async (next) => {
     setOutlets(next);
     await posLocalDb.putStoreAll("outlets", next);
+    // Navbar outlet switcher + Location Selector hold their own copy.
+    if (refreshOutlets) refreshOutlets().catch(() => {});
   };
 
   const fetchOutlets = async () => {
@@ -472,6 +485,76 @@ const Outlets = () => {
       setDeleteTarget(null);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // ─── Registers: add under an outlet / delete (server refresh, cache-proof) ─
+
+  const refreshFromServer = async () => {
+    apiClient.bustCache("/outlets");
+    apiClient.bustCache("/registers");
+    await posLocalDb.invalidateStore("outlets");
+    await posLocalDb.invalidateStore("registers");
+    const [o, r] = await Promise.all([outletService.getAllOutlets(), registerService.list()]);
+    const outletItems = o.outlets || [];
+    const registerItems = Array.isArray(r) ? r : [];
+    await posLocalDb.putStoreAll("outlets", outletItems);
+    await posLocalDb.putStoreAll("registers", registerItems);
+    setOutlets(outletItems);
+    setRegisters(registerItems);
+    if (refreshOutlets) refreshOutlets().catch(() => {});
+  };
+
+  const openRegisterDialog = (outlet) => {
+    setRegisterForm({ name: "", code: "", isActive: true, isDefault: false });
+    setRegisterErrors({});
+    setRegisterDialogOutlet(outlet);
+  };
+
+  const closeRegisterDialog = () => {
+    if (registerSaving) return;
+    setRegisterDialogOutlet(null);
+    setRegisterErrors({});
+  };
+
+  const handleCreateRegister = async () => {
+    const errors = {};
+    if (!registerForm.name.trim()) errors.name = "Name is required";
+    if (!registerForm.code.trim()) errors.code = "Code is required";
+    if (Object.keys(errors).length > 0) {
+      setRegisterErrors(errors);
+      return;
+    }
+    try {
+      setRegisterSaving(true);
+      await registerService.create({
+        name: registerForm.name.trim(),
+        code: registerForm.code.trim(),
+        isActive: registerForm.isActive,
+        isDefault: registerForm.isDefault,
+        status: "Closed",
+        outletId: registerDialogOutlet.id,
+      });
+      await refreshFromServer();
+      setRegisterDialogOutlet(null);
+    } catch (err) {
+      setRegisterErrors({ general: err.response?.data?.error || "Failed to create register" });
+    } finally {
+      setRegisterSaving(false);
+    }
+  };
+
+  const confirmDeleteRegister = async () => {
+    if (!registerDeleteTarget) return;
+    try {
+      setRegisterDeleting(true);
+      await registerService.remove(registerDeleteTarget.id);
+      await refreshFromServer();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to delete register");
+    } finally {
+      setRegisterDeleting(false);
+      setRegisterDeleteTarget(null);
     }
   };
 
@@ -777,7 +860,14 @@ const Outlets = () => {
           startIcon={<SaveIcon />}
           onClick={handleSaveEditor}
           disabled={saving}
-          sx={{ ...PRIMARY_BUTTON_SX, position: "fixed", bottom: 24, right: 24, zIndex: 1200 }}
+          sx={{
+            ...PRIMARY_BUTTON_SX,
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 1200,
+            "&:focus, &:focus-visible": { outline: "none", boxShadow: "none" },
+          }}
         >
           {saving ? "Saving..." : "Save"}
         </Button>
@@ -789,12 +879,13 @@ const Outlets = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Reference parity: the merged Registers & Outlets page has NO create
-          control. The Add-outlet dialog below is retained but unreachable. */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: "#000" }}>
           Registers &amp; Outlets
         </Typography>
+        <Button disableRipple startIcon={<AddIcon />} onClick={handleOpenDialog} sx={PRIMARY_BUTTON_SX}>
+          Add Outlet
+        </Button>
       </Box>
 
       {error && (
@@ -844,6 +935,14 @@ const Outlets = () => {
                         >
                           Edit
                         </Button>
+                        <Button
+                          disableRipple
+                          startIcon={<AddIcon />}
+                          onClick={() => openRegisterDialog(outlet)}
+                          sx={rowActionSx("#0084d1")}
+                        >
+                          Add Register
+                        </Button>
                         <Tooltip
                           title={
                             outlet._count?.user_outlets > 0
@@ -871,14 +970,25 @@ const Outlets = () => {
                     <TableRow key={`register-${register.id}`} sx={{ height: 52 }}>
                       <TableCell>{register.name}</TableCell>
                       <TableCell align="right">
-                        <Button
-                          disableRipple
-                          startIcon={<EditIcon />}
-                          component={RouterLink} to={"/registers"}
-                          sx={EDIT_LINK_SX}
-                        >
-                          Edit
-                        </Button>
+                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+                          <Button
+                            disableRipple
+                            startIcon={<EditIcon />}
+                            component={RouterLink}
+                            to={`/registers?edit=${register.id}`}
+                            sx={EDIT_LINK_SX}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            disableRipple
+                            startIcon={<DeleteIcon />}
+                            onClick={() => setRegisterDeleteTarget(register)}
+                            sx={rowActionSx("#e33430")}
+                          >
+                            Delete
+                          </Button>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1062,6 +1172,86 @@ const Outlets = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add Register (under a specific outlet) */}
+      <Dialog
+        open={!!registerDialogOutlet}
+        onClose={closeRegisterDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "8px" } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: "#313439" }}>
+          Add Register — {registerDialogOutlet?.name || ""}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            {registerErrors.general && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {registerErrors.general}
+              </Alert>
+            )}
+            <Typography sx={FIELD_LABEL_SX}>Register Name *</Typography>
+            <TextField
+              fullWidth
+              value={registerForm.name}
+              onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+              error={!!registerErrors.name}
+              helperText={registerErrors.name}
+              sx={{ ...FIELD_SX, mb: 2 }}
+            />
+            <Typography sx={FIELD_LABEL_SX}>Register Code *</Typography>
+            <TextField
+              fullWidth
+              value={registerForm.code}
+              onChange={(e) => setRegisterForm({ ...registerForm, code: e.target.value })}
+              error={!!registerErrors.code}
+              helperText={registerErrors.code || "Unique code for this register"}
+              sx={{ ...FIELD_SX, mb: 2 }}
+            />
+            <Box sx={{ display: "flex", gap: 4 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <ShopfrontSwitch
+                  checked={registerForm.isActive}
+                  onChange={(e) => setRegisterForm({ ...registerForm, isActive: e.target.checked })}
+                />
+                <Typography sx={{ fontSize: 16 }}>Active</Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <ShopfrontSwitch
+                  checked={registerForm.isDefault}
+                  onChange={(e) => setRegisterForm({ ...registerForm, isDefault: e.target.checked })}
+                />
+                <Typography sx={{ fontSize: 16 }}>Default Register</Typography>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.25 }}>
+          <Button disableRipple onClick={closeRegisterDialog} disabled={registerSaving} sx={CANCEL_BUTTON_SX}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disableRipple
+            disableElevation
+            onClick={handleCreateRegister}
+            disabled={registerSaving}
+            sx={PRIMARY_BUTTON_SX}
+          >
+            {registerSaving ? "Creating..." : "Create"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <ConfirmDeleteDialog
+        open={!!registerDeleteTarget}
+        title="Delete Register"
+        message={`Are you sure you want to delete register "${registerDeleteTarget?.name || ""}"? This action cannot be undone.`}
+        loading={registerDeleting}
+        onCancel={() => setRegisterDeleteTarget(null)}
+        onConfirm={confirmDeleteRegister}
+      />
 
       <ConfirmDeleteDialog
         open={!!deleteTarget}

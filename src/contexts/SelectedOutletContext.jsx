@@ -38,6 +38,28 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
   // provider's back). It is now that provider's own effect — same list() call,
   // one owner of both the keys and the in-memory copy.
 
+  // Re-pull the outlet list after Registers & Outlets adds/edits/deletes one,
+  // so the navbar switcher and the Location Selector don't need a page refresh.
+  // Any admin account (pinned or not) gets the server list — the backend now
+  // returns every outlet to super admins; regular users keep their login list.
+  const refreshOutlets = useCallback(async () => {
+    if (!user || !canGoGlobal) return;
+    try {
+      const resp = await outletService.getAllOutlets();
+      const all = resp.outlets || [];
+      setOutlets(all);
+      await posLocalDb.init();
+      await posLocalDb.putStoreAll('outlets', all);
+      if (selectedOutletId != null && !all.find((o) => o.id === selectedOutletId)) {
+        // The outlet we were in was deleted.
+        setSelectedOutletIdState(null);
+        localStorage.removeItem(LS_KEY);
+      }
+    } catch (err) {
+      console.error('SelectedOutletContext: refreshOutlets failed', err);
+    }
+  }, [user, canGoGlobal, selectedOutletId]);
+
   // Load available outlets when user changes
   useEffect(() => {
     if (!user) {
@@ -160,6 +182,7 @@ export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
         isAllOutlets,
         isTrueSuperAdmin,
         canGoGlobal,
+        refreshOutlets,
       }}
     >
       {children}
