@@ -1,10 +1,8 @@
 // Price points of one product are the same item in different pack sizes.
-// Pricing a pack sets the single's price from it (a case of 6 at $30 makes the
-// single $5), but the link runs ONE way: re-pricing the single afterwards ($8)
-// never touches the packs, so "1 for $8, 6 for $30" stays possible.
-//
-// Only rows of the SAME price set are linked — a different price set is a
-// different customer group and must not be touched.
+// Each price point is INDEPENDENT, as in the reference product (checked on its
+// product page: setting 12 for $20 left the single at $5, and re-pricing the
+// single to $3 left the pack at $20). So "1 for $5, 12 for $20" can be typed in
+// any order. Editing a row only refreshes that row's own cost / profit %.
 
 // Extension is explicit: the .mjs unit tests run under plain Node, which does not
 // do Vite's extensionless resolution.
@@ -24,9 +22,6 @@ export const rowQuantity = (row) => {
   return Number.isFinite(q) && q > 0 ? q : 0;
 };
 
-/** Same price set = same customer group. Missing/null/'' all mean "default". */
-const samePriceSet = (a, b) => (a?.priceSetId ?? null) === (b?.priceSetId ?? null);
-
 /**
  * Profit % for a row, so the table's column stays truthful after a re-price.
  * Follows Setup > General > "Profitability Display" — this used to be a hardcoded
@@ -36,9 +31,8 @@ const percentageFor = (cost, price, display) =>
   (!price ? 0 : round2(profitPercent(price, cost, display)));
 
 /**
- * After `rows[index]` was edited: refresh its cost / GP%, and when it is a pack
- * (quantity > 1) re-price the single (quantity 1) rows of its price set from
- * the pack's per-unit price. Other packs are never changed.
+ * After `rows[index]` was edited: refresh its cost / GP%. No other row is
+ * ever changed.
  *
  * Returns a NEW array (never mutates). The edited row's price is left exactly
  * as typed, so the cashier's own number is never rounded mid-keystroke.
@@ -60,17 +54,11 @@ export function syncPriceRows(rows, index, itemCost = 0, display = 'Gross Profit
   if (qty <= 0 || price <= 0) return rows;
 
   const unitCost = toNumber(itemCost);
-  const unitPrice = price / qty;
 
   return rows.map((row, i) => {
     if (i === index) {
       const cost = round2(unitCost * qty);
       return { ...row, cost, percentage: percentageFor(cost, price, display) };
-    }
-    if (qty > 1 && rowQuantity(row) === 1 && samePriceSet(row, edited)) {
-      const single = round2(unitPrice);
-      const cost = round2(unitCost);
-      return { ...row, price: single, cost, percentage: percentageFor(cost, single, display) };
     }
     return row;
   });

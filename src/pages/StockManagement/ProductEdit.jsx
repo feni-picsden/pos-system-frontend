@@ -2721,8 +2721,8 @@ const ProductEdit = () => {
                                   price: inputPrice,
                                   ...(hasPrice ? {} : { percentage: '' }),
                                 };
-                                // Pricing a pack sets the single ($30 for 6 → $5); pricing
-                                // the single afterwards ($8) leaves the packs alone.
+                                // Price points are independent (reference): this only
+                                // refreshes the edited row's own cost / profit %.
                                 handleInputChange(
                                   'prices',
                                   syncPriceRows(newPrices, index, effectiveItemCost, profitabilityDisplay)
@@ -2747,8 +2747,7 @@ const ProductEdit = () => {
                                 const pct = parseFloat(e.target.value) || 0;
                                 const newPrice = calculatePrice(effectiveItemCost, newPrices[index].quantity, pct);
                                 newPrices[index] = { ...newPrices[index], percentage: pct, price: newPrice };
-                                // A margin change moves this row's price, so a pack's
-                                // single follows it just as a typed price would.
+                                // A margin change moves this row's price only.
                                 const synced = syncPriceRows(newPrices, index, effectiveItemCost, profitabilityDisplay);
                                 // Keep the margin exactly as typed: re-deriving it from
                                 // the rounded price makes the field jump under the cursor.

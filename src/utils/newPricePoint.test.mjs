@@ -64,19 +64,19 @@ rows = typePrice(rows, 1, '3');
 assert.equal(rows[0].price, '', 'blank row still blank');
 assert.equal(rows[1].price, '3');
 
-// 4. Typing into the blank row: 24 @ 120 -> its % is 80 and the single follows (5.00).
+// 4. Typing into the blank row: 24 @ 120 -> its % is 80 and the single stays as typed.
 rows = typeQuantity(rows, 0, '24');
 assert.equal(rows[0].price, '', 'quantity alone gives no price');
 rows = typePrice(rows, 0, '120');
 assert.equal(rows[0].cost, 24);
 assert.equal(rows[0].percentage, 80);
-assert.equal(rows[1].price, 5, 'single re-priced from the pack');
+assert.equal(rows[1].price, '3', 'single independent of the pack (reference)');
 
 // 5. Clearing a price blanks its %, and does not touch other rows.
 rows = typePrice(rows, 0, '');
 assert.equal(rows[0].price, '');
 assert.equal(rows[0].percentage, '', 'cleared price -> blank %');
-assert.equal(rows[1].price, 5);
+assert.equal(rows[1].price, '3');
 
 // 6. Save drops an untouched blank row, keeps the filled ones.
 let toSave = addPriceRow([{ quantity: 24, price: '120', cost: 24, percentage: 80 }, saved[0]]);

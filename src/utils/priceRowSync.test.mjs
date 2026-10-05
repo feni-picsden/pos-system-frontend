@@ -2,73 +2,64 @@
 import assert from 'node:assert/strict';
 import { syncPriceRows } from './priceRowSync.js';
 
-// The reported case: $30 on the case of 6 makes the single $5.
+// Reference behaviour: pricing a pack never touches the single.
+// (Checked on the reference product page: 12 for $20 left the single at $5.)
 {
-  const r = [{ quantity: 1, price: 8 }, { quantity: 6, price: 30 }];
+  const r = [{ quantity: 1, price: 5 }, { quantity: 12, price: 20 }];
   const out = syncPriceRows(r, 1, 0);
-  assert.equal(out[0].price, 5);
-  assert.equal(out[1].price, 30, 'the edited row keeps exactly what was typed');
+  assert.equal(out[0].price, 5, 'single untouched');
+  assert.equal(out[1].price, 20, 'the edited row keeps exactly what was typed');
 }
 
-// One way only: re-pricing the single afterwards leaves the case alone,
-// so "1 for $8, 6 for $30" can be set up.
+// ...and pricing the single never touches the pack (single -> $3, pack stays $20).
 {
-  const r = [{ quantity: 1, price: 8 }, { quantity: 6, price: 30 }];
-  assert.equal(syncPriceRows(r, 0, 0)[1].price, 30);
+  const r = [{ quantity: 1, price: 3 }, { quantity: 12, price: 20 }];
+  assert.equal(syncPriceRows(r, 0, 0)[1].price, 20);
 }
 
-// A pack re-prices the single only — other packs are their own deals.
+// No row other than the edited one changes at all.
 {
   const r = [
     { quantity: 1, price: 0 },
     { quantity: 6, price: 30 },
     { quantity: 12, price: 50 },
+    { quantity: 1, price: 9, priceSetId: 2 },
   ];
-  assert.deepEqual(syncPriceRows(r, 1, 0).map((x) => x.price), [5, 30, 50]);
+  const out = syncPriceRows(r, 1, 2);
+  assert.deepEqual(out[0], r[0]);
+  assert.deepEqual(out[2], r[2]);
+  assert.deepEqual(out[3], r[3]);
 }
 
-// Money is rounded to cents, never left at 4.285714...
-{
-  const r = [{ quantity: 1, price: 0 }, { quantity: 7, price: 30 }];
-  assert.equal(syncPriceRows(r, 1, 0)[0].price, 4.29);
-}
-
-// Cost and GP% are refreshed on the edited row and the re-priced single.
+// Cost and GP% are refreshed on the edited row only.
 {
   const r = [{ quantity: 1, price: 8 }, { quantity: 6, price: 30 }];
   const out = syncPriceRows(r, 1, 2); // itemCost $2
-  assert.equal(out[0].cost, 2);
   assert.equal(out[1].cost, 12);
-  assert.equal(out[0].percentage, 60); // 1 - 2/5
   assert.equal(out[1].percentage, 60); // 1 - 12/30
+  assert.equal(out[0].cost, undefined, 'other row not re-costed here');
+  const single = syncPriceRows(r, 0, 2);
+  assert.equal(single[0].cost, 2);
+  assert.equal(single[0].percentage, 75); // 1 - 2/8
 }
 
-// A different price set is a different customer group — leave it alone.
-{
-  const r = [
-    { quantity: 1, price: 9, priceSetId: 2 },
-    { quantity: 1, price: 0, priceSetId: null },
-    { quantity: 6, price: 30, priceSetId: null },
-  ];
-  const out = syncPriceRows(r, 2, 0);
-  assert.equal(out[0].price, 9, 'other price set untouched');
-  assert.equal(out[1].price, 5);
-}
-
-// Mid-typing states must not wipe the single.
+// Mid-typing states are a no-op.
 for (const bad of ['', null, undefined, 0, NaN, 'abc']) {
   const r = [{ quantity: 1, price: 7 }, { quantity: 6, price: bad }];
-  assert.equal(syncPriceRows(r, 1, 0)[0].price, 7, `price ${String(bad)}`);
+  assert.equal(syncPriceRows(r, 1, 0), r, `price ${String(bad)}`);
 }
 for (const bad of ['', null, undefined, 0, NaN, 'abc', -3]) {
   const r = [{ quantity: 1, price: 7 }, { quantity: bad, price: 30 }];
-  assert.equal(syncPriceRows(r, 1, 0)[0].price, 7, `quantity ${String(bad)}`);
+  assert.equal(syncPriceRows(r, 1, 0), r, `quantity ${String(bad)}`);
 }
 
 // String inputs from the number fields behave like numbers.
 {
   const r = [{ quantity: '1', price: '0' }, { quantity: '6', price: '30' }];
-  assert.equal(syncPriceRows(r, 1, 0)[0].price, 5);
+  const out = syncPriceRows(r, 1, 1);
+  assert.equal(out[1].cost, 6);
+  assert.equal(out[1].percentage, 80);
+  assert.equal(out[0].price, '0');
 }
 
 // Never mutates its input, and survives junk arguments.
