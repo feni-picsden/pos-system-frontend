@@ -1316,8 +1316,12 @@ const EditOrder = () => {
   // Applied to every figure that comes from the preview.
   const landedFigureSx = landedPending ? { opacity: 0.35 } : {};
 
-  // Total shown on screen: landed when a preview exists, else the line sum.
-  const displayGrandTotal = () => (landedApplies && landed ? landed.total : calculateGrandTotal(orderedQtyMap()));
+  // Total shown on screen = the supplier's INVOICE: products + fees + freight -
+  // discount (+ tax when costs are tax exclusive). The payment fee is not part
+  // of it - reference: Total $39,596.94 with Payment Fees $617.72 in its own
+  // box; the fee joins the order's total only once it is received.
+  const landedInvoiceTotal = landed ? (landed.invoiceTotal ?? (landed.total - (landed.paymentFees || 0))) : null;
+  const displayGrandTotal = () => (landedApplies && landed ? landedInvoiceTotal : calculateGrandTotal(orderedQtyMap()));
   const landedHasAdjustments = Boolean(
     landedApplies && landed && Math.abs(landed.total - landed.subtotal) >= 0.005
   );
@@ -1328,7 +1332,10 @@ const EditOrder = () => {
     if (!landedApplies) return fallback;
     try {
       const preview = await orderInvoiceService.landedPreview(buildLandedPayload(qtyMap));
-      return Number.isFinite(preview?.total) ? Math.round(preview.total * 100) / 100 : fallback;
+      // Stored while outstanding: the invoice total. Receive adds the payment
+      // fees (the server sets the received total from the Purchase records).
+      const invoice = preview?.invoiceTotal ?? (preview ? preview.total - (preview.paymentFees || 0) : NaN);
+      return Number.isFinite(invoice) ? Math.round(invoice * 100) / 100 : fallback;
     } catch {
       return fallback;
     }
@@ -2644,11 +2651,25 @@ const EditOrder = () => {
                 {landed.fees ? ` + Fees ${formatCurrency(landed.fees)}` : ''}
                 {landed.freight ? ` + Freight ${formatCurrency(landed.freight)}` : ''}
                 {landed.discount ? ` − Discount ${formatCurrency(landed.discount)}` : ''}
-                {landed.paymentFees ? ` + Payment fee ${landed.paymentFeePercentage}% ${formatCurrency(landed.paymentFees)}` : ''}
                 {landed.taxAddedOnTop && landed.tax ? ` + Tax ${formatCurrency(landed.tax)}` : ''}
                 {' = '}
-                <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landed.total)}</Box>
+                <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landedInvoiceTotal)}</Box>
               </Typography>
+              {/* Freight billed by an outside carrier ("Freight is included on supplier
+                  invoice" off): not in this order's total, but in the products' cost */}
+              {Math.abs(landed.freightOffInvoice || 0) >= 0.005 && (
+                <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                  Freight {formatCurrency(landed.freightOffInvoice)} is not on this supplier&apos;s invoice: left out of the Total, added to the product cost
+                </Typography>
+              )}
+              {/* Payment fee: on top of the invoice, not part of the Total (reference shows it in its own box) */}
+              {Math.abs(landed.paymentFees || 0) >= 0.005 && (
+                <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                  Payment fees {landed.paymentFeePercentage}%: {formatCurrency(landed.paymentFees)}
+                  {' · Total when received: '}
+                  <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landed.total)}</Box>
+                </Typography>
+              )}
             </Grid>
           )}
         </Grid>

@@ -1035,9 +1035,16 @@ const OrderDetails = () => {
   // the entered cost already contains its tax, so inc == ex (receive backs the
   // tax out instead of adding it; the columns used to show 143.00 beside a
   // received Total (inc) of 130.00).
+  //
+  // (ex) is ALWAYS the tax-exclusive figure and (inc) the tax-inclusive one, so
+  // inc = ex x (1 + rate) on every row - as the reference shows. On a
+  // tax-inclusive document the entered value is the (inc) figure and the tax
+  // has to be taken OUT to get (ex); this used to put the entered value in both
+  // columns ($24.00 / $24.00 on a 10% GST line instead of $21.82 / $24.00).
   const calculateTotals = (quantity, unitPrice, taxRate = 0.1) => {
-    const totalEx = quantity * unitPrice;
-    const totalInc = order?.costsIncludeTax ? totalEx : totalEx * (1 + taxRate);
+    const entered = quantity * unitPrice;
+    const totalEx = order?.costsIncludeTax ? entered / (1 + taxRate) : entered;
+    const totalInc = order?.costsIncludeTax ? entered : entered * (1 + taxRate);
     return { totalEx, totalInc };
   };
 
@@ -1064,10 +1071,6 @@ const OrderDetails = () => {
     return sum + totals.totalInc;
   }, 0) || 0;
 
-  // For received, we'll use the same as ordered for now (since schema doesn't have separate received quantity)
-  const receivedTotalEx = orderedTotalEx;
-  const receivedTotalInc = orderedTotalInc;
-
   const totalLines = order.items?.length || 0;
   // Toolbar/table gating (reference matrix)
   const isUnsent = order.status === 'PENDING' || order.status === 'OPEN';
@@ -1084,27 +1087,49 @@ const OrderDetails = () => {
   // product lines only ($24.00 here, $29.48 on the edit screen and at receive).
   const landedPreview = isOrderOrInvoice && order.status !== 'RECEIVED' ? (order.landedPreview || null) : null;
   const landedLineFor = (item) => landedPreview?.lines?.find((l) => l.key === item.id) || null;
-  // What a line gains on top of its own (tax-inclusive) value.
-  const landedExtraInc = (item) => {
-    const l = landedLineFor(item);
-    if (!l) return 0;
-    const net = (l.fees || 0) - (l.discount || 0);
-    const taxOnExtras = order.costsIncludeTax
-      ? 0
-      : net * ((order.feesTaxPercent ?? 0) / 100) + (l.freight || 0) * ((order.freightTaxPercent ?? 0) / 100);
-    return net + (l.freight || 0) + taxOnExtras + (l.paymentFees || 0);
+
+  // One row's money, used by the rows AND the footer so they cannot disagree.
+  // Reference (received ALM order, payment fee 1.56%, costs including tax):
+  //   Total (inc) = cost + fees + freight - rebate, as invoiced
+  //   Total (ex)  = Total (inc) with the tax taken out   (inc = ex x 1.10)
+  //   Payment Fees = its own column, NOT part of Total (ex) or Total (inc)
+  //   header EXPECTED TOTAL = Total (inc);  the list total = Total (inc) + payment fees
+  // Ours used to leave the tax in Total (ex) on a tax-inclusive document and add
+  // the payment fee into Total (inc), so ex and inc differed by the payment fee
+  // instead of by the tax ($29.00 / $29.48 where it should read $26.36 / $29.00).
+  const receivedPurchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
+  const rowFigures = (item) => {
+    const purchaseItem = receivedPurchase?.items?.find((pi) => pi.productName === item.product) || null;
+    // Received: what the Purchase record posted. Not received yet: the landed
+    // preview, so a pending/sent order shows the totals it will receive at.
+    const landedLine = purchaseItem ? null : landedLineFor(item);
+    const baseCost = purchaseItem?.cost || (item.unitPrice * item.quantity);
+    const fees = purchaseItem ? (purchaseItem.fees || 0) : (landedLine?.fees || 0);
+    const freight = purchaseItem ? (purchaseItem.freight || 0) : (landedLine?.freight || 0);
+    const rebate = purchaseItem ? (purchaseItem.rebate || 0) : (landedLine?.discount || 0);
+    const paymentFees = purchaseItem ? (purchaseItem.paymentFees || 0) : (landedLine?.paymentFees || 0);
+    const rate = itemTaxRate(item);
+    // Fees/discount and freight carry the supplier's Fees Tax / Freight Tax.
+    const feesTaxRate = (order.feesTaxPercent ?? 0) / 100;
+    const freightTaxRate = (order.freightTaxPercent ?? 0) / 100;
+    const net = fees - rebate;
+    const entered = baseCost + net + freight;
+    const totalEx = order.costsIncludeTax
+      ? baseCost / (1 + rate) + net / (1 + feesTaxRate) + freight / (1 + freightTaxRate)
+      : entered;
+    const totalInc = order.costsIncludeTax
+      ? entered
+      : entered + baseCost * rate + net * feesTaxRate + freight * freightTaxRate;
+    return { purchaseItem, baseCost, fees, freight, rebate, paymentFees, totalEx, totalInc };
   };
+  const tableTotals = (order.items || []).reduce((sum, item) => {
+    const r = rowFigures(item);
+    return { ex: sum.ex + r.totalEx, inc: sum.inc + r.totalInc };
+  }, { ex: 0, inc: 0 });
+
   // Header "Expected Total": the figure typed in Edit Details wins; otherwise
-  // the landed total of an unreceived document.
-  // A received document keeps the line: there it is what was actually received
-  // (all deliveries together), so the header never goes blank after receiving.
-  const expectedTotalDisplay = order.expectedTotal != null
-    ? order.expectedTotal
-    : landedPreview
-      ? landedPreview.total
-      : (order.status === 'RECEIVED' && order.purchases?.[0]?.totalAmount != null
-        ? order.purchases[0].totalAmount
-        : null);
+  // the table's Total (inc) - what the supplier's invoice comes to (reference).
+  const expectedTotalDisplay = order.expectedTotal != null ? order.expectedTotal : tableTotals.inc;
   // Fee-related columns: reference hides them only for TRANSFER documents
   // (sent returns show +Fees/-Discounts, Freight, Rebate, Payment Fees).
   const showFeeColumns = order.type !== 'TRANSFER';
@@ -1476,7 +1501,6 @@ const OrderDetails = () => {
                 const caseQuantity = getCaseQuantity(item);
                 const orderedCases = item.cases !== undefined ? item.cases : calculateCasesAndItems(item.quantity, caseQuantity).cases;
                 const orderedItems = item.items !== undefined ? item.items : calculateCasesAndItems(item.quantity, caseQuantity).items;
-                const orderedTotals = calculateTotals(item.quantity, item.unitPrice, itemTaxRate(item));
                 return (
                   <TableRow key={index}>
                     <TableCell sx={tdSx}>
@@ -1492,8 +1516,8 @@ const OrderDetails = () => {
                     <TableCell sx={tdSx}>{item.supplierCode || '-'}</TableCell>
                     <TableCell sx={tdSx} align="right">{caseQuantity}</TableCell>
                     <TableCell sx={tdSx} align="right">{renderQty(orderedCases, orderedItems)}</TableCell>
-                    {/* Line value + its share of fees / freight / discount / payment fee */}
-                    <TableCell sx={tdSx} align="right">{formatCurrency(orderedTotals.totalInc + landedExtraInc(item))}</TableCell>
+                    {/* Line value + its share of fees / freight / discount, tax inclusive */}
+                    <TableCell sx={tdSx} align="right">{formatCurrency(rowFigures(item).totalInc)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -1505,7 +1529,7 @@ const OrderDetails = () => {
                 <TableCell sx={totalTdSx} />
                 <TableCell sx={totalTdSx} />
                 <TableCell sx={totalTdSx} align="right">{renderQty(totalCases, totalItems, true)}</TableCell>
-                <TableCell sx={totalTdSx} align="right">{formatCurrency(landedPreview ? landedPreview.total : orderedTotalInc)}</TableCell>
+                <TableCell sx={totalTdSx} align="right">{formatCurrency(tableTotals.inc)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -1550,32 +1574,10 @@ const OrderDetails = () => {
                 const receivedCases = item.receivedCases ?? (purchaseItem ? (purchaseItem.cases || 0) : (order.status === 'RECEIVED' ? orderedCases : 0));
                 const receivedItems = item.receivedItems ?? (purchaseItem ? (purchaseItem.items || 0) : (order.status === 'RECEIVED' ? orderedItems : 0));
 
-                // Calculate received totals with fees
-                const baseCost = purchaseItem?.cost || (item.unitPrice * item.quantity);
-                // Received: what the Purchase record posted. Not received yet (and
-                // nothing posted for this line): the landed preview, so a SENT
-                // order already shows the totals it will receive at (reference).
-                const landedLine = purchaseItem ? null : landedLineFor(item);
-                const fees = purchaseItem ? (purchaseItem.fees || 0) : (landedLine?.fees || 0);
-                const freight = purchaseItem ? (purchaseItem.freight || 0) : (landedLine?.freight || 0);
-                const rebate = purchaseItem ? (purchaseItem.rebate || 0) : (landedLine?.discount || 0);
-                const paymentFees = purchaseItem ? (purchaseItem.paymentFees || 0) : (landedLine?.paymentFees || 0);
-
-                // Total (ex) should NOT include payment fees
-                const rowTotalEx = baseCost + fees + freight - rebate;
-                // Total (inc) = Total (ex) + tax + payment fee, exactly as receive
-                // stores it on the Purchase: tax is charged on the line COST only
-                // (fees, freight, rebate and the payment fee carry no GST), and a
-                // tax-inclusive cost already contains its tax. Taxing fees/freight
-                // here made the line ($143.00) disagree with the Total row ($141.00).
-                // Fees and freight are taxed at the supplier's Fees Tax / Freight Tax
-                // rate (0 when "No Tax"), served by the API as *TaxPercent.
-                const feesTaxRate = (order.feesTaxPercent ?? 0) / 100;
-                const freightTaxRate = (order.freightTaxPercent ?? 0) / 100;
-                const rowTax = order.costsIncludeTax
-                  ? 0
-                  : baseCost * itemTaxRate(item) + (fees - rebate) * feesTaxRate + freight * freightTaxRate;
-                const rowTotalInc = rowTotalEx + rowTax + paymentFees;
+                // Money for this row - see rowFigures (shared with the footer).
+                const {
+                  fees, freight, rebate, paymentFees, totalEx: rowTotalEx, totalInc: rowTotalInc,
+                } = rowFigures(item);
 
                 return (
                   <TableRow key={index}>
@@ -1653,28 +1655,9 @@ const OrderDetails = () => {
                     </TableCell>
                   </>
                 )}
-                <TableCell sx={totalTdSx} align="right">
-                  {(() => {
-                    const purchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
-                    if (purchase) {
-                      // Total (ex) = cost + fees + charged freight - rebate (NO payment fees)
-                      const chargedFreight = purchase.items?.reduce((sum, item) => sum + (item.freight || 0), 0) || 0;
-                      const totalEx = (purchase.cost || 0) + (purchase.fees || 0) + chargedFreight - (purchase.items?.reduce((sum, item) => sum + (item.rebate || 0), 0) || 0);
-                      return formatCurrency(totalEx);
-                    }
-                    if (landedPreview) {
-                      // Same sum the rows above add up to: line value + fees + freight - discount
-                      return formatCurrency(landedPreview.subtotal + landedPreview.fees + landedPreview.freight - landedPreview.discount);
-                    }
-                    return formatCurrency(receivedTotalEx);
-                  })()}
-                </TableCell>
-                <TableCell sx={totalTdSx} align="right">
-                  {(() => {
-                    const purchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
-                    return formatCurrency(purchase?.totalAmount || (landedPreview ? landedPreview.total : receivedTotalInc));
-                  })()}
-                </TableCell>
+                {/* The rows above, added up: ex-tax and inc-tax (payment fees have their own column) */}
+                <TableCell sx={totalTdSx} align="right">{formatCurrency(tableTotals.ex)}</TableCell>
+                <TableCell sx={totalTdSx} align="right">{formatCurrency(tableTotals.inc)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
