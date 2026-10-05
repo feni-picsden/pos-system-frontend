@@ -1011,10 +1011,16 @@ const OrderDetails = () => {
   // Freight flag. A received document shows the flag snapshotted on it at receive
   // time (history must not change when the supplier's setting changes later);
   // an unreceived one previews the supplier's current default.
+  //
+  // ONE meaning everywhere (order screen, details, print, email): "is freight
+  // already inside the line costs on the supplier's invoice?" - the same rule
+  // receive() applies. It used to turn "Yes" whenever any freight amount was
+  // charged, which is the opposite case (freight billed separately on top), so
+  // a pending "No" flipped to "Yes" once the order was received.
   const includesFreight = Boolean(
     order?.status === 'RECEIVED'
-      ? (order?.freightIncluded || (order?.purchases?.[0]?.freight || 0) > 0)
-      : (order?.supplier?.freightIncludedOnInvoices || (order?.purchases?.[0]?.freight || 0) > 0)
+      ? order?.freightIncluded
+      : (order?.freightIncluded || (order?.invoiceFreight == null && order?.supplier?.freightIncludedOnInvoices))
   );
 
   // Helper to calculate cases and items from quantity
@@ -1069,6 +1075,36 @@ const OrderDetails = () => {
   const isOrderOrInvoice = order.type === 'ORDER' || order.type === 'INVOICE';
   // Unsent orders/invoices show the simplified reference column set
   const simpleTable = isOrderOrInvoice && isUnsent;
+
+  // Not received yet: the server sends what this document will come to once
+  // invoice fees / freight / discount and the supplier's payment fee are
+  // applied (same maths as receive). Reference parity: the view page of an
+  // unreceived order carries those amounts INSIDE each line's Total (ex/inc)
+  // and shows the sum as EXPECTED TOTAL in the header - it used to add up the
+  // product lines only ($24.00 here, $29.48 on the edit screen and at receive).
+  const landedPreview = isOrderOrInvoice && order.status !== 'RECEIVED' ? (order.landedPreview || null) : null;
+  const landedLineFor = (item) => landedPreview?.lines?.find((l) => l.key === item.id) || null;
+  // What a line gains on top of its own (tax-inclusive) value.
+  const landedExtraInc = (item) => {
+    const l = landedLineFor(item);
+    if (!l) return 0;
+    const net = (l.fees || 0) - (l.discount || 0);
+    const taxOnExtras = order.costsIncludeTax
+      ? 0
+      : net * ((order.feesTaxPercent ?? 0) / 100) + (l.freight || 0) * ((order.freightTaxPercent ?? 0) / 100);
+    return net + (l.freight || 0) + taxOnExtras + (l.paymentFees || 0);
+  };
+  // Header "Expected Total": the figure typed in Edit Details wins; otherwise
+  // the landed total of an unreceived document.
+  // A received document keeps the line: there it is what was actually received
+  // (all deliveries together), so the header never goes blank after receiving.
+  const expectedTotalDisplay = order.expectedTotal != null
+    ? order.expectedTotal
+    : landedPreview
+      ? landedPreview.total
+      : (order.status === 'RECEIVED' && order.purchases?.[0]?.totalAmount != null
+        ? order.purchases[0].totalAmount
+        : null);
   // Fee-related columns: reference hides them only for TRANSFER documents
   // (sent returns show +Fees/-Discounts, Freight, Rebate, Payment Fees).
   const showFeeColumns = order.type !== 'TRANSFER';
@@ -1376,6 +1412,10 @@ const OrderDetails = () => {
           ['Includes Freight', includesFreight ? 'Yes' : 'No'],
           ['Created By', order.creator?.name || 'N/A'],
           ['Created At', formatDateTime(order.createdAt)],
+          // Reference header: EXPECTED TOTAL sits right after CREATED AT
+          ...(isOrderOrInvoice && expectedTotalDisplay != null
+            ? [['Expected Total', formatCurrency(expectedTotalDisplay)]]
+            : []),
           ...(wasSent
             ? [
                 ['Sent By', order.sender?.name || 'N/A'],
@@ -1452,7 +1492,8 @@ const OrderDetails = () => {
                     <TableCell sx={tdSx}>{item.supplierCode || '-'}</TableCell>
                     <TableCell sx={tdSx} align="right">{caseQuantity}</TableCell>
                     <TableCell sx={tdSx} align="right">{renderQty(orderedCases, orderedItems)}</TableCell>
-                    <TableCell sx={tdSx} align="right">{formatCurrency(orderedTotals.totalInc)}</TableCell>
+                    {/* Line value + its share of fees / freight / discount / payment fee */}
+                    <TableCell sx={tdSx} align="right">{formatCurrency(orderedTotals.totalInc + landedExtraInc(item))}</TableCell>
                   </TableRow>
                 );
               })}
@@ -1464,7 +1505,7 @@ const OrderDetails = () => {
                 <TableCell sx={totalTdSx} />
                 <TableCell sx={totalTdSx} />
                 <TableCell sx={totalTdSx} align="right">{renderQty(totalCases, totalItems, true)}</TableCell>
-                <TableCell sx={totalTdSx} align="right">{formatCurrency(orderedTotalInc)}</TableCell>
+                <TableCell sx={totalTdSx} align="right">{formatCurrency(landedPreview ? landedPreview.total : orderedTotalInc)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -1511,10 +1552,14 @@ const OrderDetails = () => {
 
                 // Calculate received totals with fees
                 const baseCost = purchaseItem?.cost || (item.unitPrice * item.quantity);
-                const fees = purchaseItem?.fees || 0;
-                const freight = purchaseItem?.freight || 0;
-                const rebate = purchaseItem?.rebate || 0;
-                const paymentFees = purchaseItem?.paymentFees || 0;
+                // Received: what the Purchase record posted. Not received yet (and
+                // nothing posted for this line): the landed preview, so a SENT
+                // order already shows the totals it will receive at (reference).
+                const landedLine = purchaseItem ? null : landedLineFor(item);
+                const fees = purchaseItem ? (purchaseItem.fees || 0) : (landedLine?.fees || 0);
+                const freight = purchaseItem ? (purchaseItem.freight || 0) : (landedLine?.freight || 0);
+                const rebate = purchaseItem ? (purchaseItem.rebate || 0) : (landedLine?.discount || 0);
+                const paymentFees = purchaseItem ? (purchaseItem.paymentFees || 0) : (landedLine?.paymentFees || 0);
 
                 // Total (ex) should NOT include payment fees
                 const rowTotalEx = baseCost + fees + freight - rebate;
@@ -1581,7 +1626,7 @@ const OrderDetails = () => {
                     <TableCell sx={totalTdSx} align="right">
                       {(() => {
                         const purchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
-                        return formatCurrency(purchase?.fees || 0);
+                        return formatCurrency(purchase ? (purchase.fees || 0) : (landedPreview?.fees || 0));
                       })()}
                     </TableCell>
                     <TableCell sx={totalTdSx} align="right">
@@ -1590,20 +1635,20 @@ const OrderDetails = () => {
                         // even when it's included in line costs and not charged)
                         const purchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
                         const totalFreight = purchase?.items?.reduce((sum, item) => sum + (item.freight || 0), 0) || 0;
-                        return formatCurrency(totalFreight);
+                        return formatCurrency(purchase ? totalFreight : (landedPreview?.freight || 0));
                       })()}
                     </TableCell>
                     <TableCell sx={totalTdSx} align="right">
                       {(() => {
                         const purchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
                         const totalRebate = purchase?.items?.reduce((sum, item) => sum + (item.rebate || 0), 0) || 0;
-                        return formatCurrency(totalRebate);
+                        return formatCurrency(purchase ? totalRebate : (landedPreview?.discount || 0));
                       })()}
                     </TableCell>
                     <TableCell sx={totalTdSx} align="right">
                       {(() => {
                         const purchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
-                        return formatCurrency(purchase?.paymentFees || 0);
+                        return formatCurrency(purchase ? (purchase.paymentFees || 0) : (landedPreview?.paymentFees || 0));
                       })()}
                     </TableCell>
                   </>
@@ -1617,13 +1662,17 @@ const OrderDetails = () => {
                       const totalEx = (purchase.cost || 0) + (purchase.fees || 0) + chargedFreight - (purchase.items?.reduce((sum, item) => sum + (item.rebate || 0), 0) || 0);
                       return formatCurrency(totalEx);
                     }
+                    if (landedPreview) {
+                      // Same sum the rows above add up to: line value + fees + freight - discount
+                      return formatCurrency(landedPreview.subtotal + landedPreview.fees + landedPreview.freight - landedPreview.discount);
+                    }
                     return formatCurrency(receivedTotalEx);
                   })()}
                 </TableCell>
                 <TableCell sx={totalTdSx} align="right">
                   {(() => {
                     const purchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
-                    return formatCurrency(purchase?.totalAmount || receivedTotalInc);
+                    return formatCurrency(purchase?.totalAmount || (landedPreview ? landedPreview.total : receivedTotalInc));
                   })()}
                 </TableCell>
               </TableRow>

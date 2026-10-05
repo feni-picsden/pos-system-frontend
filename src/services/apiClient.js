@@ -189,7 +189,9 @@ apiClient.interceptors.response.use(
     // this, a save followed by a reload inside the 2-minute TTL replays the
     // pre-save list and the change looks like it never persisted.
     const method = response.config?.method;
-    if (method && method !== 'get') {
+    // readOnly: a POST that only calculates (e.g. the order landed-cost
+    // preview) changes nothing, so it must not invalidate any cache.
+    if (method && method !== 'get' && response.config?.readOnly !== true) {
       const prefix = resourcePrefix(response.config.url);
       // The same write also makes the IndexedDB copy of that resource stale.
       // Doing it here means every mutation in the app invalidates its store,

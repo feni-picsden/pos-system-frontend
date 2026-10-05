@@ -1054,6 +1054,8 @@ const ProductEdit = () => {
   // never the raw float a landed-cost division produced (7.647058823529413).
   // A string the operator is still typing is left untouched.
   const round2 = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 100) / 100 : v);
+  // Which cost box is being edited right now (shown unformatted while typing).
+  const [focusedCostField, setFocusedCostField] = useState(null);
   const getDisplayedCost = (field) => {
     const stored = formData[field] ?? '';
     if (formData.showCostsIncludingTax) return round2(stored);
@@ -2520,7 +2522,16 @@ const ProductEdit = () => {
                     <TextField
                       fullWidth
                       type="number"
-                      value={getDisplayedCost(field)}
+                      // Money reads as 2 decimals (14.50, not 14.5). While a box is
+                      // being typed in it shows the raw number, so the formatting
+                      // never fights the cursor.
+                      value={(() => {
+                        const shown = getDisplayedCost(field);
+                        if (focusedCostField === field || shown === '' || shown === null || !Number.isFinite(Number(shown))) return shown;
+                        return Number(shown).toFixed(2);
+                      })()}
+                      onFocus={() => { if (!readOnly) setFocusedCostField(field); }}
+                      onBlur={() => setFocusedCostField(null)}
                       onChange={(e) => handleCostChange(field, e.target.value)}
                       InputProps={{
                         readOnly,

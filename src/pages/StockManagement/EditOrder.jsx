@@ -1015,18 +1015,28 @@ const EditOrder = () => {
     const totalItems = (quantities?.cases || 0) * caseQty + (quantities?.items || 0);
     const orderDateIso = order?.orderDate ? new Date(order.orderDate).toISOString() : new Date().toISOString();
 
-    // Reset to base when quantity is 0
+    // No buying period applies to this line any more. Put the base cost back
+    // ONLY if a buying-period price is what is currently on the line.
+    //
+    // This used to reset the cost on EVERY quantity change that found no
+    // period - including a cost the operator had just typed. Typing Case Cost
+    // $12 and then Cases 2 silently turned the line back into the product's
+    // $14.50, while the box on screen kept showing $12 (the rows are drawn
+    // from groupedProducts, which this never refreshed): the order was then
+    // totalled, saved and received at a price nobody had entered.
+    const dropBuyingPeriod = () => setSelectedProducts(prev => prev.map(p => {
+      if (p.id !== productId || !p.buyingPeriodApplied) return p;
+      return {
+        ...p,
+        caseCost: p._baseCaseCost ?? p.caseCost,
+        itemCost: p._baseItemCost ?? p.itemCost,
+        buyingPeriodApplied: false,
+        buyingPeriodId: null,
+      };
+    }));
+
     if (!totalItems || totalItems <= 0) {
-      setSelectedProducts(prev => prev.map(p => {
-        if (p.id !== productId) return p;
-        return {
-          ...p,
-          caseCost: p._baseCaseCost ?? p.caseCost,
-          itemCost: p._baseItemCost ?? p.itemCost,
-          buyingPeriodApplied: false,
-          buyingPeriodId: null,
-        };
-      }));
+      dropBuyingPeriod();
       return;
     }
 
@@ -1039,21 +1049,14 @@ const EditOrder = () => {
 
     const match = res?.match;
     if (!match?.period) {
-      setSelectedProducts(prev => prev.map(p => {
-        if (p.id !== productId) return p;
-        return {
-          ...p,
-          caseCost: p._baseCaseCost ?? p.caseCost,
-          itemCost: p._baseItemCost ?? p.itemCost,
-          buyingPeriodApplied: false,
-          buyingPeriodId: null,
-        };
-      }));
+      dropBuyingPeriod();
       return;
     }
 
     setSelectedProducts(prev => prev.map(p => {
       if (p.id !== productId) return p;
+      // A cost typed by hand wins over an automatic buying-period price.
+      if (p._manualCost) return p;
       return {
         ...p,
         itemCost: match.unitCost,
@@ -1063,6 +1066,14 @@ const EditOrder = () => {
       };
     }));
   };
+
+  // The rows on screen are drawn from groupedProducts; totals and Save read
+  // selectedProducts. Keep the two in step no matter which code path changed
+  // the lines, so the screen can never show one cost and save another.
+  useEffect(() => {
+    updateGroupedProducts(selectedProducts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProducts]);
 
   const handleSupplierCodeChange = (productId, supplierId) => {
     setSupplierCodes(prev => ({
@@ -1093,7 +1104,16 @@ const EditOrder = () => {
     const updated = selectedProducts.map(p => {
       if (p.id !== productId) return p;
       const cq = p.caseQuantity || 1;
-      return { ...p, caseCost, itemCost: cq > 0 ? caseCost / cq : caseCost };
+      // Typed by the operator (Case Cost or Total Payable): from here on this
+      // line's cost is theirs - no buying-period lookup may overwrite it.
+      return {
+        ...p,
+        caseCost,
+        itemCost: cq > 0 ? caseCost / cq : caseCost,
+        _manualCost: true,
+        buyingPeriodApplied: false,
+        buyingPeriodId: null,
+      };
     });
     setSelectedProducts(updated);
     updateGroupedProducts(updated);
@@ -1115,11 +1135,22 @@ const EditOrder = () => {
   };
 
   // Cost change vs the product's base case cost (percentage, signed)
+  // New Case Cost = what the product will cost once received: the line cost
+  // plus its share of invoice fees/freight, less its share of the discount
+  // (landed cost, from the same maths receive() uses). Falls back to the plain
+  // case cost when there is no preview (transfers, returns, offline).
+  const getNewCaseCost = (product) => {
+    const line = landed?.lines?.find((l) => String(l.key) === String(product.id));
+    const landedCase = Number(line?.landedCaseCost);
+    return Number.isFinite(landedCase) && landedCase > 0 ? landedCase : (Number(product.caseCost) || 0);
+  };
+
   const getCostChangePct = (product) => {
     const base = parseFloat(product._baseCaseCost);
-    const current = parseFloat(product.caseCost);
+    const current = getNewCaseCost(product);
     if (!base || isNaN(base) || isNaN(current)) return 0;
-    return ((current - base) / base) * 100;
+    const pct = ((current - base) / base) * 100;
+    return Math.abs(pct) < 0.005 ? 0 : pct;
   };
 
   const getCheckedIds = () =>
@@ -1231,6 +1262,78 @@ const EditOrder = () => {
     invoiceDiscount: invoiceDiscount === '' ? 0 : parseFloat(invoiceDiscount) || 0,
   });
 
+  // ── Landed totals (fees + freight − discount + payment fee) ────────────────
+  // The order screen used to total the lines only, while receive() added the
+  // invoice fees, freight, discount and payment fee: $24 pending became $29.48
+  // received. The server now previews the receive maths for what is on screen,
+  // so the pending total and New Case Cost match what will be posted.
+  const landedApplies = order?.type === 'ORDER' || order?.type === 'INVOICE';
+  // On a SENT order the quantity boxes hold "To Receive"; totals are about
+  // what was ORDERED.
+  const orderedQtyMap = () => (order?.status === 'SENT'
+    ? Object.fromEntries(
+        selectedProducts.map((p) => {
+          const current = productQuantities[p.id] || { cases: 0, items: 0, supplierCode: '' };
+          const ordered = orderedQuantities[p.id];
+          return [p.id, ordered ? { ...ordered, supplierCode: current.supplierCode || '' } : current];
+        })
+      )
+    : productQuantities);
+  const buildLandedPayload = (qtyMap) => ({
+    supplierId: order?.supplierId ?? order?.supplier?.id ?? null,
+    items: formatOrderItems(qtyMap).map((it, idx) => ({ ...it, key: selectedProducts[idx]?.id })),
+    ...buildOptionsPayload(),
+  });
+  const [landed, setLanded] = useState(null);
+  // True from the moment a line/option changes until the server's figures for
+  // that change arrive. The totals are greyed out meanwhile, so a figure that
+  // belongs to the PREVIOUS inputs is never shown as if it were current
+  // (switching "freight included" off used to leave $25.48 on screen for a
+  // moment before $29.48 replaced it).
+  const [landedPending, setLandedPending] = useState(false);
+  const landedSeqRef = useRef(0);
+  const landedKey = landedApplies ? JSON.stringify(buildLandedPayload(orderedQtyMap())) : '';
+  useEffect(() => {
+    if (!landedKey) {
+      setLanded(null);
+      setLandedPending(false);
+      return undefined;
+    }
+    const seq = ++landedSeqRef.current;
+    setLandedPending(true);
+    const timer = setTimeout(async () => {
+      try {
+        const preview = await orderInvoiceService.landedPreview(JSON.parse(landedKey));
+        if (seq === landedSeqRef.current) setLanded(preview);
+      } catch {
+        if (seq === landedSeqRef.current) setLanded(null);
+      } finally {
+        if (seq === landedSeqRef.current) setLandedPending(false);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [landedKey]);
+  // Applied to every figure that comes from the preview.
+  const landedFigureSx = landedPending ? { opacity: 0.35 } : {};
+
+  // Total shown on screen: landed when a preview exists, else the line sum.
+  const displayGrandTotal = () => (landedApplies && landed ? landed.total : calculateGrandTotal(orderedQtyMap()));
+  const landedHasAdjustments = Boolean(
+    landedApplies && landed && Math.abs(landed.total - landed.subtotal) >= 0.005
+  );
+
+  // Total to STORE with the order: ask the server for the exact lines being
+  // saved so the saved figure can never lag behind the debounce above.
+  const resolveTotalAmount = async (qtyMap, fallback) => {
+    if (!landedApplies) return fallback;
+    try {
+      const preview = await orderInvoiceService.landedPreview(buildLandedPayload(qtyMap));
+      return Number.isFinite(preview?.total) ? Math.round(preview.total * 100) / 100 : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   const handleSaveEditDetails = async () => {
     try {
       setSaving(true);
@@ -1238,7 +1341,7 @@ const EditOrder = () => {
       setSuccess('');
 
       const items = formatOrderItems();
-      const totalAmount = calculateGrandTotal();
+      const totalAmount = await resolveTotalAmount(productQuantities, calculateGrandTotal());
 
       const orderData = {
         from: editFormData.from,
@@ -1322,7 +1425,7 @@ const EditOrder = () => {
           )
         : undefined;
       const items = formatOrderItems(orderedMap);
-      const totalAmount = calculateGrandTotal(orderedMap);
+      const totalAmount = await resolveTotalAmount(orderedMap || productQuantities, calculateGrandTotal(orderedMap));
 
       const isTransfer = order?.type === 'TRANSFER';
 
@@ -1389,7 +1492,7 @@ const EditOrder = () => {
         })
       );
       const items = formatOrderItems(orderedMap);
-      const totalAmount = calculateGrandTotal(orderedMap);
+      const totalAmount = await resolveTotalAmount(orderedMap, calculateGrandTotal(orderedMap));
 
       // First, save the order
       const orderData = {
@@ -1560,7 +1663,7 @@ const EditOrder = () => {
           </div>
           <div class="info-row">
             <span class="info-label">Includes Freight:</span>
-            <span class="info-value">${order.supplier?.freightIncludedOnInvoices ? 'Yes' : 'No'}</span>
+            <span class="info-value">${freightIncluded ? 'Yes' : 'No'}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Created By:</span>
@@ -1878,7 +1981,9 @@ const EditOrder = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', textAlign: 'center', flex: 1 }}>
-          {order?.type === 'TRANSFER' ? 'Editing Transfer' : 'Editing Order'}
+          {order?.type === 'TRANSFER'
+            ? 'Editing Transfer'
+            : order?.type === 'RETURN' ? 'Editing Return' : 'Editing Order'}
         </Typography>
         <Button
           onClick={() => setOptionsOpen(prev => !prev)}
@@ -1893,6 +1998,22 @@ const EditOrder = () => {
       {/* Options Panel - full-width inline (reference parity) */}
       {optionsOpen && (
         <Paper sx={{ p: 2, mb: 3, borderRadius: 0, backgroundColor: '#fff', boxShadow: 'none', border: '1px solid #e0e0e0' }}>
+          {/* Fees / freight / discount / payment fee only ever apply when an
+              order or invoice is RECEIVED. On a return or transfer the boxes are
+              still here but nothing reads them - say so, in red once something
+              has actually been typed, so an unchanged total is not mistaken
+              for a bug. */}
+          {!landedApplies && (() => {
+            const typed = [invoiceFees, invoiceFreight, invoiceDiscount].some((v) => v !== '' && Number(v) !== 0);
+            const docName = order?.type === 'TRANSFER' ? 'transfer' : order?.type === 'RETURN' ? 'return' : 'document';
+            return (
+              <Alert severity={typed ? 'error' : 'info'} sx={{ mb: 2 }}>
+                {typed
+                  ? `These fees, freight and discount are NOT applied to a ${docName}. The total stays at the product value (${formatCurrency(calculateGrandTotal())}). They only apply to orders and invoices.`
+                  : `Payment fee, invoice fees, freight and discount apply to orders and invoices only. They are not used on a ${docName}.`}
+              </Alert>
+            );
+          })()}
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, flexWrap: 'wrap' }}>
             <Button onClick={handlePrint} startIcon={<PrintIcon />} sx={sfBtn}>
               Print
@@ -2021,7 +2142,8 @@ const EditOrder = () => {
           </Grid>
           <Grid item xs={6} sm={3}>
             <Typography variant="body2" color="text.secondary">INCLUDES FREIGHT:</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 500 }}>{order.supplier?.freightIncludedOnInvoices ? 'Yes' : 'No'}</Typography>
+            {/* Follows the Options switch ("Freight is included on supplier invoice") - the flag receive() applies */}
+            <Typography variant="body1" sx={{ fontWeight: 500 }}>{freightIncluded ? 'Yes' : 'No'}</Typography>
           </Grid>
           <Grid item xs={6} sm={3}>
             <Typography variant="body2" color="text.secondary">CREATED BY:</Typography>
@@ -2033,11 +2155,11 @@ const EditOrder = () => {
           </Grid>
           <Grid item xs={6} sm={3}>
             <Typography variant="body2" color="text.secondary">EXPECTED TOTAL:</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-              {formatCurrency(order.expectedTotal != null ? order.expectedTotal : calculateGrandTotal())}
-              {order.expectedTotal != null && Math.abs(order.expectedTotal - calculateGrandTotal()) >= 0.005 && (
+            <Typography variant="body1" sx={{ fontWeight: 500, ...(order.expectedTotal != null ? {} : landedFigureSx) }}>
+              {formatCurrency(order.expectedTotal != null ? order.expectedTotal : displayGrandTotal())}
+              {order.expectedTotal != null && Math.abs(order.expectedTotal - displayGrandTotal()) >= 0.005 && (
                 <Typography component="span" variant="body2" sx={{ color: '#dc2626', ml: 1 }}>
-                  (actual {formatCurrency(calculateGrandTotal())})
+                  (actual {formatCurrency(displayGrandTotal())})
                 </Typography>
               )}
             </Typography>
@@ -2305,7 +2427,10 @@ const EditOrder = () => {
 
                   {/* To Receive - Cases & Items (captions below, header above) */}
                   <Grid item xs={6} sm={2}>
-                    <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>To Receive</Typography>
+                    {/* A return sends stock back - nothing is being received */}
+                    <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>
+                      {order?.type === 'RETURN' ? 'To Return' : 'To Receive'}
+                    </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Box sx={{ flex: 1 }}>
                         <TextField
@@ -2375,13 +2500,14 @@ const EditOrder = () => {
 
                   {/* New Case Cost + cost change indicator */}
                   <Grid item xs={6} sm={1.5}>
+                    {/* A return does not change the product's cost, so it is not "new" */}
                     <Typography sx={{ fontSize: 11, color: '#676b72', textTransform: 'uppercase' }}>
-                      New Case Cost
+                      {order?.type === 'RETURN' ? 'Case Cost' : 'New Case Cost'}
                     </Typography>
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {formatCurrency(product.caseCost || 0)}
+                    <Typography sx={{ fontWeight: 600, ...landedFigureSx }}>
+                      {formatCurrency(getNewCaseCost(product))}
                     </Typography>
-                    {costChangePct !== 0 && (
+                    {costChangePct !== 0 && !landedPending && (
                       <Typography
                         sx={{
                           fontSize: 12,
@@ -2497,13 +2623,34 @@ const EditOrder = () => {
           </Grid>
           <Grid item xs={4}>
             <TextField
-              value={formatCurrency(calculateGrandTotal()).replace('$', '')}
+              value={formatCurrency(displayGrandTotal()).replace('$', '')}
               label="Total"
               InputProps={{ readOnly: true }}
-              sx={{ backgroundColor: 'white' }}
+              sx={{ backgroundColor: 'white', '& input': landedFigureSx }}
               fullWidth
             />
           </Grid>
+          {/* While the new figures are on their way, say so instead of showing the old sum */}
+          {landedPending && landedHasAdjustments && (
+            <Grid item xs={12}>
+              <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>Updating total…</Typography>
+            </Grid>
+          )}
+          {/* Where the total comes from - only when fees/freight/discount/payment fee apply */}
+          {landedHasAdjustments && !landedPending && (
+            <Grid item xs={12}>
+              <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                Products {formatCurrency(landed.subtotal)}
+                {landed.fees ? ` + Fees ${formatCurrency(landed.fees)}` : ''}
+                {landed.freight ? ` + Freight ${formatCurrency(landed.freight)}` : ''}
+                {landed.discount ? ` − Discount ${formatCurrency(landed.discount)}` : ''}
+                {landed.paymentFees ? ` + Payment fee ${landed.paymentFeePercentage}% ${formatCurrency(landed.paymentFees)}` : ''}
+                {landed.taxAddedOnTop && landed.tax ? ` + Tax ${formatCurrency(landed.tax)}` : ''}
+                {' = '}
+                <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landed.total)}</Box>
+              </Typography>
+            </Grid>
+          )}
         </Grid>
       </Box>
 

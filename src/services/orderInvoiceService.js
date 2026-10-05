@@ -23,6 +23,16 @@ const orderInvoiceService = {
     return response.data;
   },
 
+  // What a pending order will total / cost per product once fees, freight,
+  // discount and the payment fee are applied (same maths as receive). Read-only.
+  landedPreview: async (payload) => {
+    const response = await apiClient.post('/orders-invoices/landed-preview', payload, {
+      silent: true,
+      readOnly: true,
+    });
+    return response.data?.preview || null;
+  },
+
   // Create a new order/invoice
   createOrderInvoice: async (orderInvoiceData) => {
     const response = await apiClient.post('/orders-invoices', orderInvoiceData);
