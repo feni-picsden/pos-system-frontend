@@ -2349,7 +2349,12 @@ const EditOrder = () => {
           {/* Group Header */}
           <Box sx={{ backgroundColor: '#424242', color: 'white', p: 1.5 }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              {group.name.toUpperCase()}
+              {/* A transfer moves stock between outlets: the band names the
+                  sending outlet, not whichever supplier the product happens to have. */}
+              {(order?.type === 'TRANSFER'
+                ? `From ${getOutletNameById(order.from) || 'outlet'}`
+                : group.name
+              ).toUpperCase()}
             </Typography>
           </Box>
 
@@ -2436,7 +2441,7 @@ const EditOrder = () => {
                   <Grid item xs={6} sm={2}>
                     {/* A return sends stock back - nothing is being received */}
                     <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>
-                      {order?.type === 'RETURN' ? 'To Return' : 'To Receive'}
+                      {order?.type === 'RETURN' ? 'To Return' : order?.type === 'TRANSFER' ? 'To Transfer' : 'To Receive'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Box sx={{ flex: 1 }}>
@@ -2509,7 +2514,7 @@ const EditOrder = () => {
                   <Grid item xs={6} sm={1.5}>
                     {/* A return does not change the product's cost, so it is not "new" */}
                     <Typography sx={{ fontSize: 11, color: '#676b72', textTransform: 'uppercase' }}>
-                      {order?.type === 'RETURN' ? 'Case Cost' : 'New Case Cost'}
+                      {order?.type === 'RETURN' || order?.type === 'TRANSFER' ? 'Case Cost' : 'New Case Cost'}
                     </Typography>
                     <Typography sx={{ fontWeight: 600, ...landedFigureSx }}>
                       {formatCurrency(getNewCaseCost(product))}

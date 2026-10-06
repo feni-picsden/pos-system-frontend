@@ -65,7 +65,7 @@ import {
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import supplierService from '../../services/supplierService';
 import { resolveAssetUrl } from '../../services/apiClient';
@@ -158,6 +158,10 @@ const OrderDetails = () => {
   const { prompt } = useAppDialogs();
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Set by the notification panel: re-read the document even if this page was
+  // already open, and bypass the GET cache so the copy is the current one.
+  const refreshToken = location.state?.refresh || null;
   const { user, getOutletName } = useAuth();
   const { selectedOutlet, outlets: knownOutlets } = useSelectedOutlet();
   const [order, setOrder] = useState(null);
@@ -206,11 +210,12 @@ const OrderDetails = () => {
   }[order?.reviewStatus];
 
   useEffect(() => {
-    loadOrder();
+    loadOrder({ fresh: Boolean(refreshToken) });
     loadUserOutlet();
-    // Load once per order/user; the loaders read fresh state when called.
+    // Load once per order/user (and again on a notification click); the
+    // loaders read fresh state when called.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, user]);
+  }, [id, user, refreshToken]);
 
   const loadUserOutlet = async () => {
     try {
@@ -243,10 +248,10 @@ const OrderDetails = () => {
     }
   };
 
-  const loadOrder = async () => {
+  const loadOrder = async ({ fresh = false } = {}) => {
     try {
       setLoading(true);
-      const response = await orderInvoiceService.getOrderInvoice(id);
+      const response = await orderInvoiceService.getOrderInvoice(id, { fresh });
       setOrder(response.orderInvoice);
       setError('');
     } catch (err) {
@@ -1075,6 +1080,11 @@ const OrderDetails = () => {
   // Toolbar/table gating (reference matrix)
   const isUnsent = order.status === 'PENDING' || order.status === 'OPEN';
   const isCreditNote = order.type === 'CREDIT_NOTE';
+  // Our credit note is an AMOUNT against a supplier, with no product lines. The
+  // page used to add up the (empty) lines and show a $0.00 total for a $1.00
+  // note (QA row 62) - the amount is the document's own totalAmount.
+  const creditAmount = Number(order.totalAmount) || 0;
+  const amountOnlyCredit = isCreditNote && totalLines === 0;
   const isOrderOrInvoice = order.type === 'ORDER' || order.type === 'INVOICE';
   // Unsent orders/invoices show the simplified reference column set
   const simpleTable = isOrderOrInvoice && isUnsent;
@@ -1441,6 +1451,7 @@ const OrderDetails = () => {
           ...(isOrderOrInvoice && expectedTotalDisplay != null
             ? [['Expected Total', formatCurrency(expectedTotalDisplay)]]
             : []),
+          ...(isCreditNote ? [['Credit Amount', formatCurrency(creditAmount)]] : []),
           ...(wasSent
             ? [
                 ['Sent By', order.sender?.name || 'N/A'],
@@ -1484,7 +1495,32 @@ const OrderDetails = () => {
       {/* Product Details Table — unsent orders/invoices show the simplified reference column set */}
       <Paper sx={{ mx: 2, backgroundColor: '#fff', borderRadius: 0, boxShadow: 'none' }}>
         <TableContainer>
-          {simpleTable ? (
+          {amountOnlyCredit ? (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>Description</TableCell>
+                <TableCell sx={thSx}>Supplier</TableCell>
+                <TableCell sx={thSx}>Linked Invoice</TableCell>
+                <TableCell sx={thSx} align="right">Credit Amount</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell sx={tdSx}>Credit note {order.orderNumber}</TableCell>
+                <TableCell sx={tdSx}>{order.supplier?.name || '-'}</TableCell>
+                <TableCell sx={tdSx}>{order.linkedInvoice?.orderNumber || '-'}</TableCell>
+                <TableCell sx={tdSx} align="right">{formatCurrency(creditAmount)}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell sx={totalTdSx}>Total</TableCell>
+                <TableCell sx={totalTdSx} />
+                <TableCell sx={totalTdSx} />
+                <TableCell sx={totalTdSx} align="right">{formatCurrency(creditAmount)}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          ) : simpleTable ? (
           <Table>
             <TableHead>
               <TableRow>

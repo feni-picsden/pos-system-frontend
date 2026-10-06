@@ -18,8 +18,10 @@ const orderInvoiceService = {
   },
 
   // Get a specific order/invoice by ID
-  getOrderInvoice: async (id) => {
-    const response = await apiClient.get(`/orders-invoices/${id}`);
+  // { fresh: true } skips the GET cache - used when the page is re-entered
+  // from a notification and must show the document as it is now.
+  getOrderInvoice: async (id, { fresh = false } = {}) => {
+    const response = await apiClient.get(`/orders-invoices/${id}`, fresh ? { noCache: true } : undefined);
     return response.data;
   },
 

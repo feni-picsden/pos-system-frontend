@@ -612,6 +612,25 @@ const DashboardLayout = ({ children }) => {
     } catch { /* ignore */ }
   };
 
+  // Reference: "Selecting a notification will take you to that particular
+  // promotion or invoice." Ours link to an order / invoice / transfer: the id is
+  // in referenceId, or in metadata.orderId for review notifications. A
+  // notification with no link (low stock, system, ...) stays a plain row.
+  const notifTarget = (n) => {
+    if (String(n?.referenceType || '').toUpperCase().replace(/_/g, '') !== 'ORDERINVOICE') return null;
+    const orderId = Number(n.referenceId ?? n.metadata?.orderId);
+    return Number.isInteger(orderId) && orderId > 0 ? `/orders-invoices/${orderId}` : null;
+  };
+  const handleNotifClick = (n) => {
+    const target = notifTarget(n);
+    if (!target) return;
+    setNotifOpen(false);
+    // state.refresh: the page re-reads the document even when it is already
+    // open (clicking the notification of the page you are on used to show the
+    // stale copy, e.g. "Sent" after the transfer was received).
+    navigate(target, { state: { refresh: Date.now() } });
+  };
+
   const handleMarkAllRead = async () => {
     try {
       await notificationService.markAllRead();
@@ -1190,12 +1209,28 @@ const DashboardLayout = ({ children }) => {
           <List sx={{ py: 0, overflowY: 'auto', flex: 1 }}>
             {notifications.map((n) => {
               const isPendingTransfer = n.type === 'STOCK_TRANSFER' && n.status === 'Pending';
+              const canOpen = Boolean(notifTarget(n));
               return (
                 <ListItem
                   key={n.id}
                   alignItems="flex-start"
+                  {...(canOpen
+                    ? {
+                        role: 'button',
+                        tabIndex: 0,
+                        title: 'Open this order',
+                        onClick: () => handleNotifClick(n),
+                        onKeyDown: (e) => {
+                          if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            handleNotifClick(n);
+                          }
+                        },
+                      }
+                    : {})}
                   sx={{
                     borderBottom: '1px solid #f0f0f0',
+                    ...(canOpen ? { cursor: 'pointer', '&:hover': { backgroundColor: '#f5fafd' } } : {}),
                     // Sit the dot and bin level with the TITLE. Centred (MUI's
                     // default) they drifted down beside the message on tall rows,
                     // which is what made the dot look mixed into the text.
@@ -1208,7 +1243,7 @@ const DashboardLayout = ({ children }) => {
                       {!n.readAt && (
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#5ebbeb' }} />
                       )}
-                      <IconButton edge="end" size="small" disableRipple onClick={() => handleDeleteNotif(n.id)} aria-label="delete notification">
+                      <IconButton edge="end" size="small" disableRipple onClick={(e) => { e.stopPropagation(); handleDeleteNotif(n.id); }} aria-label="delete notification">
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Box>
@@ -1235,7 +1270,7 @@ const DashboardLayout = ({ children }) => {
                             variant="contained"
                             sx={{ mt: 1, textTransform: 'none' }}
                             disabled={receivingId === n.id}
-                            onClick={() => handleReceiveStock(n)}
+                            onClick={(e) => { e.stopPropagation(); handleReceiveStock(n); }}
                           >
                             {receivingId === n.id ? 'Receiving…' : 'Receive Stock'}
                           </Button>
