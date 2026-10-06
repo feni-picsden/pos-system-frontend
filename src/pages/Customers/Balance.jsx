@@ -333,6 +333,8 @@ const Balance = () => {
   const [statementViewerOpen, setStatementViewerOpen] = useState(false);
   const [generatedStatement, setGeneratedStatement] = useState(null);
   const [makePaymentDialogOpen, setMakePaymentDialogOpen] = useState(false);
+  // true while the Make Payment dialog is fetching its invoices / payment methods
+  const [paymentLoading, setPaymentLoading] = useState(false);
   // Payment validation belongs inside the dialog, not on the page behind the backdrop.
   const [paymentError, setPaymentError] = useState("");
   const [paymentCustomer, setPaymentCustomer] = useState(null);
@@ -711,14 +713,21 @@ const Balance = () => {
     setPaymentReference("");
     setPaymentError("");
     setInvoiceAllocations({});
+    // QA row 76: the dialog used to open on whatever was loaded last (another
+    // customer's invoices, or nothing: "$0.00 / No outstanding invoices") and
+    // fill in a moment later. Clear the old rows and show a loading state until
+    // this customer's data is in, as the reference page never shows a wrong amount.
+    setOutstandingInvoices([]);
+    setPaymentLoading(true);
     setMakePaymentDialogOpen(true);
 
     try {
-      await loadPaymentData();
-      await loadOutstandingInvoices(customer.id);
+      await Promise.all([loadPaymentData(), loadOutstandingInvoices(customer.id)]);
     } catch (err) {
       console.error('Error loading payment data:', err);
       setPaymentError('Failed to load payment data');
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -1526,6 +1535,12 @@ const Balance = () => {
               {paymentError}
             </Alert>
           )}
+          {paymentLoading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 8 }}>
+              <CircularProgress />
+              <Typography color="text.secondary">Loading outstanding invoices…</Typography>
+            </Box>
+          ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={4}>
@@ -1723,6 +1738,7 @@ const Balance = () => {
               </TableContainer>
             </Box>
           </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
           <Button
@@ -1733,7 +1749,7 @@ const Balance = () => {
           </Button>
           <Button
             onClick={handleCompletePayment}
-            disabled={processingPayment}
+            disabled={processingPayment || paymentLoading}
             variant="contained"
             sx={primaryButtonSx}
           >

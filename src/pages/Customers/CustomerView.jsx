@@ -131,6 +131,8 @@ const CustomerView = () => {
   const [paymentReference, setPaymentReference] = useState("");
   const [invoiceAllocations, setInvoiceAllocations] = useState({});
   const [processingPayment, setProcessingPayment] = useState(false);
+  // true while the Make Payment dialog is fetching invoices / payment methods
+  const [paymentLoading, setPaymentLoading] = useState(false);
   // Payment validation belongs inside the dialog, not on the page behind the backdrop.
   const [paymentError, setPaymentError] = useState("");
 
@@ -271,13 +273,16 @@ const CustomerView = () => {
     setPaymentReference("");
     setPaymentError("");
     setInvoiceAllocations({});
+    // QA row 76: show a loading state until the invoices and payment methods
+    // are in, instead of "$0.00 / No outstanding invoices" filling in later.
+    setPaymentLoading(true);
     setPaymentDialogOpen(true);
-    // Ensure the allocation table has data even if opened before the balance tab loaded it.
-    if (outstandingSales.length === 0) loadOutstandingSales();
     try {
       const [registersData, paymentMethodsData] = await Promise.all([
         registerService.list({ isActive: true }),
         paymentMethodService.getPaymentMethods({ isActive: true }),
+        // Always re-read the outstanding sales so the dialog is current.
+        loadOutstandingSales(),
       ]);
       setRegisters(registersData || []);
       const methods = paymentMethodsData.paymentMethods || [];
@@ -295,6 +300,9 @@ const CustomerView = () => {
       }
     } catch (err) {
       console.error("Error loading payment data:", err);
+      setPaymentError("Failed to load payment data");
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -608,7 +616,11 @@ const CustomerView = () => {
                   <CircularProgress />
                 </Box>
               ) : outstandingSales.length > 0 ? (
-                <TableContainer sx={{ flex: 1 }}>
+                // flexShrink 0: inside the panel's flex column this table (overflow auto,
+                // so min-height 0) was squeezed to zero height whenever the Payment
+                // History below was long, hiding the customer's outstanding invoices.
+                // The panel scrolls instead, as the reference page does.
+                <TableContainer sx={{ flexShrink: 0 }}>
                   <Table>
                     <TableHead>
                       <TableRow sx={{ bgcolor: "#5ebbeb" }}>
@@ -697,7 +709,7 @@ const CustomerView = () => {
                 Payment History
               </Typography>
               {payments.length > 0 ? (
-                <TableContainer>
+                <TableContainer sx={{ flexShrink: 0 }}>
                   <Table>
                     <TableHead>
                       <TableRow sx={{ bgcolor: "#5ebbeb" }}>
@@ -1471,6 +1483,13 @@ const CustomerView = () => {
               {paymentError}
             </Alert>
           )}
+          {paymentLoading ? (
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, py: 8 }}>
+              <CircularProgress />
+              <Typography color="text.secondary">Loading outstanding invoices…</Typography>
+            </Box>
+          ) : (
+          <>
           <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2, mb: 2 }}>
             <TextField
               label="Customer"
@@ -1600,13 +1619,15 @@ const CustomerView = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
           <Button
             onClick={handleCompletePayment}
             variant="contained"
-            disabled={processingPayment}
+            disabled={processingPayment || paymentLoading}
             sx={{ bgcolor: "#32b643", "&:hover": { bgcolor: "#2a9c39" } }}
           >
             {processingPayment ? "Processing..." : "Complete"}
