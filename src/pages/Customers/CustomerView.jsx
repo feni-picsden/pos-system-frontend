@@ -33,6 +33,7 @@ import {
   Select,
   InputAdornment,
   TableFooter,
+  Collapse,
 } from "@mui/material";
 import {
   ArrowDropDown as ArrowDropDownIcon,
@@ -171,6 +172,9 @@ const CustomerView = () => {
   const [revisions, setRevisions] = useState([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
+  // Sales History tab: several sale cards may be open at once; a card closes
+  // only from its own Close button.
+  const [openSaleIds, setOpenSaleIds] = useState([]);
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -845,7 +849,7 @@ const CustomerView = () => {
                 ) : historySales.length > 0 ? (
                   historySales.map((sale) => (
                     <React.Fragment key={`sale-fr-${sale.id}`}>
-                      {selectedSale?.id !== sale.id && (
+                      {!openSaleIds.includes(sale.id) && (
                         <Box
                           sx={{
                             display: "flex",
@@ -854,11 +858,10 @@ const CustomerView = () => {
                             borderBottom: "1px solid #e0e0e0",
                             cursor: "pointer",
                           }}
-                          onClick={() =>
-                            setSelectedSale(
-                              selectedSale?.id === sale.id ? null : sale
-                            )
-                          }
+                          onClick={() => {
+                            setSelectedSale(sale);
+                            setOpenSaleIds((ids) => (ids.includes(sale.id) ? ids : [...ids, sale.id]));
+                          }}
                         >
                           {/* Reference: purple hollow circle while the sale still
                               owes money (On Account, unpaid); black tick once paid. */}
@@ -926,7 +929,9 @@ const CustomerView = () => {
                         </Box>
                       )}
 
-                      {selectedSale?.id === sale.id && (
+                      {/* Slides open / closed like the Sales History page. The card
+                          reads this row's own `sale`, so it is safe while sliding shut. */}
+                      <Collapse in={openSaleIds.includes(sale.id)} timeout={400} easing="ease-in-out" unmountOnExit>
                         <Paper
                           sx={{
                             mb: 1,
@@ -998,6 +1003,17 @@ const CustomerView = () => {
                                 {customer.company || "-"}
                               </Typography>
                             </Box>
+                            {/* The only way to close the card (clicking elsewhere keeps it open) */}
+                            <Button
+                              size="small"
+                              onClick={() => {
+                                setOpenSaleIds((ids) => ids.filter((id) => id !== sale.id));
+                                if (selectedSale?.id === sale.id) setSelectedSale(null);
+                              }}
+                              sx={{ ml: 2, minWidth: 0, color: "#000", textTransform: "none", fontWeight: 600 }}
+                            >
+                              ✕ Close
+                            </Button>
                           </Box>
 
                           {/* Summary row with buttons on right */}
@@ -1162,7 +1178,7 @@ const CustomerView = () => {
                             </Box>
                           </Box>
                         </Paper>
-                      )}
+                      </Collapse>
                     </React.Fragment>
                   ))
                 ) : (

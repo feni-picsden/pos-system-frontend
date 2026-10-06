@@ -12,6 +12,7 @@ import {
   Alert,
   FormControlLabel,
   InputAdornment,
+  Collapse,
 } from "@mui/material";
 import { CheckCircleOutlined } from "@mui/icons-material";
 import { saleOutstanding, INCOMPLETE_PURPLE } from "../utils/saleOutstanding";
@@ -462,12 +463,17 @@ const SalesHistory = () => {
     }
   };
 
+  // Several sale cards may be open at once; a card closes only from its own
+  // Close button. `selectedSale` is the one the action dialogs work on.
+  const [openSaleIds, setOpenSaleIds] = useState([]);
   const handleSaleClick = (sale) => {
     setSelectedSale(sale);
+    setOpenSaleIds((ids) => (ids.includes(sale.id) ? ids : [...ids, sale.id]));
   };
 
-  const handleCloseSaleDetails = () => {
-    setSelectedSale(null);
+  const handleCloseSaleDetails = (saleId) => {
+    setOpenSaleIds((ids) => ids.filter((id) => id !== saleId));
+    if (selectedSale?.id === saleId) setSelectedSale(null);
   };
 
   const handleReprintReceipt = (sale) => {
@@ -922,10 +928,11 @@ const SalesHistory = () => {
 
                     {/* Expanded Sale Details — the shared reference card; Modify Details
                         renders the same one in editing mode. */}
-                    {selectedSale?.id === sale.id && (
+                    {/* Collapse: the card slides open / closed instead of snapping in. */}
+                    <Collapse in={openSaleIds.includes(sale.id)} timeout={400} easing="ease-in-out" unmountOnExit>
                       <Box sx={{ bgcolor: saleIndex % 2 ? "#ebebeb" : "#f8f8f8", p: "16px 0" }}>
                         <SaleDetailCard
-                          sale={selectedSale}
+                          sale={selectedSale?.id === sale.id ? selectedSale : sale}
                           formatDate={formatDate}
                           formatTime={formatTime}
                           outletName={
@@ -935,29 +942,31 @@ const SalesHistory = () => {
                             <>
                               <Button
                                 disableElevation
-                                onClick={handleCloseSaleDetails}
+                                onClick={() => handleCloseSaleDetails(sale.id)}
                                 sx={{ ...actionButtonSx(true), mb: "32px" }}
                               >
                                 ✕ Close
                               </Button>
                               {[
-                                ["Reprint Receipt", () => handleReprintReceipt(selectedSale), true],
-                                ["Email Receipt", () => handleEmailReceipt(selectedSale), hasPermission("reports.sales")],
-                                ["Modify Details", () => handleModifyDetails(selectedSale), hasPermission("history_modify_sale")],
+                                ["Reprint Receipt", () => handleReprintReceipt((selectedSale?.id === sale.id ? selectedSale : sale)), true],
+                                ["Email Receipt", () => handleEmailReceipt((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("reports.sales")],
+                                ["Modify Details", () => handleModifyDetails((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("history_modify_sale")],
                                 [
                                   "Assign Customer",
                                   () => {
-                                    setAssignCustomerId(selectedSale.customerId || "");
+                                    setSelectedSale(selectedSale?.id === sale.id ? selectedSale : sale);
+                                    setAssignCustomerId((selectedSale?.id === sale.id ? selectedSale : sale).customerId || "");
                                     setAssignCustomerOpen(true);
                                   },
                                   hasPermission("history_modify_sale"),
                                 ],
-                                ["Return Items", () => handleReturnItems(selectedSale), hasPermission("refund")],
-                                ...(selectedSale.status !== "CANCELLED"
+                                ["Return Items", () => handleReturnItems((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("refund")],
+                                ...((selectedSale?.id === sale.id ? selectedSale : sale).status !== "CANCELLED"
                                   ? [
                                       [
                                         "Cancel Sale",
                                         () => {
+                                          setSelectedSale(selectedSale?.id === sale.id ? selectedSale : sale);
                                           setCancelReason("");
                                           setCancelStep("confirm");
                                         },
@@ -979,7 +988,7 @@ const SalesHistory = () => {
                           }
                         />
                       </Box>
-                    )}
+                    </Collapse>
                   </Box>
                 ))}
               </List>

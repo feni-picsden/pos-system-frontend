@@ -187,14 +187,16 @@ const searchBandSx = {
   borderBottom: '1px solid #000',
 };
 
-const searchRowSx = (idx) => ({
+// `active`: the row the arrow keys have highlighted (reference: arrow keys +
+// Enter add the highlighted result, QA "Enter does not select").
+const searchRowSx = (idx, active = false) => ({
   minHeight: 75,
   boxSizing: 'border-box',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   p: '8px 32px',
-  bgcolor: idx % 2 === 0 ? '#f8f8f8' : '#dfdfdf',
+  bgcolor: active ? '#bfe3f5' : idx % 2 === 0 ? '#f8f8f8' : '#dfdfdf',
   borderBottom: '1px solid #000',
   cursor: 'pointer',
 });
@@ -287,6 +289,13 @@ const SaleKeyPage = () => {
   const [mainSaleKeyConfig, setMainSaleKeyConfig] = useState(null);
   const [searchResults, setSearchResults] = useState({ products: [], customers: [] });
   const [showSearchResults, setShowSearchResults] = useState(false);
+  // Keyboard highlight in the search results: an index into customers followed
+  // by products (the order they are drawn in); -1 = nothing highlighted.
+  const [activeResultIndex, setActiveResultIndex] = useState(-1);
+  // A fresh result list clears the highlight (a stale index could point past it).
+  useEffect(() => {
+    setActiveResultIndex(-1);
+  }, [searchResults]);
   const [, setLocalProductIndex] = useState([]);
   const [localSearchReady, setLocalSearchReady] = useState(false);
   const [localBarcodeIndex, setLocalBarcodeIndex] = useState({});
@@ -1794,6 +1803,33 @@ const SaleKeyPage = () => {
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
+    // new text = new result list; nothing highlighted until an arrow key is used
+    setActiveResultIndex(-1);
+  };
+
+  // The results as one list, in drawing order: customers, then products.
+  const flatSearchResults = () => [
+    ...searchResults.customers.map((item) => ({ type: 'customer', item })),
+    ...searchResults.products.map((item) => ({ type: 'product', item })),
+  ];
+
+  // Add / pick a result exactly as a click on its row would.
+  const pickSearchResult = (entry) => {
+    if (!entry) return;
+    if (entry.type === 'customer') {
+      handleSelectCustomer(entry.item);
+      return;
+    }
+    const product = entry.item;
+    if (associatingBarcode) {
+      setAssociateTarget(product);
+      return;
+    }
+    const term = searchTerm.trim();
+    handleAddProductFromSearch(
+      product,
+      productMatchesBarcode(product, term) ? getBarcodeQuantity(product, term) : 1
+    );
   };
 
   // Scanners rarely deliver a clean code. Wedge configurations add prefix/suffix
@@ -2376,8 +2412,33 @@ const SaleKeyPage = () => {
       cancelBarcodeAssociation();
       return;
     }
+    // Reference ("Using the Sell Screen"): the arrow keys move a highlight
+    // through the results and Enter adds the highlighted one.
+    const results = flatSearchResults();
+    const resultsOpen = !isTransactionComplete && results.length > 0
+      && (isCustomerSearchMode || (showSearchResults && String(e.target.value || '').trim().length > 0) || Boolean(associatingBarcode));
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && resultsOpen) {
+      e.preventDefault();
+      // Wraps: ArrowDown on the last row goes back to the first, ArrowUp on the
+      // first goes to the last.
+      setActiveResultIndex((i) => {
+        const next = e.key === 'ArrowDown' ? i + 1 : i - 1;
+        if (next >= results.length) return 0;
+        if (next < 0) return results.length - 1;
+        return next;
+      });
+      return;
+    }
     if (e.key !== 'Enter') return;
-    if (isCustomerSearchMode || isTransactionComplete) return;
+    if (isTransactionComplete) return;
+    if (isCustomerSearchMode) {
+      // Enter in the customer picker takes the highlighted (else first) customer.
+      if (resultsOpen) {
+        e.preventDefault();
+        pickSearchResult(results[activeResultIndex >= 0 ? activeResultIndex : 0]);
+      }
+      return;
+    }
     // Read the live DOM value, not searchTerm state: barcode scanners type
     // faster than React re-renders, so the state closure can lag a scan
     // behind (which caused duplicate adds and dropped scans).
@@ -2391,10 +2452,21 @@ const SaleKeyPage = () => {
     }
     // Scanners emit the code then Enter. Treat Enter as a scan for barcode-shaped
     // input AND for anything the catalog knows as a barcode (alphanumeric codes
-    // included); typed product names keep the normal dropdown behavior.
-    if (!code || !(looksLikeBarcode(code) || isKnownBarcode(code))) return;
+    // included).
+    if (code && (looksLikeBarcode(code) || isKnownBarcode(code))) {
+      e.preventDefault();
+      queueScan(code);
+      return;
+    }
+    // A typed name: Enter takes the highlighted result, else the first product
+    // (else the first customer) - it used to do nothing and leave the cart empty.
+    if (!code || !resultsOpen) return;
     e.preventDefault();
-    queueScan(code);
+    const firstProduct = results.findIndex((r) => r.type === 'product');
+    const chosen = activeResultIndex >= 0
+      ? results[activeResultIndex]
+      : results[firstProduct >= 0 ? firstProduct : 0];
+    pickSearchResult(chosen);
   };
 
   // Global scan capture: a scanner "types" its digits as keydowns wherever
@@ -7404,7 +7476,7 @@ const SaleKeyPage = () => {
   // Shared customer row (search dropdown + left-panel picker): name + group
   // subtitle on the left, loyalty points on the right (reference anatomy).
   const renderCustomerRow = (customer, idx) => (
-    <Box key={customer.id} onClick={() => handleSelectCustomer(customer)} sx={searchRowSx(idx)}>
+    <Box key={customer.id} onClick={() => handleSelectCustomer(customer)} sx={searchRowSx(idx, activeResultIndex === idx)}>
       <Box sx={{ minWidth: 0 }}>
         <Typography noWrap sx={{ fontSize: 16, color: '#000' }}>
           {`${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.company || 'Unnamed Customer'}
@@ -7920,7 +7992,7 @@ const SaleKeyPage = () => {
                                       : 1
                                   )
                             }
-                            sx={searchRowSx(idx)}
+                            sx={searchRowSx(idx, activeResultIndex === searchResults.customers.length + idx)}
                           >
                             <Box sx={{ minWidth: 0 }}>
                               <Typography noWrap sx={{ fontSize: 16, color: '#000' }}>
