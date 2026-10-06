@@ -2441,7 +2441,15 @@ const EditOrder = () => {
                   <Grid item xs={6} sm={2}>
                     {/* A return sends stock back - nothing is being received */}
                     <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>
-                      {order?.type === 'RETURN' ? 'To Return' : order?.type === 'TRANSFER' ? 'To Transfer' : 'To Receive'}
+                      {/* Reference: an open ORDER says "To Order"; once sent (receive
+                          surface) and on an invoice it says "To Receive". */}
+                      {order?.type === 'RETURN'
+                        ? 'To Return'
+                        : order?.type === 'TRANSFER'
+                          ? 'To Transfer'
+                          : order?.type === 'ORDER' && !isSentOrder
+                            ? 'To Order'
+                            : 'To Receive'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Box sx={{ flex: 1 }}>
@@ -2469,8 +2477,9 @@ const EditOrder = () => {
                     </Box>
                   </Grid>
 
-                  {/* Stock on Hand */}
+                  {/* Stock on Hand (reference caption above the two figures) */}
                   <Grid item xs={6} sm={1}>
+                    <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>Stock on Hand</Typography>
                     <Typography variant="body2" color="text.secondary">
                       CASES: {product.currentStockCases || 0}
                     </Typography>
