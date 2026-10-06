@@ -603,7 +603,8 @@ const CustomerView = () => {
                   sx={{
                     display: "flex",
                     justifyContent: "center",
-                    alignItems: "flex-start",
+                    // cents sit on the dollars' baseline, not raised above them
+                    alignItems: "baseline",
                     lineHeight: 1,
                   }}
                 >
@@ -612,7 +613,7 @@ const CustomerView = () => {
                   </Typography>
                   <Typography
                     component="span"
-                    sx={{ fontSize: "24px", fontWeight: 700, mt: "4px" }}
+                    sx={{ fontSize: "24px", fontWeight: 700 }}
                   >
                     .{owingCents}
                   </Typography>
