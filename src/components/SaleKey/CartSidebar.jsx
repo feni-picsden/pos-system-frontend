@@ -676,19 +676,62 @@ const CartSidebar = ({
         </Box>
       )}
       {/* Centred info modal opened by the ? icon */}
-      <Dialog open={unlockedInfoOpen} onClose={() => setUnlockedInfoOpen(false)} maxWidth="xs">
-        <DialogContent sx={{ textAlign: 'center', pt: 3 }}>
-          <InfoOutlinedIcon sx={{ fontSize: 40, color: '#5EBBEB', mb: 1 }} />
-          <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 1 }}>Unlocked Price</Typography>
-          <Typography sx={{ fontSize: 16 }}>
+      {/* Reference info modal: a big blue "i" disc sitting half above the white
+          box, bold title, centred text, full-width grey "👍 OK" button. */}
+      <Dialog
+        open={unlockedInfoOpen}
+        onClose={() => setUnlockedInfoOpen(false)}
+        maxWidth="xs"
+        PaperProps={{ sx: { overflow: 'visible', borderRadius: 0, width: 432, maxWidth: '92vw', mt: '60px' } }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -60,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 120,
+            height: 120,
+            borderRadius: '50%',
+            bgcolor: '#0084d1',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 72,
+            fontWeight: 700,
+            fontFamily: 'Georgia, serif',
+            lineHeight: 1,
+          }}
+        >
+          i
+        </Box>
+        <DialogContent sx={{ textAlign: 'center', pt: '76px', px: 3, pb: 0 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 1.5, color: '#000' }}>Unlocked Price</Typography>
+          <Typography sx={{ fontSize: 16, color: '#000', lineHeight: 1.4 }}>
             The unlocked price is the price that would be used instead of the currently
             displayed price. To activate it, simply press the lock next to the product's
             current price.
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-          <Button variant="contained" disableElevation onClick={() => setUnlockedInfoOpen(false)} sx={{ bgcolor: '#5EBBEB', color: '#F8F8F8', '&:hover': { bgcolor: '#5EBBEB' } }}>
-            OK
+        <DialogActions sx={{ px: 3, pt: 3, pb: 3 }}>
+          <Button
+            fullWidth
+            disableElevation
+            onClick={() => setUnlockedInfoOpen(false)}
+            sx={{
+              bgcolor: '#e8e9eb',
+              color: '#313439',
+              fontSize: 26,
+              fontWeight: 400,
+              textTransform: 'none',
+              borderRadius: 0,
+              border: '1px solid #000',
+              height: 48,
+              '&:hover': { bgcolor: '#dcdde0' },
+            }}
+          >
+            👍 OK
           </Button>
         </DialogActions>
       </Dialog>

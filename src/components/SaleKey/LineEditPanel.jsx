@@ -311,16 +311,21 @@ const LineEditPanel = ({ item, keypadNonce, onConfirm, onCancel }) => {
       ? `${amount}%`
       : `$${(parseFloat(amount) || 0).toFixed(2)}`;
 
+  // Reference: a second discount REPLACES the first - it is worked out from the
+  // normal (automatic) price, never on top of the already-discounted price. So
+  // the maths runs on the line as it was before any manual discount.
+  const baseItem = { ...item, price: normalTotal };
+
   const apply = () => {
     const num = parseFloat(amount);
     // Empty value: close with no change (reference: cell opens empty)
     if (amount === '' || isNaN(num) || num < 0) { onCancel(); return; }
-    const result = computeDiscount(item, effectiveType, num);
+    const result = computeDiscount(baseItem, effectiveType, num);
     if (!result) { onCancel(); return; }
     onConfirm({ ...item, price: result.finalPrice, discountInfo: result.discountInfo });
   };
 
-  const preview = computeDiscount(item, effectiveType, parseFloat(amount) || 0);
+  const preview = computeDiscount(baseItem, effectiveType, parseFloat(amount) || 0);
 
   return (
     <Box sx={{ borderBottom: '1px solid #000', bgcolor: '#fff' }} onClick={(e) => e.stopPropagation()}>

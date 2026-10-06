@@ -351,6 +351,13 @@ const TrashedItems = () => {
     }
   };
 
+  // "Customer_group" -> "Customer Group", for the recovery dialog's wording.
+  const recoveryTypeName = (type) =>
+    String(type || 'Item')
+      .split('_')
+      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+      .join(' ');
+
   const formatDeletedAt = (dateString) => {
     if (!dateString) return '';
     try {
@@ -674,12 +681,6 @@ const TrashedItems = () => {
         </Alert>
       )}
 
-      {loading && trashedItems.length === 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <Typography>Loading...</Typography>
-        </Box>
-      )}
-
       {/* Reference outdents the grid 16px past the 24px filter gutter (grid x=8, filters x=24).
           overflow must stay visible so the sticky header pins against the window scroll,
           not the TableContainer's own (default overflow-x:auto) box. */}
@@ -728,7 +729,14 @@ const TrashedItems = () => {
               '& td': { border: 0, bgcolor: '#fff', height: 74, py: 0, fontSize: 16, color: '#313439' },
             }}
           >
-            {trashedItems.length === 0 && !loading ? (
+            {/* Loading sits inside the grid, where the rows will appear */}
+            {loading && trashedItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                  <Typography sx={{ color: '#000', fontSize: 16 }}>Loading...</Typography>
+                </TableCell>
+              </TableRow>
+            ) : trashedItems.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   <Typography sx={{ color: '#000', fontSize: 16 }}>No trash found.</Typography>
@@ -736,7 +744,13 @@ const TrashedItems = () => {
               </TableRow>
             ) : (
               trashedItems.map((item) => (
-                <TableRow key={`${item.id}-${item.type}`}>
+                <TableRow
+                  key={`${item.id}-${item.type}`}
+                  // Reference: a ticked row turns light blue (same tint as the header)
+                  sx={isItemSelected(item.id, item.type)
+                    ? { '& td': { bgcolor: '#a9dcf5 !important' } }
+                    : undefined}
+                >
                   <TableCell padding="checkbox" sx={{ pl: '20px' }}>
                     <Checkbox
                       checked={isItemSelected(item.id, item.type)}
@@ -749,7 +763,8 @@ const TrashedItems = () => {
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       {getTypeIcon(item.type)}
-                      {item.type}
+                      {/* "Customer_group" -> "Customer Group", as the reference prints it */}
+                      {recoveryTypeName(item.type)}
                     </Box>
                   </TableCell>
                   <TableCell>{item.name}</TableCell>
@@ -828,17 +843,31 @@ const TrashedItems = () => {
             },
           }}
         >
-          Restore Item
+          Restore Items
         </Button>
       </Box>
 
+      {/* Reference wording: "Confirm Product Recovery" / "Are you sure you wish to
+          recover this Product?" / family price warning (Product, Family) / "The
+          Product ZZTEST Water was deleted a few seconds ago". */}
       <ConfirmDeleteDialog
         open={Boolean(confirm)}
-        title="Recover"
+        title={confirm?.bulk ? 'Confirm Recovery' : `Confirm ${recoveryTypeName(confirm?.item?.type)} Recovery`}
         message={
-          confirm?.bulk
-            ? `Are you sure you want to restore ${selectedItems.length} selected item(s)?`
-            : 'Are you sure you want to restore this item?'
+          confirm?.bulk ? (
+            `Are you sure you wish to recover ${selectedItems.length} selected item(s)?`
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <span>Are you sure you wish to recover this {recoveryTypeName(confirm?.item?.type)}?</span>
+              {['Product', 'Family'].includes(confirm?.item?.type) && (
+                <span>Restoring the selected item may result in the prices being aligned to existing products already in their family.</span>
+              )}
+              <span>
+                The {recoveryTypeName(confirm?.item?.type)} <strong>{confirm?.item?.name}</strong> was deleted{' '}
+                {formatDeletedAt(confirm?.item?.deletedAt)}
+              </span>
+            </Box>
+          )
         }
         confirmText="Recover"
         loadingText="Restoring..."

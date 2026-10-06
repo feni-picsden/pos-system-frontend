@@ -55,7 +55,9 @@ const ConfirmDeleteDialog = ({
       </Box>
 
       <DialogContent sx={{ px: 3, py: 2.5 }}>
-        <Typography sx={{ color: '#313439', fontSize: 16 }}>{message}</Typography>
+        {/* component="div" so a caller may pass several lines (reference recovery
+            dialogs have a question, a warning and a "was deleted … ago" line) */}
+        <Typography component="div" sx={{ color: '#313439', fontSize: 16 }}>{message}</Typography>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1.25 }}>
