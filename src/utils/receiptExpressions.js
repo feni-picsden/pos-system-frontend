@@ -11,6 +11,7 @@
 // empty string (never printed literally). Function names are case-insensitive.
 // Measured on topdrops 2026-08-05 — see docs/parity/receipt-template.md §7.
 import { format as formatDate, parseISO, isValid } from 'date-fns';
+import { toZonedDate } from './dateFormat.js';
 
 // moment tokens (what templates are authored in) -> date-fns tokens.
 const MOMENT_TO_DATE_FNS = [
@@ -103,12 +104,15 @@ const stringify = (value) => {
 };
 
 const FUNCTIONS = {
-  format: (args) => {
+  format: (args, context) => {
     const date = toDate(args[0]);
     if (!date || !isValid(date)) return '';
     const pattern = args.length > 1 ? stringify(args[1]) : 'dd/MM/yyyy';
+    // Print in the shop's configured timezone (context.timeZone) rather than
+    // whichever zone the printing browser happens to be in.
+    const shown = (context?.timeZone && toZonedDate(date, context.timeZone)) || date;
     try {
-      return formatDate(date, translateDateFormat(pattern));
+      return formatDate(shown, translateDateFormat(pattern));
     } catch {
       return '';
     }
@@ -135,7 +139,7 @@ export const evaluateExpression = (source, context) => {
     const fn = FUNCTIONS[call[1].toLowerCase()];
     if (!fn) return '';
     const args = splitArgs(call[2]).map((arg) => evaluateExpression(arg, context));
-    return fn(args);
+    return fn(args, context);
   }
 
   const value = resolvePath(expression, context);
@@ -191,6 +195,9 @@ export const buildReceiptContext = (receiptData = {}) => {
     orderReference: receiptData.orderReference || '',
     completedAt: receiptData.completedAt || receiptData.date || null,
     currentTimestamp: new Date(),
+    // IANA zone the receipt's dates print in (Setup > General > Timezone);
+    // callers that build receiptData set it, format() reads it.
+    timeZone: receiptData.timeZone || null,
     note: receiptData.note || '',
     inTrainingMode: receiptData.inTrainingMode ?? false,
     user: receiptData.user || (receiptData.salesPerson ? { name: receiptData.salesPerson } : { name: '' }),

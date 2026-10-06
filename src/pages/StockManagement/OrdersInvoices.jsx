@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 import {
   Box,
   Button,
@@ -316,8 +317,8 @@ const OrdersInvoices = () => {
     }).format(amount || 0);
   };
 
-  // Reference renders dates as dd/mm/yyyy.
-  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-GB');
+  // Reference renders dates as dd/mm/yyyy, in Setup > General > Timezone.
+  const formatDate = formatAppDate;
 
   const setFilter = (field) => (value) => setFilters((prev) => ({ ...prev, [field]: value }));
 

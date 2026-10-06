@@ -464,7 +464,8 @@ export const COMPANY_SECTIONS = [
     ]
   },
   {
-    // STORE-ONLY: timezone + startOfWeek (nothing reads them yet).
+    // timezone is read by utils/appDateTime.js (every displayed timestamp and
+    // receipt date); startOfWeek is still store-only.
     // dateFormat / timeFormat are rendered by the custom control in
     // GeneralSettings.jsx (dropdown + live "Example") and consumed by
     // utils/dateFormat.js. Labels/descriptions/options verbatim from MEAS M3.

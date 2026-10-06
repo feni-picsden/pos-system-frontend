@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
+import { formatDate as formatAppDate, formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import {
   Box,
   Paper,
@@ -982,27 +983,10 @@ const OrderDetails = () => {
   // Reference shows enum values in sentence case ('Transfer', 'Sent', 'Credit note')
   const sentenceCase = (s) => (s ? (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()).replace(/_/g, ' ') : '');
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  };
-
-  const formatDateTime = (dateString) => {
-    if (!dateString) return '';
-    // Reference format has no comma: '06/07/2026 19:57:23'
-    return new Date(dateString).toLocaleString('en-GB', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).replace(',', '');
-  };
+  // dd/mm/yyyy and dd/mm/yyyy HH:mm:ss in Setup > General > Timezone
+  // (utils/appDateTime) - the reference format, '06/07/2026 19:57:23'.
+  const formatDate = formatAppDate;
+  const formatDateTime = formatAppDateTime;
 
   // Case quantity per line, returned by the API (product join); legacy rows default to 1
   const getCaseQuantity = (item) => item?.caseQuantity || 1;

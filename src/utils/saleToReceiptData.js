@@ -6,6 +6,7 @@
 import posLocalDb from '../services/posLocalDb';
 import settingsService from '../services/settingsService';
 import { groupSaleItemsForReceipt, itemsPerCase } from './saleTotals';
+import { appTimeZone, formatDateTime, toAppZonedDate } from './appDateTime';
 
 export function saleToReceiptData(sale) {
   if (!sale) return null;
@@ -138,15 +139,10 @@ export function saleToReceiptData(sale) {
     // string below is en-GB (dd/mm), which format() re-parsed as mm/dd — a 6 Aug sale
     // reprinted as "8th Jun".
     completedAt: sale.saleDate || null,
-    date: sale.saleDate ? new Date(sale.saleDate).toLocaleString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }) : new Date().toLocaleString(),
-    formattedDate: sale.saleDate ? new Date(sale.saleDate).toLocaleDateString('en-GB', {
+    // Every date on the receipt prints in Setup > General > Timezone.
+    timeZone: appTimeZone(),
+    date: formatDateTime(sale.saleDate || new Date()),
+    formattedDate: toAppZonedDate(sale.saleDate || new Date()).toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -154,7 +150,7 @@ export function saleToReceiptData(sale) {
       minute: '2-digit',
       second: '2-digit',
       hour12: true,
-    }) : new Date().toLocaleString(),
+    }),
     items,
     outlet: sale.outlet || sale.register?.outlet || null,
     // Surcharge component + total.surcharge, recovered from the line blobs above.

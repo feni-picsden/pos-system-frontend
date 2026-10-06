@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import productService from '../../services/productService';
 import shelfTicketService from '../../services/shelfTicketService';
+import { formatDateTime } from '../../utils/appDateTime';
 import { priceSetService } from '../../services/priceSetService';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
@@ -806,7 +807,8 @@ const EverydayTickets = () => {
             <TableCell>{ticket.outlet || ''}</TableCell>
             <TableCell>{ticket.category || ''}</TableCell>
             <TableCell>{ticket.addedBy || ''}</TableCell>
-            <TableCell>{ticket.addedAt}</TableCell>
+            {/* Added At follows Setup > General > Timezone like every other page */}
+            <TableCell>{formatDateTime(ticket.createdAt)}</TableCell>
             <TableCell sx={{ width: 48, px: 0 }}>
               <Box
                 component="button"

@@ -31,7 +31,7 @@ import { useAuth } from "../contexts/AuthContext";
 import PrintReceiptDialog from "../components/PrintReceiptDialog";
 import EditSaleDetailsDialog from "../components/SalesHistory/EditSaleDetailsDialog";
 import EmailReceiptModal from "../components/SalesHistory/EmailReceiptModal";
-import { formatDateValue } from "../utils/dateFormat";
+import { formatSettingsDate, formatSettingsTime } from "../utils/appDateTime";
 import { useAppDialogs } from '../components/Common/AppDialogProvider';
 import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
 import ShopfrontDialog, { DialogButton } from '../components/Common/ShopfrontDialog';
@@ -552,12 +552,9 @@ const SalesHistory = () => {
     }
   };
 
-  // Date / time / currency all follow Setup > General (Date & Time, Currency).
-  const formatDate = (date) =>
-    formatDateValue(date, settingsService.getCachedGeneralSettings().dateFormat || "DD/MM/YYYY");
-
-  const formatTime = (date) =>
-    formatDateValue(date, settingsService.getCachedGeneralSettings().timeFormat || "HH:mm:ss");
+  // Date / time / currency all follow Setup > General (Date & Time incl. Timezone, Currency).
+  const formatDate = formatSettingsDate;
+  const formatTime = formatSettingsTime;
 
 
   // Option lists are alphabetical like the reference (case-insensitive).

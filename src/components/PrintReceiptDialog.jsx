@@ -16,12 +16,13 @@ import {
 import {
   Print as PrintIcon,
   Close as CloseIcon,
-  DescriptionOutlined,
 } from '@mui/icons-material';
 import receiptTemplateService from '../services/receiptTemplateService';
 import settingsService from '../services/settingsService';
 import ReceiptRenderer from './Receipt/ReceiptRenderer';
+import WidePreviewNotice from './Receipt/WidePreviewNotice';
 import { buildReceiptPrintHtml } from '../utils/receiptPrintHtml';
+import { isWidePreview } from '../utils/receiptTemplateShape';
 import { printHtmlDocument } from '../utils/printHtmlDocument';
 import { saleToReceiptData } from '../utils/saleToReceiptData';
 
@@ -89,8 +90,8 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
     }));
   };
 
-  // A4 templates have no receipt-paper preview (see the render block below).
-  const isA4 = /a4/i.test(selectedTemplate?.type || selectedTemplate?.config?.layout || '');
+  // Wide (A4 / Email) templates have no receipt-paper preview (see the render block below).
+  const isWide = isWidePreview(selectedTemplate);
 
   if (!sale) return null;
 
@@ -192,24 +193,8 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
-        ) : isA4 ? (
-          // The reference cannot render an A4 template to the receipt preview and
-          // says so rather than drawing the wrong paper. Print still works.
-          <Box
-            sx={{
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
-              color: '#313439',
-            }}
-          >
-            <DescriptionOutlined sx={{ fontSize: 56, color: '#f5a623' }} />
-            <Box sx={{ fontWeight: 700 }}>A4</Box>
-            <Box>Receipt preview unsupported</Box>
-          </Box>
+        ) : isWide ? (
+          <WidePreviewNotice template={selectedTemplate} receiptData={receiptData} />
         ) : receiptData && (
           // Boxed, centred, natural width — the reference never stretches the paper.
           // `min-width: 100%` + `width: max-content` is what keeps the centring safe

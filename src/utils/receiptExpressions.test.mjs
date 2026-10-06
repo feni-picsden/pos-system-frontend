@@ -24,6 +24,13 @@ const formatted = renderExpressions('{format(completedAt, "Do MMM YYYY")}', ctx)
 assert.match(formatted, /^5th Aug 2026$/, `got ${formatted}`);
 assert.match(renderExpressions('{format(completedAt, "h:mm a")}', ctx), /^\d{1,2}:\d{2} (am|pm)$/);
 
+// A context with a timeZone prints the date in THAT zone, whatever the browser's.
+// 2026-08-05T11:38:10Z is 21:38 in Sydney (AEST) and 11:38 in UTC.
+const sydney = { ...ctx, timeZone: 'Australia/Sydney' };
+assert.equal(renderExpressions('{format(completedAt, "HH:mm")}', sydney), '21:38');
+assert.equal(renderExpressions('{format(completedAt, "HH:mm")}', { ...ctx, timeZone: 'UTC' }), '11:38');
+assert.equal(renderExpressions('{format(completedAt, "Do MMM YYYY")}', sydney), '5th Aug 2026');
+
 // IF / CONCAT / COALESCE, case-insensitive
 assert.equal(renderExpressions('{IF(note, CONCAT(note, "!"), "no note")}', ctx), 'no note');
 assert.equal(renderExpressions('{IF(user.name, CONCAT("Hi ", user.name), "")}', ctx), 'Hi An');

@@ -51,7 +51,7 @@ import SettingsSlideOver from '../../components/Settings/SettingsSlideOver';
 import EditReasonsSlideOver from '../../components/Settings/EditReasonsSlideOver';
 import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS, COMPANY_CONSTRAINTS } from './generalSettingsFields';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
-import { formatWithTokens } from '../../utils/dateFormat';
+import { formatWithTokens, toZonedDate } from '../../utils/dateFormat';
 import saleKeyService from '../../services/saleKeyService';
 import settingsService, { GENERAL_DEFAULTS } from '../../services/settingsService';
 import outletService from '../../services/outletService';
@@ -126,6 +126,16 @@ const SETTING_LISTBOX_PROPS = {
       }
     }
   }
+};
+
+// Long searchable lists (timezones) always drop DOWN: when the field sat low on
+// the page MUI flipped the 40vh list upward and it ran under the top bar.
+const SEARCHABLE_LISTBOX_PROPS = {
+  ...SETTING_LISTBOX_PROPS,
+  popper: {
+    placement: 'bottom-start',
+    modifiers: [{ name: 'flip', enabled: false }],
+  },
 };
 
 const USER_SECTIONS = [
@@ -318,6 +328,19 @@ const GeneralSettings = () => {
   const [outletSaleKeySets, setOutletSaleKeySets] = useState([]);
   const [selectedOutletSaleKeySetId, setSelectedOutletSaleKeySetId] = useState('');
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  // Which searchable combobox (timezone) is open. Its list is anchored to the
+  // field, so scrolling the PAGE would drag it under the sticky header - close
+  // it on page scroll instead (scrolling inside the list itself is fine).
+  const [openSearchField, setOpenSearchField] = useState(null);
+  useEffect(() => {
+    if (!openSearchField) return undefined;
+    const onScroll = (event) => {
+      if (event.target?.closest?.('.MuiAutocomplete-listbox')) return;
+      setOpenSearchField(null);
+    };
+    document.addEventListener('scroll', onScroll, true);
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, [openSearchField]);
   const [outlets, setOutlets] = useState([]);
   const [selectedOutlet, setSelectedOutlet] = useState('');
   const [loadingOutlets, setLoadingOutlets] = useState(false);
@@ -1223,7 +1246,11 @@ const GeneralSettings = () => {
               Example
             </Box>
             <Typography sx={{ px: 2, fontSize: '14px', color: '#404040' }}>
-              {formatWithTokens(currentDateTime, value)}
+              {/* the live clock shows the zone picked above, even before Save */}
+              {formatWithTokens(
+                toZonedDate(currentDateTime, companySettings.timezone || 'Australia/Sydney') || currentDateTime,
+                value,
+              )}
             </Typography>
           </Box>
         </Box>
@@ -1334,7 +1361,17 @@ const GeneralSettings = () => {
           // every render - show it as empty until it is re-picked
           value={field.options.some((o) => o.value === value) ? value : null}
           onChange={(event, picked) => picked && setCompanyValue(field.key, picked)}
-          componentsProps={SETTING_LISTBOX_PROPS}
+          componentsProps={SEARCHABLE_LISTBOX_PROPS}
+          ListboxProps={{ style: { maxHeight: 300 } }}
+          open={openSearchField === field.key}
+          onOpen={(event) => {
+            // Bring the field to mid-screen first (instant, so the scroll
+            // listener attached after render does not see it), then open.
+            const el = event?.currentTarget;
+            if (el?.scrollIntoView) el.scrollIntoView({ block: 'center' });
+            setOpenSearchField(field.key);
+          }}
+          onClose={() => setOpenSearchField(null)}
           renderInput={(params) => (
             <TextField {...params} size="small" sx={SETTING_FIELD_SX} />
           )}

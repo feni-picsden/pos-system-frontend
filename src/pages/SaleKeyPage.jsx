@@ -88,6 +88,7 @@ import { taxRateService } from '../services/taxRateService';
 import customerService from '../services/customerService';
 import receiptTemplateService from '../services/receiptTemplateService';
 import settingsService from '../services/settingsService';
+import { appTimeZone, formatDateTime as formatAppDateTime } from '../utils/appDateTime';
 import salesService from '../services/salesService';
 import { emailSaleReceipt } from '../services/receiptEmailSender';
 import registerService from '../services/registerService';
@@ -139,6 +140,8 @@ import AssociateBarcodeDialog from '../components/SaleKey/AssociateBarcodeDialog
 import ProductPreviewCard from '../components/SaleKey/ProductPreviewCard';
 import barcodeService from '../services/barcodeService';
 import ReceiptRenderer from '../components/Receipt/ReceiptRenderer';
+import WidePreviewNotice from '../components/Receipt/WidePreviewNotice';
+import { isWidePreview } from '../utils/receiptTemplateShape';
 import ScaleToFit from '../components/Receipt/ScaleToFit';
 import { buildReceiptPrintHtml } from '../utils/receiptPrintHtml';
 import { printHtmlDocument } from '../utils/printHtmlDocument';
@@ -4749,7 +4752,9 @@ const SaleKeyPage = () => {
     const newReceiptData = {
       transactionId: txnId,
       saleNumber: txnId ? '#' + String(txnId).replace(/\D/g, '') : undefined,
-      date: new Date().toLocaleString(),
+      // Receipt dates print in Setup > General > Timezone, not the register's clock.
+      date: formatAppDateTime(new Date()),
+      timeZone: appTimeZone(),
       // The renderer has no product data: resolve the receipt-only fields (case
       // quantity, line discount) here, where the catalog is reachable.
       items: cart.map((item) => {
@@ -8677,11 +8682,16 @@ const SaleKeyPage = () => {
                       its right-hand price column cut off. Boxed inside, the border and
                       padding scale with the paper and the column never overflows. */}
                   <Box sx={{ flex: '1 1 0px', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', bgcolor: '#f8f8f8', p: '16px' }}>
-                    <ScaleToFit>
-                      <Box sx={{ width: 'max-content', bgcolor: '#fff', border: '1px solid #000', p: '15px' }}>
-                        <ReceiptRenderer receiptData={receiptData} template={selectedTemplate} preview />
-                      </Box>
-                    </ScaleToFit>
+                    {isWidePreview(selectedTemplate) ? (
+                      // A4 / Email: no paper preview - the centred notice, like the reference.
+                      <WidePreviewNotice template={selectedTemplate} receiptData={receiptData} />
+                    ) : (
+                      <ScaleToFit>
+                        <Box sx={{ width: 'max-content', bgcolor: '#fff', border: '1px solid #000', p: '15px' }}>
+                          <ReceiptRenderer receiptData={receiptData} template={selectedTemplate} preview />
+                        </Box>
+                      </ScaleToFit>
+                    )}
                   </Box>
                 </Box>
                 <Button

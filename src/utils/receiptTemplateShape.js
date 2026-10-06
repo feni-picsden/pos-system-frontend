@@ -114,6 +114,12 @@ const TEXT_ALIGN_TYPES = new Set(['heading', 'eftpos']);
 export const isWideTemplate = (template) =>
   /a4|email/.test(String(template?.type || '').toLowerCase());
 
+// Is this a template the thermal-sized PREVIEW panes cannot draw (A4 / Email)?
+// Same test as isWideTemplate plus the legacy `config.layout` marker some stored
+// templates carry instead of a type string.
+export const isWidePreview = (template) =>
+  isWideTemplate(template) || /a4|email/i.test(String(template?.config?.layout || ''));
+
 // Is this a Generic / Text Only (reference `receipt-text`) template? That is the only
 // type whose Configure dialog offers Receipt Width instead of paper padding.
 export const isTextOnlyTemplate = (template) =>

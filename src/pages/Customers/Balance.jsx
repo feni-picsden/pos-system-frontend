@@ -55,6 +55,7 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import customerService from "../../services/customerService";
+import { appTimeZone, formatDateTime as formatAppDateTime } from "../../utils/appDateTime";
 import customerGroupService from "../../services/customerGroupService";
 import paymentService from "../../services/paymentService";
 import paymentMethodService from "../../services/paymentMethodService";
@@ -855,7 +856,8 @@ const Balance = () => {
       if (shouldAutoPrintPaymentReceipt(group)) {
         const method = paymentMethods.find((m) => m.id.toString() === selectedPaymentMethod);
         const customerName = `${paymentCustomer.firstName} ${paymentCustomer.lastName}`.trim();
-        const dateText = paymentDate.toLocaleString("en-AU");
+        // Receipt dates print in Setup > General > Timezone.
+        const dateText = formatAppDateTime(paymentDate);
         const paidAmount = safeAmount(result?.payment?.amount ?? paymentAmt);
 
         // The group's Payment Receipt is a for='Payment' ReceiptTemplate id (from
@@ -876,6 +878,8 @@ const Balance = () => {
             transactionId: paymentReference || (result?.payment?.id ? `#${result.payment.id}` : ""),
             date: dateText,
             formattedDate: dateText,
+            completedAt: paymentDate.toISOString(),
+            timeZone: appTimeZone(),
             status: "completed",
             outlet: resolveBusiness(paymentCustomer),
             customer: {
