@@ -174,12 +174,16 @@ const StockList = () => {
       });
       let productsArray = response?.products || response || [];
       
+      // Profit % is on the ROW's cost: itemCost x the row's quantity, the same
+      // basis as the grid's Cost cell and the product page. Using the single
+      // item cost against a pack price showed a 12-pack costing $24 and selling
+      // for $20 as 90% profit instead of -20% (QA N01).
       productsArray = productsArray.map(product => ({
         ...product,
         prices: product.prices?.map(price => ({
           ...price,
           profitPercentage: calculateProfitPercentage(
-            product.itemCost || 0,
+            (product.itemCost || 0) * (Number(price.quantity) || 1),
             price.price || 0
           )
         })) || []
@@ -240,12 +244,12 @@ const StockList = () => {
         prices: product.prices?.map(price => ({
           ...price,
           profitPercentage: calculateProfitPercentage(
-            product.itemCost || 0,
+            (product.itemCost || 0) * (Number(price.quantity) || 1),
             price.price || 0
           )
         })) || []
       }));
-      
+
       setProducts(mockProductsWithProfit);
     } finally {
       setLoading(false);
