@@ -649,8 +649,16 @@ const CustomerView = () => {
                   </Button>
                   <Button
                     variant="contained"
+                    disableElevation
+                    // same shape as Make Payment beside it (reference: both square)
                     sx={{
                       bgcolor: "#1976d2",
+                      color: "#f8f8f8",
+                      fontSize: "16px",
+                      fontWeight: 700,
+                      textTransform: "none",
+                      borderRadius: 0,
+                      transition: "background-color 0.2s, color 0.2s",
                       "&:hover": { bgcolor: "#115293" },
                       px: 3,
                     }}

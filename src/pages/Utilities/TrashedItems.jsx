@@ -32,7 +32,6 @@ import {
   Category as ClassificationIcon,
   UnarchiveOutlined as RecoverIcon,
   CloseOutlined as ClearIcon,
-  CalendarMonthOutlined as CalendarIcon,
   ChevronLeftOutlined as PrevIcon,
   ChevronRightOutlined as NextIcon,
   ReceiptOutlined as ReceiptIcon,
@@ -443,20 +442,27 @@ const TrashedItems = () => {
 
   return (
     <Box sx={{ p: 3, pb: 10, backgroundColor: '#f5f5f5', minHeight: 'calc(100vh - 50px)' }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 1 }}>
-          Trashed Items
-        </Typography>
-        <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700, color: '#000' }}>
-          Total Count: {totalCount}
-        </Typography>
-        <Typography sx={{ fontSize: 14, color: '#374151', mt: 0.5 }}>
-          Trashed items are limited to the last 100 days
-        </Typography>
+      {/* Header like the Products / Customer Group lists: title left, count top right */}
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 0.5 }}>
+            Trashed Items
+          </Typography>
+          <Typography sx={{ fontSize: 14, color: '#374151' }}>
+            Trashed items are limited to the last 100 days
+          </Typography>
+        </Box>
+        <Box sx={{ textAlign: 'right' }}>
+          <Typography component="h2" sx={{ fontSize: 32, fontWeight: 700, color: '#000', lineHeight: 1.1 }}>
+            {totalCount}
+          </Typography>
+          <Typography sx={{ fontSize: 14, color: '#374151' }}>Results</Typography>
+        </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap', mb: 3 }}>
-        <Box sx={{ width: FIELD_WIDTH, maxWidth: '100%' }}>
+      {/* All three filters on one line, equal widths (they wrap only on narrow screens). */}
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: { xs: 'wrap', md: 'nowrap' }, mb: 3 }}>
+        <Box sx={{ flex: 1, minWidth: 220, maxWidth: FIELD_WIDTH }}>
           <Typography sx={FILTER_LABEL_SX}>Type</Typography>
           <Select
             value={selectedType}
@@ -507,7 +513,7 @@ const TrashedItems = () => {
           </Select>
         </Box>
 
-        <Box sx={{ width: FIELD_WIDTH, maxWidth: '100%' }}>
+        <Box sx={{ flex: 1, minWidth: 220, maxWidth: FIELD_WIDTH }}>
           <Typography sx={FILTER_LABEL_SX}>Search by item name</Typography>
           <TextField
             value={searchTerm}
@@ -517,7 +523,7 @@ const TrashedItems = () => {
           />
         </Box>
 
-        <Box sx={{ width: FIELD_WIDTH, maxWidth: '100%' }}>
+        <Box sx={{ flex: 1, minWidth: 220, maxWidth: FIELD_WIDTH }}>
           <Typography sx={FILTER_LABEL_SX}>Deleted At (Within last 100 days)</Typography>
           <Box
             onClick={(e) => {
@@ -560,25 +566,52 @@ const TrashedItems = () => {
             disableAutoFocus
             disableEnforceFocus
             disableRestoreFocus
-            PaperProps={{ sx: { p: 2, borderRadius: '8px' } }}
+            // As wide as the date box it opens from, so the two line up; the
+            // calendar inside spreads across that width.
+            PaperProps={{
+              sx: {
+                p: 2,
+                borderRadius: '8px',
+                // never narrower than the two months + both arrows (660px),
+                // otherwise the Next arrow was pushed out of view
+                // sized to its content (arrow + two months + arrow), so there is
+                // no spare space between the arrows and the months
+                width: 'fit-content',
+                maxWidth: 'none',
+                boxSizing: 'border-box',
+              },
+            }}
           >
+            {/* Small From — To boxes (each with its own X), "Current Day" at the right. */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              <CalendarIcon sx={{ fontSize: 20, color: '#676b72' }} />
-              <InputBase
-                value={startText}
-                onChange={(e) => setStartText(e.target.value)}
-                placeholder="dd/mm/yyyy"
-                inputProps={{ 'aria-label': 'Calendar from' }}
-                sx={{ width: 118, height: 32, fontSize: 14, px: 1, border: '1px solid #404040', borderRadius: '8px' }}
-              />
-              <Box component="span" sx={{ color: '#676b72', fontSize: 16 }}>—</Box>
-              <InputBase
-                value={endText}
-                onChange={(e) => setEndText(e.target.value)}
-                placeholder="dd/mm/yyyy"
-                inputProps={{ 'aria-label': 'Calendar to' }}
-                sx={{ width: 118, height: 32, fontSize: 14, px: 1, border: '1px solid #404040', borderRadius: '8px' }}
-              />
+              {[
+                { value: startText, set: setStartText, label: 'Calendar from' },
+                { value: endText, set: setEndText, label: 'Calendar to' },
+              ].map((f, i) => (
+                <React.Fragment key={f.label}>
+                  {i === 1 && <Box component="span" sx={{ color: '#676b72', fontSize: 16 }}>—</Box>}
+                  <InputBase
+                    value={f.value}
+                    onChange={(e) => f.set(e.target.value)}
+                    placeholder="DD/MM/YYYY"
+                    inputProps={{ 'aria-label': f.label }}
+                    endAdornment={
+                      f.value ? (
+                        <IconButton
+                          size="small"
+                          aria-label={`Clear ${f.label}`}
+                          onClick={() => f.set('')}
+                          sx={{ p: '2px' }}
+                        >
+                          <ClearIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      ) : null
+                    }
+                    // the two boxes share the line's width with "Current Day"
+                    sx={{ flex: 1, minWidth: 0, height: 32, fontSize: 14, pl: 1, pr: 0.5, border: '1px solid #404040', borderRadius: '8px', boxSizing: 'border-box' }}
+                  />
+                </React.Fragment>
+              ))}
               <Box
                 component="button"
                 type="button"
@@ -589,7 +622,9 @@ const TrashedItems = () => {
                   setCalMonth(startOfMonth(today));
                 }}
                 sx={{
-                  ml: 'auto',
+                  ml: 1,
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
                   p: 0,
                   border: 0,
                   bgcolor: 'transparent',
@@ -603,12 +638,12 @@ const TrashedItems = () => {
                 Current Day
               </Box>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
               <IconButton
                 size="small"
                 aria-label="Previous month"
                 onClick={() => setCalMonth((m) => addMonths(m, -1))}
-                sx={{ mt: '2px' }}
+                sx={{ mt: '2px', flexShrink: 0 }}
               >
                 <PrevIcon />
               </IconButton>
@@ -618,7 +653,7 @@ const TrashedItems = () => {
                 size="small"
                 aria-label="Next month"
                 onClick={() => setCalMonth((m) => addMonths(m, 1))}
-                sx={{ mt: '2px' }}
+                sx={{ mt: '2px', flexShrink: 0 }}
               >
                 <NextIcon />
               </IconButton>
