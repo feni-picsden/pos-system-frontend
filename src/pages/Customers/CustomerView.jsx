@@ -28,8 +28,14 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  InputAdornment,
+  TableFooter,
 } from "@mui/material";
 import {
+  ArrowDropDown as ArrowDropDownIcon,
   Edit as EditIcon,
   ArrowBack as ArrowBackIcon,
   Delete as DeleteIcon,
@@ -45,6 +51,10 @@ import {
   CheckCircleOutlined as CheckCircleOutlinedIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import { enAU } from "date-fns/locale";
 import customerService from "../../services/customerService";
 import loyaltyService from "../../services/loyaltyService";
 import paymentService from "../../services/paymentService";
@@ -58,6 +68,52 @@ import EmailReceiptModal from "../../components/SalesHistory/EmailReceiptModal";
 import { saleBasePrice, saleLineTotal } from "../../utils/saleTotals";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { formatCurrency } from "../../utils/currency";
+
+// Make Payment dialog styling - the same set the Balance page's dialog uses,
+// so the two Make Payment dialogs look identical.
+const primaryButtonSx = {
+  bgcolor: "#5ebbeb",
+  "&:hover": { bgcolor: "#4aa9dd", boxShadow: "none" },
+  borderRadius: "12px",
+  textTransform: "none",
+  boxShadow: "none",
+  fontWeight: 700,
+  fontSize: 16,
+  px: 4,
+  height: 42,
+};
+const outlinedFieldSx = {
+  borderRadius: "8px",
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
+  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" },
+};
+const textFieldSx = {
+  "& .MuiOutlinedInput-root": { fontSize: 16, ...outlinedFieldSx },
+};
+const selectSx = {
+  fontSize: 16,
+  ...outlinedFieldSx,
+  "& .MuiSelect-icon": { color: "#404040" },
+};
+const selectMenuProps = {
+  PaperProps: {
+    sx: {
+      mt: 0.5,
+      borderRadius: "8px",
+      border: "1px solid #e0e0e0",
+      boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+    },
+  },
+};
+const menuItemSx = {
+  fontSize: 16,
+  color: "#000",
+  "&:hover": { bgcolor: "#5ebbeb" },
+  "&.Mui-selected": { bgcolor: "transparent" },
+  "&.Mui-selected:hover": { bgcolor: "#5ebbeb" },
+  "&.Mui-focusVisible": { bgcolor: "#5ebbeb" },
+};
 import { saleOutstanding, INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
 import { useAppDialogs } from "../../components/Common/AppDialogProvider";
 
@@ -126,7 +182,9 @@ const CustomerView = () => {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedRegister, setSelectedRegister] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
-  const [paymentDate, setPaymentDate] = useState("");
+  // A Date (the picker's value), like the Balance page - the browser's own
+  // datetime-local box rendered ", 06-10-2026 ..." with a stray leading comma.
+  const [paymentDate, setPaymentDate] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
   const [invoiceAllocations, setInvoiceAllocations] = useState({});
@@ -262,13 +320,7 @@ const CustomerView = () => {
   };
 
   const openPaymentDialog = async () => {
-    // datetime-local reads its value as LOCAL time, so offset the UTC ISO string.
-    const now = new Date();
-    setPaymentDate(
-      new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-    );
+    setPaymentDate(new Date());
     setPaymentAmount("");
     setPaymentReference("");
     setPaymentError("");
@@ -1471,13 +1523,25 @@ const CustomerView = () => {
         onClose={() => setPaymentDialogOpen(false)}
         maxWidth="lg"
         fullWidth
+        // Centre the dialog over the white content panel, not the whole window:
+        // the right-hand navigation column (292px + 2 x 8px padding) is left
+        // out of the centring by reserving its width as right margin.
+        PaperProps={{ sx: { mr: { md: "308px" }, maxHeight: "90vh" } }}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Make Payment</DialogTitle>
-        <DialogContent dividers>
+        {/* Same layout as the Balance page's Make Payment dialog */}
+        <DialogTitle>
+          <Typography variant="h5" sx={{ fontWeight: "bold" }}>
+            Make Payment
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Please note: if the payment time falls outside a register closure, this payment will not appear in any register closure.
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ overflow: "auto" }}>
           {paymentError && (
             <Alert
               severity="error"
-              sx={{ mb: 2 }}
+              sx={{ mt: 2 }}
               onClose={() => setPaymentError("")}
             >
               {paymentError}
@@ -1489,146 +1553,202 @@ const CustomerView = () => {
               <Typography color="text.secondary">Loading outstanding invoices…</Typography>
             </Box>
           ) : (
-          <>
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2, mb: 2 }}>
-            <TextField
-              label="Customer"
-              value={`${customer.firstName} ${customer.lastName}`}
-              disabled
-              size="small"
-            />
-            <TextField
-              label="Payment Date"
-              type="datetime-local"
-              required
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              error={!!paymentError && paymentDateInvalid}
-              helperText={
-                paymentError && paymentDateInvalid ? "Payment date is required" : ""
-              }
-            />
-            <TextField
-              label="Register"
-              select
-              value={selectedRegister}
-              onChange={(e) => setSelectedRegister(e.target.value)}
-              size="small"
-            >
-              {registers.map((r) => (
-                <MenuItem key={r.id} value={r.id.toString()}>
-                  {r.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Payment Amount"
-              type="number"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              size="small"
-            />
-            <TextField
-              label="Payment Reference"
-              value={paymentReference}
-              onChange={(e) => setPaymentReference(e.target.value)}
-              size="small"
-            />
-            <TextField
-              label="Payment Method"
-              select
-              value={selectedPaymentMethod}
-              onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-              size="small"
-            >
-              {paymentMethods.map((m) => (
-                <MenuItem key={m.id} value={m.id.toString()}>
-                  {m.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Customer"
+                  value={`${customer.firstName} ${customer.lastName}${customer.company ? ` - ${customer.company}` : ""}`}
+                  disabled
+                  size="small"
+                  sx={textFieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enAU}>
+                  <DateTimePicker
+                    label="Payment Date"
+                    value={paymentDate}
+                    onChange={(newValue) => setPaymentDate(newValue)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: "small",
+                        required: true,
+                        error: !!paymentError && paymentDateInvalid,
+                        helperText:
+                          paymentError && paymentDateInvalid ? "Payment date is required" : "",
+                        sx: textFieldSx,
+                      },
+                    }}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Register</InputLabel>
+                  <Select
+                    value={selectedRegister}
+                    onChange={(e) => setSelectedRegister(e.target.value)}
+                    label="Register"
+                    IconComponent={ArrowDropDownIcon}
+                    MenuProps={selectMenuProps}
+                    sx={selectSx}
+                  >
+                    {registers.map((r) => (
+                      <MenuItem key={r.id} value={r.id.toString()} sx={menuItemSx}>
+                        {r.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="$ Payment Amount (optional)"
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  size="small"
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  }}
+                  sx={textFieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Payment Reference (optional)"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  size="small"
+                  sx={textFieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Payment Method</InputLabel>
+                  <Select
+                    value={selectedPaymentMethod}
+                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                    label="Payment Method"
+                    IconComponent={ArrowDropDownIcon}
+                    MenuProps={selectMenuProps}
+                    sx={selectSx}
+                  >
+                    {paymentMethods.map((m) => (
+                      <MenuItem key={m.id} value={m.id.toString()} sx={menuItemSx}>
+                        {m.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
 
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Outstanding Invoices
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Typography variant="body2" sx={{ color: "#676b72" }}>
-                {formatCurrency(outstandingTotal - allocatedTotal)} Outstanding and{" "}
-                {formatCurrency(unallocatedTotal)} Unallocated
-              </Typography>
-              <Button onClick={handleAutofill} variant="outlined" size="small">
-                Autofill
-              </Button>
+            <Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+                  Outstanding Invoices
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Typography variant="body2" sx={{ color: "#676b72" }}>
+                    {formatCurrency(outstandingTotal - allocatedTotal)} Outstanding and{" "}
+                    {formatCurrency(unallocatedTotal)} Unallocated
+                  </Typography>
+                  <Button onClick={handleAutofill} variant="outlined" size="small">
+                    Autofill
+                  </Button>
+                </Box>
+              </Box>
+              <TableContainer>
+                <Table size="small" sx={{ borderCollapse: "separate", borderSpacing: 0 }}>
+                  <TableHead>
+                    <TableRow
+                      sx={{
+                        "& th": { bgcolor: "#5ebbeb", color: "white", fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                        "& th:first-of-type": { borderTopLeftRadius: "12px", borderBottomLeftRadius: "12px" },
+                        "& th:last-of-type": { borderTopRightRadius: "12px", borderBottomRightRadius: "12px" },
+                      }}
+                    >
+                      <TableCell>Timestamp</TableCell>
+                      <TableCell>Invoice</TableCell>
+                      <TableCell>User</TableCell>
+                      <TableCell>Total</TableCell>
+                      <TableCell>Outstanding</TableCell>
+                      <TableCell>Allocation</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody
+                    sx={{
+                      "& tr:nth-of-type(odd)": { bgcolor: "#ffffff" },
+                      "& tr:nth-of-type(even)": { bgcolor: "#f5f5f5" },
+                      "& td": { border: 0, fontSize: 16, color: "#000" },
+                    }}
+                  >
+                    {outstandingSales.map((sale) => (
+                      <TableRow key={`pay-${sale.id}`}>
+                        <TableCell>{formatDateTime(sale.saleDate)}</TableCell>
+                        <TableCell>{sale.saleNumber || "-"}</TableCell>
+                        <TableCell>{sale.user?.name || "-"}</TableCell>
+                        <TableCell>{formatCurrency(sale.totalAmount || 0)}</TableCell>
+                        <TableCell>{formatCurrency(sale.outstandingAmount || 0)}</TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            type="number"
+                            value={invoiceAllocations[sale.id] ?? ""}
+                            onChange={(e) =>
+                              handleAllocationChange(sale.id, e.target.value, sale.outstandingAmount)
+                            }
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                            }}
+                            sx={{ width: 120, ...textFieldSx }}
+                            inputProps={{ max: sale.outstandingAmount, min: 0, step: 0.01 }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {outstandingSales.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 2 }}>
+                          <Typography color="text.secondary">No outstanding invoices</Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                  {outstandingSales.length > 0 && (
+                    <TableFooter>
+                      <TableRow sx={{ "& td": { border: 0, fontSize: 16, color: "#000", fontWeight: 700 } }}>
+                        <TableCell colSpan={3}>TOTAL</TableCell>
+                        <TableCell>{formatCurrency(invoicesTotal)}</TableCell>
+                        <TableCell>{formatCurrency(outstandingTotal)}</TableCell>
+                        <TableCell>{formatCurrency(allocatedTotal)}</TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  )}
+                </Table>
+              </TableContainer>
             </Box>
           </Box>
-          <TableContainer sx={{ border: "1px solid #000", borderRadius: 0 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  {["Timestamp", "Invoice", "User", "Total", "Outstanding", "Allocate"].map((h) => (
-                    <TableCell
-                      key={h}
-                      sx={{ bgcolor: "#5ebbeb", color: "#f8f8f8", fontWeight: 700 }}
-                    >
-                      {h}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {outstandingSales.length > 0 ? (
-                  outstandingSales.map((sale) => (
-                    <TableRow key={`pay-${sale.id}`}>
-                      <TableCell>{formatDateTime(sale.saleDate)}</TableCell>
-                      <TableCell>{sale.saleNumber || "-"}</TableCell>
-                      <TableCell>{sale.user?.name || "-"}</TableCell>
-                      <TableCell>{formatCurrency(sale.totalAmount || 0)}</TableCell>
-                      <TableCell>{formatCurrency(sale.outstandingAmount || 0)}</TableCell>
-                      <TableCell>
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={invoiceAllocations[sale.id] ?? ""}
-                          onChange={(e) =>
-                            handleAllocationChange(sale.id, e.target.value, sale.outstandingAmount)
-                          }
-                          sx={{ width: 120 }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      No outstanding invoices
-                    </TableCell>
-                  </TableRow>
-                )}
-                {outstandingSales.length > 0 && (
-                  <TableRow sx={{ "& td": { fontWeight: 700 } }}>
-                    <TableCell colSpan={3}>TOTAL</TableCell>
-                    <TableCell>{formatCurrency(invoicesTotal)}</TableCell>
-                    <TableCell>{formatCurrency(outstandingTotal)}</TableCell>
-                    <TableCell>{formatCurrency(allocatedTotal)}</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          </>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ p: 2, borderTop: 1, borderColor: "divider" }}>
+          <Button
+            onClick={() => setPaymentDialogOpen(false)}
+            sx={{ ...primaryButtonSx, color: "white" }}
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleCompletePayment}
             variant="contained"
             disabled={processingPayment || paymentLoading}
-            sx={{ bgcolor: "#32b643", "&:hover": { bgcolor: "#2a9c39" } }}
+            sx={primaryButtonSx}
           >
             {processingPayment ? "Processing..." : "Complete"}
           </Button>

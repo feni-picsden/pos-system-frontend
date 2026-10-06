@@ -818,13 +818,26 @@ const EditOrder = () => {
       [product.id]: {
         cases: 0,
         items: 0,
-        supplierCode: '',
+        supplierCode: supplierCodeFor(product),
       }
     }));
 
     updateGroupedProducts(updatedProducts);
     
     // Product details are loaded lazily when user opens the detail panel.
+  };
+
+  // QA N03: the Supplier Code box starts with the product's code at the
+  // document's supplier (reference pre-fills it; the operator may still change
+  // it). Falls back to the core supplier's code, then the first code on file.
+  const supplierCodeFor = (product, supplierId = order?.supplier?.id ?? order?.supplierId) => {
+    const links = Array.isArray(product?.suppliers) ? product.suppliers : [];
+    const wanted = supplierId != null ? String(supplierId) : null;
+    const pick =
+      (wanted && links.find((l) => String(l.supplierId ?? l.supplier?.id) === wanted)) ||
+      links.find((l) => l.isCoreSupplier) ||
+      links.find((l) => l.code);
+    return pick?.code ? String(pick.code) : '';
   };
 
   const addSupplierProducts = async (supplier) => {
@@ -880,7 +893,9 @@ const EditOrder = () => {
         newQuantities[product.id] = {
           cases: 0,
           items: 0,
-          supplierCode: supplier.name,
+          // the product's code AT this supplier (this used to put the
+          // supplier's NAME in the Supplier Code box)
+          supplierCode: supplierCodeFor(product, supplier.id),
         };
         setSupplierCodes(prev => ({
           ...prev,
@@ -950,7 +965,7 @@ const EditOrder = () => {
         newQuantities[product.id] = {
           cases: 0,
           items: 0,
-          supplierCode: '',
+          supplierCode: supplierCodeFor(product),
         };
       });
       setProductQuantities(prev => ({ ...prev, ...newQuantities }));
@@ -1482,6 +1497,17 @@ const EditOrder = () => {
   };
 
   const handleSaveAndReceive = async () => {
+    // Nothing in the To Receive boxes: stop here instead of closing the document
+    // as RECEIVED with no stock (the server refuses it too).
+    const arriving = selectedProducts.reduce((sum, p) => {
+      const q = productQuantities[p.id] || { cases: 0, items: 0 };
+      return sum + (parseInt(q.cases, 10) || 0) + (parseInt(q.items, 10) || 0);
+    }, 0);
+    if (selectedProducts.length === 0 || arriving <= 0) {
+      setSuccess('');
+      setError('Nothing to receive: enter the cases or items received for at least one product.');
+      return;
+    }
     try {
       setSaving(true);
       setError('');
@@ -2409,8 +2435,13 @@ const EditOrder = () => {
                     </Typography>
                   </Grid>
 
-                  {/* Supplier Code - free text (reference parity) */}
-                  <Grid item xs={12} sm={1.5}>
+                  {/* Supplier Code - free text (reference parity). Top-aligned so its
+                      label sits level with "To Order" and the box with the Cases box
+                      (centred, the shorter column dropped below its neighbours). */}
+                  <Grid item xs={12} sm={1.5} sx={{ alignSelf: 'flex-start' }}>
+                    {/* Label above the box, like "To Order" / "Stock on Hand": the
+                        placeholder disappears once the code is pre-filled (QA N03). */}
+                    <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>Supplier Code</Typography>
                     <TextField
                       value={quantities.supplierCode || ''}
                       onChange={(e) => handleSupplierTextChange(product.id, e.target.value)}
