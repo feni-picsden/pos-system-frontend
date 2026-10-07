@@ -84,19 +84,27 @@ const renderComponentContent = (component, statementData) => {
             border: props.border?.width ? `${props.border.width}px ${props.border.style || 'solid'} ${props.border.color || '#000000'}` : 'none',
           }}
         >
-          <Box sx={{ border: '1px solid #000', mb: '4px', ...row }}>
-            {cell(summary.days0?.days || '0 days', summary.days0?.amount || formatCurrency(0))}
-            {cell(summary.days30?.days || '30 days', summary.days30?.amount || formatCurrency(0))}
-          </Box>
-          <Box sx={{ border: '1px solid #000' }}>
-            <Typography sx={{ fontSize: `${font}px`, color, textAlign: 'center', py: '3px' }}>
-              {summary.dateRange || ''}
-            </Typography>
-            <Box sx={row}>
-              {cell('Overdue', summary.overdue || formatCurrency(0))}
-              {cell('Current', summary.current || formatCurrency(0))}
-              {cell('Total', summary.total || formatCurrency(0))}
+          {/* The aging box and the date-range line follow the template's toggles
+              (reference default shows only the Overdue / Current / Total Due box). */}
+          {(props.showDays0 !== false || props.showDays30 !== false) && (
+            <Box sx={{ border: '1px solid #000', mb: '4px', ...row }}>
+              {props.showDays0 !== false && cell(summary.days0?.days || '0 days', summary.days0?.amount || formatCurrency(0))}
+              {props.showDays30 !== false && cell(summary.days30?.days || '30 days', summary.days30?.amount || formatCurrency(0))}
             </Box>
+          )}
+          <Box sx={{ border: '1px solid #000' }}>
+            {props.showDateRange !== false && (
+              <Typography sx={{ fontSize: `${font}px`, color, textAlign: 'center', py: '3px' }}>
+                {summary.dateRange || ''}
+              </Typography>
+            )}
+            {props.showTotals !== false && (
+              <Box sx={row}>
+                {cell('Overdue', summary.overdue || formatCurrency(0))}
+                {cell('Current', summary.current || formatCurrency(0))}
+                {cell(props.totalLabel || 'Total Due', summary.total || formatCurrency(0))}
+              </Box>
+            )}
           </Box>
         </Box>
       );
@@ -167,10 +175,13 @@ const renderComponentContent = (component, statementData) => {
                         const running = (group.transactions || [])
                           .slice(0, tIndex + 1)
                           .reduce((sum, x) => sum + money(x.total), 0);
+                        // Reference closes the table with a full-width rule under
+                        // the last line, right above "Total Due".
+                        const isLast = catIndex === groups.length - 1 && tIndex === (group.transactions || []).length - 1;
                         return (
                           <TableRow key={tIndex}>
                             {cols.map((c) => (
-                              <TableCell key={c.key} align="left" sx={cellSx}>
+                              <TableCell key={c.key} align="left" sx={{ ...cellSx, ...(isLast ? { borderBottom: '1px solid #000' } : {}) }}>
                                 {cellValue(c.key, t, running)}
                               </TableCell>
                             ))}
@@ -203,18 +214,22 @@ const renderComponentContent = (component, statementData) => {
     case 'outlet_logo': {
       // No logo picked -> render nothing. The "component empty" placeholder is
       // editor chrome and must never print on a real customer statement.
-      const logoUrl = props.imageUrl || '';
+      // A logo picked in the template wins; otherwise the outlet's own logo
+      // (Setup > Outlets > Logo) prints.
+      const logoUrl = props.imageUrl || statementData.business?.logo || '';
       if (!logoUrl) return null;
       return (
         <Box
           sx={{
             display: 'flex',
-            justifyContent: props.horizontalAlignment || 'center',
+            // Reference: the logo sits top-LEFT of the statement, about 140px
+            // wide — never the full column width.
+            justifyContent: props.horizontalAlignment || 'flex-start',
             backgroundColor: props.backgroundColor || '#ffffff',
             padding: `${props.padding?.top || 0}px ${props.padding?.right || 0}px ${props.padding?.bottom || 0}px ${props.padding?.left || 0}px`,
             border: `${props.border?.width || 0}px ${props.border?.style || 'solid'} ${props.border?.color || '#000000'}`,
             minHeight: 60,
-            alignItems: 'center',
+            alignItems: 'flex-start',
           }}
         >
           <img
@@ -223,8 +238,9 @@ const renderComponentContent = (component, statementData) => {
             style={{
               width: props.width === 'auto' || !props.width ? 'auto' : `${props.width}px`,
               height: props.height === 'auto' || !props.height ? 'auto' : `${props.height}px`,
-              maxWidth: '100%',
-              maxHeight: '300px',
+              maxWidth: props.width && props.width !== 'auto' ? '100%' : '140px',
+              maxHeight: props.height && props.height !== 'auto' ? '300px' : '110px',
+              objectFit: 'contain',
             }}
             onError={(e) => { e.target.style.display = 'none'; }}
           />

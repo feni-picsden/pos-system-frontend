@@ -1,4 +1,4 @@
-import { buildDefaultStatementConfig } from '../utils/statementDefaults';
+import { buildDefaultStatementConfig, DEFAULT_STATEMENT_SEED_VERSION } from '../utils/statementDefaults';
 
 // Statement templates are stored client-side in localStorage (the reference keeps them
 // out of the receipt-templates API). Shared by Setup > Statement Templates and any consumer
@@ -11,7 +11,15 @@ const statementTemplateService = {
       localStorage.setItem('statementTemplatesSeeded', '1');
     }
     const stored = localStorage.getItem('statementTemplates');
-    const templates = stored ? JSON.parse(stored) : [];
+    let templates = stored ? JSON.parse(stored) : [];
+    // The seeded default changed (reference layout: Type column, no 0/30 box,
+    // green terms footer). Refresh templates the user never edited.
+    const seedKey = 'statementTemplatesSeedVersion';
+    if (Number(localStorage.getItem(seedKey)) !== DEFAULT_STATEMENT_SEED_VERSION) {
+      templates = templates.map((t) => (t.lastModified ? t : { ...t, config: buildDefaultStatementConfig() }));
+      localStorage.setItem('statementTemplates', JSON.stringify(templates));
+      localStorage.setItem(seedKey, String(DEFAULT_STATEMENT_SEED_VERSION));
+    }
     // ponytail: reference ships one default template named "Statement"; seed it once when empty.
     if (templates.length === 0) {
       templates.push({

@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
+import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
 import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 import usePageCache from '../../hooks/usePageCache';
 import PerformanceGraph from '../../components/Classifications/PerformanceGraph';
@@ -77,7 +78,7 @@ const MERGE_SECTIONS = [
       ['status', 'Status*'],
       ['businessNumber', 'Business Number'],
       ['accountNumber', 'Account Number'],
-      ['masterDatabaseRef', 'Master Database Reference'],
+      ...(SHOW_MASTER_DATABASE_REF ? [['masterDatabaseRef', 'Master Database Reference']] : []),
     ],
   },
   {

@@ -19,6 +19,7 @@ import {
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import CloseIcon from '@mui/icons-material/Close';
 import { taxRateService } from '../../services/taxRateService';
+import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -208,6 +209,7 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
             InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
           />
 
+          {SHOW_MASTER_DATABASE_REF && (
           <TextField
             select
             label="Master Database Reference"
@@ -234,6 +236,7 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
               </MenuItem>
             ))}
           </TextField>
+          )}
 
           {/* Outlet Selection - Only for Super Admin */}
           {isTrueSuperAdmin() && (

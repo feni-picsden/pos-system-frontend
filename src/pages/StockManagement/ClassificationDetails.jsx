@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import classificationService from '../../services/classificationService';
+import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
 import productService from '../../services/productService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import masterDatabaseService from '../../services/masterDatabaseService';
@@ -927,7 +928,7 @@ const ClassificationDetails = () => {
             }}
           />
           {/* Reference: a family's Modify dialog carries only its Name. */}
-          {classification.type !== 'FAMILY' && (
+          {SHOW_MASTER_DATABASE_REF && classification.type !== 'FAMILY' && (
             <>
           <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Master Database Reference</Typography>
           <Autocomplete

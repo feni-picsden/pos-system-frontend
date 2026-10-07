@@ -41,6 +41,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
+import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
 import masterDatabaseService from '../../services/masterDatabaseService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAuth } from '../../contexts/AuthContext';
@@ -770,6 +771,7 @@ const SupplierDetails = () => {
                   onChange={(e) => handleInputChange('accountNumber', e.target.value)}
                 />
               </Grid>
+              {SHOW_MASTER_DATABASE_REF && (
               <Grid item xs={12}>
                 {formData.masterDatabaseRef && <FieldLabel>Master Database Reference</FieldLabel>}
                 <Autocomplete
@@ -809,6 +811,7 @@ const SupplierDetails = () => {
                   )}
                 />
               </Grid>
+              )}
 
               {/* Outlet Selection for Super Admin */}
               {isTrueSuperAdmin() && (

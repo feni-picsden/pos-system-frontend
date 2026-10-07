@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import masterDatabaseService from '../../services/masterDatabaseService';
+import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
 
 // Shopfront-style field: dark-gray 1px outline, black 2px on focus, 8px radius, 42px tall
 const fieldSx = {
@@ -242,6 +243,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
           sx={{ ...fieldSx, mb: 2 }}
         />
 
+        {SHOW_MASTER_DATABASE_REF && (<>
         <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Master Database Reference</Typography>
         {/* Parity: searchable async dropdown populated from the master-database supplier list */}
         <FormControl fullWidth sx={{ mb: 1 }}>
@@ -283,6 +285,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
             )}
           />
         </FormControl>
+        </>)}
 
         {/* Family colour: feeds the sell-screen cart-line colour strip (reference
             .product-family-colour). Family type only. */}

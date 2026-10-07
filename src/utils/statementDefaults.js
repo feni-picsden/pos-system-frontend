@@ -70,7 +70,8 @@ export const groupActivitiesByAge = (activities = [], rangeEnd = new Date()) => 
 // Reference 779 / Total 918 / Balance 1000).
 export const buildDefaultActionColumns = () => [
   { key: 'date', label: 'Date', enabled: true },
-  { key: 'activity', label: 'Activity', enabled: true },
+  // Reference statement heads this column "Type" (Invoice / Payment).
+  { key: 'activity', label: 'Type', enabled: true },
   { key: 'reference', label: 'Reference', enabled: true },
   { key: 'total', label: 'Total', enabled: true },
   { key: 'balance', label: 'Balance', enabled: true },
@@ -141,7 +142,9 @@ export const buildDefaultStatementComponents = () => [
           id: uid('col'),
           components: [{
             id: uid('overview'), type: 'overview', visible: true,
-            properties: { backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontColor: '#000000', fontSize: 16, fontWeight: 'normal', showDays0: true, showDays30: true, showDateRange: true, showTotals: true },
+            // Reference default: one bordered box — date range over
+            // Overdue / Current / Total Due. The 0/30-day aging box is off.
+            properties: { backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontColor: '#000000', fontSize: 12, fontWeight: 'normal', showDays0: false, showDays30: false, showDateRange: true, showTotals: true, totalLabel: 'Total Due' },
           }],
         },
       ],
@@ -161,16 +164,22 @@ export const buildDefaultStatementComponents = () => [
     },
   },
   // ---------- FOOTER ----------
+  // Reference: a pale-green terms / payment-details block, left aligned.
   {
     id: uid('text'), type: 'text', zone: 'footer', visible: true,
     properties: {
-      backgroundColor: '#ffffff', padding: { top: 8, right: 8, bottom: 8, left: 8 }, border: { ...noBorder },
-      fontSize: 14, fontWeight: 'bold', textAlign: 'center',
-      content: 'Test Customer Invoice Message',
-      richTextContent: '<div style="text-align:center"><strong>Test Customer Invoice Message</strong></div>',
+      backgroundColor: '#c9f3a1', padding: { top: 8, right: 8, bottom: 8, left: 8 }, border: { ...noBorder },
+      fontSize: 12, fontWeight: 'normal', textAlign: 'left',
+      content: 'TERMS: Strictly 15 days of Statement.',
+      richTextContent: '<div style="text-align:left">TERMS: Strictly 15 days of Statement.<br/><br/>____________________________<br/><br/><strong>Payment Details:</strong><br/><br/><strong>{businessName}</strong><br/>BSB: 000 000<br/>ACC: 0000 0000<br/><span style="font-size:10px">Thank you........</span></div>',
     },
   },
 ];
+
+// Bumped whenever the seeded default above changes shape. getTemplates() re-seeds
+// any template the user never edited (no lastModified) so the reference layout
+// reaches existing installs; edited templates are left exactly as saved.
+export const DEFAULT_STATEMENT_SEED_VERSION = 2;
 
 export const buildDefaultStatementConfig = () => ({
   components: buildDefaultStatementComponents(),

@@ -55,6 +55,8 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import customerService from "../../services/customerService";
+import statementTemplateService from "../../services/statementTemplateService";
+import settingsService from "../../services/settingsService";
 import { appTimeZone, formatDateTime as formatAppDateTime } from "../../utils/appDateTime";
 import customerGroupService from "../../services/customerGroupService";
 import paymentService from "../../services/paymentService";
@@ -68,7 +70,7 @@ import DateRangePicker from "../../components/Common/DateRangePicker";
 import ReceiptRenderer from "../../components/Receipt/ReceiptRenderer";
 import { buildReceiptPrintHtml } from "../../utils/receiptPrintHtml";
 import { printHtmlDocument } from "../../utils/printHtmlDocument";
-import { groupActivitiesByAge } from "../../utils/statementDefaults";
+import { groupActivitiesByAge, buildDefaultStatementConfig } from "../../utils/statementDefaults";
 import { formatCurrency } from "../../utils/currency";
 import {
   shouldAutoPrintPaymentReceipt,
@@ -295,8 +297,20 @@ const previousMonthRange = () => [
 // over this page. fontFamily defaults to the receipt's monospace; statements print
 // in the canvas font instead.
 const printHtmlViaIframe = (bodyHtml, title, fontFamily = "'Courier New',monospace") => {
+  // The statement is rendered with MUI/emotion classes, whose CSS lives in
+  // <style> tags on THIS page. Copy them into the print document, or the print
+  // comes out unstyled (no borders, no table layout, no green terms block).
+  const headStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+    .map((n) => n.outerHTML)
+    .join('\n');
   printHtmlDocument(
-    `<html><head><title>${title}</title><style>body{font-family:${fontFamily};margin:0;padding:20px;background:#fff;}@media print{body{margin:0;padding:10px;}@page{margin:0.5cm;}}</style></head><body>${bodyHtml}</body></html>`
+    `<html><head><title>${title}</title>${headStyles}<style>
+      body{font-family:${fontFamily};margin:0;padding:20px;background:#fff;color:#000;}
+      /* Keep template background colours (the terms block) on paper. */
+      *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      table{page-break-inside:auto;} tr{page-break-inside:avoid;}
+      @media print{body{margin:0;padding:0;}@page{size:A4 portrait;margin:12mm;}}
+    </style></head><body>${bodyHtml}</body></html>`
   );
 };
 
@@ -371,34 +385,60 @@ const Balance = () => {
     }
   };
 
-  const toBusiness = (outlet) => outlet ? {
-    name: outlet.name || '',
-    address: outlet.address || '',
-    email: outlet.email || '',
-    phone: outlet.phone || '',
-    abn: '', // ponytail: no ABN column on Outlet — blank beats a fake one
-  } : null;
+  // The outlet's extended profile (Setup > Outlets: logo, business number,
+  // Contact and Address tabs) lives in the settings store, not on the outlet
+  // row. It is what the statement header prints; the outlet row's own columns
+  // are the fallback when nothing has been saved there yet.
+  const outletProfileCache = React.useRef({});
+  const loadOutletProfile = async (outletId) => {
+    if (!outletId) return null;
+    if (outletProfileCache.current[outletId] !== undefined) return outletProfileCache.current[outletId];
+    let profile = null;
+    try {
+      const res = await settingsService.getSetting(`outlet_profile_${outletId}`);
+      profile = res?.setting?.value && typeof res.setting.value === 'object' ? res.setting.value : null;
+    } catch { /* no profile saved yet */ }
+    outletProfileCache.current[outletId] = profile;
+    return profile;
+  };
+
+  const toBusiness = (outlet, profile) => {
+    if (!outlet) return null;
+    const p = profile || {};
+    const line1 = [p.street1, p.street2].filter(Boolean).join(', ');
+    const line2 = [p.suburb || p.city, p.state, p.postcode].filter(Boolean).join(' ');
+    const address = [line1, line2].filter(Boolean).join(', ') || outlet.address || '';
+    return {
+      name: outlet.name || '',
+      address,
+      email: p.email || outlet.email || '',
+      phone: p.phone || outlet.phone || '',
+      abn: p.businessNumber || '',
+      logo: p.logo || '',
+    };
+  };
 
   // Business block behind the statement's {businessName}/{businessAddress}/...
   // variables. A statement is issued BY the customer's own outlet, so that wins;
   // super admins on "All Outlets" have no profile/selected outlet to fall back on.
-  const resolveBusiness = (customer) =>
-    toBusiness(
-      outlets.find((o) => o.id === customer?.outletId) || profileOutlet || selectedOutlet
-    );
+  const resolveBusiness = async (customer) => {
+    const outlet = outlets.find((o) => o.id === customer?.outletId) || profileOutlet || selectedOutlet;
+    return toBusiness(outlet, await loadOutletProfile(outlet?.id));
+  };
 
   const loadStatementTemplates = async () => {
     try {
-      const stored = localStorage.getItem('statementTemplates');
-      const templates = stored ? JSON.parse(stored) : [];
-      if (templates.length === 0) {
-        templates.push({ id: 1, name: 'Statement' });
-      }
-      const validTemplates = templates.filter(t => t && t.id != null);
+      // Through the service, not raw localStorage: it seeds the reference
+      // default template (with its config) on first use and refreshes untouched
+      // defaults. Reading the store directly handed the viewer a template with
+      // NO config whenever Setup > Statement Templates had never been opened,
+      // which dropped it to the plain fallback layout.
+      const { templates } = await statementTemplateService.getTemplates();
+      const validTemplates = (templates || []).filter(t => t && t.id != null);
       setStatementTemplates(validTemplates);
     } catch (err) {
       console.error('Error loading statement templates:', err);
-      setStatementTemplates([{ id: 1, name: 'Statement' }]);
+      setStatementTemplates([{ id: 1, name: 'Statement', config: buildDefaultStatementConfig() }]);
     }
   };
 
@@ -573,7 +613,7 @@ const Balance = () => {
 
     return {
       customer: { ...customer, ...(statementData.customer || {}) },
-      business: resolveBusiness(customer),
+      business: await resolveBusiness(customer),
       dateRange: statementDateRange,
       template: statementTemplates.find(t => t.id.toString() === selectedTemplate),
       data: {
@@ -703,8 +743,35 @@ const Balance = () => {
     );
   };
 
-  const handleEmailStatement = () => {
-    alert(`Email statement to ${selectedCustomer?.email || 'customer email'}`);
+  // Sends exactly what is on screen: the rendered statement HTML goes to the
+  // server, which mails it to the customer's stored addresses.
+  const [emailingStatement, setEmailingStatement] = useState(false);
+  const handleEmailStatement = async () => {
+    const statementContent = document.querySelector('[data-statement-content]');
+    if (!statementContent || !selectedCustomer?.id) {
+      setError("Statement content not found");
+      return;
+    }
+    const addresses = (Array.isArray(selectedCustomer.emails) ? selectedCustomer.emails : [selectedCustomer.email]).filter(Boolean);
+    if (!addresses.length) {
+      alert('This customer has no email address. Add one on the customer page first.');
+      return;
+    }
+    setEmailingStatement(true);
+    try {
+      const res = await customerService.emailCustomerStatement(selectedCustomer.id, {
+        html: statementContent.innerHTML,
+        period: generatedStatement?.data?.summary?.dateRange,
+        fontFamily: generatedStatement?.template?.config?.canvas?.fontFamily || 'Arial, sans-serif',
+      });
+      setSuccess(res?.devMode
+        ? `Statement logged (email not configured on this server) for ${(res.to || addresses).join(', ')}`
+        : `Statement emailed to ${(res.to || addresses).join(', ')}`);
+    } catch (err) {
+      setError(err?.response?.data?.error || err?.message || 'Failed to email statement');
+    } finally {
+      setEmailingStatement(false);
+    }
   };
 
   const handleMakePayment = async (customer) => {
@@ -1292,83 +1359,69 @@ const Balance = () => {
         onClose={closeStatementViewer}
         maxWidth="lg"
         fullWidth
+        // Reference statement viewer: no title bar — a grey stage holding the A4
+        // page, a round ✕ at the top-right corner, and a sky-blue bar along the
+        // bottom with three equal outlined buttons (Print / Download / Email).
         PaperProps={{
           sx: {
-            height: '90vh',
-            maxHeight: '90vh',
+            height: '92vh',
+            maxHeight: '92vh',
+            width: 760,
+            maxWidth: 'calc(100% - 32px)',
+            m: 2,
+            borderRadius: '6px',
+            overflow: 'visible',
+            bgcolor: '#5ebbeb',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
           }
         }}
       >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="h6">
-                Statement - {selectedCustomer?.firstName} {selectedCustomer?.lastName}
-              </Typography>
-              {/* Help docs: arrows step through each customer's statement */}
-              {statementCustomers.length > 1 && (
-                <>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleStatementStep(-1)}
-                    disabled={statementIndex === 0}
-                  >
-                    <KeyboardArrowLeft />
-                  </IconButton>
-                  <Typography variant="body2" color="text.secondary">
-                    {statementIndex + 1} of {statementCustomers.length}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleStatementStep(1)}
-                    disabled={statementIndex === statementCustomers.length - 1}
-                  >
-                    <KeyboardArrowRight />
-                  </IconButton>
-                </>
-              )}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                startIcon={<DownloadIcon />}
-                onClick={handleDownloadStatement}
-                variant="outlined"
-                size="small"
-              >
-                Download
-              </Button>
-              <Button
-                startIcon={<PrintIcon />}
-                onClick={handlePrintStatement}
-                variant="outlined"
-                size="small"
-              >
-                Print
-              </Button>
-              <Button
-                startIcon={<EmailIcon />}
-                onClick={handleEmailStatement}
-                variant="outlined"
-                size="small"
-              >
-                Email
-              </Button>
-              <IconButton onClick={closeStatementViewer} size="small">
-                <CloseIcon />
-              </IconButton>
-            </Box>
+        {/* ✕ sits on the corner, half outside the frame, like the reference */}
+        <IconButton
+          onClick={closeStatementViewer}
+          aria-label="Close statement"
+          sx={{
+            position: 'absolute', top: -14, right: -14, zIndex: 2,
+            width: 32, height: 32, p: 0,
+            bgcolor: '#fff', color: '#000', border: '2px solid #000',
+            '&:hover': { bgcolor: '#f0f0f0' },
+          }}
+        >
+          <CloseIcon sx={{ fontSize: 20 }} />
+        </IconButton>
+        {/* Help docs: arrows step through each customer's statement */}
+        {statementCustomers.length > 1 && (
+          <Box sx={{ position: 'absolute', top: 10, left: 14, zIndex: 2, display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'rgba(255,255,255,0.9)', borderRadius: '16px', px: 1 }}>
+            <IconButton size="small" onClick={() => handleStatementStep(-1)} disabled={statementIndex === 0}>
+              <KeyboardArrowLeft />
+            </IconButton>
+            <Typography variant="body2" color="text.secondary">
+              {statementIndex + 1} of {statementCustomers.length}
+            </Typography>
+            <IconButton size="small" onClick={() => handleStatementStep(1)} disabled={statementIndex === statementCustomers.length - 1}>
+              <KeyboardArrowRight />
+            </IconButton>
           </Box>
-        </DialogTitle>
-        <DialogContent sx={{ overflow: 'auto', p: 3 }}>
+        )}
+        <DialogContent sx={{ overflow: 'auto', p: 3, pt: 3, bgcolor: '#8f8f8f', borderRadius: '6px 6px 0 0' }}>
           {generatedStatement && (
-            <Box 
+            <Box
               data-statement-content
-              sx={{ 
-              bgcolor: 'white', 
-              p: 4, 
-              minHeight: '100%',
+              sx={{
+              bgcolor: 'white',
+              p: 4,
+              // A4 proportions on screen (210 × 297mm); the print path has its own @page.
+              width: '100%',
+              maxWidth: 595,
+              minHeight: 842,
+              mx: 'auto',
+              boxSizing: 'border-box',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.35)',
               '@media print': {
                 p: 2,
+                boxShadow: 'none',
+                maxWidth: 'none',
+                minHeight: 0,
               }
             }}>
               {generatedStatement.template?.config?.components?.length > 0 ? (
@@ -1512,6 +1565,25 @@ const Balance = () => {
             </Box>
           )}
         </DialogContent>
+        {/* Reference bottom bar: three equal white-outlined buttons on the blue frame */}
+        <Box
+          sx={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            px: 3, py: 1.5, bgcolor: '#5ebbeb', borderRadius: '0 0 6px 6px', flexShrink: 0,
+            '& .MuiButton-root': {
+              color: '#fff', border: '2px solid #fff', borderRadius: '4px', bgcolor: 'transparent',
+              textTransform: 'none', fontSize: 22, fontWeight: 400, px: 2, py: 0.5, minWidth: 150,
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.15)', border: '2px solid #fff' },
+              '& .MuiButton-startIcon svg': { fontSize: 26 },
+            },
+          }}
+        >
+          <Button startIcon={<PrintIcon />} onClick={handlePrintStatement}>Print</Button>
+          <Button startIcon={<DownloadIcon />} onClick={handleDownloadStatement}>Download</Button>
+          <Button startIcon={<EmailIcon />} onClick={handleEmailStatement} disabled={emailingStatement}>
+            {emailingStatement ? 'Sending…' : 'Email'}
+          </Button>
+        </Box>
       </Dialog>
 
       <Dialog

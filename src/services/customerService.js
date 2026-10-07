@@ -70,6 +70,12 @@ const customerService = {
     return response.data;
   },
 
+  // Mails the rendered statement (HTML the viewer shows) to the customer.
+  emailCustomerStatement: async (id, { html, period, fontFamily, to } = {}) => {
+    const response = await apiClient.post(`/customers/${id}/email-statement`, { html, period, fontFamily, to });
+    return response.data;
+  },
+
   getCustomerStatement: async (id, startDate, endDate) => {
     const params = {};
     if (startDate) params.startDate = startDate;
