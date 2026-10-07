@@ -322,6 +322,11 @@ const Products = () => {
     mutate: mutateProducts,
   } = usePageCache('products', () => fetchAllProducts(selectedOutletId), {
     deps: [selectedOutletId],
+    // Always revalidate on open. Sales move stock without touching the IndexedDB
+    // catalog (apiClient STOCK_MOVING_RESOURCES), so the 5-minute window left the
+    // Inventory column showing pre-sale stock while the product page showed the
+    // real figure. The cached list still paints first; the fresh one lands behind it.
+    maxAge: 0,
   });
 
   // Click outside handler for functions dropdown

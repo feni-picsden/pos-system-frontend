@@ -25,12 +25,14 @@ export async function fetchAllProducts(outletId) {
     // includeAllStatuses is load-bearing: getProducts appends `status=Active`
     // unless it is told not to, so without it the cache held Active rows only
     // and the Products page's Inactive filter had nothing to match.
+    // noCache: this IS the revalidation — serving it from the 15s GET cache
+    // could hand back a pre-sale page and re-store stale stock in IndexedDB.
     const res = await productService.getProducts({
       outletId,
       limit,
       page,
       includeAllStatuses: true,
-    }, { silent: true });
+    }, { silent: true, noCache: true });
     const batch = res?.products || [];
     all.push(...batch);
     total = res?.pagination?.total ?? all.length;
@@ -39,6 +41,25 @@ export async function fetchAllProducts(outletId) {
     if (page > 50) break;
   }
   return all;
+}
+
+/**
+ * Re-pull just these products (list shape) and overwrite their IndexedDB rows +
+ * the in-memory catalog. Used right after a sale: stock moved on the server
+ * for the sold lines only, and a full catalog re-sync per sale is too heavy.
+ */
+export async function refreshProductsInCache(productIds, outletId) {
+  const ids = Array.from(new Set((productIds || []).map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n))));
+  if (!ids.length) return;
+  const res = await productService.getProducts(
+    { ids: ids.join(','), outletId, limit: ids.length, page: 1, includeAllStatuses: true },
+    { silent: true, noCache: true }
+  );
+  const rows = res?.products || [];
+  for (const row of rows) {
+    await posLocalDb.putStoreItem('products', row);
+  }
+  if (rows.length) await posLocalDb.warmFromDb(outletId);
 }
 
 // Customers are deliberately UNSCOPED: the sell-screen Add Customer search must

@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Typography, Button, InputBase, Collapse, Snackbar, Alert } from '@mui/material';
+import { Box, Typography, Button, InputBase, Collapse, Snackbar, Alert, Tooltip } from '@mui/material';
 import {
   PointOfSaleOutlined as OpenDrawerIcon,
   ChevronRight as ChevronRightIcon,
   ExpandMore as ExpandMoreIcon,
   CheckCircleOutline as CheckCircleOutlineIcon,
   HelpOutline as HelpOutlineIcon,
-  InfoOutlined as InfoOutlinedIcon,
   MeetingRoomOutlined as MeetingRoomOutlinedIcon,
 } from '@mui/icons-material';
 import registerService from '../../services/registerService';
 import linklyService from '../../services/linklyService';
+import drawerService from '../../services/drawerService';
+import cashManagementService from '../../services/cashManagementService';
+import settingsService from '../../services/settingsService';
 import paymentMethodService, { getPaymentMethodSettings } from '../../services/paymentMethodService';
 import NiceError from '../../components/Common/NiceError';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
@@ -68,6 +70,20 @@ const TH_SX = {
 };
 const TD_SX = { p: '16px', border: 0, fontSize: 16, color: '#000' };
 
+// Reference help texts. Float's is verbatim from the reference tooltip; the two
+// column ones paraphrase what the columns hold.
+const HELP = {
+  expected: 'The amount the system expects for this payment method from the sales recorded during this shift.',
+  received: 'The amount you have counted for this payment method.',
+  float: 'The starting balance for your cash drawer before you began trading during this shift',
+};
+const HelpTip = ({ title, light = false }) => (
+  <Tooltip title={title} arrow placement="bottom">
+    <HelpOutlineIcon sx={{ fontSize: 16, color: light ? '#fff' : N500, cursor: 'help', ml: '4px', verticalAlign: 'middle' }} />
+  </Tooltip>
+);
+const SEVEN_DAYS_MS = 7 * 86400000;
+
 const fmt = (n) => `${n < 0 ? '-' : ''}$${Math.abs(Number(n) || 0).toFixed(2)}`;
 
 // Reference prints the open time as a coarse relative duration ("5 hours ago").
@@ -104,8 +120,9 @@ const parseDenominations = (csv) => {
 };
 
 // Reference money input: borderless field in a rounded white shell with a grey
-// "$" prefix. 40px tall, 8px radius.
-const MoneyInput = ({ value, onChange, width = 136, grey = false, readOnly = false }) => (
+// "$" prefix. 40px tall, 8px radius. `count` drops the prefix and steps by 1 —
+// the denomination Amount column is a number of coins/notes, not dollars.
+const MoneyInput = ({ value, onChange, width = 136, grey = false, readOnly = false, count = false }) => (
   <Box
     sx={{
       display: 'flex',
@@ -120,14 +137,14 @@ const MoneyInput = ({ value, onChange, width = 136, grey = false, readOnly = fal
       gap: '8px',
     }}
   >
-    <Box component="span" sx={{ color: N500, fontSize: 16 }}>$</Box>
+    {!count && <Box component="span" sx={{ color: N500, fontSize: 16 }}>$</Box>}
     <InputBase
       value={value}
       onChange={onChange}
       readOnly={readOnly}
       type={readOnly ? 'text' : 'number'}
       sx={{ flex: 1, fontSize: 16, '& input': { p: 0 } }}
-      inputProps={{ step: '0.01', min: '0' }}
+      inputProps={{ step: count ? '1' : '0.01', min: '0' }}
     />
   </Box>
 );
@@ -138,8 +155,13 @@ const CloseRegister = () => {
   const [expanded, setExpanded] = useState({});
   const [showMore, setShowMore] = useState(false);
   const [qty, setQty] = useState({});
-  const [floatAmount, setFloatAmount] = useState(300);
+  // Reference leaves Float blank for the operator to type; it used to be a
+  // hardcoded 300 that had nothing to do with this register.
+  const [floatAmount, setFloatAmount] = useState('');
   const [note, setNote] = useState('');
+  const [closing, setClosing] = useState(false);
+  const [requireNoteOnDiscrepancy, setRequireNoteOnDiscrepancy] = useState(false);
+  const [snack, setSnack] = useState(null); // { message, severity }
   // EFTPOS end-of-day settlement (independent of closing the register).
   const [pinpadPaired, setPinpadPaired] = useState(false);
   const [settling, setSettling] = useState(false);
@@ -157,6 +179,12 @@ const CloseRegister = () => {
   useEffect(() => {
     if (!registerId) return;
     registerService.previewClosure(registerId).then(setPreview).catch(() => {});
+    // Setup > Registers > Sell Screen > "Require note on register closure with
+    // discrepancy" — enforced in handleClose.
+    settingsService
+      .getRegisterSettings(registerId)
+      .then((r) => setRequireNoteOnDiscrepancy(Boolean(r?.settings?.requireNoteOnRegisterClosureWithDiscrepancy)))
+      .catch(() => {});
     linklyService
       .getPinpadStatus()
       .then((res) => setPinpadPaired(!!res.paired))
@@ -199,18 +227,55 @@ const CloseRegister = () => {
   );
   const total = inDrawer - (parseFloat(floatAmount) || 0);
 
+  // Any top-level method whose received differs from expected by a cent or more.
+  const hasDiscrepancy = methods.some(
+    (m) => Math.abs((parseFloat(received[m]) || 0) - expectedFor(m)) >= 0.005
+  );
+
   const handleClose = async () => {
-    await registerService.closeRegister(registerId, {
-      inDrawer,
-      floatAmount: parseFloat(floatAmount) || 0,
-      note,
-      denominations: DENOMINATIONS.map((d) => ({ value: d, qty: parseFloat(qty[d]) || 0 })),
-      receivedByMethod: received,
-    });
-    // Context call, not a raw localStorage wipe: the provider holds the same
-    // selection in memory and every screen reads it from there now.
-    clearSelectedRegister();
-    navigate('/');
+    if (closing) return;
+    if (requireNoteOnDiscrepancy && hasDiscrepancy && !note.trim()) {
+      setSnack({ message: 'A closure note is required because the received amounts differ from expected.', severity: 'error' });
+      return;
+    }
+    setClosing(true);
+    try {
+      await registerService.closeRegister(registerId, {
+        inDrawer,
+        floatAmount: parseFloat(floatAmount) || 0,
+        note,
+        denominations: DENOMINATIONS.map((d) => ({ value: d, qty: parseFloat(qty[d]) || 0 })),
+        receivedByMethod: received,
+      });
+      // Context call, not a raw localStorage wipe: the provider holds the same
+      // selection in memory and every screen reads it from there now.
+      clearSelectedRegister();
+      navigate('/');
+    } catch (e) {
+      setSnack({
+        message: e?.response?.data?.error || e?.message || 'Failed to close register',
+        severity: 'error',
+      });
+      setClosing(false);
+    }
+  };
+
+  // Same one-click as Manage Cash: pop the drawer through QZ Tray when it is
+  // there, and log the open either way so the closure's audit trail has it.
+  const handleOpenDrawer = async () => {
+    let suffix = '';
+    try {
+      const res = await drawerService.kickDrawer();
+      suffix = ` (sent to ${res.printer})`;
+    } catch (hwErr) {
+      suffix = hwErr?.code === 'QZ_UNAVAILABLE' ? ' — QZ Tray not detected, logged only' : ' — no printer detected, logged only';
+    }
+    try {
+      await cashManagementService.openDrawer({ registerId, reason: 'Close register', notes: '' });
+      setSnack({ message: `Cash drawer opened${suffix}`, severity: 'success' });
+    } catch (e) {
+      setSnack({ message: e?.response?.data?.error || e?.message || 'Failed to open drawer', severity: 'error' });
+    }
   };
 
   // Runs the pinpad's end-of-day settlement. Never blocks handleClose — a
@@ -293,7 +358,7 @@ const CloseRegister = () => {
           <Box sx={{ ...TD_SX, textAlign: 'center' }}>{fmt(got - expected)}</Box>
           <Box sx={{ ...TD_SX, textAlign: 'center' }}>
             {method === 'Cash' && (
-              <Button sx={BTN_GREEN_SX} startIcon={<OpenDrawerIcon />}>
+              <Button sx={BTN_GREEN_SX} startIcon={<OpenDrawerIcon />} onClick={handleOpenDrawer}>
                 Open Drawer
               </Button>
             )}
@@ -371,6 +436,27 @@ const CloseRegister = () => {
           </Typography>
         </Box>
 
+        {/* Reference: amber notice once the register has been open over 7 days. */}
+        {preview?.openedAt && Date.now() - new Date(preview.openedAt).getTime() > SEVEN_DAYS_MS && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              mb: 2,
+              p: '16px',
+              borderRadius: '12px',
+              border: '1px solid #facc15',
+              bgcolor: '#fefce8',
+              color: '#854d0e',
+              fontSize: 14,
+            }}
+          >
+            <Box component="span" sx={{ fontWeight: 700, fontSize: 18, lineHeight: 1 }}>!</Box>
+            The register has been open for longer than 7 days, we cannot guarantee the accuracy of the expected figures.
+          </Box>
+        )}
+
         <Box sx={{ display: 'flex', gap: 4, px: '4px', mt: 1, mb: 2 }}>
           <Box>
             <Typography sx={{ fontSize: 14, color: N600 }}>Open Time</Typography>
@@ -395,8 +481,8 @@ const CloseRegister = () => {
           }}
         >
           <Box className="hd" sx={TH_SX}>Payment Method</Box>
-          <Box className="hd" sx={{ ...TH_SX, textAlign: 'center' }}>Expected</Box>
-          <Box className="hd" sx={{ ...TH_SX, textAlign: 'center' }}>Received</Box>
+          <Box className="hd" sx={{ ...TH_SX, textAlign: 'center' }}>Expected<HelpTip title={HELP.expected} light /></Box>
+          <Box className="hd" sx={{ ...TH_SX, textAlign: 'center' }}>Received<HelpTip title={HELP.received} light /></Box>
           <Box className="hd" sx={{ ...TH_SX, textAlign: 'center' }}>Difference</Box>
           <Box className="hd" sx={TH_SX} />
         </Box>
@@ -447,8 +533,8 @@ const CloseRegister = () => {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-          <Button sx={BTN_PRIMARY_SX} onClick={handleClose}>
-            Close Register
+          <Button sx={BTN_PRIMARY_SX} onClick={handleClose} disabled={closing}>
+            {closing ? 'Closing…' : 'Close Register'}
           </Button>
           {pinpadPaired && (
             <Button sx={BTN_GREEN_SX} onClick={handleSettlement} disabled={settling}>
@@ -479,6 +565,11 @@ const CloseRegister = () => {
         >
           <Alert severity={settleSnack?.severity || 'info'} onClose={() => setSettleSnack(null)}>
             {settleSnack?.message}
+          </Alert>
+        </Snackbar>
+        <Snackbar open={!!snack} autoHideDuration={6000} onClose={() => setSnack(null)}>
+          <Alert severity={snack?.severity || 'info'} onClose={() => setSnack(null)}>
+            {snack?.message}
           </Alert>
         </Snackbar>
       </Box>
@@ -516,6 +607,7 @@ const CloseRegister = () => {
                 </Box>
                 <Box sx={{ ...TD_SX, ...stripe, display: 'flex', alignItems: 'center' }}>
                   <MoneyInput
+                    count
                     value={qty[d] ?? ''}
                     onChange={(e) => setQty((p) => ({ ...p, [d]: e.target.value }))}
                   />
@@ -535,7 +627,7 @@ const CloseRegister = () => {
 
           <Box sx={{ ...TD_SX, display: 'flex', alignItems: 'center', gap: '4px' }}>
             Float
-            <InfoOutlinedIcon sx={{ fontSize: 16, color: N500 }} />
+            <HelpTip title={HELP.float} />
           </Box>
           <Box />
           <Box sx={{ ...TD_SX, p: '8px' }}>
@@ -549,7 +641,16 @@ const CloseRegister = () => {
 
           <Box sx={TD_SX}>Total</Box>
           <Box />
-          <Box sx={{ ...TD_SX, color: total < 0 ? RED : '#000' }}>{fmt(total)}</Box>
+          {/* Reference strikes the Total through while nothing has been counted. */}
+          <Box
+            sx={{
+              ...TD_SX,
+              color: total < 0 ? RED : '#000',
+              textDecoration: inDrawer === 0 && !floatAmount ? 'line-through' : 'none',
+            }}
+          >
+            {fmt(total)}
+          </Box>
         </Box>
       </Box>
     </Box>

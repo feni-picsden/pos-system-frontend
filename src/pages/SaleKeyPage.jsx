@@ -154,6 +154,7 @@ import {
 import customerDisplayService from '../services/customerDisplayService';
 import posLocalDb, { stripHtml } from '../services/posLocalDb';
 import { syncAppDataInBackground, warmAppCache } from '../services/appDataSync';
+import { refreshProductsInCache } from '../services/posCatalogSync';
 
 // Single source of truth for customer-vs-group precedence (Shopfront spec).
 // overrideCustomerGroup ON => the customer's OWN priceList/disablePromotions/
@@ -1805,6 +1806,8 @@ const SaleKeyPage = () => {
   };
 
   const handleSearchChange = (e) => {
+    // Typing a product search over the completed-sale panel starts the next sale.
+    if (isTransactionComplete) startNextSale();
     setSearchTerm(e.target.value);
     // new text = new result list; nothing highlighted until an arrow key is used
     setActiveResultIndex(-1);
@@ -2278,7 +2281,12 @@ const SaleKeyPage = () => {
     // `associatingBarcode`: the operator is choosing which product a code belongs
     // to. A scan landing in the sale now would be a surprise item on the receipt,
     // so every scan path is inert until the flow finishes or is cancelled.
-    if (isCustomerSearchMode || isTransactionComplete || associatingBarcode) return;
+    if (isCustomerSearchMode || associatingBarcode) return;
+    // A scan on the completed-sale panel is the first item of the next sale.
+    if (isTransactionComplete) {
+      startNextSaleThen({ kind: 'scan', code: rawCode, opts: { clearBox, notifyMissing } });
+      return;
+    }
     // Sanitize before the dedupe compare so the same scan arriving once clean
     // and once with a scanner suffix is still recognised as a repeat.
     const code = sanitizeScanInput(rawCode);
@@ -2602,6 +2610,8 @@ const SaleKeyPage = () => {
   // (search box placeholder flips to "Search for Customers...", Back / Create
   // New toolbar, full zebra customer list).
   const handleAddCustomerClick = async () => {
+    // Add Customer from the sidebar over a completed sale starts the next one.
+    if (isTransactionComplete) startNextSale();
     setIsCustomerSearchMode(true);
     setSearchTerm('');
     focusSearchInput();
@@ -2811,8 +2821,10 @@ const SaleKeyPage = () => {
       return; // Key is disabled
     }
 
-    // Prevent any actions if transaction is complete
+    // A sale key on the completed-sale panel starts the next sale and then
+    // runs — the cashier should not have to press Done first.
     if (isTransactionComplete && saleKey.action !== 'clear-sale') {
+      startNextSaleThen({ kind: 'saleKey', saleKey });
       return;
     }
 
@@ -4009,6 +4021,16 @@ const SaleKeyPage = () => {
 
       try {
         const created = await salesService.createSale(saleData);
+        // The server just moved stock for these lines. Refresh only them in the
+        // local catalog (IndexedDB + memory) so the Products list and the sell
+        // search show the post-sale figure straight away instead of the cached
+        // one. Fire-and-forget: a failure here never touches the sale.
+        refreshProductsInCache(
+          (saleData.items || []).map((it) => it.productId),
+          saleData.outletId ?? getEffectiveOutletId()
+        )
+          .then(() => syncLocalPosCatalogState())
+          .catch(() => {});
         // Return the created sale id so the caller can auto-email the receipt (group flag).
         return { saleId: created?.sale?.id ?? created?.id ?? null, offline: false };
       } catch (error) {
@@ -6965,21 +6987,32 @@ const SaleKeyPage = () => {
     logoutAfterSaleIfRequired();
   };
 
-  // Automatic Done: a completed sale that needs nothing more from the cashier (no
-  // change to hand back) clears for the next sale 3 seconds after it completes. A sale
-  // WITH change stays until Done so the change figure is not lost, and using the panel
-  // (Print, Email, Add Customer, the receipt template) cancels the countdown.
+  // The completed-sale panel stays up until the cashier does something that
+  // belongs to the NEXT sale — a sale key, a scan, typing a product search, Add
+  // Customer. That action clears the panel and then runs as if the screen had
+  // been empty, so Print / Email / template stay reachable for as long as the
+  // cashier needs them. It used to clear itself 3 seconds after a no-change
+  // sale, which pulled the receipt away before anyone could print it.
+  // `autoDoneCancelled` is kept only so the panel's buttons keep compiling.
   const [autoDoneCancelled, setAutoDoneCancelled] = useState(false);
   useEffect(() => {
     if (!isTransactionComplete) setAutoDoneCancelled(false);
   }, [isTransactionComplete]);
+  void autoDoneCancelled;
+  // The action is replayed from the render AFTER the state reset, so it sees the
+  // empty cart rather than the just-completed one.
+  const pendingAfterSaleRef = useRef(null);
+  const startNextSaleThen = (action) => {
+    pendingAfterSaleRef.current = action;
+    startNextSale();
+  };
   useEffect(() => {
-    if (!isTransactionComplete || !receiptData || autoDoneCancelled) return undefined;
-    if ((parseFloat(receiptData.change) || 0) > 0) return undefined;
-    const timer = setTimeout(startNextSale, 3000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTransactionComplete, receiptData, autoDoneCancelled]);
+    if (isTransactionComplete || !pendingAfterSaleRef.current) return;
+    const pending = pendingAfterSaleRef.current;
+    pendingAfterSaleRef.current = null;
+    if (pending.kind === 'saleKey') handleSaleKeyClick(pending.saleKey);
+    else if (pending.kind === 'scan') queueScan(pending.code, pending.opts);
+  });
 
   // Cart-line padlock: one click strips the manual price and re-prices the line
   // through the automatic waterfall (reference unlock, no confirmation).
@@ -8598,7 +8631,9 @@ const SaleKeyPage = () => {
                       </>
                     ) : (
                       // No change to hand back — the banner reads Sale Complete instead.
-                      <Typography component="div" sx={{ fontWeight: 700, fontSize: '64px', lineHeight: 1.1, color: 'inherit', whiteSpace: 'nowrap' }}>
+                      // 64px on the reference's wide column; scales down so the words
+                      // never run past the cart column on a narrower screen.
+                      <Typography component="div" sx={{ fontWeight: 700, fontSize: 'clamp(28px, 3.6vw, 64px)', lineHeight: 1.1, color: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                         Sale Complete
                       </Typography>
                     )}
