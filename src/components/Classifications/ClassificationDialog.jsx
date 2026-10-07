@@ -310,9 +310,12 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
           </Box>
         )}
 
-        {/* MSC Mapping - shown for all non-Brand types (Category, Family, Tag) */}
-        {formData.type !== 'BRAND' && (
-          <Box sx={{ mt: 1 }}>
+        {/* MSC Mapping — Category only. The Metcash MSC Sales report resolves a
+            product's MSC from the product, then its CATEGORY (salesReports.js);
+            a mapping on a Family/Tag is never read, so offering it there only
+            misleads (the edit page already limits it to categories). */}
+        {formData.type === 'CATEGORY' && (
+          <Box sx={{ mt: 2 }}>
             <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>MSC Mapping</Typography>
             <FormControl fullWidth>
               <Select
