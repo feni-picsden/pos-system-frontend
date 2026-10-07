@@ -652,8 +652,8 @@ const CartSidebar = ({
           a locked (manual) price; shows the automatic price that would apply if
           unlocked. 36px row, transparent bg, #313439 16px, ? icon right. */}
       {cart.some((i) => i.discountInfo) && (
-        <Box sx={{ flexShrink: 0, height: 36, boxSizing: 'border-box', display: 'flex', alignItems: 'center', p: '8px', bgcolor: 'transparent' }}>
-          <Typography component="span" sx={{ flexGrow: 1, fontSize: 16, fontWeight: 400, color: '#313439', lineHeight: 'normal', letterSpacing: 'normal' }}>
+        <Box sx={{ flexShrink: 0, height: 36, boxSizing: 'border-box', display: 'flex', alignItems: 'center', p: '8px', bgcolor: 'transparent', borderTop: '1px solid #313439' }}>
+          <Typography component="span" sx={{ flexGrow: 1, minWidth: 0, fontSize: 16, fontWeight: 400, color: '#313439', lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Unlocked Price:{' '}
             {/* ponytail: single-locked-line was the measured case; multi-line =
                 sum of each locked line's automatic (pre-discount) total.
@@ -671,13 +671,13 @@ const CartSidebar = ({
           </Typography>
           <HelpOutlineIcon
             onClick={() => setUnlockedInfoOpen(true)}
-            sx={{ fontSize: 16, color: '#313439', cursor: 'pointer', flexShrink: 0 }}
+            sx={{ fontSize: 24, color: '#313439', cursor: 'pointer', flexShrink: 0, ml: 1 }}
           />
         </Box>
       )}
       {/* Centred info modal opened by the ? icon */}
       {/* Reference info modal: a big blue "i" disc sitting half above the white
-          box, bold title, centred text, full-width grey "👍 OK" button. */}
+          box, bold title, centred text, full-width grey "OK" button. */}
       <Dialog
         open={unlockedInfoOpen}
         onClose={() => setUnlockedInfoOpen(false)}
@@ -731,7 +731,7 @@ const CartSidebar = ({
               '&:hover': { bgcolor: '#dcdde0' },
             }}
           >
-            👍 OK
+            OK
           </Button>
         </DialogActions>
       </Dialog>
