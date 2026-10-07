@@ -13,8 +13,8 @@ const customerService = {
     return response.data;
   },
 
-  getCustomer: async (id) => {
-    const response = await apiClient.get(`/customers/${id}`);
+  getCustomer: async (id, requestOptions = {}) => {
+    const response = await apiClient.get(`/customers/${id}`, requestOptions);
     return response.data;
   },
 

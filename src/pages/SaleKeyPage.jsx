@@ -2539,17 +2539,25 @@ const SaleKeyPage = () => {
     const ok = await ensureRegisterControl();
     if (!ok) return;
 
+    // Show the cached record at once (no spinner), then replace it with the
+    // LIVE one: the owing/loyalty on the header must be what the server holds
+    // now, not what the catalog sync captured earlier. Offline keeps the cache.
     const cached = posLocalDb.getCustomerById(customer.id);
-    if (cached) {
-      setSelectedCustomer(cached);
-    } else {
-      try {
-        const fullCustomerData = await customerService.getCustomer(customer.id);
-        setSelectedCustomer(fullCustomerData.customer || fullCustomerData);
-      } catch (error) {
-        console.error('Error fetching full customer data:', error);
-        setSelectedCustomer(customer);
+    setSelectedCustomer(cached || customer);
+    try {
+      const fullCustomerData = await customerService.getCustomer(customer.id, { noCache: true, silent: true });
+      const live = fullCustomerData.customer || fullCustomerData;
+      if (live?.id) {
+        const merged = { ...(cached || customer), ...live, customerGroup: live.customerGroup || cached?.customerGroup || customer.customerGroup };
+        setSelectedCustomer(merged);
+        // Keep the picker's figure in step for the next time it is opened.
+        posLocalDb.setCustomers(
+          (posLocalDb.getCustomers() || []).map((c) => (Number(c.id) === Number(live.id) ? merged : c))
+        );
+        posLocalDb.putStoreItem('customers', merged).catch(() => {});
       }
+    } catch (error) {
+      console.error('Error fetching full customer data:', error);
     }
 
     // Picked from the post-sale panel's "Add Customer": the sale is already saved,
@@ -2577,11 +2585,28 @@ const SaleKeyPage = () => {
     
     try {
       console.log('[Customer] Refreshing customer data for ID:', customerId);
-      const response = await customerService.getCustomer(customerId);
+      // noCache: this runs right after the sale; a cached GET would be pre-sale.
+      const response = await customerService.getCustomer(customerId, { noCache: true, silent: true });
       const updatedCustomer = response.customer || response;
       console.log('[Customer] Updated customer data:', updatedCustomer);
       console.log('[Customer] Updated currentOwing:', updatedCustomer.currentOwing);
-      
+
+      // The Add Customer picker reads balances from the LOCAL customer cache,
+      // which only a /customers write refreshed — so after an On Account sale
+      // it kept offering the pre-sale owing. Patch that one record in memory +
+      // IndexedDB with the fresh figures.
+      try {
+        const cid = Number(customerId);
+        const existing = (posLocalDb.getCustomers() || []).find((c) => Number(c.id) === cid);
+        const merged = { ...(existing || {}), ...updatedCustomer, id: cid };
+        posLocalDb.setCustomers(
+          (posLocalDb.getCustomers() || []).map((c) => (Number(c.id) === cid ? merged : c))
+        );
+        await posLocalDb.putStoreItem('customers', merged);
+      } catch (cacheErr) {
+        console.warn('[Customer] local cache patch failed:', cacheErr);
+      }
+
       // Update selectedCustomer with fresh data
       setSelectedCustomer(prev => {
         if (prev?.id === customerId) {
@@ -4021,6 +4046,16 @@ const SaleKeyPage = () => {
 
       try {
         const created = await salesService.createSale(saleData);
+        // The server may have allocated a DIFFERENT invoice number than the one
+        // this till took (ours was already used — see routes/sales.js). Hand it
+        // back so the receipt prints the number the sale really carries, and
+        // pull the register's counter forward so the next sale starts past it.
+        const serverInvoice = parseInt(created?.sale?.invoiceNumber);
+        if (serverInvoice > 0) {
+          setSelectedRegister((prev) =>
+            prev && !(parseInt(prev.invoiceNumber) > serverInvoice) ? { ...prev, invoiceNumber: serverInvoice + 1 } : prev
+          );
+        }
         // The server just moved stock for these lines. Refresh only them in the
         // local catalog (IndexedDB + memory) so the Products list and the sell
         // search show the post-sale figure straight away instead of the cached
@@ -4032,7 +4067,11 @@ const SaleKeyPage = () => {
           .then(() => syncLocalPosCatalogState())
           .catch(() => {});
         // Return the created sale id so the caller can auto-email the receipt (group flag).
-        return { saleId: created?.sale?.id ?? created?.id ?? null, offline: false };
+        return {
+          saleId: created?.sale?.id ?? created?.id ?? null,
+          offline: false,
+          invoiceNumber: serverInvoice > 0 ? serverInvoice : null,
+        };
       } catch (error) {
         // Offline Mode (reference): no connection => keep the sale on this device
         // and upload it when back online. Only tenders that need no server-side
@@ -4272,7 +4311,7 @@ const SaleKeyPage = () => {
     // "CASH $22.00" with no change — and the on-screen receipt then matches a later
     // reprint from Sales History (which also renders gross tender + a change line).
     const { change } = normalizeCashForChange(finalPayments, cartTotal);
-    const invoiceNumber = takeInvoiceNumber();
+    let invoiceNumber = takeInvoiceNumber();
 
     setLastSaleId(null); // stays null until this sale's save resolves, so Email can't send a stale id
 
@@ -4282,6 +4321,8 @@ const SaleKeyPage = () => {
       const saved = await saveSaleToHistory(finalPayments, cartTotal, newTransactionId, change, invoiceNumber);
       saleId = saved?.saleId ?? null;
       savedOffline = Boolean(saved?.offline);
+      // Print the number the server stored (it re-allocates when ours was taken).
+      if (saved?.invoiceNumber) invoiceNumber = saved.invoiceNumber;
     } catch (error) {
       if (error?.offlineTender) {
         if (invoiceNumber != null) {

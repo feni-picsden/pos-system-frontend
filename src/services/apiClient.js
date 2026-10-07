@@ -201,6 +201,10 @@ apiClient.interceptors.response.use(
         apiClient.bustCache('/products');
         apiClient.bustCache('/reports');
       }
+      // A sale moves the customer's owing / loyalty too. Without this the sell
+      // screen's post-sale customer refresh could be answered from the 15s GET
+      // cache with the PRE-sale balance and write that into the local list.
+      if (prefix === '/sales' || prefix === '/payments') apiClient.bustCache('/customers');
       // Customers: don't just drop the cache — refill it, so the sell search
       // and the list see a just-created/edited customer without a re-sync.
       if (prefix === '/customers') scheduleCustomersRefresh();

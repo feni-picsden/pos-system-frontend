@@ -379,6 +379,7 @@ const CustomerView = () => {
     const next = {};
     for (const sale of outstandingSales) {
       if (remaining <= 0) break;
+      if (sale.isCredit) continue;
       const owed = Number(sale.outstandingAmount) || 0;
       const alloc = Math.min(owed, remaining);
       if (alloc > 0) {
@@ -1714,7 +1715,9 @@ const CustomerView = () => {
                       "& td": { border: 0, fontSize: 16, color: "#000" },
                     }}
                   >
-                    {outstandingSales.map((sale) => (
+                    {/* Return credits (negative lines) show in the balance table but
+                        are not invoices a payment can be allocated against. */}
+                    {outstandingSales.filter((sale) => !sale.isCredit).map((sale) => (
                       <TableRow key={`pay-${sale.id}`}>
                         <TableCell>{formatDateTime(sale.saleDate)}</TableCell>
                         <TableCell>{sale.saleNumber || "-"}</TableCell>
