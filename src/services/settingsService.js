@@ -221,6 +221,20 @@ const settingsService = {
     }
   },
 
+  // Settings > Registers > "Never Open Cash Drawer": when on, nothing may try
+  // to open the drawer (phone-as-register / no drawer wired to Shopfront).
+  // One check for every opener - sale key, payment-method auto-open, Manage
+  // Cash, Close Register - so the setting can't be bypassed from one path.
+  isCashDrawerDisabled: async (registerId = localStorage.getItem('selectedRegisterId')) => {
+    if (!registerId) return false;
+    try {
+      const res = await settingsService.getRegisterSettings(registerId);
+      return res?.settings?.neverOpenCashDrawer === true;
+    } catch {
+      return false;
+    }
+  },
+
   updateRegisterSettings: async (settings, registerId) => {
     const response = await apiClient.put('/settings/register', { settings }, {
       params: registerId ? { registerId } : undefined

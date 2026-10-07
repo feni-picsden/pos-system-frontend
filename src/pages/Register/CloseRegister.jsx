@@ -265,9 +265,13 @@ const CloseRegister = () => {
   const handleOpenDrawer = async () => {
     let suffix = '';
     try {
-      const res = await drawerService.kickDrawer();
+      const res = await drawerService.kickDrawer({ registerId });
       suffix = ` (sent to ${res.printer})`;
     } catch (hwErr) {
+      if (hwErr?.code === 'DRAWER_DISABLED') {
+        setSnack({ message: hwErr.message, severity: 'error' });
+        return;
+      }
       suffix = hwErr?.code === 'QZ_UNAVAILABLE' ? ' — QZ Tray not detected, logged only' : ' — no printer detected, logged only';
     }
     try {

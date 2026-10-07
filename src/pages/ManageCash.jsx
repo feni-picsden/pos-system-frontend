@@ -226,9 +226,14 @@ const ManageCash = () => {
     let suffix = '';
     try {
       try {
-        const res = await drawerService.kickDrawer();
+        const res = await drawerService.kickDrawer({ registerId });
         suffix = ` (sent to ${res.printer})`;
       } catch (hwErr) {
+        if (hwErr.code === 'DRAWER_DISABLED') {
+          showError(hwErr.message);
+          setDialog(null);
+          return;
+        }
         suffix =
           hwErr.code === 'QZ_UNAVAILABLE'
             ? ' — QZ Tray not detected, logged only'

@@ -5169,6 +5169,57 @@ const SaleKeyPage = () => {
   const isManualDiscountBlocked = (item) =>
     !!(item?.productId && resolveProductLocal(item.productId, item.name)?.preventManualDiscounts);
 
+  // Setup > Outlets > Miscellaneous > "Discounting Below Cost Behaviour".
+  // Reference: Allow sells below cost silently; Warn shows a dialog the user may
+  // ignore or take the "adjust to cost" offer; Prevent forces the price up to
+  // cost. Judged per unit against the line's unitCost (Cost Calculation
+  // Method). Returns the line to keep (possibly re-priced), or null to abandon.
+  const guardBelowCost = async (line) => {
+    let behaviour = 'Allow';
+    try {
+      const res = await settingsService.getOutletSettings(getEffectiveOutletId());
+      behaviour = res?.settings?.discountingBelowCostBehaviour || 'Allow';
+    } catch { /* unreadable settings never block a sale */ }
+    if (behaviour === 'Block') behaviour = 'Prevent'; // this app's old name for it
+    if (behaviour !== 'Warn' && behaviour !== 'Prevent') return line;
+
+    const qty = parseFloat(line?.quantity) || 1;
+    if (qty <= 0) return line; // a return is not a discount
+    const unitPrice = (parseFloat(line?.price) || 0) / qty;
+    const unitCost = Number(line?.unitCost);
+    if (!Number.isFinite(unitCost) || unitCost <= 0) return line; // no cost on file
+    if (unitPrice >= unitCost - 0.005) return line;
+
+    const costPrice = Math.round(unitCost * qty * 100) / 100;
+    // Re-price at cost but keep the discount bookkeeping honest: the saving
+    // shown in the cart is the original line price less the cost price.
+    const originalPrice = Number(line?.discountInfo?.originalPrice);
+    const base = Number.isFinite(originalPrice) ? originalPrice : parseFloat(line?.normalPrice) || parseFloat(line?.price) || 0;
+    const atCost = {
+      ...line,
+      price: costPrice,
+      discountInfo: base > costPrice + 0.005
+        ? { ...(line.discountInfo || {}), type: line?.discountInfo?.type || 'price_override', originalPrice: base, newPrice: costPrice, discountAmount: base - costPrice }
+        : undefined,
+    };
+    const msg = `${line.name} is priced at $${unitPrice.toFixed(2)} each, which is below its cost of $${unitCost.toFixed(2)}.`;
+    if (behaviour === 'Prevent') {
+      await alert(`${msg} Products cannot be sold below cost - the price has been set to cost.`, 'warning', {
+        title: 'Below Cost',
+        confirmText: 'Set to cost',
+        persist: true, // reference forces an acknowledgement; no 3s auto-close
+      });
+      return atCost;
+    }
+    // Warn
+    const sellAnyway = await confirm(`${msg} Do you want to sell it below cost?`, {
+      title: 'Below Cost',
+      confirmText: 'Sell below cost',
+      cancelText: 'Adjust to cost',
+    });
+    return sellAnyway ? line : atCost;
+  };
+
   const handleDiscountConfirm = async (updatedItem) => {
     // ponytail: the flag blocks the whole manual price editor (overrides included),
     // which is what "no manual discounts" means on the sell screen.
@@ -5176,6 +5227,9 @@ const SaleKeyPage = () => {
       alert(`Manual discounts are not allowed for ${updatedItem.name}.`);
       return;
     }
+
+    updatedItem = await guardBelowCost(updatedItem);
+    if (!updatedItem) return;
 
     // Setup > General: "Discounts Require Reason". One gate here covers the line
     // editor AND the configured apply-discount sale key (both land in this call).

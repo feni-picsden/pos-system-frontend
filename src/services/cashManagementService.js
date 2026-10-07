@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import settingsService from './settingsService';
 
 const cashManagementService = {
   async getShift(registerId) {
@@ -43,6 +44,14 @@ const cashManagementService = {
   },
 
   async openDrawer(data) {
+    // "Never Open Cash Drawer" (Settings > Registers): no open, and no
+    // open_drawer movement logged for an open that never happened.
+    if (await settingsService.isCashDrawerDisabled(data?.registerId)) {
+      const err = new Error('The cash drawer is disabled for this register (Settings > Registers > Never Open Cash Drawer).');
+      err.code = 'DRAWER_DISABLED';
+      err.error = err.message;
+      throw err;
+    }
     const response = await apiClient.post('/cash-management/open-drawer', data);
     apiClient.bustCache('/cash-management');
     return response.data;

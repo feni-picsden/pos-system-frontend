@@ -113,8 +113,10 @@ export const AppDialogProvider = ({ children }) => {
   // A message that needs nothing from the user closes itself after 3 seconds: an info
   // or warning alert with only an OK button (OK still closes it sooner). An error stays
   // until OK — a problem has to be read — and confirm/prompt always wait for an answer.
+  // `persist: true` opts a warning out of that: a dialog the user must
+  // acknowledge (e.g. "price set to cost") stays until they press the button.
   useEffect(() => {
-    if (request?.type !== 'alert' || !['info', 'warning'].includes(request.severity)) return undefined;
+    if (request?.type !== 'alert' || request.persist || !['info', 'warning'].includes(request.severity)) return undefined;
     const timer = setTimeout(() => close(undefined), AUTO_CLOSE_MS);
     return () => clearTimeout(timer);
   }, [request, close]);
@@ -135,7 +137,8 @@ export const AppDialogProvider = ({ children }) => {
       // Reference parity: an error plays the error sound (volume popover
       // controls the level per device).
       if (level === 'error') playErrorSound();
-      // options: { title, confirmText } - same keys confirm() already accepts.
+      // options: { title, confirmText, persist } - the first two are the keys
+      // confirm() already accepts; persist disables the 3s auto-close.
       return new Promise((resolve) => push({ type: 'alert', message, severity: level, ...options, resolve }));
     },
     /** Drop-in for window.confirm — await it. */

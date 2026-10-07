@@ -254,6 +254,19 @@ const SettingToggle = ({ checked, onChange, stateText }) => (
 // the company blob (saved by the floating Save); cash out/in lists live in
 // their own cash_out_reasons/cash_in_reasons rows and PUT immediately on
 // Update, as before. `noun` fills the slide-over's body paragraph.
+// Outlets > Miscellaneous > Discounting Below Cost Behaviour - description and
+// More Info text taken verbatim from the reference slide-over.
+const DISCOUNT_BELOW_COST_FIELD = {
+  key: 'discountingBelowCostBehaviour',
+  label: 'Discounting Below Cost Behaviour',
+  description: "This defines the behaviour when a product's price is calculated to be below cost.",
+  moreDescription:
+    "This defines the behaviour when a product's price is calculated to be below cost (including any scan rebate). It takes affect on any price calculation including adding the product to the sale, promotions applying and discounting the price.\n\n" +
+    "**Allow**\n\nThe default value, this allows the user to sell below cost with no warning, if you don't want staff to know your cost prices, you'll need to run on this setting.\n\n" +
+    '**Warn**\n\nWhen a price calculation occurs which results in a lower-than-cost price, Shopfront will show a dialog warning the user that the price is below the cost price. It allows users to ignore the warning or to adjust to the cost price (if they have the see cost permission).\n\n' +
+    '**Prevent**\n\nThis prevents products from being sold below cost, when a price calculation results in a lower-than-cost price, Shopfront will show a dialog which forces the user to update the price to equal the cost.',
+};
+
 const REASON_LIST_FIELDS = {
   predefinedDiscountReasons: { noun: 'discount' },
   predefinedCashDrawerReasons: { noun: 'cash drawer' },
@@ -2158,27 +2171,28 @@ const GeneralSettings = () => {
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Discounting Below Cost Behaviour */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Discounting Below Cost Behaviour
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'discountingBelowCostBehaviour')}
-              </Typography>
-            </Box>
+          {/* Discounting Below Cost Behaviour - reference: Allow / Warn / Prevent
+              with a More Info slide-over. "Block" was this app's old name for
+              Prevent; a stored "Block" still reads as Prevent. */}
+          <SettingRow
+            label="Discounting Below Cost Behaviour"
+            updated={stampFor('outlet', 'discountingBelowCostBehaviour')}
+            description={DISCOUNT_BELOW_COST_FIELD.description}
+            onMoreInfo={() => setSlideOverField(DISCOUNT_BELOW_COST_FIELD)}
+          >
             <FormControl fullWidth size="small">
               <Select
-                value={outletSettings.discountingBelowCostBehaviour}
+                value={outletSettings.discountingBelowCostBehaviour === 'Block' ? 'Prevent' : (outletSettings.discountingBelowCostBehaviour || 'Allow')}
                 onChange={handleOutletSettingChange('discountingBelowCostBehaviour')}
+                sx={SETTING_FIELD_SX}
+                MenuProps={SETTING_LISTBOX_PROPS}
               >
                 <MenuItem value="Allow">Allow</MenuItem>
                 <MenuItem value="Warn">Warn</MenuItem>
-                <MenuItem value="Block">Block</MenuItem>
+                <MenuItem value="Prevent">Prevent</MenuItem>
               </Select>
             </FormControl>
-          </Box>
+          </SettingRow>
 
         </Box>
       </Box>

@@ -118,7 +118,18 @@ export async function listPrinters() {
  * Send the drawer-kick command to the configured (or given) printer.
  * Throws an Error with a `.code` of 'QZ_UNAVAILABLE' | 'NO_PRINTER' | 'PRINT_FAILED'.
  */
-export async function kickDrawer({ printerName, kickCode } = {}) {
+export const DRAWER_DISABLED_MESSAGE =
+  'The cash drawer is disabled for this register (Settings > Registers > Never Open Cash Drawer).';
+
+export async function kickDrawer({ printerName, kickCode, registerId } = {}) {
+  // Register setting wins over hardware: never send the kick when disabled.
+  const { default: settingsService } = await import('./settingsService');
+  if (await settingsService.isCashDrawerDisabled(registerId)) {
+    const err = new Error(DRAWER_DISABLED_MESSAGE);
+    err.code = 'DRAWER_DISABLED';
+    throw err;
+  }
+
   let qz;
   try {
     qz = await ensureConnected();
