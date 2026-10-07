@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Autocomplete, TextField, CircularProgress } from '@mui/material';
 
 // One "search the list, and if it isn't there make it" combobox for every lookup
@@ -44,6 +44,40 @@ const CreatableAutocomplete = ({
 }) => {
   const [creating, setCreating] = useState(false);
 
+  // The list is a portal, so it paints ABOVE the fixed app bar. With the field
+  // scrolled up under that bar the list hung from an input nobody could see
+  // (Create Order "From"). Three rules keep field and list together:
+  //   1. open   -> scroll the field into view under the bar (scrollMarginTop)
+  //   2. open   -> the list always drops DOWN; Popper's flip used to push it up
+  //                over the bar where its first rows were clipped
+  //   3. scroll -> page scroll closes the list; scrolling INSIDE the list does not
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  // Rule 1's own smooth scroll fires scroll events too; ignore those.
+  const openedAtRef = useRef(0);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onScroll = (event) => {
+      if (Date.now() - openedAtRef.current < 700) return;
+      if (event.target?.closest?.('.MuiAutocomplete-popper')) return;
+      setOpen(false);
+    };
+    window.addEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [open]);
+
+  const { componentsProps = {}, slotProps = {}, onOpen, onClose, sx: userSx, ...restProps } = autocompleteProps;
+  const userPopper = componentsProps.popper || slotProps.popper || {};
+  const popperProps = {
+    placement: 'bottom-start',
+    ...userPopper,
+    modifiers: [
+      { name: 'flip', enabled: false },
+      { name: 'preventOverflow', options: { altAxis: false, padding: 8 } },
+      ...(userPopper.modifiers || []),
+    ],
+  };
+
   const labelOf = (option) => (option && option[labelKey] != null ? String(option[labelKey]) : '');
 
   // Turn the typed text into a record, then merge it into the current value.
@@ -85,6 +119,21 @@ const CreatableAutocomplete = ({
 
   return (
     <Autocomplete
+      ref={rootRef}
+      open={open}
+      onOpen={(event) => {
+        openedAtRef.current = Date.now();
+        setOpen(true);
+        rootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (onOpen) onOpen(event);
+      }}
+      onClose={(event, reason) => {
+        setOpen(false);
+        if (onClose) onClose(event, reason);
+      }}
+      // 96px clears the fixed app bar; 320px below leaves room for the list.
+      sx={[{ scrollMarginTop: '96px', scrollMarginBottom: '320px' }, ...(Array.isArray(userSx) ? userSx : [userSx || {}])]}
+      componentsProps={{ ...componentsProps, popper: popperProps }}
       multiple={multiple}
       options={options}
       value={value}
@@ -131,7 +180,7 @@ const CreatableAutocomplete = ({
           }}
         />
       )}
-      {...autocompleteProps}
+      {...restProps}
     />
   );
 };

@@ -39,6 +39,10 @@ const CashActionDialog = ({
 
   const options = (reasonOptions || []).filter(Boolean);
 
+  // Reset ONLY when the dialog opens. `reasonOptions` used to be a dependency
+  // too, but its `[]` default is a new array on every render, so every
+  // keystroke re-ran this and wiped the Amount/Note the user had just typed
+  // (Swap Cash could never be recorded).
   useEffect(() => {
     if (open) {
       setAmount('');
@@ -47,7 +51,7 @@ const CashActionDialog = ({
       setNote('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, reasonOptions]);
+  }, [open]);
 
   const isOther = !options.length || choice === OTHER;
   const effectiveReason = isOther ? reason.trim() : choice;
@@ -71,7 +75,9 @@ const CashActionDialog = ({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem' }}>{title}</DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+      {/* MUI zeroes DialogContent's top padding when it follows a DialogTitle, which
+          clipped the floating "Amount ($)" label; '&&' wins over that rule. */}
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, '&&': { pt: 1.5 } }}>
         {extraContent}
         {(requireAmount || amountOptional) && (
           <TextField

@@ -30,6 +30,11 @@ const HEADER_HEIGHT = 50;
 // Format currency compactly on the Y-axis
 const fmtCurrency = (v) => `$${Number(v).toFixed(2)}`;
 
+// Local calendar date as YYYY-MM-DD. toISOString() is UTC, which in an AEST
+// morning is still "yesterday" and made the chart's days miss the server's.
+const localDateStr = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 // Build an array of {label, date} for the last N days
 function lastNDays(n) {
   const days = [];
@@ -39,7 +44,7 @@ function lastNDays(n) {
     d.setDate(d.getDate() - i);
     days.push({
       label: dayNames[d.getDay()],
-      dateStr: d.toISOString().slice(0, 10),
+      dateStr: localDateStr(d),
       revenue: 0,
       count: 0,
     });
@@ -52,8 +57,8 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
 
   const loadChartData = useCallback(async () => {
     try {
-      const endDate = new Date().toISOString().slice(0, 10);
-      const startDate = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+      const endDate = localDateStr(new Date());
+      const startDate = localDateStr(new Date(Date.now() - 6 * 86400000));
       const resp = await apiClient.get('/sales/summary', {
         params: { startDate, endDate, groupBy: 'day' },
       });

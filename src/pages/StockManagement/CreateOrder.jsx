@@ -509,10 +509,11 @@ const CreateOrder = () => {
             onError={(err) => setError(err?.response?.data?.error || 'Failed to create supplier')}
             disableClearable
             componentsProps={{
-              popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: '8px' } } },
+              popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: '8px', border: '1px solid #404040', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' } } },
             }}
             ListboxProps={{
               sx: {
+                maxHeight: 270,
                 '& .MuiAutocomplete-option': { minHeight: 45, fontSize: 16 },
                 '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
                 '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38bdf8' },

@@ -640,15 +640,16 @@ const SupplierDetails = () => {
                   sectionRefs.current[item.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
                 sx={{
-                  // reference rail pitch: 25px item + 32px gap = 57px
-                  height: 25,
-                  minHeight: 25,
-                  p: '0 8px',
-                  mb: '32px',
+                  // 25px label + 8px top/bottom breathing room; 24px gap keeps
+                  // the rail pitch at the reference 57px
+                  height: 41,
+                  minHeight: 41,
+                  p: '8px 8px',
+                  mb: '24px',
                   borderRadius: 0,
                   backgroundColor: activeSections.includes(item.id) ? '#ddf1fb' : 'transparent',
                   color: '#313439',
-                  transition: 'color 0.2s ease',
+                  transition: 'background-color 0.25s ease, color 0.2s ease',
                   '&:hover': {
                     backgroundColor: activeSections.includes(item.id) ? '#ddf1fb' : 'transparent',
                     color: '#5ebbeb',
