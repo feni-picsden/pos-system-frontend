@@ -15,6 +15,16 @@ const cashManagementService = {
     return response.data;
   },
 
+  // Cash in the drawer since the register opened (for the Safe Drop Alert).
+  async getDrawerCash(registerId) {
+    const response = await apiClient.get('/cash-management/drawer-cash', {
+      params: { registerId },
+      noCache: true,
+      silent: true,
+    });
+    return response.data;
+  },
+
   async getMovements(params = {}) {
     const response = await apiClient.get('/cash-management/movements', { params });
     return response.data;

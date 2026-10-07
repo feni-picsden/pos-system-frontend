@@ -1601,6 +1601,29 @@ const SaleKeyPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRegister?.id, selectedOutlet]);
 
+  // Safe Drop Alert (reference: Setup > General > Registers > "Safe drop alert
+  // amount"): while on the sell screen, once the cash in the drawer reaches the
+  // register's limit, an alert asks for a safe drop. 0 = never. Re-checked when
+  // the register changes and after every completed sale; a safe drop in Manage
+  // Cash lowers the figure, so the banner clears on the next check.
+  const [safeDropAlert, setSafeDropAlert] = useState(null); // { drawerCash, limit }
+  const checkSafeDropAlert = async () => {
+    const limit = parseFloat(registerSettings?.safeDropAlertAmount) || 0;
+    const registerId = selectedRegister?.id;
+    if (!(limit > 0) || !registerId) { setSafeDropAlert(null); return; }
+    try {
+      const res = await cashManagementService.getDrawerCash(registerId);
+      const drawerCash = Number(res?.drawerCash) || 0;
+      setSafeDropAlert(res?.open && drawerCash >= limit ? { drawerCash, limit } : null);
+    } catch {
+      setSafeDropAlert(null);
+    }
+  };
+  useEffect(() => {
+    checkSafeDropAlert();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRegister?.id, registerSettings?.safeDropAlertAmount, isTransactionComplete]);
+
   // Search functionality.
   // Resolves true when the term matched something, so the debounced caller can
   // tell "typed digits that are a partial code" from "digits nothing knows".
@@ -7884,6 +7907,24 @@ const SaleKeyPage = () => {
           {/* Reference split: 8px page inset, 8px gutter, panels 1333 / 563 of the
               1896px inner width — expressed as grow ratios so it holds at any width. */}
           <Box sx={{ flex: '70.3 1 0', display: 'flex', flexDirection: 'column', overflow: 'hidden', m: '8px', minWidth: 0 }}>
+            {safeDropAlert && (
+              <Alert
+                severity="warning"
+                sx={{ mb: '8px', alignItems: 'center', fontSize: 15, '& .MuiAlert-message': { flex: 1 } }}
+                action={
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={() => navigate('/register/manage-cash')}
+                    sx={{ fontWeight: 700, textTransform: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    Safe Drop
+                  </Button>
+                }
+              >
+                <strong>Safe drop required</strong> — cash in the drawer is {formatMoney(safeDropAlert.drawerCash)}, over the {formatMoney(safeDropAlert.limit)} limit. Move cash to the safe.
+              </Alert>
+            )}
             {/* Reference: the whole actions pane sits in one 1px solid black box. */}
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', border: '1px solid #000', boxSizing: 'border-box', overflow: 'hidden' }}>
           {!showPromotionView && !showClassificationView && (

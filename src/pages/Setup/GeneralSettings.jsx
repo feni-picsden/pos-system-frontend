@@ -64,6 +64,7 @@ import registerService from '../../services/registerService';
 import paymentMethodService from '../../services/paymentMethodService';
 import PageSaveBar from '../../components/Common/PageSaveBar';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 
 // The fixed app bar in DashboardLayout (HEADER_HEIGHT). Anything sticky on this page
@@ -305,8 +306,62 @@ const outletEditorInputSx = {
   '&:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid oklch(0.371 0 0)' }
 };
 
+// Form defaults for the per-register / per-outlet tabs. Each load starts from
+// these so nothing from the previously selected register/outlet lingers.
+const REGISTER_SETTINGS_DEFAULTS = {
+  // General
+  safeDropAlertAmount: 0,
+  defaultPaymentMethodId: '',
+  defaultReceiptTemplateId: '',
+  defaultPriceSetId: '',
+  // Sell Screen
+  loginAfterSale: false,
+  neverOpenCashDrawer: false,
+  printReceiptOnRefund: true,
+  useTyroIntegratedReceipts: true,
+  consolidateProducts: true,
+  allowTrainingModeToggle: false,
+  requireNoteOnRegisterClosureWithDiscrepancy: false,
+  runPromotionCalculationInDedicatedThread: false,
+  // Invoices
+  offlineInvoiceSuffix: 'A',
+  invoiceNumberMode: 'Incremental',
+  invoiceMaxNumber: 99999999,
+};
+
+const OUTLET_SETTINGS_DEFAULTS = {
+  // General
+  emailReceiptTemplate: '',
+  // Starts blank. A real store address used to be hardcoded here, and a Save
+  // of anything on this tab wrote it into every outlet that had no email.
+  outletEmail: '',
+  // Gift Cards
+  enableGiftCards: true,
+  defaultExpiryAmount: 3,
+  defaultExpiryPeriod: 'Years',
+  canManuallyAdjustExpiry: true,
+  // Transfers
+  updateLastCostWhenReceivingTransfers: true,
+  // Reference (Settings > Outlets > Transfers): send at average cost or last
+  // cost; receiving may update the average cost as well as the last cost.
+  sendTransfersUsingAverageCost: false,
+  updateAverageCostWhenReceivingTransfers: true,
+  // Metcash Integration
+  b2bAccount: '',
+  b2bPassword: '',
+  customerId: 0,
+  state: '',
+  pillar: '',
+  importPromotions: false,
+  importBuyingPeriods: false,
+  // Miscellaneous
+  discountingBelowCostBehaviour: 'Allow',
+};
+
 const GeneralSettings = () => {
   const { user, getOutletName } = useAuth();
+  // Navbar outlet selection — what the register list is actually scoped to.
+  const { selectedOutletId: navbarOutletId, outlets: navbarOutlets } = useSelectedOutlet();
   const [searchParams, setSearchParams] = useSearchParams();
   // ponytail: section survives a reload via localStorage, no router plumbing needed.
   const [activeTab, setActiveTab] = useState(() => Number(localStorage.getItem('generalSettingsTab')) || 0);
@@ -314,6 +369,11 @@ const GeneralSettings = () => {
   // Touched-based dirty tracking per store (company/outlet/register/users) -
   // reverting a value does NOT clear it, matching the reference.
   const [dirty, setDirty] = useState({});
+  // Stores whose load came back from the service's offline fallback (defaults)
+  // instead of the server. The form is then showing defaults, not the user's
+  // values, and the backend PUT replaces the whole blob - a Save from that
+  // state silently wiped every saved setting. Block Save until a reload succeeds.
+  const [loadFailed, setLoadFailed] = useState({});
   const [leaveOpen, setLeaveOpen] = useState(false);
   const pendingLeaveRef = useRef(null);
   // Per-store "Last updated" stamps: { keys: {settingKey: ISO}, row: ISO }.
@@ -385,60 +445,10 @@ const GeneralSettings = () => {
   const [companySettings, setCompanySettings] = useState(GENERAL_DEFAULTS);
 
   // Outlet Settings State
-  const [outletSettings, setOutletSettings] = useState({
-    // General
-    emailReceiptTemplate: '',
-    outletEmail: 'rossmoretopdrops@outlook.com',
-    
-    // Gift Cards
-    enableGiftCards: true,
-    defaultExpiryAmount: 3,
-    defaultExpiryPeriod: 'Years',
-    canManuallyAdjustExpiry: true,
-    
-    // Transfers
-    updateLastCostWhenReceivingTransfers: true,
-    // Reference (Settings > Outlets > Transfers): send at average cost or last
-    // cost; receiving may update the average cost as well as the last cost.
-    sendTransfersUsingAverageCost: false,
-    updateAverageCostWhenReceivingTransfers: true,
-
-    // Metcash Integration
-    b2bAccount: '',
-    b2bPassword: '',
-    customerId: 0,
-    state: '',
-    pillar: '',
-    importPromotions: false,
-    importBuyingPeriods: false,
-    
-    // Miscellaneous
-    discountingBelowCostBehaviour: 'Allow'
-  });
+  const [outletSettings, setOutletSettings] = useState(OUTLET_SETTINGS_DEFAULTS);
 
   // Register Settings State
-  const [registerSettings, setRegisterSettings] = useState({
-    // General
-    safeDropAlertAmount: 0,
-    defaultPaymentMethodId: '',
-    defaultReceiptTemplateId: '',
-    defaultPriceSetId: '',
-
-    // Sell Screen
-    loginAfterSale: false,
-    neverOpenCashDrawer: false,
-    printReceiptOnRefund: true,
-    useTyroIntegratedReceipts: true,
-    consolidateProducts: true,
-    allowTrainingModeToggle: false,
-    requireNoteOnRegisterClosureWithDiscrepancy: false,
-    runPromotionCalculationInDedicatedThread: false,
-    
-    // Invoices
-    offlineInvoiceSuffix: 'A',
-    invoiceNumberMode: 'Incremental',
-    invoiceMaxNumber: 99999999
-  });
+  const [registerSettings, setRegisterSettings] = useState(REGISTER_SETTINGS_DEFAULTS);
 
   // User Settings State
   const [userSettings, setUserSettings] = useState({
@@ -518,17 +528,25 @@ const GeneralSettings = () => {
   const markDirty = (store) =>
     setDirty(prev => (prev[store] ? prev : { ...prev, [store]: true }));
 
+  const setLoadResult = (store, failed) =>
+    setLoadFailed(prev => (!!prev[store] === failed ? prev : { ...prev, [store]: failed }));
+
   const loadSettings = async () => {
     try {
       const response = await settingsService.getGeneralSettings();
+      if (response.fromFallback) {
+        setLoadResult('company', true);
+        return;
+      }
       if (response.settings) {
         // Merge so settings added after the stored blob was written keep their defaults.
         const values = captureStamps('company', response);
         setCompanySettings(prev => ({ ...prev, ...COMPANY_FIELD_DEFAULTS, ...values }));
       }
+      setLoadResult('company', false);
     } catch (error) {
       console.error('Error loading settings:', error);
-      // Keep default settings
+      setLoadResult('company', true);
     }
   };
 
@@ -618,16 +636,21 @@ const GeneralSettings = () => {
   const loadRegisterSettings = async (registerId) => {
     try {
       const response = await settingsService.getRegisterSettings(registerId);
+      setLoadResult('register', !!response.fromFallback);
+      if (response.fromFallback) return;
       if (response.settings) {
-        // ponytail: merge, never replace - a bare replace drops the defaults and
-        // every missing key becomes undefined, flipping controlled inputs to
-        // uncontrolled (MUI Select/Switch warnings on every render).
+        // Merge onto the DEFAULTS, never onto the previous register's form:
+        // merging onto `prev` carried register A's (even unsaved) values into
+        // any key register B had not stored, and Save then wrote them to B.
+        // Defaults underneath keep every control controlled (no undefined).
         const values = captureStamps('register', response);
-        setRegisterSettings(prev => ({ ...prev, ...values }));
+        setRegisterSettings({ ...REGISTER_SETTINGS_DEFAULTS, ...values });
+      } else {
+        setRegisterSettings({ ...REGISTER_SETTINGS_DEFAULTS });
       }
     } catch (error) {
       console.error('Error loading register settings:', error);
-      // Keep default settings
+      setLoadResult('register', true);
     }
   };
 
@@ -1003,21 +1026,28 @@ const GeneralSettings = () => {
     
     try {
       const response = await settingsService.getOutletSettings(outletId);
+      setLoadResult('outlet', !!response.fromFallback);
+      if (response.fromFallback) return;
       if (response.settings) {
         const values = captureStamps('outlet', response);
-        setOutletSettings(prev => ({
-          ...prev,
+        // Merge onto the DEFAULTS, never onto the previous outlet's form, so
+        // switching outlets can't carry values (email included) across and
+        // save them into the wrong outlet.
+        setOutletSettings({
+          ...OUTLET_SETTINGS_DEFAULTS,
           ...values,
-          outletEmail: values.outletEmail || prev.outletEmail
-        }));
+          outletEmail: values.outletEmail || ''
+        });
+      } else {
+        setOutletSettings({ ...OUTLET_SETTINGS_DEFAULTS });
       }
-      
+
       try {
         const outletResponse = await outletService.getOutletById(outletId);
-        if (outletResponse.outlet && outletResponse.outlet.email) {
+        if (outletResponse.outlet) {
           setOutletSettings(prev => ({
             ...prev,
-            outletEmail: outletResponse.outlet.email || prev.outletEmail
+            outletEmail: outletResponse.outlet.email || prev.outletEmail || ''
           }));
         }
       } catch (outletError) {
@@ -1025,6 +1055,7 @@ const GeneralSettings = () => {
       }
     } catch (error) {
       console.error('Error loading outlet settings:', error);
+      setLoadResult('outlet', true);
     }
   };
 
@@ -1036,6 +1067,8 @@ const GeneralSettings = () => {
       if (!user) return;
 
       const response = await settingsService.getUserSettings(user.id);
+      setLoadResult('users', !!response.fromFallback);
+      if (response.fromFallback) return;
       if (response.settings) {
         const values = captureStamps('user', response);
         setUserSettings(prev => ({
@@ -1046,6 +1079,7 @@ const GeneralSettings = () => {
       }
     } catch (error) {
       console.error('Error loading user settings:', error);
+      setLoadResult('users', true);
     }
   };
 
@@ -1115,7 +1149,22 @@ const GeneralSettings = () => {
 
   // One floating Save persists EVERY dirty store in one click, not just the
   // active tab's.
+  const anyLoadFailed = Object.values(loadFailed).some(Boolean);
+
+  // Re-run every loader that failed so the user can recover without losing
+  // the page (and their place in it).
+  const retryFailedLoads = () => {
+    if (loadFailed.company) loadSettings();
+    if (loadFailed.outlet && selectedOutlet) loadOutletSettings(selectedOutlet);
+    if (loadFailed.register && selectedRegister) loadRegisterSettings(selectedRegister);
+    if (loadFailed.users && selectedUsers.length) loadUserSettings(selectedUsers[0]);
+  };
+
   const handleSave = async () => {
+    if (anyLoadFailed) {
+      setError('Settings could not be loaded, so saving is disabled. Click Retry to reload them first.');
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -2350,7 +2399,11 @@ const GeneralSettings = () => {
       {/* Register Selection Dropdown */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {user?.isSuperAdmin ? 'Global' : (getOutletName() || 'N/A')}
+          {/* The list is scoped to the outlet chosen in the navbar (apiClient adds
+              outletId to the request). "Global" only when none is chosen. */}
+          {user?.isSuperAdmin
+            ? (navbarOutlets.find((o) => Number(o.id) === Number(navbarOutletId))?.name || 'Global')
+            : (getOutletName() || 'N/A')}
         </Typography>
         <FormControl fullWidth size="small">
           <Select
@@ -2363,11 +2416,19 @@ const GeneralSettings = () => {
               }
             }}
           >
-            {registers.map((register) => (
-              <MenuItem key={register.id} value={String(register.id)}>
-                {register.name}
-              </MenuItem>
-            ))}
+            {registers.map((register) => {
+              // Several outlets each have a "Register 1": name alone cannot tell
+              // them apart in the global list, so show the outlet beside it.
+              const outletName = register.outlet?.name
+                || outlets.find((o) => Number(o.id) === Number(register.outletId))?.name;
+              return (
+                <MenuItem key={register.id} value={String(register.id)}>
+                  {/* Suffix only in Global mode (no navbar outlet): with one outlet
+                      selected the label above already says which outlet it is. */}
+                  {register.name}{user?.isSuperAdmin && !navbarOutletId && outletName ? ` — ${outletName}` : ''}
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
       </Box>
@@ -2391,14 +2452,19 @@ const GeneralSettings = () => {
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
               <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Safe drop alert amount
+                Safe Drop Alert Amount
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Updated {stampFor('register', 'safeDropAlertAmount')}
               </Typography>
             </Box>
+            {/* Reference help text, verbatim. */}
+            <Typography sx={{ fontSize: 13, color: '#676b72', mb: 1, lineHeight: 1.4 }}>
+              The amount of cash in the drawer required to trigger a <strong>Safe drop</strong> which allows you to move money from the register to your safe. If set to zero no alert will ever be triggered
+            </Typography>
             <TextField
               type="number"
+              inputProps={{ min: 0, step: 1 }}
               value={registerSettings.safeDropAlertAmount}
               onChange={handleRegisterSettingChange('safeDropAlertAmount')}
               size="small"
@@ -2938,6 +3004,21 @@ const GeneralSettings = () => {
           </Box>
         </Box>
 
+        {anyLoadFailed && (
+          <Alert
+            severity="error"
+            sx={{ maxWidth: 756, mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={retryFailedLoads} sx={{ fontWeight: 700, textTransform: 'none' }}>
+                Retry
+              </Button>
+            }
+          >
+            Settings could not be loaded — the values shown are defaults, not your saved settings.
+            Saving is disabled until they load. Check the connection and click Retry.
+          </Alert>
+        )}
+
         {/* Tab Content */}
         {activeTab === 0 && renderCompanyTab()}
         {activeTab === 1 && renderOutletsTab()}
@@ -2980,8 +3061,9 @@ const GeneralSettings = () => {
           </Alert>
         </Snackbar>
 
-        {/* Single floating Save - persists every dirty store, always enabled */}
-        <PageSaveBar onSave={handleSave} saving={loading} />
+        {/* Single floating Save - persists every dirty store; only blocked while a
+            store is showing fallback defaults (see loadFailed). */}
+        <PageSaveBar onSave={handleSave} saving={loading} disabled={anyLoadFailed} />
 
         {/* Confirm Leaving - raised when navigating away with unsaved changes */}
         <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)}>
