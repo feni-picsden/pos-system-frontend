@@ -52,7 +52,10 @@ const giftCardService = {
 
   // Load what a completed sale took for a gift card line (creates the card or tops it up).
   loadGiftCard: async (code, amount, { saleId } = {}) => {
-    const response = await apiClient.post(`/gift-cards/${encodeURIComponent(code)}/load`, { amount, saleId });
+    const selected = parseInt(localStorage.getItem('selectedOutletId'), 10);
+    const response = await apiClient.post(`/gift-cards/${encodeURIComponent(code)}/load`, {
+      amount, saleId, ...(Number.isInteger(selected) ? { outletId: selected } : {}),
+    });
     return response.data;
   },
 
@@ -89,11 +92,15 @@ const giftCardService = {
     }
   },
 
-  // Redeem a gift card
+  // Redeem a gift card. The sale's outlet goes along for "Share Gift Cards
+  // Between Outlets" = OFF (a global admin's navbar outlet; a pinned user's own
+  // outlet is known server-side).
   redeemGiftCard: async (code, amount, transactionData) => {
     try {
+      const selected = parseInt(localStorage.getItem('selectedOutletId'), 10);
       const response = await apiClient.post(`/gift-cards/${code}/redeem`, {
         amount,
+        ...(Number.isInteger(selected) ? { outletId: selected } : {}),
         ...transactionData
       });
       return response.data;

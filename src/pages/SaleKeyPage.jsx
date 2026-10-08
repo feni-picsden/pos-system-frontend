@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import PageLoader from '../components/Common/PageLoader';
 import {
@@ -611,6 +611,33 @@ const SaleKeyPage = () => {
   const [classificationProducts, setClassificationProducts] = useState([]);
   const [loadingClassificationProducts, setLoadingClassificationProducts] = useState(false);
   const [classificationSearchTerm, setClassificationSearchTerm] = useState('');
+  // "Make Select Product Popup Paginated by Default" (Setup > General): the
+  // view's starting mode; the header button flips it while it is open.
+  const CLASSIFICATION_PAGE_SIZE = 20;
+  const [classificationPaginated, setClassificationPaginated] = useState(false);
+  const [classificationPage, setClassificationPage] = useState(0);
+  useEffect(() => {
+    if (!showClassificationView) return;
+    setClassificationPaginated(settingsService.getCachedGeneralSettings().makeSelectProductPopupPaginated === true);
+    setClassificationPage(0);
+  }, [showClassificationView]);
+  const classificationVisible = useMemo(() => {
+    const search = (classificationSearchTerm || '').toLowerCase();
+    return (classificationProducts || []).filter((product) => !search || product.name?.toLowerCase().includes(search));
+  }, [classificationProducts, classificationSearchTerm]);
+  useEffect(() => { setClassificationPage(0); }, [classificationSearchTerm]);
+
+  // "Prevent Blur on Focus Loss on Sell Screen" (Setup > General). Reference: with
+  // it OFF, when the window loses focus (e.g. to use Windows) an overlay says so
+  // and a tap on the screen dismisses it; ON ("Ignore losing focus") shows nothing.
+  const [focusLost, setFocusLost] = useState(false);
+  useEffect(() => {
+    const onBlur = () => {
+      if (settingsService.getCachedGeneralSettings().preventBlurOnFocusLoss === false) setFocusLost(true);
+    };
+    window.addEventListener('blur', onBlur);
+    return () => window.removeEventListener('blur', onBlur);
+  }, []);
   const [selectedClassificationProduct, setSelectedClassificationProduct] = useState(null);
   const [currentClassification, setCurrentClassification] = useState(null);
   const [useCaseQuantity, setUseCaseQuantity] = useState(false);
@@ -1998,6 +2025,8 @@ const SaleKeyPage = () => {
       hydrateActivePromotionsFromLocal();
     }
 
+    // The cart line this add produced (merged or new) - for the details hook below.
+    let addedLine = null;
     setCart(prev => {
       // A requested price is per ADD, so it never merges into an existing line.
       // Reference merges only into a line of the same kind: units never fold
@@ -2038,6 +2067,7 @@ const SaleKeyPage = () => {
           unitCost: existingItem.unitCost != null && existingItem.unitCost > 0 ? existingItem.unitCost : unitCost,
           retailTaxRate: existingItem.retailTaxRate || product.retailTaxRate
         };
+        addedLine = updatedCart[existingItemIndex];
         return updatedCart;
       } else {
         // Product doesn't exist, add new item
@@ -2071,7 +2101,7 @@ const SaleKeyPage = () => {
         }
         
         const unitCost = getUnitCost(product, promotionQuantity > 0 ? newPrice / promotionQuantity : 0);
-        return [...prev, {
+        addedLine = {
           id: product.id,
           productId: product.id,
           name: product.name,
@@ -2091,7 +2121,8 @@ const SaleKeyPage = () => {
           quantity: promotionQuantity,
           timestamp: Date.now(),
           action: 'add-product'
-        }];
+        };
+        return [...prev, addedLine];
       }
     });
 
@@ -2099,6 +2130,19 @@ const SaleKeyPage = () => {
     setSearchTerm('');
     setShowSearchResults(false);
     setIsCustomerSearchMode(false);
+
+    // Setup > General > "Show Product Details When a Product is Added to the
+    // Sale": every add path (search, sale key, barcode, classification view)
+    // funnels through here, so the one hook covers them all. Reference: "the
+    // same as pressing the product's name during the sale".
+    if (settingsService.getCachedGeneralSettings().showProductDetailsOnAdd === true) {
+      // React runs the updater synchronously for a non-batched call; if it did
+      // not, fall back to the product so the panel still opens.
+      await handleOpenProductDetail(
+        addedLine || { productId: product.id, name: product.name, quantity: promotionQuantity },
+        { stopPropagation: () => {} }
+      );
+    }
     return true;
   };
 
@@ -2600,6 +2644,13 @@ const SaleKeyPage = () => {
     setSearchResults({ products: [], customers: [] });
     setShowSearchResults(false);
     setIsCustomerSearchMode(false);
+
+    // Setup > General > "Display Customer Details a Customer is Added to the
+    // Sale": overlay the customer view once attached - "the same as pressing
+    // the customer's name during the sale" (the sidebar band's onCustomerClick).
+    if (settingsService.getCachedGeneralSettings().displayCustomerDetailsOnAdd === true && !isTransactionComplete) {
+      setShowAttachedCustomerDialog(true);
+    }
   };
 
   // Refresh customer data to get updated balance
@@ -8616,6 +8667,29 @@ const SaleKeyPage = () => {
                   />
                 </Box>
 
+                {/* Setup > General > "Make Select Product Popup Paginated by Default":
+                    paginated or continuous list by default, switchable while open
+                    (reference: "The functionality can still be changed while the
+                    sale key is open"). */}
+                <Box sx={{ px: 2, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: 1, borderColor: 'divider' }}>
+                  <Typography sx={{ fontSize: 13, color: '#676b72' }}>
+                    {classificationPaginated
+                      ? `Page ${classificationPage + 1} of ${Math.max(1, Math.ceil(classificationVisible.length / CLASSIFICATION_PAGE_SIZE))}`
+                      : `${classificationVisible.length} products`}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {classificationPaginated && (
+                      <>
+                        <Button size="small" disabled={classificationPage === 0} onClick={() => setClassificationPage((p) => Math.max(0, p - 1))} sx={{ textTransform: 'none' }}>Prev</Button>
+                        <Button size="small" disabled={(classificationPage + 1) * CLASSIFICATION_PAGE_SIZE >= classificationVisible.length} onClick={() => setClassificationPage((p) => p + 1)} sx={{ textTransform: 'none' }}>Next</Button>
+                      </>
+                    )}
+                    <Button size="small" onClick={() => { setClassificationPaginated((v) => !v); setClassificationPage(0); }} sx={{ textTransform: 'none' }}>
+                      {classificationPaginated ? 'Show as list' : 'Show pages'}
+                    </Button>
+                  </Box>
+                </Box>
+
                 {/* Products List */}
                 <Box sx={{ flex: 1, overflow: 'auto' }}>
                   {loadingClassificationProducts ? (
@@ -8636,12 +8710,9 @@ const SaleKeyPage = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {classificationProducts
-                          .filter(product => {
-                            if (!classificationSearchTerm) return true;
-                            const search = classificationSearchTerm.toLowerCase();
-                            return product.name?.toLowerCase().includes(search);
-                          })
+                        {(classificationPaginated
+                          ? classificationVisible.slice(classificationPage * CLASSIFICATION_PAGE_SIZE, (classificationPage + 1) * CLASSIFICATION_PAGE_SIZE)
+                          : classificationVisible)
                           .map((product) => {
                             // Price the way the Add button prices it: the local
                             // catalog row (live price table) first, else the row the
@@ -8682,8 +8753,11 @@ const SaleKeyPage = () => {
                                         await handleAddProductFromSearch({ product: fullProduct });
                                       }
                                       
-                                      // Don't close view for case quantity mode (user might want to add more)
-                                      if (!useCaseQuantity) {
+                                      // Don't close view for case quantity mode (user might want to add more).
+                                      // Setup > General > "Keep Select Product Popup Open": the reference
+                                      // keeps this "Display all Products in Classification" view open
+                                      // after an add when the toggle is on.
+                                      if (!useCaseQuantity && settingsService.getCachedGeneralSettings().keepSelectProductPopupOpen !== true) {
                                         setShowClassificationView(false);
                                       }
                                     } catch (error) {
@@ -9609,6 +9683,25 @@ const SaleKeyPage = () => {
           setShowAttachedCustomerDialog(false);
         }}
       />
+
+      {/* Focus-loss overlay (Setup > General > Prevent Blur on Focus Loss = OFF).
+          A tap anywhere dismisses it and returns focus to the sell screen. */}
+      {focusLost && (
+        <Box
+          onClick={() => { setFocusLost(false); focusSearchInput(); }}
+          sx={{
+            position: 'fixed', inset: 0, zIndex: 3000, bgcolor: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          }}
+        >
+          <Box sx={{ bgcolor: '#fff', borderRadius: '12px', p: 4, textAlign: 'center', maxWidth: 420 }}>
+            <Typography sx={{ fontSize: 22, fontWeight: 700, mb: 1 }}>Focus lost</Typography>
+            <Typography sx={{ fontSize: 15, color: '#404040' }}>
+              The sell screen is no longer focused. Tap the screen to continue.
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       {/* Request Quantity / Request Price / weight keypad prompt */}
       <RequestValueDialog request={valueRequest} onClose={() => setValueRequest(null)} />

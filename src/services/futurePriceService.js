@@ -46,6 +46,13 @@ const futurePriceService = {
     return response.data;
   },
 
+  // Setup > General > "Activate Prices After Printing": called after shelf
+  // tickets print; the server decides (no-op when the setting is off).
+  activateForPrintedProducts: async (productIds) => {
+    const response = await apiClient.post('/future-prices/activate-printed', { productIds });
+    return response.data;
+  },
+
   // Apply a future price
   applyFuturePrice: async (id) => {
     const response = await apiClient.post(`/future-prices/${id}/apply`);

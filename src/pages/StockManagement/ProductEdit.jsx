@@ -1468,6 +1468,18 @@ const ProductEdit = () => {
         if (loadedPricesRef.current && sellPricesChanged(loadedPricesRef.current, payload.prices)) {
           await queueEverydayTicket(shelfTicketService, id);
         }
+        // Setup > General > "Price Activation Time": the server held the changed
+        // tiers back as Future Prices - say so, or the editor looks like it lost them.
+        const deferred = savedProduct?.deferredPrices || [];
+        if (deferred.length) {
+          const hours = savedProduct.priceActivationHours;
+          const when = new Date(deferred[0].effectiveAt);
+          notify(
+            `${deferred.length} price change${deferred.length === 1 ? '' : 's'} scheduled for ${when.toLocaleString()} `
+            + `(Price Activation Time: ${hours} hour${hours === 1 ? '' : 's'}). See Utilities > Future Prices to apply sooner.`,
+            'info'
+          );
+        }
       }
       caseQtyResolvedRef.current = false;
       // Ref: saving lands on the product's View page (with its success context),

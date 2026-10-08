@@ -207,9 +207,22 @@ const BulkPriceEdit = () => {
     const cost = effectiveUnitCost(product, costCalculationMethod) * quantity;
     const percentage = cost > 0 ? Math.round(profitPercent(price, cost, profitabilityDisplay) * 100) / 100 : 0;
     try {
-      await productService.bulkUpdatePrices([
+      const res = await productService.bulkUpdatePrices([
         { productId, prices: [{ quantity, price, cost, percentage }] },
       ]);
+      // Setup > General > "Price Activation Time": the server queued the change
+      // as a Future Price - the grid keeps the live price and says so.
+      const deferred = res?.results?.find((r) => r.productId === productId)?.deferredPrices || [];
+      if (deferred.length) {
+        const when = new Date(deferred[0].effectiveAt).toLocaleString();
+        setProductPrices((prev) => {
+          const live = products.find((p) => p.id === productId)?.prices?.find((x) => x.quantity === quantity)?.price;
+          return { ...prev, [productId]: { ...(prev[productId] || {}), [quantity]: live ?? prev[productId]?.[quantity] } };
+        });
+        setSnackbar({ open: true, message: `Price change scheduled for ${when} (Price Activation Time). See Utilities > Future Prices.`, severity: 'info' });
+        await queueEverydayTicket(shelfTicketService, productId);
+        return;
+      }
       setProducts((prev) =>
         prev.map((p) => {
           if (p.id !== productId) return p;

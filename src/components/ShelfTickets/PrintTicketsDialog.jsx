@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 import { handlePrintPreview, renderPrintElement, multiBuyData } from '../../utils/shelfTicketPrint.jsx';
 import shelfTicketTemplateService from '../../services/shelfTicketTemplateService';
+import futurePriceService from '../../services/futurePriceService';
 import { extractBarcodeValue } from '../../utils/barcodeSvg';
 
 const PREVIEW_PLACEHOLDER = {
@@ -180,12 +181,28 @@ const PrintTicketsDialog = ({ open, onClose, tickets = [], ticketType = 'Everyda
   // Expand by copies
   const expandedProducts = Array.from({ length: copies }).flatMap(() => products);
 
-  const handlePrint = () => {
+  const [activatedNote, setActivatedNote] = useState('');
+
+  const handlePrint = async () => {
     if (!selectedTemplate || expandedProducts.length === 0) return;
     setIsPrinting(true);
     try {
       // Ensure print uses the exact same normalized data as the preview.
       handlePrintPreview(selectedTemplate, expandedProducts.map(toTemplateData));
+      // Setup > General > "Activate Prices After Printing": an Everyday ticket
+      // going to the printer puts the product's pending future prices live. The
+      // server is the gate (no-op while the setting is off).
+      if (ticketType === 'Everyday') {
+        const productIds = [...new Set(tickets.map((t) => t.productId).filter(Boolean))];
+        try {
+          const r = await futurePriceService.activateForPrintedProducts(productIds);
+          if (r?.applied?.length) {
+            setActivatedNote(`${r.applied.length} future price${r.applied.length === 1 ? '' : 's'} activated for the printed tickets (Activate Prices After Printing).`);
+          }
+        } catch (e) {
+          console.warn('[ShelfTickets] activate-after-printing failed:', e?.message || e);
+        }
+      }
     } finally {
       setIsPrinting(false);
     }
@@ -233,6 +250,11 @@ const PrintTicketsDialog = ({ open, onClose, tickets = [], ticketType = 'Everyda
               Print Settings
             </Typography>
 
+            {activatedNote && (
+              <Alert severity="info" sx={{ mb: 1 }} onClose={() => setActivatedNote('')}>
+                {activatedNote}
+              </Alert>
+            )}
             {templates.length === 0 ? (
               <Alert severity="warning" sx={{ mb: 1 }}>
                 No templates found. Go to Setup → Shelf Ticket Templates to create one.

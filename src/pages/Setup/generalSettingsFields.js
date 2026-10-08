@@ -130,6 +130,8 @@ export const COMPANY_SECTIONS = [
         type: 'toggle',
         description: 'Determine whether Components and Packages can be used.',
         moreDescription: '**Components** and **Packages** are ways to sell products within other products, they are similar to basket products however they allow for modification of the product during the sale. **Components** and **Packages** are typically used by stores selling hospitality products such as food.',
+        // "Packaged" is the reference's own typo - verbatim
+        enabledLabel: 'Components and Packaged can be created in Shopfront',
         disabledLabel: "Shopfront won't have the ability to create Components and Packages"
       },
       {
@@ -147,6 +149,7 @@ export const COMPANY_SECTIONS = [
         type: 'toggle',
         description: 'Determines whether Barcode Templates will be enabled in Shopfront.',
         moreDescription: 'If you have barcodes that embed other information (such as price or quantity), you can use **Barcode Templates**. Typically having Delicatessen scales or selling Lotto tickets requires the use of **Barcode Templates**.',
+        enabledLabel: 'Barcode Templates can be used in Shopfront',
         disabledLabel: "Shopfront won't handle Barcode Templates"
       },
       {
