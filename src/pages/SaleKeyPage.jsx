@@ -154,7 +154,7 @@ import {
 } from '../utils/customerDisplayWindow';
 import customerDisplayService from '../services/customerDisplayService';
 import posLocalDb, { stripHtml } from '../services/posLocalDb';
-import { syncAppDataInBackground, warmAppCache } from '../services/appDataSync';
+import { syncAppDataInBackground, warmAppCache, refreshPromotionsStore } from '../services/appDataSync';
 import { refreshProductsInCache } from '../services/posCatalogSync';
 
 // Single source of truth for customer-vs-group precedence (Shopfront spec).
@@ -1626,6 +1626,31 @@ const SaleKeyPage = () => {
   useEffect(() => {
     if (!selectedRegister?.id) return;
     refreshPosLocalCatalog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRegister?.id, selectedOutlet]);
+
+  // Promotions toggled in another tab (or by another user) reached the sell
+  // screen only on the next full reload: the list came from memory that nothing
+  // refreshed. Re-pull it each time this tab comes back into view.
+  useEffect(() => {
+    if (!selectedRegister?.id) return undefined;
+    let busy = false;
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible' || busy) return;
+      busy = true;
+      try {
+        await refreshPromotionsStore(getEffectiveOutletId());
+        hydrateActivePromotionsFromLocal();
+      } finally {
+        busy = false;
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRegister?.id, selectedOutlet]);
 
@@ -5471,9 +5496,10 @@ const SaleKeyPage = () => {
       );
     }
     const active = promos.filter((p) => isPromotionActive(p));
-    if (active.length) {
-      setActivePromotions(active);
-    }
+    // Always replace, even with an empty list: skipping the empty case kept the
+    // previous active list in state after every promotion was set inactive, so
+    // the cart went on discounting until a full reload.
+    setActivePromotions(active);
     return active;
   };
 

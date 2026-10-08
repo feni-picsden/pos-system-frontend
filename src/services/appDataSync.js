@@ -54,7 +54,9 @@ const AUX_STORES = [
   ['registers', () => registerService.list()],
   ['promotionCategories', (o) => promotionCategoryService.getPromotionCategories(o, true)
     .then((r) => extractList(r, 'promotionCategories'))],
-  ['promotions', (o) => promotionService.getPromotions({ outletId: o })
+  // limit: the API pages at 10 by default, which capped the sell screen at the
+  // first 10 promotions.
+  ['promotions', (o) => promotionService.getPromotions({ outletId: o, limit: 1000 })
     .then((r) => extractList(r, 'promotions'))],
   // showRedeemedExpired is either/or on the API, so cache both halves; the page
   // filters status/outlet locally.
@@ -132,4 +134,21 @@ export async function syncAppDataInBackground(outletId, { force = false } = {}) 
   return syncPromise;
 }
 
-export default { warmAppCache, syncAppDataInBackground };
+/**
+ * Re-pull the promotions store from the API right now (ignores the 10-minute
+ * window). The sell screen calls this when its tab regains focus, so a
+ * promotion toggled in another tab or by another user is applied without a
+ * reload. Silent and best-effort: a failure leaves the current list in place.
+ */
+export async function refreshPromotionsStore(outletId) {
+  try {
+    const entry = AUX_STORES.find(([store]) => store === 'promotions');
+    const items = await entry[1](outletId);
+    if (Array.isArray(items)) await posLocalDb.putStoreAll('promotions', items);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export default { warmAppCache, syncAppDataInBackground, refreshPromotionsStore };

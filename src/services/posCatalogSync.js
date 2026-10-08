@@ -70,16 +70,21 @@ async function fetchAllCustomers() {
   return res?.customers || [];
 }
 
+// Every active promotion: without `limit` the API's default page of 10 meant
+// the 11th and later promotions never reached the sell screen.
+const ALL_PROMOTIONS_LIMIT = 1000;
+
 async function fetchPromotions(outletId) {
   try {
     const res = await promotionService.getPromotions({
       outletId,
       isActive: true,
+      limit: ALL_PROMOTIONS_LIMIT,
     });
     return extractList(res, 'promotions');
   } catch {
     try {
-      const res = await promotionService.getPromotions({ isActive: true });
+      const res = await promotionService.getPromotions({ isActive: true, limit: ALL_PROMOTIONS_LIMIT });
       return extractList(res, 'promotions');
     } catch {
       return [];

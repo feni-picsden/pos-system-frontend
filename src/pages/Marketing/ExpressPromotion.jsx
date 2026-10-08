@@ -70,6 +70,11 @@ const parseDisplayDate = (value) => {
   return `${m[3]}-${pad(m[2])}-${pad(m[1])}T${pad(m[4] || 0)}:${m[5] || '00'}:${m[6] || '00'}`;
 };
 
+// Money to whole cents. Every figure that reaches the Rebate box or the save
+// payload goes through this, so a 10% discount on $6.50 is 0.65, never
+// 0.6499999999999995.
+const roundCents = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
 const ExpressPromotion = () => {
   const navigate = useNavigate();
   const { id: idParam } = useParams();
@@ -141,9 +146,11 @@ const ExpressPromotion = () => {
         ...prev,
         items: prev.items.map(item => {
           if (prev.promotionType === 'Discount Percentage' && item.discountPercentage > 0 && item.normalPrice > 0) {
+            // Money is rounded to cents here too: unrounded floats (0.6499999999999995)
+            // were shown in the Rebate box and saved to the database as-is.
             const discountDecimal = item.discountPercentage / 100;
-            const promoPrice = item.normalPrice * (1 - discountDecimal);
-            const rebate = item.normalPrice - promoPrice;
+            const promoPrice = roundCents(item.normalPrice * (1 - discountDecimal));
+            const rebate = roundCents(item.normalPrice - promoPrice);
             const rebatePercentage = (rebate / item.normalPrice) * 100;
             return {
               ...item,
@@ -453,7 +460,7 @@ const ExpressPromotion = () => {
         }
         const normal = Number(updated.normalPrice) || 0;
         if (!(normal > 0)) return updated;
-        const round = (n) => Math.round(n * 100) / 100;
+        const round = roundCents;
 
         if (formData.promotionType === 'Discount Percentage') {
           if (field === 'discountPercentage' || (field === 'quantity' && updated.discountPercentage > 0)) {
@@ -493,12 +500,12 @@ const ExpressPromotion = () => {
         items: formData.items.map(item => ({
           productId: item.productId,
           quantity: item.quantity || 1,
-          promoPrice: item.promoPrice || 0,
-          normalPrice: item.normalPrice || 0,
-          rebate: item.rebate || 0,
+          promoPrice: roundCents(item.promoPrice),
+          normalPrice: roundCents(item.normalPrice),
+          rebate: roundCents(item.rebate),
           rebatePercentage: item.rebatePercentage || 0,
           discountPercentage: item.discountPercentage || 0,
-          discountAmount: item.rebate || 0
+          discountAmount: roundCents(item.rebate)
         })),
         conditions: {
           criteria: [{
@@ -510,7 +517,7 @@ const ExpressPromotion = () => {
             receiveValue: 0,
             items: formData.items.map(item => ({
               productId: item.productId,
-              rebate: item.rebate,
+              rebate: roundCents(item.rebate),
               rebatePercentage: item.rebatePercentage
             }))
           }]
@@ -830,7 +837,7 @@ const ExpressPromotion = () => {
                     <TableCell>
                       <TextField
                         type="number"
-                        value={item.rebate || 0}
+                        value={roundCents(item.rebate)}
                         onChange={(e) => handleUpdateItem(index, 'rebate', parseFloat(e.target.value) || 0)}
                         size="small"
                         InputProps={{

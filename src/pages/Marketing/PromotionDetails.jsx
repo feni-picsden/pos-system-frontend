@@ -1044,6 +1044,10 @@ const PromotionDetails = () => {
       if (id) {
         await promotionService.updatePromotion(id, promotionData);
         showSnackbar('Promotion updated successfully', 'success');
+        // Same as the Express editor: show the confirmation, then back to the
+        // list. Staying on the page after an update left the user wondering
+        // whether the save had gone through.
+        setTimeout(() => navigate('/marketing/promotions'), 1000);
       } else {
         await promotionService.createPromotion(promotionData);
         showSnackbar('Promotion created successfully', 'success');

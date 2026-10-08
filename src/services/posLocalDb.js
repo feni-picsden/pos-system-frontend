@@ -316,6 +316,31 @@ function sellableProducts(products) {
   return (products || []).filter((p) => !p.status || p.status === 'Active');
 }
 
+// The sell screen reads products/promotions from MEMORY (cache.*), but the page
+// caches (usePageCache, the mutation interceptor) write IndexedDB only. Mirror
+// those writes into memory so a promotion set inactive on the Promotions page is
+// what the very next add-to-cart sees, instead of the list from the last warm.
+function mirrorStoreToMemory(storeName, items) {
+  const oid = cache.outletId;
+  const byOutlet = (row) =>
+    oid == null || row?.outletId == null || Number(row.outletId) === oid;
+  if (storeName === STORES.promotions) {
+    cache.promotions = (items || []).filter(byOutlet);
+  } else if (storeName === STORES.products) {
+    cache.products = sellableProducts((items || []).filter(byOutlet));
+    cache.barcodeByCode = buildBarcodeMap(cache.products);
+  }
+}
+
+function mirrorItemToMemory(storeName, item) {
+  if (storeName !== STORES.products || item?.id == null) return;
+  const oid = cache.outletId;
+  if (oid != null && item.outletId != null && Number(item.outletId) !== oid) return;
+  const rest = cache.products.filter((p) => String(p?.id) !== String(item.id));
+  cache.products = sellableProducts([...rest, item]);
+  cache.barcodeByCode = buildBarcodeMap(cache.products);
+}
+
 function applyMemoryCatalog(payload) {
   const {
     outletId,
@@ -601,6 +626,7 @@ const posLocalDb = {
    */
   async putStoreAll(storeName, items) {
     if (!Array.isArray(items)) return;
+    mirrorStoreToMemory(storeName, items);
     const db = await openDatabase();
     if (!db) return;
 
@@ -643,6 +669,7 @@ const posLocalDb = {
    */
   async putStoreItem(storeName, item) {
     if (!item) return;
+    mirrorItemToMemory(storeName, item);
     const db = await openDatabase();
     if (!db) return;
     const tx = db.transaction([storeName, STORES.meta], 'readwrite');
@@ -659,6 +686,10 @@ const posLocalDb = {
    * knows it must re-fetch. Call this after a mutation (create / update / delete).
    */
   async invalidateStore(storeName) {
+    // A promotion write (toggle/edit/delete) empties the memory list too; the
+    // page's refetch refills it through putStoreAll. Products are left in
+    // memory: the sell search must keep working while the catalog re-syncs.
+    if (storeName === STORES.promotions) cache.promotions = [];
     const db = await openDatabase();
     if (!db) return;
     const tx = db.transaction([storeName, STORES.meta], 'readwrite');
