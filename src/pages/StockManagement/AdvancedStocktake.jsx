@@ -121,6 +121,8 @@ export default function AdvancedStocktake() {
             barcode: (it.product?.barcodes && it.product.barcodes[0]) || '',
             caseQuantity: it.product?.caseQuantity || 1,
             cost: it.product?.itemCost || it.product?.caseCost || 0,
+            // "Display expected": the stocktake's own expected figure for the row.
+            currentStock: it.expectedQuantity ?? it.product?.inventory ?? 0,
             categoryId: it.product?.category?.id ?? it.product?.categoryId ?? null,
             categoryName: it.product?.category?.name || null,
           },
@@ -357,6 +359,8 @@ export default function AdvancedStocktake() {
   };
 
   const filtered = items;
+  // New Stocktake dialog's "Display expected" switch (saved on the stocktake).
+  const showExpected = Boolean(stocktake?.displayExpected);
 
   const filteredActivities = useMemo(() => {
     if (!eventProduct) return activities;
@@ -642,6 +646,7 @@ export default function AdvancedStocktake() {
                     <Typography sx={{ fontSize: 16, fontWeight: 600 }}>{selectedProduct.name}</Typography>
                     <Typography sx={{ fontSize: 13, color: '#676b72' }}>
                       Barcode quantity {selectedProduct.barcodeQuantity || 1}
+                      {showExpected && ` · Expected ${selectedProduct.currentStock ?? 0}`}
                     </Typography>
                   </Box>
                 </Stack>
@@ -701,6 +706,11 @@ export default function AdvancedStocktake() {
               <TableHead>
                 <TableRow sx={{ bgcolor: '#5ebbeb', height: 50 }}>
                   <TableCell sx={{ color: '#f8f8f8', fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }}>PRODUCT</TableCell>
+                  {/* Reference "Display expected": "determines whether the expected
+                      inventory is visible for each scanned product". */}
+                  {showExpected && (
+                    <TableCell sx={{ color: '#f8f8f8', fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">EXPECTED</TableCell>
+                  )}
                   <TableCell sx={{ color: '#f8f8f8', fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">SCANNED</TableCell>
                   <TableCell sx={{ color: '#f8f8f8', fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">ACCUMULATED</TableCell>
                 </TableRow>
@@ -727,6 +737,13 @@ export default function AdvancedStocktake() {
                           {item.product.name}
                         </Typography>
                       </TableCell>
+                      {showExpected && (
+                        <TableCell align="center" sx={{ py: 2 }}>
+                          <Typography sx={{ color: item.cancelled ? 'text.disabled' : 'text.primary', fontSize: '0.95rem' }}>
+                            {item.product.currentStock ?? 0}
+                          </Typography>
+                        </TableCell>
+                      )}
                       <TableCell align="center" sx={{ py: 2 }}>
                         <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
                           <Typography sx={{ 
