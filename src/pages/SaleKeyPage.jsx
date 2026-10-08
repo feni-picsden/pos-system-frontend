@@ -128,7 +128,7 @@ import { isEftposMethod } from '../services/linklyService';
 import paymentMethodService, { allowsCashOut, getPaymentMethodSettings } from '../services/paymentMethodService';
 import loyaltyService from '../services/loyaltyService';
 import cashManagementService from '../services/cashManagementService';
-import { tiersKey, groupFamilyLines, chooseFamilyPricing, bestRateTier } from '../utils/familyOverride';
+import { tiersKey, groupFamilyLines, chooseFamilyPricing, bestRateTier, highMixPrice } from '../utils/familyOverride';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
@@ -6537,9 +6537,18 @@ const SaleKeyPage = () => {
     // default group when the product has no rows in the set).
     const priceRows = effectivePrices(product);
     if (Array.isArray(priceRows) && priceRows.length > 0) {
-      // Best price for the customer (reference Quantity Rate): the price point with the
-      // LOWEST per-unit rate at or below this quantity, times the quantity. Taking the
-      // largest price point instead sold 6 x a $5 single at a $60 six-pack's $10 rate.
+      // Setup > General > "Use Quantity Rate". High Mix Price (the reference's
+      // default, and what the store runs on) builds the quantity from whole price
+      // points: 4-pack $24 + single $6.50 = $30.50 for 5. The setting was saved
+      // but never read, so every in-between quantity sold at the Quantity Rate
+      // ($6.00 x 5 = $30.00) - 50c short of the reference on this one line.
+      if (settingsService.getCachedGeneralSettings().useQuantityRate !== true && Number.isInteger(qty)) {
+        const mixed = highMixPrice(priceRows, qty);
+        if (mixed != null) return mixed;
+      }
+      // Quantity Rate: the price point with the LOWEST per-unit rate at or below
+      // this quantity, times the quantity. Taking the largest price point instead
+      // sold 6 x a $5 single at a $60 six-pack's $10 rate.
       const selectedTier = bestRateTier(priceRows, qty);
       if (selectedTier && typeof selectedTier.price !== 'undefined') {
         const tierPrice = Number(selectedTier.price) || 0;

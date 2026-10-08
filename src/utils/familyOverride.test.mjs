@@ -8,8 +8,41 @@ import {
   groupFamilyLines,
   shareByQuantity,
   bestRateTier,
+  highMixPrice,
   findHigherRateQuantity,
 } from './familyOverride.js';
+
+// --- High Mix Price (Setup > General > Use Quantity Rate = High Mix Price) -------
+// Totals measured on the reference (08/10/2026) with a test product priced
+// 1 @ 6.50, 4 @ 24, 10 @ 55, 24 @ 120 under High Mix Price.
+{
+  const jb = [[1, 6.5], [4, 24], [10, 55], [24, 120]].map(([quantity, price]) => ({ quantity, price }));
+  assert.equal(highMixPrice(jb, 1), 6.5, 'reference qty 1');
+  assert.equal(highMixPrice(jb, 4), 24, 'reference qty 4');
+  assert.equal(highMixPrice(jb, 5), 30.5, 'reference qty 5: 4-pack + single');
+  assert.equal(highMixPrice(jb, 7), 43.5, 'reference qty 7: 4-pack + 3 singles');
+  assert.equal(highMixPrice(jb, 8), 48, 'reference qty 8: two 4-packs, not 4-pack + 4 singles');
+  assert.equal(highMixPrice(jb, 9), 54.5, 'reference qty 9: two 4-packs + single');
+  assert.equal(highMixPrice(jb, 11), 61.5, 'reference qty 11: 10-pack + single');
+  assert.equal(highMixPrice(jb, 24), 120, 'exact case');
+  assert.equal(highMixPrice(jb, 25), 126.5, 'case + single');
+
+  // Reference More Info example: 1 @ $10, 2 @ $15, buying 3 → $25 (Quantity Rate: $22.50)
+  const ref = [{ quantity: 1, price: 10 }, { quantity: 2, price: 15 }];
+  assert.equal(highMixPrice(ref, 3), 25, 'More Info example');
+  const qr = bestRateTier(ref, 3);
+  assert.equal((qr.price / qr.quantity) * 3, 22.5, 'quantity rate differs');
+
+  // A dearer-per-unit pack is never forced in
+  assert.equal(highMixPrice([{ quantity: 1, price: 5 }, { quantity: 6, price: 60 }], 6), 30, 'six singles beat a dear six-pack');
+  // No single price point: leftover at the smallest point's per-unit rate
+  assert.equal(highMixPrice([{ quantity: 6, price: 24 }], 7), 28, '6-pack + 1 at the pack rate');
+  // Below every price point there is nothing to build from - null, and the sell
+  // screen falls back the same way Quantity Rate does (bestRateTier is null too).
+  assert.equal(highMixPrice([{ quantity: 6, price: 24 }], 3), null, 'below the only pack');
+  assert.equal(highMixPrice([], 3), null, 'no rows');
+  assert.equal(highMixPrice(ref, 0), null, 'zero quantity');
+}
 
 // A family member as GET /products?family=<id> returns it.
 const member = (over = {}) => ({

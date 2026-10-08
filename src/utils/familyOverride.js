@@ -126,6 +126,48 @@ export function bestRateTier(rows, quantity) {
 }
 
 /**
+ * Shopfront "High Mix Price" (Setup > General > Use Quantity Rate = High Mix Price):
+ * the quantity is built up from whole price points — "incrementally adding the
+ * previous price points until we reach the purchase quantity" — each at ITS price,
+ * never a pack's per-unit rate spread over the loose units. Reference example,
+ * 1 @ $10 / 2 @ $15, buying 3: $15 + $10 = $25 (Quantity Rate gives $22.50).
+ *
+ * "Shopfront will still calculate the best price for the customer by looking at
+ * all price points that are equal to or below the purchase quantity": of every
+ * way to make the quantity from price points at or below it, the cheapest wins
+ * (two 4-packs beat a 4-pack plus four singles). Only points at or below the
+ * quantity are used — a dearer-per-unit bigger pack is never forced in.
+ *
+ * Price points are small (a handful of rows) and quantities are sale sizes, so a
+ * straightforward exact-cover minimum is cheap.
+ * @returns the total for `quantity`, or null when no price point can make it up
+ */
+export function highMixPrice(rows, quantity) {
+  const qty = Math.round(Number(quantity));
+  if (!Number.isFinite(qty) || qty <= 0) return null;
+  const points = (Array.isArray(rows) ? rows : [])
+    .map((r) => ({ q: num(r?.quantity), p: num(r?.price) }))
+    .filter((r) => r.q != null && r.q > 0 && r.q <= qty && r.p != null && Number.isInteger(r.q));
+  if (!points.length) return null;
+  // best[n] = cheapest way to make exactly n units from whole price points
+  const best = new Array(qty + 1).fill(Infinity);
+  best[0] = 0;
+  for (let n = 1; n <= qty; n += 1) {
+    for (const { q, p } of points) {
+      if (q <= n && best[n - q] + p < best[n]) best[n] = best[n - q] + p;
+    }
+  }
+  if (Number.isFinite(best[qty])) return best[qty];
+  // No exact cover (e.g. only a 6-pack row, buying 7): the largest cover that
+  // fits, with the leftover units at the smallest point's per-unit rate.
+  const smallest = points.reduce((a, b) => (b.q < a.q ? b : a));
+  for (let n = qty - 1; n >= 1; n -= 1) {
+    if (Number.isFinite(best[n])) return best[n] + ((qty - n) * smallest.p) / smallest.q;
+  }
+  return (qty * smallest.p) / smallest.q;
+}
+
+/**
  * The first price point priced at a HIGHER per-unit rate than a smaller quantity in
  * the same price group (Price Set). The register sells at the best rate, so such a
  * price point would never be used — the product editor asks before saving it
