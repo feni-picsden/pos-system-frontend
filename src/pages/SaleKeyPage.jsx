@@ -156,6 +156,7 @@ import customerDisplayService from '../services/customerDisplayService';
 import posLocalDb, { stripHtml } from '../services/posLocalDb';
 import { syncAppDataInBackground, warmAppCache, refreshPromotionsStore } from '../services/appDataSync';
 import { refreshProductsInCache } from '../services/posCatalogSync';
+import { promotionAllowedForCustomer, isScheduleActiveAt } from '../utils/promotionEligibility';
 
 // Single source of truth for customer-vs-group precedence (Shopfront spec).
 // overrideCustomerGroup ON => the customer's OWN priceList/disablePromotions/
@@ -1012,6 +1013,13 @@ const SaleKeyPage = () => {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payments, cart, isTransactionComplete, showFinalizeDialog]);
+
+  // Attaching / removing a customer changes which promotions are allowed
+  // ("Available to: Customer Groups"), so the active list is rebuilt.
+  useEffect(() => {
+    hydrateActivePromotionsFromLocal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer?.id, selectedCustomer?.customerGroupId]);
 
   useEffect(() => {
     if (cart.length > 0 && activePromotions.length === 0) {
@@ -5436,7 +5444,10 @@ const SaleKeyPage = () => {
     
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    console.log('promotion',promotion)
+    // "Available to: Customer Groups" - only a member of a listed group gets it.
+    if (!promotionAllowedForCustomer(promotion, selectedCustomer)) return false;
+    // Recurring Promotion - only inside the schedule's current window.
+    if (promotion.isRecurring && promotion.schedule && !isScheduleActiveAt(promotion.schedule, now)) return false;
     if (promotion.startDate) {
       const startDateStr = promotion.startDate;
       const startDate = new Date(startDateStr);
@@ -6877,12 +6888,15 @@ const SaleKeyPage = () => {
     if (getEffectiveCustomerSettings(selectedCustomer).disablePromotions) return { targets, status, handled };
     const expressTypes = ['Price Override', 'Discount Percentage', 'Discount Amount',
       'express_buy_x_get_y', 'express_discount', 'express_total_price', 'Combo Deal'];
+    // Multi-criteria sets: "a total price of" ($0 = a free item), or "(quantity
+    // only)" (counted, never repriced). Optional criteria are allowed as long as
+    // the promotion has at least one Required one - Buy X get Y is "Required X
+    // (quantity only) + Optionally Y for $0".
     const simpleCriterion = (c) => c
-      && !c.isOptional
       && (c.purchaseType || 'purchase') === 'purchase'
-      && c.receiveType === 'total_price'
+      && (c.receiveType === 'total_price' || c.receiveType === 'quantity_only')
       && (parseFloat(c.purchaseValue) || 0) >= 1
-      && (parseFloat(c.receiveValue) || 0) > 0
+      && (c.receiveType === 'quantity_only' || (parseFloat(c.receiveValue) || 0) >= 0)
       && c.quantityType !== 'more';
     // Reference ignores an EMPTY criterion ("Purchase 0 to receive a total price of
     // $0.00", no products - 5th Day of Xmas shows its profit as "-"); only the live
@@ -6962,7 +6976,7 @@ const SaleKeyPage = () => {
       if (p.conditions?.quantityType === 'more') return false;
       if (handled.has(p.id ?? p.name)) return false;
       const crit = liveCriteria(p);
-      return crit.length >= 1 && crit.every(simpleCriterion);
+      return crit.length >= 1 && crit.every(simpleCriterion) && crit.some((c) => !c.isOptional);
     });
     promos.forEach((p) => {
       const key = p.id ?? p.name;
@@ -6985,7 +6999,13 @@ const SaleKeyPage = () => {
           takenHere.add(index);
           lines.push({ index, q, normalTotal, unit: q > 0 ? normalTotal / q : 0 });
         });
-        return { lines, setQty: Math.floor(parseFloat(c.purchaseValue)), setPrice: parseFloat(c.receiveValue) };
+        return {
+          lines,
+          setQty: Math.floor(parseFloat(c.purchaseValue)),
+          setPrice: parseFloat(c.receiveValue) || 0,
+          optional: Boolean(c.isOptional),
+          noChange: c.receiveType === 'quantity_only',
+        };
       });
       // Mix Criteria ON (help article: criteria "mix together as if they were a
       // single criteria"): one pool, quantities and totals added up.

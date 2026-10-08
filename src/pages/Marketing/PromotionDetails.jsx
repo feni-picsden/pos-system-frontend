@@ -118,6 +118,16 @@ const toIso = (date, time) => `${date.getFullYear()}-${pad2(date.getMonth() + 1)
 
 // Reference's in-page date picker: masked editor input, calendar/clock tabs, a
 // right-aligned "Current Day" shortcut and two months side by side.
+// UTC ISO (from the API) -> "yyyy-MM-ddTHH:mm:ss" in the browser's local time,
+// the format DateTimeField edits and the API parses back as local time.
+const toLocalIso = (raw) => {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
+
 const DateTimeField = ({ value, onChange }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [tab, setTab] = useState('calendar');
@@ -403,9 +413,11 @@ const PromotionDetails = () => {
       setFormData({
         name: promotion.name || '',
         isRecurring: promotion.isRecurring ?? false,
-        // Reference keeps DD/MM/YYYY HH:mm:ss — hold on to the time part too
-        startDate: promotion.startDate ? String(promotion.startDate).slice(0, 19) : '',
-        endDate: promotion.endDate ? String(promotion.endDate).slice(0, 19) : '',
+        // Reference keeps DD/MM/YYYY HH:mm:ss — hold on to the time part too.
+        // The API returns UTC ISO strings; shown as-is they read 5:30 h early and
+        // every save shifted the date back again. Convert to LOCAL wall time.
+        startDate: toLocalIso(promotion.startDate),
+        endDate: toLocalIso(promotion.endDate),
         categoryId: promotion.categoryId || '',
         availableTo: promotion.availableTo || 'All Customers',
         customerGroupIds: promotion.customerGroupIds || [],

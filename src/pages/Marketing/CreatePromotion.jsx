@@ -572,6 +572,56 @@ const CreatePromotion = () => {
     return rows;
   };
 
+  // The wizard answers as the Advanced editor's criteria, so the sell screen
+  // prices the promotion straight away. Before this only PromotionItem rows were
+  // written and nothing discounted until someone re-saved it in the editor.
+  const buildCriteria = async (type) => {
+    const critItem = (product) => ({
+      id: Date.now() + product.id,
+      productId: product.id,
+      name: product.name,
+      type: 'PRODUCT',
+      excluded: false,
+      originalPrice: getDefaultUnitPrice(product),
+      cost: product.itemCost || product.cost || 0,
+      rebateAmount: 0,
+      rebatePercentage: 0,
+      sourceLabel: null,
+      pricingTiers: [],
+    });
+    const xs = (await expandSelections(itemX)).map(critItem);
+    const ys = (await expandSelections(itemY)).map(critItem);
+    const qty = parseInt(quantity, 10) || 1;
+    const value = parseFloat(typeValue) || 0;
+    const reward = parseFloat(rewardValue) || 0;
+    const rewardQty = parseInt(rewardQuantity, 10) || 1;
+    const more = orMore ? { quantityType: 'more' } : {};
+    // Y's reward in criteria terms ("How should 'y' be discounted?")
+    const yReceive = rewardType === 'Price Override'
+      ? { receiveType: 'total_price', receiveValue: reward }
+      : rewardType === 'Discount Percentage'
+        ? { receiveType: 'percentage_discount', receiveValue: reward }
+        : { receiveType: 'discount_total', receiveValue: reward };
+    switch (type) {
+      case 'Buy X for Y':
+        return [{ id: 'x', isOptional: false, purchaseType: 'purchase', purchaseValue: qty, receiveType: 'total_price', receiveValue: value, items: xs, profit: 0, ...more }];
+      case 'Buy X get Y% off':
+        return [{ id: 'x', isOptional: false, purchaseType: 'purchase', purchaseValue: qty, receiveType: 'percentage_discount', receiveValue: value, items: xs, profit: 0, ...more }];
+      case 'Buy X get Y':
+        return [
+          { id: 'x', isOptional: false, purchaseType: 'purchase', purchaseValue: qty, receiveType: 'quantity_only', receiveValue: 0, items: xs, profit: 0, ...more },
+          { id: 'y', isOptional: true, purchaseType: 'purchase', purchaseValue: rewardQty, ...yReceive, items: ys, profit: 0 },
+        ];
+      case 'Spend X get Y':
+        return [
+          { id: 'x', isOptional: false, purchaseType: 'spend', purchaseValue: value, receiveType: 'quantity_only', receiveValue: 0, items: xs, profit: 0 },
+          { id: 'y', isOptional: true, purchaseType: 'purchase', purchaseValue: rewardQty, ...yReceive, items: ys, profit: 0 },
+        ];
+      default:
+        return [];
+    }
+  };
+
   const buildPayload = async (type) => ({
     ...formData,
     promotionType: type,
@@ -580,7 +630,12 @@ const CreatePromotion = () => {
     // "Or more" makes the quantity a minimum rather than an exact count (the Advanced
     // editor calls this Quantity Type). No column exists for it, so it rides in the
     // free-form conditions JSON the API already stores.
-    conditions: quantity ? { quantityType: orMore ? 'more' : 'exactly' } : {},
+    conditions: {
+      ...(quantity ? { quantityType: orMore ? 'more' : 'exactly' } : {}),
+      criteria: await buildCriteria(type),
+      mixCriteria: false,
+      maxApplicationsPerSale: '',
+    },
     items: await buildItems()
   });
 

@@ -232,7 +232,9 @@ const ExpressPromotion = () => {
         categoryId: promotion.categoryId || '',
         availableTo: promotion.availableTo || 'All Customers',
         customerGroupIds: promotion.customerGroupIds || [],
-        promotionType: promotion.promotionType || 'Price Override',
+        // Wizard names map onto the Express types so the Type select is not blank.
+        promotionType: ({ 'Buy X for Y': 'Price Override', 'Buy X get Y% off': 'Discount Percentage' })[promotion.promotionType]
+          || promotion.promotionType || 'Price Override',
         isActive: promotion.isActive !== false,
         items: itemsWithCost
       });
@@ -795,11 +797,14 @@ const ExpressPromotion = () => {
                         sx={{ width: 80 }}
                       />
                     </TableCell>
+                    {/* Cost / Normal Price / Promo Price are already TOTALS for the line's
+                        quantity (see fetchPromotion + handleUpdateItem); multiplying by the
+                        quantity again showed $45 for 3 x $5. */}
                     <TableCell>
-                      <Typography variant="body2">${((item.cost || 0) * (item.quantity || 1)).toFixed(2)}</Typography>
+                      <Typography variant="body2">${(item.cost || 0).toFixed(2)}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">${((item.normalPrice || 0) * (item.quantity || 1)).toFixed(2)}</Typography>
+                      <Typography variant="body2">${(item.normalPrice || 0).toFixed(2)}</Typography>
                     </TableCell>
                     {formData.promotionType === 'Discount Percentage' && (
                       <TableCell>
@@ -816,20 +821,17 @@ const ExpressPromotion = () => {
                     )}
                     <TableCell>
                       {formData.promotionType === 'Discount Percentage' ? (
-                        <Typography variant="body2">${((item.promoPrice || 0) * (item.quantity || 1)).toFixed(2)}</Typography>
+                        <Typography variant="body2">${(item.promoPrice || 0).toFixed(2)}</Typography>
                       ) : (
                         <NumberField
-                          value={(item.promoPrice || 0) * (item.quantity || 1)}
-                          onCommit={(totalPromoPrice) => {
-                            const promoPricePerUnit = (item.quantity || 1) > 0 ? totalPromoPrice / (item.quantity || 1) : totalPromoPrice;
-                            handleUpdateItem(index, 'promoPrice', promoPricePerUnit);
-                          }}
+                          value={roundCents(item.promoPrice)}
+                          onCommit={(totalPromoPrice) => handleUpdateItem(index, 'promoPrice', totalPromoPrice)}
                           size="small"
                           InputProps={{
                             startAdornment: <InputAdornment position="start">$</InputAdornment>
                           }}
                           sx={{ width: 120 }}
-                          helperText={item.quantity > 1 ? `Per unit: $${(item.promoPrice || 0).toFixed(2)}` : ''}
+                          helperText={item.quantity > 1 ? `Per unit: $${((item.promoPrice || 0) / (item.quantity || 1)).toFixed(2)}` : ''}
                         />
                       )}
                     </TableCell>

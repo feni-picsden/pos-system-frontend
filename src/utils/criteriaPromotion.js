@@ -66,11 +66,17 @@ const normalOfFirst = (byPrice, n) => {
  */
 export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute' } = {}) => {
   const prices = new Map();
-  const prepared = groups.map((g) => ({
-    ...g,
-    totalUnits: g.lines.reduce((s, l) => s + l.q, 0),
-    byPrice: [...g.lines].sort((a, b) => b.unit - a.unit),
-  }));
+  // Buy X get Y: an Optional criterion whose products are not in the cart does
+  // not block the sets (it simply pays nothing out); a "(quantity only)"
+  // criterion (noChange) counts units but never changes their price.
+  const prepared = groups
+    .filter((g) => !(g.optional && g.lines.length === 0))
+    .map((g) => ({
+      ...g,
+      totalUnits: g.lines.reduce((s, l) => s + l.q, 0),
+      byPrice: [...g.lines].sort((a, b) => b.unit - a.unit),
+    }));
+  if (prepared.length === 0 || prepared.every((g) => g.optional)) return { sets: 0, allCovered: false, prices };
 
   let limit = prepared.length
     ? Math.min(...prepared.map((g) => (g.setQty > 0 ? Math.floor(g.totalUnits / g.setQty) : 0)))
@@ -80,7 +86,7 @@ export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute
   let sets = 0;
   let best = 0.005;
   for (let s = 1; s <= limit; s += 1) {
-    const saving = prepared.reduce((sum, g) => sum + normalOfFirst(g.byPrice, s * g.setQty) - s * g.setPrice, 0);
+    const saving = prepared.reduce((sum, g) => g.noChange ? sum : sum + normalOfFirst(g.byPrice, s * g.setQty) - s * g.setPrice, 0);
     if (saving > best) { best = saving; sets = s; }
   }
 
@@ -101,7 +107,9 @@ export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute
       const pu = promoUnits.get(l.index) || 0;
       const own = cents(l.q * l.unit);
       let c;
-      if (sets > 0 && pu > 0) {
+      if (g.noChange) {
+        c = own; // "(quantity only)": counted, never repriced
+      } else if (sets > 0 && pu > 0) {
         const share = shares[withPromo.indexOf(l)];
         c = share + cents((l.q - pu) * l.unit);
         // Never dearer than on its own - whether partly covered (2 Prosecco + 1

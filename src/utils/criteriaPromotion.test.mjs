@@ -192,4 +192,42 @@ r = mix([PRO(2, 16.99), MUS(1)]);                                               
 assert.equal(r.sets, 1); assert.equal(r.allCovered, false);
 assert.equal(mergeCriteriaGroups([]).length, 0);
 
+// ---- Buy X get Y (Required X "(quantity only)" + Optional Y for $0) ----
+{
+  const X = { index: 'x', q: 2, unit: 5 };
+  const Y = { index: 'y', q: 1, unit: 3 };
+  // X twice + Y: Y is free, X stays at its own price
+  let r = allocateCriteriaSets([
+    { lines: [X], setQty: 2, setPrice: 0, noChange: true },
+    { lines: [Y], setQty: 1, setPrice: 0, optional: true },
+  ]);
+  assert.equal(r.sets, 1);
+  assert.equal(r.prices.get('x'), 10, 'X unchanged');
+  assert.equal(r.prices.get('y'), 0, 'Y free');
+  // Y alone: the Required X is missing -> nothing
+  r = allocateCriteriaSets([
+    { lines: [], setQty: 2, setPrice: 0, noChange: true },
+    { lines: [Y], setQty: 1, setPrice: 0, optional: true },
+  ]);
+  assert.equal(r.sets, 0, 'no X, no free Y');
+  // X twice, no Y in the cart: the optional criterion does not block; nothing to pay out
+  r = allocateCriteriaSets([
+    { lines: [X], setQty: 2, setPrice: 0, noChange: true },
+    { lines: [], setQty: 1, setPrice: 0, optional: true },
+  ]);
+  assert.equal(r.sets, 0, 'no saving without Y');
+  assert.equal(r.prices.get('x'), 10);
+  // 4 X + 2 Y: two sets, both Y free
+  r = allocateCriteriaSets([
+    { lines: [{ index: 'x', q: 4, unit: 5 }], setQty: 2, setPrice: 0, noChange: true },
+    { lines: [{ index: 'y', q: 2, unit: 3 }], setQty: 1, setPrice: 0, optional: true },
+  ]);
+  assert.equal(r.sets, 2);
+  assert.equal(r.prices.get('y'), 0);
+  // only quantity_only criteria (nothing to receive) -> no change anywhere
+  r = allocateCriteriaSets([{ lines: [X], setQty: 2, setPrice: 0, noChange: true }]);
+  assert.equal(r.sets, 0);
+  assert.equal(r.prices.get('x'), 10);
+}
+
 console.log('criteriaPromotion: all reference cases pass');
