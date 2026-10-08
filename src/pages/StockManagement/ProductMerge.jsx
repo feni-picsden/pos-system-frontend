@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import NumberField from '../../components/Common/NumberField';
 import {
   Box,
   Paper,
@@ -1144,12 +1145,13 @@ const ProductMerge = () => {
                       <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
                         Case Quantity
                       </Typography>
-                      <TextField
+                      <NumberField
                         fullWidth
                         size="small"
-                        type="number"
+                        int
+                        fallback={1}
                         value={mergedProduct.caseQuantity}
-                        onChange={(e) => handleInputChange('caseQuantity', parseInt(e.target.value) || 1)}
+                        onCommit={(n) => handleInputChange('caseQuantity', n)}
                         required
                       />
                     </Grid>
@@ -1453,16 +1455,16 @@ const ProductMerge = () => {
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
                           <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Current Stock</Box>
                           <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.currentStockCases}
-                              onChange={(e) => handleInputChange('currentStockCases', parseInt(e.target.value) || 0)} />
+                            <NumberField int size="small" fullWidth value={mergedProduct.currentStockCases}
+                              onCommit={(n) => handleInputChange('currentStockCases', n)} />
                           </Box>
                           <Box sx={{ p: 0.5 }}>
                             {/* Loose items are held to two decimal places (a basket
                                 can spend 0.04 of a component), so parseInt here
                                 would drop the fraction on merge. */}
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.currentStockItems}
+                            <NumberField size="small" fullWidth value={mergedProduct.currentStockItems}
                               inputProps={{ step: 'any' }}
-                              onChange={(e) => handleInputChange('currentStockItems', parseFloat(e.target.value) || 0)} />
+                              onCommit={(n) => handleInputChange('currentStockItems', n)} />
                           </Box>
                         </Box>
 
@@ -1470,12 +1472,12 @@ const ProductMerge = () => {
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
                           <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Level</Box>
                           <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.reorderLevelCases || 0}
-                              onChange={(e) => handleInputChange('reorderLevelCases', parseInt(e.target.value) || 0)} />
+                            <NumberField int size="small" fullWidth value={mergedProduct.reorderLevelCases || 0}
+                              onCommit={(n) => handleInputChange('reorderLevelCases', n)} />
                           </Box>
                           <Box sx={{ p: 0.5 }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.reorderLevelItems || 0}
-                              onChange={(e) => handleInputChange('reorderLevelItems', parseInt(e.target.value) || 0)} />
+                            <NumberField int size="small" fullWidth value={mergedProduct.reorderLevelItems || 0}
+                              onCommit={(n) => handleInputChange('reorderLevelItems', n)} />
                           </Box>
                         </Box>
 
@@ -1483,12 +1485,12 @@ const ProductMerge = () => {
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
                           <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Amount</Box>
                           <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.reorderAmountCases || 0}
-                              onChange={(e) => handleInputChange('reorderAmountCases', parseInt(e.target.value) || 0)} />
+                            <NumberField int size="small" fullWidth value={mergedProduct.reorderAmountCases || 0}
+                              onCommit={(n) => handleInputChange('reorderAmountCases', n)} />
                           </Box>
                           <Box sx={{ p: 0.5 }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.reorderAmountItems || 0}
-                              onChange={(e) => handleInputChange('reorderAmountItems', parseInt(e.target.value) || 0)} />
+                            <NumberField int size="small" fullWidth value={mergedProduct.reorderAmountItems || 0}
+                              onCommit={(n) => handleInputChange('reorderAmountItems', n)} />
                           </Box>
                         </Box>
 
@@ -1496,12 +1498,12 @@ const ProductMerge = () => {
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
                           <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Limit</Box>
                           <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.reorderLimitCases || ''}
-                              onChange={(e) => handleInputChange('reorderLimitCases', parseInt(e.target.value) || 0)} placeholder="No Value" />
+                            <NumberField int size="small" fullWidth value={mergedProduct.reorderLimitCases || ''}
+                              onCommit={(n) => handleInputChange('reorderLimitCases', n)} placeholder="No Value" />
                           </Box>
                           <Box sx={{ p: 0.5 }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.reorderLimitItems || ''}
-                              onChange={(e) => handleInputChange('reorderLimitItems', parseInt(e.target.value) || 0)} placeholder="No Value" />
+                            <NumberField int size="small" fullWidth value={mergedProduct.reorderLimitItems || ''}
+                              onCommit={(n) => handleInputChange('reorderLimitItems', n)} placeholder="No Value" />
                           </Box>
                         </Box>
 
@@ -1509,12 +1511,12 @@ const ProductMerge = () => {
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
                           <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Max On Hand</Box>
                           <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.maxOnHandCases || ''}
-                              onChange={(e) => handleInputChange('maxOnHandCases', parseInt(e.target.value) || 0)} placeholder="No Value" />
+                            <NumberField int size="small" fullWidth value={mergedProduct.maxOnHandCases || ''}
+                              onCommit={(n) => handleInputChange('maxOnHandCases', n)} placeholder="No Value" />
                           </Box>
                           <Box sx={{ p: 0.5 }}>
-                            <TextField size="small" type="number" fullWidth value={mergedProduct.maxOnHandItems || ''}
-                              onChange={(e) => handleInputChange('maxOnHandItems', parseInt(e.target.value) || 0)} placeholder="No Value" />
+                            <NumberField int size="small" fullWidth value={mergedProduct.maxOnHandItems || ''}
+                              onCommit={(n) => handleInputChange('maxOnHandItems', n)} placeholder="No Value" />
                           </Box>
                         </Box>
 

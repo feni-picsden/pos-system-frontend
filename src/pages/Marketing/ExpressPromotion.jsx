@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import NumberField from '../../components/Common/NumberField';
 import {
   Box,
   Button,
@@ -785,10 +786,11 @@ const ExpressPromotion = () => {
                       <Typography variant="caption" color="text.secondary">PRODUCT</Typography>
                     </TableCell>
                     <TableCell>
-                      <TextField
-                        type="number"
+                      <NumberField
+                        int
+                        fallback={1}
                         value={item.quantity || 1}
-                        onChange={(e) => handleUpdateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                        onCommit={(n) => handleUpdateItem(index, 'quantity', n)}
                         size="small"
                         sx={{ width: 80 }}
                       />
@@ -801,10 +803,9 @@ const ExpressPromotion = () => {
                     </TableCell>
                     {formData.promotionType === 'Discount Percentage' && (
                       <TableCell>
-                        <TextField
-                          type="number"
+                        <NumberField
                           value={item.discountPercentage || 0}
-                          onChange={(e) => handleUpdateItem(index, 'discountPercentage', parseFloat(e.target.value) || 0)}
+                          onCommit={(n) => handleUpdateItem(index, 'discountPercentage', n)}
                           size="small"
                           InputProps={{
                             endAdornment: <InputAdornment position="end">%</InputAdornment>
@@ -817,11 +818,9 @@ const ExpressPromotion = () => {
                       {formData.promotionType === 'Discount Percentage' ? (
                         <Typography variant="body2">${((item.promoPrice || 0) * (item.quantity || 1)).toFixed(2)}</Typography>
                       ) : (
-                        <TextField
-                          type="number"
+                        <NumberField
                           value={(item.promoPrice || 0) * (item.quantity || 1)}
-                          onChange={(e) => {
-                            const totalPromoPrice = parseFloat(e.target.value) || 0;
+                          onCommit={(totalPromoPrice) => {
                             const promoPricePerUnit = (item.quantity || 1) > 0 ? totalPromoPrice / (item.quantity || 1) : totalPromoPrice;
                             handleUpdateItem(index, 'promoPrice', promoPricePerUnit);
                           }}
@@ -835,10 +834,9 @@ const ExpressPromotion = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <TextField
-                        type="number"
+                      <NumberField
                         value={roundCents(item.rebate)}
-                        onChange={(e) => handleUpdateItem(index, 'rebate', parseFloat(e.target.value) || 0)}
+                        onCommit={(n) => handleUpdateItem(index, 'rebate', n)}
                         size="small"
                         InputProps={{
                           startAdornment: <InputAdornment position="start">$</InputAdornment>

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
+import NumberField from '../../components/Common/NumberField';
 import {
   Box,
   Button,
@@ -1188,23 +1189,25 @@ const SaleKeyEditor = () => {
           <Typography variant="h6" sx={{ mb: 2 }}>Grid Configuration</Typography>
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6}>
-              <TextField
+              <NumberField
+                int
+                fallback={6}
                 fullWidth
                 label="Columns"
-                type="number"
                 value={gridSize.cols}
-                onChange={(e) => setGridSize({ ...gridSize, cols: parseInt(e.target.value) || 6 })}
+                onCommit={(n) => setGridSize({ ...gridSize, cols: n })}
                 inputProps={{ min: 1, max: 12 }}
                 size="small"
               />
             </Grid>
             <Grid item xs={6}>
-              <TextField
+              <NumberField
+                int
+                fallback={6}
                 fullWidth
                 label="Rows"
-                type="number"
                 value={gridSize.rows}
-                onChange={(e) => setGridSize({ ...gridSize, rows: parseInt(e.target.value) || 6 })}
+                onCommit={(n) => setGridSize({ ...gridSize, rows: n })}
                 inputProps={{ min: 1, max: 12 }}
                 size="small"
               />
@@ -1844,23 +1847,23 @@ const SaleKeyEditor = () => {
               <Typography variant="h6" sx={{ mb: 2 }}>Position</Typography>
               <Grid container spacing={2}>
                <Grid item xs={6}>
-                   <TextField
+                   <NumberField
+                     int
                      fullWidth
                      label="X Position"
-                     type="number"
                      value={selectedKey.position?.x || 0}
-                     onChange={(e) => handlePropertyChange('position.x', parseInt(e.target.value) || 0)}
+                     onCommit={(n) => handlePropertyChange('position.x', n)}
                      inputProps={{ min: 0, max: gridSize.cols - 1 }}
                      size="small"
                    />
                  </Grid>
                  <Grid item xs={6}>
-                   <TextField
+                   <NumberField
+                     int
                      fullWidth
                      label="Y Position"
-                     type="number"
                      value={selectedKey.position?.y || 0}
-                     onChange={(e) => handlePropertyChange('position.y', parseInt(e.target.value) || 0)}
+                     onCommit={(n) => handlePropertyChange('position.y', n)}
                      inputProps={{ min: 0, max: gridSize.rows - 1 }}
                      size="small"
                    />
@@ -1875,23 +1878,25 @@ const SaleKeyEditor = () => {
               <Typography variant="h6" sx={{ mb: 2 }}>Size</Typography>
               <Grid container spacing={2}>
                                  <Grid item xs={6}>
-                   <TextField
+                   <NumberField
+                     int
+                     fallback={1}
                      fullWidth
                      label="Width (cells)"
-                     type="number"
                      value={selectedKey.size?.width || selectedKey.position?.w || 1}
-                     onChange={(e) => handlePropertyChange('size.width', parseInt(e.target.value) || 1)}
+                     onCommit={(n) => handlePropertyChange('size.width', n)}
                      inputProps={{ min: 1, max: gridSize.cols }}
                      size="small"
                    />
                  </Grid>
                  <Grid item xs={6}>
-                   <TextField
+                   <NumberField
+                     int
+                     fallback={1}
                      fullWidth
                      label="Height (cells)"
-                     type="number"
                      value={selectedKey.size?.height || selectedKey.position?.h || 1}
-                     onChange={(e) => handlePropertyChange('size.height', parseInt(e.target.value) || 1)}
+                     onCommit={(n) => handlePropertyChange('size.height', n)}
                      inputProps={{ min: 1, max: gridSize.rows }}
                      size="small"
                    />

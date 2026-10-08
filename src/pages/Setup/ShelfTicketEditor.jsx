@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
+import NumberField from '../../components/Common/NumberField';
 import {
   Box, Typography, Button, IconButton, TextField, Select, MenuItem,
   FormControl, InputLabel, Divider, Paper, Tooltip, Snackbar, Alert,
@@ -822,13 +823,13 @@ const ShelfTicketEditor = () => {
         </FormControl>
 
         <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-          <TextField
+          <NumberField
             size="small"
             label="Size (pt)"
-            type="number"
+            fallback={10}
             inputProps={{ min: 4, max: 72, step: 0.5 }}
             value={el.fontSize || 10}
-            onChange={(e) => updateEl({ fontSize: parseFloat(e.target.value) || 10 })}
+            onCommit={(n) => updateEl({ fontSize: n })}
             onBlur={(e) => updateElHistory({ fontSize: parseFloat(e.target.value) || 10 })}
             sx={{ width: 90 }}
           />
@@ -1044,21 +1045,21 @@ const ShelfTicketEditor = () => {
         {/* Position & Size */}
         <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>Position & Size</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1 }}>
-          <TextField size="small" label="X (mm)" type="number" inputProps={{ step: 0.5 }}
+          <NumberField size="small" label="X (mm)" inputProps={{ step: 0.5 }}
             value={Math.round(el.x * 10) / 10}
-            onChange={(e) => updateEl({ x: parseFloat(e.target.value) || 0 })}
+            onCommit={(n) => updateEl({ x: n })}
             onBlur={(e) => updateElHistory({ x: parseFloat(e.target.value) || 0 })} />
-          <TextField size="small" label="Y (mm)" type="number" inputProps={{ step: 0.5 }}
+          <NumberField size="small" label="Y (mm)" inputProps={{ step: 0.5 }}
             value={Math.round(el.y * 10) / 10}
-            onChange={(e) => updateEl({ y: parseFloat(e.target.value) || 0 })}
+            onCommit={(n) => updateEl({ y: n })}
             onBlur={(e) => updateElHistory({ y: parseFloat(e.target.value) || 0 })} />
-          <TextField size="small" label="Width (mm)" type="number" inputProps={{ min: 1, step: 0.5 }}
+          <NumberField size="small" label="Width (mm)" fallback={1} inputProps={{ min: 1, step: 0.5 }}
             value={Math.round(el.width * 10) / 10}
-            onChange={(e) => updateEl({ width: parseFloat(e.target.value) || 1 })}
+            onCommit={(n) => updateEl({ width: n })}
             onBlur={(e) => updateElHistory({ width: parseFloat(e.target.value) || 1 })} />
-          <TextField size="small" label="Height (mm)" type="number" inputProps={{ min: 0.1, step: 0.5 }}
+          <NumberField size="small" label="Height (mm)" fallback={0.5} inputProps={{ min: 0.1, step: 0.5 }}
             value={Math.round(el.height * 10) / 10}
-            onChange={(e) => updateEl({ height: parseFloat(e.target.value) || 0.5 })}
+            onCommit={(n) => updateEl({ height: n })}
             onBlur={(e) => updateElHistory({ height: parseFloat(e.target.value) || 0.5 })} />
         </Box>
 
@@ -1236,10 +1237,10 @@ const ShelfTicketEditor = () => {
             </FormControl>
 
             <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-              <TextField size="small" label="W (mm)" type="number" inputProps={{ min: 20, max: 400, step: 1 }}
-                value={template.width} onChange={(e) => setTemplate(t => ({ ...t, width: parseInt(e.target.value) || 100 }))} />
-              <TextField size="small" label="H (mm)" type="number" inputProps={{ min: 20, max: 400, step: 1 }}
-                value={template.height} onChange={(e) => setTemplate(t => ({ ...t, height: parseInt(e.target.value) || 70 }))} />
+              <NumberField int fallback={100} size="small" label="W (mm)" inputProps={{ min: 20, max: 400, step: 1 }}
+                value={template.width} onCommit={(n) => setTemplate(t => ({ ...t, width: n }))} />
+              <NumberField int fallback={70} size="small" label="H (mm)" inputProps={{ min: 20, max: 400, step: 1 }}
+                value={template.height} onCommit={(n) => setTemplate(t => ({ ...t, height: n }))} />
             </Box>
 
             <ColorPickerButton

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
+import NumberField from '../../components/Common/NumberField';
 import {
   Box,
   Paper,
@@ -2488,13 +2489,10 @@ const ProductEdit = () => {
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
                   Cost
                 </Typography>
-                <TextField
+                <NumberField
                   fullWidth
-                  type="number"
                   value={formData.itemCost}
-                  onChange={(e) => {
-                    handleInputChange('itemCost', parseFloat(e.target.value) || 0);
-                  }}
+                  onCommit={(n) => handleInputChange('itemCost', n)}
                   InputProps={{
                     endAdornment: <Typography sx={{ ml: 1, color: 'text.secondary' }}>%</Typography>,
                   }}
@@ -2691,12 +2689,12 @@ const ProductEdit = () => {
                             )}
                           </TableCell>
                           <TableCell>
-                            <TextField
-                              type="number"
+                            <NumberField
+                              int
+                              fallback={1}
                               value={price.quantity}
-                              onChange={(e) => {
+                              onCommit={(newQty) => {
                                 const newPrices = [...formData.prices];
-                                const newQty = parseInt(e.target.value) || 1;
                                 // Resizing the pack keeps the PER-UNIT price: a $30
                                 // six-pack becomes $60 at twelve, not a silent
                                 // half-price cut. The old quantity is what the
@@ -2751,12 +2749,10 @@ const ProductEdit = () => {
                             ${(effectiveItemCost * (rowQuantity(price) || 1)).toFixed(2)}
                           </TableCell>
                           <TableCell>
-                            <TextField
-                              type="number"
+                            <NumberField
                               value={price.percentage}
-                              onChange={(e) => {
+                              onCommit={(pct) => {
                                 const newPrices = [...formData.prices];
-                                const pct = parseFloat(e.target.value) || 0;
                                 const newPrice = calculatePrice(effectiveItemCost, newPrices[index].quantity, pct);
                                 newPrices[index] = { ...newPrices[index], percentage: pct, price: newPrice };
                                 // A margin change moves this row's price only.
@@ -2877,10 +2873,10 @@ const ProductEdit = () => {
                 
                 <Grid item xs={6}>
                   <Typography variant="body2">Current Stock</Typography>
-                  <TextField
-                    type="number"
+                  <NumberField
+                    int
                     value={formData.currentStockCases}
-                    onChange={(e) => handleInputChange('currentStockCases', parseInt(e.target.value) || 0)}
+                    onCommit={(n) => handleInputChange('currentStockCases', n)}
                     size="small"
                     fullWidth
                   />
@@ -2892,11 +2888,10 @@ const ProductEdit = () => {
                       decimal places and parseInt here would silently drop it —
                       2.96 items saved back as 2. Cases above stay whole, because
                       a part case IS loose items. */}
-                  <TextField
-                    type="number"
+                  <NumberField
                     value={formData.currentStockItems}
                     inputProps={{ step: 'any' }}
-                    onChange={(e) => handleInputChange('currentStockItems', parseFloat(e.target.value) || 0)}
+                    onCommit={(n) => handleInputChange('currentStockItems', n)}
                     size="small"
                     fullWidth
                   />
@@ -2904,20 +2899,20 @@ const ProductEdit = () => {
 
                 <Grid item xs={6}>
                   <Typography variant="body2">Reorder Level</Typography>
-                  <TextField
-                    type="number"
+                  <NumberField
+                    int
                     value={formData.reorderLevelCases}
-                    onChange={(e) => handleInputChange('reorderLevelCases', parseInt(e.target.value) || 0)}
+                    onCommit={(n) => handleInputChange('reorderLevelCases', n)}
                     size="small"
                     fullWidth
                   />
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2">Reorder Level</Typography>
-                  <TextField
-                    type="number"
+                  <NumberField
+                    int
                     value={formData.reorderLevelItems}
-                    onChange={(e) => handleInputChange('reorderLevelItems', parseInt(e.target.value) || 0)}
+                    onCommit={(n) => handleInputChange('reorderLevelItems', n)}
                     size="small"
                     fullWidth
                   />
@@ -2925,20 +2920,20 @@ const ProductEdit = () => {
 
                 <Grid item xs={6}>
                   <Typography variant="body2">Reorder Amount</Typography>
-                  <TextField
-                    type="number"
+                  <NumberField
+                    int
                     value={formData.reorderAmountCases}
-                    onChange={(e) => handleInputChange('reorderAmountCases', parseInt(e.target.value) || 0)}
+                    onCommit={(n) => handleInputChange('reorderAmountCases', n)}
                     size="small"
                     fullWidth
                   />
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2">Reorder Amount</Typography>
-                  <TextField
-                    type="number"
+                  <NumberField
+                    int
                     value={formData.reorderAmountItems}
-                    onChange={(e) => handleInputChange('reorderAmountItems', parseInt(e.target.value) || 0)}
+                    onCommit={(n) => handleInputChange('reorderAmountItems', n)}
                     size="small"
                     fullWidth
                   />
@@ -3264,15 +3259,15 @@ const ProductEdit = () => {
                         />
                       </Grid>
                       <Grid item xs={12} sm={6}>
-                        <TextField
+                        <NumberField
+                          int
                           fullWidth
                           label="Minimum Order Quantity"
-                          type="number"
                           size="small"
                           value={supplier.minimumOrderQuantity || 0}
-                          onChange={(e) => {
+                          onCommit={(n) => {
                             const newSuppliers = [...formData.suppliers];
-                            newSuppliers[index].minimumOrderQuantity = parseInt(e.target.value) || 0;
+                            newSuppliers[index].minimumOrderQuantity = n;
                             handleInputChange('suppliers', newSuppliers);
                           }}
                         />
@@ -3385,13 +3380,13 @@ const ProductEdit = () => {
                             />
                           </Grid>
                           <Grid item xs={12} sm={6}>
-                            <TextField
+                            <NumberField
+                              int
                               fullWidth
                               label="Minimum Order Quantity"
-                              type="number"
                               size="small"
                               value={supplierFormData.minimumOrderQuantity}
-                              onChange={(e) => handleSupplierFormChange('minimumOrderQuantity', parseInt(e.target.value) || 0)}
+                              onCommit={(n) => handleSupplierFormChange('minimumOrderQuantity', n)}
                             />
                           </Grid>
                           <Grid item xs={12} sm={6}>
@@ -3495,36 +3490,35 @@ const ProductEdit = () => {
                 {formData.loyaltyRows.map((row, index) => (
                   <TableRow key={index} sx={dataTableRowSx(index)}>
                     <TableCell>
-                      <TextField
-                        type="number"
+                      <NumberField
+                        int
+                        fallback={1}
                         value={row.quantity}
-                        onChange={(e) => {
+                        onCommit={(n) => {
                           const newRows = [...formData.loyaltyRows];
-                          newRows[index].quantity = parseInt(e.target.value) || 1;
+                          newRows[index].quantity = n;
                           handleInputChange('loyaltyRows', newRows);
                         }}
                         size="small"
                       />
                     </TableCell>
                     <TableCell>
-                      <TextField
-                        type="number"
+                      <NumberField
                         value={row.earnRate}
-                        onChange={(e) => {
+                        onCommit={(n) => {
                           const newRows = [...formData.loyaltyRows];
-                          newRows[index].earnRate = parseFloat(e.target.value) || 0;
+                          newRows[index].earnRate = n;
                           handleInputChange('loyaltyRows', newRows);
                         }}
                         size="small"
                       />
                     </TableCell>
                     <TableCell>
-                      <TextField
-                        type="number"
+                      <NumberField
                         value={row.redeemRate}
-                        onChange={(e) => {
+                        onCommit={(n) => {
                           const newRows = [...formData.loyaltyRows];
-                          newRows[index].redeemRate = parseFloat(e.target.value) || 0;
+                          newRows[index].redeemRate = n;
                           handleInputChange('loyaltyRows', newRows);
                         }}
                         size="small"

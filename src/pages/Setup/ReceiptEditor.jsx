@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
+import NumberField from '../../components/Common/NumberField';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import {
   Box,
@@ -2896,13 +2897,13 @@ const ReceiptEditor = () => {
                 {component.properties?.columnWidths?.map((width, index) => (
                   <Grid item xs={6} key={index}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TextField
+                      <NumberField
+                        int
                         size="small"
-                        type="number"
                         value={width}
-                        onChange={(e) => {
+                        onCommit={(n) => {
                           const newWidths = [...(component.properties?.columnWidths || [])];
-                          newWidths[index] = parseInt(e.target.value) || 0;
+                          newWidths[index] = n;
                           // Ensure total doesn't exceed 100%
                           const total = newWidths.reduce((sum, w) => sum + w, 0);
                           if (total <= 100) {

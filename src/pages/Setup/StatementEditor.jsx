@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import NumberField from '../../components/Common/NumberField';
 import {
   Box,
   Typography,
@@ -1860,15 +1861,16 @@ const StatementEditor = () => {
               </Button>
               {props.border?.width && (
                 <Box sx={{ mt: 1 }}>
-                  <TextField
+                  <NumberField
+                    int
+                    fallback={1}
                     fullWidth
                     size="small"
                     label="Border Width (px)"
-                    type="number"
                     value={props.border?.width || 1}
-                    onChange={(e) => updateComponentProperty(componentId, 'border', {
+                    onCommit={(n) => updateComponentProperty(componentId, 'border', {
                       ...props.border,
-                      width: parseInt(e.target.value) || 1
+                      width: n
                     })}
                     sx={{ mb: 1 }}
                   />
@@ -2151,15 +2153,16 @@ const StatementEditor = () => {
               </Button>
               {props.border?.width && (
                 <Box sx={{ mt: 1 }}>
-                  <TextField
+                  <NumberField
+                    int
+                    fallback={1}
                     fullWidth
                     size="small"
                     label="Border Width (px)"
-                    type="number"
                     value={props.border?.width || 1}
-                    onChange={(e) => updateComponentProperty(componentId, 'border', {
+                    onCommit={(n) => updateComponentProperty(componentId, 'border', {
                       ...props.border,
-                      width: parseInt(e.target.value) || 1
+                      width: n
                     })}
                     sx={{ mb: 1 }}
                   />
@@ -2753,15 +2756,16 @@ const StatementEditor = () => {
               </Button>
               {props.border?.width && (
                 <Box sx={{ mt: 1 }}>
-                  <TextField
+                  <NumberField
+                    int
+                    fallback={1}
                     fullWidth
                     size="small"
                     label="Border Width (px)"
-                    type="number"
                     value={props.border?.width || 1}
-                    onChange={(e) => updateComponentProperty(componentId, 'border', {
+                    onCommit={(n) => updateComponentProperty(componentId, 'border', {
                       ...props.border,
-                      width: parseInt(e.target.value) || 1
+                      width: n
                     })}
                     sx={{ mb: 1 }}
                   />
@@ -2810,13 +2814,13 @@ const StatementEditor = () => {
                 {props.columnWidths?.map((width, index) => (
                   <Grid item xs={6} key={index}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TextField
+                      <NumberField
+                        int
                         size="small"
-                        type="number"
                         value={width}
-                        onChange={(e) => {
+                        onCommit={(n) => {
                           const newWidths = [...(props.columnWidths || [])];
-                          newWidths[index] = parseInt(e.target.value) || 0;
+                          newWidths[index] = n;
                           // Ensure total doesn't exceed 100%
                           const total = newWidths.reduce((sum, w) => sum + w, 0);
                           if (total <= 100) {

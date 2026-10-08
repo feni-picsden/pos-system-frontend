@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import NumberField from '../../components/Common/NumberField';
 import {
   Box,
   Button,
@@ -1770,7 +1771,10 @@ const PromotionDetails = () => {
             </Box>
                     {expandedCriteria[criterion.id] ? (
                       <Box sx={{ p: 2 ,display: 'flex'}}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                        {/* The controls take the remaining width so the PROFIT column
+                            sits at the same right edge on every criterion; before, a
+                            wider control row pushed it left. */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 2, flex: 1, minWidth: 0 }}>
                           <Button
                             variant={criterion.isOptional ? 'contained' : 'outlined'}
                             size="small"
@@ -1798,11 +1802,10 @@ const PromotionDetails = () => {
                             </Select>
                           </FormControl>
                           
-          <TextField
+          <NumberField
                             size="small"
-                            type="number"
                             value={criterion.purchaseValue}
-                            onChange={(e) => handleUpdateCriterion(criterion.id, 'purchaseValue', parseFloat(e.target.value) || 0)}
+                            onCommit={(n) => handleUpdateCriterion(criterion.id, 'purchaseValue', n)}
                             sx={{ width: 80 }}
                           />
                           
@@ -1832,11 +1835,10 @@ const PromotionDetails = () => {
                           </FormControl>
                           
                           {(criterion.receiveType !== 'quantity_only' && criterion.receiveType !== 'free_item') && (
-                            <TextField
+                            <NumberField
                               size="small"
-                              type="number"
                               value={criterion.receiveValue}
-                              onChange={(e) => handleUpdateCriterion(criterion.id, 'receiveValue', parseFloat(e.target.value) || 0)}
+                              onCommit={(n) => handleUpdateCriterion(criterion.id, 'receiveValue', n)}
                               sx={{ width: 100 }}
             InputProps={{
                                 startAdornment: criterion.receiveType === 'percentage_discount' ? (
@@ -1849,8 +1851,7 @@ const PromotionDetails = () => {
                           )}
                         </Box>
 
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ flex: 1 }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', flexShrink: 0, ml: 2, minWidth: 170 }}>
                           <Box sx={{ textAlign: 'right' }}>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                               PROFIT
@@ -1892,8 +1893,7 @@ const PromotionDetails = () => {
                           {getCriterionSummary(criterion)}
                         </Typography>
 
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ flex: 1 }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', flexShrink: 0, ml: 2, minWidth: 170 }}>
                           <Box sx={{ textAlign: 'right' }}>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                               PROFIT
@@ -2005,13 +2005,14 @@ const PromotionDetails = () => {
                         borderBottom: '1px solid #f0f0f0'
                       }}
                     >
-                      <TextField
+                      <NumberField
+                        int
+                        fallback={1}
                         size="small"
-                        type="number"
                         value={item.quantity}
                         inputProps={{ min: 1 }}
-                        onChange={(e) => {
-                          const quantity = Math.max(1, parseInt(e.target.value) || 1);
+                        onCommit={(n) => {
+                          const quantity = Math.max(1, n);
                           setSimBasket(prev => prev.map((it, i) => (i === index ? { ...it, quantity } : it)));
                         }}
                       />

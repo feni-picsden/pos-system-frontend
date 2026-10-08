@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseNumberInput, finishNumber } from '../utils/numberInput';
 import {
   Box,
   Typography,
@@ -272,9 +273,13 @@ export default function PushNotifications() {
               component="input"
               type="number"
               min="0"
-              value={editForm.largeSalesAmount}
+              value={editForm.largeSalesAmount ?? ''}
+              // The box may be emptied while typing; it settles to a number on blur.
               onChange={(e) =>
-                setEditForm((f) => ({ ...f, largeSalesAmount: parseFloat(e.target.value) || 0 }))
+                setEditForm((f) => ({ ...f, largeSalesAmount: parseNumberInput(e.target.value) }))
+              }
+              onBlur={() =>
+                setEditForm((f) => ({ ...f, largeSalesAmount: finishNumber(f.largeSalesAmount, 0) }))
               }
               sx={{
                 flex: 1,
