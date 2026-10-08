@@ -9,8 +9,9 @@
 //   * units left over sell at their normal unit price;
 //   * the number of sets is the one that saves the customer the most, taking the
 //     dearest units first (never a set that costs more than normal);
-//   * a criterion's promo total is split over its covered units in cents, the last
-//     covered line absorbing the rounding;
+//   * a criterion's promo total is split over its covered units in cents per the
+//     company's Price Rounding Mode (splitCents: Redistribute keeps the total,
+//     Round rounds every line);
 //   * a line that also has left-over units never costs more than it would on its
 //     own (2 Prosecco + 1 Muscat: the Prosecco line keeps its own $28 two-bottle
 //     price rather than $15 + one bottle);
@@ -18,6 +19,35 @@
 // Pure: no React, no services.
 
 const cents = (n) => Math.round(n * 100);
+
+/**
+ * Setup > General > "Price Rounding Mode": how a promo total in cents is split
+ * over the lines it covers, in proportion to `weights` (units or value).
+ *   Redistribute  the total is kept exactly: every line rounds on its own and
+ *                 the LARGEST line (first on a tie) takes the total less the
+ *                 others. Both reference More Info tables come out of that:
+ *                 "3 for $10" = $3.34 / $3.33 / $3.33 (A, the first of equals);
+ *                 fuel 17 + 18 at $1.419 (total $49.67) = $24.12 / $25.55 (the
+ *                 18-unit line; a largest-fraction rule would have given the
+ *                 cent to the 17-unit line's .3 instead).
+ *   Round         every line is rounded on its own and the total is whatever
+ *                 that adds to: $3.33 x 3 = $9.99; $24.12 + $25.54 = $49.66.
+ * `totalCents` may carry fractions of a cent (fuel: 4966.5): each line rounds
+ * from its EXACT value (17 x 1.419 = 24.123 -> 24.12), and under Redistribute
+ * the absorbing line squares up to the rounded total.
+ * @returns whole cents per line, same order
+ */
+export const splitCents = (totalCents, weights, mode = 'Redistribute') => {
+  const w = weights.map((x) => Math.max(0, Number(x) || 0));
+  const sum = w.reduce((a, b) => a + b, 0);
+  if (sum <= 0) return w.map(() => 0);
+  const shares = w.map((x) => Math.round((totalCents * x) / sum));
+  if (mode === 'Round') return shares;
+  let big = 0;
+  w.forEach((x, i) => { if (x > w[big]) big = i; });
+  shares[big] = Math.round(totalCents) - shares.reduce((a, b, i) => (i === big ? a : a + b), 0);
+  return shares;
+};
 
 const normalOfFirst = (byPrice, n) => {
   let left = n;
@@ -30,10 +60,11 @@ const normalOfFirst = (byPrice, n) => {
  * @param {Array<{lines: Array<{index:any, q:number, unit:number}>, setQty:number, setPrice:number}>} groups
  *        one group per criterion: its eligible cart lines (integer units, normal
  *        price per unit), its purchase quantity and its promo total.
- * @param {{maxSets?: number}} [options]  Max Applications Per Sale.
+ * @param {{maxSets?: number, rounding?: 'Redistribute'|'Round'}} [options]
+ *        Max Applications Per Sale; the company's Price Rounding Mode.
  * @returns {{sets:number, allCovered:boolean, prices: Map<any, number>}}
  */
-export const allocateCriteriaSets = (groups, { maxSets } = {}) => {
+export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute' } = {}) => {
   const prices = new Map();
   const prepared = groups.map((g) => ({
     ...g,
@@ -64,15 +95,14 @@ export const allocateCriteriaSets = (groups, { maxSets } = {}) => {
     const covered = sets * g.setQty;
     const promoCents = cents(sets * g.setPrice);
     const withPromo = g.lines.filter((l) => (promoUnits.get(l.index) || 0) > 0);
-    let allocated = 0;
+    // The promo total over the covered units, per the Price Rounding Mode.
+    const shares = splitCents(promoCents, withPromo.map((l) => promoUnits.get(l.index) || 0), rounding);
     g.lines.forEach((l) => {
       const pu = promoUnits.get(l.index) || 0;
       const own = cents(l.q * l.unit);
       let c;
       if (sets > 0 && pu > 0) {
-        const last = l === withPromo[withPromo.length - 1];
-        const share = last ? promoCents - allocated : Math.round((promoCents * pu) / covered);
-        allocated += share;
+        const share = shares[withPromo.indexOf(l)];
         c = share + cents((l.q - pu) * l.unit);
         // Never dearer than on its own - whether partly covered (2 Prosecco + 1
         // Muscat) or fully covered by a criterion whose promo total is above its
@@ -119,7 +149,7 @@ export const RECEIVE_TYPES = ['total_price', 'each_item_for', 'discount_each_ite
 // $50 -> $45), not $5.45 / $4.55 by value - so a money-off reward is split
 // equally per unit. "a total price of" keeps the by-value split the Buy X for Y
 // sets use (not measured in a spend promotion).
-const receiveOn = (lines, units, receiveType, value, sets = 1) => {
+const receiveOn = (lines, units, receiveType, value, sets = 1, rounding = 'Redistribute') => {
   const out = new Map();
   const v = Number(value) || 0;
   const byPrice = [...lines].sort((a, b) => b.unit - a.unit);
@@ -167,20 +197,16 @@ const receiveOn = (lines, units, receiveType, value, sets = 1) => {
     }
     pool.forEach((p) => equalOff.set(p.l.index, p.off));
   }
-  let allocated = 0;
+  // By-value split of the target over the covered lines, per the Price Rounding Mode.
+  const valueShares = splitCents(target, coveredLines.map((l) => cents((cover.get(l.index) || 0) * l.unit)), rounding);
   lines.forEach((l) => {
     const cu = cover.get(l.index) || 0;
     const rest = cents((l.q - cu) * l.unit);
     if (cu === 0 || coveredNormalCents === 0) { out.set(l.index, cents(l.q * l.unit)); return; }
-    const last = l === coveredLines[coveredLines.length - 1];
     const own = cents(cu * l.unit);
-    let share;
-    if (equalSplit) {
-      share = own - (equalOff.get(l.index) || 0);
-    } else {
-      share = last ? target - allocated : Math.round((target * own) / coveredNormalCents);
-      allocated += share;
-    }
+    const share = equalSplit
+      ? own - (equalOff.get(l.index) || 0)
+      : valueShares[coveredLines.indexOf(l)];
     out.set(l.index, share + rest);
   });
   return out;
@@ -203,7 +229,7 @@ const receiveOn = (lines, units, receiveType, value, sets = 1) => {
 //     1 + 2 and 2 + 2 all rang up at full price. With its own products (the help
 //     article's "spend $30 on beer, get the coke for $1") it pays once.
 // `maxSets` = the editor's Max Applications Per Sale.
-export const allocateSpendPromotion = (groups, { maxSets } = {}) => {
+export const allocateSpendPromotion = (groups, { maxSets, rounding = 'Redistribute' } = {}) => {
   const prices = new Map();
   const normalCents = (l) => cents(l.q * l.unit);
   const spendIndexes = new Set(groups.filter((g) => g.kind === 'spend').flatMap((g) => g.lines.map((l) => l.index)));
@@ -239,7 +265,7 @@ export const allocateSpendPromotion = (groups, { maxSets } = {}) => {
         }
         units = sets * n;
       }
-      const r = receiveOn(g.lines, units, g.receiveType, g.receiveValue, sets);
+      const r = receiveOn(g.lines, units, g.receiveType, g.receiveValue, sets, rounding);
       g.lines.forEach((l) => {
         const c = r.get(l.index);
         if (c == null) return;
@@ -275,8 +301,8 @@ export const mergeCriteriaGroups = (groups) => {
 };
 
 /** Single-criterion convenience wrapper ("Purchase N -> a total price of $V"). */
-export const allocateTotalPriceSets = (lines, { setQty, setPrice, maxSets }) => {
-  const r = allocateCriteriaSets([{ lines, setQty, setPrice }], { maxSets });
+export const allocateTotalPriceSets = (lines, { setQty, setPrice, maxSets, rounding }) => {
+  const r = allocateCriteriaSets([{ lines, setQty, setPrice }], { maxSets, rounding });
   const totalUnits = lines.reduce((s, l) => s + l.q, 0);
   return { ...r, covered: r.sets * setQty, totalUnits };
 };

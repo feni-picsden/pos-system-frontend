@@ -6833,7 +6833,12 @@ const SaleKeyPage = () => {
       if (allLines.length === 0) return;
       // Sets (every criterion met), leftovers and the split over the lines:
       // utils/criteriaPromotion.js, tested against the live reference sales.
-      const plan = allocateCriteriaSets(groups, { maxSets: parseInt(p.conditions?.maxApplicationsPerSale, 10) });
+      const plan = allocateCriteriaSets(groups, {
+        maxSets: parseInt(p.conditions?.maxApplicationsPerSale, 10),
+        // Setup > General > Price Rounding Mode (Redistribute keeps the promo total
+        // exact; Round rounds each line - "3 for $10" = $9.99).
+        rounding: settingsService.getCachedGeneralSettings().priceRoundingMode === 'Round' ? 'Round' : 'Redistribute',
+      });
       // Reference (live SS 551: 7 units on "6 for $37" = 1 set + 1 leftover, strip
       // BLUE): blue once at least one set applies; grey only when no set applies.
       status.set(key, { applied: plan.sets > 0 });
@@ -6900,7 +6905,10 @@ const SaleKeyPage = () => {
       const allLines = groups.flatMap((g) => g.lines);
       if (allLines.length === 0) return;
       handled.add(key);
-      const plan = allocateSpendPromotion(groups, { maxSets: parseInt(p.conditions?.maxApplicationsPerSale, 10) });
+      const plan = allocateSpendPromotion(groups, {
+        maxSets: parseInt(p.conditions?.maxApplicationsPerSale, 10),
+        rounding: settingsService.getCachedGeneralSettings().priceRoundingMode === 'Round' ? 'Round' : 'Redistribute',
+      });
       // Cheaper-of-the-two per line: a line already cheaper on its own promotion
       // keeps that price and is not claimed by the spend promotion. A line may sit
       // in several criteria of this promotion: price it once.

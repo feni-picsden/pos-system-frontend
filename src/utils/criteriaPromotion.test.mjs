@@ -1,7 +1,32 @@
 // node src/utils/criteriaPromotion.test.mjs
 // Every case is a sale rung up on the live reference POS (screenshots 389-405).
 import assert from 'node:assert/strict';
-import { allocateTotalPriceSets, allocateCriteriaSets, allocateSpendPromotion, mergeCriteriaGroups } from './criteriaPromotion.js';
+import { allocateTotalPriceSets, allocateCriteriaSets, allocateSpendPromotion, mergeCriteriaGroups, splitCents } from './criteriaPromotion.js';
+
+// --- Price Rounding Mode (Setup > General) - reference More Info tables -----------
+{
+  // "3 for $10" over A, B, C: Redistribute $3.34 / $3.33 / $3.33 (first line gets
+  // the cent), Round $3.33 x 3 = $9.99.
+  assert.deepEqual(splitCents(1000, [1, 1, 1], 'Redistribute'), [334, 333, 333], 'redistribute: first line carries the cent');
+  // 166.67 rounds UP to 167 on five lines, so the first (absorbing) line is 165 and the total is still $10.00
+  assert.deepEqual(splitCents(1000, [1, 1, 1, 1, 1, 1], 'Redistribute'), [165, 167, 167, 167, 167, 167], 'six equal lines: the first takes the whole gap');
+  assert.deepEqual(splitCents(1000, [1, 1, 1], 'Round'), [333, 333, 333], 'round: every line rounded, $9.99');
+  // Fuel $1.419 x 35 = $49.665 split 17 + 18: Redistribute $24.12 / $25.55 (= $49.67),
+  // Round $24.12 / $25.54 (= $49.66). The sale total is rounded first ($49.67).
+  // exact sale total 4966.5 cents ($49.665): lines round from their exact values
+  assert.deepEqual(splitCents(4966.5, [17, 18], 'Redistribute'), [2412, 2555], 'redistribute: $49.67 total, the larger (18) line takes the gap');
+  assert.deepEqual(splitCents(4966.5, [17, 18], 'Round'), [2412, 2554], 'round: 17 x 1.419 = 24.123, 18 x 1.419 = 25.542');
+  assert.deepEqual(splitCents(4966.5, [35], 'Round'), [4967], 'one line of 35: $49.67 either way');
+  assert.deepEqual(splitCents(4966.5, [35], 'Redistribute'), [4967], 'one line of 35: $49.67 either way');
+  // Through the promotion allocator: three products, one each, "Purchase 3 -> $10"
+  const three = [{ index: 'a', q: 1, unit: 6.5 }, { index: 'b', q: 1, unit: 6.5 }, { index: 'c', q: 1, unit: 6.5 }];
+  let rr = allocateTotalPriceSets(three, { setQty: 3, setPrice: 10, rounding: 'Redistribute' });
+  assert.deepEqual([rr.prices.get('a'), rr.prices.get('b'), rr.prices.get('c')], [3.34, 3.33, 3.33], 'promo redistribute');
+  rr = allocateTotalPriceSets(three, { setQty: 3, setPrice: 10, rounding: 'Round' });
+  assert.deepEqual([rr.prices.get('a'), rr.prices.get('b'), rr.prices.get('c')], [3.33, 3.33, 3.33], 'promo round = $9.99');
+  rr = allocateTotalPriceSets(three, { setQty: 3, setPrice: 10 });
+  assert.deepEqual([rr.prices.get('a'), rr.prices.get('b'), rr.prices.get('c')], [3.34, 3.33, 3.33], 'default is Redistribute');
+}
 
 const run = (lines, rule) => {
   const r = allocateTotalPriceSets(lines, rule);
