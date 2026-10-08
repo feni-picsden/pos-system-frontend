@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -193,7 +193,15 @@ export default function Stocktakes() {
     return date.toLocaleString('en-GB');
   };
 
+  // One request per click: a double-click (or Enter + click) on Continue used
+  // to create the same stocktake twice. The ref blocks the second call before
+  // React has re-rendered the disabled button.
+  const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
   const createAndOpenAdvanced = async () => {
+    if (creatingRef.current) return;
+    creatingRef.current = true;
+    setCreating(true);
     try {
       if (!newName.trim()) return;
       const outletIdInt = parseInt(newOutletId, 10);
@@ -210,6 +218,9 @@ export default function Stocktakes() {
       navigate(`/stock-management/stocktakes/advanced?id=${stocktake.id}`);
     } catch {
       // keep dialog open if failed
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
     }
   };
 
@@ -496,6 +507,7 @@ export default function Stocktakes() {
           </Button>
           <Button
             onClick={createAndOpenAdvanced}
+            disabled={creating}
             sx={{
               bgcolor: '#5ebbeb',
               color: '#fff',

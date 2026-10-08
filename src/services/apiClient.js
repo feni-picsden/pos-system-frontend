@@ -52,11 +52,51 @@ const DERIVED_RESOURCES = {
 };
 
 // Writes that MOVE STOCK (sale/refund/cancel, order send/receive, return,
-// transfer, stocktake apply). They only drop the in-memory GET cache of the
-// Products list and the stock reports - the list kept showing the pre-sale
-// Inventory for the whole 2-minute TTL. The IndexedDB catalog is left alone:
-// clearing it per sale would force a full catalog re-sync on every sale.
+// transfer, stocktake apply). They drop the in-memory GET cache of the Products
+// list and the stock reports, and refresh the moved products' rows in the
+// IndexedDB catalog (see refreshMovedStock): the Products list paints from that
+// catalog first and its full re-sync is slow and silent, so after a stocktake
+// apply or an order receive it kept showing the OLD Inventory until the user
+// left and came back.
 const STOCK_MOVING_RESOURCES = new Set(['/sales', '/orders-invoices', '/stocktakes']);
+
+// Every productId anywhere in a write's response (sale.items[], orderInvoice.items[]).
+function collectProductIds(node, out = new Set(), depth = 0) {
+  if (!node || depth > 6) return out;
+  if (Array.isArray(node)) {
+    node.forEach((n) => collectProductIds(n, out, depth + 1));
+    return out;
+  }
+  if (typeof node === 'object') {
+    const id = parseInt(node.productId, 10);
+    if (Number.isFinite(id)) out.add(id);
+    Object.values(node).forEach((v) => { if (v && typeof v === 'object') collectProductIds(v, out, depth + 1); });
+  }
+  return out;
+}
+
+// Re-pull just the moved products into IndexedDB + memory. A stocktake apply
+// reports no product ids (and may touch every product in the outlet), so its
+// catalog store is invalidated instead: the next Products list / sell screen
+// load re-fetches it. Fire-and-forget - never delays or fails the write.
+function refreshMovedStock(prefix, url, data) {
+  if (prefix === '/stocktakes') {
+    // Only APPLY moves stock; every count/complete/create on a stocktake must
+    // not throw the whole catalog away.
+    if (/\/apply\/?(\?|$)/.test(String(url || ''))) posLocalDb.invalidateStore('products').catch(() => {});
+    return;
+  }
+  const ids = [...collectProductIds(data)];
+  if (ids.length) {
+    const outletId = localStorage.getItem('selectedOutletId') || undefined;
+    // Dynamic import: posCatalogSync -> productService -> apiClient would be a cycle.
+    import('./posCatalogSync')
+      .then((m) => m.refreshProductsInCache(ids, outletId))
+      .catch(() => {});
+    return;
+  }
+  posLocalDb.invalidateStore('products').catch(() => {});
+}
 
 function invalidateStoreFor(prefix) {
   const store = STORE_BY_RESOURCE[prefix];
@@ -200,6 +240,7 @@ apiClient.interceptors.response.use(
       if (STOCK_MOVING_RESOURCES.has(prefix)) {
         apiClient.bustCache('/products');
         apiClient.bustCache('/reports');
+        refreshMovedStock(prefix, response.config?.url, response.data);
       }
       // A sale moves the customer's owing / loyalty too. Without this the sell
       // screen's post-sale customer refresh could be answered from the 15s GET
