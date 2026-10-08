@@ -28,6 +28,7 @@ import stocktakeService from '../../services/stocktakeService';
 import productService from '../../services/productService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 
 export default function AdvancedStocktake() {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
@@ -62,7 +63,6 @@ export default function AdvancedStocktake() {
   const [applyToAll, setApplyToAll] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
   const [allCategories, setAllCategories] = useState([]);
-  const [variances, setVariances] = useState([]);
   const [finishing, setFinishing] = useState(false);
   const seenSaleIds = useRef(new Set());
 
@@ -74,7 +74,7 @@ export default function AdvancedStocktake() {
       id: a.id,
       type,
       user: a.user || 'Unknown',
-      action: type === 'sale' ? 'sold' : type === 'count' ? 'counted' : 'scanned',
+      action: type === 'sale' ? 'sold' : 'scanned', // reference: a typed count reads "scanned" too
       quantity: a.count,
       product: a.productName || 'Product',
       productId: a.productId,
@@ -168,10 +168,16 @@ export default function AdvancedStocktake() {
     allItems.filter(i => !i.cancelled).forEach((i) => {
       totals.set(i.productId, (totals.get(i.productId) || 0) + (Number(i.scanned) || 0));
     });
-    return Array.from(totals.entries()).map(([productId, actualQuantity]) => ({
+    const rows = Array.from(totals.entries()).map(([productId, actualQuantity]) => ({
       productId,
       actualQuantity,
     }));
+    // A product whose every count was deleted (trash icon) is sent as a removal:
+    // the save only ever upserted, so the server kept the old count and the
+    // deleted product was still applied.
+    const removed = new Set(allItems.filter(i => i.cancelled && !totals.has(i.productId)).map(i => i.productId));
+    removed.forEach((productId) => rows.push({ productId, actualQuantity: 0, remove: true }));
+    return rows;
   };
 
   // Debounced auto-save draft while editing (keep status In Progress)
@@ -329,7 +335,7 @@ export default function AdvancedStocktake() {
       id: `local-${Date.now()}`,
       type: isScanMode ? 'scan' : 'count',
       user: user?.name || 'Unknown',
-      action: isScanMode ? 'scanned' : 'counted',
+      action: 'scanned', // reference wording for a typed count too ("TEST scanned 9 ...")
       quantity: qty,
       product: productToScan.name,
       productId: productToScan.id,
@@ -427,6 +433,8 @@ export default function AdvancedStocktake() {
       (fresh?.items || []).forEach((it) => {
         const cat = it.product?.category;
         if (cat?.id && !seen.has(cat.id)) seen.set(cat.id, { id: cat.id, name: cat.name });
+        // Reference lists "Products with no category" when a counted product has none.
+        else if (!cat?.id && !seen.has(0)) seen.set(0, { id: 0, name: 'Products with no category' });
       });
       setFinaliseCategories(Array.from(seen.values()));
       setApplyToAll(false);
@@ -439,45 +447,22 @@ export default function AdvancedStocktake() {
     }
   };
 
-  // Finalise -> Complete: the session closes (sales no longer deduct), then the
-  // counted-vs-expected variances are shown with the apply options.
+  // Finalise -> Confirm Categories -> Complete: the session closes (sales no
+  // longer deduct) and the completed view opens with the reference "Apply
+  // Stocktake" popup (Review / Ignore Other Stock / Zero Other Stock).
   const finaliseComplete = async () => {
     try {
       setFinishing(true);
       await stocktakeService.completeStocktake(stocktakeId, collapseItemsForSave(items));
-      const { stocktake: fresh } = await stocktakeService.getStocktake(stocktakeId);
-      const diffs = (fresh?.items || [])
-        .map((it) => ({
-          productId: it.productId,
-          name: it.product?.name || 'Product',
-          expected: Number(it.expectedQuantity) || 0,
-          counted: Number(it.actualQuantity) || 0,
-          difference: (Number(it.actualQuantity) || 0) - (Number(it.expectedQuantity) || 0),
-        }))
-        .filter((d) => d.difference !== 0)
-        .sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
-      setVariances(diffs);
-      setCompleteStep('apply');
+      const scope = new URLSearchParams({
+        apply: '1',
+        applyToAll: applyToAll ? '1' : '0',
+        categoryIds: finaliseCategories.map((c) => c.id).join(','),
+      });
+      navigate(`/stock-management/stocktakes/${stocktakeId}?${scope.toString()}`);
     } catch (e) {
       console.error('Failed to complete stocktake:', e);
       alert('Failed to complete stocktake. Please try again.', 'error');
-    } finally {
-      setFinishing(false);
-    }
-  };
-
-  // Apply options (reference): Review | Ignore Other Stock | Zero Other Stock
-  const applyStocktake = async (mode) => {
-    try {
-      setFinishing(true);
-      await stocktakeService.applyStocktake(stocktakeId, {
-        mode,
-        applyToAll,
-        categoryIds: finaliseCategories.map((c) => c.id),
-      });
-      navigate(`/stock-management/stocktakes/${stocktakeId}`);
-    } catch (e) {
-      alert(e?.response?.data?.error || 'Failed to apply stocktake. Please try again.', 'error');
     } finally {
       setFinishing(false);
     }
@@ -659,8 +644,11 @@ export default function AdvancedStocktake() {
                 placeholder="Quantity"
                 value={quantity}
                 onChange={(e) => {
+                  // Keep the raw text: parsing per keystroke turned a leading "-"
+                  // into 1, so a correcting negative count (reference: Scan -48)
+                  // could never be typed.
                   const val = e.target.value;
-                  setQuantity(val === '' ? '' : parseInt(val) || 1);
+                  setQuantity(val === '' ? '' : (/^-?\d*$/.test(val) ? val : quantity));
                 }}
                 onKeyDown={(e) => { if (e.key === 'Enter' && selectedProduct) scanProduct(); }}
                 disabled={!selectedProduct}
@@ -893,121 +881,97 @@ export default function AdvancedStocktake() {
         </Grid>
       </Grid>
 
-      {/* Step 1 - has every device finished? (reference wording) */}
-      <FinishDialog open={completeStep === 'ask'} onClose={() => !finishing && setCompleteStep(null)} title="Complete Stocktake" icon={<HelpOutline sx={{ color: 'rgb(38,99,143)', fontSize: 20 }} />}>
-        <Typography sx={{ fontSize: 15, color: '#313439', mb: 2 }}>
-          If the stocktake has been performed with multiple devices, make sure every device has synced its counts before one device completes the stocktake. Any sales made after completion are no longer deducted from the counted inventory.
-        </Typography>
-        <Stack spacing={1.25}>
-          <Button fullWidth disabled={finishing} onClick={finishMyPart} sx={FINISH_OPTION_SX}>I have finished my part of the stocktake</Button>
-          <Button fullWidth disabled={finishing} onClick={othersStillCounting} sx={FINISH_OPTION_SX}>There are still other users in the Stocktake</Button>
-          <Button fullWidth disabled={finishing} onClick={openFinalise} sx={FINISH_PRIMARY_SX}>Complete the Stocktake</Button>
-        </Stack>
-      </FinishDialog>
+      {/* Reference complete flow: three question popups, then the Finalise page,
+          then Confirm Categories, then the completed view with its Apply popup. */}
+      <QuestionDialog open={completeStep === 'ask'} title="Complete Stocktake" disabled={finishing}
+        options={[
+          { label: 'I have finished my part of the stocktake', onClick: () => setCompleteStep('last') },
+          { label: 'I have not yet finished my part in the stocktake', onClick: () => setCompleteStep(null) },
+        ]} />
+      <QuestionDialog open={completeStep === 'last'} title="Complete Stocktake" disabled={finishing}
+        options={[
+          { label: 'I am the last user to finish the stocktake', onClick: () => setCompleteStep('confirm') },
+          { label: 'There are still other users in the stocktake', onClick: finishMyPart },
+        ]} />
+      <QuestionDialog open={completeStep === 'confirm'} title="Complete Stocktake" disabled={finishing}
+        options={[
+          { label: 'The stocktake is still in progress', onClick: othersStillCounting },
+          { label: 'I confirm that the stocktake has been completed', onClick: openFinalise },
+        ]} />
 
-      {/* Step 2 - Finalise: categories whose uncounted products may be zeroed */}
-      <FinishDialog open={completeStep === 'finalise'} onClose={() => !finishing && setCompleteStep(null)} title="Finalise Stocktake" width={520} icon={<HelpOutline sx={{ color: 'rgb(38,99,143)', fontSize: 20 }} />}>
-        <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#000', mb: 0.5 }}>Select which categories should be affected by applying the stocktake</Typography>
-        <Typography sx={{ fontSize: 14, color: '#676b72', mb: 2 }}>
-          Every category with a counted product is listed. Remove a category to keep its uncounted products as they are, or search to add a category whose products should be zeroed.
-        </Typography>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-          <Box
-            onClick={() => setApplyToAll((v) => !v)}
-            sx={{ width: 48, height: 24, borderRadius: 12, bgcolor: applyToAll ? '#4caf50' : '#a3a3a3', cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s' }}
-          >
-            <Box sx={{ position: 'absolute', top: 2, left: applyToAll ? 26 : 2, width: 20, height: 20, borderRadius: '50%', bgcolor: 'white', transition: 'left 0.3s' }} />
-          </Box>
-          <Typography sx={{ fontSize: 15 }}>Apply the Stocktake to all Products</Typography>
-        </Stack>
-        {!applyToAll && (
-          <>
-            <Box sx={{ position: 'relative', mb: 1.5 }}>
-              <Box
-                component="input"
-                placeholder="Search for a category to add..."
-                value={categorySearch}
-                onChange={(e) => setCategorySearch(e.target.value)}
-                sx={{ width: '100%', height: 44, boxSizing: 'border-box', border: '1px solid #000', borderRadius: 0, fontSize: 15, px: '12px', outline: 'none', '&:focus': { border: '2px solid #000' } }}
-              />
-              {categoryMatches.length > 0 && (
-                <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #d9d9d9', maxHeight: 200, overflow: 'auto' }}>
-                  {categoryMatches.map((c) => (
-                    <Typography key={c.id} onClick={() => { setFinaliseCategories((prev) => [...prev, c]); setCategorySearch(''); }} sx={{ px: 1.5, py: 1, fontSize: 15, cursor: 'pointer', '&:hover': { bgcolor: '#f8f8f8' } }}>
-                      {c.name}
-                    </Typography>
-                  ))}
-                </Box>
-              )}
-            </Box>
-            <Stack direction="row" flexWrap="wrap" gap={1} sx={{ minHeight: 36 }}>
-              {finaliseCategories.length === 0 && (
-                <Typography sx={{ fontSize: 14, color: '#676b72' }}>No categories selected - only the counted products will be applied.</Typography>
-              )}
+      {/* Finalise page (reference: a full page, not a popup) */}
+      <Dialog fullScreen open={completeStep === 'finalise'} onClose={() => {}} PaperProps={{ sx: { bgcolor: '#fff' } }}>
+        <Box sx={{ maxWidth: 700, mx: 'auto', px: 2, py: 3, display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, color: '#000', mb: 2 }}>Finalise Stocktake</Typography>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <ShopfrontSwitch checked={applyToAll} onChange={(e) => setApplyToAll(e.target.checked)} />
+            <Typography sx={{ fontSize: 15 }}>Apply the stocktake to all products</Typography>
+          </Stack>
+          {!applyToAll && (
+            <>
+              <Typography sx={{ fontSize: 15, color: '#000', mb: 1 }}>Select which categories that should be affected by applying the stocktake</Typography>
+              <Box sx={{ position: 'relative', mb: 1.5 }}>
+                <Box
+                  component="input"
+                  placeholder="Search for category..."
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  sx={{ width: '100%', height: 50, boxSizing: 'border-box', border: '1px solid #000', borderRadius: 0, fontSize: 15, px: '16px', outline: 'none', '&:focus': { border: '2px solid #000' } }}
+                />
+                {categoryMatches.length > 0 && (
+                  <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #d9d9d9', maxHeight: 200, overflow: 'auto' }}>
+                    {categoryMatches.map((c) => (
+                      <Typography key={c.id} onClick={() => { setFinaliseCategories((prev) => [...prev, c]); setCategorySearch(''); }} sx={{ px: 1.5, py: 1, fontSize: 15, cursor: 'pointer', '&:hover': { bgcolor: '#f8f8f8' } }}>
+                        {c.name}
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+              <Stack spacing={1}>
+                {finaliseCategories.length === 0 && (
+                  <Typography sx={{ fontSize: 14, color: '#676b72' }}>No categories selected - only the counted products will be applied.</Typography>
+                )}
+                {finaliseCategories.map((c) => (
+                  <Stack key={c.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ border: '1px solid #000', px: 2, py: 1.5 }}>
+                    <Typography sx={{ fontSize: 15 }}>{c.name}</Typography>
+                    <ShopfrontSwitch checked onChange={() => setFinaliseCategories((prev) => prev.filter((x) => x.id !== c.id))} />
+                  </Stack>
+                ))}
+              </Stack>
+            </>
+          )}
+          <Box sx={{ flex: 1 }} />
+          <Button fullWidth disabled={finishing} onClick={() => setCompleteStep('categories')} sx={{ ...FINISH_PRIMARY_SX, bgcolor: '#1c86f2', borderRadius: 0, height: 44, fontSize: 18, mt: 3, '&:hover': { bgcolor: '#1565c0' } }}>
+            Complete
+          </Button>
+        </Box>
+      </Dialog>
+
+      {/* Confirm Categories (reference: info popup, No / Yes) */}
+      <Dialog open={completeStep === 'categories'} onClose={() => {}} PaperProps={{ sx: { borderRadius: 0, width: 620, maxWidth: '95vw', overflow: 'visible' } }}>
+        <Box sx={{ textAlign: 'center', px: 2, pt: 3, pb: 2 }}>
+          <Box sx={{ width: 108, height: 108, borderRadius: '50%', bgcolor: '#1c86f2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mt: -9, mb: 1.5, fontSize: 56, fontWeight: 700 }}>i</Box>
+          <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 1.5 }}>Confirm Categories</Typography>
+          <Typography sx={{ fontSize: 15, color: '#000', mb: 1 }}>
+            {applyToAll ? "You've chosen to apply the stocktake to all products." : "You've selected the following categories to apply the stocktake to:"}
+          </Typography>
+          {!applyToAll && (
+            <Stack direction="row" justifyContent="center" flexWrap="wrap" gap={1} sx={{ mb: 1.5 }}>
+              {finaliseCategories.length === 0 && <Typography sx={{ fontSize: 14, color: '#676b72' }}>(counted products only)</Typography>}
               {finaliseCategories.map((c) => (
-                <Chip key={c.id} label={c.name} onDelete={() => setFinaliseCategories((prev) => prev.filter((x) => x.id !== c.id))} sx={{ borderRadius: '6px', bgcolor: '#e3f2fd', fontSize: 14 }} />
+                <Box key={c.id} sx={{ border: '1px solid #bdbdbd', px: 1, py: 0.25, fontSize: 13, color: '#313439' }}>{c.name}</Box>
               ))}
             </Stack>
-          </>
-        )}
-        <Stack direction="row" justifyContent="flex-end" spacing={1.5} sx={{ mt: 2.5 }}>
-          <Button disabled={finishing} onClick={() => setCompleteStep('ask')} sx={FINISH_OPTION_SX}>Back</Button>
-          <Button disabled={finishing} onClick={finaliseComplete} sx={FINISH_PRIMARY_SX}>{finishing ? 'Completing...' : 'Complete'}</Button>
-        </Stack>
-      </FinishDialog>
-
-      {/* Step 3 - potential variances + apply options */}
-      <FinishDialog
-        open={completeStep === 'apply'}
-        onClose={() => {}}
-        width={560}
-        title={variances.length > 0 ? 'Potential Variances' : 'Apply Stocktake'}
-        icon={variances.length > 0 ? <WarningAmberOutlined sx={{ color: '#b45309', fontSize: 20 }} /> : <HelpOutline sx={{ color: 'rgb(38,99,143)', fontSize: 20 }} />}
-        headerBg={variances.length > 0 ? '#fdf3d7' : undefined}
-        headerColor={variances.length > 0 ? '#b45309' : undefined}
-      >
-        {variances.length > 0 ? (
-          <>
-            <Typography sx={{ fontSize: 15, color: '#313439', mb: 1.5 }}>
-              The stocktake is completed. {variances.length} counted product{variances.length === 1 ? ' differs' : 's differ'} from the expected stock on hand. Review the counts before applying, or apply now.
-            </Typography>
-            <TableContainer sx={{ maxHeight: 240, border: '1px solid #e0e0e0', mb: 2 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Product</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Expected</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Counted</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Difference</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {variances.map((v) => (
-                    <TableRow key={v.productId}>
-                      <TableCell>{v.name}</TableCell>
-                      <TableCell align="right">{v.expected}</TableCell>
-                      <TableCell align="right">{v.counted}</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700, color: v.difference > 0 ? '#16a34a' : '#dc2626' }}>{v.difference > 0 ? '+' : ''}{v.difference}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        ) : (
-          <Typography sx={{ fontSize: 15, color: '#313439', mb: 2 }}>
-            The stocktake is completed and every counted product matches the expected stock on hand. Choose how to apply it.
-          </Typography>
-        )}
-        <Typography sx={{ fontSize: 13, color: '#676b72', mb: 1.5 }}>
-          <strong>Ignore Other Stock</strong> applies only the counted products. <strong>Zero Other Stock</strong> also sets the uncounted products in the selected categories{applyToAll ? ' (all products)' : ''} to zero.
-        </Typography>
-        <Stack direction="row" justifyContent="flex-end" spacing={1.5} flexWrap="wrap" useFlexGap>
-          <Button disabled={finishing} onClick={() => navigate(`/stock-management/stocktakes/${stocktakeId}`)} sx={FINISH_OPTION_SX}>Review</Button>
-          <Button disabled={finishing} onClick={() => applyStocktake('ignore')} sx={FINISH_PRIMARY_SX}>Ignore Other Stock</Button>
-          <Button disabled={finishing || (!applyToAll && finaliseCategories.length === 0)} onClick={() => applyStocktake('zero')} sx={{ ...FINISH_PRIMARY_SX, bgcolor: '#dc2626', '&:hover': { bgcolor: '#b91c1c' } }}>Zero Other Stock</Button>
-        </Stack>
-      </FinishDialog>
+          )}
+          <Typography sx={{ fontSize: 15, color: '#000', mb: 1.5 }}>Is this correct?</Typography>
+          <Typography sx={{ fontSize: 15, color: '#000', mb: 2.5 }}>Note, you'll be able to decide whether to zero or ignore stock not scanned on the next screen.</Typography>
+          <Stack direction="row" spacing={2}>
+            <Button fullWidth disabled={finishing} onClick={() => setCompleteStep('finalise')} sx={{ ...FINISH_OPTION_SX, borderRadius: 0, border: '1px solid #000', fontSize: 24, fontWeight: 400, bgcolor: '#f3f3f3' }}>No</Button>
+            <Button fullWidth disabled={finishing} onClick={finaliseComplete} sx={{ ...FINISH_PRIMARY_SX, borderRadius: 0, fontSize: 24, fontWeight: 400 }}>{finishing ? 'Completing...' : 'Yes'}</Button>
+          </Stack>
+        </Box>
+      </Dialog>
     </Box>
   );
 }
@@ -1021,6 +985,24 @@ const FINISH_PRIMARY_SX = {
   bgcolor: '#5ebbeb', color: '#fff', boxShadow: 'none', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
   '&.Mui-disabled': { bgcolor: '#a3d5ef', color: '#fff' },
 };
+
+// Reference question popup: big blue "?" badge, title, one full-width blue
+// button per option (no description text).
+function QuestionDialog({ open, title, options, disabled }) {
+  return (
+    <Dialog open={open} onClose={() => {}} PaperProps={{ sx: { borderRadius: 0, width: 420, maxWidth: '95vw', overflow: 'visible' } }}>
+      <Box sx={{ textAlign: 'center', px: 2, pt: 3, pb: 2 }}>
+        <Box sx={{ width: 108, height: 108, borderRadius: '50%', bgcolor: '#1c86f2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mt: -9, mb: 1.5, fontSize: 64, fontWeight: 700 }}>?</Box>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 2 }}>{title}</Typography>
+        <Stack spacing={1.25}>
+          {options.map((o) => (
+            <Button key={o.label} fullWidth disabled={disabled} onClick={o.onClick} sx={{ ...FINISH_PRIMARY_SX, borderRadius: 0, fontSize: 16, height: 48 }}>{o.label}</Button>
+          ))}
+        </Stack>
+      </Box>
+    </Dialog>
+  );
+}
 
 // Finish-flow dialog shell (same light-blue header bar as the New Stocktake dialog).
 function FinishDialog({ open, onClose, title, icon, children, width = 420, headerBg, headerColor }) {
@@ -1202,9 +1184,9 @@ function StatisticsView({ statistics, loading }) {
                     <TableCell>{activity.productName || '-'}</TableCell>
                     <TableCell>
                       <Chip
-                        label={activity.eventType}
+                        label={activity.eventType === 'Count' ? 'Scan' : activity.eventType}
                         size="small"
-                        color={activity.eventType === 'Scan' ? 'primary' : activity.eventType === 'Sale' ? 'success' : 'default'}
+                        color={activity.eventType === 'Scan' || activity.eventType === 'Count' ? 'primary' : activity.eventType === 'Sale' ? 'success' : 'default'}
                         sx={{ borderRadius: 1 }}
                       />
                     </TableCell>

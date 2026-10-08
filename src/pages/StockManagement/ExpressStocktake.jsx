@@ -333,6 +333,9 @@ export default function ExpressStocktake() {
             </Typography>
             <Typography sx={{ fontSize: 16, color: '#676b72', mb: 2 }}>
               Case Quantity {selectedProduct.caseQuantity}
+              {/* "Show Prices" shows the product's cost here (reference keeps the
+                  history rows free of $ figures). */}
+              {showPrices && ` · Cost $${Number(selectedProduct.cost || 0).toFixed(2)}`}
             </Typography>
 
             <Stack direction="row" spacing={4} alignItems="flex-start">
@@ -477,6 +480,10 @@ export default function ExpressStocktake() {
           )
         ) : (
           <Stack spacing={0} sx={{ mt: selectedProduct ? 3 : 0 }}>
+            {/* Reference heading over the history list */}
+            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#313439', letterSpacing: '0.04em', mb: 0.5 }}>
+              SCAN HISTORY
+            </Typography>
             {stocktakedProducts.map((p, idx) => (
               <Stack
                 key={idx}
@@ -487,16 +494,12 @@ export default function ExpressStocktake() {
               >
                 <Box>
                   <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>{p.name}</Typography>
+                  {/* Reference row text is just the relative time ("A few seconds ago"). */}
                   <Typography sx={{ fontSize: '14.4px', color: '#676b72' }}>
-                    {p.action === 'Override' ? 'Counted' : 'Added'} {formatTimeAgo(p.timestamp)}
+                    {formatTimeAgo(p.timestamp)}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={3} alignItems="center">
-                  {showPrices && (
-                    <Typography sx={{ fontSize: 16, color: '#676b72' }}>
-                      ${(p.cost * p.actualItems).toFixed(2)}
-                    </Typography>
-                  )}
                   <Typography sx={{ fontSize: 16, color: '#676b72' }}>{p.historyCases} Cases</Typography>
                   <Typography sx={{ fontSize: 16, color: '#676b72' }}>{p.historyItems} Items</Typography>
                 </Stack>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import DateRangePicker from '../Common/DateRangePicker';
 import {
   Box,
   Table,
@@ -111,9 +112,18 @@ const ProductInventoryLog = ({ productId }) => {
     return null;
   };
 
+  // Reference names: an Express Stocktake / manual stock edit row (STOCKTAKE
+  // without a stocktake document) is "Express Stocktake"; the opening stock row
+  // is "Created Product".
+  const eventName = (log) => {
+    if (log.eventType === 'OPENING') return 'Created Product';
+    if (log.eventType === 'STOCKTAKE' && log.referenceType !== 'STOCKTAKE') return 'Express Stocktake';
+    return eventLabel(log.eventType);
+  };
+
   const eventCell = (log) => {
     const href = eventHref(log);
-    const label = eventLabel(log.eventType);
+    const label = eventName(log);
     return href
       ? <Box component={RouterLink} to={href} sx={{ color: 'inherit', textDecoration: 'underline' }}>{label}</Box>
       : label;
@@ -153,52 +163,33 @@ const ProductInventoryLog = ({ productId }) => {
 
   return (
     <Box sx={SECTION_ROOT_SX}>
-      {/* Date Range filter - plain label above a single bordered pair of inputs */}
+      {/* Date Range filter - the app's own picker (reference shows
+          "DD/MM/YYYY HH:mm:ss — DD/MM/YYYY HH:mm:ss"), not the browser's
+          native datetime-local box, which rendered as ", dd-mm-yyyy --:--:-- --". */}
       <Box sx={{ mb: 2 }}>
         <Box sx={{ fontSize: 16, color: '#000' }}>Date Range</Box>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            border: '1px solid #404040',
-            borderRadius: '8px',
-            backgroundColor: '#fff',
-            '& input': {
-              flex: 1,
-              minWidth: 0,
-              border: 0,
-              outline: 'none',
-              background: 'transparent',
-              padding: '8px 16px',
+        <DateRangePicker
+          label=""
+          value={{ startDate: startDate || null, endDate: endDate || null }}
+          onChange={(range) => {
+            setPage(1);
+            setStartDate(range?.startDate || '');
+            setEndDate(range?.endDate || '');
+          }}
+          allowEmpty
+          enableTime
+          placeholder="DD/MM/YYYY HH:mm:ss — DD/MM/YYYY HH:mm:ss"
+          inputSx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '8px',
               fontSize: 16,
-              fontFamily: 'inherit',
-              color: '#000',
+              backgroundColor: '#fff',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
             },
           }}
-        >
-          <input
-            type="datetime-local"
-            aria-label="From"
-            value={startDate}
-            onChange={(e) => {
-              setPage(1);
-              setStartDate(e.target.value);
-            }}
-          />
-          <Box component="span" sx={{ color: '#737373' }}>
-            &minus;
-          </Box>
-          <input
-            type="datetime-local"
-            aria-label="To"
-            value={endDate}
-            onChange={(e) => {
-              setPage(1);
-              setEndDate(e.target.value);
-            }}
-          />
-        </Box>
+        />
       </Box>
 
       {data.logs.length === 0 ? (
