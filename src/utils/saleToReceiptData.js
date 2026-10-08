@@ -134,7 +134,7 @@ export function saleToReceiptData(sale) {
     transactionId: sale.saleNumber || (sale.id ? `#${String(sale.id).padStart(8, '0')}` : 'N/A'),
     // Reprint the invoice number the sale was issued, not a derived one.
     // Zero-padded to the "Invoice number length" setting (Setup > General).
-    invoiceNo: settingsService.padInvoice(sale.invoiceNumber) || undefined,
+    invoiceNo: settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || undefined,
     // Template expressions ({format(completedAt, ...)}) need a real date. The `date`
     // string below is en-GB (dd/mm), which format() re-parsed as mm/dd — a 6 Aug sale
     // reprinted as "8th Jun".

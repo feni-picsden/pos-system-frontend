@@ -33,6 +33,12 @@ const salesService = {
     }
   },
 
+  // Security Centre "Training Mode" event (Setup > Registers > Allow Training Mode Toggle).
+  logTrainingMode: async (enabled, registerId) => {
+    const response = await apiClient.post('/sales/training-mode', { enabled: Boolean(enabled), registerId: registerId || undefined });
+    return response.data;
+  },
+
   // Create a new sale
   createSale: async (saleData) => {
     try {

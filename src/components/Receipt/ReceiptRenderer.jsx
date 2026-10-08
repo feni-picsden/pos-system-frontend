@@ -120,6 +120,14 @@ const ReceiptRenderer = ({ receiptData, template, fit = false, preview = false }
   // through the reference-native path — same layout rules as topdrops, including
   // its paper metrics: 270px design width, Roboto 12px base, black on white, no
   // card chrome. Measured 2026-08-05 (docs/parity/receipt-template.md §1).
+  // Training Mode (Setup > Registers): the practice receipt is stamped top and
+  // bottom so it can never be mistaken for a banked sale.
+  const trainingBanner = receiptData.training ? (
+    <Box sx={{ textAlign: 'center', fontWeight: 700, fontSize: '13px', border: '2px solid #000', py: 0.5, my: 0.5, letterSpacing: 1 }}>
+      *** TRAINING MODE - NOT A SALE ***
+    </Box>
+  ) : null;
+
   if (isReferenceShape(components)) {
     const { width: referenceWidth, padding: pad } = paperSettings(template);
     return (
@@ -140,7 +148,9 @@ const ReceiptRenderer = ({ receiptData, template, fit = false, preview = false }
           '& table': { fontSize: 'inherit' },
         }}
       >
+        {trainingBanner}
         <ReferenceReceipt components={components} data={buildReferenceData(receiptData)} />
+        {trainingBanner}
       </Box>
     );
   }
@@ -154,7 +164,9 @@ const ReceiptRenderer = ({ receiptData, template, fit = false, preview = false }
 
   return (
     <Paper sx={containerSx}>
+      {trainingBanner}
       {components.map((component, index) => renderComponent(data, component, index))}
+      {trainingBanner}
     </Paper>
   );
 };

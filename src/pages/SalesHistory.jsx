@@ -880,7 +880,7 @@ const SalesHistory = () => {
                             {/* Invoice number, zero-padded to the configured
                                 length; falls back to the sale number. */}
                             <Box sx={{ fontSize: "13.44px", lineHeight: "16px" }}>
-                              #{settingsService.padInvoice(sale.invoiceNumber) || sale.saleNumber}
+                              #{settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || sale.saleNumber}
                             </Box>
                           </Box>
 
@@ -1119,7 +1119,7 @@ const SalesHistory = () => {
           <Typography sx={{ fontSize: 16, m: "16px 0" }}>
             Are you sure you wish to cancel sale{" "}
             {selectedSale
-              ? settingsService.padInvoice(selectedSale.invoiceNumber) ||
+              ? settingsService.padInvoice(selectedSale.invoiceNumber, selectedSale.invoiceSuffix) ||
                 selectedSale.saleNumber
               : ""}
             ?

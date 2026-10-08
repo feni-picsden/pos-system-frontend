@@ -151,11 +151,13 @@ const settingsService = {
 
   // "Invoice number length": the counter stays an integer, only the display is
   // zero-padded.
-  padInvoice: (n) => {
+  // `suffix` is the register's "Offline Invoice Suffix" stored on sales taken
+  // offline (00001234A); it is only ever shown after a real number.
+  padInvoice: (n, suffix = '') => {
     const num = Number(n);
     if (!Number.isFinite(num) || num <= 0) return '';
     const len = Number(settingsService.getCachedGeneralSettings().invoiceNumberLength) || 0;
-    return String(num).padStart(len, '0');
+    return String(num).padStart(len, '0') + (suffix ? String(suffix).trim() : '');
   },
 
 

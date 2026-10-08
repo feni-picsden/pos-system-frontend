@@ -79,6 +79,7 @@ import {
   PointOfSale as PointOfSaleIcon,
   KeyboardOutlined as KeyboardOutlinedIcon,
   LocalParkingOutlined as LocalParkingOutlinedIcon,
+  SchoolOutlined as SchoolOutlinedIcon,
   DirectionsCarOutlined as DirectionsCarOutlinedIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -439,6 +440,25 @@ const SaleKeyPage = () => {
   // Register-scoped settings (Settings > Registers): drives the default receipt
   // template used on this screen and the print-on-refund auto-print decision.
   const [registerSettings, setRegisterSettings] = useState(null);
+  // Setup > Registers: "Consolidate Products" (default ON) merges a re-scanned
+  // product into its existing line; OFF gives every add its own line.
+  const consolidateProducts = registerSettings?.consolidateProducts !== false;
+  // "Allow Training Mode Toggle": shows the Training switch on this screen. In
+  // Training Mode a sale runs end to end (receipt included) but is never posted,
+  // so no stock, cash, invoice number or history is touched. Per device.
+  const allowTrainingToggle = registerSettings?.allowTrainingModeToggle === true;
+  const [trainingMode, setTrainingMode] = useState(() => {
+    try { return localStorage.getItem('pos.trainingMode') === '1'; } catch { return false; }
+  });
+  const trainingActive = allowTrainingToggle && trainingMode;
+  const toggleTrainingMode = async () => {
+    const next = !trainingMode;
+    setTrainingMode(next);
+    try { localStorage.setItem('pos.trainingMode', next ? '1' : '0'); } catch { /* storage blocked */ }
+    // Security Centre "Training Mode" event — who switched it, on which register.
+    salesService.logTrainingMode(next, selectedRegister?.id).catch(() => {});
+    notify(next ? 'Training Mode ON — sales will not be recorded' : 'Training Mode OFF', next ? 'warning' : 'success');
+  };
 
   const [showGiftCardPopup, setShowGiftCardPopup] = useState(false);
   const [giftCardCode, setGiftCardCode] = useState('');
@@ -2083,7 +2103,8 @@ const SaleKeyPage = () => {
       // A requested price is per ADD, so it never merges into an existing line.
       // Reference merges only into a line of the same kind: units never fold
       // into a "(Case)" line and a case never into loose units.
-      const existingItemIndex = priceOverride != null ? -1 : prev.findIndex(item =>
+      // Setup > Registers > "Consolidate Products" OFF: every add is its own line.
+      const existingItemIndex = (priceOverride != null || !consolidateProducts) ? -1 : prev.findIndex(item =>
         !!item.isCase === asCase && (item.id === product.id || item.productId === product.id)
       );
       
@@ -3068,7 +3089,7 @@ const SaleKeyPage = () => {
           setCart(prev => {
             // A requested price is per ADD, so it never merges into an existing line.
             // Same-kind merge only (a unit add never joins a "(Case)" line).
-            const existingItemIndex = requestedPrice != null ? -1 : prev.findIndex(item =>
+            const existingItemIndex = (requestedPrice != null || !consolidateProducts) ? -1 : prev.findIndex(item =>
               !!item.isCase === asCase && (
                 item.productId === (latestProduct?.id || resolvedProductId) ||
                 (item.name === resolvedName && item.price === resolvedPrice)
@@ -4213,6 +4234,9 @@ const SaleKeyPage = () => {
           err.offlineTender = true;
           throw err;
         }
+        // The suffix travels with the queued sale so Sales History shows the same
+        // number the offline receipt printed once it uploads.
+        saleData.invoiceSuffix = offlineInvoiceSuffix() || undefined;
         offlineSales.enqueue(saleData, { registerId: saleData.registerId, outletId: saleData.outletId });
         return { saleId: null, offline: true };
       }
@@ -4437,6 +4461,18 @@ const SaleKeyPage = () => {
     // "CASH $22.00" with no change — and the on-screen receipt then matches a later
     // reprint from Sales History (which also renders gross tender + a change line).
     const { change } = normalizeCashForChange(finalPayments, cartTotal);
+
+    // Training Mode: the sale is practised, never banked. No invoice number is
+    // taken, nothing is posted or queued, and the receipt says so.
+    if (trainingActive) {
+      setLastSaleId(null);
+      setTransactionId(newTransactionId);
+      setIsTransactionComplete(true);
+      generateReceipt(newTransactionId, finalPayments, cartTotal, change, null, { training: true });
+      notify('Training Mode — this sale was NOT recorded', 'warning');
+      return;
+    }
+
     let invoiceNumber = takeInvoiceNumber();
 
     setLastSaleId(null); // stays null until this sale's save resolves, so Email can't send a stale id
@@ -4490,7 +4526,11 @@ const SaleKeyPage = () => {
     setTransactionId(newTransactionId);
     setIsTransactionComplete(true);
     setLastSaleId(saleId); // real id for the manual Email button
-    generateReceipt(newTransactionId, finalPayments, cartTotal, change, invoiceNumber);
+    // Setup > Registers > "Offline Invoice Suffix": a sale taken offline prints
+    // its number with the suffix (00001234A) so it can never be confused with
+    // the number another till issues online while this one is cut off.
+    generateReceipt(newTransactionId, finalPayments, cartTotal, change, invoiceNumber,
+      savedOffline ? { invoiceSuffix: offlineInvoiceSuffix() } : {});
 
     if (savedOffline) {
       // Kept on this device; the upload runs when the connection returns
@@ -4822,15 +4862,21 @@ const SaleKeyPage = () => {
   // takes the number, prints it, and posts it with the sale; the server stores it and
   // pushes the register's counter past it.
   const takeInvoiceNumber = () => {
+    // Setup > Registers > "Invoice Number Mode" = Random: the server draws the
+    // number, so the till takes none from the sequence (the receipt prints the
+    // number the server returns).
+    if (registerSettings?.invoiceNumberMode === 'Random') return null;
     const next = parseInt(selectedRegister?.invoiceNumber);
     if (!(next > 0)) return null;
     setSelectedRegister((prev) => (prev ? { ...prev, invoiceNumber: next + 1 } : prev));
     return next;
   };
   // Zero-padded to the "Invoice number length" setting (Setup > General).
-  const formatInvoiceNo = (n) => settingsService.padInvoice(n);
+  const formatInvoiceNo = (n, suffix = '') => settingsService.padInvoice(n, suffix);
+  // Setup > Registers > "Offline Invoice Suffix" (default "A").
+  const offlineInvoiceSuffix = () => String(registerSettings?.offlineInvoiceSuffix ?? 'A').trim();
 
-  const generateReceipt = (txnId, finalPayments, cartTotal, precomputedChange, invoiceNumber = null) => {
+  const generateReceipt = (txnId, finalPayments, cartTotal, precomputedChange, invoiceNumber = null, extra = {}) => {
     // Ensure all payments are included, including "On Account" payments
     const receiptPayments = finalPayments.map(payment => ({
       ...payment,
@@ -4979,7 +5025,9 @@ const SaleKeyPage = () => {
       giftCards, // Gift cards tendered on this sale (empty array -> component hidden)
       // Fields the template expression language resolves ({invoiceNo}, {user.name},
       // {register.name}, {format(completedAt, ...)}) — see utils/receiptExpressions.js.
-      invoiceNo: formatInvoiceNo(invoiceNumber) || (txnId ? String(txnId).replace(/^#/, '') : ''),
+      invoiceNo: formatInvoiceNo(invoiceNumber, extra.invoiceSuffix) || (txnId ? String(txnId).replace(/^#/, '') : ''),
+      // Training Mode receipts carry a banner so the paper can never pass as a real sale.
+      training: Boolean(extra.training),
       completedAt: new Date().toISOString(),
       user: user ? { name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || user.name || '' } : null,
       register: selectedRegister ? { name: selectedRegister.name } : null,
@@ -8457,6 +8505,23 @@ const SaleKeyPage = () => {
                 {t.label}
               </Box>
             ))}
+            {allowTrainingToggle && (
+              <Box
+                component="button"
+                type="button"
+                onClick={toggleTrainingMode}
+                title={trainingMode ? 'Training Mode is ON — sales are not recorded. Click to turn off.' : 'Turn Training Mode on (practice sales are not recorded)'}
+                sx={{
+                  flex: '0 0 auto', height: 50, px: 2, border: 0, cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: '16px', fontWeight: 700, letterSpacing: 0.5, whiteSpace: 'nowrap',
+                  bgcolor: trainingMode ? 'rgb(227,52,47)' : 'transparent',
+                  color: trainingMode ? '#fff' : 'rgb(227,52,47)',
+                }}
+              >
+                <SchoolOutlinedIcon sx={{ fontSize: 22, mr: 1, verticalAlign: 'middle' }} />
+                {trainingMode ? 'TRAINING MODE ON' : 'Training Mode'}
+              </Box>
+            )}
           </Box>
           )}
 

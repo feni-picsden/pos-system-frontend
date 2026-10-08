@@ -136,7 +136,7 @@ const SaleDetailCard = ({
             <SplitPrice value={sale.totalAmount} />
           </Box>
           <Box sx={cell}>
-            {settingsService.padInvoice(sale.invoiceNumber) || sale.saleNumber}
+            {settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || sale.saleNumber}
           </Box>
         </Box>
 
