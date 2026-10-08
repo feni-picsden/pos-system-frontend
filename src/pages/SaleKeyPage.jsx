@@ -128,7 +128,7 @@ import { isEftposMethod } from '../services/linklyService';
 import paymentMethodService, { allowsCashOut, getPaymentMethodSettings } from '../services/paymentMethodService';
 import loyaltyService from '../services/loyaltyService';
 import cashManagementService from '../services/cashManagementService';
-import { tiersKey, groupFamilyLines, chooseFamilyPricing, bestRateTier, highMixPrice } from '../utils/familyOverride';
+import { tiersKey, groupFamilyLines, chooseFamilyPricing, bestRateTier, highMixPrice, matchPricePoints } from '../utils/familyOverride';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
@@ -7030,11 +7030,21 @@ const SaleKeyPage = () => {
 
     // cart index -> the price that line should carry
     const targets = new Map();
+    // Setup > General > "Family Price Distribution Method". The reference applies
+    // Match Price Points only under High Mix Price; Quantity Rate always splits
+    // evenly (it is one per-unit rate anyway).
+    const gs = settingsService.getCachedGeneralSettings();
+    const matchPoints = gs.useQuantityRate !== true && gs.familyPriceDistributionMethod === 'Match Price Points';
     for (const group of groupFamilyLines(candidates)) {
+      const rows = effectivePrices(group[0].product);
       const chosen = chooseFamilyPricing(
         group,
         (totalQuantity) => calculateBasePriceForQuantity(group[0].product, totalQuantity),
         (line, share) => computePriceListTotal(line.product, line.quantity, share),
+        matchPoints
+          ? (total, quantities) => matchPricePoints(total, quantities, rows,
+            (q) => calculateBasePriceForQuantity(group[0].product, q))
+          : undefined,
       );
       group.forEach((line, i) => {
         const { price, familyPriced } = chosen[i];

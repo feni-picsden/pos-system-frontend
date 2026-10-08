@@ -9,8 +9,33 @@ import {
   shareByQuantity,
   bestRateTier,
   highMixPrice,
+  matchPricePoints,
   findHigherRateQuantity,
 } from './familyOverride.js';
+
+// --- Family Price Distribution Method = Match Price Points -----------------------
+{
+  // Support article examples: family price points 1 @ 5, 4 @ 15.99, 24 @ 70
+  const art = [{ quantity: 1, price: 5 }, { quantity: 4, price: 15.99 }, { quantity: 24, price: 70 }];
+  const own = (q) => highMixPrice(art, q);
+  assert.deepEqual(matchPricePoints(own(5), [4, 1], art, own), [15.99, 5], 'article 1: A x4, B x1');
+  assert.deepEqual(matchPricePoints(own(5), [1, 1, 1, 1, 1], art, own), [5, 5, 5, 5, 0.99], 'article 2: five singles, last absorbs');
+  assert.deepEqual(matchPricePoints(own(25), [12, 8, 5], art, own), [47.97, 31.98, -4.95], 'article 3: 12 / 8 / 5, the 5 goes negative');
+  // Evenly on the same baskets (what shareByQuantity gives) - article's other column
+  assert.deepEqual(shareByQuantity(own(5), [4, 1]), [16.79, 4.2], 'article 1 evenly');
+  assert.deepEqual(shareByQuantity(own(25), [12, 8, 5]), [36, 24, 15], 'article 3 evenly');
+
+  // Measured on the reference (TEST family, 08/10/2026): 1 @ 6.50, 4 @ 24, 10 @ 55, 24 @ 120
+  const jb = [[1, 6.5], [4, 24], [10, 55], [24, 120]].map(([quantity, price]) => ({ quantity, price }));
+  const ownJb = (q) => highMixPrice(jb, q);
+  assert.deepEqual(matchPricePoints(ownJb(5), [2, 3], jb, ownJb), [12.2, 18.3], 'reference: nothing matched -> evenly');
+  assert.deepEqual(matchPricePoints(ownJb(5), [1, 4], jb, ownJb), [6.5, 24], 'reference: single + 4-pack');
+  assert.deepEqual(matchPricePoints(ownJb(7), [3, 4], jb, ownJb), [19.5, 24], 'reference: 4-pack matched, the 3 takes the rest');
+  // 12 as a family is 10-pack + 2 singles = $68, under two 4-packs + a 4-pack ($72):
+  // both lines match, the gap lands on the last one (article example 2's rule).
+  assert.equal(ownJb(12), 68, 'family total for 12');
+  assert.deepEqual(matchPricePoints(ownJb(12), [8, 4], jb, ownJb), [48, 20], 'both matched, last absorbs the gap');
+}
 
 // --- High Mix Price (Setup > General > Use Quantity Rate = High Mix Price) -------
 // Totals measured on the reference (08/10/2026) with a test product priced
@@ -26,6 +51,13 @@ import {
   assert.equal(highMixPrice(jb, 11), 61.5, 'reference qty 11: 10-pack + single');
   assert.equal(highMixPrice(jb, 24), 120, 'exact case');
   assert.equal(highMixPrice(jb, 25), 126.5, 'case + single');
+
+  // Support article "Setting Prices and Configuring Price Calculation":
+  // 1 @ 3.50, 6 @ 15, 24 @ 50, buying 7 → Quantity Rate 15/6*7 = 17.50, High Mix 15 + 3.50
+  const art = [{ quantity: 1, price: 3.5 }, { quantity: 6, price: 15 }, { quantity: 24, price: 50 }];
+  assert.equal(highMixPrice(art, 7), 18.5, 'article: 6-pack + single');
+  const artQr = bestRateTier(art, 7);
+  assert.equal(Math.round((artQr.price / artQr.quantity) * 7 * 100) / 100, 17.5, 'article: quantity rate 17.50');
 
   // Reference More Info example: 1 @ $10, 2 @ $15, buying 3 → $25 (Quantity Rate: $22.50)
   const ref = [{ quantity: 1, price: 10 }, { quantity: 2, price: 15 }];

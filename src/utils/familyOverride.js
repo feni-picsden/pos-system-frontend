@@ -257,6 +257,52 @@ export function shareByQuantity(total, quantities) {
   return shares.map((c) => c / 100);
 }
 
+/**
+ * Setup > General > "Family Price Distribution Method" = Match Price Points.
+ * Only meaningful under High Mix Price (the reference says so). Rule, fitted to
+ * the three support-article examples and six baskets measured on the reference
+ * (TEST family, 08/10/2026; price points 1 @ 6.50, 4 @ 24, 10 @ 55, 24 @ 120):
+ *
+ *   a line is MATCHED when its quantity is a price point exactly, or a whole
+ *   multiple of a pack point (8 = 2 x 4, 12 = 3 x 4); a matched line is priced at
+ *   its own High Mix price (3 x 4-pack = $47.97 for 12).
+ *   the UNMATCHED lines take what is left of the family total, shared by quantity
+ *   (12/8/5: $47.97 + $31.98, the 5 gets -$4.95 - the article's own example).
+ *   all matched and the total does not add up: the LAST line absorbs the gap
+ *   (five singles on "4 for $15.99 + 1": $5 x 4 and $0.99).
+ *   nothing matched: evenly ($30.50 over 2 + 3 rang up $12.20 / $18.30).
+ *
+ * @param total      the family's High Mix total for the combined quantity
+ * @param quantities per line, cart order
+ * @param rows       the family's price points
+ * @param ownTotal   (quantity) => that quantity's own High Mix price
+ * @returns one price per line, to the cent, summing to `total`
+ */
+export function matchPricePoints(total, quantities, rows, ownTotal) {
+  const qty = (Array.isArray(quantities) ? quantities : []).map((q) => Math.max(0, Number(q) || 0));
+  const points = (Array.isArray(rows) ? rows : [])
+    .map((r) => num(r?.quantity))
+    .filter((q) => q != null && q > 0);
+  const isMatched = (q) =>
+    Number.isInteger(q) && points.some((p) => q === p || (p > 1 && q % p === 0));
+  const cents = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+  const matched = qty.map(isMatched);
+  if (!matched.some(Boolean)) return shareByQuantity(total, qty);
+
+  const prices = qty.map((q, i) => (matched[i] ? cents(ownTotal(q)) : null));
+  const matchedSum = cents(prices.reduce((a, p) => a + (p || 0), 0));
+  const unmatchedIdx = qty.map((_, i) => i).filter((i) => !matched[i]);
+  if (unmatchedIdx.length) {
+    const shares = shareByQuantity(cents(total - matchedSum), unmatchedIdx.map((i) => qty[i]));
+    unmatchedIdx.forEach((i, k) => { prices[i] = shares[k]; });
+    return prices;
+  }
+  const gap = cents(total - matchedSum);
+  if (gap !== 0) prices[prices.length - 1] = cents(prices[prices.length - 1] + gap);
+  return prices;
+}
+
 // --- Family vs promotion at the register: the cheaper one wins ---------------------
 //
 // Reference (promotion worker): a line on promotion is NOT left out of its family.
@@ -277,8 +323,15 @@ export function shareByQuantity(total, quantities) {
 // customer's price list), defaulting to the share itself.
 //
 // @param group  lines of ONE family group (2+): { quantity, ownPrice, promoPriced }
+// @param distribute  (total, quantities) => per-line shares; defaults to Evenly
+//                    (shareByQuantity), Match Price Points passes matchPricePoints
 // @returns one entry per line, same order: { price, familyPriced }
-export function chooseFamilyPricing(group, familyTotalFor, finalize = (line, share) => share) {
+export function chooseFamilyPricing(
+  group,
+  familyTotalFor,
+  finalize = (line, share) => share,
+  distribute = shareByQuantity,
+) {
   const cents = (n) => Math.round((Number(n) || 0) * 100) / 100;
   const sum = (arr) => cents(arr.reduce((a, b) => a + b, 0));
   // Family prices for a subset of the lines, or null when it is not a group.
@@ -286,7 +339,7 @@ export function chooseFamilyPricing(group, familyTotalFor, finalize = (line, sha
     if (subset.length < 2) return null;
     const quantities = subset.map((l) => l.quantity);
     const total = familyTotalFor(quantities.reduce((a, b) => a + b, 0));
-    const shares = shareByQuantity(total, quantities);
+    const shares = distribute(total, quantities);
     return subset.map((l, i) => cents(finalize(l, shares[i])));
   };
 
