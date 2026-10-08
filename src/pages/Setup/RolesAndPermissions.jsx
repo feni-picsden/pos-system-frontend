@@ -96,7 +96,8 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
           },
         }}
       />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.25, mt: 2.5 }}>
+      {/* Both buttons share the row evenly so they line up with the input's edges above. */}
+      <Box sx={{ display: 'flex', gap: 1.25, mt: 2.5 }}>
         <Button
           disableRipple
           onClick={onCancel}
@@ -106,7 +107,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
             textTransform: 'none',
             fontWeight: 700,
             fontSize: 16,
-            width: 118,
+            flex: 1,
             height: 42,
             borderRadius: '12px',
             transition: INSTANT,
@@ -125,7 +126,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
             textTransform: 'none',
             fontWeight: 700,
             fontSize: 16,
-            width: 118,
+            flex: 1,
             height: 42,
             borderRadius: '12px',
             transition: INSTANT,

@@ -132,6 +132,17 @@ const RolePermissions = () => {
     );
   };
 
+  // Category switch (local addition, requested): one toggle beside the heading
+  // turns the whole category on when any of it is off, else off.
+  const handleCategoryToggle = (permissions) => {
+    const names = permissions.map((p) => p.name);
+    setSelectedPermissions((current) => {
+      const allOn = names.every((n) => current.includes(n));
+      if (allOn) return current.filter((n) => !names.includes(n));
+      return [...current, ...names.filter((n) => !current.includes(n))];
+    });
+  };
+
   const handleSave = async () => {
     if (!roleName.trim()) {
       setError('Role name is required');
@@ -306,12 +317,23 @@ const RolePermissions = () => {
         }}
       />
 
-      {/* Categories — reference order, 4 toggles per row, no select-all control */}
+      {/* Categories — reference order, 4 toggles per row; the heading carries an
+          all-on/all-off switch for the category (local addition) */}
       {groups.map(({ category, permissions }) => (
         <Box key={category} sx={{ mb: 3 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 20, color: '#313439', mb: 1 }}>
-            {category}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 20, color: '#313439' }}>
+              {category}
+            </Typography>
+            <ShopfrontSwitch
+              checked={permissions.every((p) => selectedPermissions.includes(p.name))}
+              onChange={() => handleCategoryToggle(permissions)}
+              inputProps={{ 'aria-label': `All ${category} permissions` }}
+            />
+            <Typography sx={{ fontSize: 13, color: '#676b72' }}>
+              {permissions.filter((p) => selectedPermissions.includes(p.name)).length} / {permissions.length}
+            </Typography>
+          </Box>
           <Grid container>
             {permissions.map((permission) => {
               const checked = selectedPermissions.includes(permission.name);
