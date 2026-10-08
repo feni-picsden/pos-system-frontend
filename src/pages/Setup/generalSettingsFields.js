@@ -162,9 +162,13 @@ export const COMPANY_SECTIONS = [
         label: 'Cross promotion count',
         type: 'toggle',
         description: 'Determines whether products that are on promotion, but not active on that promotion should count towards the quantity of the promotion.',
-        // MEAS captured only the closing sentence of the 827-ch body
-        moreDescription: 'Enabling **Cross promotion count** makes promotion calculation significantly quicker.',
-        enabledLabel: 'Quantity counts across promotions'
+        // Reference slide-over, verbatim (08/10/2026)
+        moreDescription:
+          'The **Cross promotion count** toggle determines whether products that are on promotion, but not active on that promotion should count towards the quantity of the promotion.\n\n' +
+          'For example, if you have two promotions (buy 6, get 10% off and buy 2 at $20.00) and two products (product A has both promotions and has a sell price of $15.00 each, product B only has the buy 6 promotion and has a sell price of $10) and sell 4 of product A and 2 of product B, with **Cross promotion count** enabled product A will be sold for $40 (2 x the 2 at $20 promotion) and product B will be sold at $18.00 (10% off the two items). When **Cross promotion count is disabled**, product B will not get the promotion as product A\'s promotion is better for the sale.\n\n' +
+          'Enabling **Cross promotion count** makes promotion calculation significantly quicker.',
+        enabledLabel: 'Quantity counts across promotions',
+        disabledLabel: "Promotions don't share quantity"
       },
       {
         key: 'teamMessage',
