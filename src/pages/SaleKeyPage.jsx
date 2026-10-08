@@ -101,6 +101,7 @@ import { priceSetService } from '../services/priceSetService';
 import { applyPriceListToLine } from '../utils/priceListEngine';
 import { lineSavings, itemsPerCase } from '../utils/saleTotals';
 import { allocateCriteriaSets, allocateSpendPromotion, mergeCriteriaGroups, RECEIVE_TYPES as SPEND_RECEIVE_TYPES } from '../utils/criteriaPromotion';
+import { allocateCrossPromotions } from '../utils/crossPromotion';
 import { isCaseLine, lineStep, displayQuantity, toggleCase } from '../utils/caseLine';
 import { formatMoney } from '../utils/currency';
 import { effectiveUnitCost } from '../utils/productCost';
@@ -1677,8 +1678,12 @@ const SaleKeyPage = () => {
     const outletId = getEffectiveOutletId();
 
     // Always prefer IndexedDB / in-memory catalog — no API on keystrokes.
+    // Setup > General > Search: "Offload to Database" sends the search to the
+    // server instead of matching in memory (the local catalog is only the
+    // offline fallback).
+    const levels = posLocalDb.getSearchLevels();
     if (isCustomerSearchMode) {
-      let customers = await posLocalDb.searchCustomersAsync(term, 50, outletId);
+      let customers = levels.customer === 'offload' ? [] : await posLocalDb.searchCustomersAsync(term, 50, outletId);
       if (seq !== searchSeqRef.current) return false;
       if (!customers.length) {
         // Local cache miss (just-created customer, cleared store): ask the
@@ -1707,15 +1712,29 @@ const SaleKeyPage = () => {
     // the search, that new product stayed invisible until the next sync. Asking
     // both and merging makes it sellable straight away, while a failed API call
     // still leaves the cached results standing (offline keeps working).
-    const [products, customers, apiProducts] = await Promise.all([
-      posLocalDb.searchProductsAsync(term, 10, outletId),
-      posLocalDb.searchCustomersAsync(term, 10, outletId),
+    const [localProducts, localCustomers, apiProducts, apiCustomers] = await Promise.all([
+      levels.product === 'offload' ? Promise.resolve([]) : posLocalDb.searchProductsAsync(term, 10, outletId),
+      levels.customer === 'offload' ? Promise.resolve([]) : posLocalDb.searchCustomersAsync(term, 10, outletId),
       productService
         .getProducts({ search: term, limit: 10 })
         .then((r) => r?.products || [])
         .catch(() => []),
+      levels.customer === 'offload'
+        ? customerService.getCustomers({ search: term, limit: 10 }, { skipOutletScope: true, silent: true })
+          .then((r) => r?.customers || []).catch(() => [])
+        : Promise.resolve([]),
     ]);
     if (seq !== searchSeqRef.current) return false;
+    // Offloaded searches: the server's answer IS the result; offline (API down)
+    // the local catalog still answers so the register keeps working.
+    let products = localProducts;
+    if (levels.product === 'offload' && apiProducts.length === 0) {
+      products = await posLocalDb.searchProductsAsync(term, 10, outletId);
+    }
+    let customers = localCustomers;
+    if (levels.customer === 'offload') {
+      customers = apiCustomers.length ? apiCustomers : await posLocalDb.searchCustomersAsync(term, 10, outletId);
+    }
 
     // Cached rows win on id: they carry the enrichment the catalog sync adds.
     const merged = [...products];
@@ -6847,13 +6866,78 @@ const SaleKeyPage = () => {
     const liveCriteria = (p) => (p.conditions?.criteria || []).filter((c) => c
       && (parseFloat(c.purchaseValue) || 0) > 0
       && (c.purchaseType === 'spend' || (c.items || []).some((i) => !i.excluded && i.productId != null)));
+    const claimed = new Set();
+    const idsOfCriterion = (c) => new Set((c.items || []).filter((i) => !i.excluded && i.productId != null).map((i) => String(i.productId)));
+
+    // SINGLE-criterion "purchase N" promotions of every simple reward (a total
+    // price of, % off, $ off, each item for) are priced TOGETHER over the cart by
+    // utils/crossPromotion.js, which carries the Setup > General "Cross promotion
+    // count" rule (measured on the reference, 08/10/2026). Before this, "% off /
+    // $ off" promotions spanning several products were judged per LINE, so
+    // "buy 6 of A+B, 10% off" never applied to 4 x A + 2 x B.
+    const CROSS_RECEIVE = ['total_price', 'each_item_for', 'discount_each_item', 'discount_total', 'discount', 'percentage_discount'];
+    const singleSimple = (p) => {
+      if (!p || expressTypes.includes(p.promotionType) || !isPromotionActive(p)) return false;
+      if (p.conditions?.quantityType === 'more' || p.conditions?.mixCriteria) return false;
+      const crit = liveCriteria(p);
+      if (crit.length !== 1) return false;
+      const c = crit[0];
+      return c && !c.isOptional && (c.purchaseType || 'purchase') === 'purchase'
+        && CROSS_RECEIVE.includes(c.receiveType) && (parseFloat(c.purchaseValue) || 0) >= 1
+        && (c.receiveType === 'quantity_only' || (parseFloat(c.receiveValue) || 0) > 0)
+        && c.quantityType !== 'more' && idsOfCriterion(c).size > 0;
+    };
+    const crossPromos = (activePromotions || []).filter(singleSimple).map((p) => {
+      const c = liveCriteria(p)[0];
+      return {
+        key: p.id ?? p.name,
+        productIds: idsOfCriterion(c),
+        setQty: Math.floor(parseFloat(c.purchaseValue)),
+        receiveType: c.receiveType,
+        receiveValue: parseFloat(c.receiveValue) || 0,
+        maxSets: parseInt(p.conditions?.maxApplicationsPerSale, 10),
+      };
+    });
+    if (crossPromos.length) {
+      const wanted = new Set(crossPromos.flatMap((p) => [...p.productIds]));
+      const lines = [];
+      cartItems.forEach((item, index) => {
+        if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem || item.priceLocked) return;
+        if (!wanted.has(String(item.productId))) return;
+        const q = parseFloat(item.quantity) || 0;
+        if (q <= 0 || !Number.isInteger(q)) return;
+        const product = resolveProductLocal(item.productId, item.name);
+        if (!product) return;
+        const normalTotal = calculateNormalPriceForQuantity(product, q);
+        lines.push({ index, productId: item.productId, q, unit: q > 0 ? normalTotal / q : 0, normalTotal });
+      });
+      const gs = settingsService.getCachedGeneralSettings();
+      const plan = allocateCrossPromotions(lines, crossPromos, {
+        crossCount: gs.crossPromotionCount === true,
+        rounding: gs.priceRoundingMode === 'Round' ? 'Round' : 'Redistribute',
+      });
+      crossPromos.forEach((p) => { handled.add(p.key); status.set(p.key, { applied: Boolean(plan.applied.get(p.key)) }); });
+      lines.forEach((l) => {
+        const promoId = plan.promoOf.get(l.index);
+        if (promoId == null) return; // nothing covered this line: its own price stands
+        claimed.add(l.index);
+        targets.set(l.index, {
+          price: plan.prices.get(l.index),
+          normalPrice: Math.round(l.normalTotal * 100) / 100,
+          promoId,
+        });
+      });
+    }
+
+    // Multi-criteria "a total price of" promotions (every criterion must be met)
+    // keep the allocateCriteriaSets path below.
     const promos = (activePromotions || []).filter((p) => {
       if (!p || expressTypes.includes(p.promotionType) || !isPromotionActive(p)) return false;
       if (p.conditions?.quantityType === 'more') return false;
+      if (handled.has(p.id ?? p.name)) return false;
       const crit = liveCriteria(p);
       return crit.length >= 1 && crit.every(simpleCriterion);
     });
-    const claimed = new Set();
     promos.forEach((p) => {
       const key = p.id ?? p.name;
       const idsOf = (c) => new Set((c.items || []).filter((i) => !i.excluded && i.productId != null).map((i) => String(i.productId)));

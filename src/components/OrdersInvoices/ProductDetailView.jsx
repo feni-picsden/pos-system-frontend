@@ -24,7 +24,11 @@ import productService from '../../services/productService';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import { useAuth } from '../../contexts/AuthContext';
 
-const ProductDetailView = ({ product, quantities, onQuantityChange, onSupplierCodeChange, supplierCode, preloadedDetails }) => {
+// `newCost` (optional): { label, unit } - Setup > General > "Show Average Cost on
+// Price Editor When Editing Orders". The price table then carries a column with
+// what each tier's cost BECOMES once this order lands: the new average cost
+// (setting on, company not on Last Cost) or the new last cost (otherwise).
+const ProductDetailView = ({ product, quantities, onQuantityChange, onSupplierCodeChange, supplierCode, preloadedDetails, newCost = null }) => {
   const { getOutletName } = useAuth();
   
   const productData = preloadedDetails?.productData || product;
@@ -247,21 +251,31 @@ const ProductDetailView = ({ product, quantities, onQuantityChange, onSupplierCo
                       <TableCell align="right">Quantity</TableCell>
                       <TableCell align="right">Price</TableCell>
                       <TableCell align="right">Cost</TableCell>
+                      {newCost && <TableCell align="right">{newCost.label}</TableCell>}
                       <TableCell align="right">%</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {fullProduct.prices && fullProduct.prices.length > 0 ? (
                       fullProduct.prices.map((price, index) => {
-                        const profit = price.price && price.cost ? 
+                        const qty = Number(price.quantity) || 1;
+                        const profit = price.price && price.cost ?
                           ((price.price - price.cost) / price.cost) * 100 : 100;
+                        // Margin against the cost this order brings (the figure the
+                        // operator is about to commit to), when the setting supplies it.
+                        const newTierCost = newCost ? newCost.unit * qty : null;
+                        const newProfit = newTierCost != null && price.price && newTierCost > 0
+                          ? ((price.price - newTierCost) / newTierCost) * 100 : null;
                         return (
                           <TableRow key={index}>
                             <TableCell>{index === 0 ? 'Default Price' : `Price ${index + 1}`}</TableCell>
-                            <TableCell align="right">{price.quantity || 1}</TableCell>
+                            <TableCell align="right">{qty}</TableCell>
                             <TableCell align="right">{formatCurrency(price.price || 0)}</TableCell>
                             <TableCell align="right">{formatCurrency(price.cost || fullProduct.itemCost || 0)}</TableCell>
-                            <TableCell align="right">{profit.toFixed(2)}%</TableCell>
+                            {newCost && (
+                              <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCurrency(newTierCost)}</TableCell>
+                            )}
+                            <TableCell align="right">{(newProfit != null ? newProfit : profit).toFixed(2)}%</TableCell>
                           </TableRow>
                         );
                       })
@@ -270,12 +284,13 @@ const ProductDetailView = ({ product, quantities, onQuantityChange, onSupplierCo
                         <TableCell>Default Price</TableCell>
                         <TableCell align="right">1</TableCell>
                         <TableCell align="right">
-                          {fullProduct.prices?.[0]?.price ? 
-                            formatCurrency(fullProduct.prices[0].price) : 
+                          {fullProduct.prices?.[0]?.price ?
+                            formatCurrency(fullProduct.prices[0].price) :
                             formatCurrency(0)
                           }
                         </TableCell>
                         <TableCell align="right">{formatCurrency(fullProduct.itemCost || 0)}</TableCell>
+                        {newCost && <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCurrency(newCost.unit)}</TableCell>}
                         <TableCell align="right">100.00%</TableCell>
                       </TableRow>
                     )}

@@ -1,4 +1,6 @@
 import apiClient from './apiClient';
+import posLocalDb from './posLocalDb';
+import { setDebugLogLevel } from '../utils/debugLog';
 import { normalizeCompanySettings } from '../pages/Setup/generalSettingsFields';
 
 // Company blob defaults — also what every consumer sees until the real blob
@@ -69,12 +71,30 @@ export const GENERAL_DEFAULTS = {
 let generalCache = null;
 let generalPromise = null;
 
+// Search levels / cache location live in the company blob but are consumed by
+// the local catalog (posLocalDb), which cannot import this service without a
+// cycle - so the values are pushed over whenever the blob (re)loads.
+const applySearchSettings = (s) => {
+  const level = (v) => {
+    const x = String(v || '').toLowerCase();
+    if (x === 'english' || x === 'english tokenized') return 'english';
+    if (x === 'strict') return 'strict';
+    if (x === 'offload' || x === 'offload to database') return 'offload';
+    return 'full';
+  };
+  posLocalDb.setSearchLevels({ product: level(s.productSearchLevel), customer: level(s.customerSearchLevel) });
+  posLocalDb.setCacheLocation(String(s.searchCacheSaveLocation || '').toLowerCase() === 'none' ? 'none' : 'indexeddb');
+  // "Debug Logging Level" for the local diagnostics log.
+  setDebugLogLevel(s.debugLoggingLevel);
+};
+
 const loadGeneralCache = () => {
   if (!generalPromise) {
     generalPromise = settingsService
       .getGeneralSettings()
       .then((res) => {
         generalCache = { ...GENERAL_DEFAULTS, ...(res?.settings || {}) };
+        applySearchSettings(generalCache);
         return generalCache;
       })
       .catch(() => {

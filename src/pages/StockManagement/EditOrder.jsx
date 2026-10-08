@@ -1160,6 +1160,27 @@ const EditOrder = () => {
     return Number.isFinite(landedCase) && landedCase > 0 ? landedCase : (Number(product.caseCost) || 0);
   };
 
+  // Setup > General > "Show Average Cost on Price Editor When Editing Orders".
+  // Reference: with the toggle on, the expanded line's price editor shows the
+  // NEW AVERAGE cost this order produces; off, the new LAST cost. "This setting
+  // has no effect when Cost calculation method is set to Last Cost" - then it
+  // is always the new last cost. Returns null on returns/transfers (no new cost).
+  const newCostForEditor = (product) => {
+    if (!product || order?.type === 'RETURN' || order?.type === 'TRANSFER') return null;
+    const gs = settingsService.getCachedGeneralSettings();
+    const cq = Number(product.caseQuantity) || 1;
+    const newLastUnit = getNewCaseCost(product) / cq;
+    const useAverage = gs.showAverageCostOnPriceEditor === true && gs.costCalculationMethod !== 'Last Cost';
+    if (!useAverage) return { label: 'New Last Cost', unit: newLastUnit };
+    const q = productQuantities[product.id] || { cases: 0, items: 0 };
+    const incoming = (Number(q.cases) || 0) * cq + (Number(q.items) || 0);
+    const onHand = Math.max(0, (Number(product.currentStockCases) || 0) * cq + (Number(product.currentStockItems) || 0));
+    const avgNow = Number(product.averageItemCost) > 0 ? Number(product.averageItemCost) : (Number(product._baseItemCost ?? product.itemCost) || 0);
+    // Weighted average of what is on hand at today's average and what arrives at the new cost.
+    const unit = onHand + incoming > 0 ? (onHand * avgNow + incoming * newLastUnit) / (onHand + incoming) : newLastUnit;
+    return { label: 'New Avg Cost', unit };
+  };
+
   const getCostChangePct = (product) => {
     const base = parseFloat(product._baseCaseCost);
     const current = getNewCaseCost(product);
@@ -2583,6 +2604,7 @@ const EditOrder = () => {
                       onSupplierCodeChange={handleSupplierCodeChange}
                       supplierCode={supplierCodes[product.id] || null}
                       preloadedDetails={productDetailsMap[product.id]}
+                      newCost={newCostForEditor(product)}
                     />
                   </Box>
                 )}

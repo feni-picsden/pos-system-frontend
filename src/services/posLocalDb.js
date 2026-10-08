@@ -128,10 +128,48 @@ function getProductSearchText(product) {
   return `${product?.name || ''} ${stripHtml(product?.description)} ${barcodeText}`.toLowerCase();
 }
 
+// Setup > General > Search: "Customer Search Level" / "Product Search Level"
+// (reference More Info):
+//   full      "Search from anywhere within the string in any order. Works with
+//             any language." - every typed word found somewhere, any order.
+//   english   "Similar to Full except it only works with English, any
+//             non-English characters aren't able to get searched for."
+//   strict    "Can only search from the beginning of words."
+//   offload   the search is done by the server; this in-memory match is only
+//             the fallback while offline, and it is the strict (word-start) one
+//             ("Can only search from the beginning of words").
+// Pushed in by settingsService once the company blob loads (no import cycle).
+const searchLevels = { product: 'full', customer: 'full' };
+let cacheLocation = 'indexeddb'; // "Search Cache Save Location": 'indexeddb' | 'none'
+
+const asciiOnly = (s) => s.replace(/[^\x20-\x7e]/g, '');
+const tokensOf = (q) => q.split(/\s+/).filter(Boolean);
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export function matchesSearchLevel(text, query, level = 'full') {
+  let hay = String(text || '').toLowerCase();
+  let q = String(query || '').trim().toLowerCase();
+  if (!q) return true;
+  if (level === 'english') {
+    // Non-English characters are not indexed on either side.
+    hay = asciiOnly(hay);
+    q = asciiOnly(q).trim();
+  }
+  if (!q) return false; // nothing searchable left (non-English only)
+  const words = tokensOf(q);
+  if (level === 'strict' || level === 'offload') {
+    return words.every((w) => new RegExp(`(^|[^a-z0-9])${escapeRe(w)}`).test(hay));
+  }
+  return words.every((w) => hay.includes(w));
+}
+
 function openDatabase() {
   if (typeof window === 'undefined' || !window.indexedDB) {
     return Promise.resolve(null);
   }
+  // "Search Cache Save Location" = Don't Cache: run memory-only, nothing is
+  // saved between page loads (the catalog is rebuilt from the API on load).
+  if (cacheLocation === 'none') return Promise.resolve(null);
   if (dbPromise) return dbPromise;
 
   dbPromise = new Promise((resolve, reject) => {
@@ -428,11 +466,27 @@ const posLocalDb = {
     return typeof ref === 'object' ? ref : null;
   },
 
+  // Setup > General > Search levels + cache location (see matchesSearchLevel).
+  setSearchLevels({ product, customer } = {}) {
+    if (product) searchLevels.product = product;
+    if (customer) searchLevels.customer = customer;
+  },
+  getSearchLevels() {
+    return { ...searchLevels };
+  },
+  setCacheLocation(location) {
+    const next = location === 'none' ? 'none' : 'indexeddb';
+    if (next !== cacheLocation) {
+      cacheLocation = next;
+      dbPromise = null; // re-evaluated on the next open
+    }
+  },
+
   searchProducts(term, limit = 10) {
     const q = String(term || '').trim().toLowerCase();
     if (!q || !cache.products.length) return [];
     return cache.products
-      .filter((p) => getProductSearchText(p).includes(q))
+      .filter((p) => matchesSearchLevel(getProductSearchText(p), q, searchLevels.product))
       .slice(0, limit);
   },
 
@@ -476,7 +530,8 @@ const posLocalDb = {
         const name = `${c.firstName || ''} ${c.lastName || ''} ${c.company || ''}`.toLowerCase();
         const email = (c.email || '').toLowerCase();
         const phone = (c.phone || c.mobile || '').toLowerCase();
-        return name.includes(q) || email.includes(q) || phone.includes(q);
+        const level = searchLevels.customer;
+        return matchesSearchLevel(name, q, level) || matchesSearchLevel(email, q, level) || matchesSearchLevel(phone, q, level);
       })
       .slice(0, limit);
   },
