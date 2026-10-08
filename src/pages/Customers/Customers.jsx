@@ -368,7 +368,9 @@ const Customers = () => {
   useEffect(() => {
     // Every typed word must match somewhere (name, company, email, phone) - in
     // any order, like the customers API: "loyalty zztest" finds "ZZTEST Loyalty".
-    const words = searchTerm.toLowerCase().trim().split(/s+/).filter(Boolean);
+    // \s+ (whitespace) - the old /s+/ split on the letter "s", so "ZZTEST Cust"
+    // became "zzte", "t cu", "t" and multi-word searches never matched.
+    const words = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
     const haystack = (customer) => [
       customer.firstName, customer.lastName, customer.company, ...emailsOf(customer), ...phonesOf(customer),
     ].filter(Boolean).join(' ').toLowerCase();

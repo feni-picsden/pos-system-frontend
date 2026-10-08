@@ -72,7 +72,8 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
         setFormData({
           firstName: customer.firstName || '',
           lastName: customer.lastName || '',
-          email: customer.email || '',
+          // Customers carry an emails[] array; the dialog edits the first address.
+          email: (Array.isArray(customer.emails) && customer.emails[0]) || customer.email || '',
           phone: customer.phone || '',
           company: customer.company || '',
           code: customer.code || '',
@@ -213,20 +214,22 @@ const CustomerDialog = ({ open, onClose, customer, onCustomerSaved }) => {
     setError('');
 
     try {
-      // Prepare the data to send, ensuring outletId is properly handled
+      // Prepare the data to send, ensuring outletId is properly handled. The API
+      // takes `emails[]` (a singular `email` was silently ignored, so an address
+      // typed here never saved); other addresses already on the customer are kept.
+      const { email, ...rest } = formData;
+      const otherEmails = (Array.isArray(customer?.emails) ? customer.emails : []).slice(1);
       const dataToSend = {
-        ...formData,
+        ...rest,
+        emails: [email, ...otherEmails].map((e) => String(e || '').trim()).filter(Boolean),
         outletId: formData.outletId || null
       };
 
-      console.log('Sending customer data:', dataToSend); // Debug log
-
-      if (isEditMode) {
-        await customerService.updateCustomer(customer.id, dataToSend);
-      } else {
-        await customerService.createCustomer(dataToSend);
-      }
-      onCustomerSaved();
+      const response = isEditMode
+        ? await customerService.updateCustomer(customer.id, dataToSend)
+        : await customerService.createCustomer(dataToSend);
+      // Hand the saved record back so the sell screen refreshes the attached customer.
+      onCustomerSaved(response?.customer || response);
     } catch (err) {
       setError(err.response?.data?.error || `Failed to ${isEditMode ? 'update' : 'create'} customer`);
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} customer:`, err);

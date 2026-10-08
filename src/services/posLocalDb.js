@@ -552,9 +552,11 @@ const posLocalDb = {
     if (!q) return cache.customers.slice(0, limit);
     return cache.customers
       .filter((c) => {
-        const name = `${c.firstName || ''} ${c.lastName || ''} ${c.company || ''}`.toLowerCase();
-        const email = (c.email || '').toLowerCase();
-        const phone = (c.phone || c.mobile || '').toLowerCase();
+        const name = `${c.firstName || ''} ${c.lastName || ''} ${c.company || ''} ${c.code || ''}`.toLowerCase();
+        // Customers carry an emails[] array (the singular `email` never existed on
+        // the row), and both phone AND mobile must be searchable.
+        const email = (Array.isArray(c.emails) ? c.emails : [c.email]).filter(Boolean).join(' ').toLowerCase();
+        const phone = `${c.phone || ''} ${c.mobile || ''}`.trim().toLowerCase();
         const level = searchLevels.customer;
         return matchesSearchLevel(name, q, level) || matchesSearchLevel(email, q, level) || matchesSearchLevel(phone, q, level);
       })
