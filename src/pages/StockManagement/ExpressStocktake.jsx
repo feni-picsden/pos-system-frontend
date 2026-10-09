@@ -132,10 +132,40 @@ export default function ExpressStocktake() {
       currentStockItems: newStockItems,
       action,
       timestamp: new Date(),
-      historyCases: Math.floor(totalItems / (product.caseQuantity || 1)),
-      historyItems: totalItems % (product.caseQuantity || 1),
+      historyCases: Math.trunc(totalItems / (product.caseQuantity || 1)),
+      historyItems: totalItems - Math.trunc(totalItems / (product.caseQuantity || 1)) * (product.caseQuantity || 1),
     }, ...stocktakedProducts]);
+    setRecentStocktakes([]); // reloaded on the next select
   };
+
+  // Reference panel extras (checked on the TEST store 09/10/2026): "Show Prices"
+  // lists the product's PRICE POINTS ("1 for $5.00"), and under the panel the
+  // product's RECENT STOCKTAKES ("Counted by TEST · 12 minutes ago · 1 Cases 6 Items")
+  // come from its inventory log, not from this session's scans.
+  const [pricePoints, setPricePoints] = useState([]);
+  const [recentStocktakes, setRecentStocktakes] = useState([]);
+  useEffect(() => {
+    if (!selectedProduct?.id) { setPricePoints([]); setRecentStocktakes([]); return undefined; }
+    let alive = true;
+    productService.getProduct(selectedProduct.id)
+      .then((r) => {
+        if (!alive) return;
+        const rows = (r?.product?.prices || r?.prices || [])
+          .filter((pr) => pr.priceSetId == null)
+          .map((pr) => ({ quantity: Number(pr.quantity) || 1, price: Number(pr.price) || 0 }))
+          .sort((a, b) => a.quantity - b.quantity);
+        setPricePoints(rows);
+      })
+      .catch(() => alive && setPricePoints([]));
+    productService.getProductInventoryLog(selectedProduct.id, { limit: 50 })
+      .then((r) => {
+        if (!alive) return;
+        const logs = r?.data?.logs || [];
+        setRecentStocktakes(logs.filter((l) => l.eventType === 'STOCKTAKE').slice(0, 10));
+      })
+      .catch(() => alive && setRecentStocktakes([]));
+    return () => { alive = false; };
+  }, [selectedProduct?.id]);
 
   const handleOverride = async () => {
     if (!selectedProduct) return;
@@ -144,8 +174,11 @@ export default function ExpressStocktake() {
     // currentStockCases/currentStockItems are two buckets of ONE total: cases hold the
     // whole cases, items hold the remainder. Writing the total into items as well as
     // deriving cases from it counts the cased stock twice.
-    const cases = Math.floor(totalItems / caseQty);
-    const items = totalItems % caseQty;
+    // Remainder from the floored cases, not `%`: for a negative total `%` is negative
+    // too (-25 @24 -> -2 cases, -1 items = -49 units), so an override to -25 landed
+    // as -49. The reference keeps -25 (checked 09/10/2026 on the TEST store).
+    const cases = Math.trunc(totalItems / caseQty);
+    const items = totalItems - cases * caseQty;
     try {
       await productService.updateProduct(selectedProduct.id, {
         inventory: totalItems,
@@ -333,9 +366,6 @@ export default function ExpressStocktake() {
             </Typography>
             <Typography sx={{ fontSize: 16, color: '#676b72', mb: 2 }}>
               Case Quantity {selectedProduct.caseQuantity}
-              {/* "Show Prices" shows the product's cost here (reference keeps the
-                  history rows free of $ figures). */}
-              {showPrices && ` · Cost $${Number(selectedProduct.cost || 0).toFixed(2)}`}
             </Typography>
 
             <Stack direction="row" spacing={4} alignItems="flex-start">
@@ -393,11 +423,14 @@ export default function ExpressStocktake() {
                 <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>CALCULATED</Typography>
                 {hasCases && (
                   <Typography sx={{ fontSize: 16, textAlign: 'center', color: '#000' }}>
-                    {Math.floor(calculateTotal() / (selectedProduct.caseQuantity || 1))}
+                    {Math.trunc(calculateTotal() / (selectedProduct.caseQuantity || 1))}
                   </Typography>
                 )}
                 <Typography sx={{ fontSize: 16, textAlign: 'center', color: '#000' }}>
-                  {hasCases ? calculateTotal() % (selectedProduct.caseQuantity || 1) : calculateTotal()}
+                  {/* remainder after the floored cases, so a negative count reads -2 / 23 (what Override saves), not -2 / -1 */}
+                  {hasCases
+                    ? calculateTotal() - Math.trunc(calculateTotal() / (selectedProduct.caseQuantity || 1)) * (selectedProduct.caseQuantity || 1)
+                    : calculateTotal()}
                 </Typography>
               </Box>
 
@@ -444,6 +477,50 @@ export default function ExpressStocktake() {
                 </Button>
               </Stack>
             </Stack>
+
+            {/* PRICE POINTS (Show Prices on): "1 for" over the price, one block per tier */}
+            {showPrices && pricePoints.length > 0 && (
+              <Box sx={{ mt: 3, pl: 2 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#313439', letterSpacing: '0.04em', mb: 1.5 }}>
+                  PRICE POINTS
+                </Typography>
+                <Stack direction="row" spacing={5} flexWrap="wrap">
+                  {pricePoints.map((pp) => (
+                    <Box key={pp.quantity} sx={{ textAlign: 'center', minWidth: 80 }}>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#676b72' }}>{pp.quantity} for</Typography>
+                      <Typography sx={{ fontSize: 28, color: '#313439', lineHeight: 1.2 }}>${pp.price.toFixed(2)}</Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
+            {/* RECENT STOCKTAKES: this product's stocktake rows from its inventory log */}
+            {recentStocktakes.length > 0 && (
+              <Box sx={{ mt: 3, pl: 2 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#313439', letterSpacing: '0.04em', mb: 0.5 }}>
+                  RECENT STOCKTAKES
+                </Typography>
+                {recentStocktakes.map((l, idx) => (
+                  <Stack
+                    key={l.id}
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ py: 1.5, px: 2, bgcolor: idx % 2 ? '#ebebeb' : 'transparent' }}
+                  >
+                    <Box>
+                      <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>Counted by {l.user}</Typography>
+                      <Typography sx={{ fontSize: '14.4px', color: '#676b72' }}>{formatTimeAgo(l.timestamp)}</Typography>
+                    </Box>
+                    <Stack direction="row" spacing={3} alignItems="center">
+                      <Typography sx={{ fontSize: 16, color: '#676b72' }}>{l.after?.cases ?? 0} Cases</Typography>
+                      <Typography sx={{ fontSize: 16, color: '#676b72' }}>{l.after?.items ?? 0} Items</Typography>
+                    </Stack>
+                  </Stack>
+                ))}
+              </Box>
+            )}
           </Box>
         ) : (
           <>
@@ -463,9 +540,11 @@ export default function ExpressStocktake() {
           </>
         )}
 
-        {/* Scan History — persists until leaving the page */}
+        {/* Scan History — this session's counts. Stays on screen under the selected
+            product's panel too (reference: RECENT STOCKTAKES, a rule, then this). */}
+        {selectedProduct && <Box sx={{ borderBottom: '1px solid #e0e0e0', mt: 3, mb: 1 }} />}
         {stocktakedProducts.length === 0 ? (
-          !selectedProduct && (
+          (
             <Typography
               sx={{
                 fontSize: 24,
@@ -523,5 +602,7 @@ function formatTimeAgo(date) {
   if (minutes < 60) return `${minutes} minutes ago`;
   const hours = Math.floor(minutes / 60);
   if (hours === 1) return '1 hour ago';
-  return `${hours} hours ago`;
+  if (hours < 24) return `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'A day ago' : `${days} days ago`;
 }

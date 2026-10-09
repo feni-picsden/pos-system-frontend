@@ -231,7 +231,12 @@ const ProductInventoryLog = ({ productId }) => {
                   </TableCell>
                   <TableCell>{log.user}</TableCell>
                   <TableCell>{log.caseQuantity}</TableCell>
-                  <TableCell className="left">{formatCurrency(log.cost)}</TableCell>
+                  {/* The ledger stamps the per-ITEM cost (the reports read it that way);
+                      the reference's COST column is the CASE cost, item × case quantity
+                      ($0.46 @24 -> $11.04, checked on the TEST store 09/10/2026). */}
+                  <TableCell className="left">
+                    {formatCurrency((Number(log.cost) || 0) * (Number(log.caseQuantity) || 1))}
+                  </TableCell>
                   <TableCell>{formatDateTime(log.timestamp)}</TableCell>
                 </TableRow>
               ))}
