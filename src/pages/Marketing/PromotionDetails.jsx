@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import NumberField from '../../components/Common/NumberField';
+import { criterionSummary, receiveOptions, showMatchChip, showAnyProductChip, profitHidden, receiveTypeForPurchaseType } from '../../utils/promotionCriterionDisplay';
 import {
   Box,
   Button,
@@ -381,6 +382,9 @@ const PromotionDetails = () => {
   const resultKeys = useResultKeys();
   const [expandedCriteria, setExpandedCriteria] = useState({});
   const [expandedItems, setExpandedItems] = useState({});
+  // Reference: a new criterion's quantity and value boxes start empty (the value
+  // stays 0 underneath). { [criterionId]: { purchaseValue: true, receiveValue: true } }
+  const [blankFields, setBlankFields] = useState({});
 
   // Combo Deal state (promotionType === 'Combo Deal')
   const [isComboDeal, setIsComboDeal] = useState(false);
@@ -649,6 +653,7 @@ const PromotionDetails = () => {
       profit: 0
     };
     setCriteria(prev => [...prev, newCriterion]);
+    setBlankFields(prev => ({ ...prev, [newCriterion.id]: { purchaseValue: true, receiveValue: true } }));
     setExpandedCriteria(prev => ({ ...prev, [newCriterion.id]: true }));
     setExpandedItems(prev => ({ ...prev, [newCriterion.id]: false }));
   };
@@ -667,9 +672,13 @@ const PromotionDetails = () => {
   };
 
   const handleUpdateCriterion = (criterionId, field, value) => {
+    if (blankFields[criterionId]?.[field]) {
+      setBlankFields(prev => ({ ...prev, [criterionId]: { ...prev[criterionId], [field]: false } }));
+    }
     setCriteria(prev => prev.map(c => {
       if (c.id === criterionId) {
         const updated = { ...c, [field]: value };
+        if (field === 'purchaseType') updated.receiveType = receiveTypeForPurchaseType(value, c.receiveType);
         updated.profit = calculateCriterionProfit(updated);
         return updated;
       }
@@ -948,38 +957,15 @@ const PromotionDetails = () => {
   // Display helper: shows N/A instead of crashing on a null (uncomputable) %.
   const formatProfitPct = (v) => (v == null || isNaN(v) ? 'N/A' : `${v.toFixed(2)}%`);
 
-  const getCriterionSummary = (criterion) => {
-    const optionalText = criterion.isOptional ? 'Optionally' : '(Required)';
-    const purchaseText = criterion.purchaseType === 'purchase' ? 'purchase' : 'spend';
-    
-    const receiveTextMap = {
-      'quantity_only': '(quantity only)',
-      'each_item_for': 'each item for',
-      'total_price': 'a total price of',
-      'discount_each_item': 'a discount on each item worth',
-      'discount_total': 'a discount off the total worth',
-      'percentage_discount': 'a percentage discount of',
-      'same_sell_rate': 'the same sell rate as if the quantity was',
-      'discount': 'a discount of',
-      'free_item': 'Free Item'
-    };
-    
-    const receiveText = receiveTextMap[criterion.receiveType] || 'a total price of';
-    
-    if (criterion.purchaseValue === 0 && (criterion.receiveValue === 0 || criterion.receiveType === 'quantity_only')) {
-      return `Purchase 0 to receive a total price of $0.00`;
-    }
-    
-    if (criterion.receiveType === 'quantity_only') {
-      return `${optionalText} ${purchaseText} ${criterion.purchaseValue} to receive ${receiveText}`;
-    }
-    
-    if (criterion.receiveType === 'percentage_discount') {
-      return `${optionalText} ${purchaseText} ${criterion.purchaseValue} to receive ${receiveText} ${criterion.receiveValue.toFixed(2)}%`;
-    }
-    
-    return `${optionalText} ${purchaseText} ${criterion.purchaseValue} to receive ${receiveText} $${criterion.receiveValue.toFixed(2)}`;
+  // Reference: PROFIT is red once the criterion has items and the margin is 0% or a loss;
+  // an empty criterion's 0.00% stays dark.
+  const criterionProfitColor = (criterion) => {
+    if (criterion.items.length === 0 || profitHidden(criterion)) return '#313439';
+    const avg = calculateAverageItemProfit(criterion);
+    return avg != null && avg <= 0 ? '#e33430' : '#313439';
   };
+
+  const getCriterionSummary = (criterion) => criterionSummary(criterion);
 
   // Rebuild the Combo Deal payload per the data contract: PromotionItem rows
   // with proportional unit shares of the combo price, plus the canonical
@@ -1364,18 +1350,22 @@ const PromotionDetails = () => {
                 and Active sit side by side under Available to / Max Applications */}
             <Grid item xs={false} md={3} sx={{ display: { xs: 'none', md: 'block' } }} />
             <Grid item xs={false} md={3} sx={{ display: { xs: 'none', md: 'block' } }} />
-            <Grid item xs={12} md={3}>
-              <FormControlLabel
-                sx={toggleLabelSx}
-                control={
-                  <ShopfrontSwitch
-                    checked={formData.mixCriteria}
-                    onChange={(e) => handleInputChange('mixCriteria', e.target.checked)}
-                  />
-                }
-                label="Mix criteria"
-              />
-            </Grid>
+            {/* Reference shows Mix criteria only once there are 2+ criteria to mix;
+                with fewer, Active moves left into its place. */}
+            {criteria.length >= 2 && (
+              <Grid item xs={12} md={3}>
+                <FormControlLabel
+                  sx={toggleLabelSx}
+                  control={
+                    <ShopfrontSwitch
+                      checked={formData.mixCriteria}
+                      onChange={(e) => handleInputChange('mixCriteria', e.target.checked)}
+                    />
+                  }
+                  label="Mix criteria"
+                />
+              </Grid>
+            )}
             <Grid item xs={12} md={3}>
               <FormControlLabel
                 sx={toggleLabelSx}
@@ -1576,7 +1566,7 @@ const PromotionDetails = () => {
                   <Grid 
                     item 
                     xs={12} 
-                    md={expandedItems[criterion.id] ? 6 : expandedCriteria[criterion.id] ? 4 : 6} 
+                    md={expandedItems[criterion.id] ? 5 : expandedCriteria[criterion.id] ? 2 : 6}
                     sx={{ borderRight: '1px solid #e0e0e0', transition: 'flex-basis 0.25s ease, max-width 0.25s ease' }}
                   >
                     <Box 
@@ -1600,15 +1590,12 @@ const PromotionDetails = () => {
                       <Box sx={{ p: 2 }}>
                             <TextField
                           fullWidth
-                          placeholder="Search for a product, classification or combo..."
+                          placeholder="Search for a product or classification..."
                           value={searchTerms[criterion.id] || ''}
                           onChange={(e) => handleSearch(criterion.id, e.target.value)}
                           onKeyDown={resultKeys.handleKeyDown(criterion.id, searchResults[criterion.id], (r) => handleAddItemToCriterion(criterion.id, r), () => setSearchResults((prev) => ({ ...prev, [criterion.id]: [] })))}
                               size="small"
                           sx={{ mb: 2 }}
-                          InputProps={{
-                            startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                          }}
                         />
 
                         {searchResults[criterion.id] && searchResults[criterion.id].length > 0 && (
@@ -1647,15 +1634,9 @@ const PromotionDetails = () => {
                           </Paper>
                         )}
 
-                        {criterion.items.length === 0 ? (
-                          <Box sx={{ textAlign: 'center', py: 4 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              No items in criteria
-                            </Typography>
-                          </Box>
-                        ) : (
+                        {/* Reference keeps the column header even when the criterion is empty. */}
                           <Box>
-                            <Box sx={{ 
+                            <Box sx={{
                               display: 'grid', 
                               gridTemplateColumns: '60px 1fr 120px 80px 40px',
                               gap: 2,
@@ -1672,6 +1653,14 @@ const PromotionDetails = () => {
                               <Box>%</Box>
                               <Box></Box>
                             </Box>
+
+                            {criterion.items.length === 0 && (
+                              <Box sx={{ textAlign: 'center', py: 2 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  No items in criteria
+                                </Typography>
+                              </Box>
+                            )}
 
                             {criterion.items.map((item) => {
                               const itemProfit = calculateItemProfit(criterion, item);
@@ -1712,11 +1701,15 @@ const PromotionDetails = () => {
                                   <Typography
                                     variant="body2"
                                     sx={{
-                                      color: itemProfit < 0 ? 'error.main' : itemProfit > 0 ? 'success.main' : 'text.secondary',
+                                      // Reference: 0% or a loss is red, a profit dark; a spend
+                                      // criterion has no per-item margin and shows a dark 0.00%.
+                                      color: profitHidden(criterion) ? 'text.primary'
+                                        : itemProfit != null && itemProfit <= 0 ? 'error.main'
+                                        : itemProfit > 0 ? 'text.primary' : 'text.secondary',
                                       fontWeight: 500
                                     }}
                                   >
-                                    {formatProfitPct(itemProfit)}
+                                    {profitHidden(criterion) ? '0.00%' : formatProfitPct(itemProfit)}
                                   </Typography>
                             <IconButton
                               size="small"
@@ -1729,12 +1722,11 @@ const PromotionDetails = () => {
                               );
                             })}
             </Box>
-          )}
                       </Box>
                     ) : (
                       <Box sx={{ p: 2, cursor: 'pointer' }} onClick={() => toggleItemsExpansion(criterion.id)}>
                         {criterion.items.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                             Click here to add Products or Classifications to the criteria
                           </Typography>
                         ) : (
@@ -1761,7 +1753,7 @@ const PromotionDetails = () => {
                   <Grid 
                     item 
                     xs={12} 
-                    md={expandedCriteria[criterion.id] ? 8 : expandedItems[criterion.id] ? 6 : 6}
+                    md={expandedCriteria[criterion.id] ? 10 : expandedItems[criterion.id] ? 7 : 6}
                     sx={{ transition: 'flex-basis 0.25s ease, max-width 0.25s ease' }}
                   >
                     <Box 
@@ -1809,57 +1801,78 @@ const PromotionDetails = () => {
                               value={criterion.purchaseType}
                               onChange={(e) => handleUpdateCriterion(criterion.id, 'purchaseType', e.target.value)}
                             >
-                              <MenuItem value="purchase">purchase</MenuItem>
-                              <MenuItem value="spend">spend</MenuItem>
+                              {/* Reference: "Purchase"/"Spend" on a Required criterion, lower case after "Optionally" */}
+                              <MenuItem value="purchase">{criterion.isOptional ? 'purchase' : 'Purchase'}</MenuItem>
+                              <MenuItem value="spend">{criterion.isOptional ? 'spend' : 'Spend'}</MenuItem>
                             </Select>
                           </FormControl>
                           
           <NumberField
                             size="small"
-                            value={criterion.purchaseValue}
+                            value={blankFields[criterion.id]?.purchaseValue ? '' : criterion.purchaseValue}
                             onCommit={(n) => handleUpdateCriterion(criterion.id, 'purchaseValue', n)}
                             sx={{ width: 80 }}
+                            InputProps={{
+                              startAdornment: criterion.purchaseType === 'spend' ? (
+                                <Typography sx={{ mr: 0.5 }}>$</Typography>
+                              ) : null
+                            }}
                           />
-                          
-                          <Button variant="outlined" size="small" disabled>
-                            {criterion.purchaseType === 'spend' ? 'or more' : 'exactly'}
-                          </Button>
-                          
-                          <Button variant="outlined" size="small" disabled>
-                            of any product
-                          </Button>
-                          
-                          <Typography>to receive</Typography>
+
+                          {/* Reference (TEST store, 09/10): a purchase shows a grey "exactly" chip
+                              and a spend plain "or more" text with 2+ criteria or once a value is
+                              entered; "of any product" joins once a value is entered. */}
+                          {showMatchChip(criterion, criteria.length, blankFields[criterion.id]?.purchaseValue) && (criterion.purchaseType === 'spend' ? (
+                            <Typography>or more</Typography>
+                          ) : (
+                            <Button variant="outlined" size="small" disabled>
+                              exactly
+                            </Button>
+                          ))}
+
+                          {showAnyProductChip(criterion, blankFields[criterion.id]?.purchaseValue) && (
+                            <Button variant="outlined" size="small" disabled>
+                              of any product
+                            </Button>
+                          )}
+
+                          {/* Reference: "(quantity only)" has nothing to receive, so the words go too. */}
+                          {criterion.receiveType !== 'quantity_only' && <Typography>to receive</Typography>}
                           
                           <FormControl size="small" sx={{ minWidth: 250 }}>
                             <Select
                               value={criterion.receiveType}
                               onChange={(e) => handleUpdateCriterion(criterion.id, 'receiveType', e.target.value)}
                             >
-                              <MenuItem value="total_price">a total price of</MenuItem>
-                              <MenuItem value="each_item_for">each item for</MenuItem>
-                              <MenuItem value="discount_each_item">a discount on each item worth</MenuItem>
-                              <MenuItem value="discount_total">a discount off the total worth</MenuItem>
-                              <MenuItem value="percentage_discount">a percentage discount of</MenuItem>
-                              <MenuItem value="same_sell_rate">the same sell rate as if the quantity was</MenuItem>
-                              <MenuItem value="quantity_only">(quantity only)</MenuItem>
+                              {/* reference order; spend has its own list */}
+                              {receiveOptions(criterion).map((o) => (
+                                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                              ))}
                             </Select>
                           </FormControl>
                           
                           {(criterion.receiveType !== 'quantity_only' && criterion.receiveType !== 'free_item') && (
                             <NumberField
                               size="small"
-                              value={criterion.receiveValue}
+                              value={blankFields[criterion.id]?.receiveValue ? '' : criterion.receiveValue}
                               onCommit={(n) => handleUpdateCriterion(criterion.id, 'receiveValue', n)}
                               sx={{ width: 100 }}
             InputProps={{
-                                startAdornment: criterion.receiveType === 'percentage_discount' ? (
-                                  <Typography sx={{ mr: 0.5 }}>%</Typography>
-                                ) : criterion.receiveType === 'same_sell_rate' ? null : (
+                                // Reference: "$" before the amount, "%" after the percentage.
+                                startAdornment: criterion.receiveType === 'percentage_discount' || criterion.receiveType === 'same_sell_rate' ? null : (
                                   <Typography sx={{ mr: 0.5 }}>$</Typography>
-                                )
+                                ),
+                                endAdornment: criterion.receiveType === 'percentage_discount' ? (
+                                  <Typography sx={{ ml: 0.5 }}>%</Typography>
+                                ) : null
                               }}
                             />
+                          )}
+
+                          {criterion.receiveType === 'percentage_discount' && (
+                            <Button variant="outlined" size="small" disabled>
+                              off the base price
+                            </Button>
                           )}
                         </Box>
 
@@ -1871,12 +1884,12 @@ const PromotionDetails = () => {
                             <Typography 
                               variant="h4" 
                               sx={{ 
-                                color: calculateAverageItemProfit(criterion) < 0 ? '#e33430' : '#313439',
+                                color: criterionProfitColor(criterion),
                                 fontWeight: 'bold',
                                 mb: 2
                               }}
                             >
-                              {formatProfitPct(calculateAverageItemProfit(criterion))}
+                              {profitHidden(criterion) ? '-' : criterion.items.length === 0 ? '0.00%' : formatProfitPct(calculateAverageItemProfit(criterion))}
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
                         <Button
@@ -1913,12 +1926,12 @@ const PromotionDetails = () => {
                             <Typography 
                               variant="h4" 
                               sx={{ 
-                                color: calculateAverageItemProfit(criterion) < 0 ? '#e33430' : '#313439',
+                                color: criterionProfitColor(criterion),
                                 fontWeight: 'bold',
                                 mb: 2
                               }}
                             >
-                              {formatProfitPct(calculateAverageItemProfit(criterion))}
+                              {profitHidden(criterion) ? '-' : criterion.items.length === 0 ? '0.00%' : formatProfitPct(calculateAverageItemProfit(criterion))}
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
                               <Button
