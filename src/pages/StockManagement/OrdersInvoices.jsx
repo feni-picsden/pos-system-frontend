@@ -45,7 +45,9 @@ import transfereeService from '../../services/transfereeService';
 import productService from '../../services/productService';
 import { userService } from '../../services/userService';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { canReceiveTransfer } from '../../utils/transferReceive';
 import DateRangeField from '../../components/Common/DateRangeField';
 
 const STATUS_OPTIONS = ['Outstanding', 'Open', 'Sent', 'Received', 'Applied', 'Cancelled', 'All'];
@@ -188,6 +190,7 @@ const OrdersInvoices = () => {
   const poolPromises = useRef({});
   const navigate = useNavigate();
   const { selectedOutlet } = useSelectedOutlet();
+  const { user, isTrueSuperAdmin } = useAuth();
 
   const loadOrdersInvoices = useCallback(async () => {
     try {
@@ -232,10 +235,10 @@ const OrdersInvoices = () => {
       const matchesDueDate = !f.dueDate || (item.dueDate && inDateRange(f.dueDate, item.dueDate));
       const matchesReference = includesText(item.internalReference, f.reference);
       const matchesSupplier = includesText(item.supplier?.name, f.supplier);
-      const matchesOutlet = includesText(
-        item.outlet?.name || item.toOutlet?.name || item.fromOutlet?.name,
-        f.outlet
-      );
+      // A transfer belongs to both ends: the sending outlet owns the document,
+      // the receiving outlet must still find it under its own name.
+      const matchesOutlet = !f.outlet || [item.outlet?.name, item.toOutlet?.name, item.fromOutlet?.name]
+        .some((name) => name && includesText(name, f.outlet));
       const matchesVendor = includesText(item.supplier?.name, f.vendorConnection);
       const matchesProduct =
         !f.product || (item.items || []).some((it) => includesText(it.product, f.product));
@@ -280,6 +283,25 @@ const OrdersInvoices = () => {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to mark as received');
       console.error('Error marking as received:', err);
+    }
+  };
+
+  // Incoming transfer: credits the destination outlet's stock (same call as the
+  // notification bell's "Receive Stock", which until now was the only way in).
+  const handleReceiveTransfer = async (item) => {
+    const route = `${item.fromOutlet?.name || 'source'} → ${item.toOutlet?.name || 'destination'}`;
+    if (!(await confirm(
+      `Receive transfer ${item.orderNumber} (${route})? The stock is added to ${item.toOutlet?.name || 'the destination outlet'}.`,
+      { title: 'Receive transfer', confirmText: 'Receive' }
+    ))) {
+      return;
+    }
+    try {
+      await orderInvoiceService.receiveTransfer(item.id);
+      await loadOrdersInvoices();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to receive transfer');
+      console.error('Error receiving transfer:', err);
     }
   };
 
@@ -747,6 +769,16 @@ const OrdersInvoices = () => {
                             Receive
                           </Button>
                         )}
+                      {canReceiveTransfer(item, user, isTrueSuperAdmin()) && (
+                        <Button
+                          size="small"
+                          startIcon={<ReceiveStockIcon />}
+                          onClick={() => handleReceiveTransfer(item)}
+                          sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                        >
+                          Receive
+                        </Button>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>

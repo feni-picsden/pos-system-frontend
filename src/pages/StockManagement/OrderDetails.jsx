@@ -73,6 +73,7 @@ import { resolveAssetUrl } from '../../services/apiClient';
 import { outletService } from '../../services/outletService';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
+import { canReceiveTransfer } from '../../utils/transferReceive';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import shelfTicketService from '../../services/shelfTicketService';
 import productService from '../../services/productService';
@@ -156,14 +157,14 @@ const sfDialogSave = {
 
 const OrderDetails = () => {
   // In-app dialog — shadows window.prompt on purpose.
-  const { prompt } = useAppDialogs();
+  const { prompt, confirm, alert } = useAppDialogs();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   // Set by the notification panel: re-read the document even if this page was
   // already open, and bypass the GET cache so the copy is the current one.
   const refreshToken = location.state?.refresh || null;
-  const { user, getOutletName } = useAuth();
+  const { user, getOutletName, isTrueSuperAdmin } = useAuth();
   const { selectedOutlet, outlets: knownOutlets } = useSelectedOutlet();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -267,6 +268,28 @@ const OrderDetails = () => {
   // To Receive inputs, Save and Save & Receive — no one-shot API receive here.
   const handleReceive = () => {
     navigate(`/orders-invoices/${id}/edit`);
+  };
+
+  // Incoming transfer: one-shot receive of everything the source sent (the
+  // backend credits exactly what left the sending outlet). Same call as the
+  // notification bell's "Receive Stock".
+  const [receivingTransfer, setReceivingTransfer] = useState(false);
+  const handleReceiveTransfer = async () => {
+    if (!(await confirm(
+      `Receive transfer ${order.orderNumber}? The stock is added to ${order.toOutlet?.name || 'the destination outlet'}.`,
+      { title: 'Receive transfer', confirmText: 'Receive' }
+    ))) {
+      return;
+    }
+    setReceivingTransfer(true);
+    try {
+      await orderInvoiceService.receiveTransfer(order.id);
+      await loadOrder({ fresh: true });
+    } catch (err) {
+      alert(err?.response?.data?.error || 'Failed to receive transfer', 'error');
+    } finally {
+      setReceivingTransfer(false);
+    }
   };
 
   // Reference product name is a black, non-underlined link to the product page.
@@ -1198,6 +1221,19 @@ const OrderDetails = () => {
             sx={toolbarBtnSx}
           >
             Receive
+          </Button>
+        )}
+        {/* Receive an incoming (SENT) transfer at its destination outlet */}
+        {canReceiveTransfer(order, user, isTrueSuperAdmin()) && (
+          <Button
+            variant="contained"
+            disableElevation
+            startIcon={<ReceiveIcon />}
+            onClick={handleReceiveTransfer}
+            disabled={receivingTransfer}
+            sx={toolbarBtnSx}
+          >
+            {receivingTransfer ? 'Receiving…' : 'Receive'}
           </Button>
         )}
         {/* Edit: unsent documents open the edit page */}
