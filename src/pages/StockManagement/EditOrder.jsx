@@ -176,6 +176,10 @@ const EditOrder = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]); // Array of product objects with order quantities
+  // The saved lines load a moment after the page (one product fetch per line). Every
+  // save sends the full line list, so saving before they arrive wrote an EMPTY list
+  // over the document - TRF0014 lost its only line that way. Saves wait for this.
+  const [linesLoaded, setLinesLoaded] = useState(false);
   const [groupedProducts, setGroupedProducts] = useState({}); // Grouped by supplier/classification
   const [optionsOpen, setOptionsOpen] = useState(false); // inline Options panel (Shopfront reference)
   const [editDetailsDialogOpen, setEditDetailsDialogOpen] = useState(false);
@@ -239,6 +243,7 @@ const EditOrder = () => {
 
   useEffect(() => {
     if (order && order.items) {
+      setLinesLoaded(false);
       const loadOrderProducts = async () => {
         const initialProducts = [];
         const initialQuantities = {};
@@ -403,8 +408,9 @@ const EditOrder = () => {
         setProductQuantities(initialQuantities);
         setOrderedQuantities(initialOrdered);
         updateGroupedProducts(initialProducts);
+        setLinesLoaded(true);
       };
-      
+
       loadOrderProducts();
     }
     // Re-run only when the order record changes; applyReturnCost is a stable helper.
@@ -1378,6 +1384,7 @@ const EditOrder = () => {
   };
 
   const handleSaveEditDetails = async () => {
+    if (!linesLoaded) return;
     try {
       setSaving(true);
       setError('');
@@ -1450,6 +1457,7 @@ const EditOrder = () => {
   };
 
   const handleSave = async (send = false) => {
+    if (!linesLoaded) return;
     try {
       setSaving(true);
       setError('');
@@ -1518,6 +1526,7 @@ const EditOrder = () => {
   };
 
   const handleSaveAndReceive = async () => {
+    if (!linesLoaded) return;
     // Nothing in the To Receive boxes: stop here instead of closing the document
     // as RECEIVED with no stock (the server refuses it too).
     const arriving = selectedProducts.reduce((sum, p) => {
@@ -2747,29 +2756,31 @@ const EditOrder = () => {
         <Button
           startIcon={<SaveIcon />}
           onClick={() => handleSave(false)}
-          disabled={saving}
+          disabled={saving || !linesLoaded}
           sx={parityBtn}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? 'Saving...' : !linesLoaded ? 'Loading...' : 'Save'}
         </Button>
         {/* Returns too (reference: sending a return is what deducts the stock) */}
         {!isSentOrder && (
           <Button
             startIcon={<SendIcon />}
             onClick={() => handleSave(true)}
-            disabled={saving || (order?.type === 'TRANSFER' && order?.status === 'SENT')}
+            disabled={saving || !linesLoaded || (order?.type === 'TRANSFER' && order?.status === 'SENT')}
             sx={parityBtn}
           >
-            {order?.type === 'TRANSFER'
-              ? (order?.status === 'SENT' ? 'Already Sent' : 'Save & Send')
-              : 'Save & Send'}
+            {!linesLoaded
+              ? 'Loading...'
+              : order?.type === 'TRANSFER'
+                ? (order?.status === 'SENT' ? 'Already Sent' : 'Save & Send')
+                : 'Save & Send'}
           </Button>
         )}
         {(order?.type === 'ORDER' || order?.type === 'INVOICE') && order?.status !== 'RECEIVED' && (
           <Button
             startIcon={<ReceiveIcon />}
             onClick={handleSaveAndReceive}
-            disabled={saving}
+            disabled={saving || !linesLoaded}
             sx={{ ...parityBtn, backgroundColor: '#16a34a', '&:hover': { backgroundColor: '#15803d', boxShadow: 'none' } }}
           >
             {saving ? 'Processing...' : 'Save & Receive'}
@@ -3020,7 +3031,7 @@ const EditOrder = () => {
             </Button>
             <Button
               onClick={handleSaveEditDetails}
-              disabled={saving}
+              disabled={saving || !linesLoaded}
               startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
               sx={sfDialogSave}
             >

@@ -292,6 +292,7 @@ const OrderDetails = () => {
     }
   };
 
+
   // Reference product name is a black, non-underlined link to the product page.
   // Order items only store the product name (no productId column on
   // OrderInvoiceItem), so resolve the id via search: try the full name first,
@@ -463,6 +464,20 @@ const OrderDetails = () => {
       return;
     }
     const bodyHtml = emailBodyRef.current?.innerHTML ?? emailBody;
+    // Sending an unsent transfer moves its stock first (same call as the edit page's
+    // Save & Send); the email goes out only once the stock has left. Emailing alone
+    // used to mark it SENT with nothing deducted, so the destination received nothing.
+    const sendsTransfer = order?.type === 'TRANSFER' && ['PENDING', 'OPEN'].includes(order?.status);
+    if (sendsTransfer) {
+      try {
+        setSaving(true);
+        await orderInvoiceService.sendTransfer(id);
+      } catch (err) {
+        setSaving(false);
+        setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to send transfer.', severity: 'error' });
+        return;
+      }
+    }
     try {
       setSaving(true);
       await orderInvoiceService.sendOrderEmail(id, {
@@ -471,15 +486,24 @@ const OrderDetails = () => {
         body: bodyHtml,
       });
       setEmailOrderDialogOpen(false);
-      setSnackbar({ open: true, message: 'Order email sent successfully.', severity: 'success' });
+      setSnackbar({
+        open: true,
+        message: sendsTransfer ? 'Transfer sent and email sent successfully.' : 'Order email sent successfully.',
+        severity: 'success',
+      });
     } catch (err) {
       setSnackbar({
         open: true,
-        message: err.response?.data?.error || 'Failed to send order email.',
+        message: sendsTransfer
+          ? `Transfer sent, but the email failed: ${err.response?.data?.error || 'unknown error'}`
+          : err.response?.data?.error || 'Failed to send order email.',
         severity: 'error',
       });
     } finally {
       setSaving(false);
+      // The transfer is SENT now either way; reload so a retried email does not
+      // try to send the stock a second time.
+      if (sendsTransfer) await loadOrder({ fresh: true });
     }
   };
 
@@ -1248,7 +1272,8 @@ const OrderDetails = () => {
             Edit
           </Button>
         )}
-        {/* Send: unsent documents — opens the email composer (send-email marks SENT) */}
+        {/* Send: unsent documents — opens the email composer (send-email marks SENT;
+            a transfer's stock moves first, see handleSendOrderEmail). */}
         {isUnsent && !isCreditNote && (
           <Tooltip title={reviewBlocked ? 'Order review is pending/declined' : ''}>
             <span>
@@ -1739,6 +1764,19 @@ const OrderDetails = () => {
         sx={{ '& .MuiBackdrop-root': { backgroundColor: 'rgba(0,0,0,0.5)' } }}
       >
         <DialogContent sx={{ p: 2.5, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          {/* An unsent transfer's Send moves the stock before the email goes out
+              (handleSendOrderEmail) - say so before the user presses it. */}
+          {order?.type === 'TRANSFER' && ['PENDING', 'OPEN'].includes(order?.status) && (() => {
+            const lines = order.items || [];
+            const cases = lines.reduce((s, it) => s + (Number(it.cases) || 0), 0);
+            const items = lines.reduce((s, it) => s + (Number(it.items) || 0), 0);
+            const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+            return (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Sending this transfer moves the stock now: {plural(lines.length, 'line')} · {plural(cases, 'case')} {plural(items, 'item')} leave {supplierSideDisplay} for {outletSideDisplay}, then the email is sent.
+              </Alert>
+            );
+          })()}
           <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography sx={{ fontSize: 16, minWidth: 64 }}>To:</Typography>
             <TextField
