@@ -116,6 +116,11 @@ const ProductSalesSummary = ({ productId }) => {
     ];
   };
 
+  // Reference drops the Cases column for a product with no case size (case
+  // quantity 1): Period / Items / Sales / Profit / %.
+  const hasCases = (Number(salesData?.product?.caseQuantity) || 1) > 1;
+  const columns = hasCases ? COLUMNS : COLUMNS.filter((c) => c !== 'Cases');
+
   // Reference section: bare <h2> heading + full-width black grid table, all
   // cells centred, no card, no zebra striping, no coloured values.
   const renderTable = (title, data) => (
@@ -131,7 +136,7 @@ const ProductSalesSummary = ({ productId }) => {
         <Table sx={GRID_TABLE_SX}>
           <TableHead>
             <TableRow>
-              {COLUMNS.map((c) => (
+              {columns.map((c) => (
                 <TableCell key={c}>{c}</TableCell>
               ))}
             </TableRow>
@@ -140,7 +145,7 @@ const ProductSalesSummary = ({ productId }) => {
             {data.map((row) => (
               <TableRow key={row.period}>
                 <TableCell align="center">{row.period}</TableCell>
-                <TableCell align="center">{row.cases}</TableCell>
+                {hasCases && <TableCell align="center">{row.cases}</TableCell>}
                 <TableCell align="center">{row.items}</TableCell>
                 <TableCell align="center">{formatCurrency(parseFloat(row.sales))}</TableCell>
                 <TableCell align="center">{formatCurrency(parseFloat(row.profit))}</TableCell>
