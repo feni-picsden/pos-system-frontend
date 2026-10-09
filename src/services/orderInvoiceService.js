@@ -107,11 +107,32 @@ const orderInvoiceService = {
     return response.data;
   },
 
-  // Receive an in-transit transfer at the destination outlet (adds stock, auto-creates products)
-  receiveTransfer: async (id) => {
-    const response = await apiClient.patch(`/orders-invoices/${id}/transfer-receive`);
+  // Receive an in-transit transfer at the destination outlet (adds stock). productMap
+  // { [sourceProductId]: destinationProductId | 'new' } says where a product the
+  // destination does not have goes; without an entry a copy is created.
+  receiveTransfer: async (id, productMap) => {
+    const response = await apiClient.patch(
+      `/orders-invoices/${id}/transfer-receive`,
+      productMap ? { productMap } : undefined
+    );
     await invalidateProductCaches();
     return response.data;
+  },
+
+  // Which transfer lines the destination already holds, and a suggested destination
+  // product (shared barcode / near-identical name) for the ones it does not.
+  getTransferReceivePreview: async (id) => {
+    const response = await apiClient.get(`/orders-invoices/${id}/transfer-receive-preview`, { noCache: true });
+    return response.data;
+  },
+
+  // Destination-outlet products for "Add to an existing product".
+  searchDestinationProducts: async (search, outletId) => {
+    const response = await apiClient.get('/products', {
+      params: { search, outletId, status: 'Active', limit: 20 },
+      noCache: true,
+    });
+    return response.data?.products || [];
   },
 
   // Get suppliers for orders

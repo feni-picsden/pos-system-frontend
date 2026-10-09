@@ -70,7 +70,7 @@ import { useActivePriceSet } from '../../contexts/ActivePriceSetContext';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import notificationService from '../../services/notificationService';
 import apiClient, { resolveAssetUrl } from '../../services/apiClient';
-import orderInvoiceService from '../../services/orderInvoiceService';
+import TransferReceiveDialog from '../StockManagement/TransferReceiveDialog';
 import settingsService from '../../services/settingsService';
 import offlineSales from '../../services/offlineSales';
 import useAutoLogout from '../../hooks/useAutoLogout';
@@ -638,18 +638,22 @@ const DashboardLayout = ({ children }) => {
     } catch { /* ignore */ }
   };
 
-  const handleReceiveStock = async (notif) => {
+  // "Receive Stock" opens the shared receive dialog (same as the Orders list and
+  // the transfer page): it confirms, and asks where products the destination does
+  // not have yet should go, instead of receiving in one click.
+  const [receiveNotif, setReceiveNotif] = useState(null);
+  const handleReceiveStock = (notif) => {
     if (!notif?.referenceId) return;
     setReceivingId(notif.id);
-    try {
-      await orderInvoiceService.receiveTransfer(notif.referenceId);
-      apiClient.bustCache('/notifications');
-      await refreshNotifications();
-    } catch (err) {
-      alert(err?.response?.data?.error || 'Failed to receive stock');
-    } finally {
-      setReceivingId(null);
-    }
+    setReceiveNotif(notif);
+  };
+  const closeReceiveDialog = () => {
+    setReceiveNotif(null);
+    setReceivingId(null);
+  };
+  const handleStockReceived = async () => {
+    apiClient.bustCache('/notifications');
+    await refreshNotifications();
   };
 
   React.useEffect(() => {
@@ -1410,6 +1414,14 @@ const DashboardLayout = ({ children }) => {
         onLogout={handleLogout}
         theme={themeMode}
         onThemeChange={setThemeMode}
+      />
+
+      <TransferReceiveDialog
+        open={receiveNotif != null}
+        transferId={receiveNotif?.referenceId}
+        onClose={closeReceiveDialog}
+        onReceived={handleStockReceived}
+        directWhenMatched
       />
 
     </Box>

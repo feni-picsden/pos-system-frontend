@@ -48,6 +48,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { canReceiveTransfer } from '../../utils/transferReceive';
+import TransferReceiveDialog from '../../components/StockManagement/TransferReceiveDialog';
 import DateRangeField from '../../components/Common/DateRangeField';
 
 const STATUS_OPTIONS = ['Outstanding', 'Open', 'Sent', 'Received', 'Applied', 'Cancelled', 'All'];
@@ -180,6 +181,10 @@ const OrdersInvoices = () => {
   const [ordersInvoices, setOrdersInvoices] = useState([]);
   const [filteredOrdersInvoices, setFilteredOrdersInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  // The full-page loader is for the first load only. Showing it on every reload
+  // unmounted the receive dialog mid-flow (its "Transfer received" summary became a
+  // fresh preview of an already-received transfer: an error).
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
@@ -209,6 +214,7 @@ const OrdersInvoices = () => {
       console.error('Error loading orders and invoices:', err);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [appliedFilters.type, appliedFilters.status]);
 
@@ -286,24 +292,11 @@ const OrdersInvoices = () => {
     }
   };
 
-  // Incoming transfer: credits the destination outlet's stock (same call as the
-  // notification bell's "Receive Stock", which until now was the only way in).
-  const handleReceiveTransfer = async (item) => {
-    const route = `${item.fromOutlet?.name || 'source'} → ${item.toOutlet?.name || 'destination'}`;
-    if (!(await confirm(
-      `Receive transfer ${item.orderNumber} (${route})? The stock is added to ${item.toOutlet?.name || 'the destination outlet'}.`,
-      { title: 'Receive transfer', confirmText: 'Receive' }
-    ))) {
-      return;
-    }
-    try {
-      await orderInvoiceService.receiveTransfer(item.id);
-      await loadOrdersInvoices();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to receive transfer');
-      console.error('Error receiving transfer:', err);
-    }
-  };
+  // Incoming transfer: the shared receive dialog (same as the transfer page and
+  // the notification bell) confirms, and asks where products the destination
+  // does not have yet should go.
+  const [receiveTransferId, setReceiveTransferId] = useState(null);
+  const handleReceiveTransfer = (item) => setReceiveTransferId(item.id);
 
   const handleApplyCreditNote = async (item) => {
     if (!(await confirm(
@@ -410,7 +403,7 @@ const OrdersInvoices = () => {
     })();
   };
 
-  if (loading) {
+  if (initialLoad) {
     return <PageLoader />;
   }
 
@@ -796,6 +789,14 @@ const OrdersInvoices = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <TransferReceiveDialog
+        open={receiveTransferId != null}
+        transferId={receiveTransferId}
+        onClose={() => setReceiveTransferId(null)}
+        onReceived={() => loadOrdersInvoices()}
+        directWhenMatched
+      />
     </Box>
   );
 };

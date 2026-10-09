@@ -74,6 +74,7 @@ import { outletService } from '../../services/outletService';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
 import { canReceiveTransfer } from '../../utils/transferReceive';
+import TransferReceiveDialog from '../../components/StockManagement/TransferReceiveDialog';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import shelfTicketService from '../../services/shelfTicketService';
 import productService from '../../services/productService';
@@ -157,7 +158,7 @@ const sfDialogSave = {
 
 const OrderDetails = () => {
   // In-app dialog — shadows window.prompt on purpose.
-  const { prompt, confirm, alert } = useAppDialogs();
+  const { prompt } = useAppDialogs();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -270,27 +271,12 @@ const OrderDetails = () => {
     navigate(`/orders-invoices/${id}/edit`);
   };
 
-  // Incoming transfer: one-shot receive of everything the source sent (the
-  // backend credits exactly what left the sending outlet). Same call as the
-  // notification bell's "Receive Stock".
-  const [receivingTransfer, setReceivingTransfer] = useState(false);
-  const handleReceiveTransfer = async () => {
-    if (!(await confirm(
-      `Receive transfer ${order.orderNumber}? The stock is added to ${order.toOutlet?.name || 'the destination outlet'}.`,
-      { title: 'Receive transfer', confirmText: 'Receive' }
-    ))) {
-      return;
-    }
-    setReceivingTransfer(true);
-    try {
-      await orderInvoiceService.receiveTransfer(order.id);
-      await loadOrder({ fresh: true });
-    } catch (err) {
-      alert(err?.response?.data?.error || 'Failed to receive transfer', 'error');
-    } finally {
-      setReceivingTransfer(false);
-    }
-  };
+  // Incoming transfer: the shared receive dialog (same as the Orders list and the
+  // notification bell) - the backend credits exactly what left the sending outlet
+  // and the dialog asks where products the destination does not have should go.
+  const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
+  const receivingTransfer = receiveDialogOpen;
+  const handleReceiveTransfer = () => setReceiveDialogOpen(true);
 
 
   // Reference product name is a black, non-underlined link to the product page.
@@ -1084,7 +1070,9 @@ const OrderDetails = () => {
     return { totalEx, totalInc };
   };
 
-  if (loading) {
+  // Full-page loader only until the order is first on screen: a reload (e.g. after
+  // a receive) must not unmount the open dialog and its "Transfer received" summary.
+  if (loading && !order) {
     return <PageLoader />;
   }
 
@@ -1745,6 +1733,13 @@ const OrderDetails = () => {
           )}
         </TableContainer>
       </Paper>
+
+      <TransferReceiveDialog
+        open={receiveDialogOpen}
+        transferId={order?.id}
+        onClose={() => setReceiveDialogOpen(false)}
+        onReceived={() => loadOrder({ fresh: true })}
+      />
 
       {/* Email Order Dialog - large square-cornered composer (reference style) */}
       <Dialog
