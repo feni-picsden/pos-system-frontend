@@ -2104,8 +2104,10 @@ const SaleKeyPage = () => {
       // Reference merges only into a line of the same kind: units never fold
       // into a "(Case)" line and a case never into loose units.
       // Setup > Registers > "Consolidate Products" OFF: every add is its own line.
+      // A sale add never folds into a RETURN line (−1 + 1 left a 0-quantity line).
       const existingItemIndex = (priceOverride != null || !consolidateProducts) ? -1 : prev.findIndex(item =>
-        !!item.isCase === asCase && (item.id === product.id || item.productId === product.id)
+        !!item.isCase === asCase && (parseFloat(item.quantity) || 0) > 0
+        && (item.id === product.id || item.productId === product.id)
       );
       
       if (existingItemIndex !== -1) {
@@ -3088,9 +3090,10 @@ const SaleKeyPage = () => {
 
           setCart(prev => {
             // A requested price is per ADD, so it never merges into an existing line.
-            // Same-kind merge only (a unit add never joins a "(Case)" line).
+            // Same-kind merge only (a unit add never joins a "(Case)" line, and a
+            // sale add never joins a RETURN line).
             const existingItemIndex = (requestedPrice != null || !consolidateProducts) ? -1 : prev.findIndex(item =>
-              !!item.isCase === asCase && (
+              !!item.isCase === asCase && (parseFloat(item.quantity) || 0) > 0 && (
                 item.productId === (latestProduct?.id || resolvedProductId) ||
                 (item.name === resolvedName && item.price === resolvedPrice)
               )
@@ -3174,9 +3177,10 @@ const SaleKeyPage = () => {
 
           setCart(prev => {
             // Reference merges only into a line of the SAME kind (case with case,
-            // units with units) — a case never folds into a loose-units line.
+            // units with units) — a case never folds into a loose-units line, and
+            // a sale add never into a RETURN line.
             const existingItemIndex = prev.findIndex(item =>
-              !!item.isCase === asCase && (
+              !!item.isCase === asCase && (parseFloat(item.quantity) || 0) > 0 && (
                 item.productId === (latestProduct?.id || resolvedProductId) ||
                 (item.name === resolvedName && item.price === resolvedPrice)
               )
@@ -3251,11 +3255,12 @@ const SaleKeyPage = () => {
           if (itemIndex !== -1) {
             const item = cart[itemIndex];
             // One step down, on either side of zero: 3 → 2, and a return −1 → −2.
-            // Only landing exactly on 0 removes the line — `> 1` used to delete
-            // every returned line the moment − was pressed.
+            // Reaching or crossing 0 from a sale line removes it — − never turns
+            // a sale into a return (a 6-unit case step on 3 units gave −3).
             // A case line steps by a whole case (reference: amount = caseQuantity).
-            const newQuantity = (parseFloat(item.quantity) || 1) - lineStep(item);
-            if (newQuantity !== 0) {
+            const oldQuantity = parseFloat(item.quantity) || 1;
+            const newQuantity = oldQuantity - lineStep(item);
+            if (newQuantity !== 0 && !(oldQuantity > 0 && newQuantity < 0)) {
 
               // Recalculate price based on new quantity
               const productData = item.productId
@@ -3306,10 +3311,12 @@ const SaleKeyPage = () => {
           if (itemIndex !== -1) {
             const item = cart[itemIndex];
             // A case line steps by a whole case (reference: amount = caseQuantity).
-            const newQuantity = (parseFloat(item.quantity) || 1) + lineStep(item);
-            // A return of −1 stepped up lands on 0: nothing left to return, so
-            // the line goes, mirroring what − does at 0 on a sale line.
-            if (newQuantity === 0) {
+            const oldQuantity = parseFloat(item.quantity) || 1;
+            const newQuantity = oldQuantity + lineStep(item);
+            // A return stepped up to 0 - or past it (−0.5 + 1, a case step) - has
+            // nothing left to return, so the line goes: a return never turns into
+            // a sale (rule: a returned quantity is always negative).
+            if (newQuantity === 0 || (oldQuantity < 0 && newQuantity > 0)) {
               setCart(prev => prev.filter((_, i) => i !== itemIndex));
               setSelectedCartItem(null);
               return;
@@ -3708,20 +3715,24 @@ const SaleKeyPage = () => {
         break;
       case 'flip-sale': {
         if (cart.length === 0) { alert('No products to flip.'); return; }
-        // Flip every line's sign (bulk return); pressing again reverts. Lines
-        // only turn negative when they're currently positive.
-        const flipReason = cart.some(i => (parseFloat(i.quantity) || 1) > 0) ? await askRefundReason() : '';
+        // Bulk return: every SALE line turns into a return. A line that is
+        // already a return stays one (a returned quantity is always negative),
+        // so pressing again changes nothing.
+        if (!cart.some(i => (parseFloat(i.quantity) || 1) > 0)) break;
+        const flipReason = await askRefundReason();
         if (flipReason === null) break;
-        setCart(prev => prev.map(i => ({
+        setCart(prev => prev.map(i => ((parseFloat(i.quantity) || 1) > 0 ? {
           ...flipLineSign(i),
           ...(flipReason ? { refundReason: flipReason } : {}),
-        })));
+        } : i)));
         setSelectedCartItem(null);
         break;
       }
       case 'return-item': {
         if (!selectedCartItem) { alert('Select a product in the cart to return.'); return; }
-        const returnReason = (parseFloat(selectedCartItem.quantity) || 1) > 0 ? await askRefundReason() : '';
+        // Already a return: it stays one (never flipped back into a sale).
+        if ((parseFloat(selectedCartItem.quantity) || 1) < 0) break;
+        const returnReason = await askRefundReason();
         if (returnReason === null) break;
         const flip = (i) => ({
           ...flipLineSign(i),
@@ -3744,9 +3755,11 @@ const SaleKeyPage = () => {
         const idx = cart.findIndex(i => i.id === selectedCartItem.id && i.timestamp === selectedCartItem.timestamp);
         if (idx === -1) break;
         const item = cart[idx];
-        const newQty = (parseFloat(item.quantity) || 1) + step;
-        // Crossing to the other sign is allowed (a return is negative); only 0 removes.
-        if (newQty === 0) {
+        const oldQty = parseFloat(item.quantity) || 1;
+        const newQty = oldQty + step;
+        // Reaching or crossing 0 removes the line: a sale never turns into a
+        // return here, and a return never into a sale.
+        if (newQty === 0 || Math.sign(newQty) !== Math.sign(oldQty)) {
           setCart(prev => prev.filter((_, i) => i !== idx));
           setSelectedCartItem(null);
           break;
@@ -5420,7 +5433,12 @@ const SaleKeyPage = () => {
 
   const handleUpdateQuantityFromKeypad = async () => {
     // Typed in cases on a case line: 2 → 12 units of a 6-pack.
-    const newQuantity = parseFloat(keypadValue) * lineStep(quantityKeypadItem);
+    const typedQuantity = parseFloat(keypadValue) * lineStep(quantityKeypadItem);
+    // A RETURN line stays a return: typing 2 on a −1 line returns 2 (−2), it
+    // never flips the line into a sale.
+    const newQuantity = (parseFloat(quantityKeypadItem?.quantity) || 0) < 0
+      ? -Math.abs(typedQuantity)
+      : typedQuantity;
 
     // Negative is a return, typed straight in — the reference keypad carries a
     // sign toggle (⊖ … ⊕) for exactly this. Only zero and garbage are refused.
@@ -6848,6 +6866,10 @@ const SaleKeyPage = () => {
         ...line,
         quantity: nextQty,
         price: nextPrice,
+        // Savings on a return read $0.00 (reference), the same as the locked
+        // repricing in priceLineForQuantity: the sale-side normalPrice left
+        // here counted the refund twice as "savings" (+3.50 vs -3.50 = $7).
+        normalPrice: nextPrice,
         priceLocked: true,
         lockedUnitPrice: Math.abs(price / qty),
       };

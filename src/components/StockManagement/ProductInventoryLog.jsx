@@ -115,8 +115,14 @@ const ProductInventoryLog = ({ productId }) => {
   // Reference names: an Express Stocktake / manual stock edit row (STOCKTAKE
   // without a stocktake document) is "Express Stocktake"; the opening stock row
   // is "Created Product".
+  // A sale row that ADDED stock is a returned line: "Sales (Return)" (user's
+  // choice - the reference labels it plain "Sale").
   const eventName = (log) => {
     if (log.eventType === 'OPENING') return 'Created Product';
+    if (log.eventType === 'SALE'
+      && (Number(log.changed?.cases) || 0) * (Number(log.caseQuantity) || 1) + (Number(log.changed?.items) || 0) > 0) {
+      return 'Sales (Return)';
+    }
     if (log.eventType === 'STOCKTAKE' && log.referenceType !== 'STOCKTAKE') return 'Express Stocktake';
     return eventLabel(log.eventType);
   };

@@ -1005,12 +1005,14 @@ const EditOrder = () => {
   };
 
   const handleQuantityChange = (productId, field, value) => {
+    const typed = parseFloat(value) || 0;
     setProductQuantities(prev => {
       const next = {
         ...prev,
         [productId]: {
           ...prev[productId],
-          [field]: parseFloat(value) || 0,
+          // A return sends units BACK: never negative (a negative line would add stock).
+          [field]: order?.type === 'RETURN' ? Math.max(0, typed) : typed,
         }
       };
 
