@@ -41,6 +41,7 @@ import posLocalDb from "../../services/posLocalDb";
 import { fetchAllProducts } from "../../services/posCatalogSync";
 import usePageCache from "../../hooks/usePageCache";
 import { matchesProductFilters } from "../../utils/productFilter";
+import { rankProducts } from "../../utils/searchRank.js";
 import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 
 // Shopfront-style multi-select type-ahead combobox used by every filter on this page:
@@ -524,9 +525,7 @@ const Products = () => {
     // Sort here, not in the data sources: the IndexedDB first paint comes back in
     // insertion order and the API refresh in name order, so rows reordered under
     // the user once the background sync landed.
-    return allProducts
-      .filter((p) => matchesProductFilters(p, filters))
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return rankProducts(allProducts.filter((p) => matchesProductFilters(p, filters)), debouncedSearchTerm);
   }, [
     allProducts,
     debouncedSearchTerm,

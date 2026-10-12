@@ -26,6 +26,8 @@ import {
   ArrowDropDown as ArrowDropDownIcon,
 } from "@mui/icons-material";
 import productService from "../../services/productService";
+import { matchesProductSearch } from "../../utils/productSearch.js";
+import { rankProducts } from "../../utils/searchRank.js";
 import shelfTicketService from "../../services/shelfTicketService";
 
 // Shared style for the inline-editable grid inputs (1px #404040, radius 8px)
@@ -73,7 +75,7 @@ const StockList = () => {
     } else if (searchTerm) {
       filtered = filtered.filter(
         (product) =>
-          product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          matchesProductSearch(product, searchTerm) ||
           product.category?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           product.brand?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           product.family?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -87,7 +89,7 @@ const StockList = () => {
       );
     }
 
-    setFilteredProducts(filtered);
+    setFilteredProducts(rankProducts(filtered, searchTerm));
   }, [products, searchTerm, selectedOption, onlyWithStock]);
 
   // Grouped autocomplete options: Categories first, then Products

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { searchProducts } from '../../utils/productSearch.js';
 import {
   Alert,
   Autocomplete,
@@ -161,11 +162,7 @@ const ProductCombos = () => {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return combos;
-    return combos.filter(
-      (c) =>
-        (c.name || '').toLowerCase().includes(term) ||
-        (c.description || '').toLowerCase().includes(term)
-    );
+    return searchProducts(combos, term);
   }, [combos, search]);
 
   const visible = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -488,6 +485,7 @@ const ProductCombos = () => {
           <Autocomplete
             autoHighlight
             options={productOptions}
+            filterOptions={(options, { inputValue }) => searchProducts(options, inputValue)}
             getOptionLabel={(option) => option?.name || ''}
             value={null}
             blurOnSelect

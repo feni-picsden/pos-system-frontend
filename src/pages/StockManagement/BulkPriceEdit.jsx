@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import productService from '../../services/productService';
+import { searchProducts } from '../../utils/productSearch.js';
 import shelfTicketService from '../../services/shelfTicketService';
 import { queueEverydayTicket } from '../../utils/priceChangeTicket';
 import settingsService from '../../services/settingsService';
@@ -111,19 +112,18 @@ const BulkPriceEdit = () => {
   // ---- combobox options ----
   const options = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (q.length < 2 || selection) return [];
-    const productOpts = products
-      .filter((p) => p.name?.toLowerCase().includes(q))
+    if (!q || selection) return [];
+    const productOpts = searchProducts(products, q)
       .slice(0, 50)
       .map((p) => ({ type: 'product', id: p.id, name: p.name, imageUrl: p.imageUrl }));
     const classOpts = classifications
       .filter((c) => c.name?.toLowerCase().includes(q))
       .slice(0, 50)
       .map((c) => ({ type: 'classification', id: c.id, name: c.name }));
-    return [...classOpts, ...productOpts];
+    return [...productOpts, ...classOpts];
   }, [query, products, classifications, selection]);
 
-  const showKeepTyping = open && !selection && query.trim().length === 1;
+  const showKeepTyping = open && !selection && query.trim().length === 1 && options.length === 0;
   const showPanel = open && !selection && (showKeepTyping || options.length > 0);
 
   const selectOption = (opt) => {

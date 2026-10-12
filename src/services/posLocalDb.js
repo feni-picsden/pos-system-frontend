@@ -4,7 +4,7 @@
  * Other pages use getStoreAll / putStoreAll for stale-while-revalidate caching.
  */
 
-import { rankProducts } from '../utils/searchRank';
+import { rankProducts } from '../utils/searchRank.js';
 
 const DB_NAME = 'pos-system';
 const DB_VERSION = 6;

@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
+import { searchProducts } from '../../utils/productSearch.js';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 
@@ -256,15 +257,14 @@ const SupplierAssignment = () => {
   const filteredAssigned = useMemo(() => {
     const searchLower = searchTerm.trim().toLowerCase();
     if (!searchLower) return assignedProducts;
-    return assignedProducts.filter((p) => (p.name || '').toLowerCase().includes(searchLower));
+    return searchProducts(assignedProducts, searchLower);
   }, [assignedProducts, searchTerm]);
 
   // The classification filter (Available list only) is applied by the server,
   // by type + value, so it is not limited to the rows already loaded.
   const filteredAvailable = useMemo(() => {
     const searchLower = searchTerm.trim().toLowerCase();
-    return availableProducts.filter((product) => {
-      if (!(product.name || '').toLowerCase().includes(searchLower)) return false;
+    return searchProducts(availableProducts, searchLower).filter((product) => {
       // ponytail: unassignedOnly is also applied server-side; extra client guard when supplier data present
       if (unassignedOnly && product.suppliers?.length) return false;
       return true;

@@ -3,6 +3,7 @@ import PageLoader from '../../components/Common/PageLoader';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import productService from '../../services/productService';
+import { searchProducts } from '../../utils/productSearch.js';
 import {
   Box,
   Button,
@@ -270,7 +271,8 @@ export default function StocktakeDetails() {
     let filtered = stocktake?.items || [];
 
     if (searchTerm) {
-      filtered = filtered.filter(i => (i.product?.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
+      filtered = searchProducts(filtered.map((item) => ({ ...item.product, stocktakeItem: item })), searchTerm)
+        .map((product) => product.stocktakeItem);
     }
     if (tab !== 'all') {
       // "Scanned" = counted during the stocktake (barcode scan OR manual count).

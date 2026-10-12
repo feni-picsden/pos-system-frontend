@@ -831,6 +831,7 @@ const FutureCosts = () => {
               <Autocomplete
                 autoHighlight
                 options={itemSearchResults}
+                filterOptions={(options) => options}
                 getOptionLabel={(option) => {
                   if (typeof option === 'string') return option;
                   return option.name || '';

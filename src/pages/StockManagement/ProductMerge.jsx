@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/productService';
+import { searchProducts } from '../../utils/productSearch.js';
 import { stripHtml } from '../../services/posLocalDb';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -1677,10 +1678,9 @@ const ProductMerge = () => {
           />
           
           <List>
-            {availableProducts
+            {searchProducts(availableProducts, searchTerm)
               .filter(product => 
-                !productsToMerge.find(p => p.id === product.id) &&
-                product.name.toLowerCase().includes(searchTerm.toLowerCase())
+                !productsToMerge.find(p => p.id === product.id)
               )
               .map(product => (
                 <ListItem

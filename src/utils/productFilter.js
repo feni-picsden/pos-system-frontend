@@ -2,7 +2,7 @@
 // the API per keystroke/filter/page. This is the predicate that replaced the
 // backend where-clause, kept out of the component so it can be self-checked.
 
-import { normalizeBarcodeCodes, stripHtml } from '../services/posLocalDb.js';
+import { matchesProductSearch } from './productSearch.js';
 
 const has = (arr) => Array.isArray(arr) && arr.length > 0;
 const idIn = (arr, id) => id != null && arr.some((v) => String(v) === String(id));
@@ -28,15 +28,7 @@ export function matchesProductFilters(product, filters = {}) {
   } = filters;
 
   const q = search.trim().toLowerCase();
-  if (q) {
-    // Description is rich-text HTML; match its TEXT so tag names never match.
-    const text = `${product.name || ''} ${stripHtml(product.description)}`.toLowerCase();
-    // Barcodes match on any part of the code, the same way the name does, so typing
-    // the first few digits narrows the list as you go (a full scanned code still hits).
-    const barcodeHit = () =>
-      normalizeBarcodeCodes(product.barcodes).some((code) => code.toLowerCase().includes(q));
-    if (!text.includes(q) && !barcodeHit()) return false;
-  }
+  if (q && !matchesProductSearch(product, q)) return false;
   if (has(status) && !status.includes(product.status || 'Active')) return false;
   if (has(brand) && !idIn(brand, product.brandId ?? product.brand?.id)) return false;
   if (has(category) && !idIn(category, product.categoryId ?? product.category?.id)) return false;

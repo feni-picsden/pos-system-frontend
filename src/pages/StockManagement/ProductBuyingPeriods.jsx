@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import buyingPeriodService from '../../services/buyingPeriodService';
 import supplierService from '../../services/supplierService';
 import productService from '../../services/productService';
+import { searchProducts as searchProductOptions } from '../../utils/productSearch.js';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -364,6 +365,10 @@ export default function ProductBuyingPeriods() {
             <Autocomplete
               autoHighlight
               options={itemOptions}
+              filterOptions={(options, { inputValue }) => [
+                ...options.filter((option) => option.kind === 'family' && option.name.toLowerCase().includes(inputValue.trim().toLowerCase())),
+                ...searchProductOptions(options.filter((option) => option.kind === 'product'), inputValue),
+              ]}
               groupBy={(o) => (o.kind === 'family' ? 'Families' : 'Products')}
               value={form.item}
               disabled={Boolean(editTarget)}

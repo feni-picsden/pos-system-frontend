@@ -1368,6 +1368,7 @@ const FuturePrices = () => {
               <Autocomplete
                 autoHighlight
                 options={itemSearchResults}
+                filterOptions={(options) => options}
                 getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
                 isOptionEqualToValue={(option, value) => !!option && !!value && option.id === value.id}
                 value={selectedItem}

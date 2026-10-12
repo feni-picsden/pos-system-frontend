@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { searchProducts } from '../../utils/productSearch.js';
 import {
   Box,
   Button,
@@ -116,8 +117,7 @@ const searchEntities = async (term) => {
   const results = [];
 
   const productsRes = await productService.getProducts({ search: term.trim() }).catch(() => null);
-  (productsRes?.products || [])
-    .filter((p) => p.name?.toLowerCase().includes(q))
+  searchProducts(productsRes?.products || [], q)
     .slice(0, 50)
     .forEach((p) =>
       results.push({

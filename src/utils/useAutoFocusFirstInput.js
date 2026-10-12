@@ -72,7 +72,10 @@ export default function useAutoFocusFirstInput(containerRef, routeKey, { disable
     const first = setTimeout(attempt, 50);
     if (containerRef.current && typeof MutationObserver !== 'undefined') {
       observer = new MutationObserver(attempt);
-      observer.observe(containerRef.current, { childList: true, subtree: true });
+      observer.observe(containerRef.current, {
+        childList: true, subtree: true, attributes: true,
+        attributeFilter: ['disabled', 'readonly', 'hidden', 'aria-hidden', 'class', 'style', 'type', 'data-no-autofocus'],
+      });
     }
     timer = setTimeout(stop, WAIT_MS);
 
