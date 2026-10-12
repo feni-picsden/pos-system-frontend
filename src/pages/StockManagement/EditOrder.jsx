@@ -1385,6 +1385,11 @@ const EditOrder = () => {
 
   const handleSaveEditDetails = async () => {
     if (!linesLoaded) return;
+    // An invoice never goes without its number (the backend refuses it too).
+    if (order?.type === 'INVOICE' && !String(editFormData.orderNumber || '').trim()) {
+      setError('Invoice number is required');
+      return;
+    }
     try {
       setSaving(true);
       setError('');
@@ -2945,8 +2950,12 @@ const EditOrder = () => {
                 <TextField
                   fullWidth
                   label="Order / Invoice Number"
+                  required={order?.type === 'INVOICE'}
                   value={editFormData.orderNumber}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, orderNumber: e.target.value }))}
+                  error={order?.type === 'INVOICE' && !String(editFormData.orderNumber || '').trim()}
+                  helperText={order?.type === 'INVOICE' && !String(editFormData.orderNumber || '').trim()
+                    ? 'Invoice number is required' : ''}
                   sx={sfField}
                   InputProps={{
                     startAdornment: (

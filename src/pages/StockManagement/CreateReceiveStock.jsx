@@ -9,9 +9,12 @@ import {
   Autocomplete,
   Popover,
   IconButton,
+  InputAdornment,
+  Tooltip,
 } from '@mui/material';
 import {
   Close as CloseIcon,
+  Check as CheckIcon,
   CalendarTodayOutlined as CalendarIcon,
   ArrowDropDown as ArrowDropDownIcon,
   KeyboardArrowLeft,
@@ -250,6 +253,29 @@ const CreateReceiveStock = () => {
     publicNotes: '',
     internalNotes: '',
   });
+  // Invoice Number is required: flagged only when Create is pressed with it empty
+  // (an empty field shows no icon, like the reference).
+  const [numberTouched, setNumberTouched] = useState(false);
+  const numberMissing = numberTouched && !String(formData.referenceNumber || '').trim();
+  // Live check (reference): red X "already in use", green tick when free.
+  const [numberCheck, setNumberCheck] = useState(null); // null | { available, message }
+
+  useEffect(() => {
+    const number = String(formData.referenceNumber || '').trim();
+    if (!number) {
+      setNumberCheck(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      orderInvoiceService
+        .checkInvoiceNumber(number, formData.from)
+        .then((res) => { if (!cancelled) setNumberCheck(res?.available == null ? null : res); })
+        .catch(() => { if (!cancelled) setNumberCheck(null); });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [formData.referenceNumber, formData.from]);
+  const numberTaken = numberCheck?.available === false;
 
   useEffect(() => {
     if (user) {
@@ -366,6 +392,17 @@ const CreateReceiveStock = () => {
       return;
     }
 
+    if (!String(formData.referenceNumber || '').trim()) {
+      setNumberTouched(true);
+      setError('Please enter the invoice number');
+      return;
+    }
+
+    if (numberTaken) {
+      setError(numberCheck.message || 'This invoice number is already in use');
+      return;
+    }
+
     const outletId = parseInt(formData.to, 10);
     const supplierId = parseInt(formData.from, 10);
 
@@ -401,7 +438,7 @@ const CreateReceiveStock = () => {
         from: formData.from,
         to: formData.to,
         orderDate: formData.receiveDate,
-        orderNumber: formData.referenceNumber || '',
+        orderNumber: formData.referenceNumber.trim(),
         dueDate: formData.dueDate,
         internalReference: formData.internalReference,
         publicNotes: formData.publicNotes,
@@ -530,12 +567,33 @@ const CreateReceiveStock = () => {
 
         {/* Invoice Number */}
         <Box>
-          <FieldLabel>Invoice Number</FieldLabel>
+          <FieldLabel>
+            Invoice Number <Box component="span" sx={{ color: '#dc2626' }}>*</Box>
+          </FieldLabel>
           <TextField
             fullWidth
             value={formData.referenceNumber}
             onChange={(e) => handleInputChange('referenceNumber', e.target.value)}
-            sx={fieldSx}
+            error={numberMissing}
+            helperText={numberMissing ? 'Invoice number is required' : ''}
+            InputProps={{
+              endAdornment: numberCheck ? (
+                <InputAdornment position="end">
+                  {numberTaken ? (
+                    <Tooltip title={numberCheck.message || 'This invoice number is already in use'} placement="top" open arrow>
+                      <CloseIcon sx={{ fontSize: 20, color: '#dc2626' }} />
+                    </Tooltip>
+                  ) : (
+                    <CheckIcon sx={{ fontSize: 20, color: '#16a34a' }} />
+                  )}
+                </InputAdornment>
+              ) : null,
+            }}
+            sx={{
+              ...fieldSx,
+              '& .MuiOutlinedInput-root.Mui-error fieldset': { borderColor: '#dc2626' },
+              '& .MuiFormHelperText-root': { mx: 0, fontSize: 14 },
+            }}
           />
         </Box>
 

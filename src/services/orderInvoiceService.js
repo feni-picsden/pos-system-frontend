@@ -100,6 +100,17 @@ const orderInvoiceService = {
     return response.data;
   },
 
+  // Live invoice-number check: { available: true|false|null, message? }
+  checkInvoiceNumber: async (number, supplierId) => {
+    const response = await apiClient.get('/orders-invoices/check-number', {
+      params: { number, ...(supplierId ? { supplierId } : {}) },
+      noCache: true,
+      silent: true,
+      skipOutletScope: true,
+    });
+    return response.data;
+  },
+
   // Send/execute a transfer (deducts source outlet, marks in-transit, notifies destination)
   sendTransfer: async (id) => {
     const response = await apiClient.patch(`/orders-invoices/${id}/transfer-send`);
