@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
-import { formatDate as formatAppDate } from '../../utils/appDateTime';
+import { formatDate as formatAppDate, appTimeZone } from '../../utils/appDateTime';
+import { inOrderInvoiceDateRange } from '../../utils/orderInvoiceDateRange.js';
 import {
   Box,
   Button,
@@ -52,7 +53,7 @@ import TransferReceiveDialog from '../../components/StockManagement/TransferRece
 import DateRangeField from '../../components/Common/DateRangeField';
 
 const STATUS_OPTIONS = ['Outstanding', 'Open', 'Sent', 'Received', 'Applied', 'Cancelled', 'All'];
-const TYPE_OPTIONS = ['Order', 'Transfer', 'Return', 'Credit Note', 'All'];
+const TYPE_OPTIONS = ['Order', 'Invoice', 'Transfer', 'Return', 'Credit Note', 'All'];
 const STATUS_MAP = {
   Outstanding: ['PENDING', 'OPEN', 'SENT'],
   Open: ['OPEN'],
@@ -63,6 +64,7 @@ const STATUS_MAP = {
 };
 const TYPE_MAP = {
   Order: 'ORDER',
+  Invoice: 'INVOICE',
   Transfer: 'TRANSFER',
   Return: 'RETURN',
   'Credit Note': 'CREDIT_NOTE',
@@ -145,14 +147,17 @@ const badgeBg = {
 const includesText = (value, query) =>
   !query || String(value || '').toLowerCase().includes(query.toLowerCase());
 
-const inDateRange = (range, dateString) => {
-  if (!range || !range.startDate || !range.endDate) return true;
-  const t = new Date(dateString).setHours(0, 0, 0, 0);
-  return (
-    t >= new Date(range.startDate).setHours(0, 0, 0, 0) &&
-    t <= new Date(range.endDate).setHours(0, 0, 0, 0)
-  );
+// Copied document numbers can include whitespace or invisible formatting marks.
+const normaliseDocumentNumber = (value) =>
+  String(value ?? '').replace(/[\s\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+const matchesDocumentNumber = (item, query) => {
+  const needle = normaliseDocumentNumber(query);
+  return !needle || [item.invoiceNumber, item.orderNumber]
+    .some((number) => normaliseDocumentNumber(number).includes(needle));
 };
+
+const inDateRange = (range, dateString) =>
+  inOrderInvoiceDateRange(range, dateString, appTimeZone());
 
 
 
@@ -236,7 +241,7 @@ const OrdersInvoices = () => {
       const matchesStatus =
         f.status === 'All' || (STATUS_MAP[f.status] || []).includes(item.status);
       const matchesType = f.type === 'All' || item.type === TYPE_MAP[f.type];
-      const matchesInvoice = includesText(item.invoiceNumber || item.orderNumber, f.invoiceNumber);
+      const matchesInvoice = matchesDocumentNumber(item, f.invoiceNumber);
       const matchesOrderDate = inDateRange(f.orderDate, item.orderDate || item.createdAt);
       const matchesDueDate = !f.dueDate || (item.dueDate && inDateRange(f.dueDate, item.dueDate));
       const matchesReference = includesText(item.internalReference, f.reference);
