@@ -63,6 +63,8 @@ const formatCurrency = (value) => {
 
 // Report columns (module scope: no component state involved)
 const allColumns = [
+  { key: 'cases', label: 'Cases', headerLabel: 'CASES', render: (row) => row.cases ?? 0 },
+  { key: 'items', label: 'Items', headerLabel: 'ITEMS', render: (row) => row.items ?? 0 },
   { key: 'cost', label: 'Total Cost', headerLabel: 'TOTAL COST', render: (row) => formatCurrency(row.cost || 0) },
   { key: 'fees', label: 'Fees', headerLabel: 'FEES', render: (row) => formatCurrency(row.fees || 0) },
   { key: 'freight', label: 'Freight', headerLabel: 'FREIGHT', render: (row) => formatCurrency(row.freight || 0) },
@@ -311,6 +313,8 @@ const PurchaseReport = () => {
   
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState({
+    cases: true,
+    items: true,
     cost: true,
     fees: true,
     freight: true,
@@ -551,6 +555,8 @@ const PurchaseReport = () => {
 
     // Prepare table data
     const allColumns = [
+      { key: 'cases', label: 'Cases' },
+      { key: 'items', label: 'Items' },
       { key: 'cost', label: 'Total Cost' },
       { key: 'fees', label: 'Fees' },
       { key: 'freight', label: 'Freight' },
@@ -611,6 +617,8 @@ const PurchaseReport = () => {
   const exportToXLSX = async () => {
     // Prepare columns
     const allColumns = [
+      { key: 'cases', label: 'Cases' },
+      { key: 'items', label: 'Items' },
       { key: 'revenue', label: 'Revenue' },
       { key: 'costOfGoods', label: 'Cost of Goods Sold' },
       { key: 'transactionCount', label: 'Transaction Count' },
@@ -690,6 +698,8 @@ const PurchaseReport = () => {
   const exportToCSV = async () => {
     // Prepare columns
     const allColumns = [
+      { key: 'cases', label: 'Cases' },
+      { key: 'items', label: 'Items' },
       { key: 'revenue', label: 'Revenue' },
       { key: 'costOfGoods', label: 'Cost of Goods Sold' },
       { key: 'transactionCount', label: 'Transaction Count' },
@@ -825,6 +835,8 @@ const PurchaseReport = () => {
     } else {
       // Use regular columns
       const allColumns = [
+        { key: 'cases', label: 'Cases' },
+        { key: 'items', label: 'Items' },
         { key: 'revenue', label: 'Revenue' },
         { key: 'costOfGoods', label: 'Cost of Goods Sold' },
         { key: 'transactionCount', label: 'Transaction Count' },
