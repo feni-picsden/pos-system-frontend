@@ -110,6 +110,7 @@ import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import PageSaveBar, { SAVE_BAR_CLEARANCE } from '../../components/Common/PageSaveBar';
 import { deriveFamilyTemplate, applyFamilyTemplate, tiersKey, findHigherRateQuantity, familyCategoryCheck } from '../../utils/familyOverride';
 import FamilyPickConfirmDialog from '../../components/StockManagement/FamilyPickConfirmDialog';
+import FamilyOverrideToast from '../../components/StockManagement/FamilyOverrideToast';
 import { buildAdjustments, applyAdjustments } from '../../utils/caseQuantityAdjust';
 import CaseQuantityAdjustmentsDialog from '../../components/StockManagement/CaseQuantityAdjustmentsDialog';
 import settingsService from '../../services/settingsService';
@@ -570,6 +571,8 @@ const ProductEdit = () => {
   // The other products in the selected family, in family order.
   const [familyMembers, setFamilyMembers] = useState([]);
   const [familyMembersLoading, setFamilyMembersLoading] = useState(false);
+  const [pendingFamily, setPendingFamily] = useState(null);
+  const familyPickRequestRef = useRef(0);
   // Family id -> its members, so re-picking a family needs no second round trip.
   const familyMembersCacheRef = useRef(new Map());
   // The newly picked family's price template ({ prices, retailTaxRate, sourceProduct })
@@ -1113,28 +1116,39 @@ const ProductEdit = () => {
   // No question for clearing the family, going back to the saved one, a matching
   // category, or a family with no active products to compare with.
   const requestFamilyPick = async (family) => {
+    const requestId = ++familyPickRequestRef.current;
+    setPendingFamily(null);
+    setFamilyPick(null);
+    setFamilyOverrideOffer(null);
     if (!family?.id || String(family.id) === String(savedFamilyIdRef.current ?? '')) {
       applyFamily(family);
       return;
     }
-    const cacheKey = String(family.id);
-    let members = familyMembersCacheRef.current.get(cacheKey);
-    if (!members) {
-      try {
-        const res = await productService.getProducts(
-          { family: family.id, sortBy: 'id', sortOrder: 'asc', limit: 200 }, { silent: true }
-        );
-        members = (res?.products || []).filter((p) => String(p.id) !== String(id));
-        familyMembersCacheRef.current.set(cacheKey, members);
-      } catch {
-        members = []; // lookup failed: the effect below retries and reports as before
+    setPendingFamily(family);
+    try {
+      const cacheKey = String(family.id);
+      let members = familyMembersCacheRef.current.get(cacheKey);
+      if (!members) {
+        try {
+          const res = await productService.getProducts(
+            { family: family.id, sortBy: 'id', sortOrder: 'asc', limit: 200 }, { silent: true }
+          );
+          members = (res?.products || []).filter((p) => String(p.id) !== String(id));
+          familyMembersCacheRef.current.set(cacheKey, members);
+        } catch {
+          members = []; // lookup failed: the effect below retries and reports as before
+        }
       }
+      // A slower previous selection must never replace the latest choice.
+      if (requestId !== familyPickRequestRef.current) return;
+      if (!familyCategoryCheck(formData.category, members).mismatch) {
+        applyFamily(family);
+        return;
+      }
+      setFamilyPick({ family, members });
+    } finally {
+      if (requestId === familyPickRequestRef.current) setPendingFamily(null);
     }
-    if (!familyCategoryCheck(formData.category, members).mismatch) {
-      applyFamily(family);
-      return;
-    }
-    setFamilyPick({ family, members });
   };
 
   // The reference's "Click to override with the family's prices and tax rate".
@@ -2256,26 +2270,20 @@ const ProductEdit = () => {
               />
 
               {/* The member lookup takes a moment against the remote DB; say so. */}
-              {familyMembersLoading && (
+              {(pendingFamily || familyMembersLoading) && (
                 <Alert severity="info" icon={<CircularProgress size={18} />} sx={{ mt: 2 }}>
-                  Loading prices for &quot;{formData.family}&quot;...
+                  Loading prices for &quot;{pendingFamily?.name || formData.family}&quot;...
                 </Alert>
               )}
 
               {/* Reference: a newly picked family changes nothing until this is clicked. */}
-              {familyOverrideOffer && !familyMembersLoading && (
-                <Alert severity="info" sx={{ mt: 2 }} onClose={() => setFamilyOverrideOffer(null)}>
-                  A new family has been selected.{' '}
-                  <Box
-                    component="button"
-                    type="button"
-                    onClick={overrideWithFamilyPrices}
-                    sx={{ p: 0, border: 0, bgcolor: 'transparent', color: '#1c86f2', font: 'inherit', cursor: 'pointer', textDecoration: 'underline' }}
-                  >
-                    Click to override with the family&apos;s prices and tax rate.
-                  </Box>
-                </Alert>
-              )}
+              <FamilyOverrideToast
+                key={formData.familyId || 'no-family'}
+                familyName={formData.family}
+                open={!!familyOverrideOffer && !familyMembersLoading && !pendingFamily}
+                onOverride={overrideWithFamilyPrices}
+                onClose={() => setFamilyOverrideOffer(null)}
+              />
 
               {/* Asked before the product joins a family of a DIFFERENT category. */}
               <FamilyPickConfirmDialog

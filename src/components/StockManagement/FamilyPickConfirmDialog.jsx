@@ -1,7 +1,8 @@
 import React from 'react';
 import { Alert, Box, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import ShopfrontDialog, { DialogButton } from '../Common/ShopfrontDialog';
-import { formatTiers, familyCategoryCheck } from '../../utils/familyOverride';
+import { familyCategoryCheck } from '../../utils/familyOverride';
+import FamilyPriceTiers, { FamilyMemberPriceRows } from './FamilyPriceTiers';
 
 // Asked before a product joins a family whose products are from a DIFFERENT category
 // (our own safety net — the reference asks nothing). Joining changes no price by
@@ -16,7 +17,6 @@ const FamilyPickConfirmDialog = ({ open, family, members = [], product, onConfir
   if (!open || !family) return null;
 
   const { mismatch, familyCategories } = familyCategoryCheck(product?.category, members);
-  const categoryOf = (m) => (typeof m?.category === 'string' ? m.category : m?.category?.name) || '—';
 
   return (
     <ShopfrontDialog
@@ -43,9 +43,16 @@ const FamilyPickConfirmDialog = ({ open, family, members = [], product, onConfir
 
       <Typography sx={{ fontSize: 15, textAlign: 'left', mb: 2 }}>
         A family is a group of products sold at the <strong>same prices</strong>. This product keeps
-        its own prices ({formatTiers(product) || 'none yet'}) until you choose to take the
+        its own prices until you choose to take the
         family&apos;s — but a price change on any product in the family is carried to all of them.
       </Typography>
+
+      <Box sx={{ mb: 2 }}>
+        <Typography sx={{ fontSize: 14, fontWeight: 700, textAlign: 'left', mb: 0.5 }}>
+          This product&apos;s prices
+        </Typography>
+        <FamilyPriceTiers product={product} emptyLabel="none yet" />
+      </Box>
 
       <Typography sx={{ fontSize: 14, fontWeight: 700, textAlign: 'left', mb: 0.5 }}>
         Products already in this family
@@ -56,18 +63,13 @@ const FamilyPickConfirmDialog = ({ open, family, members = [], product, onConfir
             <TableRow>
               <TableCell sx={headSx}>Product</TableCell>
               <TableCell sx={headSx}>Category</TableCell>
-              <TableCell sx={headSx}>Prices</TableCell>
+              <TableCell sx={headSx} align="center">Quantity</TableCell>
+              <TableCell sx={headSx} align="right">Price</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {members.map((m) => (
-              <TableRow key={m.id}>
-                <TableCell sx={cellSx}>
-                  {m.name}{m.isActive === false ? ' (inactive)' : ''}
-                </TableCell>
-                <TableCell sx={cellSx}>{categoryOf(m)}</TableCell>
-                <TableCell sx={cellSx}>{formatTiers(m) || '—'}</TableCell>
-              </TableRow>
+              <FamilyMemberPriceRows key={m.id} member={m} cellSx={cellSx} />
             ))}
           </TableBody>
         </Table>
