@@ -177,6 +177,7 @@ const AsyncCombo = ({ label, value, onChange, fetcher }) => {
 
   return (
     <Autocomplete
+      autoHighlight
       options={options}
       value={value}
       onChange={(e, opt) => onChange(opt)}

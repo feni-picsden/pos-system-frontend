@@ -1366,6 +1366,7 @@ const FuturePrices = () => {
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12}>
               <Autocomplete
+                autoHighlight
                 options={itemSearchResults}
                 getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
                 isOptionEqualToValue={(option, value) => !!option && !!value && option.id === value.id}

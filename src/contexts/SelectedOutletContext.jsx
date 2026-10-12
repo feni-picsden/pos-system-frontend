@@ -18,7 +18,22 @@ const LS_KEY = 'selectedOutletId';
 
 export const SelectedOutletProvider = ({ children, user, switchOutlet }) => {
   const [outlets, setOutlets] = useState([]);
-  const [selectedOutletId, setSelectedOutletIdState] = useState(null);
+  // Start from the outlet this browser already has (a global admin's saved pick,
+  // or a pinned user's session outlet) instead of null. Starting at null flipped
+  // to the real id once /outlets answered, and the layout re-mounts the page on
+  // that change (DashboardLayout keys the page on it) - every page loaded all its
+  // data TWICE on each refresh. The load below still validates the saved id.
+  const [selectedOutletId, setSelectedOutletIdState] = useState(() => {
+    if (!user) return null;
+    const global = (user.isSuperAdmin === true || user.hasAllPermission === true) && user.outletId == null;
+    if (!global) return user.outletId || null;
+    try {
+      const saved = parseInt(localStorage.getItem(LS_KEY), 10);
+      return Number.isInteger(saved) ? saved : null;
+    } catch {
+      return null;
+    }
+  });
 
   // Global "all outlets" access requires all-permission/superadmin AND no pinned
   // outlet (outletId null) — matches the backend's canAccessAllOutlets. An outlet

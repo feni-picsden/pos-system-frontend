@@ -75,6 +75,7 @@ import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
 import { canReceiveTransfer } from '../../utils/transferReceive';
 import TransferReceiveDialog from '../../components/StockManagement/TransferReceiveDialog';
+import DocumentTotalsSummary from '../../components/StockManagement/DocumentTotalsSummary';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import shelfTicketService from '../../services/shelfTicketService';
 import productService from '../../services/productService';
@@ -1198,6 +1199,18 @@ const OrderDetails = () => {
   const receivedTotalCases = order.items?.reduce((sum, item) => sum + receivedQtyFor(item).cases, 0) || 0;
   const receivedTotalItems = order.items?.reduce((sum, item) => sum + receivedQtyFor(item).items, 0) || 0;
 
+  // Document-level fee figures (the same sums as the table's Total row): the
+  // posted Purchase once received, the landed preview before.
+  const postedPurchase = order.purchases && order.purchases.length > 0 ? order.purchases[0] : null;
+  const docFees = postedPurchase ? (postedPurchase.fees || 0) : (landedPreview?.fees || 0);
+  const docFreight = postedPurchase
+    ? (postedPurchase.items?.reduce((sum, it) => sum + (it.freight || 0), 0) || 0)
+    : (landedPreview?.freight || 0);
+  const docRebate = postedPurchase
+    ? (postedPurchase.items?.reduce((sum, it) => sum + (it.rebate || 0), 0) || 0)
+    : (landedPreview?.discount || 0);
+  const docPaymentFees = postedPurchase ? (postedPurchase.paymentFees || 0) : (landedPreview?.paymentFees || 0);
+
   // Quantity with CASES / ITEMS sub-captions inside the cell (reference style)
   const renderQty = (cases, items, onColor = false) => (
     <Box>
@@ -1738,6 +1751,22 @@ const OrderDetails = () => {
           )}
         </TableContainer>
       </Paper>
+
+      {/* Totals at the bottom right, like the sell screen's sale summary. */}
+      {!isCreditNote && (
+        <DocumentTotalsSummary
+          cases={order.status === 'RECEIVED' ? receivedTotalCases : totalCases}
+          items={order.status === 'RECEIVED' ? receivedTotalItems : totalItems}
+          products={totalLines}
+          total={tableTotals.inc}
+          lines={showFeeColumns ? [
+            { label: 'Fees / Discounts', value: docFees },
+            { label: 'Freight', value: docFreight },
+            { label: 'Rebate', value: docRebate, sign: '-' },
+            { label: 'Payment Fees', value: docPaymentFees },
+          ] : []}
+        />
+      )}
 
       <TransferReceiveDialog
         open={receiveDialogOpen}

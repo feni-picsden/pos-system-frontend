@@ -155,6 +155,7 @@ const AddSaleKeyDialog = ({
               </Grid>
               <Grid item xs={12}>
                 <Autocomplete
+                  autoHighlight
                   options={availableProducts}
                   getOptionLabel={productOptionLabel}
                   value={newSaleKey.selectedProduct}
