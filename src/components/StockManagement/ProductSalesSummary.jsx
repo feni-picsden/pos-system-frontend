@@ -105,10 +105,15 @@ const ProductSalesSummary = ({ productId }) => {
 
   const statistics = (rows) => {
     const sum = (k) => rows.reduce((t, r) => t + (parseFloat(r[k]) || 0), 0);
+    // Rows show cases + loose items (FLOOR / % of the units), so the units sold are
+    // cases * case quantity + items, not the items column alone.
+    const caseQty = Number(salesData?.product?.caseQuantity) || 1;
+    const unitsSold = rows.reduce(
+      (t, r) => t + (parseFloat(r.cases) || 0) * caseQty + (parseFloat(r.items) || 0), 0);
     return [
       { label: 'Total Sales (3 Years)', value: formatCurrency(sum('sales')) },
       { label: 'Total Profit (3 Years)', value: formatCurrency(sum('profit')) },
-      { label: 'Total Items Sold (3 Years)', value: sum('items').toLocaleString() },
+      { label: 'Total Items Sold (3 Years)', value: (Math.round(unitsSold * 100) / 100).toLocaleString() },
       {
         label: 'Average Profit Margin',
         value: formatPercentage(rows.length ? sum('percentage') / rows.length : 0),
