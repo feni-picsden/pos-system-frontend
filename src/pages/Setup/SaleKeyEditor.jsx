@@ -49,6 +49,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { productOptionLabel } from '../../utils/productOptionLabel';
 import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
+import { saleKeyGeometry, pointerCellDelta, canPlaceSaleKey, moveSaleKey } from '../../utils/saleKeyGeometry';
 import { DEFAULT_PREVIOUS_DATE_FORMAT, DEFAULT_TIME_FORMAT } from '../../utils/saleKeyDisplay';
 import productService from '../../services/productService';
 import paymentMethodService from '../../services/paymentMethodService';
@@ -162,6 +163,9 @@ const SaleKeyEditor = () => {
   const [availablePriceSets, setAvailablePriceSets] = useState([]);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeData, setResizeData] = useState(null);
+  const canvasRef = useRef(null);
+  const dragRef = useRef(null);
+  const suppressKeyClick = useRef(false);
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
   const [currentSet, setCurrentSet] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -376,6 +380,10 @@ const SaleKeyEditor = () => {
   };
 
   const handleKeyClick = (key, event) => {
+    if (suppressKeyClick.current) {
+      event?.stopPropagation();
+      return;
+    }
     
     
     // Prevent event bubbling to avoid interference
@@ -442,7 +450,44 @@ const SaleKeyEditor = () => {
     return touch || e;
   };
 
+  const handleKeyDragStart = (e, key) => {
+    if (isResizing || dragRef.current || e.isPrimary === false || (e.button != null && e.button !== 0)) return;
+    const bounds = canvasRef.current?.getBoundingClientRect();
+    if (!bounds?.width || !bounds?.height) return;
+    suppressKeyClick.current = false;
+    dragRef.current = { key, startX: e.clientX, startY: e.clientY, bounds, pointerId: e.pointerId, moved: false, lastPosition: saleKeyGeometry(key).position };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleKeyDragMove = (e) => {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 5) return;
+    drag.moved = true;
+    suppressKeyClick.current = true;
+    const candidate = moveSaleKey(drag.key, pointerCellDelta(e, drag, drag.bounds, gridSize), gridSize);
+    // Moving within the same snapped cell must not re-render every key.
+    if (candidate.position.x === drag.lastPosition?.x && candidate.position.y === drag.lastPosition?.y) return;
+    if (!canPlaceSaleKey(candidate, saleKeys, gridSize)) return;
+    drag.lastPosition = candidate.position;
+    setSaleKeys(prev => prev.map(key => key.id === candidate.id ? candidate : key));
+    debugSetSelectedKey(candidate);
+  };
+
+  const handleKeyDragEnd = (e) => {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (e.type === 'pointercancel' && drag.moved) {
+      setSaleKeys(prev => prev.map(key => key.id === drag.key.id ? drag.key : key));
+      debugSetSelectedKey(drag.key);
+    }
+    dragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
   const handleResizeStart = (e, key, direction) => {
+    const bounds = canvasRef.current?.getBoundingClientRect();
+    if (!bounds?.width || !bounds?.height) return;
     if (e.preventDefault) e.preventDefault();
     setIsResizing(true);
     const point = getPointerPosition(e);
@@ -451,8 +496,9 @@ const SaleKeyEditor = () => {
       direction,
       startX: point.clientX,
       startY: point.clientY,
-      startSize: { ...key.size },
-      startPosition: { ...key.position },
+      startSize: saleKeyGeometry(key).size,
+      startPosition: saleKeyGeometry(key).position,
+      bounds,
     });
   };
 
@@ -464,14 +510,7 @@ const SaleKeyEditor = () => {
       e.preventDefault();
     }
 
-    const deltaX = point.clientX - resizeData.startX;
-    const deltaY = point.clientY - resizeData.startY;
-    
-    const cellWidth = 100 / gridSize.cols;
-    const cellHeight = 100 / gridSize.rows;
-    
-    const cellDeltaX = Math.round(deltaX / (window.innerWidth * cellWidth / 100));
-    const cellDeltaY = Math.round(deltaY / (window.innerHeight * cellHeight / 100));
+    const { x: cellDeltaX, y: cellDeltaY } = pointerCellDelta(point, resizeData, resizeData.bounds, gridSize);
     
     const updatedKey = saleKeys.find(k => k.id === resizeData.keyId);
     if (!updatedKey) return;
@@ -529,6 +568,8 @@ const SaleKeyEditor = () => {
         break;
     }
     
+    newPosition = { ...newPosition, w: newSize.width, h: newSize.height };
+    if (!canPlaceSaleKey({ ...updatedKey, size: newSize, position: newPosition }, saleKeys, gridSize)) return;
     // Update the key
     const updatedKeys = saleKeys.map(k => 
       k.id === resizeData.keyId 
@@ -940,6 +981,8 @@ const SaleKeyEditor = () => {
           overflow: 'hidden', 
           justifyContent: 'center',
           cursor: 'pointer',
+          touchAction: 'none',
+          userSelect: 'none',
           fontSize: key.fontSize || 16,
           fontWeight: key.textStyle?.bold ? 'bold' : 'normal',
           fontStyle: key.textStyle?.italic ? 'italic' : 'normal',
@@ -947,7 +990,8 @@ const SaleKeyEditor = () => {
           '&:hover': {
             opacity: key.behavior?.preventHover ? 1 : 0.8,
           },
-          transition: key.behavior?.preventHoverAnimation ? 'none' : 'all 0.2s ease',
+          // Animate appearance only; position/size must follow drag and resize immediately.
+          transition: key.behavior?.preventHoverAnimation ? 'none' : 'opacity 0.2s ease, background-color 0.2s ease',
           boxSizing: 'border-box',
           // Reference tile (pmk.onshopfront.com) insets nothing: the artwork runs
           // to the border and only the 1px border separates one key from the next.
@@ -957,6 +1001,11 @@ const SaleKeyEditor = () => {
           gap: '4px',
         }}
         onClick={(e) => handleKeyClick(key, e)}
+        onDragStart={(e) => e.preventDefault()}
+        onPointerDown={(e) => handleKeyDragStart(e, key)}
+        onPointerMove={handleKeyDragMove}
+        onPointerUp={handleKeyDragEnd}
+        onPointerCancel={handleKeyDragEnd}
       >
         {isSelected && (
           <>
@@ -1049,6 +1098,7 @@ const SaleKeyEditor = () => {
           >
           {/* Grid Canvas */}
           <Box
+            ref={canvasRef}
             sx={{
               width: '100%',
               height: '100%',
@@ -1123,7 +1173,7 @@ const SaleKeyEditor = () => {
               const w = width * cellWidth;
               const h = height * cellHeight;
               return (
-                <Box sx={{ position: 'absolute', left: `${left}%`, top: `${top}%`, width: `${w}%`, height: `${h}%`, pointerEvents: 'none', zIndex: 200 }}>
+                <Box sx={{ position: 'absolute', left: `${left}%`, top: `${top}%`, width: `${w}%`, height: `${h}%`, pointerEvents: 'none', touchAction: 'none', zIndex: 200 }}>
                   <Box
                     sx={{ position: 'absolute', top: -6, left: -6, width: 12, height: 12, backgroundColor: '#1976d2', borderRadius: '50%', cursor: 'nw-resize', pointerEvents: 'auto' }}
                     onMouseDown={(e) => { e.stopPropagation(); handleResizeStart(e, selectedKey, 'nw'); }}
@@ -1800,6 +1850,14 @@ const SaleKeyEditor = () => {
             {/* Behavior Section */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Behaviour</Typography>
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+                '& .MuiFormControlLabel-root': { m: 0, gap: 1.5, alignItems: 'center' },
+                '& .MuiSwitch-root': { flexShrink: 0 },
+                '& .MuiFormControlLabel-label': { lineHeight: '24px' },
+              }}>
                <FormControlLabel
                  control={
                    <ShopfrontSwitch
@@ -1808,7 +1866,6 @@ const SaleKeyEditor = () => {
                    />
                  }
                  label="Disable Key"
-                 sx={{ mb: 1 }}
                />
                <FormControlLabel
                  control={
@@ -1818,7 +1875,6 @@ const SaleKeyEditor = () => {
                    />
                  }
                  label="Prevent Disable"
-                 sx={{ mb: 1 }}
                />
                <FormControlLabel
                  control={
@@ -1828,7 +1884,6 @@ const SaleKeyEditor = () => {
                    />
                  }
                  label="Prevent Hover"
-                 sx={{ mb: 1 }}
                />
                <FormControlLabel
                  control={
@@ -1839,6 +1894,7 @@ const SaleKeyEditor = () => {
                  }
                  label="Prevent Hover Animation"
                />
+              </Box>
             </Box>
 
             <Divider sx={{ my: 2 }} />
@@ -2000,6 +2056,15 @@ const SaleKeyEditor = () => {
                 </Box>
 
                 {/* Image fit toggles (reference: Constrain Width/Height on, Fill off) */}
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  mb: 1,
+                  '& .MuiFormControlLabel-root': { display: 'flex', m: 0, gap: 1.5, alignItems: 'center' },
+                  '& .MuiSwitch-root': { flexShrink: 0 },
+                  '& .MuiFormControlLabel-label': { lineHeight: '24px' },
+                }}>
                 <FormControlLabel
                   control={
                     <ShopfrontSwitch
@@ -2008,7 +2073,6 @@ const SaleKeyEditor = () => {
                     />
                   }
                   label="Constrain Image Width"
-                  sx={{ display: 'block', mb: 1 }}
                 />
                 <FormControlLabel
                   control={
@@ -2018,7 +2082,6 @@ const SaleKeyEditor = () => {
                     />
                   }
                   label="Constrain Image Height"
-                  sx={{ display: 'block', mb: 1 }}
                 />
                 <FormControlLabel
                   control={
@@ -2028,8 +2091,8 @@ const SaleKeyEditor = () => {
                     />
                   }
                   label="Fill Key with Image"
-                  sx={{ display: 'block', mb: 1 }}
                 />
+                </Box>
 
                 {/* Image Preview */}
                 {selectedKey.image && (

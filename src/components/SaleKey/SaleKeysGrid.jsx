@@ -78,9 +78,8 @@ const SaleKeysGrid = ({
               height: `${height * cellHeight}%`,
               backgroundColor: saleKey.backgroundColor || '#4CAF50',
               color: saleKey.textColor || '#FFFFFF',
-              // Reference tile base: 1px WHITE border, square, no shadow — the
-              // white hairline is what draws the grid's tile gutters.
-              border: isCaseModeKey ? '3px solid #0284c7' : '1px solid #ffffff',
+              // Keep the configured border; case mode retains its active highlight.
+              border: isCaseModeKey ? '3px solid #0284c7' : `1px solid ${saleKey.borderColor || '#ffffff'}`,
               boxShadow: isCaseModeKey ? 'inset 0 0 0 2px #f8f8f8' : 'none',
               display: 'flex',
               // Artwork above the label, both centred, zero padding - the same
