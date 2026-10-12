@@ -486,6 +486,7 @@ const ProductCombos = () => {
           <Typography sx={{ fontSize: 22, fontWeight: 700, mb: 1.5 }}>Products</Typography>
 
           <Autocomplete
+            autoHighlight
             options={productOptions}
             getOptionLabel={(option) => option?.name || ''}
             value={null}

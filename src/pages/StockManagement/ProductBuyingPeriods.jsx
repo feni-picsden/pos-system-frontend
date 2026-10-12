@@ -362,6 +362,7 @@ export default function ProductBuyingPeriods() {
         <DialogContent sx={{ pt: 2 }}>
           <Box sx={{ display: 'grid', gap: 2.5 }}>
             <Autocomplete
+              autoHighlight
               options={itemOptions}
               groupBy={(o) => (o.kind === 'family' ? 'Families' : 'Products')}
               value={form.item}

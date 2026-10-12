@@ -829,6 +829,7 @@ const FutureCosts = () => {
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Autocomplete
+                autoHighlight
                 options={itemSearchResults}
                 getOptionLabel={(option) => {
                   if (typeof option === 'string') return option;

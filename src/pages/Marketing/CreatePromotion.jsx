@@ -867,6 +867,7 @@ const CreatePromotion = () => {
   // dividers, a checkbox per row, a chip per pick and a clear-all button.
   const renderItemSelect = (value, onChange, placeholder = 'Select...') => (
     <Autocomplete
+      autoHighlight
       multiple
       disableCloseOnSelect
       fullWidth
@@ -939,6 +940,7 @@ const CreatePromotion = () => {
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12}>
             <Autocomplete
+              autoHighlight
               options={comboProductResults}
               getOptionLabel={(option) => option?.name || ''}
               filterOptions={(options) => options}

@@ -152,6 +152,7 @@ const panelSlotProps = {
 // Reference filters are type-to-search multi-selects showing grey chips in the field.
 const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => o }) => (
   <Autocomplete
+    autoHighlight
     multiple
     disableCloseOnSelect
     options={options}
