@@ -2212,9 +2212,14 @@ const EditOrder = () => {
           </Grid>
           <Grid item xs={6} sm={3}>
             <Typography variant="body2" color="text.secondary">INCLUDES FREIGHT:</Typography>
-            {/* Follows the Options switch ("Freight is included on supplier invoice") - the flag receive() applies */}
             <Typography variant="body1" sx={{ fontWeight: 500 }}>{freightIncluded ? 'Yes' : 'No'}</Typography>
           </Grid>
+          {(order.type === 'ORDER' || order.type === 'INVOICE') && (
+            <Grid item xs={6} sm={3}>
+              <Typography variant="body2" color="text.secondary">COSTS INCLUDE TAX:</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>{costsIncTax ? 'Yes' : 'No'}</Typography>
+            </Grid>
+          )}
           <Grid item xs={6} sm={3}>
             <Typography variant="body2" color="text.secondary">CREATED BY:</Typography>
             <Typography variant="body1" sx={{ fontWeight: 500 }}>{order.creator?.name || user?.firstName || 'N/A'}</Typography>

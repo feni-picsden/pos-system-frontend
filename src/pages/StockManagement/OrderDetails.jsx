@@ -1483,6 +1483,9 @@ const OrderDetails = () => {
             ? [['Return Cost', order.returnCostBasis === 'BASE_FEES_FREIGHT' ? 'Base + Fees + Freight' : 'Base Cost Only']]
             : []),
           ['Includes Freight', includesFreight ? 'Yes' : 'No'],
+          ...(isOrderOrInvoice
+            ? [['Costs Include Tax', order.costsIncludeTax ? 'Yes' : 'No']]
+            : []),
           ['Created By', order.creator?.name || 'N/A'],
           ['Created At', formatDateTime(order.createdAt)],
           // Reference header: EXPECTED TOTAL sits right after CREATED AT
