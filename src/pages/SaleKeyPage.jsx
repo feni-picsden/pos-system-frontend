@@ -321,8 +321,6 @@ const SaleKeyPage = () => {
   const [associateTarget, setAssociateTarget] = useState(null);
   const [associateSaving, setAssociateSaving] = useState(false);
   const searchRef = useRef(null);
-  // Set by the search box's onPaste, read once by the debounced search.
-  const pastedRef = useRef(false);
   const lastRegisterControlCheckRef = useRef(0);
   // Barcode scanning: serialize rapid scans, dedupe CR+LF double-Enters and
   // invalidate stale in-flight name searches (scanner input outruns renders).
@@ -1812,26 +1810,20 @@ const SaleKeyPage = () => {
   // search-results dropdown; the Enter-key path still wins the race for
   // scanners that do (queueScan dedupes the repeat).
   useEffect(() => {
+    let cancelled = false;
     const timer = setTimeout(async () => {
       const term = sanitizeScanInput(searchTerm);
-      // A PASTED code is someone looking the product up, not a scanner firing:
-      // it must list the match, not add it to the sale and wipe the box. Consumed
-      // on the first run after the paste, so typing afterwards scans normally.
-      const wasPaste = pastedRef.current;
-      pastedRef.current = false;
       // While associating, the box is picking a PRODUCT — digits typed there must
       // search, never add to the sale.
       const scannable =
         Boolean(term) &&
-        looksLikeBarcode(term) &&
         !isCustomerSearchMode &&
         !isTransactionComplete &&
-        !associatingBarcode &&
-        !wasPaste;
+        !associatingBarcode;
 
       // A COMPLETE code the catalog recognises adds to the sale immediately.
       if (scannable && isKnownBarcode(term)) {
-        queueScan(term);
+        queueScan(term, { productOnly: true });
         return;
       }
 
@@ -1840,6 +1832,7 @@ const SaleKeyPage = () => {
       // product whose barcode (or name) contains those digits, exactly like a name
       // search, so the operator can pick the right one.
       const found = await performSearch(searchTerm);
+      if (cancelled) return;
 
       // Nothing matched: the digits may still be a real code missing from the local
       // cache, so hand it to the scan path for its API lookup — the old behaviour
@@ -1848,34 +1841,12 @@ const SaleKeyPage = () => {
       // the product (which clears the box itself) and a miss changes nothing.
       // No "not found" toast either: the pane already reports it, and a toast per
       // typing pause would fire repeatedly while a long code is still going in.
-      if (scannable && !found) queueScan(term, { clearBox: false, notifyMissing: false });
-
-      // A pasted code the local cache doesn't hold. performSearch's API fallback
-      // is the product-list endpoint, which matches name and description only —
-      // never barcodes — so it would report "No Results Found" for a code that
-      // really exists. Resolve it through the barcode endpoint and LIST the match
-      // rather than adding it: a paste is a lookup, not a scan.
-      if (wasPaste && !found && term && looksLikeBarcode(term) && !isCustomerSearchMode) {
-        const seq = ++searchSeqRef.current;
-        try {
-          const resp = await productService.getProductByBarcode(term, getEffectiveOutletId());
-          const matches =
-            Array.isArray(resp?.products) && resp.products.length
-              ? resp.products
-              : resp?.product
-                ? [resp.product]
-                : [];
-          if (seq === searchSeqRef.current && matches.length) {
-            setSearchResults({ products: matches, customers: [] });
-            setShowSearchResults(true);
-          }
-        } catch {
-          // 404 just means the code is unknown; the pane already says so.
-        }
+      if (scannable && looksLikeBarcode(term) && !found) {
+        queueScan(term, { clearBox: false, notifyMissing: false, productOnly: true });
       }
     }, 300); // 300ms debounce
 
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, associatingBarcode]);
 
@@ -2318,7 +2289,7 @@ const SaleKeyPage = () => {
     }
   };
 
-  const handleBarcodeScan = async (rawCode) => {
+  const handleBarcodeScan = async (rawCode, { productOnly = false } = {}) => {
     const code = sanitizeScanInput(rawCode);
     if (!code || isCustomerSearchMode || isTransactionComplete) {
       return false;
@@ -2330,7 +2301,7 @@ const SaleKeyPage = () => {
     // 14+ digit in-house codes are real product barcodes, so length alone must
     // not route them to the sale lookup — the product search runs first below
     // and the receipt recall is the fallback when nothing in the catalog matches.
-    if (/^#\d+$/.test(code)) {
+    if (!productOnly && /^#\d+$/.test(code)) {
       return recallSaleAsReturn(code);
     }
     const mayBeSaleNumber = /^\d{14,}$/.test(code);
@@ -2410,7 +2381,7 @@ const SaleKeyPage = () => {
 
     // No product anywhere owns this code. A long all-digit code at this point is
     // a receipt barcode (sale number) — recall it as a return.
-    if (mayBeSaleNumber) {
+    if (!productOnly && mayBeSaleNumber) {
       return recallSaleAsReturn(code, { silent: true });
     }
 
@@ -2422,14 +2393,14 @@ const SaleKeyPage = () => {
   // `clearBox: false` keeps what the operator typed on screen — used by the
   // speculative lookup for digits that matched nothing locally, which must not
   // wipe a half-typed code (or the results under it) out from under them.
-  const queueScan = (rawCode, { clearBox = true, notifyMissing = true } = {}) => {
+  const queueScan = (rawCode, { clearBox = true, notifyMissing = true, productOnly = false } = {}) => {
     // `associatingBarcode`: the operator is choosing which product a code belongs
     // to. A scan landing in the sale now would be a surprise item on the receipt,
     // so every scan path is inert until the flow finishes or is cancelled.
     if (isCustomerSearchMode || associatingBarcode) return;
     // A scan on the completed-sale panel is the first item of the next sale.
     if (isTransactionComplete) {
-      startNextSaleThen({ kind: 'scan', code: rawCode, opts: { clearBox, notifyMissing } });
+      startNextSaleThen({ kind: 'scan', code: rawCode, opts: { clearBox, notifyMissing, productOnly } });
       return;
     }
     // Sanitize before the dedupe compare so the same scan arriving once clean
@@ -2464,7 +2435,7 @@ const SaleKeyPage = () => {
       .then(async () => {
         // Sale was cleared/parked/reset after this scan was queued — drop it.
         if (scanEpoch !== saleEpochRef.current) return;
-        const added = await handleBarcodeScan(code);
+        const added = await handleBarcodeScan(code, { productOnly });
         if (!added && notifyMissing) {
           setScanNotFound(code);
         }
@@ -8362,7 +8333,6 @@ const SaleKeyPage = () => {
                   // Flags the next debounced search as coming from a paste, so a
                   // pasted barcode lists its product instead of being treated as
                   // a scan (added to the sale, box cleared).
-                  onPaste={() => { pastedRef.current = true; }}
                   onFocus={() => searchTerm && setShowSearchResults(true)}
                 />
                 
