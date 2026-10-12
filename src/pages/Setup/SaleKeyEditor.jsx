@@ -1339,7 +1339,6 @@ const SaleKeyEditor = () => {
 
               {(selectedKey.action === 'add-product' || selectedKey.action === 'add-product-case') && (
                 <Autocomplete
-                  autoHighlight
                   fullWidth
                   options={availableProducts}
                   getOptionLabel={productOptionLabel}

@@ -4,8 +4,6 @@
  * Other pages use getStoreAll / putStoreAll for stale-while-revalidate caching.
  */
 
-import { rankProducts } from '../utils/searchRank';
-
 const DB_NAME = 'pos-system';
 const DB_VERSION = 6;
 
@@ -512,13 +510,9 @@ const posLocalDb = {
   searchProducts(term, limit = 10) {
     const q = String(term || '').trim().toLowerCase();
     if (!q || !cache.products.length) return [];
-    // Best match first (utils/searchRank.js, same rules as the server search),
-    // ranked over ALL matches before the limit - the cache order (download / id
-    // order) used to decide which ten were even shown.
-    return rankProducts(
-      cache.products.filter((p) => matchesSearchLevel(getProductSearchText(p), q, searchLevels.product)),
-      q,
-    ).slice(0, limit);
+    return cache.products
+      .filter((p) => matchesSearchLevel(getProductSearchText(p), q, searchLevels.product))
+      .slice(0, limit);
   },
 
   /** Search after warming from IDB when in-memory catalog is not loaded yet. */

@@ -226,7 +226,6 @@ const DestinationProductPicker = ({ outletId, value, onChange, disabled }) => {
 
   return (
     <Autocomplete
-      autoHighlight
       size="small"
       disabled={disabled}
       value={value}

@@ -76,7 +76,6 @@ import offlineSales from '../../services/offlineSales';
 import useAutoLogout from '../../hooks/useAutoLogout';
 import { useAppDialogs } from '../Common/AppDialogProvider';
 import { playNotificationSound } from '../../utils/notificationSounds';
-import useAutoFocusFirstInput from '../../utils/useAutoFocusFirstInput';
 
 // Team Message is admin-set HTML but still crosses a trust boundary: keep text
 // and plain <a href="http(s)://..."> links, drop every other tag and attribute.
@@ -347,11 +346,6 @@ const DashboardLayout = ({ children }) => {
 
   // Close when the page changes (menu link, sidebar, browser back, etc.).
   React.useEffect(() => { setQuickOpen(false); }, [location.pathname]);
-
-  // Every page opens with its first text box focused (type straight away).
-  // The sell screen manages its own focus (scanner / search box).
-  const pageRef = React.useRef(null);
-  useAutoFocusFirstInput(pageRef, `${location.pathname}|${selectedOutletId ?? 'all'}`, { disabled: location.pathname === '/' });
 
   // Esc closes the menu.
   React.useEffect(() => {
@@ -1401,10 +1395,7 @@ const DashboardLayout = ({ children }) => {
         {/* Remount the routed page whenever the selected outlet changes so every
             page refetches its data scoped to the new outlet (apiClient attaches
             outletId to all GETs for super admins). */}
-        {/* display: contents - a hook anchor only, adds no box to the layout. */}
-        <Box ref={pageRef} sx={{ display: 'contents' }}>
-          <React.Fragment key={selectedOutletId ?? 'all'}>{children}</React.Fragment>
-        </Box>
+        <React.Fragment key={selectedOutletId ?? 'all'}>{children}</React.Fragment>
       </Main>
 
       {/* Blocks the whole app if another user takes control of our register. */}

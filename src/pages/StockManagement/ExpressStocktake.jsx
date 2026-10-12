@@ -263,11 +263,6 @@ export default function ExpressStocktake() {
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Escape') { setSearchTerm(''); setShowResults(false); }
-              // Like the sell screen: Enter takes the first (best) match.
-              if (e.key === 'Enter' && searchTerm.length >= 2 && results.length > 0) {
-                e.preventDefault();
-                selectProduct(results[0]);
-              }
             }}
             sx={{
               width: '100%',
@@ -331,7 +326,7 @@ export default function ExpressStocktake() {
                 <Typography sx={{ px: 2, py: 1, fontSize: '19.2px', color: '#676b72' }}>
                   Start typing to search...
                 </Typography>
-              ) : results.map((r, idx) => (
+              ) : results.map(r => (
                 <Stack
                   key={r.id}
                   direction="row"
@@ -346,8 +341,6 @@ export default function ExpressStocktake() {
                     cursor: 'pointer',
                     fontSize: '19.2px',
                     color: '#676b72',
-                    // The first row is pre-selected: Enter takes it.
-                    ...(idx === 0 ? { bgcolor: 'rgb(139,206,241)', color: 'rgb(248,248,248)', '& span': { color: 'rgb(248,248,248)' } } : {}),
                     '&:hover': {
                       bgcolor: 'rgb(139,206,241)',
                       color: 'rgb(248,248,248)',

@@ -51,7 +51,6 @@ import { stripHtml } from '../../services/posLocalDb';
 import { useAuth } from '../../contexts/AuthContext';
 import ProductDetailView from '../../components/OrdersInvoices/ProductDetailView';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
-import DocumentTotalsSummary from '../../components/StockManagement/DocumentTotalsSummary';
 
 // Shopfront reference button: #5ebbeb, square, h53, fs16 fw400, hover inverts colors over 0.2s
 const sfBtn = {
@@ -2259,7 +2258,6 @@ const EditOrder = () => {
       {/* Search Bar - attached row: input + New Product + All Suppliers (reference parity) */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <Autocomplete
-          autoHighlight
           freeSolo
           // Controlled: uncontrolled MUI kept the picked option's label in the box
           // after the product was added (searchTerm was cleared, the input was not),
@@ -2681,34 +2679,84 @@ const EditOrder = () => {
         )}
       </Box>
 
-      {/* Totals at the bottom right, laid out like the sell screen's sale summary:
-          Cases / Items / Products and the money breakdown, the Total big beside them. */}
-      <DocumentTotalsSummary
-        cases={selectedProducts.reduce((sum, product) => sum + ((productQuantities[product.id] || {}).cases || 0), 0)}
-        // Loose items only (reference parity: Cases and Items are independent sums)
-        items={selectedProducts.reduce((sum, product) => sum + ((productQuantities[product.id] || {}).items || 0), 0)}
-        products={selectedProducts.length}
-        total={displayGrandTotal()}
-        pending={landedPending && landedHasAdjustments}
-        lines={landedHasAdjustments && landed ? [
-          { label: 'Products', value: landed.subtotal },
-          { label: 'Fees', value: landed.fees },
-          { label: 'Freight', value: landed.freight },
-          { label: 'Discount', value: landed.discount, sign: '-' },
-          ...(landed.taxAddedOnTop ? [{ label: 'Tax', value: landed.tax }] : []),
-        ] : []}
-        notes={landedHasAdjustments && landed && !landedPending ? [
-          // Freight billed by an outside carrier ("Freight is included on supplier
-          // invoice" off): not in this order's total, but in the products' cost
-          Math.abs(landed.freightOffInvoice || 0) >= 0.005
-            ? `Freight ${formatCurrency(landed.freightOffInvoice)} is not on this supplier's invoice: left out of the Total, added to the product cost`
-            : null,
-          // Payment fee: on top of the invoice, not part of the Total (reference shows it in its own box)
-          Math.abs(landed.paymentFees || 0) >= 0.005
-            ? `Payment fees ${landed.paymentFeePercentage}%: ${formatCurrency(landed.paymentFees)} · Total when received: ${formatCurrency(landed.total)}`
-            : null,
-        ] : []}
-      />
+      {/* Footer Summary Bar - Orange with Cases, Items, Total */}
+      <Box sx={{ backgroundColor: '#ff9800', color: 'white', p: 2, mt: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={4}>
+            <TextField
+              type="number"
+              size="small"
+              value={selectedProducts.reduce((sum, product) => {
+                const quantities = productQuantities[product.id] || { cases: 0, items: 0 };
+                return sum + (quantities.cases || 0);
+              }, 0)}
+              label="Cases"
+              InputProps={{ readOnly: true }}
+              sx={{ backgroundColor: 'white' }}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={4}>
+            <TextField
+              type="number"
+              size="small"
+              value={selectedProducts.reduce((sum, product) => {
+                // Loose items only (reference parity: Cases and Items are independent sums)
+                const quantities = productQuantities[product.id] || { cases: 0, items: 0 };
+                return sum + (quantities.items || 0);
+              }, 0)}
+              label="Items"
+              InputProps={{ readOnly: true }}
+              sx={{ backgroundColor: 'white' }}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={4}>
+            <TextField
+              value={formatCurrency(displayGrandTotal()).replace('$', '')}
+              label="Total"
+              InputProps={{ readOnly: true }}
+              sx={{ backgroundColor: 'white', '& input': landedFigureSx }}
+              fullWidth
+            />
+          </Grid>
+          {/* While the new figures are on their way, say so instead of showing the old sum */}
+          {landedPending && landedHasAdjustments && (
+            <Grid item xs={12}>
+              <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>Updating total…</Typography>
+            </Grid>
+          )}
+          {/* Where the total comes from - only when fees/freight/discount/payment fee apply */}
+          {landedHasAdjustments && !landedPending && (
+            <Grid item xs={12}>
+              <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                Products {formatCurrency(landed.subtotal)}
+                {landed.fees ? ` + Fees ${formatCurrency(landed.fees)}` : ''}
+                {landed.freight ? ` + Freight ${formatCurrency(landed.freight)}` : ''}
+                {landed.discount ? ` − Discount ${formatCurrency(landed.discount)}` : ''}
+                {landed.taxAddedOnTop && landed.tax ? ` + Tax ${formatCurrency(landed.tax)}` : ''}
+                {' = '}
+                <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landedInvoiceTotal)}</Box>
+              </Typography>
+              {/* Freight billed by an outside carrier ("Freight is included on supplier
+                  invoice" off): not in this order's total, but in the products' cost */}
+              {Math.abs(landed.freightOffInvoice || 0) >= 0.005 && (
+                <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                  Freight {formatCurrency(landed.freightOffInvoice)} is not on this supplier&apos;s invoice: left out of the Total, added to the product cost
+                </Typography>
+              )}
+              {/* Payment fee: on top of the invoice, not part of the Total (reference shows it in its own box) */}
+              {Math.abs(landed.paymentFees || 0) >= 0.005 && (
+                <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                  Payment fees {landed.paymentFeePercentage}%: {formatCurrency(landed.paymentFees)}
+                  {' · Total when received: '}
+                  <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landed.total)}</Box>
+                </Typography>
+              )}
+            </Grid>
+          )}
+        </Grid>
+      </Box>
 
       {/* Save Buttons */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2, mb: 3 }}>

@@ -131,7 +131,6 @@ import paymentMethodService, { allowsCashOut, getPaymentMethodSettings } from '.
 import loyaltyService from '../services/loyaltyService';
 import cashManagementService from '../services/cashManagementService';
 import { tiersKey, groupFamilyLines, chooseFamilyPricing, bestRateTier, highMixPrice, matchPricePoints } from '../utils/familyOverride';
-import { rankProducts } from '../utils/searchRank';
 import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
@@ -1791,16 +1790,14 @@ const SaleKeyPage = () => {
     }
 
     // Cached rows win on id: they carry the enrichment the catalog sync adds.
-    const mergedRows = [...products];
+    const merged = [...products];
     const seenIds = new Set(products.map((p) => p.id));
     apiProducts.forEach((p) => {
       if (p?.id != null && !seenIds.has(p.id)) {
         seenIds.add(p.id);
-        mergedRows.push(p);
+        merged.push(p);
       }
     });
-    // One best-match-first order across both sources (utils/searchRank.js).
-    const merged = rankProducts(mergedRows, term);
 
     setSearchResults({ products: merged, customers });
     setShowSearchResults(true);

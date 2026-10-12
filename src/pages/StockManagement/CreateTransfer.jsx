@@ -247,32 +247,21 @@ const CreateTransfer = () => {
     internalNotes: '',
   });
 
-  // Keyed on the user's id: the auth user object is replaced on refresh, and
-  // keying on the object loaded the whole form twice (transferees fetched twice).
   useEffect(() => {
     if (user) {
       loadInitialData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user]);
 
   const loadInitialData = async () => {
     try {
       setLoading(true);
       setError('');
 
-      // The four loads are independent: fetched together, not one after the
-      // other (each is a round trip to the remote DB, ~1-2s - one by one they
-      // held the form back ~5s). Each keeps its own fallback on failure.
-      const [outletsResp, transfereesResp, suppliersResp, numberResp] = await Promise.all([
-        outletService.getAllOutlets().catch((err) => { console.error('Error loading outlets:', err); return null; }),
-        transfereeService.getTransferees({ activeOnly: true }).catch((err) => { console.error('Error loading transferees:', err); return null; }),
-        // Vendor connections (suppliers you can transfer to)
-        supplierService.getSuppliers().catch((err) => { console.error('Error loading vendor connections:', err); return null; }),
-        orderInvoiceService.generateOrderNumber('TRANSFER').catch((err) => { console.error('Error generating transfer number:', err); return null; }),
-      ]);
-
-      if (outletsResp) {
+      // Load outlets
+      try {
+        const outletsResp = await outletService.getAllOutlets();
         const all = outletsResp.outlets || [];
         setOutlets(all);
         if (user?.isSuperAdmin && all.length > 0) {
@@ -280,10 +269,34 @@ const CreateTransfer = () => {
         } else if (user?.outletId) {
           setFormData(prev => ({ ...prev, fromOutletId: String(user.outletId) }));
         }
+      } catch (err) {
+        console.error('Error loading outlets:', err);
       }
-      if (transfereesResp) setTransferees(transfereesResp.transferees || []);
-      if (suppliersResp) setVendors(suppliersResp.suppliers || []);
-      setTransferNumber(numberResp?.orderNumber || `TRF-${Date.now()}`);
+
+      // Load transferees
+      try {
+        const transfereesResp = await transfereeService.getTransferees({ activeOnly: true });
+        setTransferees(transfereesResp.transferees || []);
+      } catch (err) {
+        console.error('Error loading transferees:', err);
+      }
+
+      // Load vendor connections (suppliers you can transfer to)
+      try {
+        const suppliersResp = await supplierService.getSuppliers();
+        setVendors(suppliersResp.suppliers || []);
+      } catch (err) {
+        console.error('Error loading vendor connections:', err);
+      }
+
+      // Generate transfer number
+      try {
+        const resp = await orderInvoiceService.generateOrderNumber('TRANSFER');
+        setTransferNumber(resp.orderNumber);
+      } catch (err) {
+        console.error('Error generating transfer number:', err);
+        setTransferNumber(`TRF-${Date.now()}`);
+      }
     } catch {
       setError('Failed to load initial data');
     } finally {
