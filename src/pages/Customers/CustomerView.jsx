@@ -62,6 +62,7 @@ import paymentService from "../../services/paymentService";
 import paymentMethodService from "../../services/paymentMethodService";
 import registerService from "../../services/registerService";
 import salesService from "../../services/salesService";
+import settingsService from "../../services/settingsService";
 import { emailSaleReceipt } from '../../services/receiptEmailSender';
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import PrintReceiptDialog from "../../components/PrintReceiptDialog";
@@ -117,6 +118,9 @@ const menuItemSx = {
 };
 import { saleOutstanding, INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
 import { useAppDialogs } from "../../components/Common/AppDialogProvider";
+
+const customerInvoiceNumber = (sale) =>
+  settingsService.padInvoice(sale?.invoiceNumber, sale?.invoiceSuffix) || sale?.saleNumber || "-";
 
 const CustomerView = () => {
   const { id } = useParams();
@@ -721,7 +725,7 @@ const CustomerView = () => {
                               hour12: false,
                             })}
                           </TableCell>
-                          <TableCell>{sale.saleNumber || "-"}</TableCell>
+                          <TableCell>{customerInvoiceNumber(sale)}</TableCell>
                           <TableCell>{sale.user?.name || "-"}</TableCell>
                           <TableCell>
                             {formatCurrency(sale.totalAmount || 0)}
@@ -790,7 +794,7 @@ const CustomerView = () => {
                       {payments.map((payment) => (
                         <TableRow key={`payment-${payment.id}`}>
                           <TableCell>{formatDateTime(payment.createdAt)}</TableCell>
-                          <TableCell>{payment.sale?.saleNumber || "-"}</TableCell>
+                          <TableCell>{customerInvoiceNumber(payment.sale)}</TableCell>
                           <TableCell>{payment.sale?.user?.name || "-"}</TableCell>
                           <TableCell>{payment.paymentMethod || "-"}</TableCell>
                           <TableCell>{formatCurrency(payment.amount || 0)}</TableCell>
@@ -910,7 +914,7 @@ const CustomerView = () => {
                               {formatDateTime(sale.saleDate)}
                             </Typography>
                             <Typography variant="caption" color="primary">
-                              {sale.saleNumber || "-"}
+                              {customerInvoiceNumber(sale)}
                             </Typography>
                           </Box>
 
@@ -999,7 +1003,7 @@ const CustomerView = () => {
                                   variant="caption"
                                   color="text.secondary"
                                 >
-                                  {sale.saleNumber || "-"}
+                                  {customerInvoiceNumber(sale)}
                                 </Typography>
                               </Box>
                               <Typography variant="body2">
@@ -1020,18 +1024,16 @@ const CustomerView = () => {
                           </Box>
 
                           {/* Summary row with buttons on right */}
-                          <Box sx={{ display: "flex", gap: 3, alignItems: "flex-start", flexDirection: { xs: "column", md: "row" } }}>
+                          <Box sx={{ display: "flex", gap: 3, alignItems: "center", flexDirection: { xs: "column", md: "row" } }}>
                             <Box
                               sx={{
                                 flex: 1,
                                 width: "100%",
                                 minWidth: 0,
                                 display: "grid",
-                                gridTemplateColumns:
-                                  { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-                                columnGap: 4,
-                                rowGap: 2,
-                                "& > div": { gap: 2, alignItems: "baseline" },
+                                gridTemplateColumns: "1fr",
+                                rowGap: 1,
+                                "& > div": { display: "grid", gridTemplateColumns: "90px max-content", gap: 1, alignItems: "baseline", justifyContent: "flex-start" },
                                 "& > div > :last-child": { whiteSpace: "nowrap", flexShrink: 0 },
                               }}
                             >
@@ -1730,7 +1732,7 @@ const CustomerView = () => {
                     {outstandingSales.filter((sale) => !sale.isCredit).map((sale) => (
                       <TableRow key={`pay-${sale.id}`}>
                         <TableCell>{formatDateTime(sale.saleDate)}</TableCell>
-                        <TableCell>{sale.saleNumber || "-"}</TableCell>
+                        <TableCell>{customerInvoiceNumber(sale)}</TableCell>
                         <TableCell>{sale.user?.name || "-"}</TableCell>
                         <TableCell>{formatCurrency(sale.totalAmount || 0)}</TableCell>
                         <TableCell>{formatCurrency(sale.outstandingAmount || 0)}</TableCell>
