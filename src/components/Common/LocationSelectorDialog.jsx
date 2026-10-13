@@ -147,7 +147,7 @@ const LocationSelectorDialog = () => {
           </Box>
         )}
         <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
-          Location Selector
+          Register Selector
         </Typography>
         <Typography sx={{ fontSize: 16, fontWeight: 400, mb: '16px' }}>
           Please select which location best describes where your device is located.
