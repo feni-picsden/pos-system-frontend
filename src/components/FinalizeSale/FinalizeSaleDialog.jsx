@@ -8,7 +8,7 @@ import {
   Chip,
   IconButton,
 } from '@mui/material';
-import { Add as AddIcon, BackspaceOutlined, DeleteOutline } from '@mui/icons-material';
+import { Add as AddIcon, BackspaceOutlined, DeleteOutline, Close } from '@mui/icons-material';
 import LoyaltyPaymentDialog from '../Loyalty/LoyaltyPaymentDialog';
 import PayByCardDialog from '../Payment/PayByCardDialog';
 import CashOutDialog from '../Payment/CashOutDialog';
@@ -488,15 +488,15 @@ const FinalizeSaleDialog = ({
         <Box sx={{ flex: 1, minWidth: 0, display: 'block', p: 0, overflowY: 'auto', bgcolor: 'white', border: '1px solid #000' }}>
           {/* Title — spans the full panel width, collapsing 19.92px margins */}
           <Typography component="h2" sx={{ m: '19.92px 0 19.92px 0', fontSize: 24, fontWeight: 'bold', lineHeight: 'normal', letterSpacing: 'normal', color: '#000', textAlign: 'center' }}>
-            Finalize Sale
+            Finalise Sale
           </Typography>
 
           {/* Amount row + keypad share ONE bordered box (reference parity). The card's
               bottom line is drawn by the row-4 keypad hairlines, not by the card. */}
           <Box sx={{ width: 400, maxWidth: '100%', bgcolor: 'white', borderTop: '1px solid #000', borderRight: '1px solid #000', borderLeft: '1px solid #000', borderBottom: 0, borderRadius: 0, m: '16px auto 16px auto' }}>
             {/* Amount row: '$' prefix + borderless editable input, bottom border only */}
-            <Box sx={{ display: 'flex', alignItems: 'center', height: 91, borderBottom: '1px solid #000', p: 0 }}>
-              <Box component="span" sx={{ fontSize: '26.91px', lineHeight: 'normal', letterSpacing: 'normal', fontWeight: 400, color: '#000', mr: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 91, borderBottom: '1px solid #000', px: 2, boxSizing: 'border-box' }}>
+              <Box component="span" sx={{ fontFamily: 'inherit', fontSize: '26.91px', lineHeight: 1.25, letterSpacing: 'normal', fontWeight: 400, color: '#000', mr: 1.5, flexShrink: 0 }}>
                 $
               </Box>
               <Box
@@ -521,7 +521,7 @@ const FinalizeSaleDialog = ({
                   bgcolor: 'transparent',
                   fontFamily: 'inherit',
                   fontSize: '26.91px',
-                  lineHeight: 'normal',
+                  lineHeight: 1.25,
                   letterSpacing: 'normal',
                   fontWeight: 400,
                   color: '#000',
@@ -529,6 +529,18 @@ const FinalizeSaleDialog = ({
                   p: 0,
                 }}
               />
+              {paymentAmount !== '' && (
+                <IconButton
+                  aria-label="Clear payment amount"
+                  onClick={() => {
+                    setPaymentAmount('');
+                    amountInputRef.current?.focus();
+                  }}
+                  sx={{ color: 'error.main', flexShrink: 0 }}
+                >
+                  <Close fontSize="small" />
+                </IconButton>
+              )}
             </Box>
 
             {/* Keypad: continuous 3-col grid, hairline separators in currentColor */}
@@ -608,7 +620,7 @@ const FinalizeSaleDialog = ({
           {/* Payment Method Buttons: 6-col grid, 16px gap, 16px padding, auto-sized rows.
               No inner scroll container — the panel above is what scrolls. */}
           <Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, p: 2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gridAutoRows: 'auto', gap: 2, p: 2 }}>
               {visiblePaymentMethods.map((method, index) => {
                 // "Default to Pay Exact" (Setup > Payment Methods) is the only thing
                 // that decides this: whether the method can be used without specifying
