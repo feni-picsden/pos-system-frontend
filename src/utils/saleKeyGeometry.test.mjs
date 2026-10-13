@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { parse } from '@babel/parser';
 import { saleKeyGeometry, pointerCellDelta, canPlaceSaleKey, moveSaleKey } from './saleKeyGeometry.js';
+import { saleKeyCanvasSx } from './saleKeyCanvas.js';
 
 const grid = { cols: 6, rows: 6 };
 const bounds = { width: 1200, height: 600 };
@@ -48,6 +49,17 @@ function nodes(source) {
   return all;
 }
 const editorNodes = nodes(editor);
+test('POS and both setup canvases resolve to identical viewport dimensions', () => {
+  const legacy = fs.readFileSync(new URL('../pages/Setup/SaleKey.jsx', import.meta.url), 'utf8');
+  for (const source of [sales, editor, legacy]) {
+    const style = nodes(source).find(node => node.type === 'ObjectExpression' &&
+      node.properties.some(p => p.type === 'SpreadElement' && p.argument.name === 'saleKeyCanvasSx'));
+    assert.ok(style, 'shared canvas dimensions are applied');
+    const resolved = vm.runInNewContext(`(${source.slice(style.start, style.end)})`, { saleKeyCanvasSx });
+    assert.equal(resolved.width, saleKeyCanvasSx.width);
+    assert.equal(resolved.height, saleKeyCanvasSx.height);
+  }
+});
 function callback(name, context) {
   let node = editorNodes.find(node => node.type === 'VariableDeclarator' && node.id.name === name).init;
   if (node.type === 'CallExpression') node = node.arguments[0];

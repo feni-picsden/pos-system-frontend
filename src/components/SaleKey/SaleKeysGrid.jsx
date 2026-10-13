@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Grid } from '@mui/material';
 import SaleKeyTileContent from './SaleKeyTileContent';
 import { isDisplayOnlyKey } from '../../utils/saleKeyDisplay';
+import { saleKeyCanvasSx } from '../../utils/saleKeyCanvas';
 
 // Actions that operate on the current sale: the reference gives ALL of these a
 // not-allowed cursor (and ignores the click) while the sale is idle/empty,
@@ -37,8 +38,7 @@ const SaleKeysGrid = ({
     <Grid 
       container 
       sx={{ 
-        height: '100%',
-        position: 'relative',
+        ...saleKeyCanvasSx,
       }}
     >
       {(Array.isArray(saleKeyConfig.saleKeys) ? saleKeyConfig.saleKeys : []).map((saleKey) => {

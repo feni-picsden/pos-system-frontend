@@ -39,7 +39,6 @@ import {
   ColorLens,
   Image as ImageIcon,
   DragIndicator,
-  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { ChromePicker } from 'react-color';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
@@ -49,6 +48,8 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { productOptionLabel } from '../../utils/productOptionLabel';
 import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
+import { saleKeyCanvasSx, saleKeyPreviewPanelSx } from '../../utils/saleKeyCanvas';
+import SaleKeyPreviewTabs from '../../components/SaleKey/SaleKeyPreviewTabs';
 import { saleKeyGeometry, pointerCellDelta, canPlaceSaleKey, moveSaleKey } from '../../utils/saleKeyGeometry';
 import { DEFAULT_PREVIOUS_DATE_FORMAT, DEFAULT_TIME_FORMAT } from '../../utils/saleKeyDisplay';
 import productService from '../../services/productService';
@@ -725,11 +726,11 @@ const SaleKeyEditor = () => {
       
       if (currentSet?.id) {
         // Update existing sale key set
-        await saleKeyService.updateSaleKeySet(currentSet.id, { config });
+        await saleKeyService.updateSaleKeySet(currentSet.id, { config, ...(currentSet.name?.trim() ? { name: currentSet.name.trim() } : {}) });
       } else {
         // Create new sale key set
         const newSet = await saleKeyService.createSaleKeySet({
-          name: 'Custom Sale Keys',
+          name: currentSet?.name?.trim() || 'Custom Sale Keys',
           description: 'Custom sale key configuration',
           isActive: true,
           isDefault: false,
@@ -1033,7 +1034,7 @@ const SaleKeyEditor = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', height: '93vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', gap: '8px', p: '8px', pt: '58px', boxSizing: 'border-box', bgcolor: '#f5f5f5' }}>
       {/* Header */}
       <Box
         sx={{
@@ -1041,46 +1042,33 @@ const SaleKeyEditor = () => {
           top: 0,
           left: 0,
           right: 0,
-          height: 60,
-          bgcolor: '#424242',
-          color: 'white',
+          height: 50,
+          bgcolor: '#fff',
+          color: '#000',
           display: 'flex',
           alignItems: 'center',
-          px: 3,
+          px: '14px',
           zIndex: 1000,
         }}
       >
-        <IconButton component={RouterLink} to={'/setup/sale-key-sets'} sx={{ color: 'white' }}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h6" sx={{ ml: 2 }}>Modify Sale Key -</Typography>
-        <TextField
-          variant="standard"
-          value={currentSet?.name || ''}
-          placeholder="Layout name"
-          onChange={(e) => setCurrentSet((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
-          onBlur={async () => {
-            const name = currentSet?.name?.trim();
-            if (currentSet?.id && name) {
-              try {
-                await saleKeyService.updateSaleKeySet(currentSet.id, { name });
-              } catch (err) {
-                console.error('Failed to save layout name:', err);
-              }
-            }
-          }}
-          sx={{
-            ml: 1,
-            '& .MuiInput-input': { color: 'white', fontSize: '1.25rem', fontWeight: 500 },
-            '& .MuiInput-underline:before': { borderBottomColor: 'rgba(255,255,255,0.4)' },
-            '& .MuiInput-underline:hover:before': { borderBottomColor: 'rgba(255,255,255,0.7)' },
-            '& .MuiInput-underline:after': { borderBottomColor: 'white' },
-          }}
-        />
+        <Typography sx={{ fontSize: 22, fontWeight: 400 }}>Modify Sale Key</Typography>
       </Box>
 
       {/* Main Content Area */}
-      <Box sx={{ flex: 1, mt: 1, p: 3 }}>
+      <Box sx={saleKeyPreviewPanelSx}>
+        <Typography
+          component="h1"
+          sx={{
+            m: 0, minHeight: 50, boxSizing: 'border-box', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            px: 2, py: 1, bgcolor: '#fff', color: '#000',
+            fontSize: 16, fontWeight: 700, textAlign: 'center',
+            whiteSpace: 'normal', overflowWrap: 'anywhere',
+            borderBottom: '1px solid #000',
+          }}
+        >
+          {`Modify Sale Key - ${currentSet?.name || 'Loading...'}`}
+        </Typography>
         {loading ? null : error ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 120px)' }}>
             <Alert severity="error" sx={{ maxWidth: 600 }}>
@@ -1090,7 +1078,9 @@ const SaleKeyEditor = () => {
         ) : (
           <Paper
             sx={{
-              height: 'calc(100vh - 120px)',
+              ...saleKeyCanvasSx,
+              borderRadius: 0,
+              boxShadow: 'none',
               bgcolor: 'white',
               position: 'relative',
               overflow: 'hidden',
@@ -1220,25 +1210,28 @@ const SaleKeyEditor = () => {
           </Box>
         </Paper>
         )}
+        {!loading && !error && <SaleKeyPreviewTabs />}
       </Box>
 
       {/* Right Sidebar */}
       {!loading && !error && (
         <Box
           sx={{
-            width: 350,
+            flex: '1 1 0',
+            minWidth: 300,
+            boxSizing: 'border-box',
             bgcolor: 'white',
-            borderLeft: '1px solid #e0e0e0',
+            border: '1px solid #000',
             p: 2,
             overflowY: 'auto',
-            mt: 2,
+            minHeight: 0,
           }}
         >
         {/* Grid Configuration */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Grid Configuration</Typography>
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={6}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Box>
               <NumberField
                 int
                 fallback={6}
@@ -1249,8 +1242,9 @@ const SaleKeyEditor = () => {
                 inputProps={{ min: 1, max: 12 }}
                 size="small"
               />
-            </Grid>
-            <Grid item xs={6}>
+            </Box>
+              <Typography aria-hidden="true" sx={{ fontSize: 22, fontWeight: 500 }}>×</Typography>
+            <Box>
               <NumberField
                 int
                 fallback={6}
@@ -1261,8 +1255,8 @@ const SaleKeyEditor = () => {
                 inputProps={{ min: 1, max: 12 }}
                 size="small"
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </Box>
 
         {/* Key Management Buttons */}
@@ -1854,7 +1848,7 @@ const SaleKeyEditor = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1,
-                '& .MuiFormControlLabel-root': { m: 0, gap: 1.5, alignItems: 'center' },
+                '& .MuiFormControlLabel-root': { m: 0, gap: 1.5, alignItems: 'center', flexDirection: 'row-reverse', justifyContent: 'space-between', width: '100%' },
                 '& .MuiSwitch-root': { flexShrink: 0 },
                 '& .MuiFormControlLabel-label': { lineHeight: '24px' },
               }}>
@@ -1933,8 +1927,8 @@ const SaleKeyEditor = () => {
             {/* Size Section */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Size</Typography>
-              <Grid container spacing={2}>
-                                 <Grid item xs={6}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', alignItems: 'center', gap: 1, mb: 2 }}>
+                                 <Box>
                    <NumberField
                      int
                      fallback={1}
@@ -1945,8 +1939,9 @@ const SaleKeyEditor = () => {
                      inputProps={{ min: 1, max: gridSize.cols }}
                      size="small"
                    />
-                 </Grid>
-                 <Grid item xs={6}>
+                 </Box>
+              <Typography aria-hidden="true" sx={{ fontSize: 22, fontWeight: 500 }}>×</Typography>
+                 <Box>
                    <NumberField
                      int
                      fallback={1}
@@ -1957,8 +1952,8 @@ const SaleKeyEditor = () => {
                      inputProps={{ min: 1, max: gridSize.rows }}
                      size="small"
                    />
-                 </Grid>
-              </Grid>
+                 </Box>
+              </Box>
               <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block' }}>
                 Drag any of the 8 resize handles to resize visually
               </Typography>
@@ -2061,7 +2056,7 @@ const SaleKeyEditor = () => {
                   flexDirection: 'column',
                   gap: 1,
                   mb: 1,
-                  '& .MuiFormControlLabel-root': { display: 'flex', m: 0, gap: 1.5, alignItems: 'center' },
+                  '& .MuiFormControlLabel-root': { display: 'flex', m: 0, gap: 1.5, alignItems: 'center', flexDirection: 'row-reverse', justifyContent: 'space-between', width: '100%' },
                   '& .MuiSwitch-root': { flexShrink: 0 },
                   '& .MuiFormControlLabel-label': { lineHeight: '24px' },
                 }}>
@@ -2182,16 +2177,26 @@ const SaleKeyEditor = () => {
       <Snackbar
         key={snackbar.nonce}
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={1500}
         // Ignore "clickaway": the click that adds the next key landed outside the
         // toast and closed it instantly, so every second add showed no message.
         onClose={(event, reason) => {
           if (reason === 'clickaway') return;
           setSnackbar({ ...snackbar, open: false });
         }}
-        // Top centre: the default bottom-left corner sat under the grid, so a
-        // message about the key you just placed appeared furthest from it.
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        // Override both mobile and desktop anchor styles to keep the toast centred.
+        sx={{
+          top: { xs: 58, sm: 58 },
+          left: { xs: '50%', sm: '50%' },
+          right: { xs: 'auto', sm: 'auto' },
+          bottom: { xs: 'auto', sm: 'auto' },
+          transform: { xs: 'translateX(-50%)', sm: 'translateX(-50%)' },
+          width: 'max-content',
+          maxWidth: 'calc(100vw - 32px)',
+          '& .MuiAlert-root': { maxWidth: '100%', boxSizing: 'border-box' },
+          '& .MuiAlert-message': { overflowWrap: 'anywhere' },
+        }}
       >
         <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}
