@@ -18,7 +18,7 @@ const useNow = (action) => {
 };
 
 /**
- * The inside of a sale key: artwork, then the name, then the price or - for a
+ * The inside of a sale key: artwork with a centered name overlay, then the price or - for a
  * key that only shows something (time, legal-age date, info text) - that value.
  * Like the reference, a key without artwork is text only: no stand-in icon.
  *
@@ -76,16 +76,16 @@ const SaleKeyTileContent = ({ saleKey }) => {
             // any edge whatever shape the artwork is.
             objectFit: 'cover',
           } : {
-            // The elastic part of the tile: the text keeps its natural size and
-            // the artwork gives up whatever room the name and price need, so a
-            // long label can never crush it or push it outside the key.
-            flex: '1 1 auto',
-            minWidth: 0,
-            minHeight: 0,
+            // Artwork is independent of the overlaid label. Turning a constraint
+            // off allows its natural dimension; the tile still clips overflow.
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
             width: saleKey.constrainImageWidth !== false ? '100%' : 'auto',
             height: saleKey.constrainImageHeight !== false ? '100%' : 'auto',
-            maxWidth: '100%',
-            maxHeight: '100%',
+            maxWidth: saleKey.constrainImageWidth !== false ? '100%' : 'none',
+            maxHeight: saleKey.constrainImageHeight !== false ? '100%' : 'none',
             objectFit: 'contain',
           }}
         />
@@ -107,6 +107,13 @@ const SaleKeyTileContent = ({ saleKey }) => {
             // Keeps the label above a filled image, which is out of flow.
             position: 'relative',
             zIndex: 1,
+            ...(saleKey.image ? {
+              position: 'absolute',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              left: '8px',
+              right: '8px',
+            } : {}),
           }}
         >
           {isPaymentKey && amount && (

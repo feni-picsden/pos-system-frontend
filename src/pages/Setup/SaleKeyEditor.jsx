@@ -689,10 +689,19 @@ const SaleKeyEditor = () => {
       <Typography variant="body2" sx={{ mb: 1 }}>{label}</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Box
+          component="button"
+          type="button"
+          aria-label={`Choose ${label}`}
+          onClick={() => {
+            setColorPickerType(propKey);
+            setShowColorPicker(true);
+          }}
           sx={{
             width: 24,
             height: 24,
             flexShrink: 0,
+            p: 0,
+            cursor: 'pointer',
             bgcolor: selectedKey?.[propKey],
             border: '1px solid #404040',
             borderRadius: '4px',
