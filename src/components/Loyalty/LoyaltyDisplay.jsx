@@ -20,7 +20,9 @@ import loyaltyService from '../../services/loyaltyService';
 const LoyaltyDisplay = ({ 
   customer, 
   items, 
-  outletId, 
+  outletId,
+  loyaltyPaid = 0,
+  compact = false,
   onLoyaltyCalculated,
   onRedemptionApplied
 }) => {
@@ -41,13 +43,13 @@ const LoyaltyDisplay = ({
 
   const itemsHash = useMemo(() => {
     if (!items || items.length === 0) return '';
-    return JSON.stringify(items.map(item => ({
+    return JSON.stringify({ customerId: customer?.id, outletId, loyaltyPaid, items: items.map(item => ({
       productId: item.productId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       discount: item.discount
-    })));
-  }, [items]);
+    })) });
+  }, [items, customer?.id, outletId, loyaltyPaid]);
 
   useEffect(() => {
     if (customer?.id) {
@@ -57,14 +59,14 @@ const LoyaltyDisplay = ({
       setLoyaltyInfo(null);
       setRedemptionApplied(null);
     }
-  }, [customer?.id]);
+  }, [customer?.id, outletId]);
 
   useEffect(() => {
     if (calculationTimeoutRef.current) {
       clearTimeout(calculationTimeoutRef.current);
     }
 
-    if (customer?.id && customer?.loyaltyEnabled && items && items.length > 0) {
+    if (customer?.id && (customer?.loyaltyEnabled || customer?.customerGroup?.loyaltyEnabled) && items && items.length > 0) {
       if (itemsHash !== lastItemsHashRef.current) {
         lastItemsHashRef.current = itemsHash;
         calculationTimeoutRef.current = setTimeout(async () => {
@@ -126,7 +128,7 @@ const LoyaltyDisplay = ({
             }
 
             console.log('[Loyalty] Sending items for calculation:', itemsForCalculation);
-            const calculation = await loyaltyService.calculateCartLoyalty(itemsForCalculation, outletId);
+            const calculation = await loyaltyService.calculateCartLoyalty(itemsForCalculation, outletId, loyaltyPaid);
             console.log('[Loyalty] Calculation result:', calculation);
             setLoyaltyInfo(calculation);
             
@@ -159,7 +161,7 @@ const LoyaltyDisplay = ({
 
   const fetchCustomerLoyalty = async () => {
     try {
-      const response = await loyaltyService.getCustomerLoyalty(customer.id);
+      const response = await loyaltyService.getCustomerLoyalty(customer.id, outletId);
       setCustomerLoyalty(response.customer);
     } catch (err) {
       console.error('Error fetching customer loyalty:', err);
@@ -167,7 +169,7 @@ const LoyaltyDisplay = ({
   };
 
   const calculateLoyalty = async () => {
-    if (!customer?.loyaltyEnabled || !items || items.length === 0) {
+    if (!(customer?.loyaltyEnabled || customer?.customerGroup?.loyaltyEnabled) || !items || items.length === 0) {
       return;
     }
 
@@ -259,6 +261,9 @@ const LoyaltyDisplay = ({
     }
   };
 
+  // Keep calculations running while the compact header shows points/value.
+  if (compact) return error ? <Alert severity="error" sx={{ py: 0 }}>{error}</Alert> : null;
+
   // Don't show if no customer selected
   if (!customer) {
     return (
@@ -274,7 +279,7 @@ const LoyaltyDisplay = ({
   }
 
   // Don't show if customer loyalty is disabled
-  if (!customer.loyaltyEnabled) {
+  if (!(customer.loyaltyEnabled || customer.customerGroup?.loyaltyEnabled)) {
     return (
       <Paper elevation={0} square sx={{ px: 2, py: 0.5, bgcolor: 'warning.light', borderBottom: '1px solid #e0e0e0' }}>
         <Typography variant="body2" color="warning.dark" sx={{ fontSize: 12 }}>
@@ -285,7 +290,7 @@ const LoyaltyDisplay = ({
   }
 
   return (
-    <Paper elevation={0} square sx={{ px: 2, py: 0.75, borderBottom: '1px solid #e0e0e0' }}>
+    <Paper elevation={0} square sx={{ px: 2, py: 0.75, borderBottom: '1px solid #000' }}>
       <Box display="flex" alignItems="center" gap={0.75} mb={0.5}>
         <LoyaltyIcon color="primary" sx={{ fontSize: 18 }} />
         <Typography variant="subtitle2" sx={{ lineHeight: 1.2 }}>Loyalty Program</Typography>
@@ -332,7 +337,7 @@ const LoyaltyDisplay = ({
         </Box>
       ) : loyaltyInfo ? (
         <Box>
-          {loyaltyInfo.eligible ? (
+          {loyaltyInfo.eligible || Number(loyaltyInfo.totalEligibleAmount) > 0 ? (
             <>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.25}>
                 <Typography variant="body2" color="text.secondary">

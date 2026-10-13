@@ -2,10 +2,11 @@ import apiClient from './apiClient';
 
 const loyaltyService = {
   // Calculate loyalty for cart items
-  calculateCartLoyalty: async (items, outletId) => {
+  calculateCartLoyalty: async (items, outletId, loyaltyPaid = 0) => {
     const response = await apiClient.post('/loyalty/calculate', {
       items,
-      outletId
+      outletId,
+      loyaltyPaid
     });
     return response.data;
   },
@@ -48,8 +49,10 @@ const loyaltyService = {
   },
 
   // Get customer loyalty info
-  getCustomerLoyalty: async (customerId) => {
-    const response = await apiClient.get(`/loyalty/customer/${customerId}`);
+  getCustomerLoyalty: async (customerId, outletId) => {
+    const response = await apiClient.get(`/loyalty/customer/${customerId}`, {
+      params: outletId == null ? {} : { outletId },
+    });
     return response.data;
   },
 

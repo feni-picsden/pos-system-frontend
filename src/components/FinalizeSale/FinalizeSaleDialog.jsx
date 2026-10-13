@@ -5,7 +5,6 @@ import {
   TextField,
   Button,
   Grid,
-  Chip,
   IconButton,
 } from '@mui/material';
 import { Add as AddIcon, BackspaceOutlined, DeleteOutline, Close } from '@mui/icons-material';
@@ -109,6 +108,7 @@ const FinalizeSaleDialog = ({
   onReturnToSale,
   onCompleteTransaction,
   customerLoyaltyInfo,
+  loyaltyProgramEnabled = false,
   loyaltyCalculation,
   outletId,
 }) => {
@@ -487,16 +487,15 @@ const FinalizeSaleDialog = ({
             its own inset, and the panel itself is the scroll container (reference parity). */}
         <Box sx={{ flex: 1, minWidth: 0, display: 'block', p: 0, overflowY: 'auto', bgcolor: 'white', border: '1px solid #000' }}>
           {/* Title — spans the full panel width, collapsing 19.92px margins */}
-          <Typography component="h2" sx={{ m: '19.92px 0 19.92px 0', fontSize: 24, fontWeight: 'bold', lineHeight: 'normal', letterSpacing: 'normal', color: '#000', textAlign: 'center' }}>
+          <Typography component="h2" sx={{ m: '16px 0', fontSize: 20, fontWeight: 'bold', lineHeight: 'normal', letterSpacing: 'normal', color: '#000', textAlign: 'center' }}>
             Finalise Sale
           </Typography>
 
-          {/* Amount row + keypad share ONE bordered box (reference parity). The card's
-              bottom line is drawn by the row-4 keypad hairlines, not by the card. */}
-          <Box sx={{ width: 400, maxWidth: '100%', bgcolor: 'white', borderTop: '1px solid #000', borderRight: '1px solid #000', borderLeft: '1px solid #000', borderBottom: 0, borderRadius: 0, m: '16px auto 16px auto' }}>
+          {/* Amount and keypad form one connected, square bordered panel. */}
+          <Box sx={{ width: 400, maxWidth: 'calc(100% - 32px)', bgcolor: 'white', border: '1px solid #000', m: '16px auto 24px' }}>
             {/* Amount row: '$' prefix + borderless editable input, bottom border only */}
             <Box sx={{ display: 'flex', alignItems: 'center', height: 91, borderBottom: '1px solid #000', px: 2, boxSizing: 'border-box' }}>
-              <Box component="span" sx={{ fontFamily: 'inherit', fontSize: '26.91px', lineHeight: 1.25, letterSpacing: 'normal', fontWeight: 400, color: '#000', mr: 1.5, flexShrink: 0 }}>
+              <Box component="span" sx={{ fontFamily: 'inherit', fontSize: '26.91px', lineHeight: 1.25, fontWeight: 400, color: '#000', mr: 1.5, flexShrink: 0 }}>
                 $
               </Box>
               <Box
@@ -543,9 +542,8 @@ const FinalizeSaleDialog = ({
               )}
             </Box>
 
-            {/* Keypad: continuous 3-col grid, hairline separators in currentColor */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
-              {keypadButtons.flat().map((key, i) => (
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0 }}>
+              {keypadButtons.flat().map((key, index) => (
                 <Box
                   key={key}
                   component="button"
@@ -560,16 +558,14 @@ const FinalizeSaleDialog = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: 'transparent',
+                    bgcolor: '#fff',
                     color: '#676b72',
                     fontFamily: 'inherit',
                     fontSize: '26.91px',
                     fontWeight: 400,
-                    border: 'none',
-                    // Hairlines are fixed (NOT currentColor) so hover only moves the glyph.
-                    // Row 4 keeps its bottom hairline: it is what closes the card.
-                    borderRight: i % 3 < 2 ? '1px solid #676b72' : 'none',
-                    borderBottom: '1px solid #676b72',
+                    border: 0,
+                    borderRight: index % 3 < 2 ? '1px solid #000' : 0,
+                    borderBottom: index < 9 ? '1px solid #000' : 0,
                     borderRadius: 0,
                     cursor: 'pointer',
                     p: 0,
@@ -620,7 +616,7 @@ const FinalizeSaleDialog = ({
           {/* Payment Method Buttons: 6-col grid, 16px gap, 16px padding, auto-sized rows.
               No inner scroll container — the panel above is what scrolls. */}
           <Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gridAutoRows: 'auto', gap: 2, p: 2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))', lg: 'repeat(7, minmax(0, 1fr))' }, gridAutoRows: 'auto', gap: '12px', p: '0 12px 16px' }}>
               {visiblePaymentMethods.map((method, index) => {
                 // "Default to Pay Exact" (Setup > Payment Methods) is the only thing
                 // that decides this: whether the method can be used without specifying
@@ -638,12 +634,14 @@ const FinalizeSaleDialog = ({
                 // Setup > Payment Methods > "Payment Button Background / Text
                 // Colour" (hex). Unset or invalid = the plain white/black tile.
                 const hex = (v) => (/^#[0-9a-fA-F]{6}$/.test(String(v || '')) ? v : null);
-                const tileBg = hex(methodSettings.buttonBackgroundColour);
+                const isAccountOrLoyalty = [method.name, method.type].some(value =>
+                  ['on account', 'loyalty'].includes(String(value || '').trim().toLowerCase()));
+                const tileBg = hex(methodSettings.buttonBackgroundColour) || (isAccountOrLoyalty ? '#e5e7eb' : null);
                 const tileFg = hex(methodSettings.buttonTextColour);
                 return (
                   <Button
                     key={method.id || index}
-                    disabled={needsOrderRef || amountLocked}
+                    disabled={needsOrderRef || amountLocked || ((method.name?.toLowerCase() === 'loyalty' || method.type?.toLowerCase() === 'loyalty') && !(customerLoyaltyInfo?.loyaltyPoints > 0))}
                     onClick={() => {
                       if (method.type === 'Gift Card' || method.name === 'Vii Gift Card') {
                         onSelectPaymentMethod(method);
@@ -669,13 +667,15 @@ const FinalizeSaleDialog = ({
                     }}
                     sx={{
                       display: 'block',
+                      minWidth: 0,
+                      minHeight: 72,
                       p: 2,
                       textTransform: 'none',
                       border: '1px solid currentColor',
                       bgcolor: tileBg || 'transparent',
                       color: tileFg || '#000',
                       borderRadius: 0,
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: 400,
                       lineHeight: 'normal',
                       letterSpacing: 'normal',
@@ -688,7 +688,8 @@ const FinalizeSaleDialog = ({
                       // Amount-locked tiles look identical to enabled ones (reference);
                       // the order-reference gate keeps its greyed affordance.
                       '&.Mui-disabled': {
-                        color: amountLocked && !needsOrderRef ? '#000' : '#737373',
+                        bgcolor: method.name?.toLowerCase() === 'loyalty' || method.type?.toLowerCase() === 'loyalty' ? '#e5e7eb' : tileBg || 'transparent',
+                        color: isAccountOrLoyalty || (amountLocked && !needsOrderRef) ? '#000' : '#737373',
                         borderColor: '#000',
                         cursor: amountLocked && !needsOrderRef ? 'pointer' : 'default',
                       },
@@ -698,6 +699,25 @@ const FinalizeSaleDialog = ({
                   </Button>
                 );
               })}
+            </Box>
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, px: 1.5, pb: 2 }}>
+              {selectedCustomer && eff.allowAccountSales && (
+                <Box sx={{ fontSize: 12 }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, mb: .5 }}>Account Customer Details</Typography>
+                  <Typography sx={{ fontSize: 12 }}>Account Balance: {formatMoney(Number(selectedCustomer.currentOwing) || 0)}</Typography>
+                  {selectedCustomer.accountLimit > 0 && <Typography sx={{ fontSize: 12 }}>Account Limit: {formatMoney(selectedCustomer.accountLimit)}</Typography>}
+                </Box>
+              )}
+              {loyaltyProgramEnabled && customerLoyaltyInfo?.loyaltyEnabled && (
+                <Box sx={{ ml: 'auto', textAlign: 'right' }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, mb: .5 }}>Loyalty Customer Details</Typography>
+                  <Typography sx={{ fontSize: 12 }}>Customer Loyalty Points: {customerLoyaltyInfo.loyaltyPoints || 0}</Typography>
+                  <Typography sx={{ fontSize: 12 }}>Customer Loyalty Value: {formatMoney(customerLoyaltyInfo.redemptionValue || 0)}</Typography>
+                  <Typography sx={{ fontSize: 12 }}>Loyalty Earned This Sale: {loyaltyCalculation?.totalPointsEarned || 0}</Typography>
+                  <Typography sx={{ fontSize: 12 }}>Points to Redeem Sale: {Math.ceil(Math.max(0, Number(total) || 0) * (Number(customerLoyaltyInfo.redemptionRate) || 0))}</Typography>
+                </Box>
+              )}
             </Box>
 
             {/* Pay Exact Amount Button */}
@@ -737,117 +757,42 @@ const FinalizeSaleDialog = ({
           border: '1px solid #000',
           overflow: 'hidden'
         }}>
-          {/* Add Customer — same row as the sell screen (CartSidebar): 75px, 1px black
-              bottom border, 16px plus glyph + 18.72px/700 h3, no hover delta. */}
-          <Box
-            component="button"
-            type="button"
-            onClick={onAddCustomer}
-            sx={{
-              height: 75,
-              boxSizing: 'border-box',
-              flexShrink: 0,
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              px: 2,
-              borderBottom: '1px solid #000',
-              borderTop: 'none',
-              borderLeft: 'none',
-              borderRight: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              textAlign: 'left',
-              fontFamily: 'inherit',
-            }}
-          >
-            <AddIcon sx={{ fontSize: 16, color: '#000' }} />
-            <Typography component="h3" sx={{ fontSize: '18.72px', fontWeight: 700, color: '#000', m: 0 }}>
-              Add Customer
-            </Typography>
-          </Box>
-
-          {/* Customer Information Area — reference shows no empty-customer panel in
-              finalize, so this block only renders once a customer is attached. */}
-          {selectedCustomer && (
-          <Box sx={{
-            p: 2,
-            borderBottom: '1px solid #000',
-            minHeight: 150,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2
-          }}>
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                    {selectedCustomer.firstName} {selectedCustomer.lastName}
-                  </Typography>
-                  {selectedCustomer.customerGroup?.allowAccountSales && (
-                    <Chip
-                      label="Account Customer"
-                      size="small"
-                      sx={{ fontSize: '0.7rem', height: 20, bgcolor: '#5ebbeb', color: '#f8f8f8' }}
-                    />
-                  )}
-                </Box>
-                {selectedCustomer.company && (
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    {selectedCustomer.company}
+          {selectedCustomer ? (
+            <Box sx={{ minHeight: 60, px: 1.5, py: 1, borderBottom: '1px solid #000', display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: 20, overflowWrap: 'anywhere' }}>
+                  {selectedCustomer.company || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
+                </Typography>
+                {selectedCustomer.customerGroup?.name && (
+                  <Typography sx={{ fontSize: 10, color: '#676b72' }}>
+                    {selectedCustomer.customerGroup.name}
                   </Typography>
                 )}
-                {selectedCustomer.customerGroup?.allowAccountSales && (
-                  <Box sx={{ 
-                    mt: 1, 
-                    mb: 1,
-                    p: 1.5,
-                    border: '1px solid #000',
-                    bgcolor: '#f8f8f8',
-                    borderRadius: 0
-                  }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5, fontSize: '0.75rem' }}>
-                      Account Balance:
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#dc2626', fontSize: '1.1rem' }}>
-                      ${(selectedCustomer.currentOwing || 0).toFixed(2)}
-                    </Typography>
-                    {selectedCustomer.accountLimit && (
-                      <Typography variant="caption" sx={{ color: '#676b72', display: 'block', mt: 0.5 }}>
-                        Limit: ${selectedCustomer.accountLimit.toFixed(2)}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
-                {selectedCustomer.email && (
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
-                    {selectedCustomer.email}
-                  </Typography>
-                )}
-                {selectedCustomer.phone && (
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                    {selectedCustomer.phone}
-                  </Typography>
-                )}
-                <Button
-                  size="small"
-                  onClick={onRemoveCustomer}
-                  sx={{
-                    mt: 1,
-                    color: '#dc2626',
-                    textTransform: 'none',
-                    // No hover fills anywhere on this surface.
-                    '&:hover': {
-                      bgcolor: 'transparent'
-                    }
-                  }}
-                >
-                  Remove Customer
-                </Button>
               </Box>
-          </Box>
+              {eff.allowAccountSales ? (
+                <Box sx={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <Typography sx={{ fontSize: 26 }}>{formatMoney(Number(selectedCustomer.currentOwing) || 0)}</Typography>
+                  <Typography sx={{ fontSize: 12 }}>Owing</Typography>
+                </Box>
+              ) : loyaltyProgramEnabled && customerLoyaltyInfo?.loyaltyEnabled ? (
+                <Box sx={{ textAlign: 'center', flexShrink: 0 }}>
+                  <Typography sx={{ fontSize: 12 }}>Loyalty</Typography>
+                  <Box sx={{ display: 'flex', gap: 1.5 }}>
+                    <Box><Typography sx={{ fontSize: 9 }}>POINTS</Typography><Typography sx={{ fontSize: 12 }}>{customerLoyaltyInfo.loyaltyPoints || 0}</Typography></Box>
+                    <Box><Typography sx={{ fontSize: 9 }}>VALUE</Typography><Typography sx={{ fontSize: 12 }}>{formatMoney(customerLoyaltyInfo.redemptionValue || 0)}</Typography></Box>
+                  </Box>
+                </Box>
+              ) : null}
+              <IconButton aria-label="Remove customer" onClick={onRemoveCustomer} size="small" sx={{ color: '#000' }}>
+                <Close sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Box>
+          ) : (
+            <Box component="button" type="button" onClick={onAddCustomer} sx={{ minHeight: 60, px: 1.5, display: 'flex', alignItems: 'center', gap: 1, border: 0, borderBottom: '1px solid #000', bgcolor: '#fff', cursor: 'pointer', flexShrink: 0 }}>
+              <AddIcon sx={{ fontSize: 16 }} />
+              <Typography sx={{ fontSize: 18, fontWeight: 700 }}>Add Customer</Typography>
+            </Box>
           )}
-
           {/* Order Reference — required by some customer groups (requireOrderReference) */}
           {eff.requireOrderReference && (
             <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #000' }}>

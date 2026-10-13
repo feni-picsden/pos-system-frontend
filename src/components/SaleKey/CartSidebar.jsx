@@ -135,6 +135,7 @@ const CartSidebar = ({
   setLoyaltyCalculation,
   // Setup > Loyalty "Enable Loyalty": off hides the loyalty section entirely.
   loyaltyProgramEnabled = false,
+  customerLoyaltyInfo = null,
   // Name of the price list the customer is sold at (reference shows it under
   // the customer name, e.g. "COST"); falls back to the group name.
   priceListName = '',
@@ -291,19 +292,20 @@ const CartSidebar = ({
           {/* Name/details — cursor:pointer, opens the customer dialog */}
           <Box
             onClick={() => onCustomerClick?.()}
-            sx={{ width: '65%', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', pl: '16px', cursor: 'pointer' }}
+            sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', pl: '16px', cursor: 'pointer' }}
           >
             <Typography sx={{ fontSize: 24, fontWeight: 400, color: '#000', lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {`${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
+              {selectedCustomer.company || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
             </Typography>
-            {(priceListName || selectedCustomer.customerGroup?.name || selectedCustomer.company) && (
-              <Typography sx={{ fontSize: 12, fontWeight: 400, color: '#676B72', lineHeight: 'normal', letterSpacing: 'normal', textTransform: priceListName ? 'uppercase' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {priceListName || selectedCustomer.customerGroup?.name || selectedCustomer.company}
+            {selectedCustomer.customerGroup?.name && (
+              <Typography sx={{ fontSize: 12, fontWeight: 400, color: '#676B72', lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {selectedCustomer.customerGroup.name}
               </Typography>
             )}
           </Box>
           {/* Owing — 32px amount with 70% raised cents, small-caps 16px label */}
-          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'right', pr: '8px' }}>
+          {selectedCustomer.customerGroup?.allowAccountSales && (
+          <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'right', pr: '8px' }}>
             <Typography sx={{ fontSize: 32, fontWeight: 400, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
               {formatMoney(parseFloat(selectedCustomer.currentOwing ?? selectedCustomer.accountBalance) || 0)}
             </Typography>
@@ -311,6 +313,7 @@ const CartSidebar = ({
               Owing
             </Typography>
           </Box>
+          )}
           {/* 50px × box — detaches the customer INSTANTLY, no confirmation */}
           <Box
             onClick={(e) => { e.stopPropagation(); onRemoveCustomer?.(); }}
@@ -356,16 +359,17 @@ const CartSidebar = ({
       {/* Loyalty Display — only once a customer is attached AND the loyalty program
           is enabled (reference: loyalty off = no loyalty section anywhere in the
           sale); nothing (no helper line) between the Add Customer row and the list. */}
-      {selectedCustomer && loyaltyProgramEnabled && (
+      {selectedCustomer && loyaltyProgramEnabled && (selectedCustomer.loyaltyEnabled || selectedCustomer.customerGroup?.loyaltyEnabled) && (
       <LoyaltyDisplay
         customer={selectedCustomer}
+        loyaltyPaid={payments.filter(p => String(p.method || p.paymentMethod || '').toLowerCase() === 'loyalty').reduce((sum, p) => sum + Math.max(0, Number(p.amount) || 0), 0)}
         items={cart.map(item => {
           const quantity = item.quantity || 1;
           const totalPrice = parseFloat(item.price) || parseFloat(item.totalPrice) || 0;
           const unitPrice = item.unitPrice || (totalPrice > 0 && quantity > 0 ? totalPrice / quantity : 0);
           
           return {
-            productId: item.productId || null,
+            productId: item.productId || item.id || null,
             quantity: quantity,
             unitPrice: unitPrice,
             discount: item.discount || 0,

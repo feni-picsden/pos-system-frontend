@@ -973,7 +973,7 @@ const SaleKeyPage = () => {
     } else {
       setCustomerLoyaltyInfo(null);
     }
-  }, [selectedCustomer?.id]);
+  }, [selectedCustomer?.id, selectedOutlet]);
 
   // ponytail: enforces effective requireOrderReference. Keyed on customer id so it
   // prompts exactly once when a customer that needs a reference joins the sale, and
@@ -4205,6 +4205,8 @@ const SaleKeyPage = () => {
           saleId: created?.sale?.id ?? created?.id ?? null,
           offline: false,
           invoiceNumber: serverInvoice > 0 ? serverInvoice : null,
+          loyaltyPointsEarned: created?.sale?.loyaltyPointsEarned ?? created?.loyaltyPointsEarned,
+          loyaltyPointsRedeemed: created?.sale?.loyaltyPointsRedeemed ?? created?.loyaltyPointsRedeemed,
         };
       } catch (error) {
         // Offline Mode (reference): no connection => keep the sale on this device
@@ -4466,10 +4468,12 @@ const SaleKeyPage = () => {
 
     let saleId = null;
     let savedOffline = false;
+    let savedLoyalty = {};
     try {
       const saved = await saveSaleToHistory(finalPayments, cartTotal, newTransactionId, change, invoiceNumber);
       saleId = saved?.saleId ?? null;
       savedOffline = Boolean(saved?.offline);
+      savedLoyalty = { loyaltyPointsEarned: saved?.loyaltyPointsEarned, loyaltyPointsRedeemed: saved?.loyaltyPointsRedeemed };
       // Print the number the server stored (it re-allocates when ours was taken).
       if (saved?.invoiceNumber) invoiceNumber = saved.invoiceNumber;
     } catch (error) {
@@ -4517,7 +4521,7 @@ const SaleKeyPage = () => {
     // its number with the suffix (00001234A) so it can never be confused with
     // the number another till issues online while this one is cut off.
     generateReceipt(newTransactionId, finalPayments, cartTotal, change, invoiceNumber,
-      savedOffline ? { invoiceSuffix: offlineInvoiceSuffix() } : {});
+      savedOffline ? { invoiceSuffix: offlineInvoiceSuffix() } : savedLoyalty);
 
     if (savedOffline) {
       // Kept on this device; the upload runs when the connection returns
@@ -4920,8 +4924,8 @@ const SaleKeyPage = () => {
       null;
 
     // Loyalty summary for the loyalty receipt component (null-safe: omitted when no data).
-    const earned = loyaltyCalculation?.totalPointsEarned ?? 0;
-    const spent = loyaltyRedemption?.pointsRedeemed ?? 0;
+    const earned = extra.loyaltyPointsEarned ?? loyaltyCalculation?.totalPointsEarned ?? 0;
+    const spent = extra.loyaltyPointsRedeemed ?? loyaltyRedemption?.pointsRedeemed ?? 0;
     const beforeSale = selectedCustomer?.loyaltyPoints;
     let loyalty = null;
     // No loyalty block on the receipt while the program is switched off.
@@ -5844,8 +5848,8 @@ const SaleKeyPage = () => {
     if (!selectedCustomer?.id) return;
 
     try {
-      const response = await loyaltyService.getCustomerLoyalty(selectedCustomer.id);
-      setCustomerLoyaltyInfo(response.customer);
+      const response = await loyaltyService.getCustomerLoyalty(selectedCustomer.id, getEffectiveOutletId());
+      setCustomerLoyaltyInfo({ ...response.customer, redemptionRate: response.program?.redemptionRate });
       // Loyalty program switched off in Setup > Loyalty: the API returns no
       // enabled program. The sell screen then hides every loyalty element.
       setLoyaltyProgramEnabled(Boolean(response.program?.isEnabled));
@@ -5892,7 +5896,7 @@ const SaleKeyPage = () => {
     );
     
     // If customer has loyalty points (and the program is on), ensure Loyalty method is available
-    if (loyaltyProgramEnabled && selectedCustomer && customerLoyaltyInfo && customerLoyaltyInfo.loyaltyPoints > 0) {
+    if (loyaltyProgramEnabled && selectedCustomer && customerLoyaltyInfo?.loyaltyEnabled) {
       if (!hasLoyaltyMethod) {
         // Add Loyalty payment method if it doesn't exist
         methods.push({
@@ -5903,7 +5907,8 @@ const SaleKeyPage = () => {
         });
       }
     } else {
-      // No customer or no loyalty points - exclude Loyalty
+      // No loyalty-enabled customer/program: exclude Loyalty. With zero points
+      // Finalise shows the option disabled, as in the reference.
       methods = methods.filter(method => 
         method.name?.toLowerCase() !== 'loyalty' && 
         method.type?.toLowerCase() !== 'loyalty'
@@ -7895,9 +7900,12 @@ const SaleKeyPage = () => {
           </Typography>
         )}
       </Box>
-      <Typography sx={{ fontSize: 16, color: '#000', flexShrink: 0, ml: 2 }}>
-        {Number(customer.loyaltyPoints || 0)}
-      </Typography>
+      {(customer.loyaltyEnabled || customer.customerGroup?.loyaltyEnabled) && (
+        <Box sx={{ flexShrink: 0, ml: 2, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: 16, color: '#000' }}>{Number(customer.loyaltyPoints || 0)}</Typography>
+          <Typography sx={{ fontSize: 12, color: '#000' }}>Loyalty Points</Typography>
+        </Box>
+      )}
     </Box>
   );
 
@@ -8143,6 +8151,7 @@ const SaleKeyPage = () => {
                 completeTransaction(paymentsToUse, calculateTotal());
               }}
               customerLoyaltyInfo={customerLoyaltyInfo}
+              loyaltyProgramEnabled={loyaltyProgramEnabled}
               loyaltyCalculation={loyaltyCalculation}
               orderReference={orderReference}
               outletId={getEffectiveOutletId()}
@@ -9485,6 +9494,7 @@ const SaleKeyPage = () => {
                 setLoyaltyRedemption={setLoyaltyRedemption}
                 setLoyaltyCalculation={setLoyaltyCalculation}
                 loyaltyProgramEnabled={loyaltyProgramEnabled}
+                customerLoyaltyInfo={customerLoyaltyInfo}
                 priceListName={priceListName}
                 cartPromotions={cartPromotionStatus}
                 onParkSale={parkCurrentSale}
