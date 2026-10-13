@@ -842,7 +842,14 @@ const CustomerView = () => {
               </Box>
               <Divider sx={{ mb: 1 }} />
 
-              <Box sx={{ flex: 1, overflowY: "auto" }}>
+              <Box sx={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                "&::-webkit-scrollbar": { display: "none" },
+              }}>
                 {historySalesLoading ? (
                   <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
                     <CircularProgress />
@@ -855,9 +862,14 @@ const CustomerView = () => {
                           sx={{
                             display: "flex",
                             alignItems: "center",
-                            py: 1,
+                            minHeight: 88,
+                            boxSizing: "border-box",
+                            py: 1.5,
+                            px: 1,
+                            gap: 1.5,
                             borderBottom: "1px solid #e0e0e0",
                             cursor: "pointer",
+                            "&:hover": { bgcolor: "#f5f5f5" },
                           }}
                           onClick={() => {
                             setSelectedSale(sale);
@@ -869,6 +881,7 @@ const CustomerView = () => {
                           <Box
                             sx={{
                               width: 32,
+                              flexShrink: 0,
                               display: "flex",
                               justifyContent: "center",
                             }}
@@ -889,10 +902,10 @@ const CustomerView = () => {
                           </Box>
 
                           {/* Date/time + invoice number */}
-                          <Box sx={{ width: 220 }}>
+                          <Box sx={{ width: { xs: 170, md: 220 }, flexShrink: 0 }}>
                             <Typography
                               variant="subtitle2"
-                              sx={{ lineHeight: 1.1 }}
+                              sx={{ lineHeight: 1.5 }}
                             >
                               {formatDateTime(sale.saleDate)}
                             </Typography>
@@ -902,14 +915,14 @@ const CustomerView = () => {
                           </Box>
 
                           {/* User */}
-                          <Box sx={{ flex: 1 }}>
+                          <Box sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
                             <Typography variant="body2">
                               {sale.user?.name || "-"}
                             </Typography>
                           </Box>
 
                           {/* Amount right-aligned */}
-                          <Box sx={{ width: 160, textAlign: "right" }}>
+                          <Box sx={{ minWidth: 120, flexShrink: 0, textAlign: "right" }}>
                             <Typography variant="h5" sx={{ fontWeight: 700 }}>
                               {formatCurrency(computeSaleTotal(sale))}
                             </Typography>
@@ -1004,28 +1017,22 @@ const CustomerView = () => {
                                 {customer.company || "-"}
                               </Typography>
                             </Box>
-                            {/* The only way to close the card (clicking elsewhere keeps it open) */}
-                            <Button
-                              size="small"
-                              onClick={() => {
-                                setOpenSaleIds((ids) => ids.filter((id) => id !== sale.id));
-                                if (selectedSale?.id === sale.id) setSelectedSale(null);
-                              }}
-                              sx={{ ml: 2, minWidth: 0, color: "#000", textTransform: "none", fontWeight: 600 }}
-                            >
-                              ✕ Close
-                            </Button>
                           </Box>
 
                           {/* Summary row with buttons on right */}
-                          <Box sx={{ display: "flex", gap: 2 }}>
+                          <Box sx={{ display: "flex", gap: 3, alignItems: "flex-start", flexDirection: { xs: "column", md: "row" } }}>
                             <Box
                               sx={{
                                 flex: 1,
+                                width: "100%",
+                                minWidth: 0,
                                 display: "grid",
                                 gridTemplateColumns:
-                                  "repeat(2, minmax(120px, 1fr))",
-                                rowGap: 1,
+                                  { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+                                columnGap: 4,
+                                rowGap: 2,
+                                "& > div": { gap: 2, alignItems: "baseline" },
+                                "& > div > :last-child": { whiteSpace: "nowrap", flexShrink: 0 },
                               }}
                             >
                               <Box
@@ -1077,9 +1084,12 @@ const CustomerView = () => {
                                 </Typography>
                               </Box>
                             </Box>
-                            <Box sx={{ width: 320 }}>
+                            <Box sx={{ width: { xs: "100%", md: 320 }, flexShrink: 0 }}>
                               <Button
-                                onClick={() => setSelectedSale(null)}
+                                onClick={() => {
+                                  setOpenSaleIds((ids) => ids.filter((id) => id !== sale.id));
+                                  if (selectedSale?.id === sale.id) setSelectedSale(null);
+                                }}
                                 variant="contained"
                                 fullWidth
                                 sx={{
