@@ -4,7 +4,17 @@ import cachedList from './cachedList';
 const loyaltyProgramService = {
   // Get all loyalty programs. Served from IndexedDB; the network only runs when
   // the copy is stale.
-  getLoyaltyPrograms: async (filters = {}) => {
+  getLoyaltyPrograms: async (filters = {}, { fresh = false } = {}) => {
+    // The settings form needs current records for its selected outlet, rather
+    // than a shared cached list left over from a different outlet.
+    if (fresh) {
+      const response = await apiClient.get('/loyalty-programs', {
+        params: filters.outletId == null ? {} : { outletId: filters.outletId },
+        skipOutletScope: true,
+        noCache: true,
+      });
+      return { loyaltyPrograms: response.data?.loyaltyPrograms || [] };
+    }
     const params = new URLSearchParams();
 
     if (filters.outletId) params.append('outletId', filters.outletId);

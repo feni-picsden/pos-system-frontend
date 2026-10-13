@@ -11,6 +11,7 @@ import {
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import loyaltyProgramService from '../../services/loyaltyProgramService';
 import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
@@ -35,11 +36,19 @@ const refFieldLabelSx = { fontSize: 16, color: '#000', mb: 0.5 };
 
 const LoyaltySettings = () => {
   const { user } = useAuth();
+  const { selectedOutletId, selectedOutlet, canGoGlobal } = useSelectedOutlet();
+  const outletId = selectedOutletId ?? (canGoGlobal ? null : user?.outletId ?? null);
+  return <OutletLoyaltySettings key={outletId ?? 'global'} outletId={outletId} outletName={selectedOutlet?.name || user?.outlet?.name} canGoGlobal={canGoGlobal} />;
+};
+
+// Remount when the outlet changes: old responses cannot overwrite the new form.
+const OutletLoyaltySettings = ({ outletId, outletName, canGoGlobal }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loaded, setLoaded] = useState(false);
 
   const [loyaltyProgram, setLoyaltyProgram] = useState(null);
   const [formData, setFormData] = useState({
@@ -57,11 +66,15 @@ const LoyaltySettings = () => {
     try {
       setLoading(true);
       const response = await loyaltyProgramService.getLoyaltyPrograms({
-        outletId: user?.outletId
-      });
+        outletId
+      }, { fresh: true });
       
-      if (response.loyaltyPrograms && response.loyaltyPrograms.length > 0) {
-        const program = response.loyaltyPrograms[0];
+      // Global programs are readable in every outlet, but must not be edited
+      // as though they belong to the selected outlet.
+      const program = (response.loyaltyPrograms || []).find((p) =>
+        outletId == null ? p.outletId == null : p.outletId != null && Number(p.outletId) === Number(outletId));
+      setLoyaltyProgram(program || null);
+      if (program) {
         setLoyaltyProgram(program);
         setFormData({
           name: program.name,
@@ -69,7 +82,10 @@ const LoyaltySettings = () => {
           redemptionRate: program.redemptionRate.toString(),
           isEnabled: program.isEnabled
         });
+      } else {
+        setFormData({ name: 'Loyalty', loyaltyRate: '1', redemptionRate: '100', isEnabled: false });
       }
+      setLoaded(true);
     } catch (err) {
       console.error('Error fetching loyalty program:', err);
       setError(err.response?.data?.error || 'Failed to fetch loyalty program');
@@ -92,7 +108,8 @@ const LoyaltySettings = () => {
       setSuccess('');
 
       // For non-superadmin users, outlet ID is required
-      if (!user?.isSuperAdmin && !user?.outletId) {
+      if (!loaded || loading) return;
+      if (!canGoGlobal && outletId == null) {
         setError('Outlet is required. Please select an outlet to create a loyalty program.');
         setSaving(false);
         return;
@@ -103,7 +120,7 @@ const LoyaltySettings = () => {
         loyaltyRate: parseFloat(formData.loyaltyRate),
         redemptionRate: parseFloat(formData.redemptionRate),
         isEnabled: formData.isEnabled,
-        outletId: user?.outletId || null // null for superadmin without outlet (global program)
+        outletId // explicit null means the All Outlets/global program
       };
 
       if (loyaltyProgram) {
@@ -146,20 +163,22 @@ const LoyaltySettings = () => {
       <Typography variant="h4" gutterBottom sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
         Loyalty Settings
       </Typography>
-      {/* Saved with the session outlet, or as a global program for a global admin. Say so. */}
-      <CreatingForOutlet sx={{ maxWidth: 520 }} />
+      {/* Show the creation caption only when working in global mode. */}
+      {canGoGlobal && outletId == null && (
+        <CreatingForOutlet outletId={null} sx={{ maxWidth: 520 }} />
+      )}
 
       <Typography paragraph sx={{ fontSize: 16, color: '#000' }}>
         Please note: The highest earn value will be selected and the lowest redeem value will be selected on conflicts, however values with zero will take highest priority.
       </Typography>
 
-      {!user?.isSuperAdmin && !user?.outletId && (
+      {!canGoGlobal && outletId == null && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Please select an outlet first to create a loyalty program. Loyalty programs are outlet-specific.
         </Alert>
       )}
       
-      {user?.isSuperAdmin && !user?.outletId && (
+      {canGoGlobal && outletId == null && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Creating a global loyalty program (applies to all outlets). To create an outlet-specific program, please switch to that outlet first.
         </Alert>
@@ -181,7 +200,7 @@ const LoyaltySettings = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Box display="flex" alignItems="center">
             <Typography sx={{ fontSize: 27, fontWeight: 700, color: '#000' }}>
-              {user?.outlet?.name ? user.outlet.name : 'Global Loyalty Program'}
+              {outletId == null ? 'Global Loyalty Program' : outletName || `Outlet #${outletId}`}
             </Typography>
             {loyaltyProgram && (
               <Button
@@ -260,7 +279,7 @@ const LoyaltySettings = () => {
       </Box>
 
       <Box display="flex" justifyContent="flex-end">
-        <PageSaveBar onSave={handleSave} saving={saving} disabled={!user?.isSuperAdmin && !user?.outletId} />
+        <PageSaveBar onSave={handleSave} saving={saving} disabled={!loaded || loading || (!canGoGlobal && outletId == null)} />
       </Box>
     </Box>
   );
