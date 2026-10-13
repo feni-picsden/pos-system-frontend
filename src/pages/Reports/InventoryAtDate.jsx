@@ -775,6 +775,12 @@ const InventoryAtDate = () => {
       )}
 
       {/* Search — reference only shows it after the report has been run */}
+      {hasRun && reportData.some(row => row.costHistoryComplete === false
+        || row.children?.some(child => child.costHistoryComplete === false)) && (
+        <Typography sx={{ color: '#8a5700', mb: '16px' }}>
+          Some historical average costs are estimated because opening stock or earlier stock adjustments are missing.
+        </Typography>
+      )}
       {hasRun && (
         <TextField
           fullWidth
