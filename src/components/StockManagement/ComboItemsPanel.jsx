@@ -19,6 +19,7 @@ import {
 import productService from '../../services/productService';
 import settingsService from '../../services/settingsService';
 import { pricingUnitCost } from '../../utils/productCost';
+import { tierLinePrice } from '../../utils/quantityTierPrice';
 
 // "Combo Items" — what a Combo Product spends. Selling one combo takes each
 // row's quantity off that product's stock (Shopfront "Basket Products",
@@ -37,7 +38,13 @@ const money = (value) => `$${(Number(value) || 0).toFixed(2)}`;
 
 // The reference shows each line already multiplied out — quantity 55 of a $4
 // product reads $220.00, not $4.00 — so both money columns are line figures.
-const rowPrice = (row) => (Number(row.price) || 0) * (Number(row.quantity) || 0);
+// The price follows the component's quantity tiers (6 of a 1→$5 / 6→$27 product
+// is $27, 8 is $36), so a row carries the component's price rows; `price` is
+// the single-unit rate kept for rows saved before tiers were stored.
+const rowPrice = (row) =>
+  Array.isArray(row.prices) && row.prices.length
+    ? tierLinePrice(row.prices, row.quantity)
+    : (Number(row.price) || 0) * (Number(row.quantity) || 0);
 const rowCost = (row) => (Number(row.cost) || 0) * (Number(row.quantity) || 0);
 
 const ComboItemsPanel = ({ items = [], excludeProductId = null, outletId = null, onChange }) => {
@@ -98,6 +105,7 @@ const ComboItemsPanel = ({ items = [], excludeProductId = null, outletId = null,
         name: product.name,
         quantity: 1,
         price: singlePriceOf(product),
+        prices: (product?.prices || []).filter((p) => p?.priceSetId == null),
         // Resolved through the pricing engine (Last / Average / Mixed per the
         // company setting), the same way the product's own price rows are costed.
         cost: pricingUnitCost(product, settingsService.getCachedGeneralSettings()),

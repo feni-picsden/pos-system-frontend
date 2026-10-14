@@ -862,6 +862,8 @@ const ProductEdit = () => {
             name: row.product?.name || '',
             quantity: row.quantity,
             price: single ? (Number(single.price) || 0) / (Number(single.quantity) || 1) : 0,
+            // Every tier: the panel prices a row by its quantity's tier (reference).
+            prices: rows,
             // The component's cost the way the pricing engine resolves it —
             // Last / Average / Mixed per the company setting — not the raw
             // last-cost column, which is empty on a product that has only ever
@@ -1957,6 +1959,15 @@ const ProductEdit = () => {
                       return;
                     }
                     handleInputChange('type', nextType);
+                    // Reference: a new Basket/Combo Product starts with an EMPTY
+                    // price table — the operator adds a Price Point once the
+                    // contents (and so the cost) are known. Only the untouched
+                    // default row is dropped; typed prices are kept.
+                    if (nextType === COMBO_TYPE && isNewProduct) {
+                      setFormData((prev) =>
+                        (prev.prices || []).every((r) => !(Number(r?.price) > 0)) ? { ...prev, prices: [] } : prev
+                      );
+                    }
                   }}
                   disabled={!isNewProduct}
                   sx={{
@@ -2430,6 +2441,9 @@ const ProductEdit = () => {
               </Box>
             </Grid>
 
+            {/* Reference: a Basket/Combo Product has no Cost Percentage — its
+                cost is its contents' cost, never a share of the sell price. */}
+            {!isCombo && (
             <Grid item xs={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
                 Cost Percentage <FavoriteStar field="Cost Percentage" />
@@ -2467,6 +2481,7 @@ const ProductEdit = () => {
                 </Typography>
               </Box>
             </Grid>
+            )}
 
             <Grid item xs={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>

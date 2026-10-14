@@ -12,6 +12,7 @@ import {
   Alert,
   CircularProgress,
   Fade,
+  Link,
 } from "@mui/material";
 import {
   EditOutlined as EditIcon,
@@ -25,7 +26,7 @@ import {
   RestoreFromTrashOutlined as RevisionIcon,
   BusinessOutlined as BusinessIcon,
 } from "@mui/icons-material";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import productService from "../../services/productService";
 import settingsService from "../../services/settingsService";
 import { pricingUnitCost, profitPercent } from "../../utils/productCost";
@@ -133,6 +134,15 @@ const ProductView = () => {
       .catch(() => { /* defaults already in state */ });
     return () => { cancelled = true; };
   }, []);
+  // A Combo Product is costed on its contents (reference "Basket Product"): the
+  // price table's Cost/% and the Combo Products widget both come from here.
+  const isComboProduct = product?.type === "Combo Product";
+  const comboContentsCost = isComboProduct
+    ? (product.comboContents || []).reduce(
+        (sum, row) => sum + pricingUnitCost(row.product || {}, generalSettings) * (Number(row.quantity) || 0),
+        0
+      )
+    : 0;
   const sectionParam = searchParams.get("section");
   const activeTab = NAV_ITEMS.some((n) => n.id === sectionParam)
     ? sectionParam
@@ -887,7 +897,10 @@ const ProductView = () => {
                     // "Set Prices Based On" / Cost Calculation Method), not the snapshot
                     // saved on the price row - that only refreshed on a product Save, so
                     // a received invoice left it (and the %) stale.
-                    const cost = pricingUnitCost(product, generalSettings) * qty;
+                    // A Combo Product has no cost of its own: it costs what its
+                    // contents cost (reference shows $36.00 / 40% for a $60 combo
+                    // holding $36 of products).
+                    const cost = (isComboProduct ? comboContentsCost : pricingUnitCost(product, generalSettings)) * qty;
                     const margin = profitPercent(price, cost, generalSettings.profitabilityDisplay);
                     return (
                       <TableRow key={`price-${idx}`}>
@@ -967,6 +980,74 @@ const ProductView = () => {
               </Typography>
             </Box>
         </Paper>
+
+        {/* Reference "Basket Products" widget on a basket/combo product: each
+            component as a link with the quantity one combo spends. */}
+        {isComboProduct && (
+          <Paper elevation={0} sx={WIDGET_SX}>
+            <Typography component="h3" sx={WIDGET_H3_SX}>Combo Products</Typography>
+            <TableContainer>
+              <Table sx={GRID_TABLE_SX}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ padding: "12px 10px !important" }}>Product</TableCell>
+                    <TableCell sx={{ width: 160, padding: "12px 10px !important" }}>Quantity</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(product.comboContents || []).map((row) => (
+                    <TableRow key={row.productId}>
+                      <TableCell sx={{ padding: "8px 10px !important" }}>
+                        <Link
+                          component={RouterLink}
+                          to={`/products/${row.productId}/view`}
+                          sx={{ color: "#1a73e8" }}
+                        >
+                          {row.product?.name || `#${row.productId}`}
+                        </Link>
+                      </TableCell>
+                      <TableCell sx={{ padding: "8px 10px !important" }}>{Number(row.quantity) || 0}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
+
+        {/* Reference "Parent Products" widget: the combos this product is sold
+            inside (Product link | Type), only when there is at least one. */}
+        {Array.isArray(product?.inCombos) && product.inCombos.length > 0 && (
+          <Paper elevation={0} sx={WIDGET_SX}>
+            <Typography component="h3" sx={WIDGET_H3_SX}>Parent Products</Typography>
+            <TableContainer>
+              <Table sx={GRID_TABLE_SX}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ padding: "12px 10px !important" }}>Product</TableCell>
+                    <TableCell sx={{ width: 160, padding: "12px 10px !important" }}>Type</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {product.inCombos.map((row) => (
+                    <TableRow key={row.comboProduct?.id}>
+                      <TableCell sx={{ padding: "8px 10px !important" }}>
+                        <Link
+                          component={RouterLink}
+                          to={`/products/${row.comboProduct?.id}/view`}
+                          sx={{ color: "#1a73e8" }}
+                        >
+                          {row.comboProduct?.name || `#${row.comboProduct?.id}`}
+                        </Link>
+                      </TableCell>
+                      <TableCell sx={{ padding: "8px 10px !important" }}>Combo</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
 
         {/* Inventory summary - click to expand/collapse */}
         <Paper

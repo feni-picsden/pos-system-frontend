@@ -601,6 +601,13 @@ const SaleKeyPage = () => {
   const [keypadValue, setKeypadValue] = useState('');
   const [keypadAnchorEl, setKeypadAnchorEl] = useState(null);
   const [showProductDetail, setShowProductDetail] = useState(false);
+  // Reference: while a Combo (Basket) Product's details are open, the keys pane
+  // is replaced by a "Product Components" list of what the combo contains.
+  // null = not a combo / not loaded; [] = combo with nothing in it.
+  const [productDetailComponents, setProductDetailComponents] = useState(null);
+  // A component opened from that list shows $0.00 as its price (reference): the
+  // combo line carries the money, its parts carry none. null = show the product's price.
+  const [productDetailPriceOverride, setProductDetailPriceOverride] = useState(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [productDetailCartItem, setProductDetailCartItem] = useState(null);
   const [showDetailCosts, setShowDetailCosts] = useState(false);
@@ -5296,6 +5303,25 @@ const SaleKeyPage = () => {
       setShowDetailCosts(false);
       setProductDetailExpanded({ prices: false, purchases: false, inventory: false });
       setShowProductDetail(true);
+      // A combo's contents are not in the local catalog (the list carries only a
+      // count), so fetch them for the Product Components pane.
+      setProductDetailComponents(null);
+      setProductDetailPriceOverride(null);
+      if (productData.type === 'Combo Product' || item.productType === 'Combo Product') {
+        setProductDetailComponents([]);
+        productService
+          .getProduct(productData.id)
+          .then((res) =>
+            setProductDetailComponents(
+              (res?.product?.comboContents || []).map((row) => ({
+                productId: row.productId,
+                name: row.product?.name || `#${row.productId}`,
+                quantity: Number(row.quantity) || 0,
+              }))
+            )
+          )
+          .catch(() => setProductDetailComponents([]));
+      }
       // Purchases rows for the accordion (reference lists the product's orders).
       setProductDetailPurchases([]);
       productService
@@ -5303,6 +5329,31 @@ const SaleKeyPage = () => {
         .then((res) => setProductDetailPurchases(res?.data?.purchases || res?.purchases || []))
         .catch(() => setProductDetailPurchases([]));
     }
+  };
+
+  // Reference: a row in the Product Components pane opens THAT component's
+  // details on the right (price $0.00, Show Costs, Prices / Purchases /
+  // Barcodes) and the keys come back on the left.
+  const handleOpenComponentDetail = async (component) => {
+    let productData = resolveProductLocal(component.productId, component.name);
+    if (!productData) {
+      try {
+        productData = (await productService.getProduct(component.productId))?.product || null;
+      } catch { productData = null; }
+    }
+    if (!productData) return;
+    setSelectedProductDetail(productData);
+    setProductDetailCartItem(null);
+    setShowDetailCosts(false);
+    setProductDetailExpanded({ prices: false, purchases: false, inventory: false });
+    setProductDetailComponents(null);
+    setProductDetailPriceOverride(0);
+    setShowProductDetail(true);
+    setProductDetailPurchases([]);
+    productService
+      .getProductPurchaseHistory(productData.id, { page: 1, limit: 10 })
+      .then((res) => setProductDetailPurchases(res?.data?.purchases || res?.purchases || []))
+      .catch(() => setProductDetailPurchases([]));
   };
 
   // Product flag "Prevent Manual Discounts". Read from the local catalog rather than
@@ -7924,6 +7975,10 @@ const SaleKeyPage = () => {
     !showClassificationView &&
     (Boolean(associatingBarcode) || (showSearchResults && searchTerm.trim().length > 0));
 
+  // Reference: a combo's open Product Details replace the keys pane (and its
+  // tab strip) with the "Product Components" list.
+  const componentsPaneVisible = showProductDetail && Array.isArray(productDetailComponents);
+
   const searchFoundNothing =
     searchResultsVisible &&
     searchTerm.trim().length > 0 &&
@@ -8456,7 +8511,7 @@ const SaleKeyPage = () => {
               equally) with leading icons, 50px line-height, and the selected tab
               is marked by a blue underline bar — the tabs themselves are borderless.
               order:5 pushes this below the content area (which flexes to fill). */}
-          {!showPromotionView && !showClassificationView && !isCustomerSearchMode && !searchResultsVisible && (
+          {!showPromotionView && !showClassificationView && !isCustomerSearchMode && !searchResultsVisible && !componentsPaneVisible && (
           <Box sx={{ order: 5, mt: 'auto', flexShrink: 0, height: 50, bgcolor: 'transparent', display: 'flex' }}>
             {[
               { v: 'sales-keys', label: 'Sales Keys', icon: <KeyboardOutlinedIcon sx={{ fontSize: 24 }} /> },
@@ -8793,7 +8848,34 @@ const SaleKeyPage = () => {
             </Box>
           )}
 
-          {(showPromotionView || showClassificationView || activeTab === 'sales-keys') && !isCustomerSearchMode && !searchResultsVisible && (
+          {/* Reference "Product Components" pane (measured 14/10/2026): bold
+              header row, then one white row per component — name on the left,
+              $0.00 on the right (the combo line carries the price, not its parts). */}
+          {componentsPaneVisible && !isCustomerSearchMode && !searchResultsVisible && (
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', bgcolor: '#fff', border: '1px solid #000' }}>
+              <Box sx={{ px: '16px', height: 48, display: 'flex', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>Product Components</Typography>
+              </Box>
+              {productDetailComponents.length === 0 ? (
+                <Box sx={{ px: '16px', py: '12px' }}>
+                  <Typography sx={{ fontSize: 16, color: '#676b72' }}>No components</Typography>
+                </Box>
+              ) : (
+                productDetailComponents.map((c) => (
+                  <Box
+                    key={c.productId}
+                    onClick={() => handleOpenComponentDetail(c)}
+                    sx={{ px: '16px', height: 42, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e0e0e0', cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' } }}
+                  >
+                    <Typography sx={{ fontSize: 15, color: '#000' }}>{c.name}</Typography>
+                    <Typography sx={{ fontSize: 15, color: '#000' }}>$0.00</Typography>
+                  </Box>
+                ))
+              )}
+            </Box>
+          )}
+
+          {(showPromotionView || showClassificationView || activeTab === 'sales-keys') && !isCustomerSearchMode && !searchResultsVisible && !componentsPaneVisible && (
           <Box sx={{
             position: 'relative',
             flex: 1,
@@ -9208,7 +9290,7 @@ const SaleKeyPage = () => {
                       {selectedProductDetail.name}
                     </Typography>
                     <Typography sx={{ fontSize: '22.4px', fontWeight: 400, color: '#000', lineHeight: '27px', letterSpacing: 'normal' }}>
-                      ${Number(selectedProductDetail.retailPrice || selectedProductDetail.prices?.[0]?.price || 0).toFixed(2)}
+                      ${Number(productDetailPriceOverride ?? (selectedProductDetail.retailPrice || selectedProductDetail.prices?.[0]?.price || 0)).toFixed(2)}
                     </Typography>
                   </Box>
 
@@ -9234,9 +9316,11 @@ const SaleKeyPage = () => {
                   {/* Show/Hide Costs (reference: gray eye button at the left edge; when
                       on, a Cost / Profit / % strip fills the rest of the row) */}
                   {(() => {
-                    const sellPrice = Number(selectedProductDetail.retailPrice || selectedProductDetail.prices?.[0]?.price || 0);
+                    // A combo component is priced $0.00 here (reference), so its
+                    // profit strip reads $0.00 / 0.00% rather than the product's own.
+                    const sellPrice = Number(productDetailPriceOverride ?? (selectedProductDetail.retailPrice || selectedProductDetail.prices?.[0]?.price || 0));
                     const unitCost = Number(selectedProductDetail.itemCost || 0);
-                    const profit = sellPrice - unitCost;
+                    const profit = productDetailPriceOverride != null ? 0 : sellPrice - unitCost;
                     const pct = sellPrice > 0 ? (profit / sellPrice) * 100 : 0;
                     const cell = (label, value) => (
                       <Box sx={{ textAlign: 'center', fontSize: 16, color: '#000', lineHeight: 1.2 }}>

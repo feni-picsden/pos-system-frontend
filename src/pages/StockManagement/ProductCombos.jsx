@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { searchProducts } from '../../utils/productSearch.js';
+import { tierUnitRate } from '../../utils/quantityTierPrice';
 import {
   Alert,
   Autocomplete,
@@ -67,17 +68,16 @@ const firstBarcode = (product) => {
 };
 const money = (value) => `$${(Number(value) || 0).toFixed(2)}`;
 
-// A row's effective unit price: the override when set, otherwise the product's
-// quantity-1 price (falling back to its first tier).
+// A row's effective unit price: the override when set, otherwise the per-unit
+// rate of the product's quantity tier for this row's quantity (reference: 6 of
+// a 1→$5 / 6→$27 product is $4.50 each, 8 is still $4.50 each = $36).
 const unitPriceOf = (row) => {
   const override = Number(row.price) || 0;
   if (override > 0) return override;
-  const tiers = row.product?.prices || [];
-  const single = tiers.find((p) => Number(p.quantity) === 1) || tiers[0];
-  return Number(single?.price) || 0;
+  return tierUnitRate(row.product?.prices || [], row.quantity);
 };
 
-const rowSubtotal = (row) => unitPriceOf(row) * (Number(row.quantity) || 0);
+const rowSubtotal = (row) => Math.round(unitPriceOf(row) * (Number(row.quantity) || 0) * 100) / 100;
 
 // A member's quantity can be a fraction — .29 of a keg for a pot, .57 for a
 // pint — and the reference holds sell quantities to two decimal places, so a
