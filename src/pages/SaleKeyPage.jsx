@@ -2006,6 +2006,21 @@ const SaleKeyPage = () => {
     });
   };
 
+  // Barcodes of `product` whose code CONTAINS the typed digits (3+), each with its
+  // pack quantity — what the search-result row lists under the price.
+  const barcodesMatchingTerm = (product, term) => {
+    const t = String(term || '').trim();
+    if (!/^\d{3,}$/.test(t)) return [];
+    let arr = product?.barcodes;
+    if (typeof arr === 'string') {
+      try { arr = JSON.parse(arr); } catch { return []; }
+    }
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((b) => ({ code: String((typeof b === 'string' ? b : b?.code) || '').trim(), quantity: Number((typeof b === 'object' && b?.quantity) || 1) || 1 }))
+      .filter((b) => b.code && b.code.includes(t));
+  };
+
   // A term the CATALOG says is a barcode. Barcodes are arbitrary alphanumeric
   // strings (Code 39), so shape alone can never gate a scan — an exact hit in the
   // local barcode map (or among the products currently listed, which covers codes
@@ -8498,9 +8513,40 @@ const SaleKeyPage = () => {
                                 </Typography>
                               )}
                             </Box>
-                            <Typography sx={{ fontSize: 16, color: '#000', flexShrink: 0, ml: 2 }}>
-                              ${(parseFloat(product.retailPrice) || parseFloat(product.prices?.[0]?.price) || 0).toFixed(2)}
-                            </Typography>
+                            <Box sx={{ flexShrink: 0, ml: 2, textAlign: 'right' }}>
+                              <Typography sx={{ fontSize: 16, color: '#000' }}>
+                                ${(parseFloat(product.retailPrice) || parseFloat(product.prices?.[0]?.price) || 0).toFixed(2)}
+                              </Typography>
+                              {/* Barcode search: every barcode of the row that contains the typed
+                                  digits is listed with its pack quantity (1, 2, 24 ...) so the
+                                  operator sees what that code adds (user note 14/10/2026). */}
+                              {barcodesMatchingTerm(product, searchTerm).length > 0 && (
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                                  {barcodesMatchingTerm(product, searchTerm).map((b) => (
+                                    <Box
+                                      key={b.code}
+                                      component="span"
+                                      title={`Barcode ${b.code} adds ${b.quantity}`}
+                                      sx={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        height: 22,
+                                        px: 1,
+                                        borderRadius: '11px',
+                                        bgcolor: b.quantity > 1 ? '#1976d2' : '#e0e0e0',
+                                        color: b.quantity > 1 ? '#fff' : '#424242',
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        lineHeight: 1,
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      Qty {b.quantity}
+                                    </Box>
+                                  ))}
+                                </Box>
+                              )}
+                            </Box>
                           </Box>
                         ))}
                       </>
