@@ -91,6 +91,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import productService from '../../services/productService';
+import { refreshProductsInCache } from '../../services/posCatalogSync';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import ImageUpload from '../../components/Common/ImageUpload';
@@ -1502,6 +1503,13 @@ const ProductEdit = () => {
       // Ref: saving lands on the product's View page (with its success context),
       // unless the caller asked to come back somewhere specific.
       const savedId = savedProduct?.product?.id || id;
+      // A combo's contents live in the sell screen's local catalog (its Product
+      // Components pane reads them there, no fetch). Re-pull this one row now so
+      // an edited combo shows its new items on the very next click, not after
+      // the 5-minute catalog sync.
+      if (isCombo && savedId) {
+        refreshProductsInCache([savedId], formData.outletId || null).catch(() => {});
+      }
       navigate(location.state?.returnTo || (savedId ? `/products/${savedId}/view` : '/products'));
     } catch (error) {
       console.error('Error saving product:', error);

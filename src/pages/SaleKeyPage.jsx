@@ -5308,19 +5308,24 @@ const SaleKeyPage = () => {
       setProductDetailComponents(null);
       setProductDetailPriceOverride(null);
       if (productData.type === 'Combo Product' || item.productType === 'Combo Product') {
-        setProductDetailComponents([]);
-        productService
-          .getProduct(productData.id)
-          .then((res) =>
-            setProductDetailComponents(
-              (res?.product?.comboContents || []).map((row) => ({
-                productId: row.productId,
-                name: row.product?.name || `#${row.productId}`,
-                quantity: Number(row.quantity) || 0,
-              }))
-            )
-          )
-          .catch(() => setProductDetailComponents([]));
+        const toRows = (contents) =>
+          (contents || []).map((row) => ({
+            productId: row.productId,
+            name: row.product?.name || `#${row.productId}`,
+            quantity: Number(row.quantity) || 0,
+          }));
+        // The catalog row carries the contents (products list select), so the
+        // pane opens instantly like the reference. A row cached before that
+        // field existed falls back to the (slow) product fetch.
+        if (Array.isArray(productData.comboContents) && productData.comboContents.length) {
+          setProductDetailComponents(toRows(productData.comboContents));
+        } else {
+          setProductDetailComponents([]);
+          productService
+            .getProduct(productData.id)
+            .then((res) => setProductDetailComponents(toRows(res?.product?.comboContents)))
+            .catch(() => setProductDetailComponents([]));
+        }
       }
       // Purchases rows for the accordion (reference lists the product's orders).
       setProductDetailPurchases([]);
