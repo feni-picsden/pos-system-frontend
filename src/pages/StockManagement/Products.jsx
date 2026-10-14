@@ -936,28 +936,16 @@ const Products = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      {/* Negative stock is a real state (sales decrement with no floor) and
-                          is exactly what a manager needs to see, so print it verbatim —
-                          only a true 0/0 collapses to the single "0 Items" line. */}
+                      {/* Reference (14/10/2026) always prints both lines — "0 Cases /
+                          8 Items", "15 Cases / 0 Items", "1 Case / 0 Items" — and
+                          negative stock verbatim. Singular only for exactly 1. */}
                       <Box>
-                        {product.inventory.cases !== 0 && (
-                          <Typography variant="body2" sx={{ fontSize: 16 }}>
-                            {product.inventory.cases} Case
-                            {product.inventory.cases !== 1 ? "s" : ""}
-                          </Typography>
-                        )}
-                        {product.inventory.items !== 0 && (
-                          <Typography variant="body2" sx={{ fontSize: 16 }}>
-                            {product.inventory.items} Item
-                            {product.inventory.items !== 1 ? "s" : ""}
-                          </Typography>
-                        )}
-                        {product.inventory.cases === 0 &&
-                          product.inventory.items === 0 && (
-                            <Typography variant="body2" sx={{ color: "#999", fontSize: 16 }}>
-                              0 Items
-                            </Typography>
-                          )}
+                        <Typography variant="body2" sx={{ fontSize: 16 }}>
+                          {product.inventory.cases} {product.inventory.cases === 1 ? "Case" : "Cases"}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontSize: 16 }}>
+                          {product.inventory.items} {product.inventory.items === 1 ? "Item" : "Items"}
+                        </Typography>
                       </Box>
                     </TableCell>
                     <TableCell>

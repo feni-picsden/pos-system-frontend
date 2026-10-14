@@ -117,12 +117,17 @@ const ProductInventoryLog = ({ productId }) => {
   // is "Created Product".
   // A sale row that ADDED stock is a returned line: "Sales (Return)" (user's
   // choice - the reference labels it plain "Sale").
+  // Reference (14/10/2026): a stock edit on the product form is "Manual Change";
+  // both directions of a transfer are plain "Transfer" (the sign of Changed says
+  // which way the stock went).
   const eventName = (log) => {
     if (log.eventType === 'OPENING') return 'Created Product';
     if (log.eventType === 'SALE'
       && (Number(log.changed?.cases) || 0) * (Number(log.caseQuantity) || 1) + (Number(log.changed?.items) || 0) > 0) {
       return 'Sales (Return)';
     }
+    if (log.eventType === 'MANUAL' || log.eventType === 'MANUAL_ADJUSTMENT') return 'Manual Change';
+    if (log.eventType === 'TRANSFER_IN' || log.eventType === 'TRANSFER_OUT') return 'Transfer';
     if (log.eventType === 'STOCKTAKE' && log.referenceType !== 'STOCKTAKE') return 'Express Stocktake';
     return eventLabel(log.eventType);
   };
@@ -134,6 +139,9 @@ const ProductInventoryLog = ({ productId }) => {
       ? <Box component={RouterLink} to={href} sx={{ color: 'inherit', textDecoration: 'underline' }}>{label}</Box>
       : label;
   };
+
+  // Reference labels: "1 Case" / "1 Item" only for exactly 1; "-1 Cases", "0 Items".
+  const unitLabel = (n, one, many) => (Number(n) === 1 ? one : many);
 
   // Reference Before/Changed/After cell: title row, then Cases / Items pair.
   const quantityCell = (title, value) => (
@@ -147,11 +155,11 @@ const ProductInventoryLog = ({ productId }) => {
         <tr>
           <td className="value">
             <div className="qty">{value?.cases ?? 0}</div>
-            <div className="label">Cases</div>
+            <div className="label">{unitLabel(value?.cases, 'Case', 'Cases')}</div>
           </td>
           <td className="value">
             <div className="qty">{value?.items ?? 0}</div>
-            <div className="label">Items</div>
+            <div className="label">{unitLabel(value?.items, 'Item', 'Items')}</div>
           </td>
         </tr>
       </tbody>
