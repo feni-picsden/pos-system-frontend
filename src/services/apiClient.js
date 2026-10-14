@@ -262,6 +262,16 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
+      // Only tear the session down when THIS request was sent with the token the
+      // browser currently holds. A request that went out with no token (a page
+      // that loads settings before the user has signed in) or with a token that
+      // has since been replaced (auto logout, then a quick re-login while the old
+      // page's requests were still in flight) must not wipe the new session.
+      const sent = String(error.config?.headers?.Authorization || '').replace(/^Bearer\s+/i, '');
+      const current = localStorage.getItem('authToken') || '';
+      if (!sent || (current && sent !== current)) {
+        return Promise.reject(error);
+      }
       const errorMessage = error.response?.data?.message || '';
       const errorType = error.response?.data?.error || '';
       const isSessionError =

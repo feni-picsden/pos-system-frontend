@@ -291,6 +291,7 @@ export const COMPANY_SECTIONS = [
         description: 'Whether to automatically log out while a sale is in progress.',
         // measured verbatim from the reference panel 2026-08-17
         moreDescription: 'Whether to automatically log out while a sale is in progress. If enabled Shopfront will log out the user once the amount of time specified in **Auto logout time** has passed even if a sale exists on the sell screen.\n\nThe sale won\'t be lost, once the user has logged back in the sale will be visible again.\n\nThis only affects the **Sell screen Auto Logout Time (in seconds)** setting.',
+        enabledLabel: 'Auto logout is always active',
         disabledLabel: 'Active sales prevent auto logout'
       }
     ]
@@ -793,6 +794,26 @@ export const normalizeCompanySettings = (values = {}) => {
 
 // Number/required constraints by key, for clamping on blur - the DOM min/max
 // only stops spinner clicks, typing and paste sail straight past it.
+// Save-time check of every constrained number field. Returns { key: message }
+// in the reference's wording: "Invalid value for <label>, must be greater than
+// or equal to <min>" / "less than or equal to <max>". Blank is allowed here
+// (required blanks fall back to their default on blur).
+export const validateCompanyNumbers = (values) => {
+  const errors = {};
+  for (const section of COMPANY_SECTIONS) {
+    for (const f of section.fields) {
+      if (f.type !== 'number' || !f.constraints) continue;
+      const raw = values?.[f.key];
+      if (raw === '' || raw === null || raw === undefined) continue;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) errors[f.key] = `Invalid value for ${f.label}, must be a number`;
+      else if (f.constraints.min !== undefined && n < f.constraints.min) errors[f.key] = `Invalid value for ${f.label}, must be greater than or equal to ${f.constraints.min}`;
+      else if (f.constraints.max !== undefined && n > f.constraints.max) errors[f.key] = `Invalid value for ${f.label}, must be less than or equal to ${f.constraints.max}`;
+    }
+  }
+  return errors;
+};
+
 export const COMPANY_CONSTRAINTS = Object.fromEntries(
   COMPANY_SECTIONS.flatMap((section) =>
     section.fields

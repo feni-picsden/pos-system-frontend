@@ -3,6 +3,9 @@ import posLocalDb from './posLocalDb';
 import { setDebugLogLevel } from '../utils/debugLog';
 import { normalizeCompanySettings } from '../pages/Setup/generalSettingsFields';
 
+// Fired on window after refreshGeneralSettingsCache() has the fresh blob.
+export const GENERAL_SETTINGS_REFRESHED_EVENT = 'pos:general-settings-refreshed';
+
 // Company blob defaults — also what every consumer sees until the real blob
 // loads, AND the initial state of Setup > General. One copy, not three.
 export const GENERAL_DEFAULTS = {
@@ -142,11 +145,15 @@ const settingsService = {
   // Awaitable warm-up; safe to call repeatedly (one request).
   loadCachedGeneralSettings: () => loadGeneralCache(),
 
-  // Called after a save so consumers stop serving the stale blob.
+  // Called after a save so consumers stop serving the stale blob. Announces the
+  // new blob so long-lived consumers (the auto logout timer) re-read it.
   refreshGeneralSettingsCache: () => {
     generalCache = null;
     generalPromise = null;
-    return loadGeneralCache();
+    return loadGeneralCache().then((s) => {
+      try { window.dispatchEvent(new CustomEvent(GENERAL_SETTINGS_REFRESHED_EVENT)); } catch { /* ignore */ }
+      return s;
+    });
   },
 
   // "Invoice number length": the counter stays an integer, only the display is

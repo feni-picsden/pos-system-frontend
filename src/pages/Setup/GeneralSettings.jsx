@@ -44,12 +44,13 @@ import {
   ArrowDropDown,
   PrintOutlined,
   ManageAccountsOutlined,
-  CardGiftcardOutlined
+  CardGiftcardOutlined,
+  WarningAmberOutlined
 } from '@mui/icons-material';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import SettingsSlideOver from '../../components/Settings/SettingsSlideOver';
 import EditReasonsSlideOver from '../../components/Settings/EditReasonsSlideOver';
-import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS, COMPANY_CONSTRAINTS } from './generalSettingsFields';
+import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS, COMPANY_CONSTRAINTS, validateCompanyNumbers } from './generalSettingsFields';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 import { formatWithTokens, toZonedDate } from '../../utils/dateFormat';
 import saleKeyService from '../../services/saleKeyService';
@@ -197,9 +198,19 @@ const SettingsSection = ({ id, label, flash, children }) => (
 
 // One setting: bold label + inline "- Last updated", description line, an
 // optional "More Info..." button (opens the slide-over), then the control.
-const SettingRow = ({ label, updated, description, helpUrl, onMoreInfo, children }) => (
-  <Box id={`setting-${slugify(label)}`} data-setting={label} sx={{ scrollMarginTop: '160px' }}>
-    <Typography component="div" sx={{ fontSize: '16px', fontWeight: 700, color: '#000' }}>
+// `error` (a failed save-time validation) tints the whole row red with a
+// warning icon beside the label, as the reference does.
+const SettingRow = ({ label, updated, description, helpUrl, onMoreInfo, error, children }) => (
+  <Box
+    id={`setting-${slugify(label)}`}
+    data-setting={label}
+    sx={{
+      scrollMarginTop: '160px',
+      ...(error && { backgroundColor: '#fde8e8', borderRadius: '6px', p: 1, ml: -1, mr: -1 }),
+    }}
+  >
+    <Typography component="div" sx={{ fontSize: '16px', fontWeight: 700, color: error ? '#b91c1c' : '#000', display: 'flex', alignItems: 'center' }}>
+      {error && <WarningAmberOutlined sx={{ fontSize: 18, mr: 0.75, color: '#b91c1c' }} />}
       {label}
       {updated && (
         <Box component="span" sx={{ ml: 0.75, fontSize: '13px', fontWeight: 400, color: '#676b72' }}>
@@ -395,6 +406,8 @@ const GeneralSettings = () => {
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState('');
+  // { fieldKey: message } for company number fields refused by the last save.
+  const [fieldErrors, setFieldErrors] = useState({});
   const [saleKeySets, setSaleKeySets] = useState([]);
   const [loadingSaleKeySets, setLoadingSaleKeySets] = useState(false);
   const [selectedOutletForSaleKeys, setSelectedOutletForSaleKeys] = useState('');
@@ -829,6 +842,8 @@ const GeneralSettings = () => {
   const handleCompanySettingChange = (field) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     markDirty('company');
+    // Editing a field that failed the last save clears its red state.
+    setFieldErrors((prev) => (prev[field] ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== field)) : prev));
     if (field === 'defaultSaleKeys') {
       const selectedSet = saleKeySets.find(set => set.name === value);
       setCompanySettings(prev => ({
@@ -1183,6 +1198,17 @@ const GeneralSettings = () => {
 
     try {
       if (dirty.company) {
+        // Reference: an out-of-range number is refused at save time with the
+        // field tinted red and a toast naming the limit, not silently clamped.
+        const invalid = validateCompanyNumbers(companySettings);
+        setFieldErrors(invalid);
+        const firstKey = Object.keys(invalid)[0];
+        if (firstKey) {
+          setError(invalid[firstKey]);
+          const label = COMPANY_SECTIONS.flatMap((s) => s.fields).find((f) => f.key === firstKey)?.label;
+          document.getElementById(`setting-${slugify(label || '')}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
         await settingsService.updateGeneralSettings(companySettings);
       }
       if (dirty.outlet) {
@@ -1239,8 +1265,10 @@ const GeneralSettings = () => {
     handleCompanySettingChange(key)({ target: { value } });
 
   // inputProps min/max only stops the spinner arrows; typing or pasting an
-  // out-of-range value went straight through to the API. Clamp on blur, so the
-  // user can still type "700" into a min-60 box one digit at a time.
+  // out-of-range value went straight through to the API. A blank required box
+  // falls back to its default on blur; out-of-range values are left as typed
+  // and refused by validateCompanyNumbers when the user saves (reference:
+  // "Invalid value for X, must be greater than or equal to 60").
   const clampCompanyValue = (key) => {
     const c = COMPANY_CONSTRAINTS[key];
     if (!c || c.type !== 'number') return;
@@ -1249,10 +1277,7 @@ const GeneralSettings = () => {
       if (raw === '' || raw === null || raw === undefined) {
         return c.required && c.fallback !== undefined ? { ...prev, [key]: c.fallback } : prev;
       }
-      const n = Number(raw);
-      if (!Number.isFinite(n)) return { ...prev, [key]: c.fallback ?? c.min ?? 0 };
-      const clamped = Math.min(c.max ?? Infinity, Math.max(c.min ?? -Infinity, n));
-      return clamped === raw ? prev : { ...prev, [key]: clamped };
+      return prev;
     });
   };
 
@@ -1461,6 +1486,7 @@ const GeneralSettings = () => {
           value={companySettings[field.key] ?? ''}
           onChange={handleCompanySettingChange(field.key)}
           onBlur={() => clampCompanyValue(field.key)}
+          error={!!fieldErrors[field.key]}
           placeholder={field.placeholder}
           inputProps={field.constraints
             ? { min: field.constraints.min, max: field.constraints.max, step: field.constraints.step }
@@ -1479,6 +1505,7 @@ const GeneralSettings = () => {
         // measured descriptions carry the reference's **bold** markers
         description={renderRichText(field.description)}
         onMoreInfo={field.moreDescription ? () => setSlideOverField(field) : undefined}
+        error={fieldErrors[field.key]}
       >
         {control}
       </SettingRow>
@@ -3043,7 +3070,9 @@ const GeneralSettings = () => {
         <Snackbar
           open={showSuccess}
           autoHideDuration={3000}
-          onClose={() => setShowSuccess(false)}
+          // Not on click-away: the Save click that produces the NEXT toast would
+          // otherwise close this one in the same tick and the new message vanishes.
+          onClose={(_, reason) => reason !== 'clickaway' && setShowSuccess(false)}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
           <Alert severity="success" onClose={() => setShowSuccess(false)}>
@@ -3067,7 +3096,7 @@ const GeneralSettings = () => {
         <Snackbar
           open={!!error}
           autoHideDuration={8000}
-          onClose={() => setError('')}
+          onClose={(_, reason) => reason !== 'clickaway' && setError('')}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
           <Alert severity="error" onClose={() => setError('')}>
