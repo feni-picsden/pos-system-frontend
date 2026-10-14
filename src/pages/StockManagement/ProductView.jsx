@@ -1093,8 +1093,10 @@ const ProductView = () => {
                 <>
                   {/* Reference: flex space-around, 32px/400 figure over a 16px label */}
                   <Box sx={{ display: "flex", justifyContent: "space-around" }}>
+                    {/* Case Quantity 1: the reference shows only the Items figure
+                        ("$3 clearance" Home, 14/10/2026). */}
                     {[
-                      { value: totalCases, label: "Cases" },
+                      ...(Number(product?.caseQuantity) === 1 ? [] : [{ value: totalCases, label: "Cases" }]),
                       { value: totalItems, label: "Items" },
                     ].map((stat) => (
                       <Box key={stat.label} sx={{ textAlign: "center" }}>

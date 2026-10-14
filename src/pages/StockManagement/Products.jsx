@@ -37,6 +37,8 @@ import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import PermissionGate from "../../components/Common/PermissionGate";
 import productService from "../../services/productService";
 import { taxRateService } from "../../services/taxRateService";
+import settingsService from "../../services/settingsService";
+import { pricingUnitCost } from "../../utils/productCost";
 import posLocalDb from "../../services/posLocalDb";
 import { fetchAllProducts } from "../../services/posCatalogSync";
 import usePageCache from "../../hooks/usePageCache";
@@ -286,6 +288,21 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
 const Products = () => {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  // The Cost column follows Setup > General ("Set Prices Based On" / "Cost
+  // Calculation Method"), the same helper Product Home's price table uses —
+  // reference (Mixed Mode, 14/10/2026) shows the AVERAGE 157.76 while the last
+  // invoice landed at 157.75. Cache read first, then the loaded blob.
+  const [generalSettings, setGeneralSettings] = useState(
+    () => settingsService.getCachedGeneralSettings() || {}
+  );
+  useEffect(() => {
+    let cancelled = false;
+    settingsService
+      .loadCachedGeneralSettings()
+      .then((loaded) => { if (!cancelled && loaded) setGeneralSettings(loaded); })
+      .catch(() => { /* defaults already in state */ });
+    return () => { cancelled = true; };
+  }, []);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
@@ -417,11 +434,28 @@ const Products = () => {
         cost:
           Number(product.itemCost) ||
           (base ? (Number(base.cost) || 0) / (Number(base.quantity) || 1) : 0),
+        // The stored cost pair, so the Cost cell can follow the company's cost
+        // method at render time (settings may load after this transform).
+        costFields: {
+          itemCost: product.itemCost,
+          caseCost: product.caseCost,
+          averageItemCost: product.averageItemCost,
+          averageCaseCost: product.averageCaseCost,
+          caseQuantity: product.caseQuantity,
+          inventory: product.inventory,
+        },
         inventory: {
           cases: product.currentStockCases || 0,
           items: product.currentStockItems || 0,
         },
         price: Number(product.retailPrice) || Number(base?.price) || 0,
+        // Reference list (14/10/2026): one Cost and one Price line PER default
+        // price point ("-196 GRAPE 10PK": $3.01 / $90.20 cost, $6.50 / $145.00
+        // price). Cost of a band = unit cost x its quantity.
+        tiers: (product.prices || [])
+          .filter((p) => p && p.priceSetId == null && Number(p.quantity) > 0)
+          .map((p) => ({ quantity: Number(p.quantity), price: Number(p.price) || 0 }))
+          .sort((a, b) => a.quantity - b.quantity),
         performance: [10, 15, 12, 18, 14, 16, 13], // Mock performance data
         brand: product.brand?.name || "",
         family: product.family?.name || "",
@@ -928,30 +962,45 @@ const Products = () => {
                       <Typography variant="body2" sx={{ fontSize: 16 }}>{product.category}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{ color: product.cost === 0 ? "#999" : "inherit", fontSize: 16 }}
-                      >
-                        ${product.cost.toFixed(2)}
-                      </Typography>
+                      {(() => {
+                        const unitCost = product.costFields
+                          ? (pricingUnitCost(product.costFields, generalSettings) || product.cost)
+                          : product.cost;
+                        const bands = product.tiers?.length ? product.tiers : [{ quantity: 1 }];
+                        return bands.map((t) => (
+                          <Typography
+                            key={t.quantity}
+                            variant="body2"
+                            sx={{ color: unitCost === 0 ? "#999" : "inherit", fontSize: 16 }}
+                          >
+                            ${(Number(unitCost) * t.quantity).toFixed(2)}
+                          </Typography>
+                        ));
+                      })()}
                     </TableCell>
                     <TableCell>
                       {/* Reference (14/10/2026) always prints both lines — "0 Cases /
                           8 Items", "15 Cases / 0 Items", "1 Case / 0 Items" — and
                           negative stock verbatim. Singular only for exactly 1. */}
+                      {/* Case Quantity 1 (a case IS an item): the reference prints only
+                          the Items line ("$3 clearance" -> "0 Items", 14/10/2026). */}
                       <Box>
-                        <Typography variant="body2" sx={{ fontSize: 16 }}>
-                          {product.inventory.cases} {product.inventory.cases === 1 ? "Case" : "Cases"}
-                        </Typography>
+                        {Number(product.costFields?.caseQuantity) !== 1 && (
+                          <Typography variant="body2" sx={{ fontSize: 16 }}>
+                            {product.inventory.cases} {product.inventory.cases === 1 ? "Case" : "Cases"}
+                          </Typography>
+                        )}
                         <Typography variant="body2" sx={{ fontSize: 16 }}>
                           {product.inventory.items} {product.inventory.items === 1 ? "Item" : "Items"}
                         </Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 500, fontSize: 16 }}>
-                        ${product.price.toFixed(2)}
-                      </Typography>
+                      {(product.tiers?.length ? product.tiers : [{ quantity: 1, price: product.price }]).map((t) => (
+                        <Typography key={t.quantity} variant="body2" sx={{ fontWeight: 500, fontSize: 16 }}>
+                          ${Number(t.price).toFixed(2)}
+                        </Typography>
+                      ))}
                     </TableCell>
                     <TableCell>
                       <PerformanceSparkline productId={product.id} width={120} height={30} />
