@@ -18,12 +18,15 @@ import {
   Stack,
   Link,
   Snackbar,
+  SvgIcon,
 } from "@mui/material";
 import {
   Add as AddIcon,
   Remove as RemoveIcon,
   Clear as ClearIcon,
   DirectionsRun as DirectionsRunIcon,
+  Storefront as StorefrontIcon,
+  ShoppingCartOutlined as ShoppingCartOutlinedIcon,
   ArrowDropDown as ArrowDropDownIcon,
   UploadFile as UploadFileIcon,
   Merge as MergeIcon,
@@ -449,13 +452,6 @@ const Products = () => {
           items: product.currentStockItems || 0,
         },
         price: Number(product.retailPrice) || Number(base?.price) || 0,
-        // Reference list (14/10/2026): one Cost and one Price line PER default
-        // price point ("-196 GRAPE 10PK": $3.01 / $90.20 cost, $6.50 / $145.00
-        // price). Cost of a band = unit cost x its quantity.
-        tiers: (product.prices || [])
-          .filter((p) => p && p.priceSetId == null && Number(p.quantity) > 0)
-          .map((p) => ({ quantity: Number(p.quantity), price: Number(p.price) || 0 }))
-          .sort((a, b) => a.quantity - b.quantity),
         performance: [10, 15, 12, 18, 14, 16, 13], // Mock performance data
         brand: product.brand?.name || "",
         family: product.family?.name || "",
@@ -631,8 +627,29 @@ const Products = () => {
 
   // Sparkline now rendered via PerformanceSparkline component per product
 
-  const getStatusIcon = () => {
-    return <DirectionsRunIcon sx={{ fontSize: 18, color: "#313439" }} />;
+  // Reference Status cell (14/10/2026): one icon per status, stacked ABOVE the
+  // label — Active: running figure, Inactive: "zZz", Not Selling: shop shelf,
+  // Not Purchasing: shopping cart.
+  const getStatusIcon = (status) => {
+    // Every icon is a 22px MUI-style glyph box, so the four line up the same way.
+    const sx = { fontSize: 22, color: "#313439", display: "block" };
+    switch (status) {
+      case "Inactive":
+        return (
+          <SvgIcon viewBox="0 0 24 24" sx={sx} aria-label="Inactive">
+            {/* reference glyph: small z top-right, big Z bottom-left, small z bottom-right */}
+            <text x="14" y="9" fontSize="9" fontWeight="700" fontFamily="Roboto, Arial, sans-serif" fill="currentColor">z</text>
+            <text x="2" y="21" fontSize="15" fontWeight="700" fontFamily="Roboto, Arial, sans-serif" fill="currentColor">Z</text>
+            <text x="13" y="21" fontSize="10" fontWeight="700" fontFamily="Roboto, Arial, sans-serif" fill="currentColor">z</text>
+          </SvgIcon>
+        );
+      case "Not Selling":
+        return <StorefrontIcon sx={sx} />;
+      case "Not Purchasing":
+        return <ShoppingCartOutlinedIcon sx={sx} />;
+      default:
+        return <DirectionsRunIcon sx={sx} />;
+    }
   };
 
   // Option lists for the Shopfront-style filter comboboxes (client-side presentation only).
@@ -898,12 +915,13 @@ const Products = () => {
                   "& th:last-of-type": { borderTopRightRadius: "12px", borderBottomRightRadius: "12px" },
                 }}
               >
-                <TableCell>Status</TableCell>
-                <TableCell>Product</TableCell>
+                <TableCell align="center" sx={{ px: 0.5, width: 112 }}>Status</TableCell>
+                <TableCell sx={{ pl: 1 }}>Product</TableCell>
                 <TableCell>Category</TableCell>
-                <TableCell>Cost</TableCell>
-                <TableCell>Inventory</TableCell>
-                <TableCell>Price</TableCell>
+                {/* Equal widths so the gaps Cost|Inventory|Price are the same (user 14/10/2026). */}
+                <TableCell sx={{ width: 120 }}>Cost</TableCell>
+                <TableCell sx={{ width: 120 }}>Inventory</TableCell>
+                <TableCell sx={{ width: 120 }}>Price</TableCell>
                 <TableCell>Performance</TableCell>
                 {/* Centred like the row cell so the label sits over the three buttons. */}
                 <TableCell align="center">Actions</TableCell>
@@ -935,13 +953,17 @@ const Products = () => {
               ) : (
                 products.map((product) => (
                   <TableRow key={product.id}>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        {getStatusIcon()}
-                        <Typography variant="body2" sx={{ fontSize: 16 }}>{product.status}</Typography>
+                    <TableCell sx={{ px: 0.5, width: 112 }}>
+                      {/* Narrow column, block centred: icon and label share one centre line,
+                          minimal gap to the Product column (user request 14/10/2026). */}
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: 104, mx: "auto", gap: "2px" }}>
+                        <Box sx={{ height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {getStatusIcon(product.status)}
+                        </Box>
+                        <Typography variant="body2" sx={{ fontSize: 14, lineHeight: 1.2, whiteSpace: "nowrap" }}>{product.status}</Typography>
                       </Box>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ pl: 1 }}>
                       <Link
                         component={RouterLink}
                         to={`/products/${product.id}/view`}
@@ -966,16 +988,13 @@ const Products = () => {
                         const unitCost = product.costFields
                           ? (pricingUnitCost(product.costFields, generalSettings) || product.cost)
                           : product.cost;
-                        const bands = product.tiers?.length ? product.tiers : [{ quantity: 1 }];
-                        return bands.map((t) => (
-                          <Typography
-                            key={t.quantity}
-                            variant="body2"
-                            sx={{ color: unitCost === 0 ? "#999" : "inherit", fontSize: 16 }}
-                          >
-                            ${(Number(unitCost) * t.quantity).toFixed(2)}
+                        // One line (user's choice 14/10/2026: keep the old single-cost
+                        // display), setup-wise unit cost.
+                        return (
+                          <Typography variant="body2" sx={{ fontSize: 16 }}>
+                            ${Number(unitCost).toFixed(2)}
                           </Typography>
-                        ));
+                        );
                       })()}
                     </TableCell>
                     <TableCell>
@@ -996,11 +1015,9 @@ const Products = () => {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      {(product.tiers?.length ? product.tiers : [{ quantity: 1, price: product.price }]).map((t) => (
-                        <Typography key={t.quantity} variant="body2" sx={{ fontWeight: 500, fontSize: 16 }}>
-                          ${Number(t.price).toFixed(2)}
-                        </Typography>
-                      ))}
+                      <Typography variant="body2" sx={{ fontWeight: 500, fontSize: 16 }}>
+                        ${product.price.toFixed(2)}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <PerformanceSparkline productId={product.id} width={120} height={30} />
