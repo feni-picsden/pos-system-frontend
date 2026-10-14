@@ -183,7 +183,10 @@ export default function ExpressStocktake() {
       await productService.updateProduct(selectedProduct.id, {
         inventory: totalItems,
         currentStockItems: items,
-        currentStockCases: cases
+        currentStockCases: cases,
+        // Keeps the ledger row a STOCKTAKE one ("Express Stocktake" + RECENT
+        // STOCKTAKES); a plain product-form edit logs as "Manual Change".
+        stockSource: 'EXPRESS_STOCKTAKE'
       });
       pushHistory(selectedProduct, totalItems, 'Override', totalItems, items);
       setSelectedProduct(null);
