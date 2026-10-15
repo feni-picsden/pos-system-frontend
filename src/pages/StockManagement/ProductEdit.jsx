@@ -3022,7 +3022,9 @@ const ProductEdit = () => {
                       <MenuItem value="No Rounding">No Rounding</MenuItem>
                       <MenuItem value="Round Up to Case">Round Up to Case</MenuItem>
                       <MenuItem value="Round Down to Case">Round Down to Case</MenuItem>
-                      <MenuItem value="Round Naturally">Round Naturally</MenuItem>
+                      {/* Stored value kept ("Round Naturally") so existing products
+                          still match; label reads like the reference. */}
+                      <MenuItem value="Round Naturally">Round Naturally to Case</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
