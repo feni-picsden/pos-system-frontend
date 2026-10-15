@@ -10,11 +10,15 @@ import {
   TableContainer,
   Alert,
   Pagination,
+  Autocomplete,
+  TextField,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import productService from '../../services/productService';
+import outletService from '../../services/outletService';
 import {
   SECTION_ROOT_SX,
+  OUTLET_SELECT_SX,
   INVENTORY_LOG_TABLE_SX,
   inventoryLogRowSx,
   INVENTORY_QTY_TABLE_SX,
@@ -25,6 +29,10 @@ import {
   NICE_ERROR_BODY_SX,
 } from './productViewStyles';
 
+// Reference (global product): OUTLET is the first column and an "Outlets" filter
+// sits above Date Range. Outlet-specific products show neither (every row is
+// that one outlet's).
+const OUTLET_COLUMN = { label: 'Outlet', cls: 'left' };
 const COLUMNS = [
   { label: 'Event', cls: 'left' },
   { label: 'Before', cls: 'tight center' },
@@ -43,13 +51,23 @@ const ProductInventoryLog = ({ productId }) => {
   const [page, setPage] = useState(1);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [outlets, setOutlets] = useState([]);
+  const [selectedOutlet, setSelectedOutlet] = useState(null);
   // Last-write-wins guard: a cached (instant) response must not be overwritten
   // by an older filter's request that is still in flight.
   const reqRef = useRef(0);
 
   useEffect(() => {
     if (productId) loadLogs();
-  }, [productId, page, startDate, endDate]);
+  }, [productId, page, startDate, endDate, selectedOutlet]);
+
+  useEffect(() => {
+    // Outlet list for the reference "Outlets" filter (superadmin; harmless 403 otherwise)
+    outletService
+      .getAllOutlets()
+      .then((res) => setOutlets(res?.outlets || res?.data || res || []))
+      .catch(() => setOutlets([]));
+  }, []);
 
   const loadLogs = async () => {
     const seq = ++reqRef.current;
@@ -60,6 +78,7 @@ const ProductInventoryLog = ({ productId }) => {
         limit: 25,
         startDate: startDate ? new Date(startDate).toISOString() : undefined,
         endDate: endDate ? new Date(endDate).toISOString() : undefined,
+        outletId: selectedOutlet?.id || undefined,
       });
       if (seq !== reqRef.current) return;
       setData(resp.data);
@@ -175,8 +194,31 @@ const ProductInventoryLog = ({ productId }) => {
     );
   if (!data) return null;
 
+  // Global product (no outlet of its own): reference shows the Outlets filter
+  // and the OUTLET column. An outlet product shows neither.
+  const isGlobal = data.product?.outletId == null;
+  const columns = isGlobal ? [OUTLET_COLUMN, ...COLUMNS] : COLUMNS;
+
   return (
     <Box sx={SECTION_ROOT_SX}>
+      {isGlobal && (
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ fontSize: 16, color: '#000' }}>Outlets</Box>
+          <Autocomplete
+            options={outlets}
+            getOptionLabel={(o) => o?.name || ''}
+            isOptionEqualToValue={(o, v) => o?.id === v?.id}
+            value={selectedOutlet}
+            onChange={(e, v) => {
+              setPage(1);
+              setSelectedOutlet(v || null);
+            }}
+            renderInput={(params) => <TextField {...params} placeholder="Select Outlet..." />}
+            sx={OUTLET_SELECT_SX}
+          />
+        </Box>
+      )}
+
       {/* Date Range filter - the app's own picker (reference shows
           "DD/MM/YYYY HH:mm:ss — DD/MM/YYYY HH:mm:ss"), not the browser's
           native datetime-local box, which rendered as ", dd-mm-yyyy --:--:-- --". */}
@@ -223,7 +265,7 @@ const ProductInventoryLog = ({ productId }) => {
           <Table sx={INVENTORY_LOG_TABLE_SX}>
             <TableHead>
               <TableRow>
-                {COLUMNS.map((c) => (
+                {columns.map((c) => (
                   <TableCell key={c.label} className={c.cls}>
                     {c.label}
                   </TableCell>
@@ -233,6 +275,7 @@ const ProductInventoryLog = ({ productId }) => {
             <TableBody>
               {data.logs.map((log, index) => (
                 <TableRow key={log.id} sx={inventoryLogRowSx(index)}>
+                  {isGlobal && <TableCell className="left">{log.outletName || ''}</TableCell>}
                   <TableCell className="left">{eventCell(log)}</TableCell>
                   <TableCell className="tight">
                     {quantityCell('Before', log.before)}

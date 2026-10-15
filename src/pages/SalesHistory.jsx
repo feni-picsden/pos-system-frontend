@@ -289,10 +289,18 @@ const SalesHistory = () => {
   // Load initial data - using ref to prevent duplicate calls
   const initialLoadDone = React.useRef(false);
   
+  // Deep link (product inventory log EVENT cell): /register/history?saleId=123.
+  // Reference behaviour: the list is filtered down to that ONE sale (no other
+  // rows, date range ignored) with its details open. Pressing Filter drops the
+  // link and returns to the normal list.
+  const linkedSaleIdRef = React.useRef(
+    new URLSearchParams(location.search).get("saleId") || null
+  );
+
   useEffect(() => {
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
-      loadSales().then(openLinkedSale);
+      loadSales();
       loadDropdownData();
       loadReplyToEmail();
     }
@@ -307,23 +315,6 @@ const SalesHistory = () => {
       }
     } catch (error) {
       console.error('Error loading reply-to email:', error);
-    }
-  };
-
-  // Deep link (product inventory log EVENT cell): /register/history?saleId=123
-  // pins that sale to the top of the list and opens its details, whatever the
-  // current date-range/page filter would have returned.
-  const openLinkedSale = async () => {
-    const saleId = new URLSearchParams(location.search).get("saleId");
-    if (!saleId) return;
-    try {
-      const response = await salesService.getSaleById(saleId);
-      const sale = response?.sale;
-      if (!sale) return;
-      setSales((prev) => [sale, ...prev.filter((s) => s.id !== sale.id)]);
-      setSelectedSale(sale);
-    } catch (err) {
-      console.error("Error loading linked sale:", err);
     }
   };
 
@@ -366,9 +357,25 @@ const SalesHistory = () => {
         filterParams.endDate = dateRange.endDate.toISOString();
       }
 
+      // Linked sale: only that sale, whatever the date range would return.
+      const linkedSaleId = linkedSaleIdRef.current;
+      if (linkedSaleId) {
+        delete filterParams.startDate;
+        delete filterParams.endDate;
+        filterParams.saleId = linkedSaleId;
+        filterParams.page = 1;
+      }
+
       const response = await salesService.getSales(filterParams);
       setSales(response.sales || []);
       setPagination(response.pagination || pagination);
+      if (linkedSaleId) {
+        const linked = (response.sales || []).find((s) => String(s.id) === String(linkedSaleId));
+        if (linked) {
+          setSelectedSale(linked);
+          setOpenSaleIds((ids) => (ids.includes(linked.id) ? ids : [...ids, linked.id]));
+        }
+      }
     } catch (err) {
       setError("Failed to load sales data");
       console.error("Error loading sales:", err);
@@ -412,6 +419,11 @@ const SalesHistory = () => {
   };
 
   const handleApplyFilters = () => {
+    // Filter leaves the inventory-log deep link: back to the normal list
+    if (linkedSaleIdRef.current) {
+      linkedSaleIdRef.current = null;
+      navigate(location.pathname, { replace: true });
+    }
     setPagination((prev) => ({ ...prev, page: 1 }));
     loadSales();
   };

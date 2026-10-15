@@ -573,7 +573,8 @@ const SaleKey = () => {
     try {
       await posLocalDb.init();
       // Folders belong to ONE outlet - the cache and the API response can carry other outlets' sets (super admin in All Outlets mode), so filter like SaleKeySets does.
-      const oid = saleKeysOutletId();
+      // Global mode (no outlet picked): the set being edited says which outlet's folders apply.
+      const oid = saleKeysOutletId() ?? currentSet?.outletId ?? null;
       const mine = (rows) => rows.filter((s) => oid != null && Number(s.outletId) === Number(oid));
       const cached = mine(await posLocalDb.getStoreAll('saleKeySets'));
       if (cached.length > 0) {
@@ -662,6 +663,12 @@ const SaleKey = () => {
   };
 
   // Load products, folders, and payment methods on component mount
+  // Global mode: folders depend on the loaded set's outlet, which is not known on mount.
+  useEffect(() => {
+    if (saleKeysOutletId() == null && currentSet?.outletId != null) loadFolders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSet?.outletId]);
+
   useEffect(() => {
     loadProducts();
     loadFolders();

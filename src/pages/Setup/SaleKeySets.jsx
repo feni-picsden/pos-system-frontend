@@ -71,18 +71,16 @@ const SaleKeySets = () => {
     [isTrueSuperAdmin, getOutletId, selectedOutletId]
   );
 
+  // Global mode (super admin, no outlet picked): list EVERY outlet's sets - the
+  // Outlet column says which is which. A new set still needs one outlet, picked
+  // in the New dialog. Outlet mode is unchanged (that outlet's sets only).
+  const globalMode = isTrueSuperAdmin && isAllOutlets;
+
   const loadSaleKeySets = useCallback(async () => {
     setError('');
 
-    if (isTrueSuperAdmin && isAllOutlets) {
-      setSaleKeySets([]);
-      setError('Select an outlet from the top navigation to view sale key sets.');
-      setLoading(false);
-      return;
-    }
-
-    const outletId = resolveListOutletId();
-    if (outletId == null) {
+    const outletId = globalMode ? null : resolveListOutletId();
+    if (!globalMode && outletId == null) {
       setSaleKeySets([]);
       setError('Select an outlet from the top navigation to view sale key sets.');
       setLoading(false);
@@ -92,7 +90,7 @@ const SaleKeySets = () => {
     // 1. Show cached data immediately (no spinner for the user)
     await posLocalDb.init();
     const cached = (await posLocalDb.getStoreAll('saleKeySets'))
-      .filter((s) => s.outletId != null && Number(s.outletId) === Number(outletId));
+      .filter((s) => globalMode || (s.outletId != null && Number(s.outletId) === Number(outletId)));
 
     if (cached.length > 0) {
       setSaleKeySets(cached);
@@ -103,6 +101,7 @@ const SaleKeySets = () => {
 
     // 2. Always refresh from the real API (background when we have cache)
     try {
+      // No outletId in global mode -> the API returns all outlets' sets
       const response = await saleKeyService.getSaleKeySets(outletId);
       const fresh = response.saleKeySets || [];
       await posLocalDb.putStoreAll('saleKeySets', fresh);
@@ -116,7 +115,7 @@ const SaleKeySets = () => {
     } finally {
       setLoading(false);
     }
-  }, [isTrueSuperAdmin, isAllOutlets, resolveListOutletId]);
+  }, [globalMode, resolveListOutletId]);
 
   useEffect(() => {
     loadSaleKeySets();
@@ -135,11 +134,12 @@ const SaleKeySets = () => {
         return;
       }
 
-      const targetOutletId = resolveListOutletId();
+      // Global mode: the outlet comes from the dialog's Outlet dropdown (required)
+      const targetOutletId = globalMode ? newSetData.outletId : resolveListOutletId();
       if (!targetOutletId) {
         setSnackbar({
           open: true,
-          message: 'Select an outlet from the top navigation',
+          message: globalMode ? 'Please select an outlet for the sale key set' : 'Select an outlet from the top navigation',
           severity: 'error',
         });
         return;
@@ -218,7 +218,8 @@ const SaleKeySets = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const createDisabled = isTrueSuperAdmin && isAllOutlets;
+  // New is always available: in global mode the dialog asks for the outlet.
+  const createDisabled = false;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -231,7 +232,7 @@ const SaleKeySets = () => {
           startIcon={<AddIcon />}
           disabled={createDisabled}
           onClick={() => {
-            setNewSetData({ name: '', description: '', template: 'no-template' });
+            setNewSetData({ name: '', description: '', template: 'no-template', outletId: '' });
             setCreateDialogOpen(true);
           }}
           sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
@@ -383,6 +384,26 @@ const SaleKeySets = () => {
                 }
               }}
             />
+
+            {globalMode && (
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <InputLabel>Outlet *</InputLabel>
+                <Select
+                  value={newSetData.outletId ?? ''}
+                  onChange={(e) => setNewSetData({ ...newSetData, outletId: e.target.value })}
+                  label="Outlet *"
+                  IconComponent={ArrowDropDownIcon}
+                  displayEmpty={false}
+                  sx={{ borderRadius: '8px' }}
+                >
+                  {outlets.map((o) => (
+                    <MenuItem key={o.id} value={o.id} sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>
+                      {o.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
             <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
               Should a template be used when creating sale keys?
