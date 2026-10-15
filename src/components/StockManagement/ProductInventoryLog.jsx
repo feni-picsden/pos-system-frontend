@@ -123,6 +123,8 @@ const ProductInventoryLog = ({ productId }) => {
   // source document (manual product edits, receives) stay plain text.
   const eventHref = (log) => {
     if (!log.referenceId) return null;
+    // Source document deleted (stocktake/order/sale): plain text, no dead link.
+    if (log.referenceExists === false) return null;
     if (log.referenceType === 'SALE') return `/register/history?saleId=${log.referenceId}`;
     if (log.referenceType === 'STOCKTAKE') return `/stock-management/stocktakes/${log.referenceId}`;
     // Orders, receives, returns and transfers all reference an order/invoice doc.
