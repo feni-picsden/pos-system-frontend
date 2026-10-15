@@ -15,6 +15,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { matchesProductSearch } from '../../utils/productSearch';
+import { rankProducts } from '../../utils/searchRank';
 
 // Thin-stroke +/- to match the reference's FontAwesome-light fa-plus / fa-minus
 // (MUI Add/Remove icons render a heavier stroke).
@@ -147,15 +149,13 @@ const ClassificationAssignment = () => {
   const byName = (a, b) => a.name.localeCompare(b.name);
 
   const filterProducts = () => {
-    const searchLower = searchTerm.toLowerCase();
+    // Same matcher + best-match-first order as the sell screen search (every
+    // typed word, any order, name / description / barcode); with no search
+    // term both panels stay alphabetical (reference).
+    const term = searchTerm.trim();
+    const nextAssigned = assignedProducts.filter(product => matchesProductSearch(product, term));
 
-    const nextAssigned = assignedProducts.filter(product =>
-      product.name.toLowerCase().includes(searchLower)
-    );
-
-    let nextAvailable = availableProducts.filter(product =>
-      product.name.toLowerCase().includes(searchLower)
-    );
+    let nextAvailable = availableProducts.filter(product => matchesProductSearch(product, term));
     if (classificationFilter) {
       nextAvailable = nextAvailable.filter(product =>
         productMatchesClassification(product, classificationFilter)
@@ -165,9 +165,9 @@ const ClassificationAssignment = () => {
       nextAvailable = nextAvailable.filter(productLacksCurrentType);
     }
 
-    // Reference lists both panels alphabetically by name
-    setFilteredAssigned([...nextAssigned].sort(byName));
-    setFilteredAvailable([...nextAvailable].sort(byName));
+    const order = (list) => (term ? rankProducts(list, term) : [...list].sort(byName));
+    setFilteredAssigned(order(nextAssigned));
+    setFilteredAvailable(order(nextAvailable));
   };
 
   // Grouped options for the classification filter: the FULL classification

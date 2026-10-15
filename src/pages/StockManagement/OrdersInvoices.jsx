@@ -144,6 +144,9 @@ const badgeBg = {
   CANCELLED: '#e3342f',
 };
 
+import { matchesProductSearch } from '../../utils/productSearch';
+import { rankProducts } from '../../utils/searchRank';
+
 const includesText = (value, query) =>
   !query || String(value || '').toLowerCase().includes(query.toLowerCase());
 
@@ -390,7 +393,9 @@ const OrdersInvoices = () => {
             res = await transfereeService.getTransferees();
             break;
           case 'product':
-            res = await productService.getProducts({ includeAllStatuses: true });
+            // Without a limit the server answers its default 50, so only the
+            // first 50 products could ever be picked in this filter.
+            res = await productService.getProducts({ includeAllStatuses: true, limit: 5000 });
             break;
           case 'createdBy':
           case 'sentBy':
@@ -443,9 +448,13 @@ const OrdersInvoices = () => {
   const renderAsyncCombo = (label, field) => {
     const q = (filters[field] || '').trim();
     const pool = pools[field];
+    // Product names match like the sell screen search (every typed word, any
+    // order) and list best match first; the other pools keep plain contains.
     const options =
       q.length >= 2 && Array.isArray(pool)
-        ? pool.filter((n) => n.toLowerCase().includes(q.toLowerCase()))
+        ? (field === 'product'
+          ? rankProducts(pool.filter((n) => matchesProductSearch({ name: n }, q)).map((name) => ({ name })), q).map((p) => p.name)
+          : pool.filter((n) => n.toLowerCase().includes(q.toLowerCase())))
         : [];
     return (
       <Labeled label={label}>

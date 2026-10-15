@@ -47,6 +47,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { productOptionLabel } from '../../utils/productOptionLabel';
+import { searchProducts } from '../../utils/productSearch';
 import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
 import { saleKeyCanvasSx, saleKeyPreviewPanelSx } from '../../utils/saleKeyCanvas';
 import SaleKeyPreviewTabs from '../../components/SaleKey/SaleKeyPreviewTabs';
@@ -1396,6 +1397,9 @@ const SaleKeyEditor = () => {
                   fullWidth
                   options={availableProducts}
                   getOptionLabel={productOptionLabel}
+                  // Sell-screen search rules (every typed word, any order, name /
+                  // description / barcode; best match first).
+                  filterOptions={(opts, { inputValue }) => searchProducts(opts, inputValue)}
                   value={(() => {
                     // Try to find the selected product in available products
                     if (selectedKey.selectedProduct) {
@@ -1668,6 +1672,7 @@ const SaleKeyEditor = () => {
                   fullWidth
                   options={availableProducts}
                   getOptionLabel={productOptionLabel}
+                  filterOptions={(opts, { inputValue }) => searchProducts(opts, inputValue)}
                   value={availableProducts.find(p => p.id === (selectedKey.componentProduct?.id || selectedKey.componentProductId)) || null}
                   loading={loadingProducts}
                   isOptionEqualToValue={(option, value) => option.id === value?.id}

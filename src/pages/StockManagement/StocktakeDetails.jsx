@@ -282,7 +282,13 @@ export default function StocktakeDetails() {
       filtered = filtered.filter(i => (tab === 'scanned' ? counted(i) : !counted(i)));
     }
 
-    filtered.sort((a, b) => {
+    // While a search term is in play the default (name) order would undo the
+    // best-match-first ranking searchProducts just applied; only an explicit
+    // column sort re-orders then. Same behaviour as the sell screen's search.
+    const keepRank = Boolean(searchTerm) && !['expected', 'actual', 'difference'].includes(sortBy);
+    if (keepRank) {
+      if (sortOrder === 'desc') filtered = [...filtered].reverse();
+    } else filtered.sort((a, b) => {
       const order = sortOrder === 'asc' ? 1 : -1;
       switch (sortBy) {
         case 'expected':

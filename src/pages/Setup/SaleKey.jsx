@@ -47,6 +47,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { productOptionLabel } from '../../utils/productOptionLabel';
+import { searchProducts } from '../../utils/productSearch';
 import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
 import { saleKeyCanvasSx, saleKeyPreviewPanelSx } from '../../utils/saleKeyCanvas';
 import SaleKeyPreviewTabs from '../../components/SaleKey/SaleKeyPreviewTabs';
@@ -1149,6 +1150,10 @@ const SaleKey = () => {
                   fullWidth
                   options={availableProducts}
                   getOptionLabel={productOptionLabel}
+                  // Sell-screen search rules (every typed word, any order, name /
+                  // description / barcode; best match first) instead of MUI's
+                  // single-phrase label filter.
+                  filterOptions={(opts, { inputValue }) => searchProducts(opts, inputValue)}
                   value={selectedKey.selectedProduct || null}
                   loading={loadingProducts}
                   onChange={(event, newValue) => {

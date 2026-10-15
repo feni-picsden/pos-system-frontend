@@ -145,9 +145,9 @@ const searchProducts = (term) =>
   productService
     .getProducts({ search: term, limit: 20 })
     .then((r) =>
-      (r?.products || [])
-        .map((p) => ({ value: p.name, label: p.name }))
-        .sort(byLabel)
+      // Server answers best match first (shared product search rank); an A-Z
+      // re-sort here buried the exact / starts-with hits under alphabetical ones.
+      (r?.products || []).map((p) => ({ value: p.name, label: p.name }))
     )
     .catch(() => []);
 

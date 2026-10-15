@@ -43,6 +43,8 @@ import {
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import productService from '../../services/productService';
 import { userService } from '../../services/userService';
+import { matchesProductSearch } from '../../utils/productSearch';
+import { rankProducts } from '../../utils/searchRank';
 
 const PRODUCT_FIELD_OPTIONS = [
   'active',
@@ -162,9 +164,12 @@ const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => 
     popupIcon={<ArrowDropDown />}
     // ponytail: cap the rendered list instead of pulling in a virtualiser
     filterOptions={(opts, state) => {
-      const input = state.inputValue.trim().toLowerCase();
-      const matched = input ? opts.filter((o) => getLabel(o).toLowerCase().includes(input)) : opts;
-      return matched.slice(0, 100);
+      // Sell-screen search rules (every typed word, any order, name /
+      // description / barcode; best match first) for any option type.
+      const input = state.inputValue.trim();
+      if (!input) return opts.slice(0, 100);
+      const wrapped = opts.map((o) => ({ o, name: getLabel(o), description: o?.description, barcodes: o?.barcodes }));
+      return rankProducts(wrapped.filter((w) => matchesProductSearch(w, input)), input).map((w) => w.o).slice(0, 100);
     }}
     slotProps={panelSlotProps}
     sx={fieldSx}
@@ -559,7 +564,9 @@ const ProductRevisionHistory = () => {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const result = await productService.getProducts({ includeAllStatuses: true });
+        // Without a limit the server answers its default 50, so only the first
+        // 50 products could ever be picked in this filter.
+        const result = await productService.getProducts({ includeAllStatuses: true, limit: 5000 });
         const list = Array.isArray(result?.products)
           ? result.products
           : Array.isArray(result)

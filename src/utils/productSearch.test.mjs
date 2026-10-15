@@ -80,7 +80,7 @@ test('Stocktake Details filters product fields without changing original stockta
   const callback = actualCallback('../pages/StockManagement/StocktakeDetails.jsx', 'getFilteredItems');
   const item = { id: 100, product: carlton, actualQuantity: 5, notes: '' };
   for (const searchTerm of ['375 carlton', '9310000000017']) {
-    const rows = vm.runInNewContext(`(${callback})()`, { stocktake: { items: [item] }, searchTerm, tab: 'all', searchProducts });
+    const rows = vm.runInNewContext(`(${callback})()`, { stocktake: { items: [item] }, searchTerm, tab: 'all', sortBy: 'product', sortOrder: 'asc', searchProducts });
     assert.equal(rows[0].id, item.id);
     assert.equal(rows[0].actual, 5);
     assert.equal(item.actualQuantity, 5);

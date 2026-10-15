@@ -157,7 +157,9 @@ const StockList = () => {
       .map((name) => ({ type: "Categories", label: name }));
     const productOptions = list
       .filter((p) => p.name)
-      .map((p) => ({ type: "Products", label: p.name, id: p.id }));
+      // name / description / barcodes ride along so the dropdown can match
+      // and rank them the way the sell screen search does.
+      .map((p) => ({ type: "Products", label: p.name, id: p.id, name: p.name, description: p.description, barcodes: p.barcodes }));
     // A Combo Product is an ordinary product row, so it is already in productOptions.
     return [...categories, ...productOptions];
   }, [products]);
@@ -504,6 +506,15 @@ const StockList = () => {
             }
           }}
           options={searchOptions}
+          // Categories keep a plain contains match; products use the sell-screen
+          // rules (every typed word, any order; best match first).
+          filterOptions={(opts, { inputValue }) => {
+            const q = String(inputValue || "").trim();
+            if (!q) return opts;
+            const cats = opts.filter((o) => o.type === "Categories" && o.label.toLowerCase().includes(q.toLowerCase()));
+            const prods = rankProducts(opts.filter((o) => o.type === "Products" && matchesProductSearch(o, q)), q);
+            return [...cats, ...prods];
+          }}
           groupBy={(option) => option.type}
           getOptionLabel={(option) => (typeof option === "string" ? option : option.label)}
           isOptionEqualToValue={(o, v) => o.type === v.type && o.label === v.label}

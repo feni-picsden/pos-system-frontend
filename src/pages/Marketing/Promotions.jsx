@@ -52,6 +52,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import promotionService from '../../services/promotionService';
 import posLocalDb from '../../services/posLocalDb';
+import { matchesProductSearch } from '../../utils/productSearch';
+import { rankProducts } from '../../utils/searchRank';
 import usePageCache from '../../hooks/usePageCache';
 import promotionCategoryService from '../../services/promotionCategoryService';
 import customerGroupService from '../../services/customerGroupService';
@@ -178,8 +180,10 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
   const anchorRef = useRef(null);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? options.filter((o) => (o.name || '').toLowerCase().includes(q)) : options;
+    // Same matcher / best-match-first order as the sell screen product search
+    // (every typed word, any order); works for any option with a name.
+    const q = query.trim();
+    return q ? rankProducts(options.filter((o) => matchesProductSearch(o, q)), q) : options;
   }, [options, query]);
 
   const selectedOptions = options.filter((o) => selected.includes(o.id));
