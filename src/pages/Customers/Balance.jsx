@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { createPortal } from "react-dom";
 import {
   Autocomplete,
   Box,
@@ -563,11 +564,22 @@ const Balance = () => {
     0
   );
 
+  const paymentDateInvalid = !paymentDate || isNaN(new Date(paymentDate));
   // Reference payment page: live "$X Outstanding and $Y Unallocated" + a totals row.
   const allocatedTotal = Object.values(invoiceAllocations).reduce((sum, a) => sum + (Number(a) || 0), 0);
-  const invoicesTotal = outstandingInvoices.reduce((sum, i) => sum + (Number(i.totalAmount) || 0), 0);
   const outstandingTotal = outstandingInvoices.reduce((sum, i) => sum + (Number(i.balance) || 0), 0);
   const unallocatedTotal = (parseFloat(paymentAmount) || allocatedTotal) - allocatedTotal;
+  // Reference: the invoice table only opens once Register + Payment Method are
+  // chosen ("Please fill in the above details before continuing").
+  const paymentDetailsReady = !!selectedRegister && !!selectedPaymentMethod && !paymentDateInvalid;
+  // Reference: invoices sit under "More than 7 days" / "Current" headers with a
+  // subtotal per group; an empty group is not shown. Credit rows (negative) stay.
+  const invoiceGroups = (() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const older = outstandingInvoices.filter((i) => new Date(i.createdAt).getTime() < cutoff);
+    const current = outstandingInvoices.filter((i) => new Date(i.createdAt).getTime() >= cutoff);
+    return [{ label: 'More than 7 days', rows: older }, { label: 'Current', rows: current }].filter((g) => g.rows.length > 0);
+  })();
 
   const handleViewCustomer = (customer) => {
     navigate(`/customers/${customer.id}/view`);
@@ -809,15 +821,10 @@ const Balance = () => {
       setRegisters(registersData);
       setPaymentMethods(paymentMethodsData.paymentMethods || []);
       
-      if (registersData.length > 0) {
-        const defaultRegister = registersData.find(r => r.isDefault) || registersData[0];
-        setSelectedRegister(defaultRegister.id.toString());
-      }
-      
-      if (paymentMethodsData.paymentMethods && paymentMethodsData.paymentMethods.length > 0) {
-        const defaultMethod = paymentMethodsData.paymentMethods.find(pm => pm.isDefault) || paymentMethodsData.paymentMethods.find(pm => pm.name.toLowerCase() === 'cash') || paymentMethodsData.paymentMethods[0];
-        setSelectedPaymentMethod(defaultMethod.id.toString());
-      }
+      // Reference: Register and Payment Method start blank; the invoice table
+      // stays locked ("Please fill in the above details") until both are chosen.
+      setSelectedRegister('');
+      setSelectedPaymentMethod('');
     } catch (err) {
       console.error('Error loading payment data:', err);
     }
@@ -856,6 +863,7 @@ const Balance = () => {
     for (const invoice of outstandingInvoices) {
       if (remaining <= 0) break;
       const owed = Number(invoice.balance) || 0;
+      if (owed <= 0) continue; // credit rows take no allocation
       const alloc = Math.min(owed, remaining);
       if (alloc > 0) {
         next[invoice.id] = Number(alloc.toFixed(2));
@@ -864,8 +872,6 @@ const Balance = () => {
     }
     setInvoiceAllocations(next);
   };
-
-  const paymentDateInvalid = !paymentDate || isNaN(new Date(paymentDate));
 
   const handleCompletePayment = async () => {
     if (!paymentCustomer) return;
@@ -1009,9 +1015,18 @@ const Balance = () => {
     }
   };
 
+  // Reference "Print Balances": a plain Customer / Total Balance table (current
+  // filter), grand total row, "Customer Balances" title with date. Prints from a
+  // separate window so the page chrome (buttons, filters, actions) is left out.
+  // The print-only table below (#balances-print) is the only thing visible in
+  // print media, so the browser's own footer still shows this page's URL.
   const handlePrintBalances = () => {
+    const prev = document.title;
+    document.title = 'Customer Balances';
     window.print();
+    document.title = prev;
   };
+  const printAsOf = appliedAsOf ? ` as of ${appliedAsOf.date.toLocaleDateString('en-AU')}` : '';
 
   if (loading) {
     return null;
@@ -1019,6 +1034,38 @@ const Balance = () => {
 
   return (
     <Box sx={{ p: 3 }}>
+      {/* Reference "Print Balances": plain Customer / Total Balance table with a
+          grand total; hidden on screen, the only thing printed. */}
+      <style>{`
+        #balances-print { display: none; }
+        @media print {
+          #root { display: none !important; }
+          #balances-print { display: block !important; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; }
+          #balances-print h1 { font-size: 12px; text-align: center; margin: 0 0 8px; }
+          #balances-print table { width: 100%; border-collapse: collapse; }
+          #balances-print th, #balances-print td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
+          #balances-print th { font-weight: 700; text-align: center; }
+          #balances-print th:last-child, #balances-print td:last-child { width: 24%; }
+          #balances-print tfoot td { font-weight: 700; text-align: right; }
+        }
+      `}</style>
+      {createPortal(
+        <div id="balances-print">
+          <h1>Customer Balances</h1>
+          <table>
+            <thead><tr><th>Customer</th><th>Total Balance{printAsOf}</th></tr></thead>
+            <tbody>
+              {filteredCustomers.map((c) => {
+                const name = `${c.firstName || ''} ${c.lastName || ''}`.trim();
+                const label = c.company && c.company !== name ? `${name} ${c.company}`.trim() : name;
+                return <tr key={c.id}><td>{label}</td><td>{formatCurrency(balanceOf(c))}</td></tr>;
+              })}
+            </tbody>
+            <tfoot><tr><td /><td>{formatCurrency(totalBalance)}</td></tr></tfoot>
+          </table>
+        </div>,
+        document.body
+      )}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
           <Button
@@ -1720,24 +1767,22 @@ const Balance = () => {
                 <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                   Outstanding Invoices
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="body2" sx={{ color: '#676b72' }}>
-                    {formatCurrency(outstandingTotal - allocatedTotal)} Outstanding and{' '}
-                    {formatCurrency(unallocatedTotal)} Unallocated
-                  </Typography>
-                  <Button onClick={handleAutofill} variant="outlined" size="small">
-                    Autofill
-                  </Button>
-                </Box>
+                {!paymentDetailsReady && (
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="body2" sx={{ color: '#676b72' }}>Please fill in the above details before continuing.</Typography>
+                    <Typography sx={{ fontSize: 20, color: '#313439' }}>
+                      {formatCurrency(outstandingTotal - allocatedTotal)} Outstanding and{' '}
+                      {formatCurrency(unallocatedTotal)} Unallocated
+                    </Typography>
+                  </Box>
+                )}
               </Box>
-              <TableContainer>
-                <Table size="small" sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+              <TableContainer sx={{ opacity: paymentDetailsReady ? 1 : 0.45, pointerEvents: paymentDetailsReady ? 'auto' : 'none', transition: 'opacity 0.2s', border: '1px solid #e0e0e0' }}>
+                <Table size="small" sx={{ borderCollapse: 'collapse', tableLayout: 'fixed', '& th:nth-of-type(1), & td:nth-of-type(1)': { width: '20%' }, '& th:last-of-type, & td:last-of-type': { width: '16%' } }}>
                   <TableHead>
                     <TableRow
                       sx={{
-                        '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
-                        '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
-                        '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
+                        '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 15, border: 0, height: 46, py: 0, textAlign: 'center' },
                       }}
                     >
                       <TableCell>Timestamp</TableCell>
@@ -1751,47 +1796,70 @@ const Balance = () => {
                   </TableHead>
                   <TableBody
                     sx={{
-                      '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                      '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-                      '& td': { border: 0, fontSize: 16, color: '#000' },
+                      '& td': { border: 0, borderBottom: '1px solid #e0e0e0', fontSize: 15, color: '#000', textAlign: 'center', py: 1.25, px: 1 },
                     }}
                   >
-                    {outstandingInvoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell>
-                          {new Date(invoice.createdAt).toLocaleString('en-AU', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
+                    {invoiceGroups.map((group) => {
+                      const groupOutstanding = group.rows.reduce((sum, i) => sum + (Number(i.balance) || 0), 0);
+                      const groupAllocated = group.rows.reduce((sum, i) => sum + (Number(invoiceAllocations[i.id]) || 0), 0);
+                      return (
+                        <React.Fragment key={group.label}>
+                          {/* Reference: navy group header */}
+                          <TableRow sx={{ bgcolor: '#1f2a3c' }}>
+                            <TableCell colSpan={7} sx={{ '&&': { color: '#fff', py: 1.25, borderBottom: 0, fontSize: 15 } }}>
+                              {group.label}
+                            </TableCell>
+                          </TableRow>
+                          {group.rows.map((invoice) => {
+                            const isCredit = Number(invoice.balance) < 0;
+                            return (
+                              <TableRow key={invoice.id} sx={{ bgcolor: '#fff' }}>
+                                <TableCell>
+                                  {new Date(invoice.createdAt).toLocaleString('en-AU', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                  })}
+                                </TableCell>
+                                <TableCell>{invoice.saleNumber}</TableCell>
+                                <TableCell>{invoice.user?.name || 'N/A'}</TableCell>
+                                <TableCell>{invoice.register?.name || 'Register'}</TableCell>
+                                <TableCell>{formatCurrency(invoice.totalAmount)}</TableCell>
+                                <TableCell>{formatCurrency(invoice.balance)}</TableCell>
+                                <TableCell>
+                                  {/* Credit (return on account) rows cannot take an allocation */}
+                                  <TextField
+                                    size="small"
+                                    type="number"
+                                    disabled={isCredit}
+                                    value={invoiceAllocations[invoice.id] || ''}
+                                    onChange={(e) => handleAllocationChange(invoice.id, e.target.value, invoice.balance)}
+                                    InputProps={{
+                                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                    }}
+                                    sx={{ width: '100%', ...textFieldSx, '& .MuiOutlinedInput-root': { borderRadius: '6px' }, '& input': { py: 1, fontSize: 15 } }}
+                                    inputProps={{
+                                      max: invoice.balance,
+                                      min: 0,
+                                      step: 0.01
+                                    }}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
                           })}
-                        </TableCell>
-                        <TableCell>{invoice.saleNumber}</TableCell>
-                        <TableCell>{invoice.user?.name || 'N/A'}</TableCell>
-                        <TableCell>{invoice.register?.name || 'Register'}</TableCell>
-                        <TableCell>{formatCurrency(invoice.totalAmount)}</TableCell>
-                        <TableCell>{formatCurrency(invoice.balance)}</TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            type="number"
-                            value={invoiceAllocations[invoice.id] || ''}
-                            onChange={(e) => handleAllocationChange(invoice.id, e.target.value, invoice.balance)}
-                            InputProps={{
-                              startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                            }}
-                            sx={{ width: 120, ...textFieldSx }}
-                            inputProps={{
-                              max: invoice.balance,
-                              min: 0,
-                              step: 0.01
-                            }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          {/* Reference: per-group subtotal (Outstanding / Allocation) */}
+                          <TableRow sx={{ bgcolor: '#fff', '& td': { fontWeight: 700 } }}>
+                            <TableCell colSpan={5} />
+                            <TableCell>{formatCurrency(groupOutstanding)}</TableCell>
+                            <TableCell>{formatCurrency(groupAllocated)}</TableCell>
+                          </TableRow>
+                        </React.Fragment>
+                      );
+                    })}
                     {outstandingInvoices.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={7} align="center" sx={{ py: 2 }}>
@@ -1802,9 +1870,9 @@ const Balance = () => {
                   </TableBody>
                   {outstandingInvoices.length > 0 && (
                     <TableFooter>
-                      <TableRow sx={{ '& td': { border: 0, fontSize: 16, color: '#000', fontWeight: 700 } }}>
-                        <TableCell colSpan={4}>TOTAL</TableCell>
-                        <TableCell>{formatCurrency(invoicesTotal)}</TableCell>
+                      {/* Reference: orange grand total (Outstanding / Allocation) */}
+                      <TableRow sx={{ '& td': { border: 0, fontSize: 18, color: '#fff', fontWeight: 700, bgcolor: '#ff6b35', textAlign: 'center', py: 1.5 } }}>
+                        <TableCell colSpan={5} />
                         <TableCell>{formatCurrency(outstandingTotal)}</TableCell>
                         <TableCell>{formatCurrency(allocatedTotal)}</TableCell>
                       </TableRow>
@@ -1823,6 +1891,15 @@ const Balance = () => {
           >
             Cancel
           </Button>
+          {/* Reference: Autofill appears in the bar once a payment amount is typed */}
+          {(parseFloat(paymentAmount) || 0) > 0 && (
+            <Button
+              onClick={handleAutofill}
+              sx={{ ...primaryButtonSx, bgcolor: '#fff', color: '#000', border: '1px solid #000', '&:hover': { bgcolor: '#f5f5f5' } }}
+            >
+              Autofill
+            </Button>
+          )}
           <Button
             onClick={handleCompletePayment}
             disabled={processingPayment || paymentLoading}
