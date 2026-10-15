@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Box, MenuItem, Select } from "@mui/material";
-import { CheckCircleOutlined } from "@mui/icons-material";
+import { CheckCircleOutlined, HighlightOffOutlined } from "@mui/icons-material";
+import CustomerPaymentDialog from "./CustomerPaymentDialog";
 import settingsService from "../../services/settingsService";
 import { saleBasePrice, itemsPerCase } from "../../utils/saleTotals";
 import { saleItemDisplay } from "../../utils/caseLine";
@@ -64,11 +65,57 @@ const SaleDetailCard = ({
 
   const cell = { fontSize: 16, lineHeight: "19px" };
 
+  // Reference labels for a card cash-out (ref screenshot 14/10/2026: "EFTPOS
+  // Cashout $190.00" then "Cash (Cash Out) -$170.00"). We store that sale as the
+  // card tender for goods + cash and a negative "Cash (Change)" row for the cash
+  // handed over, so the labels are derived: a non-cash tender alongside a change
+  // row is a cash-out; an ordinary cash sale keeps "Cash (Change)".
+  const isChangeRow = (p) => String(p?.paymentMethod || "").trim().toLowerCase() === "cash (change)";
+  const isCashRow = (p) => String(p?.paymentMethod || "").trim().toLowerCase() === "cash";
+  // Change can only come back on a cash tender, so a change row WITHOUT any cash
+  // paid in is money handed out against a card: a cash-out. "Gift Voucher $50 +
+  // Cash $20 + Cash (Change) -$2" (ref) stays an ordinary change.
+  const cashOutSale =
+    payments.some(isChangeRow) &&
+    !payments.some((p) => isCashRow(p) && (parseFloat(p.amount) || 0) > 0) &&
+    payments.some((p) => !isChangeRow(p) && !isCashRow(p) && !isOnAccountPayment(p) && (parseFloat(p.amount) || 0) > 0);
+  // Reference prints the voucher / gift card number after the method:
+  // "Gift Voucher (20040) $50.00".
+  const giftCodes = (sale.giftCardTransactions || [])
+    .filter((t) => /redemption/i.test(t.transactionType || ""))
+    .map((t) => t.giftCard?.code)
+    .filter(Boolean);
+  // A customer payment taken after the sale (Customer Payment screen). New rows
+  // carry the user who took them; older ones are recognised by landing well
+  // after the sale itself on a customer's invoice.
+  const isCustomerPaymentRow = (p) => {
+    if (!p?.id || isChangeRow(p) || isOnAccountPayment(p)) return false;
+    if (p.userId != null) return true;
+    if (!sale.customerId && !sale.customer) return false;
+    const paidAt = new Date(p.createdAt).getTime();
+    const soldAt = new Date(sale.saleDate).getTime();
+    return Number.isFinite(paidAt) && Number.isFinite(soldAt) && paidAt - soldAt > 60 * 1000;
+  };
+  const [openPaymentId, setOpenPaymentId] = useState(null);
+
+  const paymentLabel = (p) => {
+    let name = p.paymentMethod || "Payment";
+    if (/gift (card|voucher)/i.test(name) && giftCodes.length) name = `${name} (${giftCodes.join(", ")})`;
+    // Reference prints the cash-rounding bookkeeping row as "(Rounding)".
+    if (/^rounding$/i.test(name.trim())) name = "(Rounding)";
+    if (!cashOutSale) return name;
+    if (isChangeRow(p)) return "Cash (Cash Out)";
+    if (!isCashRow(p) && !isOnAccountPayment(p) && (parseFloat(p.amount) || 0) > 0) return `${name} Cashout`;
+    return name;
+  };
+
   // Reference: a sale that still owes money (On Account, unpaid) reads
   // "○ Incomplete" in purple, lists no "On Account" tender (it is money owed, not
   // money taken) and its Balance is what is still owed.
   const owed = saleOutstanding(sale);
-  const incomplete = owed > 0;
+  const cancelled = sale.status === "CANCELLED";
+  const parked = sale.status === "PARKED";
+  const incomplete = !cancelled && !parked && owed > 0;
 
   return (
     <Box
@@ -136,8 +183,11 @@ const SaleDetailCard = ({
             <SplitPrice value={sale.totalAmount} />
           </Box>
           <Box sx={cell}>
-            {settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || sale.saleNumber}
+            #{settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || sale.saleNumber}
           </Box>
+          {/* Reference: the sale's customer sits under the invoice number
+              (ref screenshots 14/10/2026: "Buangor Community Sports Centre"). */}
+          {sale.customer && <Box sx={cell}>{customerName(sale.customer)}</Box>}
         </Box>
 
         {/* Status / outlet / register / user */}
@@ -150,28 +200,36 @@ const SaleDetailCard = ({
               alignItems: "center",
               justifyContent: "center",
               gap: "6px",
-              color: incomplete ? INCOMPLETE_PURPLE : "inherit",
+              color: cancelled ? "rgb(227,52,47)" : parked ? "#1e88e5" : incomplete ? INCOMPLETE_PURPLE : "inherit",
             }}
           >
-            {incomplete ? (
+            {/* Reference glyph + label per status (ref screenshots 14/10/2026):
+                red circled X "Cancelled", blue circled P "Parked", purple hollow
+                circle "Incomplete", black tick "Completed". */}
+            {cancelled ? (
+              <HighlightOffOutlined sx={{ fontSize: 18 }} />
+            ) : parked ? (
+              <Box sx={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid #1e88e5", boxSizing: "border-box", fontSize: 10, fontWeight: 700, lineHeight: "13px", textAlign: "center" }}>P</Box>
+            ) : incomplete ? (
               <Box sx={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${INCOMPLETE_PURPLE}`, boxSizing: "border-box" }} />
             ) : (
               <CheckCircleOutlined sx={{ fontSize: 18 }} />
             )}
-            {incomplete
-              ? "Incomplete"
-              : sale.status
-                ? sale.status.charAt(0) + sale.status.slice(1).toLowerCase()
-                : ""}
+            {cancelled
+              ? "Cancelled"
+              : parked
+                ? "Parked"
+                : incomplete
+                  ? "Incomplete"
+                  : sale.status
+                    ? sale.status.charAt(0) + sale.status.slice(1).toLowerCase()
+                    : ""}
           </Box>
           <Box sx={cell}>{sale.outlet?.name || outletName || ""}</Box>
           <Box sx={cell}>
             {sale.register?.name || sale.registerId || "Register"}
           </Box>
           <Box sx={cell}>{sale.user?.name}</Box>
-          {/* Local addition: without this the operator cannot see who Assign
-              Customer attached to the sale. */}
-          {sale.customer && <Box sx={cell}>{customerName(sale.customer)}</Box>}
         </Box>
 
         {/* Totals table, right-aligned inside the column */}
@@ -190,8 +248,8 @@ const SaleDetailCard = ({
               ["Base Price", formatCurrency(saleBasePrice(sale))],
               ["Savings", formatCurrency(sale.savings)],
               ["Discount", formatCurrency(sale.discount)],
+              // Reference totals block stops at Tax (no Loyalty Value row).
               ["Tax", formatCurrency(sale.tax)],
-              ["Loyalty Value", sale.loyaltyValue],
             ].map(([label, value]) => (
               <tr key={label}>
                 <td>{label}</td>
@@ -209,6 +267,14 @@ const SaleDetailCard = ({
 
       {/* .sale-line-center — products, payments, balance */}
       <Box sx={{ gridColumn: "1", display: "flex", flexDirection: "column" }}>
+        {/* Reference: the sale note sits above the lines as a small grey
+            "SALE NOTE" label over the text (ref screenshots 14/10/2026). */}
+        {sale.notes && String(sale.notes).trim() && (
+          <Box sx={{ mb: "16px" }}>
+            <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#757575", lineHeight: "13px" }}>SALE NOTE</Box>
+            <Box sx={{ ...cell, whiteSpace: "pre-wrap" }}>{sale.notes}</Box>
+          </Box>
+        )}
         <Box>
           {sale.items?.map((item, index) => {
             // A line sold as a case reads "1 Case <name>" (reference); the case
@@ -219,23 +285,32 @@ const SaleDetailCard = ({
               itemsPerCase(item.productId ? posLocalDb.getProductById(item.productId) : null),
               { caseText: caseText || "Case", singleText: singleText || "Item" }
             );
+            const lineNote = String(item.note || "").trim();
             return (
-              <Box
-                key={index}
-                sx={{
-                  display: "flex",
-                  fontSize: "19.2px",
-                  lineHeight: "23px",
-                  mb: "16px",
-                }}
-              >
-                <Box sx={{ mr: "16px" }}>{shown.qty}</Box>
-                <Box sx={{ mr: "16px" }}>{shown.word}</Box>
-                <Box sx={{ flex: 1, minWidth: 0, mr: "16px" }}>
-                  {item.comboName || item.productName}
+              <React.Fragment key={index}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    fontSize: "19.2px",
+                    lineHeight: "23px",
+                    mb: "16px",
+                  }}
+                >
+                  <Box sx={{ mr: "16px" }}>{shown.qty}</Box>
+                  <Box sx={{ mr: "16px" }}>{shown.word}</Box>
+                  <Box sx={{ flex: 1, minWidth: 0, mr: "16px" }}>
+                    {item.comboName || item.productName}
+                  </Box>
+                  <Box>{formatCurrency(item.totalPrice)}</Box>
                 </Box>
-                <Box>{formatCurrency(item.totalPrice)}</Box>
-              </Box>
+                {/* Reference: a product (line) note is a grey band under its line,
+                    italic (ref screenshots 14/10/2026: "CL" rows). */}
+                {lineNote && (
+                  <Box sx={{ bgcolor: "#e0e0e0", px: "24px", py: "16px", mb: "16px", fontSize: 14, fontStyle: "italic", whiteSpace: "pre-wrap" }}>
+                    {lineNote}
+                  </Box>
+                )}
+              </React.Fragment>
             );
           })}
         </Box>
@@ -262,8 +337,19 @@ const SaleDetailCard = ({
                       </MenuItem>
                     ))}
                   </Select>
+                ) : isCustomerPaymentRow(p) ? (
+                  // Reference: a payment taken LATER (Customer Payment screen) is a
+                  // blue link that opens the "Customer Payment" popup.
+                  <Box
+                    component="a"
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); setOpenPaymentId(p.id); }}
+                    sx={{ color: "#1a73e8", textDecoration: "underline", cursor: "pointer" }}
+                  >
+                    {paymentLabel(p)}
+                  </Box>
                 ) : (
-                  p.paymentMethod || "Payment"
+                  paymentLabel(p)
                 )}
               </Box>
               <Box sx={{ textAlign: "right" }}>{formatCurrency(p.amount || 0)}</Box>
@@ -271,9 +357,11 @@ const SaleDetailCard = ({
           ))}
         </Box>
 
-        {sale.giftCardTransactions?.length > 0 && (
+        {/* Gift card movements other than the redemption already shown as the
+            "Gift Card (code)" tender line (e.g. a card loaded by this sale). */}
+        {sale.giftCardTransactions?.filter((t) => !/redemption/i.test(t.transactionType || "")).length > 0 && (
           <Box sx={{ mb: "8px" }}>
-            {sale.giftCardTransactions.map((t, idx) => (
+            {sale.giftCardTransactions.filter((t) => !/redemption/i.test(t.transactionType || "")).map((t, idx) => (
               <Box key={idx} sx={{ display: "flex", ...cell }}>
                 <Box sx={{ flex: 1, textAlign: "right", mr: "16px" }}>
                   {t.giftCard.code} ({t.transactionType})
@@ -302,6 +390,13 @@ const SaleDetailCard = ({
           </Box>
         </Box>
       </Box>
+      <CustomerPaymentDialog
+        open={openPaymentId != null}
+        salePaymentId={openPaymentId}
+        onClose={() => setOpenPaymentId(null)}
+        formatDate={formatDate}
+        formatTime={formatTime}
+      />
     </Box>
   );
 };

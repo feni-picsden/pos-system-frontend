@@ -14,7 +14,7 @@ import {
   InputAdornment,
   Collapse,
 } from "@mui/material";
-import { CheckCircleOutlined } from "@mui/icons-material";
+import { CheckCircleOutlined, HighlightOffOutlined } from "@mui/icons-material";
 import { saleOutstanding, INCOMPLETE_PURPLE } from "../utils/saleOutstanding";
 import DateRangePicker from "../components/Common/DateRangePicker";
 import ShopfrontSwitch from "../components/Common/ShopfrontSwitch";
@@ -615,6 +615,9 @@ const SalesHistory = () => {
         label={label}
         value={filters[field] || ""}
         onChange={(e) => handleFilterChange(field, e.target.value)}
+        // Chrome was offering its own form-history list ("Case", "sell", ...)
+        // under these boxes, which looked like an app filter. Reference has none.
+        inputProps={{ autoComplete: "off" }}
         sx={fieldSx}
       />
     </Box>
@@ -857,9 +860,20 @@ const SalesHistory = () => {
                               lineHeight: 0,
                             }}
                           >
-                            {/* Reference: purple hollow circle while the sale still owes
-                                money (On Account, unpaid); black tick once paid. */}
-                            {saleOutstanding(sale) > 0 ? (
+                            {/* Reference glyphs (ref screenshots 14/10/2026): Cancelled red
+                                circled X, Parked blue circled P, purple hollow circle while
+                                the sale still owes money (On Account, unpaid), black tick
+                                once paid. */}
+                            {sale.status === "CANCELLED" ? (
+                              <HighlightOffOutlined titleAccess="Cancelled" sx={{ fontSize: 32, color: "rgb(227,52,47)" }} />
+                            ) : sale.status === "PARKED" ? (
+                              <Box
+                                title="Parked"
+                                sx={{ width: 28, height: 28, m: "2px auto", borderRadius: "50%", border: "2px solid #1e88e5", color: "#1e88e5", fontSize: 17, fontWeight: 700, lineHeight: "24px", textAlign: "center", boxSizing: "border-box" }}
+                              >
+                                P
+                              </Box>
+                            ) : saleOutstanding(sale) > 0 ? (
                               <Box
                                 title="Incomplete"
                                 sx={{ width: 28, height: 28, m: "2px auto", borderRadius: "50%", border: `2px solid ${INCOMPLETE_PURPLE}` }}
@@ -885,13 +899,21 @@ const SalesHistory = () => {
                             </Box>
                           </Box>
 
-                          {/* .sale-line-location — user (and the sale's customer,
-                              when one is attached), left aligned, fills the row */}
-                          <Box sx={{ flex: 1, minWidth: 0, fontSize: 16, px: 2 }}>
-                            {sale.user?.name || "Unknown User"}
-                            {sale.customer && (
-                              <Box sx={{ fontSize: "13.44px", lineHeight: "16px" }}>
-                                {customerName(sale.customer)}
+                          {/* .sale-line-location — Outlet / Register / User, three
+                              equal lines, left aligned (ref screenshots 14/10/2026:
+                              "Premix King - Ararat / Ararat - Register / Cody"). */}
+                          <Box sx={{ flex: 1, minWidth: 0, fontSize: "13.44px", lineHeight: "16px", px: 2, display: "flex" }}>
+                            <Box sx={{ flexShrink: 0, minWidth: 220 }}>
+                              <Box>{sale.outlet?.name || getOutletName() || ""}</Box>
+                              <Box>{sale.register?.name || ""}</Box>
+                              <Box>{sale.user?.name || "Unknown User"}</Box>
+                            </Box>
+                            {/* Reference: a sale note shows in the row's spare middle
+                                space under a small grey "SALE NOTE" label. */}
+                            {sale.notes && String(sale.notes).trim() && (
+                              <Box sx={{ flex: 1, minWidth: 0, pl: 4 }}>
+                                <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#757575", lineHeight: "13px" }}>SALE NOTE</Box>
+                                <Box sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sale.notes}</Box>
                               </Box>
                             )}
                           </Box>
@@ -907,16 +929,20 @@ const SalesHistory = () => {
                           >
                             <SplitPrice value={sale.totalAmount} />
                             {/* Reference: amount still owed, small, under the total */}
-                            {saleOutstanding(sale) > 0 && (
+                            {/* Completed: what is still owed (On Account). Parked / cancelled
+                                (ref 14/10/2026): the sale's own balance, e.g. a parked
+                                $39.99 shows "$39.99" under the total. */}
+                            {(saleOutstanding(sale) > 0 || (sale.status !== "COMPLETED" && (parseFloat(sale.balance) || 0) > 0)) && (
                               <Box sx={{ fontSize: 16, lineHeight: "18px" }}>
-                                <SplitPrice value={saleOutstanding(sale)} />
+                                <SplitPrice value={saleOutstanding(sale) > 0 ? saleOutstanding(sale) : parseFloat(sale.balance) || 0} />
                               </Box>
                             )}
-                            {/* Reference: the outlet the sale was made at, small,
-                                under the figures */}
-                            {sale.outlet?.name && (
-                              <Box sx={{ fontSize: "13.44px", lineHeight: "16px", textTransform: "uppercase" }}>
-                                {sale.outlet.name}
+                            {/* Reference: the sale's CUSTOMER, small, under the figures
+                                ("The Elmhurst Hotel", "STAFF DISCOUNT"); the outlet
+                                lives in the middle block. */}
+                            {sale.customer && (
+                              <Box sx={{ fontSize: "13.44px", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {customerName(sale.customer)}
                               </Box>
                             )}
                           </Box>

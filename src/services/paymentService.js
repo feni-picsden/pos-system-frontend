@@ -36,6 +36,13 @@ const paymentService = {
     }
   },
 
+  // Sales History card: the "Customer Payment" popup behind a payment-method
+  // link (payment date, who took it, every invoice it was applied to).
+  getCustomerPayment: async (salePaymentId) => {
+    const response = await apiClient.get(`/payments/${salePaymentId}/customer-payment`, { noCache: true });
+    return response.data?.payment;
+  },
+
   // Payment reversal (reference: Using Account Customers) — Cancel voids the
   // row (gone from reports/statements); Refund keeps it and posts an opposing
   // entry. Both re-open the sale balance and the customer's owing.

@@ -376,6 +376,15 @@ const SaleKeyPage = () => {
   // Setup > General (company blob): cash-out gate, reason/note prompts and the
   // sale-keys position all read from the one cached copy.
   const allowCashOutNoSaleRef = useRef(true);
+  // The sale-level note (Add Note key, scope "Sale"). Also stamped on the cart
+  // lines; held here too so deleting a line never drops it. It clears only on an
+  // explicit sale reset (finalised / cleared / cancelled / parked / next sale),
+  // which is every full-cart reset — those all go through clearCartAndNote().
+  const saleNoteRef = useRef('');
+  const clearCartAndNote = () => {
+    saleNoteRef.current = '';
+    setCart([]);
+  };
   const [generalSettings, setGeneralSettings] = useState(() =>
     settingsService.getCachedGeneralSettings()
   );
@@ -3485,7 +3494,7 @@ const SaleKeyPage = () => {
           return;
         }
         saleEpochRef.current++;
-        setCart([]);
+        clearCartAndNote();
         setPayments([]);
         pendingGiftCardRef.current = [];
         setSelectedCustomer(null);
@@ -3506,7 +3515,7 @@ const SaleKeyPage = () => {
           return;
         }
         saleEpochRef.current++;
-        setCart([]);
+        clearCartAndNote();
         setPayments([]);
         pendingGiftCardRef.current = [];
         setSelectedCustomer(null);
@@ -3639,10 +3648,14 @@ const SaleKeyPage = () => {
             (i.id === selectedCartItem.id && i.timestamp === selectedCartItem.timestamp ? { ...i, note } : i)));
           setSelectedCartItem(prev => (prev ? { ...prev, note } : prev));
         } else {
-          const existing = cart.find(i => i && i._saleNote)?._saleNote || '';
+          const existing = cart.find(i => i && i._saleNote)?._saleNote || saleNoteRef.current || '';
           const note = await prompt(`${scope} note:`, existing, { title: 'Add note' });
           if (note === null) break;
-          // Stamped on the cart so it clears automatically when the sale resets.
+          // Stamped on the cart so it clears automatically when the sale resets —
+          // and kept on the sale itself, because a note stamped only on the lines
+          // vanished when the operator deleted that line and re-added the product
+          // (the sale then saved with no note, 14/10/2026).
+          saleNoteRef.current = note;
           setCart(prev => prev.map(i => ({ ...i, _saleNote: note })));
         }
         break;
@@ -4165,7 +4178,7 @@ const SaleKeyPage = () => {
         customerId: selectedCustomer?.id || null,
         outletId: getEffectiveOutletId(),
         registerId: (localStorage.getItem('selectedRegisterId') ? parseInt(localStorage.getItem('selectedRegisterId')) : null),
-        notes: (Array.isArray(cart) && cart.find(i => i && i._saleNote)?._saleNote) || '',
+        notes: (Array.isArray(cart) && cart.find(i => i && i._saleNote)?._saleNote) || saleNoteRef.current || '',
         items: saleItems,
         payments: salePayments
       };
@@ -4270,15 +4283,22 @@ const SaleKeyPage = () => {
       .filter((p) => isCashTender(p.method))
       .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
     const total = parseFloat(cartTotal) || 0;
-    const change = Math.round(Math.max(0, Math.min(totalPaid - total, cashPaid)) * 100) / 100;
-    if (change > 0) {
+    const overpaid = Math.max(0, totalPaid - total);
+    // Change from cash tendered: nets the cash row down.
+    const cashChange = Math.round(Math.min(overpaid, cashPaid) * 100) / 100;
+    // Card cash-out: cash that leaves the drawer against a card charge. The card
+    // row stays at goods + cash out; only the change row carries it.
+    const cashOutPaid = paymentsCopy.reduce((sum, p) => sum + (parseFloat(p.cashOut) || 0), 0);
+    const cashOutChange = Math.round(Math.max(0, Math.min(cashOutPaid, overpaid - cashChange)) * 100) / 100;
+    if (cashChange > 0) {
       const cashIndex = [...paymentsCopy].reverse().findIndex(p => (p.method || '').toLowerCase() === 'cash');
       if (cashIndex !== -1) {
         const idx = paymentsCopy.length - 1 - cashIndex;
         const current = parseFloat(paymentsCopy[idx].amount) || 0;
-        paymentsCopy[idx].amount = Math.max(0, current - change);
+        paymentsCopy[idx].amount = Math.max(0, current - cashChange);
       }
     }
+    const change = Math.round((cashChange + cashOutChange) * 100) / 100;
     return { payments: paymentsCopy, change };
   };
 
@@ -4622,7 +4642,7 @@ const SaleKeyPage = () => {
     }
 
     // Setup > General: "Require Note on Parked Sale".
-    let parkNote = (Array.isArray(cart) && cart.find(i => i && i._saleNote)?._saleNote) || '';
+    let parkNote = (Array.isArray(cart) && cart.find(i => i && i._saleNote)?._saleNote) || saleNoteRef.current || '';
     if (generalSettings.requireNoteOnParkedSale && !parkNote) {
       const note = await askReason({ title: 'Note for the Parked Sale', label: 'Note' });
       if (!note) return; // no note, no park
@@ -4691,7 +4711,7 @@ const SaleKeyPage = () => {
       await salesService.parkSale(saleData);
 
       saleEpochRef.current++;
-      setCart([]);
+      clearCartAndNote();
       setPayments([]);
       setSelectedCustomer(null);
       setCurrentParkedSaleId(null);
@@ -4756,7 +4776,7 @@ const SaleKeyPage = () => {
         items: combined,
         totalAmount: combinedTotal,
       });
-      setCart([]);
+      clearCartAndNote();
       setSelectedCartItem(null);
       await loadParkedSales();
       notify(`Merged into ${parkedSale.saleNumber} — new total $${combinedTotal.toFixed(2)}`);
@@ -5188,7 +5208,7 @@ const SaleKeyPage = () => {
       // New epoch, or completeTransaction's idempotency guard still holds this
       // epoch and silently skips the NEXT sale's completion.
       saleEpochRef.current++;
-      setCart([]);
+      clearCartAndNote();
       setPayments([]);
       setSelectedCustomer(null);
       setIsTransactionComplete(false);
@@ -6057,6 +6077,10 @@ const SaleKeyPage = () => {
       eftposReceipt: p.eftposReceipt || null, // Linkly customer receipt text; printed on the sale receipt
       pointsRedeemed: p.pointsRedeemed || null, // Store points redeemed for loyalty payments
       giftCardCode: p.giftCardCode || null, // lets a removed gift card tender cancel its deduction
+      // Cash handed over against a card tender (goods + cash out charged as one
+      // amount). Banked as a negative "Cash (Change)" row, so Sales History reads
+      // "EFTPOS Cashout $55 / Cash (Cash Out) -$50" like the reference.
+      cashOut: Math.max(0, parseFloat(p.cashOut) || 0),
     }));
 
     const cartTotal = calculateTotal();
@@ -7421,7 +7445,7 @@ const SaleKeyPage = () => {
   // Done on the completed-sale panel: clear everything for the next sale.
   const startNextSale = () => {
     saleEpochRef.current++;
-    setCart([]);
+    clearCartAndNote();
     setPayments([]);
     setSelectedCustomer(null);
     setIsTransactionComplete(false);
@@ -9560,7 +9584,7 @@ const SaleKeyPage = () => {
                 onEmailReceipt={handleEmailReceipt}
                 onNewTransaction={() => {
                   saleEpochRef.current++;
-                  setCart([]);
+                  clearCartAndNote();
                   setPayments([]);
                   setSelectedCustomer(null);
                   setIsTransactionComplete(false);
@@ -10373,6 +10397,7 @@ const SaleKeyPage = () => {
             // copy; fall back to the merchant copy when the terminal only
             // returns one (sandbox/training pads do this).
             eftposReceipt: txn?.customerReceipt || txn?.merchantReceipt || null,
+            cashOut: Math.min(cashOutCents, recordCents) / 100,
           });
           setSaleKeyCardCharge(null);
         }}

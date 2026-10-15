@@ -255,6 +255,23 @@ const FinalizeSaleDialog = ({
       return;
     }
 
+    // Non-integrated card method with "Allow Cash Out" (reference: EFTPOS
+    // Cashout): ask for the cash amount, then record goods + cash out as the one
+    // card tender; the cash handed over is banked as the change row.
+    if (
+      !isEftposMethod(method) &&
+      allowsCashOut(method) &&
+      remainingBalance > PAYMENT_TOLERANCE
+    ) {
+      const chargeAmount = amount > 0 ? Math.min(amount, remainingBalance) : remainingBalance;
+      setCashOutPrompt({
+        goodsCents: Math.max(0, Math.round(chargeAmount * 100)),
+        methodName: method.name || method.type || 'EFTPOS',
+        integrated: false,
+      });
+      return;
+    }
+
     // Handle card / EFTPOS: process through the Linkly PIN pad instead of just
     // recording a payment. The payment is only added once the card is approved.
     if (isEftposMethod(method)) {
@@ -974,6 +991,22 @@ const FinalizeSaleDialog = ({
           goodsAmount={(cashOutPrompt?.goodsCents || 0) / 100}
           onClose={() => setCashOutPrompt(null)}
           onConfirm={(cashOutCents) => {
+            if (cashOutPrompt.integrated === false) {
+              // Standalone terminal: the operator keys goods + cash out on the pad
+              // themselves; record the full charge and the cash handed over.
+              const goods = cashOutPrompt.goodsCents / 100;
+              const cashOut = (cashOutCents || 0) / 100;
+              onAddPayment({
+                amount: Math.round((goods + cashOut) * 100) / 100,
+                method: cashOutPrompt.methodName,
+                description: `${cashOutPrompt.methodName}${cashOut > 0 ? ' · Cash out $' + cashOut.toFixed(2) : ''}`,
+                cashOut,
+              });
+              setCashOutPrompt(null);
+              setPaymentAmount('');
+              setSelectedPaymentMethod(null);
+              return;
+            }
             setCardCharge({
               amountCents: cashOutPrompt.goodsCents,
               cashOutCents,
@@ -1024,6 +1057,7 @@ const FinalizeSaleDialog = ({
               // copy; fall back to the merchant copy when the terminal only
               // returns one (sandbox/training pads do this).
               eftposReceipt: txn?.customerReceipt || txn?.merchantReceipt || null,
+              cashOut: cardCharge?.txnType === 'refund' ? 0 : Math.min(cashOutCents, recordCents) / 100,
             });
             setCardCharge(null);
             setPaymentAmount('');
