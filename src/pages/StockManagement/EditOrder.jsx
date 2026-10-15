@@ -16,6 +16,7 @@ import {
   DialogActions,
   MenuItem,
   CircularProgress,
+  Collapse,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -96,7 +97,6 @@ const sfCaption = {
   mt: 0.5,
 };
 
-// Parity-system primary button (Save row): #5ebbeb, radius 12, h42, fw700 fs16
 const parityBtn = {
   backgroundColor: '#5ebbeb',
   color: '#fff',
@@ -192,6 +192,9 @@ const EditOrder = () => {
   const [allSuppliersToggle, setAllSuppliersToggle] = useState(false); // Toggle for "All Suppliers" - default OFF (reference)
   const [checkedRows, setCheckedRows] = useState({}); // { productId: bool } - row selection for bulk actions
   const [detailsView, setDetailsView] = useState(false); // footer "Details View" toggle
+  // Reference blue bar "Show Taxes": the tax on each line and on the document
+  const [showTaxes, setShowTaxes] = useState(false);
+  const totalsBarRef = useRef(null); // "Show Totals" (expanded line) scrolls here
   // Options panel state — initialized from the loaded order (supplier defaults
   // as fallback) and persisted with every order save
   const [paymentFeePct, setPaymentFeePct] = useState('');
@@ -531,36 +534,57 @@ const EditOrder = () => {
       const product = productResponse.product;
       if (!product) return;
 
-      // Process sales data
-      const salesSummary = salesResponse?.summary?.last7Weeks || salesResponse?.data?.summary?.last7Weeks || salesResponse?.last7Weeks || [];
-      const salesArray = new Array(7).fill(0);
-      if (Array.isArray(salesSummary)) {
-        salesSummary.forEach((item, index) => {
-          if (index < 7) {
-            salesArray[index] = parseFloat(item.sales || item.quantity || 0);
-          }
-        });
+      // Reference chart: 9 points, "8 weeks ago" .. "this week", in UNITS sold /
+      // purchased. The weekly summary is keyed "YYYY-WW" (routes/products.js
+      // getWeekNumber), so each of the 9 weeks is looked up by that key. (It
+      // used to read a `last7Weeks` list that the API never sent: the chart
+      // was always flat at zero.)
+      const WEEKS = 9;
+      const cqForChart = Number(product.caseQuantity) || 1;
+      const weekKey = (d) => {
+        const firstDayOfYear = new Date(d.getFullYear(), 0, 1);
+        const pastDays = (d - firstDayOfYear) / 86400000;
+        const week = Math.ceil((pastDays + firstDayOfYear.getDay() + 1) / 7);
+        return `${d.getFullYear()}-${String(week).padStart(2, '0')}`;
+      };
+      const now = new Date();
+      const weeklyRows = salesResponse?.summary?.last52Weeks || salesResponse?.data?.summary?.last52Weeks || [];
+      const soldByWeek = new Map(
+        (Array.isArray(weeklyRows) ? weeklyRows : []).map((r) => [
+          String(r.period),
+          (Number(r.cases) || 0) * cqForChart + (Number(r.items) || 0),
+        ])
+      );
+      const salesArray = new Array(WEEKS).fill(0);
+      for (let i = 0; i < WEEKS; i++) {
+        const d = new Date(now.getTime() - (WEEKS - 1 - i) * 7 * 86400000);
+        salesArray[i] = soldByWeek.get(weekKey(d)) || 0;
       }
 
-      // Process purchase data
+      // Purchases (received orders / invoices) bucketed the same way, by order date
       const purchases = purchaseResponse?.purchases || purchaseResponse?.data?.purchases || [];
-      const purchaseArray = new Array(7).fill(0);
-      const now = new Date();
+      const purchaseArray = new Array(WEEKS).fill(0);
       if (Array.isArray(purchases)) {
         purchases.forEach((purchase) => {
-          const dateStr = purchase.date || purchase.purchaseDate || purchase.createdAt;
+          const dateStr = purchase.orderDate || purchase.date || purchase.purchaseDate || purchase.createdAt;
           if (dateStr) {
             const date = new Date(dateStr);
             if (!isNaN(date.getTime())) {
               const weekAgo = Math.floor((now - date) / (7 * 24 * 60 * 60 * 1000));
-              if (weekAgo >= 0 && weekAgo < 7) {
+              if (weekAgo >= 0 && weekAgo < WEEKS) {
                 const quantity = parseFloat(purchase.quantity || 0);
-                purchaseArray[6 - weekAgo] = (purchaseArray[6 - weekAgo] || 0) + quantity;
+                purchaseArray[WEEKS - 1 - weekAgo] = (purchaseArray[WEEKS - 1 - weekAgo] || 0) + quantity;
               }
             }
           }
         });
       }
+      // Reference "Last Received Base Cost (inc)": the line's base cost per case
+      // on the most recent received purchase (before fees / freight).
+      const lastPurchase = Array.isArray(purchases) && purchases.length > 0 ? purchases[0] : null;
+      const lastReceivedBaseCaseCost = lastPurchase && Number(lastPurchase.quantity) > 0
+        ? (Number(lastPurchase.totalAmount) || 0) / Number(lastPurchase.quantity) * cqForChart
+        : null;
 
       // Find last cost, sent date, received date
       const orders = ordersResponse.ordersInvoices || [];
@@ -602,8 +626,11 @@ const EditOrder = () => {
           salesData: salesArray,
           purchaseData: purchaseArray,
           lastCost: lastCostValue,
+          // Reference cost table (per case, tax inclusive)
+          lastCaseCost: Number(product.caseCost) || (Number(product.itemCost) || 0) * cqForChart,
+          lastReceivedBaseCaseCost,
           lastSentDate: lastSentValue,
-          lastReceivedDate: lastReceivedValue,
+          lastReceivedDate: lastReceivedValue || lastPurchase?.orderDate || null,
         }
       }));
     })();
@@ -1162,6 +1189,15 @@ const EditOrder = () => {
   // plus its share of invoice fees/freight, less its share of the discount
   // (landed cost, from the same maths receive() uses). Falls back to the plain
   // case cost when there is no preview (transfers, returns, offline).
+  // This line's share of the document's fees / freight / rebate / payment fee /
+  // tax (server preview) - the reference Details View boxes.
+  const landedLineFor = (product) => landed?.lines?.find((l) => String(l.key) === String(product.id)) || null;
+  // Reference row tag under the product name: the purchase tax it carries ("GST")
+  const productTaxTag = (product) => {
+    const t = product?.purchaseTaxRate && product.purchaseTaxRate !== 'Inherit' ? product.purchaseTaxRate : product?.retailTaxRate;
+    return t && t !== 'No Tax' ? t : '';
+  };
+
   const getNewCaseCost = (product) => {
     const line = landed?.lines?.find((l) => String(l.key) === String(product.id));
     const landedCase = Number(line?.landedCaseCost);
@@ -1173,6 +1209,26 @@ const EditOrder = () => {
   // NEW AVERAGE cost this order produces; off, the new LAST cost. "This setting
   // has no effect when Cost calculation method is set to Last Cost" - then it
   // is always the new last cost. Returns null on returns/transfers (no new cost).
+  // Reference expanded-line cost table: current average (per case, inc) and the
+  // average this order produces (weighted: on hand at today's average + the
+  // incoming quantity at the new landed cost).
+  const costInfoFor = (product) => {
+    if (!product) return null;
+    const cq = Number(product.caseQuantity) || 1;
+    const q = productQuantities[product.id] || { cases: 0, items: 0 };
+    const incoming = (Number(q.cases) || 0) * cq + (Number(q.items) || 0);
+    const onHand = Math.max(0, (Number(product.currentStockCases) || 0) * cq + (Number(product.currentStockItems) || 0));
+    const avgNow = Number(product.averageItemCost) > 0 ? Number(product.averageItemCost) : (Number(product._baseItemCost ?? product.itemCost) || 0);
+    const newLastUnit = getNewCaseCost(product) / cq;
+    const newAvgUnit = onHand + incoming > 0 ? (onHand * avgNow + incoming * newLastUnit) / (onHand + incoming) : newLastUnit;
+    return {
+      currentAvgCaseCost: avgNow * cq,
+      newAvgCaseCost: newAvgUnit * cq,
+      newLastCaseCost: getNewCaseCost(product),
+      isReturnOrTransfer: order?.type === 'RETURN' || order?.type === 'TRANSFER',
+    };
+  };
+
   const newCostForEditor = (product) => {
     if (!product || order?.type === 'RETURN' || order?.type === 'TRANSFER') return null;
     const gs = settingsService.getCachedGeneralSettings();
@@ -2110,6 +2166,11 @@ const EditOrder = () => {
                 }}
               />
             </Box>
+            {/* Fees / Freight / Purchase Rebate are typed in the orange totals
+                bar (reference); on a return / transfer (no totals bar boxes)
+                they stay here so nothing is lost. */}
+            {!landedApplies && (
+              <>
             <Box>
               <Typography sx={{ fontSize: 13, color: '#676b72', mb: 0.5 }}>
                 Invoice Fees ({usePctFees ? '%' : '$'})
@@ -2153,6 +2214,8 @@ const EditOrder = () => {
                   : { startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               />
             </Box>
+              </>
+            )}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, mt: 2, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -2431,12 +2494,44 @@ const EditOrder = () => {
             const quantities = productQuantities[product.id] || { cases: 0, items: 0, supplierCode: '' };
             const ordered = orderedQuantities[product.id] || { cases: 0, items: 0 };
             const costChangePct = getCostChangePct(product);
+            // Reference Details View: this line's fees / freight / purchase rebate /
+            // payment fee (and Tax with Show Taxes) sit INLINE between Case Cost and
+            // Total Payable. Grey = calculated by the server preview.
+            const ll = landedApplies ? landedLineFor(product) : null;
+            // Fees / freight / rebate to 4 dp like the reference ($3.3333); the
+            // payment fee and tax to 2 dp (reference "$0.00") so they fit the box.
+            const money4 = (v, label) => {
+              const dp = label === 'Payment Fee' || label === 'Tax' ? 100 : 10000;
+              return Number.isFinite(Number(v)) ? (Math.round(Number(v) * dp) / dp).toString() : '0';
+            };
+            // Every box column carries the same label row above it (blank where the
+            // reference shows none) so all the boxes sit on one baseline.
+            const spacer = <Typography sx={{ fontSize: 12, mb: 0.5, visibility: 'hidden' }}>&nbsp;</Typography>;
+            const lineBox = (label, value, w) => (
+              <Grid item xs={6} sm={w} key={label} sx={{ alignSelf: 'flex-start' }}>
+                {spacer}
+                <TextField
+                  value={money4(value, label)}
+                  disabled
+                  fullWidth
+                  sx={{ ...sfField, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439', ...landedFigureSx }, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0', paddingLeft: '8px' }, '& input': { px: 0.5 } }}
+                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                />
+                <Typography sx={{ ...sfCaption, whiteSpace: 'nowrap', fontSize: 10 }}>{label}</Typography>
+              </Grid>
+            );
+            // Inline mode = Details View on an order/invoice (Stock on Hand folds away,
+            // as on the reference row, to make room).
+            const inline = landedApplies && detailsView;
+            // Show Taxes alone only adds the Tax box: the row keeps its normal
+            // layout, just a little tighter.
+            const taxInline = landedApplies && showTaxes;
 
             return (
               <Box key={product.id} sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
                 <Grid container spacing={2} alignItems="center">
                   {/* Checkbox - unchecked by default; checking reveals footer bulk actions */}
-                  <Grid item xs={12} sm={0.5}>
+                  <Grid item xs={12} sm={inline ? 0.4 : 0.5}>
                     <Checkbox
                       checked={!!checkedRows[product.id]}
                       onChange={(e) =>
@@ -2445,8 +2540,8 @@ const EditOrder = () => {
                     />
                   </Grid>
 
-                  {/* Product Name */}
-                  <Grid item xs={12} sm={2.5}>
+                  {/* Product Name (narrower in Details View so the Ordered boxes fit on the row) */}
+                  <Grid item xs={12} sm={inline ? (taxInline ? 1.0 : 1.4) : (taxInline ? 1.6 : 2)}>
                     <Typography 
                       variant="body1" 
                       sx={{ fontWeight: 500, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
@@ -2472,30 +2567,43 @@ const EditOrder = () => {
                         />
                       </Box>
                     )}
-                    <Typography variant="caption" color="text.secondary">
-                      Case Quantity: {product.caseQuantity || 1}
-                    </Typography>
+                    {/* Reference: the line's purchase tax ("GST") under the name */}
+                    {landedApplies && productTaxTag(product) ? (
+                      <Typography sx={{ fontSize: 11, color: '#676b72', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {productTaxTag(product)}
+                      </Typography>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        Case Quantity: {product.caseQuantity || 1}
+                      </Typography>
+                    )}
+                  </Grid>
+
+                  {/* Reference: Case Quantity as its own column (figure + caption) */}
+                  <Grid item xs={6} sm={inline ? 0.6 : (taxInline ? 0.7 : 0.8)} sx={{ textAlign: 'center' }}>
+                    <Typography sx={{ fontSize: 16, color: '#000' }}>{product.caseQuantity || 1}</Typography>
+                    <Typography sx={sfCaption}>Case Quantity</Typography>
                   </Grid>
 
                   {/* Supplier Code - free text (reference parity). Top-aligned so its
                       label sits level with "To Order" and the box with the Cases box
                       (centred, the shorter column dropped below its neighbours). */}
-                  <Grid item xs={12} sm={1.5} sx={{ alignSelf: 'flex-start' }}>
+                  <Grid item xs={12} sm={inline ? 0.9 : 1.3} sx={{ alignSelf: 'flex-start' }}>
                     {/* Label above the box, like "To Order" / "Stock on Hand": the
                         placeholder disappears once the code is pre-filled (QA N03). */}
                     <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>Supplier Code</Typography>
                     <TextField
                       value={quantities.supplierCode || ''}
                       onChange={(e) => handleSupplierTextChange(product.id, e.target.value)}
-                      placeholder="Supplier Code"
+                      placeholder={inline ? 'Code' : 'Supplier Code'}
                       fullWidth
-                      sx={sfField}
+                      sx={{ ...sfField, '& input': { textOverflow: 'ellipsis' } }}
                     />
                   </Grid>
 
                   {/* Details View: ordered quantities (disabled gray) */}
                   {detailsView && (
-                    <Grid item xs={6} sm={1.5}>
+                    <Grid item xs={6} sm={taxInline ? 0.9 : 1.0} sx={{ alignSelf: 'flex-start' }}>
                       <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>Ordered</Typography>
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Box sx={{ flex: 1 }}>
@@ -2511,7 +2619,7 @@ const EditOrder = () => {
                   )}
 
                   {/* To Receive - Cases & Items (captions below, header above) */}
-                  <Grid item xs={6} sm={2}>
+                  <Grid item xs={6} sm={inline ? (taxInline ? 1.0 : 1.2) : (taxInline ? 1.6 : 1.8)} sx={{ alignSelf: 'flex-start' }}>
                     {/* A return sends stock back - nothing is being received */}
                     <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>
                       {/* Reference: an open ORDER says "To Order"; once sent (receive
@@ -2550,8 +2658,10 @@ const EditOrder = () => {
                     </Box>
                   </Grid>
 
-                  {/* Stock on Hand (reference caption above the two figures) */}
-                  <Grid item xs={6} sm={1}>
+                  {/* Stock on Hand (reference caption above the two figures). Folds
+                      away while the Details View / Show Taxes boxes sit inline. */}
+                  {!inline && (
+                  <Grid item xs={6} sm={taxInline ? 0.9 : 1}>
                     <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>Stock on Hand</Typography>
                     <Typography variant="body2" color="text.secondary">
                       CASES: {product.currentStockCases || 0}
@@ -2560,9 +2670,11 @@ const EditOrder = () => {
                       ITEMS: {product.currentStockItems || 0}
                     </Typography>
                   </Grid>
+                  )}
 
                   {/* Case Cost - editable, $-prefixed */}
-                  <Grid item xs={6} sm={1.5}>
+                  <Grid item xs={6} sm={inline ? 0.9 : 1.3} sx={{ alignSelf: 'flex-start' }}>
+                    {spacer}
                     <TextField
                       type="number"
                       // Landed costs are divisions (49.999992000); show currency at 2 dp
@@ -2577,8 +2689,16 @@ const EditOrder = () => {
                     <Typography sx={sfCaption}>Case Cost</Typography>
                   </Grid>
 
+                  {/* Reference Details View / Show Taxes: inline per-line boxes */}
+                  {inline && detailsView && lineBox('Fees', ll?.fees, 0.8)}
+                  {inline && detailsView && lineBox('Freight', ll?.freight, 0.8)}
+                  {inline && detailsView && lineBox('Purchase Rebate', ll?.discount, 0.8)}
+                  {inline && detailsView && lineBox('Payment Fee', ll?.paymentFees, 0.8)}
+                  {taxInline && lineBox('Tax', ll?.tax, 0.8)}
+
                   {/* Total Payable - editable, $-prefixed */}
-                  <Grid item xs={6} sm={1.5}>
+                  <Grid item xs={6} sm={inline ? 0.9 : 1.3} sx={{ alignSelf: 'flex-start' }}>
+                    {spacer}
                     <TextField
                       type="number"
                       value={Math.round(calculateProductTotal(product) * 100) / 100}
@@ -2592,31 +2712,34 @@ const EditOrder = () => {
                     <Typography sx={sfCaption}>Total Payable</Typography>
                   </Grid>
 
-                  {/* New Case Cost + cost change indicator */}
-                  <Grid item xs={6} sm={1.5}>
-                    {/* A return does not change the product's cost, so it is not "new" */}
-                    <Typography sx={{ fontSize: 11, color: '#676b72', textTransform: 'uppercase' }}>
-                      {order?.type === 'RETURN' || order?.type === 'TRANSFER' ? 'Case Cost' : 'New Case Cost'}
-                    </Typography>
+                  {/* New Case Cost (reference: figure above, caption below) */}
+                  <Grid item xs={6} sm={inline ? 0.9 : 1.2} sx={{ textAlign: 'center' }}>
                     <Typography sx={{ fontWeight: 600, ...landedFigureSx }}>
                       {formatCurrency(getNewCaseCost(product))}
                     </Typography>
+                    {/* A return does not change the product's cost, so it is not "new" */}
+                    <Typography sx={sfCaption}>
+                      {order?.type === 'RETURN' || order?.type === 'TRANSFER' ? 'Case Cost' : 'New Case Cost'}
+                    </Typography>
+                  </Grid>
+
+                  {/* Reference last column: cost change arrow + % (grey) */}
+                  <Grid item xs={6} sm={inline ? 0.5 : 0.8} sx={{ textAlign: 'center' }}>
                     {costChangePct !== 0 && !landedPending && (
-                      <Typography
-                        sx={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: costChangePct > 0 ? '#dc2626' : '#16a34a',
-                        }}
-                      >
-                        {costChangePct > 0 ? '▲' : '▼'} {Math.abs(costChangePct).toFixed(2)}%
-                      </Typography>
+                      <>
+                        <Typography sx={{ fontSize: 18, lineHeight: 1, color: '#676b72' }}>
+                          {costChangePct > 0 ? '↑' : '↓'}
+                        </Typography>
+                        <Typography sx={{ fontSize: 12, color: '#676b72' }}>
+                          {Math.abs(costChangePct).toFixed(2)}%
+                        </Typography>
+                      </>
                     )}
                   </Grid>
                 </Grid>
 
                 {/* Product Detail View - Inline */}
-                {selectedProductForDetail?.id === product.id && (
+                <Collapse in={selectedProductForDetail?.id === product.id} timeout={400} unmountOnExit>
                   <Box sx={{ mt: 2, pt: 2, borderTop: '2px solid #e0e0e0' }}>
                     <ProductDetailView
                       product={product}
@@ -2626,9 +2749,28 @@ const EditOrder = () => {
                       supplierCode={supplierCodes[product.id] || null}
                       preloadedDetails={productDetailsMap[product.id]}
                       newCost={newCostForEditor(product)}
+                      costInfo={costInfoFor(product)}
+                      // Reference: round arrows step to the previous / next line
+                      onPrev={(() => {
+                        const idx = selectedProducts.findIndex((p) => p.id === product.id);
+                        return idx > 0 ? () => setSelectedProductForDetail(selectedProducts[idx - 1]) : null;
+                      })()}
+                      onNext={(() => {
+                        const idx = selectedProducts.findIndex((p) => p.id === product.id);
+                        return idx >= 0 && idx < selectedProducts.length - 1 ? () => setSelectedProductForDetail(selectedProducts[idx + 1]) : null;
+                      })()}
                     />
+                    {/* Reference: while a line is expanded, a sticky "Show Totals"
+                        button (bottom-left) jumps to the totals bar. */}
+                    <Button
+                      onClick={() => totalsBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      startIcon={<ArrowUpIcon sx={{ transform: 'rotate(180deg)' }} />}
+                      sx={{ position: 'fixed', left: 24, bottom: 24, zIndex: 1200, backgroundColor: '#ff5722', color: '#fff', borderRadius: 0, textTransform: 'none', fontSize: 16, px: 2, boxShadow: 3, '&:hover': { backgroundColor: '#e64a19' } }}
+                    >
+                      Show Totals
+                    </Button>
                   </Box>
-                )}
+                </Collapse>
               </Box>
             );
           })}
@@ -2636,12 +2778,9 @@ const EditOrder = () => {
         </Paper>
       ))}
 
-      {/* Footer: Details View toggle + bulk actions (shown when rows are checked) */}
+      {/* Bulk actions (shown when rows are checked) */}
+      {getCheckedIds().length > 0 && (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ShopfrontSwitch checked={detailsView} onChange={(e) => setDetailsView(e.target.checked)} />
-          <Typography sx={{ fontSize: 14, color: '#313439', whiteSpace: 'nowrap' }}>Details View</Typography>
-        </Box>
         {getCheckedIds().length > 0 && (
           <>
             <Button
@@ -2683,39 +2822,81 @@ const EditOrder = () => {
           </>
         )}
       </Box>
+      )}
 
-      {/* Footer Summary Bar - Orange with Cases, Items, Total */}
-      <Box sx={{ backgroundColor: '#ff9800', color: 'white', p: 2, mt: 3 }}>
+      {/* Footer Summary Bar - Orange. Reference (orders / invoices): "+ Fees /
+          - Discounts", "Freight", "Purchase Rebate" typed here, "Payment Fees"
+          and "Total" calculated (grey). The same three values also live in the
+          Options panel (one state). Cases / Items stay on a second row. */}
+      <Box ref={totalsBarRef} sx={{ backgroundColor: '#ff9800', color: 'white', p: 2, mt: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={4}>
+          {landedApplies && (() => {
+            const barInput = (label, value, onChange, extra = {}) => (
+              <Grid item xs={6} sm={2.4} key={label}>
+                <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>{label}</Typography>
+                <TextField
+                  type="number"
+                  value={value}
+                  onChange={(e) => onChange(e.target.value)}
+                  fullWidth
+                  sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#fff' } }}
+                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  {...extra}
+                />
+              </Grid>
+            );
+            const barReadOnly = (label, text) => (
+              <Grid item xs={6} sm={2.4} key={label}>
+                <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>{label}</Typography>
+                <TextField
+                  value={text}
+                  disabled
+                  fullWidth
+                  sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439', ...landedFigureSx } }}
+                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                />
+              </Grid>
+            );
+            const fmt = (v) => (Number.isFinite(Number(v)) ? (Math.round(Number(v) * 100) / 100).toFixed(2) : '0.00');
+            return (
+              <>
+                {barInput(usePctFees ? '+ Fees / - Discounts (%)' : '+ Fees / - Discounts', invoiceFees, setInvoiceFees)}
+                {barInput('Freight', invoiceFreight, setInvoiceFreight, { placeholder: 'Supplier per-case freight' })}
+                {barInput(usePctFees ? 'Purchase Rebate (%)' : 'Purchase Rebate', invoiceDiscount, setInvoiceDiscount)}
+                {barReadOnly('Payment Fees', fmt(landed?.paymentFees))}
+                {barReadOnly('Total', fmt(displayGrandTotal()))}
+                {showTaxes && barReadOnly('Tax', fmt(landed?.tax))}
+              </>
+            );
+          })()}
+          {/* Cases / Items: same box style as the reference boxes above (label over a grey read-only box) */}
+          <Grid item xs={6} sm={landedApplies ? 2.4 : 4}>
+            <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Cases</Typography>
             <TextField
-              type="number"
-              size="small"
               value={selectedProducts.reduce((sum, product) => {
                 const quantities = productQuantities[product.id] || { cases: 0, items: 0 };
                 return sum + (quantities.cases || 0);
               }, 0)}
-              label="Cases"
-              InputProps={{ readOnly: true }}
-              sx={{ backgroundColor: 'white' }}
+              disabled
               fullWidth
+              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439' } }}
             />
           </Grid>
-          <Grid item xs={4}>
+          <Grid item xs={6} sm={landedApplies ? 2.4 : 4}>
+            <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Items</Typography>
             <TextField
-              type="number"
-              size="small"
               value={selectedProducts.reduce((sum, product) => {
                 // Loose items only (reference parity: Cases and Items are independent sums)
                 const quantities = productQuantities[product.id] || { cases: 0, items: 0 };
                 return sum + (quantities.items || 0);
               }, 0)}
-              label="Items"
-              InputProps={{ readOnly: true }}
-              sx={{ backgroundColor: 'white' }}
+              disabled
               fullWidth
+              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439' } }}
             />
           </Grid>
+          {/* Orders / invoices show the Total in the reference box above */}
+          {!landedApplies && (
           <Grid item xs={4}>
             <TextField
               value={formatCurrency(displayGrandTotal()).replace('$', '')}
@@ -2725,6 +2906,7 @@ const EditOrder = () => {
               fullWidth
             />
           </Grid>
+          )}
           {/* While the new figures are on their way, say so instead of showing the old sum */}
           {landedPending && landedHasAdjustments && (
             <Grid item xs={12}>
@@ -2734,15 +2916,23 @@ const EditOrder = () => {
           {/* Where the total comes from - only when fees/freight/discount/payment fee apply */}
           {landedHasAdjustments && !landedPending && (
             <Grid item xs={12}>
+              {/* The breakdown line only says something when fees / freight / tax-on-top apply */}
+              {(Math.abs(landed.fees || 0) >= 0.005 || Math.abs(landed.freight || 0) >= 0.005 || (landed.taxAddedOnTop && landed.tax)) && (
               <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
                 Products {formatCurrency(landed.subtotal)}
-                {landed.fees ? ` + Fees ${formatCurrency(landed.fees)}` : ''}
+                {landed.fees ? ` ${landed.fees < 0 ? '−' : '+'} ${landed.fees < 0 ? 'Discount' : 'Fees'} ${formatCurrency(Math.abs(landed.fees))}` : ''}
                 {landed.freight ? ` + Freight ${formatCurrency(landed.freight)}` : ''}
-                {landed.discount ? ` − Discount ${formatCurrency(landed.discount)}` : ''}
                 {landed.taxAddedOnTop && landed.tax ? ` + Tax ${formatCurrency(landed.tax)}` : ''}
                 {' = '}
                 <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landedInvoiceTotal)}</Box>
               </Typography>
+              )}
+              {/* Reference: the purchase rebate lowers the product cost, not the invoice */}
+              {Math.abs(landed.discount || 0) >= 0.005 && (
+                <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                  Purchase rebate {formatCurrency(landed.discount)} lowers the products&apos; new cost; it is not taken off the Total
+                </Typography>
+              )}
               {/* Freight billed by an outside carrier ("Freight is included on supplier
                   invoice" off): not in this order's total, but in the products' cost */}
               {Math.abs(landed.freightOffInvoice || 0) >= 0.005 && (
@@ -2763,8 +2953,34 @@ const EditOrder = () => {
         </Grid>
       </Box>
 
-      {/* Save Buttons */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2, mb: 3 }}>
+      {/* Reference blue bar: Details View toggle + Show Taxes (left), Save
+          buttons (right) */}
+      <Box sx={{ backgroundColor: '#5ebbeb', display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.5, mb: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ShopfrontSwitch
+              checked={detailsView}
+              onChange={(e) => setDetailsView(e.target.checked)}
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#1976d2' },
+                '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#1976d2' },
+              }}
+            />
+            <Typography sx={{ fontSize: 14, color: '#000', whiteSpace: 'nowrap' }}>Details View</Typography>
+          </Box>
+          {landedApplies && (
+            <Button
+              onClick={() => setShowTaxes((v) => !v)}
+              sx={{ backgroundColor: '#f8f8f8', color: '#313439', borderRadius: 0, textTransform: 'none', fontSize: 16, fontWeight: 400, px: 2, height: 53, boxShadow: 'none', '&:hover': { backgroundColor: '#fff', boxShadow: 'none' } }}
+            >
+              {showTaxes ? 'Hide Taxes' : 'Show Taxes'}
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      {/* Save buttons sit outside the blue bar */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <Button
           startIcon={<SaveIcon />}
           onClick={() => handleSave(false)}
