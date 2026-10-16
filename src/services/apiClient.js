@@ -166,6 +166,22 @@ function resolveLoadingMode(config) {
   return 'bar';
 }
 
+// Create/update calls that carry a plain JSON body get the navbar outlet stamped
+// in (see the interceptor below). Auth/session calls and uploads are left alone.
+// Was referenced but never defined, so no write was ever stamped and every form
+// that does not send outletId itself saved a GLOBAL record (fixed 16/10/2026).
+const UNSCOPED_WRITE_PATHS = /^\/?(auth|permissions|notifications|settings\/user|register-sessions|linkly)(\/|$)/;
+const isOutletScopedWrite = (config) => {
+  const method = String(config.method || '').toLowerCase();
+  if (!['post', 'put', 'patch'].includes(method)) return false;
+  const data = config.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+  if (typeof FormData !== 'undefined' && data instanceof FormData) return false;
+  const url = String(config.url || '').replace(/^https?:\/\/[^/]+/, '').replace(/^\/api\//, '/');
+  if (UNSCOPED_WRITE_PATHS.test(url)) return false;
+  return true;
+};
+
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
@@ -200,7 +216,11 @@ apiClient.interceptors.request.use(
             // one itself (promotions, suppliers, customer groups, price sets,
             // receipt templates, classifications, shelf tickets…). Forms that
             // do send outletId, including an explicit null for "global", win.
-            if (!Object.prototype.hasOwnProperty.call(config.data, 'outletId')) {
+            // Missing OR null: a form that initialises outletId to null and never
+            // resolves it (Supplier form, 16/10/2026) must still land in the
+            // navbar outlet. On All Outlets nothing is stamped, so an explicit
+            // "Global" pick there is untouched.
+            if (config.data.outletId == null) {
               config.data = { ...config.data, outletId: selectedOutletId };
             }
           }

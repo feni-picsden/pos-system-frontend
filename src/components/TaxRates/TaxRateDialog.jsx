@@ -22,9 +22,13 @@ import { taxRateService } from '../../services/taxRateService';
 import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' }) => {
   const { user, isTrueSuperAdmin } = useAuth();
+  // Navbar outlet (super admin): a new tax rate defaults to it and the Outlet
+  // field is hidden; on All Outlets the field is shown (Global / outlet).
+  const { selectedOutletId: headerOutletId } = useSelectedOutlet();
   const isEditMode = mode === 'edit' && taxRate;
 
   const [formData, setFormData] = useState({
@@ -61,12 +65,12 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
           masterDatabaseRef: '',
           isActive: true,
           isDefault: false,
-          outletId: !isTrueSuperAdmin() && user?.outletId ? user.outletId : null,
+          outletId: !isTrueSuperAdmin() && user?.outletId ? user.outletId : (headerOutletId ?? null),
         });
       }
       setError('');
     }
-  }, [open, isEditMode, taxRate, isTrueSuperAdmin, user]);
+  }, [open, isEditMode, taxRate, isTrueSuperAdmin, user, headerOutletId]);
 
   const loadOutlets = async () => {
     try {
@@ -238,8 +242,14 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
           </TextField>
           )}
 
-          {/* Outlet Selection - Only for Super Admin */}
-          {isTrueSuperAdmin() && (
+          {/* Outlet Selection - super admin on All Outlets only; a navbar outlet
+              fixes the outlet (header rule, 16/10/2026) */}
+          {isTrueSuperAdmin() && headerOutletId != null && (
+            <Typography variant="body2" color="text.secondary">
+              This tax rate will be created for the selected outlet.
+            </Typography>
+          )}
+          {isTrueSuperAdmin() && headerOutletId == null && (
             <TextField
               select
               label="Outlet"

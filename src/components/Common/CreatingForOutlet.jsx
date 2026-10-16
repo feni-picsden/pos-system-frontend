@@ -24,6 +24,9 @@ const CreatingForOutlet = ({ outletId, sx }) => {
     label = selectedOutlet?.name || 'your outlet';
   } else if (outletId != null) {
     label = outlets.find((o) => o.id === Number(outletId))?.name || `Outlet #${outletId}`;
+  } else if (selectedOutlet) {
+    // Navbar outlet selected: apiClient stamps it on the create/update call.
+    label = selectedOutlet.name;
   } else {
     label = 'All Outlets';
     global = true;
