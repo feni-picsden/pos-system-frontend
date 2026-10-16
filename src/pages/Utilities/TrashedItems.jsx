@@ -695,6 +695,8 @@ const TrashedItems = () => {
           not the TableContainer's own (default overflow-x:auto) box. */}
       <TableContainer sx={{ backgroundColor: 'transparent', boxShadow: 'none', ml: '-16px', width: 'calc(100% + 16px)', overflow: 'visible' }}>
         <Table>
+          {/* Reference: an empty list shows only the icon + "No trash found." - no header bar */}
+          {(loading || trashedItems.length > 0) && (
           <TableHead>
             <TableRow
               sx={{
@@ -734,6 +736,7 @@ const TrashedItems = () => {
               <TableCell align="center" sx={{ width: 166, pr: '16px' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
+          )}
           <TableBody
             sx={{
               '& tr': { bgcolor: '#fff' },
@@ -749,7 +752,7 @@ const TrashedItems = () => {
                 </TableCell>
               </TableRow>
             ) : trashedItems.length === 0 ? (
-              <TableRow>
+              <TableRow sx={{ bgcolor: 'transparent !important' }}>
                 <TableCell colSpan={5} align="center" sx={{ py: 4, bgcolor: 'transparent !important' }}>
                   {/* Reference empty state: document-search icon above the text */}
                   <NoTrashIcon sx={{ fontSize: 44, color: '#000', display: 'block', mx: 'auto', mb: 0.5 }} />
