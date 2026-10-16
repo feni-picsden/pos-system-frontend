@@ -2901,13 +2901,14 @@ const EditOrder = () => {
           </Grid>
           {/* Orders / invoices show the Total in the reference box above */}
           {!landedApplies && (
-          <Grid item xs={4}>
+          <Grid item xs={6} sm={4}>
+            {/* Same look as Cases / Items: label above a grey read-only box */}
+            <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Total</Typography>
             <TextField
               value={formatCurrency(displayGrandTotal()).replace('$', '')}
-              label="Total"
-              InputProps={{ readOnly: true }}
-              sx={{ backgroundColor: 'white', '& input': landedFigureSx }}
+              disabled
               fullWidth
+              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439', ...landedFigureSx } }}
             />
           </Grid>
           )}
