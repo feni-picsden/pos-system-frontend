@@ -74,28 +74,14 @@ const TaxRates = () => {
   }, [selectedOutletId]);
 
   const loadTaxRates = async () => {
+    // Setup list shows inactive rates too (so they can be re-activated), so it
+    // reads straight from the server; the sell-screen cache keeps active-only.
     await posLocalDb.init();
-    const cached = await posLocalDb.getStoreAll('taxRates');
-    if (cached.length > 0) {
-      setTaxRates(cached);
-      setLoading(false);
-      const stale = await posLocalDb.isStoreStale('taxRates');
-      if (stale) {
-        taxRateService.getTaxRates()
-          .then(async (r) => {
-            const items = r.taxRates || [];
-            await posLocalDb.putStoreAll('taxRates', items);
-            setTaxRates(items);
-          })
-          .catch(() => {});
-      }
-      return;
-    }
     try {
       setLoading(true);
-      const response = await taxRateService.getTaxRates();
+      const response = await taxRateService.getAllTaxRatesForSetup();
       const items = response.taxRates || [];
-      await posLocalDb.putStoreAll('taxRates', items);
+      await posLocalDb.putStoreAll('taxRates', items.filter((t) => t.isActive));
       setTaxRates(items);
       setError('');
     } catch (err) {
@@ -173,6 +159,11 @@ const TaxRates = () => {
   const formatAmount = (amount) => {
     return `${parseFloat(amount).toFixed(2)}%`;
   };
+
+  // Reference: the global "No Tax" rate is a system rate - lock icon, no
+  // Edit/Delete. The backend treats this name as special everywhere.
+  const isLockedRate = (t) =>
+    Boolean(t.isLocked) || (t.name === 'No Tax' && t.outletId == null);
 
   const getOutletDisplay = (taxRate) => {
     if (taxRate.outlet) {
@@ -306,8 +297,10 @@ const TaxRates = () => {
                   >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {taxRate.isLocked && (
-                          <LockOutlinedIcon sx={{ fontSize: 18, color: '#000' }} />
+                        {isLockedRate(taxRate) && (
+                          <Tooltip title="This is defined by the system and cannot be modified." placement="top-start">
+                            <LockOutlinedIcon sx={{ fontSize: 18, color: '#000', cursor: 'default' }} />
+                          </Tooltip>
                         )}
                         {taxRate.masterDatabaseRef && (
                           <Tooltip title="Copy UUID">
@@ -376,15 +369,21 @@ const TaxRates = () => {
                       </TableCell>
                     )}
                     <TableCell>
-                      <Tooltip title={canEditTaxRates ? (taxRate.isActive ? 'Click to deactivate' : 'Click to activate') : ''}>
+                      {/* System rate (No Tax) can be switched on, never off. */}
+                      {(() => {
+                        const canToggle = canEditTaxRates && !(isLockedRate(taxRate) && taxRate.isActive);
+                        return (
+                      <Tooltip title={canToggle ? (taxRate.isActive ? 'Click to deactivate' : 'Click to activate') : ''}>
                         <Chip
                           label={taxRate.isActive ? 'Active' : 'Inactive'}
                           color={taxRate.isActive ? 'success' : 'default'}
                           size="small"
-                          onClick={canEditTaxRates ? () => handleToggleStatus(taxRate.id) : undefined}
+                          onClick={canToggle ? () => handleToggleStatus(taxRate.id) : undefined}
                           sx={{ fontWeight: 500 }}
                         />
                       </Tooltip>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {taxRate.isDefault ? (
@@ -397,7 +396,7 @@ const TaxRates = () => {
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                        {canEditTaxRates && (
+                        {canEditTaxRates && !isLockedRate(taxRate) && (
                           <Button
                             disableRipple
                             startIcon={<EditOutlinedIcon />}
@@ -418,7 +417,13 @@ const TaxRates = () => {
                             Edit
                           </Button>
                         )}
-                        {canDeleteTaxRates && (
+                        {canDeleteTaxRates && !isLockedRate(taxRate) && (
+                          <Tooltip
+                            title={taxRate.isDefault ? 'Cannot delete the default Tax Rate' : ''}
+                            placement="top"
+                            arrow
+                          >
+                          <span>
                           <Button
                             disableRipple
                             startIcon={<DeleteOutlineIcon />}
@@ -446,6 +451,8 @@ const TaxRates = () => {
                           >
                             Delete
                           </Button>
+                          </span>
+                          </Tooltip>
                         )}
                       </Box>
                     </TableCell>

@@ -7,34 +7,55 @@ import {
   Button,
   Box,
   Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  OutlinedInput,
+  Autocomplete,
+  TextField,
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
-const selectSx = {
+// Reference look (16/10/2026): small label above the field, searchable field
+// with a clear (×) button, options grouped under a bold percentage heading and
+// listed by name only. Design only - merge rules unchanged.
+const LABEL_SX = { fontSize: 13, color: '#000', mb: 0.5, display: 'block' };
+
+const FIELD_SX = {
+  '& .MuiOutlinedInput-root': {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    fontSize: 15,
+    '& fieldset': { borderColor: '#9e9e9e', borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: '#555' },
+    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+  },
+  '& .MuiInputBase-input::placeholder': { color: '#666', opacity: 1 },
+};
+
+const LISTBOX_SX = {
+  padding: 0,
+  '& .MuiAutocomplete-option': {
+    fontSize: 15,
+    minHeight: 44,
+    paddingLeft: '14px !important',
+    borderTop: '1px solid #e0e0e0',
+  },
+  '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: '#74d4fc !important' },
+  '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: '#e8f6fe' },
+};
+
+const PAPER_SX = {
+  mt: 1,
+  border: '1px solid #000',
+  borderRadius: '8px',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  overflow: 'hidden',
+};
+
+const GROUP_HEADER_SX = {
+  fontSize: 15,
+  fontWeight: 700,
+  color: '#000',
+  px: '14px',
+  py: '12px',
   backgroundColor: '#fff',
-  borderRadius: 1,
-  '& .MuiOutlinedInput-notchedOutline': {
-    borderColor: '#d0d0d0',
-    borderWidth: '1px',
-  },
-  '&:hover .MuiOutlinedInput-notchedOutline': {
-    borderColor: '#999',
-  },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-    borderColor: '#1976d2',
-    borderWidth: '1px',
-  },
-  '& .MuiSelect-select': {
-    color: 'rgba(0,0,0,0.87)',
-  },
-  '& .MuiSelect-icon': {
-    color: 'rgba(0,0,0,0.54)',
-  },
 };
 
 const MergeTaxRateDialog = ({
@@ -56,17 +77,19 @@ const MergeTaxRateDialog = ({
       )
     : [];
 
+  // Options sorted by percentage so groupBy gets contiguous groups. The system
+  // "No Tax" rate is locked - it can be merged INTO but never merged away.
+  const isSystemRate = (t) => t.name === 'No Tax' && t.outletId == null;
+  const fromOptions = [...(mergeableTaxRates || [])].filter((t) => !isSystemRate(t)).sort(
+    (a, b) => Number(a.amount) - Number(b.amount)
+  );
+
   useEffect(() => {
     if (!open) {
       setFromId('');
       setToId('');
     }
   }, [open]);
-
-  const handleFromChange = (e) => {
-    setFromId(e.target.value);
-    setToId('');
-  };
 
   const handleContinue = () => {
     if (!hasMergeable) {
@@ -78,6 +101,43 @@ const MergeTaxRateDialog = ({
       onClose();
     }
   };
+
+  const renderPicker = ({ label, options, value, onChange, disabled }) => (
+    <Box sx={{ mb: 2 }}>
+      <Typography component="label" sx={LABEL_SX}>
+        {label}
+      </Typography>
+      <Autocomplete
+        options={options}
+        value={options.find((t) => t.id === value) || null}
+        onChange={(_, v) => onChange(v ? v.id : '')}
+        groupBy={(t) => formatAmount(t.amount)}
+        getOptionLabel={(t) => t?.name || ''}
+        isOptionEqualToValue={(a, b) => a.id === b.id}
+        disabled={disabled}
+        size="small"
+        noOptionsText="No tax rates"
+        renderGroup={(params) => (
+          <li key={params.key}>
+            <Box sx={GROUP_HEADER_SX}>{params.group}</Box>
+            <Box component="ul" sx={{ p: 0, m: 0 }}>
+              {params.children}
+            </Box>
+          </li>
+        )}
+        renderOption={(props, t) => (
+          <li {...props} key={t.id}>
+            {t.name}
+          </li>
+        )}
+        renderInput={(params) => (
+          <TextField {...params} placeholder="Select..." sx={FIELD_SX} />
+        )}
+        slotProps={{ paper: { sx: PAPER_SX } }}
+        ListboxProps={{ sx: LISTBOX_SX }}
+      />
+    </Box>
+  );
 
   return (
     <Dialog
@@ -99,70 +159,29 @@ const MergeTaxRateDialog = ({
         <HelpOutlineIcon sx={{ fontSize: 20 }} />
         Merge Tax Rate
       </DialogTitle>
-      <DialogContent sx={{ pt: 2 }}>
+      <DialogContent sx={{ pt: '16px !important' }}>
         {hasMergeable ? (
           <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography sx={{ fontSize: 14, color: '#000', mb: 2 }}>
               Merge tax rates with matching tax rate percentages. Only showing
-              tax rates that can be merged.
+              tax rates that can be merged
             </Typography>
-            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-              <InputLabel id="merge-from-label">From</InputLabel>
-              <Select
-                labelId="merge-from-label"
-                value={fromId}
-                onChange={handleFromChange}
-                label="From"
-                displayEmpty
-                input={<OutlinedInput label="From" />}
-                renderValue={(v) => {
-                  if (!v) return <span style={{ color: '#666' }}>Select...</span>;
-                  const t = mergeableTaxRates.find((x) => x.id === v);
-                  return t ? `${t.name} (${formatAmount(t.amount)})` : '';
-                }}
-                sx={selectSx}
-              >
-                <MenuItem value="">
-                  Select...
-                </MenuItem>
-                {mergeableTaxRates.map((tax) => (
-                  <MenuItem key={tax.id} value={tax.id}>
-                    {tax.name} ({formatAmount(tax.amount)})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={!fromId}
-              sx={{ mb: 1 }}
-            >
-              <InputLabel id="merge-to-label">To</InputLabel>
-              <Select
-                labelId="merge-to-label"
-                value={toId}
-                onChange={(e) => setToId(e.target.value)}
-                label="To"
-                displayEmpty
-                input={<OutlinedInput label="To" />}
-                renderValue={(v) => {
-                  if (!v) return <span style={{ color: '#666' }}>Select...</span>;
-                  const t = sameAmountAsFrom.find((x) => x.id === v);
-                  return t ? `${t.name} (${formatAmount(t.amount)})` : '';
-                }}
-                sx={selectSx}
-              >
-                <MenuItem value="">
-                  Select...
-                </MenuItem>
-                {sameAmountAsFrom.map((tax) => (
-                  <MenuItem key={tax.id} value={tax.id}>
-                    {tax.name} ({formatAmount(tax.amount)})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {renderPicker({
+              label: 'From',
+              options: fromOptions,
+              value: fromId,
+              onChange: (id) => {
+                setFromId(id);
+                setToId('');
+              },
+            })}
+            {fromId &&
+              renderPicker({
+                label: 'To',
+                options: sameAmountAsFrom,
+                value: toId,
+                onChange: setToId,
+              })}
           </>
         ) : (
           <Box sx={{ py: 1 }}>

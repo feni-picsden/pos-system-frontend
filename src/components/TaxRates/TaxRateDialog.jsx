@@ -333,11 +333,16 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
             fontSize: 16,
             height: 42,
             px: 3,
+            minWidth: 96,
             transition: 'all 0s ease',
             '&:hover': { backgroundColor: '#38bdf8', boxShadow: 'none' },
+            // Keep the blue while saving so the spinner stays visible.
+            '&.Mui-disabled': { backgroundColor: '#0ea5e9', color: '#fff', opacity: 0.85 },
           }}
         >
-          {loading ? null : (isEditMode ? 'Update' : 'Create')}
+          {loading ? (
+            <CircularProgress size={20} thickness={5} sx={{ color: '#fff' }} />
+          ) : (isEditMode ? 'Update' : 'Create')}
         </Button>
       </DialogActions>
     </Dialog>

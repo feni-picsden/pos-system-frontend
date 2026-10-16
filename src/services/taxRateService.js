@@ -11,6 +11,12 @@ export const taxRateService = {
     return { taxRates };
   },
 
+  // Setup list: active + inactive, straight from the server (not the sell-screen cache).
+  async getAllTaxRatesForSetup() {
+    const response = await apiClient.get('/tax-rates?includeInactive=1');
+    return { taxRates: response.data?.taxRates || [] };
+  },
+
   async getTaxRatesByOutlet(outletId) {
     const response = await apiClient.get(`/tax-rates?outletId=${outletId}`);
     return response.data;
