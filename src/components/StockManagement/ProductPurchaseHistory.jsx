@@ -168,7 +168,7 @@ const ProductPurchaseHistory = ({ productId }) => {
                         component="table"
                         sx={{
                           margin: '0 auto',
-                          '& td': { padding: '0 8px', fontSize: 16 },
+                          '& td': { padding: '2px 8px', fontSize: 13 },
                         }}
                       >
                         <tbody>
@@ -201,7 +201,7 @@ const ProductPurchaseHistory = ({ productId }) => {
                         }
                         sx={{
                           color: '#1c86f2',
-                          fontSize: 16,
+                          fontSize: 14,
                           whiteSpace: 'nowrap',
                           display: 'flex',
                           alignItems: 'center',
@@ -209,7 +209,7 @@ const ProductPurchaseHistory = ({ productId }) => {
                           transition: 'color 0.2s',
                         }}
                       >
-                        <EyeIcon sx={{ fontSize: 24 }} />
+                        <EyeIcon sx={{ fontSize: 20 }} />
                         View
                       </Link>
                     </TableCell>

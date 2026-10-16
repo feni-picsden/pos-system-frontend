@@ -166,7 +166,7 @@ const ProductTransferHistory = ({ productId }) => {
                       underline="none"
                       sx={{
                         color: '#1c86f2',
-                        fontSize: 16,
+                        fontSize: 14,
                         whiteSpace: 'nowrap',
                         display: 'flex',
                         alignItems: 'center',
@@ -174,7 +174,7 @@ const ProductTransferHistory = ({ productId }) => {
                         transition: 'color 0.2s',
                       }}
                     >
-                      <SwapHorizIcon sx={{ fontSize: 24 }} />
+                      <SwapHorizIcon sx={{ fontSize: 20 }} />
                       View
                     </Link>
                   </TableCell>

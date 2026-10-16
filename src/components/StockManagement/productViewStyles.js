@@ -201,15 +201,17 @@ export const ORDERS_TABLE_SX = {
   width: "auto",
   minWidth: "100%",
   borderCollapse: "collapse",
-  "& > * > tr": { borderBottom: "1px solid #000" },
+  // Compact sizes matched to the reference screenshot (16/10/2026).
+  "& > * > tr": { borderBottom: "1px solid #e0e0e0" },
   "& > * > tr > th": {
     textTransform: "uppercase",
     backgroundColor: "#ebebeb",
     color: "#000",
     fontWeight: 700,
-    fontSize: 16,
-    padding: "16px 8px",
+    fontSize: 13,
+    padding: "12px 8px",
     textAlign: "center",
+    whiteSpace: "nowrap",
     border: 0,
     position: "sticky",
     top: 0,
@@ -217,7 +219,7 @@ export const ORDERS_TABLE_SX = {
     lineHeight: "normal",
   },
   "& > * > tr > td": {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 400,
     color: "#000",
     padding: "8px",
@@ -226,12 +228,19 @@ export const ORDERS_TABLE_SX = {
     lineHeight: "normal",
   },
   // Reference left-aligns the From/To cells; className beats the child selector.
-  "& > * > tr > td.left": { textAlign: "left" },
+  "& > * > tr > td.left": { textAlign: "left", whiteSpace: "nowrap" },
   "& > * > tr > td.nopad": { padding: 0 },
-  "& > tbody > tr": { height: 95, boxSizing: "border-box" },
-  "& .main": { fontSize: "17.6px", fontWeight: 500 },
+  // Last (View) column: keep clear of the right-hand nav panel.
+  "& > * > tr > th:last-of-type, & > * > tr > td:last-of-type": {
+    paddingRight: "24px",
+    minWidth: 96,
+    whiteSpace: "nowrap",
+  },
+  "& > * > tr > td:last-of-type > *": { justifyContent: "center", margin: "0 auto" },
+  "& > tbody > tr": { height: 76, boxSizing: "border-box" },
+  "& .main": { fontSize: "15px", fontWeight: 600 },
   "& .secondary": {
-    fontSize: "12.8px",
+    fontSize: "11px",
     fontWeight: 400,
     color: "#676b72",
     textTransform: "uppercase",
