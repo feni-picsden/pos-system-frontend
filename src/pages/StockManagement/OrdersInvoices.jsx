@@ -48,6 +48,8 @@ import { userService } from '../../services/userService';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import { orderGates } from '../../utils/orderPermissions';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { canReceiveTransfer } from '../../utils/transferReceive';
 import TransferReceiveDialog from '../../components/StockManagement/TransferReceiveDialog';
@@ -207,6 +209,8 @@ const OrdersInvoices = () => {
   const { user, isTrueSuperAdmin } = useAuth();
   // Header rule: the in-page Outlet filter is hidden while a header outlet is selected.
   const { showOutletFilter } = useHeaderScope();
+  // Buttons follow the backend permission keys (display only, 16/10/2026)
+  const gates = orderGates(usePermissions());
 
   const loadOrdersInvoices = useCallback(async () => {
     try {
@@ -499,21 +503,32 @@ const OrdersInvoices = () => {
         flexWrap: 'wrap',
         alignItems: 'center'
       }}>
+        {/* Permission gates (16/10/2026): a button shows only when its API route would accept the user */}
+        {gates.canCreate('ORDER') && (
         <Button variant="contained" startIcon={<OrderStockIcon />} component={RouterLink} to={'/orders-invoices/create'} sx={toolbarButtonSx}>
           Order Stock
         </Button>
+        )}
+        {gates.canCreate('TRANSFER') && (
         <Button variant="contained" startIcon={<TransferStockIcon />} component={RouterLink} to={'/orders-invoices/create-transfer'} sx={toolbarButtonSx}>
           Transfer Stock
         </Button>
+        )}
+        {gates.canCreate('INVOICE') && gates.canReceive && (
         <Button variant="contained" startIcon={<ReceiveStockIcon />} component={RouterLink} to={'/orders-invoices/create-receive-stock'} sx={toolbarButtonSx}>
           Receive Stock
         </Button>
+        )}
+        {gates.canCreate('RETURN') && (
         <Button variant="contained" startIcon={<ReturnStockIcon />} component={RouterLink} to={'/orders-invoices/create-return'} sx={toolbarButtonSx}>
           Return Stock
         </Button>
+        )}
+        {gates.canCreate('CREDIT_NOTE') && (
         <Button variant="contained" startIcon={<CreditNoteIcon />} component={RouterLink} to={'/orders-invoices/create-credit-note'} sx={toolbarButtonSx}>
           Add Credit Note
         </Button>
+        )}
         <Button
           variant="contained"
           endIcon={<ArrowDropDownIcon />}
@@ -746,7 +761,7 @@ const OrdersInvoices = () => {
                       >
                         View
                       </Button>
-                      {String(item.type || '').toUpperCase() === 'CREDIT_NOTE' &&
+                      {gates.canApply && String(item.type || '').toUpperCase() === 'CREDIT_NOTE' &&
                         String(item.status || '').toUpperCase() === 'PENDING' && (
                           <Button
                             size="small"
@@ -758,7 +773,7 @@ const OrdersInvoices = () => {
                           </Button>
                         )}
                       {/* Edit: unsent (PENDING/OPEN) documents only (reference) */}
-                      {['PENDING', 'OPEN'].includes(String(item.status || '').toUpperCase()) && (
+                      {gates.canEdit(item.type) && ['PENDING', 'OPEN'].includes(String(item.status || '').toUpperCase()) && (
                         <Button
                           size="small"
                           startIcon={<EditIcon />}
@@ -769,7 +784,7 @@ const OrdersInvoices = () => {
                         </Button>
                       )}
                       {/* Receive: local shortcut for unsent/sent orders & invoices only */}
-                      {['ORDER', 'INVOICE'].includes(String(item.type || '').toUpperCase()) &&
+                      {gates.canReceive && ['ORDER', 'INVOICE'].includes(String(item.type || '').toUpperCase()) &&
                         ['PENDING', 'OPEN', 'SENT'].includes(String(item.status || '').toUpperCase()) && (
                           <Button
                             size="small"
@@ -780,7 +795,7 @@ const OrdersInvoices = () => {
                             Receive
                           </Button>
                         )}
-                      {canReceiveTransfer(item, user, isTrueSuperAdmin()) && (
+                      {gates.canReceive && canReceiveTransfer(item, user, isTrueSuperAdmin()) && (
                         <Button
                           size="small"
                           startIcon={<ReceiveStockIcon />}

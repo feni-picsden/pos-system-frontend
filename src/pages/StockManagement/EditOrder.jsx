@@ -50,6 +50,8 @@ import transfereeService from '../../services/transfereeService';
 import settingsService from '../../services/settingsService';
 import { stripHtml } from '../../services/posLocalDb';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import { orderGates } from '../../utils/orderPermissions';
 import ProductDetailView from '../../components/OrdersInvoices/ProductDetailView';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 
@@ -164,6 +166,8 @@ const EditOrder = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user, getOutletName } = useAuth();
+  // Buttons follow the backend permission keys (display only)
+  const gates = orderGates(usePermissions());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -2981,6 +2985,8 @@ const EditOrder = () => {
 
       {/* Save buttons sit outside the blue bar */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        {/* Permission gates (16/10/2026): a button shows only when its API route would accept the user */}
+        {gates.canEdit(order?.type) && (
         <Button
           startIcon={<SaveIcon />}
           onClick={() => handleSave(false)}
@@ -2989,8 +2995,9 @@ const EditOrder = () => {
         >
           {saving ? 'Saving...' : !linesLoaded ? 'Loading...' : 'Save'}
         </Button>
+        )}
         {/* Returns too (reference: sending a return is what deducts the stock) */}
-        {!isSentOrder && (
+        {!isSentOrder && (order?.type === 'TRANSFER' ? gates.canSendTransfer : gates.canEdit(order?.type)) && (
           <Button
             startIcon={<SendIcon />}
             onClick={() => handleSave(true)}
@@ -3004,7 +3011,7 @@ const EditOrder = () => {
                 : 'Save & Send'}
           </Button>
         )}
-        {(order?.type === 'ORDER' || order?.type === 'INVOICE') && order?.status !== 'RECEIVED' && (
+        {(order?.type === 'ORDER' || order?.type === 'INVOICE') && order?.status !== 'RECEIVED' && gates.canReceive && (
           <Button
             startIcon={<ReceiveIcon />}
             onClick={handleSaveAndReceive}

@@ -73,6 +73,8 @@ import { resolveAssetUrl } from '../../services/apiClient';
 import { outletService } from '../../services/outletService';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import { orderGates } from '../../utils/orderPermissions';
 import { canReceiveTransfer } from '../../utils/transferReceive';
 import TransferReceiveDialog from '../../components/StockManagement/TransferReceiveDialog';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
@@ -166,6 +168,8 @@ const OrderDetails = () => {
   // already open, and bypass the GET cache so the copy is the current one.
   const refreshToken = location.state?.refresh || null;
   const { user, getOutletName, isTrueSuperAdmin } = useAuth();
+  // Buttons follow the backend permission keys (display only, 16/10/2026)
+  const gates = orderGates(usePermissions());
   const { selectedOutlet, outlets: knownOutlets } = useSelectedOutlet();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1229,7 +1233,8 @@ const OrderDetails = () => {
         mb: 2,
       }}>
         {/* Receive: local addition (not in reference) for unsent/sent orders & invoices */}
-        {isOrderOrInvoice && (isUnsent || order.status === 'SENT') && (
+        {/* Permission gates (16/10/2026): a button shows only when its API route would accept the user */}
+        {gates.canReceive && isOrderOrInvoice && (isUnsent || order.status === 'SENT') && (
           <Button
             variant="contained"
             disableElevation
@@ -1241,7 +1246,7 @@ const OrderDetails = () => {
           </Button>
         )}
         {/* Receive an incoming (SENT) transfer at its destination outlet */}
-        {canReceiveTransfer(order, user, isTrueSuperAdmin()) && (
+        {gates.canReceive && canReceiveTransfer(order, user, isTrueSuperAdmin()) && (
           <Button
             variant="contained"
             disableElevation
@@ -1254,7 +1259,7 @@ const OrderDetails = () => {
           </Button>
         )}
         {/* Edit: unsent documents open the edit page */}
-        {isUnsent && !isCreditNote && (
+        {gates.canEdit(order.type) && isUnsent && !isCreditNote && (
           <Button
             variant="contained"
             disableElevation
@@ -1267,7 +1272,7 @@ const OrderDetails = () => {
         )}
         {/* Send: unsent documents — opens the email composer (send-email marks SENT;
             a transfer's stock moves first, see handleSendOrderEmail). */}
-        {isUnsent && !isCreditNote && (
+        {(order.type === 'TRANSFER' ? gates.canSendTransfer : gates.canSendEmail) && isUnsent && !isCreditNote && (
           <Tooltip title={reviewBlocked ? 'Order review is pending/declined' : ''}>
             <span>
               <Button
@@ -1296,7 +1301,7 @@ const OrderDetails = () => {
           </Button>
         )}
         {/* Pending credit notes show Edit Details before Print (reference) */}
-        {isCreditNote && order.status === 'PENDING' && (
+        {gates.canEdit('CREDIT_NOTE') && isCreditNote && order.status === 'PENDING' && (
           <Button
             variant="contained"
             disableElevation
@@ -1335,7 +1340,7 @@ const OrderDetails = () => {
           </Tooltip>
         )}
         {/* Edit Details: sent orders/invoices/returns, and anything received */}
-        {!isCreditNote &&
+        {gates.canEdit(order.type) && !isCreditNote &&
           ((order.status === 'SENT' && order.type !== 'TRANSFER') || order.status === 'RECEIVED') && (
           <Button
             variant="contained"
@@ -1349,7 +1354,7 @@ const OrderDetails = () => {
           </Button>
         )}
         {/* Reorder Items: sent returns */}
-        {order.type === 'RETURN' && order.status === 'SENT' && (
+        {gates.canReorder && order.type === 'RETURN' && order.status === 'SENT' && (
           <Button
             variant="contained"
             disableElevation
@@ -1366,7 +1371,7 @@ const OrderDetails = () => {
             Reorder Items
           </Button>
         )}
-        {canReturnItems && (
+        {gates.canReturnItems && canReturnItems && (
           <Button
             variant="contained"
             disableElevation
@@ -1398,7 +1403,7 @@ const OrderDetails = () => {
             View Review
           </Button>
         )}
-        {!isCreditNote && !order.reviewStatus && (isUnsent || (order.status === 'SENT' && order.type !== 'RETURN')) && (
+        {gates.canCreateReview && !isCreditNote && !order.reviewStatus && (isUnsent || (order.status === 'SENT' && order.type !== 'RETURN')) && (
           <Button
             variant="contained"
             disableElevation
@@ -1411,7 +1416,7 @@ const OrderDetails = () => {
           </Button>
         )}
         {/* Cancel: unsent documents (before Upload in reference) */}
-        {isUnsent && !isCreditNote && (
+        {gates.canEdit(order.type) && isUnsent && !isCreditNote && (
           <Button
             variant="contained"
             disableElevation
@@ -1428,6 +1433,7 @@ const OrderDetails = () => {
             Cancel
           </Button>
         )}
+        {gates.canAttach && (
         <Button
           variant="contained"
           disableElevation
@@ -1438,8 +1444,9 @@ const OrderDetails = () => {
           Upload Attachment
           <input type="file" hidden accept="image/*,application/pdf" onChange={handleUploadAttachment} />
         </Button>
+        )}
         {/* Cancel for pending credit notes comes after Upload (reference) */}
-        {isCreditNote && order.status === 'PENDING' && (
+        {gates.canEdit('CREDIT_NOTE') && isCreditNote && order.status === 'PENDING' && (
           <Button
             variant="contained"
             disableElevation

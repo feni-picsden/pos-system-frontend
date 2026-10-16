@@ -697,7 +697,7 @@ function App() {
                           path="/orders-invoices/create"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["orders-invoices.view"]}
+                              requiredPermissions={["orders-invoices.add"]}
                             >
                               <CreateOrder />
                             </PermissionProtectedRoute>
@@ -707,7 +707,7 @@ function App() {
                           path="/orders-invoices/create-transfer"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["orders-invoices.view"]}
+                              requiredPermissions={["stock_create_transfer", "orders-invoices.add"]}
                             >
                               <CreateTransfer />
                             </PermissionProtectedRoute>
@@ -717,7 +717,7 @@ function App() {
                           path="/orders-invoices/create-return"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["orders-invoices.view"]}
+                              requiredPermissions={["stock_create_return", "orders-invoices.add"]}
                             >
                               <CreateReturn />
                             </PermissionProtectedRoute>
@@ -727,7 +727,7 @@ function App() {
                           path="/orders-invoices/create-credit-note"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["orders-invoices.view"]}
+                              requiredPermissions={["stock_create_credit", "orders-invoices.add"]}
                             >
                               <CreateCreditNote />
                             </PermissionProtectedRoute>
@@ -737,7 +737,7 @@ function App() {
                           path="/orders-invoices/create-receive-stock"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["orders-invoices.view"]}
+                              requiredPermissions={["orders-invoices.add"]}
                             >
                               <CreateReceiveStock />
                             </PermissionProtectedRoute>

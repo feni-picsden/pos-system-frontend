@@ -58,6 +58,8 @@ import ProfileDrawer from './ProfileDrawer';
 import ShopfrontSwitch from '../Common/ShopfrontSwitch';
 import { styled } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import { orderGates } from '../../utils/orderPermissions';
 import { authService } from '../../services/authService';
 import QuickLinkTargetField from '../Common/QuickLinkTargetField';
 import {
@@ -218,6 +220,8 @@ const DashboardLayout = ({ children }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, logout } = useAuth();
+  // Bell "Receive Stock" follows the backend permission keys (display only, 16/10/2026)
+  const gates = orderGates(usePermissions());
   // Only the remount key below still needs the outlet; the selector itself moved
   // into the Location Selector dialog.
   const { selectedOutletId } = useSelectedOutlet();
@@ -1274,7 +1278,7 @@ const DashboardLayout = ({ children }) => {
                       <>
                         <Typography variant="caption" color="text.secondary">{timeAgo(n.createdAt)}</Typography>
                         <Typography variant="body2" color="text.primary" sx={{ mt: 0.5 }}>{n.message}</Typography>
-                        {isPendingTransfer && (
+                        {isPendingTransfer && gates.canReceive && (
                           <Button
                             size="small"
                             variant="contained"
