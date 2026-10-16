@@ -41,6 +41,9 @@ import {
   SellOutlined as BrandIcon,
   AccountTreeOutlined as FamilyIcon,
   LocalOfferOutlined as TagIcon,
+  KeyboardOutlined as SaleKeysIcon,
+  StyleOutlined as PromotionCategoryIcon,
+  FindInPageOutlined as NoTrashIcon,
 } from '@mui/icons-material';
 import {
   formatDistanceToNow,
@@ -137,9 +140,9 @@ const SELECT_SX = {
   '& .MuiSelect-select': { padding: '9px 16px' },
 };
 
-// Reference option list + order (UPPERCASE) — exactly these 16, no more.
-// `Classification` rows still render, are still icon-mapped and still recover; the
-// reference just doesn't offer it as a *filter* option, and the reference wins.
+// Reference option list (UPPERCASE). Brand / Category / Family / Tag are stored as
+// "Classification" rows; the backend maps these filter values onto them. Promotion
+// Category and Sale Keys added 16/10/2026 (support article + reference screenshot).
 const ITEM_TYPES = [
   { value: 'Product', label: 'PRODUCT' },
   { value: 'Receipt', label: 'RECEIPT' },
@@ -151,12 +154,14 @@ const ITEM_TYPES = [
   { value: 'Price_list', label: 'PRICE LIST' },
   { value: 'Supplier', label: 'SUPPLIER' },
   { value: 'Promotion', label: 'PROMOTION' },
+  { value: 'Promotion_category', label: 'PROMOTION CATEGORY' },
   { value: 'Order', label: 'ORDER' },
   { value: 'Brand', label: 'BRAND' },
   { value: 'Role', label: 'ROLE' },
   { value: 'Category', label: 'CATEGORY' },
   { value: 'Family', label: 'FAMILY' },
   { value: 'Tag', label: 'TAG' },
+  { value: 'Sale_keys', label: 'SALE KEYS' },
 ];
 
 // Typed dd/MM/yyyy stays the source of truth (the calendar popover writes into the
@@ -346,6 +351,10 @@ const TrashedItems = () => {
         return <FamilyIcon sx={sx} />;
       case 'Tag':
         return <TagIcon sx={sx} />;
+      case 'Sale_keys':
+        return <SaleKeysIcon sx={sx} />;
+      case 'Promotion_category':
+        return <PromotionCategoryIcon sx={sx} />;
       default:
         return null;
     }
@@ -706,7 +715,8 @@ const TrashedItems = () => {
                 '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
               }}
             >
-              <TableCell padding="checkbox" sx={{ pl: '20px' }}>
+              {/* Fixed width so the leftover space goes to Deleted At, not the checkbox column */}
+              <TableCell padding="checkbox" sx={{ pl: '20px', width: 48, boxSizing: 'border-box' }}>
                 <Checkbox
                   indeterminate={someSelected}
                   checked={allSelected}
@@ -716,17 +726,19 @@ const TrashedItems = () => {
                   inputProps={{ 'aria-label': 'Select all trashed items' }}
                 />
               </TableCell>
-              {/* Reference proportions: Type ~30% with Name starting ~34%; Actions flush right. */}
-              <TableCell sx={{ width: '30%' }}>Type</TableCell>
+              {/* Reference proportions (measured 16/10/2026): Name starts ~31.6% and
+                  Deleted At ~61.6% of the table; Recover sits centred under "Actions". */}
+              <TableCell sx={{ width: '28%' }}>Type</TableCell>
               <TableCell sx={{ width: '30%' }}>Name</TableCell>
-              <TableCell sx={{ width: '16%' }}>Deleted At</TableCell>
-              <TableCell align="right" sx={{ pr: '16px' }}>Actions</TableCell>
+              <TableCell>Deleted At</TableCell>
+              <TableCell align="center" sx={{ width: 166, pr: '16px' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody
             sx={{
               '& tr': { bgcolor: '#fff' },
-              '& td': { border: 0, bgcolor: '#fff', height: 74, py: 0, fontSize: 16, color: '#313439' },
+              // Reference row pitch is 56px.
+              '& td': { border: 0, bgcolor: '#fff', height: 56, py: 0, fontSize: 16, color: '#313439' },
             }}
           >
             {/* Loading sits inside the grid, where the rows will appear */}
@@ -738,7 +750,9 @@ const TrashedItems = () => {
               </TableRow>
             ) : trashedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4, bgcolor: 'transparent !important' }}>
+                  {/* Reference empty state: document-search icon above the text */}
+                  <NoTrashIcon sx={{ fontSize: 44, color: '#000', display: 'block', mx: 'auto', mb: 0.5 }} />
                   <Typography sx={{ color: '#000', fontSize: 16 }}>No trash found.</Typography>
                 </TableCell>
               </TableRow>
@@ -762,14 +776,15 @@ const TrashedItems = () => {
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      {getTypeIcon(item.type)}
+                      {/* Classification rows carry their own type (Brand, Category, ...) */}
+                      {getTypeIcon(item.displayType || item.type)}
                       {/* "Customer_group" -> "Customer Group", as the reference prints it */}
-                      {recoveryTypeName(item.type)}
+                      {recoveryTypeName(item.displayType || item.type)}
                     </Box>
                   </TableCell>
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{formatDeletedAt(item.deletedAt)}</TableCell>
-                  <TableCell align="right" sx={{ pr: '16px' }}>
+                  <TableCell align="center" sx={{ pr: '16px' }}>
                     <Button
                       onClick={() => setConfirm({ item })}
                       disableRipple
@@ -852,18 +867,18 @@ const TrashedItems = () => {
           Product ZZTEST Water was deleted a few seconds ago". */}
       <ConfirmDeleteDialog
         open={Boolean(confirm)}
-        title={confirm?.bulk ? 'Confirm Recovery' : `Confirm ${recoveryTypeName(confirm?.item?.type)} Recovery`}
+        title={confirm?.bulk ? 'Confirm Recovery' : `Confirm ${recoveryTypeName(confirm?.item?.displayType || confirm?.item?.type)} Recovery`}
         message={
           confirm?.bulk ? (
             `Are you sure you wish to recover ${selectedItems.length} selected item(s)?`
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <span>Are you sure you wish to recover this {recoveryTypeName(confirm?.item?.type)}?</span>
-              {['Product', 'Family'].includes(confirm?.item?.type) && (
+              <span>Are you sure you wish to recover this {recoveryTypeName(confirm?.item?.displayType || confirm?.item?.type)}?</span>
+              {['Product', 'Family'].includes(confirm?.item?.displayType || confirm?.item?.type) && (
                 <span>Restoring the selected item may result in the prices being aligned to existing products already in their family.</span>
               )}
               <span>
-                The {recoveryTypeName(confirm?.item?.type)} <strong>{confirm?.item?.name}</strong> was deleted{' '}
+                The {recoveryTypeName(confirm?.item?.displayType || confirm?.item?.type)} <strong>{confirm?.item?.name}</strong> was deleted{' '}
                 {formatDeletedAt(confirm?.item?.deletedAt)}
               </span>
             </Box>
