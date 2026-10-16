@@ -33,6 +33,7 @@ import giftCardService from '../../services/giftCardService';
 import usePageCache from '../../hooks/usePageCache';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 
 const GiftCards = () => {
   const navigate = useNavigate();
@@ -61,6 +62,12 @@ const GiftCards = () => {
   const [functionsOpen, setFunctionsOpen] = useState(false);
   const [outlets, setOutlets] = useState([]);
   const [loadingOutlets, setLoadingOutlets] = useState(false);
+
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && selectedOutlet) setSelectedOutlet('');
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load outlets if super admin
   useEffect(() => {
@@ -398,7 +405,8 @@ const GiftCards = () => {
       </Box>
 
       {/* Outlet Filter - Only show for super admin. Flat (radius 0), placeholder 'Outlet' like the reference react-select */}
-      {isTrueSuperAdmin() && (
+      {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+      {isTrueSuperAdmin() && showOutletFilter && (
         <FormControl fullWidth sx={{ mb: 2 }}>
           <Select
             value={selectedOutlet}

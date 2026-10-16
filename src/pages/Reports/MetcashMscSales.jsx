@@ -48,6 +48,7 @@ import {
 import salesReportService from '../../services/salesReportService';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 
 // ponytail: reference chrome kept page-local (the sibling report pages own their own
 // copies too) so parallel parity work never collides in components/Common.
@@ -243,6 +244,12 @@ const MetcashMscSales = () => {
   const [pickerTab, setPickerTab] = useState('calendar');
   const [startText, setStartText] = useState('');
   const [endText, setEndText] = useState('');
+
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (superAdmin && !showOutletFilter && outletId !== 'all') setOutletId('all');
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addCategoryTotals = (data) => {
     return (data || []).map((category) => {
@@ -663,7 +670,8 @@ const MetcashMscSales = () => {
           )}
         </Box>
 
-        {superAdmin && (
+        {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+        {superAdmin && showOutletFilter && (
           <FormControl sx={{ ...FIELD_SX, minWidth: 220 }}>
             <InputLabel shrink>Outlet</InputLabel>
             <Select

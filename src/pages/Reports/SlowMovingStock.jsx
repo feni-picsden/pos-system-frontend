@@ -25,6 +25,7 @@ import {
   CheckBoxOutlined as CheckSquareIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import inventoryReportService from '../../services/inventoryReportService';
 import outletService from '../../services/outletService';
 import productService from '../../services/productService';
@@ -167,6 +168,12 @@ const SlowMovingStock = () => {
   // UI states
   const [sortConfig, setSortConfig] = useState({ key: 'score', direction: 'desc' });
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && outletId) setOutletId(null);
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const load = async () => {
@@ -387,6 +394,8 @@ const SlowMovingStock = () => {
 
       {/* Reference: bare filter block, no card. */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+        {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+        {showOutletFilter && (
         <Autocomplete
           options={outlets}
           value={outlets.find((o) => o.id === outletId) || null}
@@ -398,6 +407,7 @@ const SlowMovingStock = () => {
           sx={{ width: 358, maxWidth: '100%', ...fieldSx }}
           renderInput={(params) => <TextField {...params} label="Outlet" />}
         />
+        )}
 
         <SearchMultiSelect label="Brands" options={brands} value={selectedBrands} onChange={setSelectedBrands} />
         <SearchMultiSelect label="Categories" options={categories} value={selectedCategories} onChange={setSelectedCategories} />

@@ -46,6 +46,7 @@ import transfereeService from '../../services/transfereeService';
 import productService from '../../services/productService';
 import { userService } from '../../services/userService';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { canReceiveTransfer } from '../../utils/transferReceive';
@@ -204,6 +205,8 @@ const OrdersInvoices = () => {
   const navigate = useNavigate();
   const { selectedOutlet } = useSelectedOutlet();
   const { user, isTrueSuperAdmin } = useAuth();
+  // Header rule: the in-page Outlet filter is hidden while a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
 
   const loadOrdersInvoices = useCallback(async () => {
     try {
@@ -602,7 +605,8 @@ const OrdersInvoices = () => {
           </Labeled>
           {renderAsyncCombo('Supplier', 'supplier')}
           {renderAsyncCombo('Transferee', 'transferee')}
-          {renderCombo('Outlet', 'outlet', [], { clearable: true })}
+          {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+          {showOutletFilter && renderCombo('Outlet', 'outlet', [], { clearable: true })}
           {renderAsyncCombo('Vendor Connection', 'vendorConnection')}
           {renderAsyncCombo('Product', 'product')}
           {renderAsyncCombo('Created By', 'createdBy')}

@@ -50,6 +50,7 @@ import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import { useAuth } from '../../contexts/AuthContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 
 // ponytail: reference chrome is copied per page (parallel parity agents own one page each),
 // same constants as pages/Reports/InventoryAtDate.jsx.
@@ -516,6 +517,12 @@ const InventoryMovement = () => {
   const [hasRun, setHasRun] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && outletId) setOutletId('');
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const loadOutlets = async () => {
       try {
@@ -754,7 +761,8 @@ const InventoryMovement = () => {
 
         <RefSelect label="Grouping" value={grouping} options={GROUPING_OPTIONS} onChange={setGrouping} />
 
-        {user?.isSuperAdmin && (
+        {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+        {user?.isSuperAdmin && showOutletFilter && (
           <RefSelect
             label="Outlets"
             value={outletId}

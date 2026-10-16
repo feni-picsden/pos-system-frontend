@@ -41,6 +41,7 @@ import {
 import apiClient from '../../services/apiClient';
 import outletService from '../../services/outletService';
 import registerService from '../../services/registerService';
+import useHeaderScope from '../../hooks/useHeaderScope';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -416,6 +417,12 @@ const RegisterClosures = () => {
   const [registers, setRegisters] = useState([]);
   const reqId = useRef(0);
   const navigate = useNavigate();
+  // Header outlet/register rule: hide the matching in-page filter (display only).
+  const { showOutletFilter, showRegisterFilter, headerRegisterId } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && outletId) { setOutletId(''); setRegisterId(''); }
+    if (!showRegisterFilter && registerId) setRegisterId('');
+  }, [showOutletFilter, showRegisterFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -443,8 +450,9 @@ const RegisterClosures = () => {
       const query = new URLSearchParams({
         ...(range.start ? { from: range.start.toISOString() } : {}),
         ...(range.end ? { to: range.end.toISOString() } : {}),
-        ...(outletId ? { outletId } : {}),
-        ...(registerId ? { registerId } : {})
+        ...(showOutletFilter && outletId ? { outletId } : {}),
+        // hidden Register filter -> the header register
+        ...(showRegisterFilter ? (registerId ? { registerId } : {}) : (headerRegisterId ? { registerId: headerRegisterId } : {}))
       }).toString();
       const res = await apiClient.get(`/register-closures${query ? `?${query}` : ''}`);
       if (id !== reqId.current) return; // a newer request already answered
@@ -454,7 +462,7 @@ const RegisterClosures = () => {
     } finally {
       if (id === reqId.current) setLoading(false);
     }
-  }, [range, outletId, registerId]);
+  }, [range, outletId, registerId, showOutletFilter, showRegisterFilter, headerRegisterId]);
 
   useEffect(() => {
     load();
@@ -490,6 +498,8 @@ const RegisterClosures = () => {
           '@media (max-width:900px)': { gridTemplateColumns: '1fr' }
         }}
       >
+        {/* Header rule: a filter already fixed by the header is hidden, not removed */}
+        {showOutletFilter && (
         <Box>
           <Typography variant="body2" sx={filterLabelSx}>Outlets</Typography>
           <ClosureSelect
@@ -498,6 +508,8 @@ const RegisterClosures = () => {
             options={outlets}
           />
         </Box>
+        )}
+        {showRegisterFilter && (
         <Box>
           <Typography variant="body2" sx={filterLabelSx}>Registers</Typography>
           <ClosureSelect
@@ -506,6 +518,7 @@ const RegisterClosures = () => {
             options={visibleRegisters}
           />
         </Box>
+        )}
         <Box>
           <Typography variant="body2" sx={filterLabelSx}>Date Range</Typography>
           <DateRangeFilter

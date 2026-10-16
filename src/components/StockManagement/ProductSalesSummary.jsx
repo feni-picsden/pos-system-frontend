@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import productService from '../../services/productService';
 import outletService from '../../services/outletService';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import {
   SECTION_ROOT_SX,
   WIDGET_H2_SX,
@@ -67,6 +68,12 @@ const ProductSalesSummary = ({ productId }) => {
   const [salesData, setSalesData] = useState(null);
   const [outlets, setOutlets] = useState([]);
   const [selectedOutlet, setSelectedOutlet] = useState(null);
+
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && selectedOutlet) setSelectedOutlet(null);
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Load selectable outlets for the filter (superadmin only; harmless 403 otherwise)
@@ -195,6 +202,8 @@ const ProductSalesSummary = ({ productId }) => {
   return (
     <Box sx={SECTION_ROOT_SX}>
       {/* Outlet filter - single-select combobox (clear X + caret), scopes the summary */}
+      {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+      {showOutletFilter && (
       <Autocomplete
         options={[ALL_OUTLETS, ...outlets]}
         getOptionLabel={(o) => o?.name || ''}
@@ -204,6 +213,7 @@ const ProductSalesSummary = ({ productId }) => {
         renderInput={(params) => <TextField {...params} placeholder="Select outlet..." />}
         sx={OUTLET_SELECT_SX}
       />
+      )}
 
       {!hasAnySales ? (
         <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>

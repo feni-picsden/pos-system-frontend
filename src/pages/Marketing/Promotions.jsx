@@ -50,6 +50,7 @@ import {
   isToday
 } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import promotionService from '../../services/promotionService';
 import posLocalDb from '../../services/posLocalDb';
 import { matchesProductSearch } from '../../utils/productSearch';
@@ -784,6 +785,12 @@ const Promotions = () => {
   const [familyFilter, setFamilyFilter] = useState([]);
   const [tagFilter, setTagFilter] = useState([]);
   const [outletFilter, setOutletFilter] = useState([]);
+
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && outletFilter.length) setOutletFilter([]);
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
   // 'all' is the documented bypass for the apiClient outlet auto-filter. Without
   // it a super admin pinned to outlet A gets the categories of outlet A only —
   // global (outletId null) and other-outlet categories drop out and the filter
@@ -1199,6 +1206,8 @@ const Promotions = () => {
                 options={customerGroups}
               />
             </Grid>
+            {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+            {showOutletFilter && (
             <Grid item xs={12} md={2.4}>
               <Typography variant="body2" sx={FILTER_LABEL_SX}>
                 Outlets
@@ -1209,6 +1218,7 @@ const Promotions = () => {
                 options={outlets}
               />
             </Grid>
+            )}
           </Grid>
         )}
 

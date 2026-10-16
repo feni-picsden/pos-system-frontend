@@ -38,6 +38,7 @@ import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
 import { enGB } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import productService from '../../services/productService';
 import futureCostService from '../../services/futureCostService';
 import apiClient from '../../services/apiClient';
@@ -208,6 +209,15 @@ const FutureCosts = () => {
   const [categories, setCategories] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [dateError, setDateError] = useState('');
+
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter) {
+      if (selectedOutlet) setSelectedOutlet('');
+      if (appliedOutlet) setAppliedOutlet('');
+    }
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const outletId = getOutletId();
   const outletName = getOutletName();
@@ -517,6 +527,8 @@ const FutureCosts = () => {
             )}
           />
 
+          {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+          {showOutletFilter && (
           <Autocomplete
             sx={fieldFlexSx}
             size="small"
@@ -530,6 +542,7 @@ const FutureCosts = () => {
               <TextField {...params} placeholder="Select Outlet..." sx={fieldSx} />
             )}
           />
+          )}
 
           <Box sx={fieldFlexSx}>
             <DateRangePicker

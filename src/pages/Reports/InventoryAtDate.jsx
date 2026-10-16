@@ -37,6 +37,7 @@ import {
   ArrowDownward,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import inventoryReportService from '../../services/inventoryReportService';
 import outletService from '../../services/outletService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
@@ -274,6 +275,12 @@ const InventoryAtDate = () => {
   const [columnsChipsExpanded, setColumnsChipsExpanded] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && outletId) setOutletId(null);
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadOutlets();
@@ -635,7 +642,8 @@ const InventoryAtDate = () => {
             <MenuItem value="supplier">Supplier</MenuItem>
           </Select>
         </FormControl>
-        {user?.isSuperAdmin && (
+        {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+        {user?.isSuperAdmin && showOutletFilter && (
           <FormControl sx={{ ...FIELD_SX, minWidth: 200 }}>
             <InputLabel shrink>Outlet</InputLabel>
             <Select

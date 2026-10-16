@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
 import apiClient from '../../services/apiClient';
+import useHeaderScope from '../../hooks/useHeaderScope';
 
 // Outlet filter for report pages. Lists exactly the outlets the signed-in user may
 // report on (Setup > Users > Reporting Access switches; a global admin gets them
@@ -8,6 +9,12 @@ import apiClient from '../../services/apiClient';
 // report is not tied to the outlet you happen to be standing in.
 const ReportOutletSelect = ({ value, onChange, sx }) => {
   const [outlets, setOutlets] = useState([]);
+  // Header rule (16/10/2026): a header outlet already scopes the report, so the
+  // in-page Outlet filter is hidden (and its stale pick cleared) - not removed.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && value) onChange('');
+  }, [showOutletFilter]);
 
   useEffect(() => {
     let alive = true;
@@ -22,6 +29,8 @@ const ReportOutletSelect = ({ value, onChange, sx }) => {
   useEffect(() => {
     if (value && outlets.length && !outlets.some((o) => String(o.id) === String(value))) onChange('');
   }, [outlets, value, onChange]);
+
+  if (!showOutletFilter) return null;
 
   return (
     <FormControl size="small" sx={{ minWidth: 200, bgcolor: '#fff', ...sx }}>

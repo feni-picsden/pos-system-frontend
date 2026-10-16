@@ -30,6 +30,7 @@ import {
   CheckBoxOutlined as CheckSquareIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import inventoryReportService from '../../services/inventoryReportService';
 import outletService from '../../services/outletService';
 import productService from '../../services/productService';
@@ -325,6 +326,12 @@ const StocktakedProducts = () => {
   const [calendarAnchorEl, setCalendarAnchorEl] = useState(null);
   const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()));
 
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && outletId) setOutletId(null);
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const load = async () => {
       const currentOutletId = getOutletId();
@@ -517,6 +524,8 @@ const StocktakedProducts = () => {
 
       {/* Reference: bare filter block, no card. */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+        {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+        {showOutletFilter && (
         <Autocomplete
           options={outlets}
           value={outlets.find((o) => o.id === outletId) || null}
@@ -528,6 +537,7 @@ const StocktakedProducts = () => {
           sx={{ width: 358, maxWidth: '100%', ...fieldSx }}
           renderInput={(params) => <TextField {...params} label="Outlet" />}
         />
+        )}
 
         <TextField
           label="Date"

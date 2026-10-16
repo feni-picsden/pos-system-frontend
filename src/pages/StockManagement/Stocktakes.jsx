@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -35,6 +35,7 @@ import stocktakeService from '../../services/stocktakeService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import usePageCache from '../../hooks/usePageCache';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 
@@ -138,6 +139,12 @@ export default function Stocktakes() {
   const [created, setCreated] = useState({ startDate: null, endDate: null });
   const [completed, setCompleted] = useState({ startDate: null, endDate: null });
   const [outletFilter, setOutletFilter] = useState('');
+
+  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  const { showOutletFilter } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && outletFilter) setOutletFilter('');
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Renders from IndexedDB first, then revalidates in the background.
   const { data: allStocktakes, refresh: refreshStocktakes } = usePageCache(
@@ -327,6 +334,8 @@ export default function Stocktakes() {
           />
         </Grid>
 
+        {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+        {showOutletFilter && (
         <Grid item xs={12} sm={6} md={3}>
           <SectionLabel>Outlets</SectionLabel>
           <FormControl fullWidth size="small">
@@ -363,6 +372,7 @@ export default function Stocktakes() {
             </Select>
           </FormControl>
         </Grid>
+        )}
       </Grid>
 
       {/* Table */}

@@ -34,6 +34,7 @@ import EmailReceiptModal from "../components/SalesHistory/EmailReceiptModal";
 import { formatSettingsDate, formatSettingsTime } from "../utils/appDateTime";
 import { useAppDialogs } from '../components/Common/AppDialogProvider';
 import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
+import useHeaderScope from '../hooks/useHeaderScope';
 import ShopfrontDialog, { DialogButton } from '../components/Common/ShopfrontDialog';
 import SaleDetailCard, { SplitPrice, customerName } from '../components/SalesHistory/SaleDetailCard';
 import { usePermissions } from '../hooks/usePermissions';
@@ -218,6 +219,8 @@ const SalesHistory = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert, notify } = useAppDialogs();
   const { selectedRegister } = useSelectedRegister();
+  // Header outlet/register rule: hide the matching in-page filter (display only).
+  const { showOutletFilter, showRegisterFilter, headerRegisterId } = useHeaderScope();
   const { user, getOutletName } = useAuth();
   // The action rail offers what the backend will actually allow: a cashier with
   // see_history could open Modify Details / Return Items / Cancel Sale and only
@@ -344,6 +347,11 @@ const SalesHistory = () => {
         ...filters,
       };
 
+      // Hidden in-page filters follow the header: outlet comes from apiClient's
+      // header outlet, register is the header register.
+      if (!showOutletFilter) delete filterParams.outletId;
+      if (!showRegisterFilter) filterParams.registerId = headerRegisterId;
+
       // Returned/Discounted are opt-IN booleans: sending false told the API to
       // exclude every returned/discounted sale from the default list.
       if (!filters.isReturned) delete filterParams.isReturned;
@@ -407,6 +415,12 @@ const SalesHistory = () => {
       console.error("Error loading dropdown data:", err);
     }
   };
+
+  // A filter that just got hidden must not keep narrowing the list with its old value.
+  useEffect(() => {
+    if (!showOutletFilter && filters.outletId) setFilters((prev) => ({ ...prev, outletId: "", registerId: "" }));
+    if (!showRegisterFilter && filters.registerId) setFilters((prev) => ({ ...prev, registerId: "" }));
+  }, [showOutletFilter, showRegisterFilter]);
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({
@@ -752,8 +766,9 @@ const SalesHistory = () => {
                   Status / Invoice Number / Order Reference, then Customer /
                   Product / Gift Card Code. */}
               {renderCombo("User", "userId", userOptions)}
-              {renderCombo("Outlet", "outletId", outletOptions)}
-              {renderCombo("Register", "registerId", registerOptions)}
+              {/* Header rule: a filter already fixed by the header is hidden, not removed */}
+              {showOutletFilter && renderCombo("Outlet", "outletId", outletOptions)}
+              {showRegisterFilter && renderCombo("Register", "registerId", registerOptions)}
               {renderCombo("Status", "status", STATUS_OPTIONS)}
               {renderText("Invoice Number", "invoiceNumber")}
               {renderText("Order Reference", "orderReference")}
