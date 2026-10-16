@@ -14,6 +14,7 @@ import {
   TextField,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
 import outletService from '../../services/outletService';
 import {
@@ -53,6 +54,8 @@ const ProductInventoryLog = ({ productId }) => {
   const [endDate, setEndDate] = useState('');
   const [outlets, setOutlets] = useState([]);
   const [selectedOutlet, setSelectedOutlet] = useState(null);
+  // Header outlet selection (super admin): "All Outlets" = merged, outlet-tagged ledger.
+  const { isAllOutlets, isTrueSuperAdmin } = useSelectedOutlet();
   // Last-write-wins guard: a cached (instant) response must not be overwritten
   // by an older filter's request that is still in flight.
   const reqRef = useRef(0);
@@ -198,7 +201,11 @@ const ProductInventoryLog = ({ productId }) => {
 
   // Global product (no outlet of its own): reference shows the Outlets filter
   // and the OUTLET column. An outlet product shows neither.
-  const isGlobal = data.product?.outletId == null;
+  // Rule (user 16/10/2026): header "All Outlets" -> OUTLET column + Outlets filter
+  // for every product (outlet product rows are merged across outlets by the API);
+  // header outlet selected -> neither (the data is already that outlet's).
+  // Outlet users (no header switch) keep the old rule: global product only.
+  const isGlobal = isTrueSuperAdmin ? !!isAllOutlets : data.product?.outletId == null;
   const columns = isGlobal ? [OUTLET_COLUMN, ...COLUMNS] : COLUMNS;
 
   return (
