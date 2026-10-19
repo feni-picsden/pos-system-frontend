@@ -314,7 +314,8 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
             product's MSC from the product, then its CATEGORY (salesReports.js);
             a mapping on a Family/Tag is never read, so offering it there only
             misleads (the edit page already limits it to categories). */}
-        {formData.type === 'CATEGORY' && (
+        {/* Hidden for now with the product's Metcash MSC (user 19/10/2026) - kept, not removed. */}
+        {false && formData.type === 'CATEGORY' && (
           <Box sx={{ mt: 2 }}>
             <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>MSC Mapping</Typography>
             <FormControl fullWidth>

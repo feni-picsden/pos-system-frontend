@@ -2399,7 +2399,9 @@ const ProductEdit = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            {/* Metcash MSC hidden for now (user 19/10/2026) - kept, not removed;
+                a saved value is untouched. */}
+            <Grid item xs={12} sx={{ display: 'none' }}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Metcash MSC <FavoriteStar field="Metcash MSC" />
               </Typography>
