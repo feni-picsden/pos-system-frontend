@@ -548,6 +548,7 @@ const ProductEdit = () => {
   // Set once a pick is applied, so the save tells the server the stock fields are
   // already resolved at the new case size and must not be re-read (see products.js).
   const caseQtyResolvedRef = useRef(false);
+  const stockBaseRef = useRef(null);
   // Price rows as loaded, so Save can tell a sell-price change (-> Everyday shelf
   // ticket, like Stock List / Capped Pricing and the reference) from a cost-only edit.
   const loadedPricesRef = useRef(null);
@@ -826,6 +827,14 @@ const ProductEdit = () => {
       // override offer must not fire for it.
       savedFamilyIdRef.current = response.product.familyId || null;
       loadedPricesRef.current = response.product.prices || [];
+      // Stock as this page loaded it. Sent with the save so the server applies only
+      // the user's change on top of the LIVE stock - a sale made while the page was
+      // open must not be overwritten by the form's old numbers (user 19/10/2026).
+      stockBaseRef.current = {
+        cases: Number(response.product.currentStockCases) || 0,
+        items: Number(response.product.currentStockItems) || 0,
+        caseQuantity: Number(response.product.caseQuantity) || 1,
+      };
       setFormData({
         name: response.product.name || '',
         type: response.product.type || 'Normal Product',
@@ -1450,6 +1459,7 @@ const ProductEdit = () => {
         // at the new case size — "Keep Old" leaves the cases/items untouched, which
         // the server would otherwise mistake for an untouched form and re-split.
         caseQuantityAdjusted: caseQtyResolvedRef.current,
+        stockBase: isNewProduct || !id ? undefined : stockBaseRef.current || undefined,
       };
 
       // New products must carry an outlet, or they land with outletId null and drop out
