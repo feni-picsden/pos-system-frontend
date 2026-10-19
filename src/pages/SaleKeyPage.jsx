@@ -155,7 +155,7 @@ import {
   isCustomerDisplayWindowOpen,
 } from '../utils/customerDisplayWindow';
 import customerDisplayService from '../services/customerDisplayService';
-import posLocalDb, { stripHtml } from '../services/posLocalDb';
+import posLocalDb from '../services/posLocalDb';
 import { syncAppDataInBackground, warmAppCache, refreshPromotionsStore } from '../services/appDataSync';
 import { refreshProductsInCache } from '../services/posCatalogSync';
 import { promotionAllowedForCustomer, isScheduleActiveAt } from '../utils/promotionEligibility';
@@ -2077,6 +2077,47 @@ const SaleKeyPage = () => {
       .map((p) => parseInt(p.quantity, 10))
       .filter((q) => q > 0);
     return tierQtys.length ? Math.min(...tierQtys) : 1;
+  };
+
+  // Reference product rows (search results + "Display all Products in
+  // Classification"): the price line under the name is the product's own price
+  // points as one figure ("$204.00") or a range ("$6.49 - $1,623.38").
+  const pickRowMoney = (n) =>
+    `$${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const priceRangeText = (product) => {
+    const prices = (product?.prices || [])
+      .filter((p) => !p.priceSetId)
+      .map((p) => parseFloat(p.price))
+      .filter((n) => Number.isFinite(n));
+    if (!prices.length) {
+      const retail = parseFloat(product?.retailPrice);
+      return Number.isFinite(retail) && retail > 0 ? pickRowMoney(retail) : '';
+    }
+    const lo = Math.min(...prices);
+    const hi = Math.max(...prices);
+    return lo === hi ? pickRowMoney(lo) : `${pickRowMoney(lo)} - ${pickRowMoney(hi)}`;
+  };
+  // ...and the stock on the right: "<cases> Cases <items> Items" for a product
+  // packed in cases, "<units> On Hand" for one sold by the unit; nothing for a
+  // product that does not track inventory.
+  const renderPickRowStock = (product) => {
+    if (!product || product.trackInventory === false) return null;
+    const figure = (value, label) => (
+      <Box sx={{ textAlign: 'center', minWidth: 40 }}>
+        <Typography sx={{ fontSize: 16, color: '#000', lineHeight: 1.2 }}>{value}</Typography>
+        <Typography sx={{ fontSize: 13, color: '#000', lineHeight: 1.2 }}>{label}</Typography>
+      </Box>
+    );
+    if (getItemsPerCase(product) > 1) {
+      return (
+        <Box sx={{ display: 'flex', gap: 1.5 }}>
+          {figure(Number(product.currentStockCases) || 0, 'Cases')}
+          {figure(Number(product.currentStockItems) || 0, 'Items')}
+        </Box>
+      );
+    }
+    const units = product.inventory ?? product.currentStockItems;
+    return figure(Number(units) || 0, 'On Hand');
   };
 
   const handleAddProductFromSearch = async (productOrPromotionItem, addQuantity = 1) => {
@@ -8585,49 +8626,40 @@ const SaleKeyPage = () => {
                             }
                             sx={searchRowSx(idx, activeResultIndex === searchResults.customers.length + idx)}
                           >
+                            {/* Reference search row: name, its price (or price range)
+                                under it in grey, stock on the right. */}
                             <Box sx={{ minWidth: 0 }}>
                               <Typography noWrap sx={{ fontSize: 16, color: '#000' }}>
                                 {product.name}
                               </Typography>
-                              {(stripHtml(product.description) || product.type) && (
-                                <Typography noWrap sx={{ fontSize: 14, color: '#757575' }}>
-                                  {stripHtml(product.description) || product.type}
-                                </Typography>
-                              )}
+                              {/* Barcode search: the pack quantities of the barcodes that
+                                  contain the typed digits (user note 14/10/2026) ride on the
+                                  price line - "$5.00 - $24.00 • Qty - 1, 3" - each quantity
+                                  once, "Qty" bold, plain text (user 19/10/2026); the hover
+                                  lists every code. */}
+                              {(() => {
+                                const hits = barcodesMatchingTerm(product, searchTerm);
+                                const qtys = [...new Set(hits.map((b) => b.quantity))].sort((a, b) => a - b);
+                                return (
+                                  <Typography
+                                    noWrap
+                                    title={hits.length ? hits.map((b) => `Barcode ${b.code} adds ${b.quantity}`).join('\n') : undefined}
+                                    sx={{ fontSize: 14, color: '#757575' }}
+                                  >
+                                    {priceRangeText(product)}
+                                    {hits.length > 0 && (
+                                      <>
+                                        {' • '}
+                                        <Box component="span" sx={{ fontWeight: 700 }}>Qty</Box>
+                                        {` - ${qtys.join(', ')}`}
+                                      </>
+                                    )}
+                                  </Typography>
+                                );
+                              })()}
                             </Box>
-                            <Box sx={{ flexShrink: 0, ml: 2, textAlign: 'right' }}>
-                              <Typography sx={{ fontSize: 16, color: '#000' }}>
-                                ${(parseFloat(product.retailPrice) || parseFloat(product.prices?.[0]?.price) || 0).toFixed(2)}
-                              </Typography>
-                              {/* Barcode search: every barcode of the row that contains the typed
-                                  digits is listed with its pack quantity (1, 2, 24 ...) so the
-                                  operator sees what that code adds (user note 14/10/2026). */}
-                              {barcodesMatchingTerm(product, searchTerm).length > 0 && (
-                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                                  {barcodesMatchingTerm(product, searchTerm).map((b) => (
-                                    <Box
-                                      key={b.code}
-                                      component="span"
-                                      title={`Barcode ${b.code} adds ${b.quantity}`}
-                                      sx={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        height: 22,
-                                        px: 1,
-                                        borderRadius: '11px',
-                                        bgcolor: b.quantity > 1 ? '#1976d2' : '#e0e0e0',
-                                        color: b.quantity > 1 ? '#fff' : '#424242',
-                                        fontSize: 13,
-                                        fontWeight: 700,
-                                        lineHeight: 1,
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                    >
-                                      Qty {b.quantity}
-                                    </Box>
-                                  ))}
-                                </Box>
-                              )}
+                            <Box sx={{ flexShrink: 0, ml: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                              {renderPickRowStock(product)}
                             </Box>
                           </Box>
                         ))}
@@ -9083,6 +9115,12 @@ const SaleKeyPage = () => {
                     }}
                   />
                 </Box>
+                {/* Rows have no "Add Case" button any more, so case mode says so here. */}
+                {useCaseQuantity && (
+                  <Box sx={{ px: 1.5, py: 0.5, bgcolor: '#0284c7', color: '#f8f8f8', fontSize: 13, fontWeight: 600 }}>
+                    Case quantity mode — the next product added will use its case quantity
+                  </Box>
+                )}
 
                 {/* Setup > General > "Make Select Product Popup Paginated by Default":
                     paginated or continuous list by default, switchable while open
@@ -9118,36 +9156,22 @@ const SaleKeyPage = () => {
                       <Typography variant="h6" color="text.secondary">No products found</Typography>
                     </Box>
                   ) : (
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Product</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold' }} align="right">Price</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold' }} align="center">Action</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
+                    // Reference "Display all Products in Classification": one row per
+                    // product - name with its price (or price range) under it, stock
+                    // on the right - and the whole row adds it (no Add button).
+                    <Box>
                         {(classificationPaginated
                           ? classificationVisible.slice(classificationPage * CLASSIFICATION_PAGE_SIZE, (classificationPage + 1) * CLASSIFICATION_PAGE_SIZE)
                           : classificationVisible)
-                          .map((product) => {
-                            // Price the way the Add button prices it: the local
-                            // catalog row (live price table) first, else the row the
-                            // classification route returned. A product has no
-                            // `retailPrice` column - reading it printed $0.00 for
-                            // every product in the list.
+                          .map((product, rowIdx) => {
+                            // The local catalog row (live prices + stock) first, else
+                            // the row the classification route returned.
                             const priced = resolveProductLocal(product, product.name) || product;
-                            const listPrice = parseFloat(priced.retailPrice)
-                              || parseFloat(priced.prices?.[0]?.price)
-                              || 0;
                             return (
-                            <TableRow key={product.id} hover>
-                              <TableCell>{product.name}</TableCell>
-                              <TableCell align="right">${listPrice.toFixed(2)}</TableCell>
-                              <TableCell align="center">
-                                <Button
-                                  variant="contained"
-                                  size="small"
+                            <Box
+                              key={product.id}
+                              role="button"
+                              sx={searchRowSx(rowIdx)}
                                   onClick={async () => {
                                     const ok = await ensureRegisterControl();
                                     if (!ok) return;
@@ -9182,16 +9206,16 @@ const SaleKeyPage = () => {
                                       alert(error.message || 'Failed to add product to sale');
                                     }
                                   }}
-                                  sx={{ bgcolor: '#4CAF50', '&:hover': { bgcolor: '#45a049' } }}
-                                >
-                                  {useCaseQuantity ? 'Add Case' : 'Add to Sale'}
-                                </Button>
-                              </TableCell>
-                            </TableRow>
+                            >
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography noWrap sx={{ fontSize: 16, color: '#000' }}>{product.name}</Typography>
+                                <Typography noWrap sx={{ fontSize: 14, color: '#757575' }}>{priceRangeText(priced)}</Typography>
+                              </Box>
+                              <Box sx={{ flexShrink: 0, ml: 2 }}>{renderPickRowStock(priced)}</Box>
+                            </Box>
                             );
                           })}
-                      </TableBody>
-                    </Table>
+                    </Box>
                   )}
                 </Box>
               </Box>
