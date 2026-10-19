@@ -278,6 +278,8 @@ const settingsService = {
     } catch (error) {
       return {
         fromFallback: true,
+        // 403 = no permission for this user's settings, not a connection fault.
+        forbidden: error.response?.status === 403,
         settings: {
           saleKeys: 'Default',
           saleKeysPosition: ''

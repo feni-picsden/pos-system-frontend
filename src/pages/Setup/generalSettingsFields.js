@@ -754,11 +754,15 @@ const local = (tab, tabIndex, sectionLabel, labels) =>
 
 export const LOCAL_TAB_FIELDS = [
   ...local('Company', 0, 'Local settings', ['Default Sale Keys by Outlet']),
-  ...local('Outlets', 1, 'General', ['Email receipt template', 'Outlet email']),
+  // Labels exactly as the Outlets tab renders them (reference wording, 19/10/2026).
+  ...local('Outlets', 1, 'General', ['Email Receipt Template', 'Outlet Email']),
   ...local('Outlets', 1, 'Gift Cards', [
-    'Enable gift cards', 'Default expiry amount', 'Default expiry period', 'Can manually adjust expiry'
+    'Enable Gift Cards', 'Default Expiry Amount', 'Default Expiry Period', 'Can Manually Adjust Expiry'
   ]),
-  ...local('Outlets', 1, 'Transfers', ['Update last cost when receiving transfers']),
+  ...local('Outlets', 1, 'Transfers', [
+    'Send Transfers Using Average Cost', 'Update Last Cost When Receiving Transfers',
+    'Update Average Cost When Receiving Transfers'
+  ]),
   ...local('Outlets', 1, 'Metcash Integration', [
     'B2B Account (leave blank for default)', 'B2B Password (leave blank for default)',
     'Customer ID', 'State', 'Pillar', 'Import Promotions', 'Import Buying Periods'

@@ -41,6 +41,7 @@ import {
   ExtensionOutlined,
   EditOutlined,
   ArrowBackOutlined,
+  TouchAppOutlined,
   ArrowDropDown,
   PrintOutlined,
   ManageAccountsOutlined,
@@ -143,6 +144,19 @@ const SEARCHABLE_LISTBOX_PROPS = {
 const USER_SECTIONS = [
   { key: 'user-miscellaneous', label: 'Miscellaneous' }
 ];
+
+// Outlets tab sections, listed under "Outlets" in the rail (reference).
+const OUTLET_SECTIONS = [
+  { key: 'outlet-general', label: 'General' },
+  { key: 'outlet-gift-cards', label: 'Gift Cards' },
+  { key: 'outlet-transfers', label: 'Transfers' },
+  { key: 'outlet-metcash', label: 'Metcash Integration' },
+  { key: 'outlet-miscellaneous', label: 'Miscellaneous' }
+];
+
+// The outlet list (+ its name/contact/address editor) is not on the reference's
+// Outlets settings tab - hidden, not removed (outlets are edited on Setup > Outlets).
+const SHOW_OUTLET_PROFILE_LIST = false;
 
 // Appended to the Date/Time Format lists; picking it clears the value so the
 // combobox input can be typed into freely (reference behaviour).
@@ -429,6 +443,7 @@ const GeneralSettings = () => {
   }, [openSearchField]);
   const [outlets, setOutlets] = useState([]);
   const [selectedOutlet, setSelectedOutlet] = useState('');
+  const [loadingOutletSettings, setLoadingOutletSettings] = useState(false);
   const [loadingOutlets, setLoadingOutlets] = useState(false);
   // Which reason-list field's "Edit Reasons" panel is open (REASON_LIST_FIELDS
   // key), plus the cash in/out lists which live in their own store - the
@@ -554,8 +569,9 @@ const GeneralSettings = () => {
   const markDirty = (store) =>
     setDirty(prev => (prev[store] ? prev : { ...prev, [store]: true }));
 
+  // failed: false, true (load error) or 'forbidden' (server said 403).
   const setLoadResult = (store, failed) =>
-    setLoadFailed(prev => (!!prev[store] === failed ? prev : { ...prev, [store]: failed }));
+    setLoadFailed(prev => ((prev[store] || false) === failed ? prev : { ...prev, [store]: failed }));
 
   const loadSettings = async () => {
     try {
@@ -778,7 +794,7 @@ const GeneralSettings = () => {
   }, [searchParams, outlets, registers]);
 
   const isFullWidthList =
-    (activeTab === 1 && !editingOutletId) || (activeTab === 2 && !editingRegisterId);
+    (SHOW_OUTLET_PROFILE_LIST && activeTab === 1 && !editingOutletId) || (activeTab === 2 && !editingRegisterId);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -1051,7 +1067,9 @@ const GeneralSettings = () => {
 
   const loadOutletSettings = async (outletId) => {
     if (!outletId) return;
-    
+    // The form stays locked until the saved values land: anything typed before
+    // used to be overwritten by the late load a second or two later.
+    setLoadingOutletSettings(true);
     try {
       const response = await settingsService.getOutletSettings(outletId);
       setLoadResult('outlet', !!response.fromFallback);
@@ -1084,6 +1102,8 @@ const GeneralSettings = () => {
     } catch (error) {
       console.error('Error loading outlet settings:', error);
       setLoadResult('outlet', true);
+    } finally {
+      setLoadingOutletSettings(false);
     }
   };
 
@@ -1095,7 +1115,7 @@ const GeneralSettings = () => {
       if (!user) return;
 
       const response = await settingsService.getUserSettings(user.id);
-      setLoadResult('users', !!response.fromFallback);
+      setLoadResult('users', response.forbidden ? 'forbidden' : !!response.fromFallback);
       if (response.fromFallback) return;
       if (response.settings) {
         const values = captureStamps('user', response);
@@ -1178,6 +1198,7 @@ const GeneralSettings = () => {
   // One floating Save persists EVERY dirty store in one click, not just the
   // active tab's.
   const anyLoadFailed = Object.values(loadFailed).some(Boolean);
+  const onlyForbidden = anyLoadFailed && Object.values(loadFailed).every((v) => !v || v === 'forbidden');
 
   // Re-run every loader that failed so the user can recover without losing
   // the page (and their place in it).
@@ -1800,430 +1821,238 @@ const GeneralSettings = () => {
     );
   };
 
+  // Reference Setup > General > Outlets (user 19/10/2026: design only - every
+  // setting, key and save path is unchanged). The outlet is picked in the header
+  // ("Select Outlets to edit..."), the sections below use the Company tab's row
+  // style, and the rail lists them under Outlets. The outlet list with its
+  // profile editor (name/contact/address - kept on Setup > Outlets) is hidden
+  // here, not removed.
   const renderOutletsTab = () => editingOutletId ? renderOutletEditor() : (
-    <Box sx={{ p: 3 }}>
-      {renderOutletsList()}
+    <Box>
+      {SHOW_OUTLET_PROFILE_LIST && renderOutletsList()}
 
-      {/* Outlet Selection Dropdown */}
-      <Box sx={{ mb: 4 }}>
-        <FormControl fullWidth size="small">
-          <Select
-            value={selectedOutlet}
-            onChange={(e) => setSelectedOutlet(e.target.value)}
-            disabled={loadingOutlets}
-            sx={{
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: '#000',
-                borderRadius: 0
-              }
-            }}
-          >
-            {loadingOutlets ? (
-              <MenuItem value="">Loading outlets...</MenuItem>
-            ) : outlets.length > 0 ? (
-              outlets.map((outlet) => (
-                <MenuItem key={outlet.id} value={outlet.id.toString()}>
-                  {outlet.name}
-                </MenuItem>
-              ))
-            ) : (
-              <MenuItem value="">No outlets available</MenuItem>
-            )}
-          </Select>
-        </FormControl>
-      </Box>
-
-      {/* Outlet Settings */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <SettingsIcon sx={{ mr: 1, color: '#666' }} />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            General
-          </Typography>
+      {!selectedOutlet ? (
+        <Box sx={{
+          mt: 3, minHeight: 640, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
+          border: '1px dashed #d4d4d4', borderRadius: '8px', color: '#676b72', fontSize: 16
+        }}>
+          <TouchAppOutlined sx={{ fontSize: 18 }} /> Select which Outlets to edit...
         </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Email receipt template */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Email receipt template
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Select template for email receipts
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={outletSettings.emailReceiptTemplate || ''}
-                onChange={handleOutletSettingChange('emailReceiptTemplate')}
-                disabled={loadingEmailTemplates}
-                displayEmpty
-              >
-                <MenuItem value="">
-                  <em>Select a template</em>
-                </MenuItem>
-                {emailReceiptTemplates.map((template) => (
-                  <MenuItem key={template.id} value={template.name}>
-                    {template.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Outlet email
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'outletEmail')}
-              </Typography>
-            </Box>
-            <TextField
-              value={outletSettings.outletEmail}
-              onChange={handleOutletSettingChange('outletEmail')}
-              size="small"
-              fullWidth
-              type="email"
-            />
-          </Box>
-        </Box>
-      </Box>
-
-      <Divider sx={{ my: 4 }} />
-
-      {/* Gift Cards Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            🎁 Gift Cards
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Enable gift cards */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Enable gift cards
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'enableGiftCards')}
-              </Typography>
-            </Box>
-            <Switch
-              checked={outletSettings.enableGiftCards}
-              onChange={handleOutletSettingChange('enableGiftCards')}
-            />
-          </Box>
-
-          {/* Default expiry amount */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Default expiry amount
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'defaultExpiryAmount')}
-              </Typography>
-            </Box>
-            <TextField
-              type="number"
-              value={outletSettings.defaultExpiryAmount}
-              onChange={handleOutletSettingChange('defaultExpiryAmount')}
-              size="small"
-              fullWidth
-            />
-          </Box>
-
-          {/* Default expiry period */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Default expiry period
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'defaultExpiryPeriod')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={outletSettings.defaultExpiryPeriod}
-                onChange={handleOutletSettingChange('defaultExpiryPeriod')}
-              >
-                <MenuItem value="Days">Days</MenuItem>
-                <MenuItem value="Weeks">Weeks</MenuItem>
-                <MenuItem value="Months">Months</MenuItem>
-                <MenuItem value="Years">Years</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Can manually adjust expiry */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Can manually adjust expiry
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'canManuallyAdjustExpiry')}
-              </Typography>
-            </Box>
-            <Switch
-              checked={outletSettings.canManuallyAdjustExpiry}
-              onChange={handleOutletSettingChange('canManuallyAdjustExpiry')}
-            />
-          </Box>
-        </Box>
-      </Box>
-
-      <Divider sx={{ my: 4 }} />
-
-      {/* Transfers Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            🔄 Transfers
-          </Typography>
-        </Box>
-
-        {/* Reference layout: title + last updated, description, switch with state label */}
-        {[
-          {
-            key: 'sendTransfersUsingAverageCost',
-            title: 'Send Transfers Using Average Cost',
-            description: 'If enabled, transfers will be sent using the current average cost, otherwise transfers will be sent using the current last cost',
-            onLabel: 'Use average cost',
-            offLabel: 'Use last cost',
-          },
-          {
-            key: 'updateLastCostWhenReceivingTransfers',
-            title: 'Update Last Cost When Receiving Transfers',
-            description: 'If enabled, transfers will update the last cost of the product when received, otherwise the last cost will not be modified',
-            onLabel: 'Transfers update last cost',
-            offLabel: 'Transfers ignore last cost',
-          },
-          {
-            key: 'updateAverageCostWhenReceivingTransfers',
-            title: 'Update Average Cost When Receiving Transfers',
-            description: 'If enabled, transfers will update the average cost of the product when received, otherwise the average cost will not be modified',
-            onLabel: 'Transfers update average cost',
-            offLabel: 'Transfers ignore average cost',
-          },
-        ].map((s) => (
-          <Box key={s.key} sx={{ mb: 3 }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {s.title}
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                - Last updated {stampFor('outlet', s.key)}
-              </Typography>
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{s.description}</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Switch
-                checked={Boolean(outletSettings[s.key])}
-                onChange={handleOutletSettingChange(s.key)}
-              />
-              <Typography variant="body2" color="text.secondary">
-                {outletSettings[s.key] ? s.onLabel : s.offLabel}
-              </Typography>
-            </Box>
-          </Box>
-        ))}
-      </Box>
-
-      <Divider sx={{ my: 4 }} />
-
-      {/* Metcash Integration Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            🏢 Metcash Integration
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* B2B Account */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                B2B Account (leave blank for default)
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'b2bAccount')}
-              </Typography>
-            </Box>
-            <TextField
-              value={outletSettings.b2bAccount}
-              onChange={handleOutletSettingChange('b2bAccount')}
-              size="small"
-              fullWidth
-            />
-          </Box>
-
-          {/* B2B Password */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                B2B Password (leave blank for default)
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'b2bPassword')}
-              </Typography>
-            </Box>
-            <TextField
-              value={outletSettings.b2bPassword}
-              onChange={handleOutletSettingChange('b2bPassword')}
-              size="small"
-              fullWidth
-              type="password"
-            />
-          </Box>
-
-          {/* Customer ID */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Customer ID
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'customerId')}
-              </Typography>
-            </Box>
-            <TextField
-              type="number"
-              value={outletSettings.customerId}
-              onChange={handleOutletSettingChange('customerId')}
-              size="small"
-              fullWidth
-            />
-          </Box>
-
-          {/* State */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                State
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'state')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={outletSettings.state}
-                onChange={handleOutletSettingChange('state')}
-                displayEmpty
-              >
-                <MenuItem value="">Select...</MenuItem>
-                <MenuItem value="NSW">NSW</MenuItem>
-                <MenuItem value="VIC">VIC</MenuItem>
-                <MenuItem value="QLD">QLD</MenuItem>
-                <MenuItem value="WA">WA</MenuItem>
-                <MenuItem value="SA">SA</MenuItem>
-                <MenuItem value="TAS">TAS</MenuItem>
-                <MenuItem value="NT">NT</MenuItem>
-                <MenuItem value="ACT">ACT</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Pillar */}
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Pillar
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'pillar')}
-              </Typography>
-            </Box>
-            <FormControl fullWidth size="small">
-              <Select
-                value={outletSettings.pillar}
-                onChange={handleOutletSettingChange('pillar')}
-                displayEmpty
-              >
-                <MenuItem value="">Select...</MenuItem>
-                <MenuItem value="IGA">IGA</MenuItem>
-                <MenuItem value="Foodworks">Foodworks</MenuItem>
-                <MenuItem value="SPAR">SPAR</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Import toggles */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Import Promotions
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'importPromotions')}
-              </Typography>
-            </Box>
-            <Switch
-              checked={outletSettings.importPromotions}
-              onChange={handleOutletSettingChange('importPromotions')}
-            />
-          </Box>
-
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Import Buying Periods
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Updated {stampFor('outlet', 'importBuyingPeriods')}
-              </Typography>
-            </Box>
-            <Switch
-              checked={outletSettings.importBuyingPeriods}
-              onChange={handleOutletSettingChange('importBuyingPeriods')}
-            />
-          </Box>
-        </Box>
-      </Box>
-
-      <Divider sx={{ my: 4 }} />
-
-      {/* Miscellaneous Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            ⚙️ Miscellaneous
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Discounting Below Cost Behaviour - reference: Allow / Warn / Prevent
-              with a More Info slide-over. "Block" was this app's old name for
-              Prevent; a stored "Block" still reads as Prevent. */}
-          <SettingRow
-            label="Discounting Below Cost Behaviour"
-            updated={stampFor('outlet', 'discountingBelowCostBehaviour')}
-            description={DISCOUNT_BELOW_COST_FIELD.description}
-            onMoreInfo={() => setSlideOverField(DISCOUNT_BELOW_COST_FIELD)}
-          >
-            <FormControl fullWidth size="small">
-              <Select
-                value={outletSettings.discountingBelowCostBehaviour === 'Block' ? 'Prevent' : (outletSettings.discountingBelowCostBehaviour || 'Allow')}
-                onChange={handleOutletSettingChange('discountingBelowCostBehaviour')}
+      ) : (
+        // Locked (native fieldset disable + no pointer) while the outlet's saved
+        // values are loading, so nothing typed early is overwritten by the load.
+        <Box
+          component="fieldset"
+          disabled={loadingOutletSettings}
+          aria-busy={loadingOutletSettings}
+          sx={{
+            border: 0, p: 0, m: 0, minWidth: 0,
+            ...(loadingOutletSettings && { pointerEvents: 'none', opacity: 0.55 }),
+          }}
+        >
+          {loadingOutletSettings && (
+            <Typography sx={{ fontSize: 14, color: '#676b72', mt: 1 }}>Loading outlet settings…</Typography>
+          )}
+          <SettingsSection id="outlet-general" label="General" flash={flashSection === 'outlet-general'}>
+            <SettingRow
+              label="Email Receipt Template"
+              updated={stampFor('outlet', 'emailReceiptTemplate')}
+              description="The receipt template to use when sending email receipts."
+            >
+              <FormControl fullWidth size="small">
+                <Select
+                  value={outletSettings.emailReceiptTemplate || ''}
+                  onChange={handleOutletSettingChange('emailReceiptTemplate')}
+                  disabled={loadingEmailTemplates}
+                  displayEmpty
+                  sx={SETTING_FIELD_SX}
+                  MenuProps={SETTING_LISTBOX_PROPS}
+                >
+                  <MenuItem value="">Select...</MenuItem>
+                  {emailReceiptTemplates.map((template) => (
+                    <MenuItem key={template.id} value={template.name}>
+                      {template.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </SettingRow>
+            <SettingRow
+              label="Outlet Email"
+              updated={stampFor('outlet', 'outletEmail')}
+              description="The email address of the Outlet, this will be used in several places and appear as the reply to address for actions like sending email receipts"
+            >
+              <TextField
+                value={outletSettings.outletEmail || ''}
+                onChange={handleOutletSettingChange('outletEmail')}
+                size="small"
+                fullWidth
+                type="email"
                 sx={SETTING_FIELD_SX}
-                MenuProps={SETTING_LISTBOX_PROPS}
-              >
-                <MenuItem value="Allow">Allow</MenuItem>
-                <MenuItem value="Warn">Warn</MenuItem>
-                <MenuItem value="Prevent">Prevent</MenuItem>
-              </Select>
-            </FormControl>
-          </SettingRow>
+              />
+            </SettingRow>
+          </SettingsSection>
 
+          <SettingsSection id="outlet-gift-cards" label="Gift Cards" flash={flashSection === 'outlet-gift-cards'}>
+            <SettingRow
+              label="Enable Gift Cards"
+              updated={stampFor('outlet', 'enableGiftCards')}
+              description="Whether gift cards can be purchased and redeemed at this Outlet"
+            >
+              <SettingToggle
+                checked={outletSettings.enableGiftCards}
+                onChange={handleOutletSettingChange('enableGiftCards')}
+                stateText={outletSettings.enableGiftCards ? 'Sell & redeem gift cards' : "Gift cards can't be sold or redeemed"}
+              />
+            </SettingRow>
+            <SettingRow
+              label="Default Expiry Amount"
+              description={renderRichText('The default amount of time until the gift card expires. Used with **Default expiry period** to determine the default expiry date.')}
+            >
+              <TextField
+                type="number"
+                value={outletSettings.defaultExpiryAmount ?? ''}
+                onChange={handleOutletSettingChange('defaultExpiryAmount')}
+                size="small"
+                fullWidth
+                sx={SETTING_FIELD_SX}
+              />
+            </SettingRow>
+            <SettingRow
+              label="Default Expiry Period"
+              description={renderRichText('The default period until the gift card expires. Used with **Default expiry amount** to determine the default expiry date.')}
+            >
+              <FormControl fullWidth size="small">
+                <Select
+                  value={outletSettings.defaultExpiryPeriod || 'Years'}
+                  onChange={handleOutletSettingChange('defaultExpiryPeriod')}
+                  sx={SETTING_FIELD_SX}
+                  MenuProps={SETTING_LISTBOX_PROPS}
+                >
+                  <MenuItem value="Days">Days</MenuItem>
+                  <MenuItem value="Weeks">Weeks</MenuItem>
+                  <MenuItem value="Months">Months</MenuItem>
+                  <MenuItem value="Years">Years</MenuItem>
+                </Select>
+              </FormControl>
+            </SettingRow>
+            <SettingRow
+              label="Can Manually Adjust Expiry"
+              updated={stampFor('outlet', 'canManuallyAdjustExpiry')}
+              description="If enabled, the expiry date for the gift card can be modify while the gift card is being purchased."
+            >
+              <SettingToggle
+                checked={outletSettings.canManuallyAdjustExpiry}
+                onChange={handleOutletSettingChange('canManuallyAdjustExpiry')}
+                stateText={outletSettings.canManuallyAdjustExpiry ? 'Expiry can be adjusted' : 'Force predefined expiry'}
+              />
+            </SettingRow>
+          </SettingsSection>
+
+          <SettingsSection id="outlet-transfers" label="Transfers" flash={flashSection === 'outlet-transfers'}>
+            {[
+              {
+                key: 'sendTransfersUsingAverageCost',
+                title: 'Send Transfers Using Average Cost',
+                description: 'If enabled, transfers will be sent using the current average cost, otherwise transfers will be sent using the current last cost',
+                onLabel: 'Use average cost',
+                offLabel: 'Use last cost',
+              },
+              {
+                key: 'updateLastCostWhenReceivingTransfers',
+                title: 'Update Last Cost When Receiving Transfers',
+                description: 'If enabled, transfers will update the last cost of the product when received, otherwise the last cost will not be modified',
+                onLabel: 'Transfers update last cost',
+                offLabel: 'Transfers ignore last cost',
+              },
+              {
+                key: 'updateAverageCostWhenReceivingTransfers',
+                title: 'Update Average Cost When Receiving Transfers',
+                description: 'If enabled, transfers will update the average cost of the product when received, otherwise the average cost will not be modified',
+                onLabel: 'Transfers update average cost',
+                offLabel: 'Transfers ignore average cost',
+              },
+            ].map((s) => (
+              <SettingRow key={s.key} label={s.title} updated={stampFor('outlet', s.key)} description={s.description}>
+                <SettingToggle
+                  checked={Boolean(outletSettings[s.key])}
+                  onChange={handleOutletSettingChange(s.key)}
+                  stateText={outletSettings[s.key] ? s.onLabel : s.offLabel}
+                />
+              </SettingRow>
+            ))}
+          </SettingsSection>
+
+          {/* Not on the reference's Outlets tab, but a working local feature:
+              kept, in the same row style. */}
+          <SettingsSection id="outlet-metcash" label="Metcash Integration" flash={flashSection === 'outlet-metcash'}>
+            <SettingRow label="B2B Account (leave blank for default)" updated={stampFor('outlet', 'b2bAccount')}>
+              <TextField value={outletSettings.b2bAccount || ''} onChange={handleOutletSettingChange('b2bAccount')} size="small" fullWidth sx={SETTING_FIELD_SX} />
+            </SettingRow>
+            <SettingRow label="B2B Password (leave blank for default)" updated={stampFor('outlet', 'b2bPassword')}>
+              <TextField value={outletSettings.b2bPassword || ''} onChange={handleOutletSettingChange('b2bPassword')} size="small" fullWidth type="password" sx={SETTING_FIELD_SX} />
+            </SettingRow>
+            <SettingRow label="Customer ID" updated={stampFor('outlet', 'customerId')}>
+              <TextField type="number" value={outletSettings.customerId ?? ''} onChange={handleOutletSettingChange('customerId')} size="small" fullWidth sx={SETTING_FIELD_SX} />
+            </SettingRow>
+            <SettingRow label="State" updated={stampFor('outlet', 'state')}>
+              <FormControl fullWidth size="small">
+                <Select value={outletSettings.state || ''} onChange={handleOutletSettingChange('state')} displayEmpty sx={SETTING_FIELD_SX} MenuProps={SETTING_LISTBOX_PROPS}>
+                  <MenuItem value="">Select...</MenuItem>
+                  {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </SettingRow>
+            <SettingRow label="Pillar" updated={stampFor('outlet', 'pillar')}>
+              <FormControl fullWidth size="small">
+                <Select value={outletSettings.pillar || ''} onChange={handleOutletSettingChange('pillar')} displayEmpty sx={SETTING_FIELD_SX} MenuProps={SETTING_LISTBOX_PROPS}>
+                  <MenuItem value="">Select...</MenuItem>
+                  {['IGA', 'Foodworks', 'SPAR', 'Other'].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </SettingRow>
+            <SettingRow label="Import Promotions" updated={stampFor('outlet', 'importPromotions')}>
+              <SettingToggle
+                checked={outletSettings.importPromotions}
+                onChange={handleOutletSettingChange('importPromotions')}
+                stateText={outletSettings.importPromotions ? 'Promotions are imported' : "Promotions aren't imported"}
+              />
+            </SettingRow>
+            <SettingRow label="Import Buying Periods" updated={stampFor('outlet', 'importBuyingPeriods')}>
+              <SettingToggle
+                checked={outletSettings.importBuyingPeriods}
+                onChange={handleOutletSettingChange('importBuyingPeriods')}
+                stateText={outletSettings.importBuyingPeriods ? 'Buying periods are imported' : "Buying periods aren't imported"}
+              />
+            </SettingRow>
+          </SettingsSection>
+
+          <SettingsSection id="outlet-miscellaneous" label="Miscellaneous" flash={flashSection === 'outlet-miscellaneous'}>
+            {/* Discounting Below Cost Behaviour - reference: Allow / Warn / Prevent
+                with a More Info slide-over. "Block" was this app's old name for
+                Prevent; a stored "Block" still reads as Prevent. */}
+            <SettingRow
+              label="Discounting Below Cost Behaviour"
+              updated={stampFor('outlet', 'discountingBelowCostBehaviour')}
+              description={DISCOUNT_BELOW_COST_FIELD.description}
+              onMoreInfo={() => setSlideOverField(DISCOUNT_BELOW_COST_FIELD)}
+            >
+              <FormControl fullWidth size="small">
+                <Select
+                  value={outletSettings.discountingBelowCostBehaviour === 'Block' ? 'Prevent' : (outletSettings.discountingBelowCostBehaviour || 'Allow')}
+                  onChange={handleOutletSettingChange('discountingBelowCostBehaviour')}
+                  sx={SETTING_FIELD_SX}
+                  MenuProps={SETTING_LISTBOX_PROPS}
+                >
+                  <MenuItem value="Allow">Allow</MenuItem>
+                  <MenuItem value="Warn">Warn</MenuItem>
+                  <MenuItem value="Prevent">Prevent</MenuItem>
+                </Select>
+              </FormControl>
+            </SettingRow>
+          </SettingsSection>
         </Box>
-      </Box>
-
+      )}
     </Box>
   );
 
@@ -2948,9 +2777,9 @@ const GeneralSettings = () => {
                 <group.icon sx={{ fontSize: active ? 22 : 18, color: '#000' }} />
                 {group.label}
               </Box>
-              {active && (index === 0 || index === 3) && (
+              {active && (index === 0 || index === 3 || (index === 1 && !editingOutletId && selectedOutlet)) && (
                 <Box sx={{ ml: 4, mr: 2, my: 0.5 }}>
-                  {(index === 0 ? COMPANY_SECTIONS : USER_SECTIONS).map((section) => (
+                  {(index === 0 ? COMPANY_SECTIONS : index === 1 ? OUTLET_SECTIONS : USER_SECTIONS).map((section) => (
                     <Box
                       key={section.key}
                       component="button"
@@ -3016,12 +2845,34 @@ const GeneralSettings = () => {
                 {React.createElement(TAB_GROUPS[activeTab].icon, { sx: { fontSize: 32 } })}
                 {TAB_GROUPS[activeTab].label}
               </Typography>
-              {activeTab !== 0 && (
+              {activeTab !== 0 && activeTab !== 1 && (
                 <Typography sx={{ fontSize: '14px', color: '#676b72' }}>
                   Local settings (not in Crinit's Shop)
                 </Typography>
               )}
             </Box>
+            {/* Reference: the outlet being edited is picked here, beside the title. */}
+            {activeTab === 1 && !editingOutletId && (
+              <FormControl size="small" sx={{ width: 240, flexShrink: 0 }}>
+                <Select
+                  value={selectedOutlet || ''}
+                  onChange={(e) => setSelectedOutlet(e.target.value)}
+                  disabled={loadingOutlets}
+                  displayEmpty
+                  renderValue={(v) => (v
+                    ? (outlets.find((o) => String(o.id) === String(v))?.name || '')
+                    : <Box component="span" sx={{ color: '#9e9e9e' }}>Select Outlets to edit...</Box>)}
+                  sx={SETTING_FIELD_SX}
+                  MenuProps={SETTING_LISTBOX_PROPS}
+                >
+                  {outlets.map((outlet) => (
+                    <MenuItem key={outlet.id} value={outlet.id.toString()}>
+                      {outlet.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
             {activeTab === 3 && (
               <Autocomplete
                 multiple
@@ -3055,8 +2906,14 @@ const GeneralSettings = () => {
               </Button>
             }
           >
-            Settings could not be loaded — the values shown are defaults, not your saved settings.
-            Saving is disabled until they load. Check the connection and click Retry.
+            {onlyForbidden ? (
+              <>You don&apos;t have permission to view this user&apos;s settings. Saving is disabled.</>
+            ) : (
+              <>
+                Settings could not be loaded — the values shown are defaults, not your saved settings.
+                Saving is disabled until they load. Check the connection and click Retry.
+              </>
+            )}
           </Alert>
         )}
 
@@ -3106,7 +2963,9 @@ const GeneralSettings = () => {
 
         {/* Single floating Save - persists every dirty store; only blocked while a
             store is showing fallback defaults (see loadFailed). */}
-        <PageSaveBar onSave={handleSave} saving={loading} disabled={anyLoadFailed} />
+        {/* Outlets: no Save while the outlet's values are still loading - it would
+            store the defaults the form starts with. */}
+        <PageSaveBar onSave={handleSave} saving={loading} disabled={anyLoadFailed || (activeTab === 1 && loadingOutletSettings)} />
 
         {/* Confirm Leaving - raised when navigating away with unsaved changes */}
         <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)}>
