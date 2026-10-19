@@ -43,6 +43,7 @@ import PerformanceGraph from '../../components/Customers/PerformanceGraph';
 import posLocalDb from '../../services/posLocalDb';
 import PageLoader from '../../components/Common/PageLoader';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 // Shared outlined-toolbar-button style (Export / Import / Merge) — matches the reference:
@@ -365,6 +366,11 @@ const Customers = () => {
       .catch(() => {});
   }, []);
 
+  // All Outlets (no header outlet / register): Outlet filter + Outlet column.
+  const { globalMode, outletNameOf } = useGlobalOutlet();
+  const [outletFilter, setOutletFilter] = useState(null);
+  useEffect(() => { if (!globalMode) setOutletFilter(null); }, [globalMode]);
+
   useEffect(() => {
     // Every typed word must match somewhere (name, company, email, phone) - in
     // any order, like the customers API: "loyalty zztest" finds "ZZTEST Loyalty".
@@ -383,13 +389,14 @@ const Customers = () => {
       const matchesPriceList =
         selectedPriceLists.length === 0 ||
         (customer.priceListId != null && selectedPriceLists.includes(String(customer.priceListId)));
-      return matchesSearch && matchesGroup && matchesPriceList;
+      const matchesOutlet = !outletFilter || customer.outletId === outletFilter.id;
+      return matchesSearch && matchesGroup && matchesPriceList && matchesOutlet;
     });
     // Single funnel point for display order: the IndexedDB cache returns id order and the API
     // returns firstName/lastName order, so always sort name A-Z (case-insensitive) here.
     filtered.sort((a, b) => fullNameOf(a).localeCompare(fullNameOf(b), undefined, { sensitivity: 'base' }));
     setFilteredCustomers(filtered);
-  }, [customers, searchTerm, selectedGroups, selectedPriceLists]);
+  }, [customers, searchTerm, selectedGroups, selectedPriceLists, outletFilter]);
 
   const loadCustomers = async () => {
     await posLocalDb.init();
@@ -610,6 +617,12 @@ const Customers = () => {
           }}
         />
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+          <GlobalOutletFilter
+            value={outletFilter}
+            onChange={setOutletFilter}
+            sx={{ flex: 1, minWidth: 0 }}
+            labelSx={{ fontSize: 14, color: '#676b72' }}
+          />
           <MultiSelectFilter label="Customer Group" options={groupOptions} selected={selectedGroups} onChange={setSelectedGroups} />
           <MultiSelectFilter label="Price List" options={priceListOptions} selected={selectedPriceLists} onChange={setSelectedPriceLists} />
         </Box>
@@ -634,6 +647,7 @@ const Customers = () => {
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
                 }}
               >
+                {globalMode && <TableCell sx={{ width: 170 }}>Outlet</TableCell>}
                 <TableCell>Customer</TableCell>
                 <TableCell>Group</TableCell>
                 <TableCell>Contact</TableCell>
@@ -650,6 +664,11 @@ const Customers = () => {
             >
               {filteredCustomers.map((customer) => (
                 <TableRow key={customer.id}>
+                  {globalMode && (
+                    <TableCell>
+                      <Typography sx={{ fontSize: 16, color: '#000' }}>{outletNameOf(customer.outletId)}</Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Typography
                       component={RouterLink}
@@ -715,7 +734,7 @@ const Customers = () => {
               ))}
               {filteredCustomers.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={globalMode ? 6 : 5} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
                       {searchTerm ? 'No customers found matching your search' : 'No customers found'}
                     </Typography>

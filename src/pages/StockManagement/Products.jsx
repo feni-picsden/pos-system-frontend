@@ -48,6 +48,7 @@ import usePageCache from "../../hooks/usePageCache";
 import { matchesProductFilters } from "../../utils/productFilter";
 import { rankProducts } from "../../utils/searchRank.js";
 import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
+import { useGlobalOutlet } from "../../components/Common/GlobalOutletFilter";
 
 // Shopfront-style multi-select type-ahead combobox used by every filter on this page:
 // label above the field, 'Select...' placeholder, gray chips (collapsing to 'N Selected...')
@@ -332,6 +333,12 @@ const Products = () => {
   const functionsMenuOpen = Boolean(functionsAnchorEl);
   const functionsRef = useRef(null);
   const { selectedOutletId } = useSelectedOutlet();
+  // All Outlets (no header outlet / register): Outlet filter + Outlet column.
+  // Same multi-select box as Brand/Category (outlet ids); empty = every outlet.
+  const { globalMode, outlets: allOutlets, outletNameOf } = useGlobalOutlet();
+  const [outletFilter, setOutletFilter] = useState([]);
+  useEffect(() => { if (!globalMode) setOutletFilter([]); }, [globalMode]);
+  const outletOptions = allOutlets.map((o) => ({ id: o.id, name: o.name }));
   const outletInitRef = useRef(false);
 
   // The whole catalog lives in IndexedDB — the list renders from it instantly and
@@ -431,6 +438,7 @@ const Products = () => {
       const base = product.prices?.[0];
       return {
         id: product.id,
+        outletId: product.outletId ?? null,
         name: product.name || "",
         category: product.category?.name || "",
         status: product.status || "Active",
@@ -555,9 +563,11 @@ const Products = () => {
     // Sort here, not in the data sources: the IndexedDB first paint comes back in
     // insertion order and the API refresh in name order, so rows reordered under
     // the user once the background sync landed.
-    return rankProducts(allProducts.filter((p) => matchesProductFilters(p, filters)), debouncedSearchTerm);
+    const pool = outletFilter.length ? allProducts.filter((p) => outletFilter.includes(p.outletId)) : allProducts;
+    return rankProducts(pool.filter((p) => matchesProductFilters(p, filters)), debouncedSearchTerm);
   }, [
     allProducts,
+    outletFilter,
     debouncedSearchTerm,
     brandFilter,
     categoryFilter,
@@ -808,10 +818,19 @@ const Products = () => {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+            // All Outlets: Outlet is the first box of the Brand row (user 19/10/2026).
+            gridTemplateColumns: `repeat(${globalMode ? 6 : 5}, minmax(0, 1fr))`,
             gap: 2,
           }}
         >
+          {globalMode && (
+            <ShopfrontComboFilter
+              label="Outlet"
+              options={outletOptions}
+              value={outletFilter}
+              onChange={(v) => { setOutletFilter(v); setCurrentPage(1); }}
+            />
+          )}
           <ShopfrontComboFilter
             label="Brand"
             options={brandOptions}
@@ -917,6 +936,8 @@ const Products = () => {
               >
                 <TableCell align="center" sx={{ px: 0.5, width: 112 }}>Status</TableCell>
                 <TableCell sx={{ pl: 1 }}>Product</TableCell>
+                {/* Status | Product | Outlet order (user 19/10/2026). */}
+                {globalMode && <TableCell sx={{ width: 160 }}>Outlet</TableCell>}
                 <TableCell>Category</TableCell>
                 {/* Equal widths so the gaps Cost|Inventory|Price are the same (user 14/10/2026). */}
                 <TableCell sx={{ width: 120 }}>Cost</TableCell>
@@ -936,7 +957,7 @@ const Products = () => {
             >
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={globalMode ? 9 : 8} align="center">
                     <Box sx={{ py: 3 }}>
                       <CircularProgress size={24} />
                     </Box>
@@ -944,7 +965,7 @@ const Products = () => {
                 </TableRow>
               ) : products.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={globalMode ? 9 : 8} align="center">
                     <Typography variant="body2" sx={{ py: 2 }}>
                       No results found. Try changing the search filters
                     </Typography>
@@ -980,6 +1001,11 @@ const Products = () => {
                         {product.name}
                       </Link>
                     </TableCell>
+                    {globalMode && (
+                      <TableCell sx={{ width: 160 }}>
+                        <Typography variant="body2" sx={{ fontSize: 16 }}>{outletNameOf(product.outletId)}</Typography>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Typography variant="body2" sx={{ fontSize: 16 }}>{product.category}</Typography>
                     </TableCell>

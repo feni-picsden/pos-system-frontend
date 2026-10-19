@@ -40,6 +40,7 @@ import {
   ArrowDropUp,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import inventoryReportService from '../../services/inventoryReportService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
@@ -295,6 +296,14 @@ const GROUP_BY_GROUPS = [
 const InventoryReport = () => {
   const [searchParams] = useSearchParams();
   const { getOutletId } = useAuth();
+  // All Outlets (no header outlet / register): Outlet filter. 'all' = every outlet.
+  // Declared here, before the effects below read it (a later declaration blanked
+  // the page on 15/10 - temporal dead zone).
+  const { globalMode, outlets: allOutlets } = useGlobalOutlet();
+  const [outletFilterId, setOutletFilterId] = useState('all');
+  useEffect(() => { if (!globalMode) setOutletFilterId('all'); }, [globalMode]);
+  const outletGroups = [{ items: [{ value: 'all', label: 'All Outlets' }, ...allOutlets.map((o) => ({ value: String(o.id), label: o.name }))] }];
+  const reportOutletId = () => (globalMode && outletFilterId !== 'all' ? outletFilterId : getOutletId());
   
   const getInitialState = () => {
     const savedReportType = searchParams.get('reportType');
@@ -374,7 +383,7 @@ const InventoryReport = () => {
   useEffect(() => {
     // Ensure we load data on mount, especially when URL params are present
     loadReportData();
-  }, [reportType, groupBy, includeDeleted]);
+  }, [reportType, groupBy, includeDeleted, outletFilterId]);
   
   // Also trigger load when URL params change
   useEffect(() => {
@@ -405,7 +414,7 @@ const InventoryReport = () => {
         groupBy,
         searchTerm,
         includeDeleted,
-        outletId: getOutletId(),
+        outletId: reportOutletId(),
       };
 
       const response = await inventoryReportService.getInventoryReport(filters);
@@ -868,6 +877,14 @@ const InventoryReport = () => {
 
       {/* Filters — flush 80px slate blocks, half width each, with inline dropdowns */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', mb: '8px' }}>
+        {globalMode && (
+          <ShopfrontFilter
+            label="Outlet"
+            value={outletFilterId}
+            groups={outletGroups}
+            onChange={setOutletFilterId}
+          />
+        )}
         <ShopfrontFilter
           label="Report Type"
           value={reportType}
@@ -1206,7 +1223,7 @@ const InventoryReport = () => {
           groupBy,
           searchTerm,
           includeDeleted,
-          outletId: getOutletId(),
+          outletId: reportOutletId(),
         }}
       />
     </Box>

@@ -37,6 +37,7 @@ import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 import usePageCache from '../../hooks/usePageCache';
 import PerformanceGraph from '../../components/Classifications/PerformanceGraph';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 
 // Reference row actions are plain links: fw400, no button padding, color+underline hover, no bg tint
 const actionLinkSx = {
@@ -183,12 +184,18 @@ const Suppliers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const mergeMode = searchParams.get('merge') === '1';
 
+  // All Outlets (no header outlet / register): Outlet filter + Outlet column.
+  const { globalMode, outletNameOf } = useGlobalOutlet();
+  const [outletFilter, setOutletFilter] = useState(null);
+  useEffect(() => { if (!globalMode) setOutletFilter(null); }, [globalMode]);
+
   useEffect(() => {
     const filtered = suppliers.filter(supplier =>
-      supplier.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      (!outletFilter || supplier.outletId === outletFilter.id)
     );
     setFilteredSuppliers(filtered);
-  }, [suppliers, searchTerm]);
+  }, [suppliers, searchTerm, outletFilter]);
 
   // Functions tray is an inline disclosure: Esc closes it (the tab itself toggles).
   useEffect(() => {
@@ -692,6 +699,7 @@ const Suppliers = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ width: '100%', ...searchFieldSx }}
         />
+        <GlobalOutletFilter value={outletFilter} onChange={setOutletFilter} sx={{ mt: 2, maxWidth: 360 }} />
       </Box>
 
       {/* Error Alert */}
@@ -723,6 +731,7 @@ const Suppliers = () => {
                 }}
               >
                 {/* reference column split: 35.5% / 21.6% / 37.3% / 105px */}
+                {globalMode && <TableCell sx={{ width: 170 }}>Outlet</TableCell>}
                 <TableCell sx={{ width: '35.5%' }}>Name</TableCell>
                 <TableCell align="center" sx={{ width: '21.6%' }}>Product Count</TableCell>
                 <TableCell sx={{ width: '37.3%' }}>Performance</TableCell>
@@ -738,6 +747,11 @@ const Suppliers = () => {
             >
               {filteredSuppliers.map((supplier) => (
                 <TableRow key={supplier.id}>
+                  {globalMode && (
+                    <TableCell>
+                      <Typography sx={{ fontSize: 16, color: '#000' }}>{outletNameOf(supplier.outletId)}</Typography>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Typography sx={{ fontSize: 16, color: '#000' }}>
                       {supplier.name}
@@ -801,7 +815,7 @@ const Suppliers = () => {
               ))}
               {filteredSuppliers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={globalMode ? 5 : 4} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
                       No suppliers found
                     </Typography>

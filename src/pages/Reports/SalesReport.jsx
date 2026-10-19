@@ -56,6 +56,7 @@ import * as XLSX from 'xlsx';
 const { jsPDF } = await import('jspdf');
 import autoTable from 'jspdf-autotable';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 
 const formatCurrency = (value) => {
   const num = Number(value) || 0;
@@ -510,12 +511,19 @@ const SalesReport = () => {
     transactionPercentage: false,
   });
 
+  // All Outlets (no header outlet / register): Outlet filter. 'all' = every outlet.
+  const { globalMode, outlets: allOutlets } = useGlobalOutlet();
+  const [outletFilterId, setOutletFilterId] = useState('all');
+  useEffect(() => { if (!globalMode) setOutletFilterId('all'); }, [globalMode]);
+  const outletGroups = [{ items: [{ value: 'all', label: 'All Outlets' }, ...allOutlets.map((o) => ({ value: String(o.id), label: o.name }))] }];
+
   // Load report data
   const loadReportData = async () => {
     setLoading(true);
     setLoadError('');
     try {
       const filters = {
+        ...(globalMode && outletFilterId !== 'all' ? { outletId: outletFilterId } : {}),
         reportType,
         groupBy,
         dateTime: dateRange.preset,
@@ -571,7 +579,7 @@ const SalesReport = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [reportType, groupBy, dateRange, consolidate, precision, includeDeleted]);
+  }, [reportType, groupBy, dateRange, consolidate, precision, includeDeleted, outletFilterId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1516,6 +1524,14 @@ const SalesReport = () => {
         {/* Filters — reference renders flush 80px slate blocks with borders touching.
             Reference gap between the query bar and this row is 16px, not 8px. */}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', mt: '8px', mb: '8px' }}>
+          {globalMode && (
+            <ShopfrontFilter
+              label="Outlet"
+              value={outletFilterId}
+              groups={outletGroups}
+              onChange={setOutletFilterId}
+            />
+          )}
           <ShopfrontFilter
             label="Report Type"
             value={reportType}
