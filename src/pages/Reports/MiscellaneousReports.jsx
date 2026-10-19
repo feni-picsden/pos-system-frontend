@@ -37,7 +37,7 @@ const reports = [
     id: 'product-revision-history',
     path: '/reports/product-revision-history',
     title: 'Product Revision History',
-    description: 'View the history for all products in Shopfront',
+    description: 'View the history for all products in Crinit\'s Shop',
     icon: RevisionHistoryIcon,
   },
   {

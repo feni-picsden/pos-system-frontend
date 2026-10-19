@@ -135,7 +135,7 @@ const AdvancedProductImporter = () => {
         {/* Instructions */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" sx={{ mb: 2 }}>
-            Shopfront features an advanced CSV importer for products that use dynamic columns to set multiple prices, barcodes and inventory levels.
+            Crinit's Shop features an advanced CSV importer for products that use dynamic columns to set multiple prices, barcodes and inventory levels.
           </Typography>
           
           <Alert severity="info" sx={{ mb: 2 }}>

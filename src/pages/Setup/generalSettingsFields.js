@@ -49,7 +49,7 @@ export const COMPANY_SECTIONS = [
         type: 'select',
         default: false,
         description: 'Determines how products should be sold after they have passed the previous price point.',
-        moreDescription: '**Use quantity rate** determines how products should be sold after they have passed the previous price point. **Quantity Rate** works by taking the best “price rate” for the product which it is equal to or past… **High Mix Price** works by incrementally adding the previous price points until we reach the purchase quantity.\n\nShopfront will still calculate the best price for the customer by looking at all price points that are equal to or below the purchase quantity.',
+        moreDescription: '**Use quantity rate** determines how products should be sold after they have passed the previous price point. **Quantity Rate** works by taking the best “price rate” for the product which it is equal to or past… **High Mix Price** works by incrementally adding the previous price points until we reach the purchase quantity.\n\nCrinit\'s Shop will still calculate the best price for the customer by looking at all price points that are equal to or below the purchase quantity.',
         options: [
           { label: 'High Mix Price', value: false },
           { label: 'Quantity Rate', value: true }
@@ -87,7 +87,7 @@ export const COMPANY_SECTIONS = [
         label: 'Cost Calculation Method',
         type: 'select',
         description: 'Determines how profit is calculated after you complete a sale.',
-        moreDescription: 'The **Cost calculation method** determines how profit is calculated after you complete a sale. In Shopfront, there are three ways to do this. **Last Cost** is the simplest method to use, however it is the least accurate…',
+        moreDescription: 'The **Cost calculation method** determines how profit is calculated after you complete a sale. In Crinit\'s Shop, there are three ways to do this. **Last Cost** is the simplest method to use, however it is the least accurate…',
         options: [
           { label: 'Last Cost', value: 'Last Cost' },
           { label: 'Mixed Mode', value: 'Mixed Mode' },
@@ -102,7 +102,7 @@ export const COMPANY_SECTIONS = [
         type: 'select',
         description: 'Determine how expected and received profit is displayed.',
         // measured verbatim from the reference panel 2026-08-17
-        moreDescription: 'Shopfront supports showing expected and received profit in two ways, **Gross Profit Margin** and **Markup**.\n\n**Gross Profit Margin** is typically used by the liquor industry in Australia and is calculated using the following formula:\n\n(sell - cost) / sell * 100\n\n**Markup** is typically used by the fashion industry in Australia and is calculated using the following formula:\n\n(sell - cost) / cost * 100',
+        moreDescription: 'Crinit\'s Shop supports showing expected and received profit in two ways, **Gross Profit Margin** and **Markup**.\n\n**Gross Profit Margin** is typically used by the liquor industry in Australia and is calculated using the following formula:\n\n(sell - cost) / sell * 100\n\n**Markup** is typically used by the fashion industry in Australia and is calculated using the following formula:\n\n(sell - cost) / cost * 100',
         options: [
           { label: 'Gross Profit Margin', value: 'Gross Profit Margin' },
           { label: 'Markup', value: 'Markup' }
@@ -115,7 +115,7 @@ export const COMPANY_SECTIONS = [
         default: 'Cost Calculation Method',
         description: 'Determine which cost you would like to see when setting your prices and displaying your profitability.',
         // measured verbatim from the reference panel 2026-08-17
-        moreDescription: 'Select which cost you would like to see when setting your prices and displaying your profitability, by default this is set to **Cost Calculation Method** which will display the same profit when setting a price as what is calculated when performing a sale.\n\nThis does not affect how Shopfront calculates the cost for sales.\n\nFor example, if you have your cost calculation method set to **Average Cost** and your have a last cost of $20 and an average cost of $18, the following costs will be shown when editing prices:\n\n• **Cost Calculation Method**: Average Cost ($18)\n• **Last Cost**: Last Cost ($20)\n• **Highest Cost**: Last Cost ($20)',
+        moreDescription: 'Select which cost you would like to see when setting your prices and displaying your profitability, by default this is set to **Cost Calculation Method** which will display the same profit when setting a price as what is calculated when performing a sale.\n\nThis does not affect how Crinit\'s Shop calculates the cost for sales.\n\nFor example, if you have your cost calculation method set to **Average Cost** and your have a last cost of $20 and an average cost of $18, the following costs will be shown when editing prices:\n\n• **Cost Calculation Method**: Average Cost ($18)\n• **Last Cost**: Last Cost ($20)\n• **Highest Cost**: Last Cost ($20)',
         options: [
           { label: 'Cost Calculation Method', value: 'Cost Calculation Method' },
           { label: 'Last Cost', value: 'Last Cost' },
@@ -133,8 +133,8 @@ export const COMPANY_SECTIONS = [
         description: 'Determine whether Components and Packages can be used.',
         moreDescription: '**Components** and **Packages** are ways to sell products within other products, they are similar to basket products however they allow for modification of the product during the sale. **Components** and **Packages** are typically used by stores selling hospitality products such as food.',
         // "Packaged" is the reference's own typo - verbatim
-        enabledLabel: 'Components and Packaged can be created in Shopfront',
-        disabledLabel: "Shopfront won't have the ability to create Components and Packages"
+        enabledLabel: 'Components and Packaged can be created in Crinit\'s Shop',
+        disabledLabel: "Crinit's Shop won't have the ability to create Components and Packages"
       },
       {
         key: 'productsCanHaveWeight',
@@ -143,7 +143,7 @@ export const COMPANY_SECTIONS = [
         label: 'Products Can Have Weight',
         type: 'toggle',
         description: 'Determines whether products can be sold as weight instead of individual items.',
-        moreDescription: "If you use scales in your store to measure products (such as fruit and vegetables), you can enable the **Products can have weight** toggle which will allow you to mark products as available to be weighed. You'll also need to configure your scales to work with Shopfront. More information can be found in our support article.",
+        moreDescription: "If you use scales in your store to measure products (such as fruit and vegetables), you can enable the **Products can have weight** toggle which will allow you to mark products as available to be weighed. You'll also need to configure your scales to work with Crinit's Shop. More information can be found in our support article.",
         disabledLabel: "Products aren't sold by weight"
       },
       {
@@ -151,18 +151,18 @@ export const COMPANY_SECTIONS = [
         key: 'useBarocodeTemplates',
         label: 'Use Barcode Templates',
         type: 'toggle',
-        description: 'Determines whether Barcode Templates will be enabled in Shopfront.',
+        description: 'Determines whether Barcode Templates will be enabled in Crinit\'s Shop.',
         moreDescription: 'If you have barcodes that embed other information (such as price or quantity), you can use **Barcode Templates**. Typically having Delicatessen scales or selling Lotto tickets requires the use of **Barcode Templates**.',
-        enabledLabel: 'Barcode Templates can be used in Shopfront',
-        disabledLabel: "Shopfront won't handle Barcode Templates"
+        enabledLabel: 'Barcode Templates can be used in Crinit\'s Shop',
+        disabledLabel: "Crinit's Shop won't handle Barcode Templates"
       },
       {
         key: 'sellCases',
         label: 'Sell Cases',
         type: 'toggle',
-        description: 'If you buy and sell items in cases greater than one, then this allows Shopfront to manage your inventory in cases and items instead of just in items.',
+        description: 'If you buy and sell items in cases greater than one, then this allows Crinit\'s Shop to manage your inventory in cases and items instead of just in items.',
         moreDescription: null,
-        enabledLabel: 'Shopfront can manage inventory in Cases and Items'
+        enabledLabel: 'Crinit\'s Shop can manage inventory in Cases and Items'
       },
       {
         key: 'crossPromotionCount',
@@ -181,7 +181,7 @@ export const COMPANY_SECTIONS = [
         key: 'teamMessage',
         label: 'Team Message',
         type: 'text',
-        description: 'The team message appears at the top of the screen next to the Shopfront logo for all users to see',
+        description: 'The team message appears at the top of the screen next to the Crinit\'s Shop logo for all users to see',
         moreDescription: null
       },
       {
@@ -213,16 +213,16 @@ export const COMPANY_SECTIONS = [
         label: '"Single" Text',
         type: 'text',
         default: 'Item',
-        description: "Determine what should be used instead of 'Single' throughout Shopfront.",
-        moreDescription: 'The text to use instead of the word Single throughout Shopfront (invoices, reporting, products, etc). Suggestions include item and product or an industry / company specific term. We would suggest capitalising the first letter if it is possible for it to have a capital letter.'
+        description: "Determine what should be used instead of 'Single' throughout Crinit's Shop.",
+        moreDescription: 'The text to use instead of the word Single throughout Crinit\'s Shop (invoices, reporting, products, etc). Suggestions include item and product or an industry / company specific term. We would suggest capitalising the first letter if it is possible for it to have a capital letter.'
       },
       {
         key: 'caseText',
         label: '"Case" Text',
         type: 'text',
         default: 'Case',
-        description: "Determine what should be used instead of 'Case' throughout Shopfront.",
-        moreDescription: 'The text to use instead of the word Case throughout Shopfront (such as the term **Case Quantity**). Suggestions include carton and box or an industry / company specific term. We would suggest capitalising the first letter if it is possible for it to have a capital letter.'
+        description: "Determine what should be used instead of 'Case' throughout Crinit's Shop.",
+        moreDescription: 'The text to use instead of the word Case throughout Crinit\'s Shop (such as the term **Case Quantity**). Suggestions include carton and box or an industry / company specific term. We would suggest capitalising the first letter if it is possible for it to have a capital letter.'
       }
     ]
   },
@@ -236,7 +236,7 @@ export const COMPANY_SECTIONS = [
         label: 'Login Type',
         type: 'select',
         description: 'Determines how the login screen should be presented.',
-        moreDescription: 'This determines how the login screen should be presented, and whether the user will have to type in their username or select it from a list. Selecting a username provides obscurity but not security. Shopfront provides the same level of security to both selecting a username and typing in a username.',
+        moreDescription: 'This determines how the login screen should be presented, and whether the user will have to type in their username or select it from a list. Selecting a username provides obscurity but not security. Crinit\'s Shop provides the same level of security to both selecting a username and typing in a username.',
         options: [
           { label: 'Type username', value: 'Type username' },
           { label: 'Select user', value: 'Select user' }
@@ -249,7 +249,7 @@ export const COMPANY_SECTIONS = [
         label: 'Mask Username',
         type: 'toggle',
         description: 'Whether the username should be hidden behind.',
-        moreDescription: 'This allows you to hide your username when typing it in behind a password input. Enabling this toggle provides obscurity but not security. Shopfront provides the same level of security to both masked and unmasked usernames.',
+        moreDescription: 'This allows you to hide your username when typing it in behind a password input. Enabling this toggle provides obscurity but not security. Crinit\'s Shop provides the same level of security to both masked and unmasked usernames.',
         disabledLabel: 'Username will be in plaintext'
       },
       {
@@ -258,7 +258,7 @@ export const COMPANY_SECTIONS = [
         type: 'toggle',
         default: true,
         description: 'Whether passwords are required after the first log in for the day.',
-        moreDescription: 'Disabling this toggle prevent Shopfront from requiring a password after the first login for the day. Having require password disabled is less secure than requiring a password as it only requires one password to be compromised to gain full access to the system. When logging in without requiring a password, Shopfront uses an internal “one-time” password to log in that expires after a short time after the last login. For effective security, Shopfront would highly recommend requiring passwords on all login attempts.',
+        moreDescription: 'Disabling this toggle prevent Crinit\'s Shop from requiring a password after the first login for the day. Having require password disabled is less secure than requiring a password as it only requires one password to be compromised to gain full access to the system. When logging in without requiring a password, Crinit\'s Shop uses an internal “one-time” password to log in that expires after a short time after the last login. For effective security, Crinit\'s Shop would highly recommend requiring passwords on all login attempts.',
         enabledLabel: 'Password is always required'
       },
       {
@@ -277,16 +277,16 @@ export const COMPANY_SECTIONS = [
         type: 'number',
         default: 7200,
         constraints: { min: 60, max: 7200 },
-        description: 'The amount of time until Shopfront automatically logs you out without interaction on all pages.',
-        moreDescription: 'The amount of time until Shopfront automatically logs you out on all pages. Shopfront counts this from the time of the last activity including mouse clicks and keyboard presses. This affects all pages, the sell screen can be specifically overridden by specifying the time in the **Sell screen Auto Logout Time (in seconds)** setting. This has a minimum value of one minute (60 seconds) and a maximum value of two hours (7,200 seconds).'
+        description: 'The amount of time until Crinit\'s Shop automatically logs you out without interaction on all pages.',
+        moreDescription: 'The amount of time until Crinit\'s Shop automatically logs you out on all pages. Crinit\'s Shop counts this from the time of the last activity including mouse clicks and keyboard presses. This affects all pages, the sell screen can be specifically overridden by specifying the time in the **Sell screen Auto Logout Time (in seconds)** setting. This has a minimum value of one minute (60 seconds) and a maximum value of two hours (7,200 seconds).'
       },
       {
         key: 'autoLogoutTime',
         label: 'Sell Screen Auto Logout Time (in seconds)',
         type: 'number',
         default: 0,
-        description: "The amount of time until Shopfront automatically logs you out without interaction when you're on the sell screen.",
-        moreDescription: "The amount of time until Shopfront automatically logs you out when you're on the sell screen… This does not affect other pages other than the sell screen…"
+        description: "The amount of time until Crinit's Shop automatically logs you out without interaction when you're on the sell screen.",
+        moreDescription: "The amount of time until Crinit's Shop automatically logs you out when you're on the sell screen… This does not affect other pages other than the sell screen…"
       },
       {
         key: 'autoLogoutDuringSale',
@@ -294,7 +294,7 @@ export const COMPANY_SECTIONS = [
         type: 'toggle',
         description: 'Whether to automatically log out while a sale is in progress.',
         // measured verbatim from the reference panel 2026-08-17
-        moreDescription: 'Whether to automatically log out while a sale is in progress. If enabled Shopfront will log out the user once the amount of time specified in **Auto logout time** has passed even if a sale exists on the sell screen.\n\nThe sale won\'t be lost, once the user has logged back in the sale will be visible again.\n\nThis only affects the **Sell screen Auto Logout Time (in seconds)** setting.',
+        moreDescription: 'Whether to automatically log out while a sale is in progress. If enabled Crinit\'s Shop will log out the user once the amount of time specified in **Auto logout time** has passed even if a sale exists on the sell screen.\n\nThe sale won\'t be lost, once the user has logged back in the sale will be visible again.\n\nThis only affects the **Sell screen Auto Logout Time (in seconds)** setting.',
         enabledLabel: 'Auto logout is always active',
         disabledLabel: 'Active sales prevent auto logout'
       }
@@ -333,7 +333,7 @@ export const COMPANY_SECTIONS = [
         label: 'Prevent Blur on Focus Loss on Sell Screen',
         type: 'toggle',
         description: 'Whether an overlay is shown when the sell screen loses focus.',
-        moreDescription: "When disabled and focus has been removed from the sell screen (e.g. to use Windows) an overlay will appear to notify you that focus has been removed and you'll need to tap the screen to continue to use Shopfront.\n\nYou'll still need to return focus to Shopfront to use it, the overlay just lets you know that focus has been lost.",
+        moreDescription: "When disabled and focus has been removed from the sell screen (e.g. to use Windows) an overlay will appear to notify you that focus has been removed and you'll need to tap the screen to continue to use Crinit's Shop.\n\nYou'll still need to return focus to Crinit's Shop to use it, the overlay just lets you know that focus has been lost.",
         enabledLabel: 'Ignore losing focus',
         disabledLabel: 'Show focus loss'
       },
@@ -491,7 +491,7 @@ export const COMPANY_SECTIONS = [
         // the reference control is an editable, filterable combobox
         searchable: true,
         default: 'Australia/Sydney',
-        description: 'The timezone that all times should be shown in. Shopfront internally stores all times as UTC so timezones can be changed and all historical data will reflect the new timezone.',
+        description: 'The timezone that all times should be shown in. Crinit\'s Shop internally stores all times as UTC so timezones can be changed and all historical data will reflect the new timezone.',
         moreDescription: null,
         options: TIMEZONE_OPTIONS
       },
@@ -502,7 +502,7 @@ export const COMPANY_SECTIONS = [
         default: 'DD/MM/YYYY',
         constraints: { required: true },
         // the reference ends the sentence with the tokens hyperlink, no period
-        description: 'The formatting used for dates around Shopfront',
+        description: 'The formatting used for dates around Crinit\'s Shop',
         link: { text: 'View the tokens here', href: FORMAT_TOKENS_URL },
         moreDescription: null,
         options: [
@@ -518,7 +518,7 @@ export const COMPANY_SECTIONS = [
         default: 'HH:mm:ss',
         constraints: { required: true },
         // "around the Shopfront" is verbatim from the reference
-        description: 'The formatting used for times around the Shopfront',
+        description: 'The formatting used for times around Crinit\'s Shop',
         link: { text: 'View the tokens here', href: FORMAT_TOKENS_URL },
         moreDescription: null,
         options: [
@@ -534,7 +534,7 @@ export const COMPANY_SECTIONS = [
         type: 'select',
         default: 'monday',
         description: 'The day of the week that the week starts on, this changes all calendars and reports to use this day as the start of the week.',
-        moreDescription: 'The day of the week that the week starts on, this changes all calendars and reports to use this day as the start of the week. Internally Shopfront uses the start of the week as a Sunday.\nShopfront recommends using either Sunday or Monday as the start of the week.',
+        moreDescription: 'The day of the week that the week starts on, this changes all calendars and reports to use this day as the start of the week. Internally Crinit\'s Shop uses the start of the week as a Sunday.\nCrinit\'s Shop recommends using either Sunday or Monday as the start of the week.',
         options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
           .map((day) => ({ label: day, value: day.toLowerCase() })),
         // legacy blobs stored the capitalised day name
@@ -565,7 +565,7 @@ export const COMPANY_SECTIONS = [
         type: 'select',
         default: 'AUD',
         description: 'This determines how currency should be displayed in your store.',
-        moreDescription: 'This determines how currency should be displayed in your store, if your currency code is not on this list, please contact Shopfront so we can add support for it.',
+        moreDescription: 'This determines how currency should be displayed in your store, if your currency code is not on this list, please contact Crinit\'s Shop so we can add support for it.',
         options: [
           { label: 'Australian Dollars (AUD)', value: 'AUD' },
           { label: 'Baht (THB)', value: 'THB' },
@@ -608,8 +608,8 @@ export const COMPANY_SECTIONS = [
         label: 'Customer Search Level',
         type: 'select',
         default: 'full',
-        description: 'This customises how in-depth the search is in Shopfront for customers.',
-        moreDescription: "This customises how in-depth the search is in Shopfront for customers. Typically you will leave it on the default value of **Full**.\nA page refresh is required after changing this setting for it to take effect.\n**Full** Search from anywhere within the string in any order. Works with any language. Has the highest memory usage.\n**English Tokenized** Similar to **Full** except it only works with English, any non-English characters aren't able to get searched for. Has a moderate amount of memory usage.\n**Strict** Can only search from the beginning of words. Works with any language. Has the lowest memory usage of any in-memory search option.\n**Offload to Database** Offloads the search to the local database instead of searching within memory, reduces search performance (as it requires a lookup to the database) however uses next to no memory.",
+        description: 'This customises how in-depth the search is in Crinit\'s Shop for customers.',
+        moreDescription: "This customises how in-depth the search is in Crinit's Shop for customers. Typically you will leave it on the default value of **Full**.\nA page refresh is required after changing this setting for it to take effect.\n**Full** Search from anywhere within the string in any order. Works with any language. Has the highest memory usage.\n**English Tokenized** Similar to **Full** except it only works with English, any non-English characters aren't able to get searched for. Has a moderate amount of memory usage.\n**Strict** Can only search from the beginning of words. Works with any language. Has the lowest memory usage of any in-memory search option.\n**Offload to Database** Offloads the search to the local database instead of searching within memory, reduces search performance (as it requires a lookup to the database) however uses next to no memory.",
         options: SEARCH_LEVEL_OPTIONS,
         normalize: normalizeSearchLevel
       },
@@ -618,8 +618,8 @@ export const COMPANY_SECTIONS = [
         label: 'Product Search Level',
         type: 'select',
         default: 'full',
-        description: 'This customises how in-depth the search is in Shopfront for products.',
-        moreDescription: "This customises how in-depth the search is in Shopfront for products. Typically you will leave it on the default value of **Full**.\nA page refresh is required after changing this setting for it to take effect.\n**Full** Search from anywhere within the string in any order. Works with any language. Has the highest memory usage.\n**English Tokenized** Similar to **Full** except it only works with English, any non-English characters aren't able to get searched for. Has a moderate amount of memory usage.\n**Strict** Has the lowest memory usage. Can only search from the beginning of words. Works with any language.\n**Offload to Database** Offloads the search to the local database instead of searching within memory, reduces search performance (as it requires a lookup to the database) however uses next to no memory.",
+        description: 'This customises how in-depth the search is in Crinit\'s Shop for products.',
+        moreDescription: "This customises how in-depth the search is in Crinit's Shop for products. Typically you will leave it on the default value of **Full**.\nA page refresh is required after changing this setting for it to take effect.\n**Full** Search from anywhere within the string in any order. Works with any language. Has the highest memory usage.\n**English Tokenized** Similar to **Full** except it only works with English, any non-English characters aren't able to get searched for. Has a moderate amount of memory usage.\n**Strict** Has the lowest memory usage. Can only search from the beginning of words. Works with any language.\n**Offload to Database** Offloads the search to the local database instead of searching within memory, reduces search performance (as it requires a lookup to the database) however uses next to no memory.",
         options: SEARCH_LEVEL_OPTIONS,
         normalize: normalizeSearchLevel
       },
@@ -653,8 +653,8 @@ export const COMPANY_SECTIONS = [
         default: true,
         description: 'This enables basic Metcash host file integration support, including mapping of MSC. Additional settings can be enabled and disabled for more in-depth integration.',
         moreDescription: null,
-        enabledLabel: 'Shopfront is connected to the Host File',
-        disabledLabel: "Shopfront doesn't use the Host File"
+        enabledLabel: 'Crinit\'s Shop is connected to the Host File',
+        disabledLabel: "Crinit's Shop doesn't use the Host File"
       }
     ]
   },
@@ -692,7 +692,7 @@ export const COMPANY_SECTIONS = [
         type: 'toggle',
         default: false,
         // "Outlet's" is verbatim from the reference
-        description: "When enabled, this will create an internal Shopfront notification for all Outlet's whenever a price has been changed or a product has been created.",
+        description: "When enabled, this will create an internal Crinit's Shop notification for all Outlet's whenever a price has been changed or a product has been created.",
         moreDescription: null,
         enabledLabel: 'Receive Notifications',
         disabledLabel: 'Ignore Notifications'
@@ -731,7 +731,7 @@ export const COMPANY_SECTIONS = [
         type: 'select',
         default: 'normal',
         description: 'The level of logging to record in the local database.',
-        moreDescription: 'The level of logging to record in the local database. This only affects what data Shopfront can retrieve when getting bug diagnostics out of your computer.\nIncreasing the level of logging can assist Shopfront with debugging issues you report, however it may reduce the speed of Shopfront on some devices.\nNo matter which level is selected, logs are only stored for 7 days before being removed.',
+        moreDescription: 'The level of logging to record in the local database. This only affects what data Crinit\'s Shop can retrieve when getting bug diagnostics out of your computer.\nIncreasing the level of logging can assist Crinit\'s Shop with debugging issues you report, however it may reduce the speed of Crinit\'s Shop on some devices.\nNo matter which level is selected, logs are only stored for 7 days before being removed.',
         options: [
           { label: 'Essential', value: 'essential' },
           { label: 'Normal', value: 'normal' },

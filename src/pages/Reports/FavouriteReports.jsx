@@ -689,7 +689,7 @@ const FavouriteReports = () => {
                       <Box>
                         <Typography sx={{ fontSize: 16, color: '#000' }}>{formatDate(report.updatedAt)}</Typography>
                         <Typography sx={{ fontSize: 14, color: '#4b5563' }}>
-                          {report.updatedBy || 'Shopfront'}
+                          {report.updatedBy || 'Crinit\'s Shop'}
                         </Typography>
                       </Box>
                     </TableCell>

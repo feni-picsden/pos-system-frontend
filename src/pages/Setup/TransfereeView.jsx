@@ -43,7 +43,7 @@ const TransfereeView = () => {
   const [transfers, setTransfers] = useState([]);
 
   useEffect(() => {
-    document.title = 'View Transferees | Shopfront';
+    document.title = 'View Transferees | Crinit\'s Shop';
   }, []);
 
   useEffect(() => {

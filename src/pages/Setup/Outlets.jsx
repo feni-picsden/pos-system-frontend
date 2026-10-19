@@ -803,7 +803,7 @@ const Outlets = () => {
                     fullWidth
                     value={editData.metcashCustomerId}
                     onChange={setField("metcashCustomerId")}
-                    helperText="Contact Shopfront or your BDM for this information"
+                    helperText="Contact Crinit's Shop or your BDM for this information"
                     sx={FIELD_SX}
                   />
                 </Box>
@@ -1113,7 +1113,7 @@ const Outlets = () => {
                 value={formData.metcashCustomerId}
                 onChange={(e) => setFormData({ ...formData, metcashCustomerId: e.target.value })}
                 margin="normal"
-                helperText="Contact Shopfront or your BDM for this information"
+                helperText="Contact Crinit's Shop or your BDM for this information"
               />
               <Box sx={{ mt: 2 }}>
                 <Typography sx={FIELD_LABEL_SX}>State</Typography>

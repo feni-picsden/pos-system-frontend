@@ -919,7 +919,7 @@ const DashboardLayout = ({ children }) => {
             >
               {[
                 ['Master Volume', 'master', 'masterMuted'],
-                ['Shopfront', 'shopfront', 'shopfrontMuted'],
+                ['Crinit\'s Shop', 'shopfront', 'shopfrontMuted'],
               ].map(([label, key, mutedKey]) => (
                 <Box key={key} sx={{ p: 2 }}>
                   <Typography component="span" sx={{ fontSize: 16, color: '#000' }}>{label}</Typography>

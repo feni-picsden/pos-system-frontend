@@ -1933,7 +1933,7 @@ const ProductEdit = () => {
                 Name <FavoriteStar field="Name" />
               </Typography>
               <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
-                The name of the product, this will appear throughout Shopfront and will be visible to customers
+                The name of the product, this will appear throughout Crinit's Shop and will be visible to customers
               </Typography>
               <TextField
                 fullWidth
@@ -3208,7 +3208,7 @@ const ProductEdit = () => {
                 Order Notes <FavoriteStar field="Order Notes" />
               </Typography>
               <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
-                These will appear when you're placing an order to any supplier, they will also be sent to the supplier if you're emailing an order from within Shopfront.
+                These will appear when you're placing an order to any supplier, they will also be sent to the supplier if you're emailing an order from within Crinit's Shop.
               </Typography>
               <TextField
                 fullWidth
@@ -3225,7 +3225,7 @@ const ProductEdit = () => {
                 Invoice Notes <FavoriteStar field="Invoice Notes" />
               </Typography>
               <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
-                These will appear when you're receiving an invoice in Shopfront.
+                These will appear when you're receiving an invoice in Crinit\'s Shop.
               </Typography>
               <TextField
                 fullWidth

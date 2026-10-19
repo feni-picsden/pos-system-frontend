@@ -274,8 +274,8 @@ const DISCOUNT_BELOW_COST_FIELD = {
   moreDescription:
     "This defines the behaviour when a product's price is calculated to be below cost (including any scan rebate). It takes affect on any price calculation including adding the product to the sale, promotions applying and discounting the price.\n\n" +
     "**Allow**\n\nThe default value, this allows the user to sell below cost with no warning, if you don't want staff to know your cost prices, you'll need to run on this setting.\n\n" +
-    '**Warn**\n\nWhen a price calculation occurs which results in a lower-than-cost price, Shopfront will show a dialog warning the user that the price is below the cost price. It allows users to ignore the warning or to adjust to the cost price (if they have the see cost permission).\n\n' +
-    '**Prevent**\n\nThis prevents products from being sold below cost, when a price calculation results in a lower-than-cost price, Shopfront will show a dialog which forces the user to update the price to equal the cost.',
+    '**Warn**\n\nWhen a price calculation occurs which results in a lower-than-cost price, Crinit\'s Shop will show a dialog warning the user that the price is below the cost price. It allows users to ignore the warning or to adjust to the cost price (if they have the see cost permission).\n\n' +
+    '**Prevent**\n\nThis prevents products from being sold below cost, when a price calculation results in a lower-than-cost price, Crinit\'s Shop will show a dialog which forces the user to update the price to equal the cost.',
 };
 
 const REASON_LIST_FIELDS = {
@@ -1527,7 +1527,7 @@ const GeneralSettings = () => {
 
       {/* Local-only settings the reference lacks - kept, clearly separated */}
       {user?.isSuperAdmin && (
-        <SettingsSection id="local" label="Local settings (not in Shopfront)" flash={flashSection === 'local'}>
+        <SettingsSection id="local" label="Local settings (not in Crinit's Shop)" flash={flashSection === 'local'}>
           <SettingRow
             label="Default Sale Keys by Outlet"
             description="Choose an outlet and assign the sale key set its registers should start on."
@@ -3018,7 +3018,7 @@ const GeneralSettings = () => {
               </Typography>
               {activeTab !== 0 && (
                 <Typography sx={{ fontSize: '14px', color: '#676b72' }}>
-                  Local settings (not in Shopfront)
+                  Local settings (not in Crinit's Shop)
                 </Typography>
               )}
             </Box>

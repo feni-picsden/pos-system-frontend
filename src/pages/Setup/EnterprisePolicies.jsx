@@ -21,7 +21,7 @@ import settingsService from '../../services/settingsService';
 
 // Owner decision 2026-08-31: mirror the reference account (topdrops) verbatim —
 // show exactly what that account shows, no extra subscription features.
-const PLATFORM = 'Shopfront';
+const PLATFORM = 'Crinit\'s Shop';
 
 // Reference defaults, one row per policy. `json: true` renders the value as a
 // code block, matching the reference's JSON-array cells.

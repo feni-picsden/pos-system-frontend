@@ -291,7 +291,7 @@ const StatementEditor = () => {
     },
     customer: {
       code: '1234',
-      name: 'Shopfront',
+      name: 'Crinit\'s Shop',
       contact: 'John Smith',
       address: '425 Smith St',
       city: 'Fitzroy 3065 VIC',

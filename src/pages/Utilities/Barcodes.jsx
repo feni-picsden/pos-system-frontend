@@ -159,7 +159,7 @@ const Barcodes = () => {
   }, [productCreatedAt, lastStocktakedAt, lastSoldAt, inventoryLevel, barcodeSearch, onlyDuplicates]);
 
   useEffect(() => {
-    document.title = 'Barcodes | Shopfront';
+    document.title = 'Barcodes | Crinit\'s Shop';
     loadBarcodes();
     // Only on mount — filters are applied via the Apply Filters button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
