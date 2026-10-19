@@ -10,8 +10,9 @@ export default function SaleKeyPreviewTabs() {
       {[
         { label: 'Sales Keys', icon: <KeyboardOutlinedIcon /> },
         { label: 'Parked Sales', icon: <LocalParkingOutlinedIcon /> },
-        { label: 'Shop MyLocal / IBA E-Commerce' },
-      ].map(({ label, icon }) => (
+        // Hidden for now, like the sell screen (user 19/10/2026).
+        { label: 'Shop MyLocal / IBA E-Commerce', hidden: true },
+      ].filter((t) => !t.hidden).map(({ label, icon }) => (
         <Box key={label} sx={{
           flex: '1 1 auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 1, px: 1, fontSize: 16, color: '#000',

@@ -8591,8 +8591,9 @@ const SaleKeyPage = () => {
             {[
               { v: 'sales-keys', label: 'Sales Keys', icon: <KeyboardOutlinedIcon sx={{ fontSize: 24 }} /> },
               { v: 'parked-sales', label: 'Parked Sales', icon: <LocalParkingOutlinedIcon sx={{ fontSize: 24 }} /> },
-              { v: 'ecommerce', label: 'Shop MyLocal / IBA E-Commerce', icon: null },
-            ].map((t) => (
+              // Hidden for now (user 19/10/2026) - the integration is not connected yet.
+              { v: 'ecommerce', label: 'Shop MyLocal / IBA E-Commerce', icon: null, hidden: true },
+            ].filter((t) => !t.hidden).map((t) => (
               <Box
                 key={t.v}
                 component="button"
