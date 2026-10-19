@@ -204,7 +204,7 @@ const FutureCosts = () => {
   const [itemSearchResults, setItemSearchResults] = useState([]);
   const [itemSearchLoading, setItemSearchLoading] = useState(false);
   const [scheduledTime, setScheduledTime] = useState(null);
-  const [cost, setCost] = useState('0');
+  const [cost, setCost] = useState('');
   const [dialogOutlet, setDialogOutlet] = useState('');
   const [categories, setCategories] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -401,7 +401,7 @@ const FutureCosts = () => {
     setSelectedItem(null);
     setItemSearchResults([]);
     setScheduledTime(null);
-    setCost('0');
+    setCost('');
     setDialogOutlet(currentOutletId != null ? String(currentOutletId) : '');
     setDateError('');
   };
@@ -412,8 +412,8 @@ const FutureCosts = () => {
       return;
     }
 
-    // The field defaults to the string '0', which passes the !cost check but
-    // creates a future cost the server can never apply - require a real value.
+    // The field starts blank (caught above); a typed 0 still creates a future
+    // cost the server can never apply - require a real value.
     if (!(parseFloat(cost) > 0)) {
       setError('Cost must be greater than zero');
       return;
@@ -889,7 +889,7 @@ const FutureCosts = () => {
                 }}
                 onChange={(event, newValue) => {
                   setSelectedItem(newValue && typeof newValue !== 'string' ? newValue : null);
-                  setCost('0');
+                  setCost('');
                 }}
                 renderInput={(params) => (
                   <TextField

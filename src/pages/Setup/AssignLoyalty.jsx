@@ -128,9 +128,9 @@ const AssignLoyalty = () => {
           id: null,
           brandId: brand.id,
           brand: brand,
-          quantity: 0,
-          earnRate: 0,
-          redeemRate: 0
+          quantity: '',
+          earnRate: '',
+          redeemRate: ''
         }));
         setBrandAssignments(prev => [...prev, ...newAssignments]);
         setSuccess(`Added ${response.newBrands.length} new brands`);
@@ -157,9 +157,9 @@ const AssignLoyalty = () => {
           id: null,
           categoryId: category.id,
           category: category,
-          quantity: 0,
-          earnRate: 0,
-          redeemRate: 0
+          quantity: '',
+          earnRate: '',
+          redeemRate: ''
         }));
         setCategoryAssignments(prev => [...prev, ...newAssignments]);
         setSuccess(`Added ${response.newCategories.length} new categories`);
@@ -185,9 +185,9 @@ const AssignLoyalty = () => {
           id: null,
           familyId: family.id,
           family: family,
-          quantity: 0,
-          earnRate: 0,
-          redeemRate: 0
+          quantity: '',
+          earnRate: '',
+          redeemRate: ''
         }));
         setFamilyAssignments(prev => [...prev, ...newAssignments]);
         setSuccess(`Added ${response.newFamilies.length} new families`);
@@ -213,9 +213,9 @@ const AssignLoyalty = () => {
           id: null,
           tagId: tag.id,
           tag: tag,
-          quantity: 0,
-          earnRate: 0,
-          redeemRate: 0
+          quantity: '',
+          earnRate: '',
+          redeemRate: ''
         }));
         setTagAssignments(prev => [...prev, ...newAssignments]);
         setSuccess(`Added ${response.newTags.length} new tags`);
@@ -323,9 +323,9 @@ const AssignLoyalty = () => {
   const handleAddQuantityTier = (type, itemId, itemData) => {
     const newAssignment = {
       id: null,
-      quantity: 0,
-      earnRate: 0,
-      redeemRate: 0
+      quantity: '',
+      earnRate: '',
+      redeemRate: ''
     };
 
     if (type === 'brand') {
@@ -487,9 +487,9 @@ const AssignLoyalty = () => {
               // Add the selected item
               const assignment = {
                 id: null,
-                quantity: 0,
-                earnRate: 0,
-                redeemRate: 0
+                quantity: '',
+                earnRate: '',
+                redeemRate: ''
               };
 
               if (value.type === 'Brand') {

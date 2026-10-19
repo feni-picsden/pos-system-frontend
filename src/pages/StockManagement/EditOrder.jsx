@@ -2515,7 +2515,7 @@ const EditOrder = () => {
               <Grid item xs={6} sm={w} key={label} sx={{ alignSelf: 'flex-start' }}>
                 {spacer}
                 <TextField
-                  value={money4(value, label)}
+                  value={Math.round((Number(value) || 0) * 10000) === 0 ? '' : money4(value, label)}
                   disabled
                   fullWidth
                   sx={{ ...sfField, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439', ...landedFigureSx }, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0', paddingLeft: '8px' }, '& input': { px: 0.5 } }}
@@ -2640,7 +2640,9 @@ const EditOrder = () => {
                       <Box sx={{ flex: 1 }}>
                         <TextField
                           type="number"
-                          value={quantities.cases}
+                          // A nil quantity shows blank, not "0" (a just-added line
+                          // starts blank, user 19/10/2026); it is still held as 0.
+                          value={quantities.cases ? quantities.cases : ''}
                           onChange={(e) => handleQuantityChange(product.id, 'cases', e.target.value)}
                           inputProps={{ min: 0 }}
                           fullWidth
@@ -2651,7 +2653,7 @@ const EditOrder = () => {
                       <Box sx={{ flex: 1 }}>
                         <TextField
                           type="number"
-                          value={quantities.items}
+                          value={quantities.items ? quantities.items : ''}
                           onChange={(e) => handleQuantityChange(product.id, 'items', e.target.value)}
                           inputProps={{ min: 0 }}
                           fullWidth
@@ -2705,7 +2707,8 @@ const EditOrder = () => {
                     {spacer}
                     <TextField
                       type="number"
-                      value={Math.round(calculateProductTotal(product) * 100) / 100}
+                      // A line with no quantity yet has no total: blank, not "0".
+                      value={Math.round(calculateProductTotal(product) * 100) / 100 || ''}
                       onChange={(e) => handleTotalPayableChange(product.id, e.target.value)}
                       fullWidth
                       sx={sfField}
@@ -2719,7 +2722,7 @@ const EditOrder = () => {
                   {/* New Case Cost (reference: figure above, caption below) */}
                   <Grid item xs={6} sm={inline ? 0.9 : 1.2} sx={{ textAlign: 'center' }}>
                     <Typography sx={{ fontWeight: 600, ...landedFigureSx }}>
-                      {formatCurrency(getNewCaseCost(product))}
+                      {Math.round((Number(getNewCaseCost(product)) || 0) * 100) === 0 ? '' : formatCurrency(getNewCaseCost(product))}
                     </Typography>
                     {/* A return does not change the product's cost, so it is not "new" */}
                     <Typography sx={sfCaption}>
@@ -2861,7 +2864,8 @@ const EditOrder = () => {
                 />
               </Grid>
             );
-            const fmt = (v) => (Number.isFinite(Number(v)) ? (Math.round(Number(v) * 100) / 100).toFixed(2) : '0.00');
+            // Nothing to show yet (0) reads blank, not "0.00" (user 19/10/2026).
+            const fmt = (v) => (Number.isFinite(Number(v)) && Math.round(Number(v) * 100) !== 0 ? (Math.round(Number(v) * 100) / 100).toFixed(2) : '');
             return (
               <>
                 {barInput(usePctFees ? '+ Fees / - Discounts (%)' : '+ Fees / - Discounts', invoiceFees, setInvoiceFees)}
@@ -2880,7 +2884,7 @@ const EditOrder = () => {
               value={selectedProducts.reduce((sum, product) => {
                 const quantities = productQuantities[product.id] || { cases: 0, items: 0 };
                 return sum + (quantities.cases || 0);
-              }, 0)}
+              }, 0) || ''}
               disabled
               fullWidth
               sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439' } }}
@@ -2893,7 +2897,7 @@ const EditOrder = () => {
                 // Loose items only (reference parity: Cases and Items are independent sums)
                 const quantities = productQuantities[product.id] || { cases: 0, items: 0 };
                 return sum + (quantities.items || 0);
-              }, 0)}
+              }, 0) || ''}
               disabled
               fullWidth
               sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439' } }}
@@ -2905,7 +2909,7 @@ const EditOrder = () => {
             {/* Same look as Cases / Items: label above a grey read-only box */}
             <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Total</Typography>
             <TextField
-              value={formatCurrency(displayGrandTotal()).replace('$', '')}
+              value={Math.round((Number(displayGrandTotal()) || 0) * 100) === 0 ? '' : formatCurrency(displayGrandTotal()).replace('$', '')}
               disabled
               fullWidth
               sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439', ...landedFigureSx } }}

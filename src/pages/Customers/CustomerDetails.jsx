@@ -304,7 +304,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
     deliveryPostcode: "",
     deliveryState: "",
     deliveryCountry: "",
-    loyaltyPoints: "0",
+    loyaltyPoints: "",
     accountLimit: "",
     currentOwing: "0",
     requireOrderReference: false,

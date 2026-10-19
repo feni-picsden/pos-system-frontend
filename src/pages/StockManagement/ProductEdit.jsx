@@ -246,7 +246,8 @@ const formatComboCost = (comboContents) => {
     (sum, row) => sum + (Number(row.cost) || 0) * (Number(row.quantity) || 0),
     0
   );
-  return `$${total.toFixed(2)}`;
+  // No contents (or none costed) yet reads blank, not "$0.00".
+  return Math.round(total * 100) === 0 ? '' : `$${total.toFixed(2)}`;
 };
 
 // Reference puts the contents tab straight after General, and only for a combo.
@@ -604,20 +605,24 @@ const ProductEdit = () => {
     preventManualDiscounts: false,
     costPercentage: false,
     showCostsIncludingTax: true,
-    caseCost: 0,
-    itemCost: 0,
-    averageCaseCost: 0,
-    averageItemCost: 0,
+    // A NEW product's numbers start blank, not 0 / $0.00 (user, 19/10/2026), and
+    // the Prices table starts empty with only "New Price Point" (reference). Blank
+    // is sent as 0 on save (see blankToZero in handleSave). loadProduct overwrites
+    // all of these for an existing product.
+    caseCost: '',
+    itemCost: '',
+    averageCaseCost: '',
+    averageItemCost: '',
     requestPrice: false,
     requestQuantity: false,
-    prices: [{ quantity: 1, price: 0, cost: 0, percentage: 0 }],
+    prices: [],
     trackInventory: true,
-    currentStockCases: 0,
-    currentStockItems: 0,
-    reorderLevelCases: 0,
-    reorderLevelItems: 0,
-    reorderAmountCases: 0,
-    reorderAmountItems: 0,
+    currentStockCases: '',
+    currentStockItems: '',
+    reorderLevelCases: '',
+    reorderLevelItems: '',
+    reorderAmountCases: '',
+    reorderAmountItems: '',
     reorderLimitCases: '',
     reorderLimitItems: '',
     maxOnHandCases: '',
@@ -731,7 +736,7 @@ const ProductEdit = () => {
   const [supplierFormData, setSupplierFormData] = useState({
     supplierId: '',
     code: '',
-    minimumOrderQuantity: 0,
+    minimumOrderQuantity: '',
     isCoreSupplier: false,
     replacementCost: 'Inherit From Product'
   });
@@ -763,9 +768,9 @@ const ProductEdit = () => {
               prices: (wizard.prices && wizard.prices.length
                 ? wizard.prices.map(p => ({
                     quantity: p.quantity || 1,
-                    price: p.price || 0,
+                    price: p.price === '' || p.price == null ? '' : p.price,
                     cost: 0,
-                    percentage: 0,
+                    percentage: '',
                   }))
                 : prev.prices),
               barcodes: (wizard.barcodes || []).map(b =>
@@ -800,6 +805,8 @@ const ProductEdit = () => {
         // empty price into $0.00 under the operator.
         if (isBlankPriceRow(price)) return { ...price, cost: calculateBaseCost(effectiveItemCost, 1) };
         const newBaseCost = calculateBaseCost(effectiveItemCost, price.quantity);
+        // Quantity typed but no price yet: the price stays blank too.
+        if (price.price === '' || price.price == null) return { ...price, cost: newBaseCost, percentage: '' };
         return {
           ...price,
           cost: newBaseCost,
@@ -1074,12 +1081,21 @@ const ProductEdit = () => {
   const [focusedCostField, setFocusedCostField] = useState(null);
   const getDisplayedCost = (field) => {
     const stored = formData[field] ?? '';
+    // A new product's costs start blank (not $0.00); keep them blank either way.
+    if (stored === '') return '';
     if (formData.showCostsIncludingTax) return round2(stored);
     return Math.round(removeTaxFromCost(stored, getCostTaxRateName()) * 100) / 100;
   };
 
   // Cost inputs show ex-tax while the toggle is off — convert back before storing
   const handleCostChange = (field, value) => {
+    const pairOf = { caseCost: 'itemCost', itemCost: 'caseCost', averageCaseCost: 'averageItemCost', averageItemCost: 'averageCaseCost' };
+    // A cleared box stays blank (it used to snap to 0.00); its pair clears with it,
+    // since that half was derived from it. Blank is sent as 0 on save.
+    if (String(value ?? '').trim() === '') {
+      setFormData(prev => ({ ...prev, [field]: '', ...(pairOf[field] ? { [pairOf[field]]: '' } : {}) }));
+      return;
+    }
     const entered = parseFloat(value) || 0;
     const stored = formData.showCostsIncludingTax ? entered : addTaxToCost(entered, getCostTaxRateName());
     const caseQty = parseInt(formData.caseQuantity, 10) || 1;
@@ -1301,6 +1317,15 @@ const ProductEdit = () => {
       });
       return;
     }
+    // Price points start blank now, so a row with a quantity but no price would
+    // otherwise be saved as "$0.00" without anyone typing it (0 can still be typed).
+    if ((formData.prices || []).some((p) => !isBlankPriceRow(p) && (p.price === '' || p.price == null))) {
+      reportSaveProblem('A price point has no price. Enter its price (or remove the row), then press Save again.', {
+        tab: 2,
+        severity: 'warning',
+      });
+      return;
+    }
 
     // Duplicate barcodes are allowed - the sell screen asks which product was
     // meant - so this confirms rather than blocks. Checked fresh at save time so
@@ -1429,8 +1454,18 @@ const ProductEdit = () => {
       // duplicated the picture after the upload, and a large photo pushed the request
       // past the server's body limit ("Failed to save product").
       const isLocalImage = (img) => Boolean(img?.file) || String(img?.imageUrl || '').startsWith('data:');
+      // Number boxes left blank (a new product starts blank) save as 0 - the server
+      // columns are numbers and the reorder ones are non-null Int.
+      const blankToZero = (v) => (v === '' || v == null ? 0 : v);
       const payload = {
         ...source,
+        ...Object.fromEntries([
+          'caseCost', 'itemCost', 'averageCaseCost', 'averageItemCost',
+          'currentStockCases', 'currentStockItems',
+          'reorderLevelCases', 'reorderLevelItems', 'reorderAmountCases', 'reorderAmountItems',
+        ].map((k) => [k, blankToZero(source[k])])),
+        suppliers: (source.suppliers || []).map((s) => ({ ...s, minimumOrderQuantity: blankToZero(s.minimumOrderQuantity) })),
+        loyaltyRows: (source.loyaltyRows || []).map((r) => ({ ...r, earnRate: blankToZero(r.earnRate), redeemRate: blankToZero(r.redeemRate) })),
         images: (source.images || [])
           .filter((img) => !isLocalImage(img))
           .map(({ imageUrl, isMain, altText, sortOrder }) => ({ imageUrl, isMain, altText, sortOrder })),
@@ -1672,7 +1707,9 @@ const ProductEdit = () => {
   const addBarcode = () => {
     setFormData(prev => ({
       ...prev,
-      barcodes: [...prev.barcodes, { quantity: 1, code: '' }]
+      // Reference: a new barcode row's Quantity starts blank; the server stores
+      // a blank pack quantity as 1 (sanitizeBarcodesForStore).
+      barcodes: [...prev.barcodes, { quantity: '', code: '' }]
     }));
   };
 
@@ -1740,7 +1777,7 @@ const ProductEdit = () => {
     setSupplierFormData({
       supplierId: '',
       code: '',
-      minimumOrderQuantity: 0,
+      minimumOrderQuantity: '',
       isCoreSupplier: false,
       replacementCost: 'Inherit From Product'
     });
@@ -1792,7 +1829,7 @@ const ProductEdit = () => {
     setSupplierFormData({
       supplierId: '',
       code: '',
-      minimumOrderQuantity: 0,
+      minimumOrderQuantity: '',
       isCoreSupplier: false,
       replacementCost: 'Inherit From Product'
     });
@@ -1808,7 +1845,7 @@ const ProductEdit = () => {
   const addLoyaltyRow = () => {
     setFormData(prev => ({
       ...prev,
-      loyaltyRows: [...prev.loyaltyRows, { quantity: 1, earnRate: 0, redeemRate: 0 }]
+      loyaltyRows: [...prev.loyaltyRows, { quantity: 1, earnRate: '', redeemRate: '' }]
     }));
   };
 
@@ -2479,14 +2516,14 @@ const ProductEdit = () => {
                           itemCost: prev.itemCost,
                           requestPrice: prev.requestPrice,
                         };
-                        return { ...prev, costPercentage: true, itemCost: 0, requestPrice: true };
+                        return { ...prev, costPercentage: true, itemCost: '', requestPrice: true };
                       }
                       const stash = costPercentageStashRef.current;
                       costPercentageStashRef.current = null;
                       return {
                         ...prev,
                         costPercentage: false,
-                        itemCost: stash?.itemCost ?? 0,
+                        itemCost: stash?.itemCost ?? '',
                         requestPrice: stash?.requestPrice ?? false,
                       };
                     });
@@ -2533,6 +2570,7 @@ const ProductEdit = () => {
                 <NumberField
                   fullWidth
                   value={formData.itemCost}
+                  fallback=""
                   onCommit={(n) => handleInputChange('itemCost', n)}
                   InputProps={{
                     endAdornment: <Typography sx={{ ml: 1, color: 'text.secondary' }}>%</Typography>,
@@ -2594,7 +2632,7 @@ const ProductEdit = () => {
                           backgroundColor: readOnly ? '#e0e0e0' : '#fff',
                         },
                       }}
-                      helperText={!formData.showCostsIncludingTax
+                      helperText={!formData.showCostsIncludingTax && formData[field] !== ''
                         ? `Tax-inclusive cost: $${(Number(formData[field]) || 0).toFixed(2)} (includes ${getTaxRatePercentage(getCostTaxRateName()).toFixed(2)}% tax)`
                         : ''}
                     />
@@ -2786,8 +2824,11 @@ const ProductEdit = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            {/* A blank (new) row reads as one unit, as the reference shows. */}
-                            ${(effectiveItemCost * (rowQuantity(price) || 1)).toFixed(2)}
+                            {/* A blank (new) row reads as one unit, as the reference shows.
+                                No cost typed yet (new product) = blank, not "$0.00". */}
+                            {!isCombo && formData.itemCost === '' && formData.caseCost === ''
+                              ? ''
+                              : `$${(effectiveItemCost * (rowQuantity(price) || 1)).toFixed(2)}`}
                           </TableCell>
                           <TableCell>
                             <NumberField
@@ -2807,17 +2848,15 @@ const ProductEdit = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            {/* The last price point can't be removed — a sellable
-                                product must keep at least one price. */}
-                            {formData.prices.length > 1 && (
-                              <IconButton
-                                onClick={() => removePriceRow(index)}
-                                color="error"
-                                size="small"
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            )}
+                            {/* Every row can be removed, like a barcode row. Removing
+                                the last one is fine: Save still asks for a price. */}
+                            <IconButton
+                              onClick={() => removePriceRow(index)}
+                              color="error"
+                              size="small"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -2917,6 +2956,7 @@ const ProductEdit = () => {
                   <NumberField
                     int
                     value={formData.currentStockCases}
+                    fallback=""
                     onCommit={(n) => handleInputChange('currentStockCases', n)}
                     size="small"
                     fullWidth
@@ -2931,6 +2971,7 @@ const ProductEdit = () => {
                       a part case IS loose items. */}
                   <NumberField
                     value={formData.currentStockItems}
+                    fallback=""
                     inputProps={{ step: 'any' }}
                     onCommit={(n) => handleInputChange('currentStockItems', n)}
                     size="small"
@@ -2943,6 +2984,7 @@ const ProductEdit = () => {
                   <NumberField
                     int
                     value={formData.reorderLevelCases}
+                    fallback=""
                     onCommit={(n) => handleInputChange('reorderLevelCases', n)}
                     size="small"
                     fullWidth
@@ -2953,6 +2995,7 @@ const ProductEdit = () => {
                   <NumberField
                     int
                     value={formData.reorderLevelItems}
+                    fallback=""
                     onCommit={(n) => handleInputChange('reorderLevelItems', n)}
                     size="small"
                     fullWidth
@@ -2964,6 +3007,7 @@ const ProductEdit = () => {
                   <NumberField
                     int
                     value={formData.reorderAmountCases}
+                    fallback=""
                     onCommit={(n) => handleInputChange('reorderAmountCases', n)}
                     size="small"
                     fullWidth
@@ -2974,6 +3018,7 @@ const ProductEdit = () => {
                   <NumberField
                     int
                     value={formData.reorderAmountItems}
+                    fallback=""
                     onCommit={(n) => handleInputChange('reorderAmountItems', n)}
                     size="small"
                     fullWidth
@@ -3130,7 +3175,10 @@ const ProductEdit = () => {
                           const newBarcodes = [...formData.barcodes];
                           // Units one scan adds: a whole number, at least 1 (the
                           // register ignores anything less, so never store it).
-                          newBarcodes[index].quantity = Math.max(1, parseInt(e.target.value, 10) || 1);
+                          // A cleared box stays blank (saved as 1 by the server).
+                          newBarcodes[index].quantity = e.target.value === ''
+                            ? ''
+                            : Math.max(1, parseInt(e.target.value, 10) || 1);
                           handleInputChange('barcodes', newBarcodes);
                         }}
                         inputProps={{ min: 1, step: 1 }}
@@ -3307,7 +3355,8 @@ const ProductEdit = () => {
                           fullWidth
                           label="Minimum Order Quantity"
                           size="small"
-                          value={supplier.minimumOrderQuantity || 0}
+                          value={supplier.minimumOrderQuantity ?? ''}
+                          fallback=""
                           onCommit={(n) => {
                             const newSuppliers = [...formData.suppliers];
                             newSuppliers[index].minimumOrderQuantity = n;
@@ -3429,6 +3478,7 @@ const ProductEdit = () => {
                               label="Minimum Order Quantity"
                               size="small"
                               value={supplierFormData.minimumOrderQuantity}
+                              fallback=""
                               onCommit={(n) => handleSupplierFormChange('minimumOrderQuantity', n)}
                             />
                           </Grid>
@@ -3548,6 +3598,7 @@ const ProductEdit = () => {
                     <TableCell>
                       <NumberField
                         value={row.earnRate}
+                        fallback=""
                         onCommit={(n) => {
                           const newRows = [...formData.loyaltyRows];
                           newRows[index].earnRate = n;
@@ -3559,6 +3610,7 @@ const ProductEdit = () => {
                     <TableCell>
                       <NumberField
                         value={row.redeemRate}
+                        fallback=""
                         onCommit={(n) => {
                           const newRows = [...formData.loyaltyRows];
                           newRows[index].redeemRate = n;

@@ -154,7 +154,7 @@ const CreateProductWizard = () => {
     // Ref: no silent default — skipping the case-quantity step leaves it empty and
     // the editor's required-field validation catches it at save.
     caseQuantity: '',
-    prices: [{ quantity: '1', price: '0' }],
+    prices: [{ quantity: '1', price: '' }],
   });
 
   // Available options
@@ -311,10 +311,14 @@ const CreateProductWizard = () => {
         caseQuantity: formData.caseQuantity === ''
           ? ''
           : Math.max(1, parseInt(formData.caseQuantity, 10) || 1),
-        prices: formData.prices.map((p) => ({
-          quantity: Math.max(1, parseInt(p.quantity, 10) || 1),
-          price: parseFloat(p.price) || 0,
-        })),
+        // A price left blank is not a price point (no silent $0.00); the product
+        // page then starts with an empty Prices table and asks for one on save.
+        prices: formData.prices
+          .filter((p) => String(p.price ?? '').trim() !== '')
+          .map((p) => ({
+            quantity: Math.max(1, parseInt(p.quantity, 10) || 1),
+            price: parseFloat(p.price) || 0,
+          })),
         // Add default values for required fields
         type: 'Normal Product',
         status: 'Active',
@@ -377,7 +381,7 @@ const CreateProductWizard = () => {
   const addPriceRow = () => {
     setFormData(prev => ({
       ...prev,
-      prices: [...prev.prices, { quantity: '1', price: '0' }]
+      prices: [...prev.prices, { quantity: '1', price: '' }]
     }));
   };
 

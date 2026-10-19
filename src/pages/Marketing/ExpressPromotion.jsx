@@ -75,6 +75,9 @@ const parseDisplayDate = (value) => {
 // payload goes through this, so a 10% discount on $6.50 is 0.65, never
 // 0.6499999999999995.
 const roundCents = (n) => Math.round((Number(n) || 0) * 100) / 100;
+// Read-only figures: nothing (0) shows blank, not "$0.00" / "0.00%" (user 19/10/2026).
+const moneyOrBlank = (n) => (Math.round((Number(n) || 0) * 100) === 0 ? '' : `$${(Number(n) || 0).toFixed(2)}`);
+const pctOrBlank = (n) => (Math.round((Number(n) || 0) * 100) === 0 ? '' : `${(Number(n) || 0).toFixed(2)}%`);
 
 const ExpressPromotion = () => {
   const navigate = useNavigate();
@@ -356,10 +359,11 @@ const ExpressPromotion = () => {
       unitNormal,
       cost: unitCost,
       normalPrice: unitNormal,
-      promoPrice: 0,
-      rebate: 0,
+      // Typed figures start blank, not 0 (user 19/10/2026); saved as 0 if left blank.
+      promoPrice: '',
+      rebate: '',
       rebatePercentage: 0,
-      discountPercentage: 0
+      discountPercentage: ''
     };
   };
 
@@ -801,15 +805,16 @@ const ExpressPromotion = () => {
                         quantity (see fetchPromotion + handleUpdateItem); multiplying by the
                         quantity again showed $45 for 3 x $5. */}
                     <TableCell>
-                      <Typography variant="body2">${(item.cost || 0).toFixed(2)}</Typography>
+                      <Typography variant="body2">{moneyOrBlank(item.cost)}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">${(item.normalPrice || 0).toFixed(2)}</Typography>
+                      <Typography variant="body2">{moneyOrBlank(item.normalPrice)}</Typography>
                     </TableCell>
                     {formData.promotionType === 'Discount Percentage' && (
                       <TableCell>
                         <NumberField
-                          value={item.discountPercentage || 0}
+                          value={item.discountPercentage ?? ''}
+                          fallback=""
                           onCommit={(n) => handleUpdateItem(index, 'discountPercentage', n)}
                           size="small"
                           InputProps={{
@@ -821,10 +826,11 @@ const ExpressPromotion = () => {
                     )}
                     <TableCell>
                       {formData.promotionType === 'Discount Percentage' ? (
-                        <Typography variant="body2">${(item.promoPrice || 0).toFixed(2)}</Typography>
+                        <Typography variant="body2">{moneyOrBlank(item.promoPrice)}</Typography>
                       ) : (
                         <NumberField
-                          value={roundCents(item.promoPrice)}
+                          value={item.promoPrice === '' ? '' : roundCents(item.promoPrice)}
+                          fallback=""
                           onCommit={(totalPromoPrice) => handleUpdateItem(index, 'promoPrice', totalPromoPrice)}
                           size="small"
                           InputProps={{
@@ -837,7 +843,8 @@ const ExpressPromotion = () => {
                     </TableCell>
                     <TableCell>
                       <NumberField
-                        value={roundCents(item.rebate)}
+                        value={item.rebate === '' ? '' : roundCents(item.rebate)}
+                        fallback=""
                         onCommit={(n) => handleUpdateItem(index, 'rebate', n)}
                         size="small"
                         InputProps={{
@@ -856,7 +863,7 @@ const ExpressPromotion = () => {
                           fontWeight: 'bold'
                         }}
                       >
-                        {(item.rebatePercentage || 0).toFixed(2)}%
+                        {pctOrBlank(item.rebatePercentage)}
                       </Typography>
                     </TableCell>
                     <TableCell>

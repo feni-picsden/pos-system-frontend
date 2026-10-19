@@ -671,6 +671,14 @@ const PromotionDetails = () => {
     setExpandedCriteria(prev => ({ ...prev, [criterionId]: false }));
   };
 
+  // A purchase/receive box cleared by the operator shows blank again (held as 0),
+  // instead of NumberField's blur fallback snapping it to "0".
+  const commitCriterionValue = (criterionId, field, n) => {
+    if (n !== '') return handleUpdateCriterion(criterionId, field, n);
+    handleUpdateCriterion(criterionId, field, 0);
+    setBlankFields(prev => ({ ...prev, [criterionId]: { ...prev[criterionId], [field]: true } }));
+  };
+
   const handleUpdateCriterion = (criterionId, field, value) => {
     if (blankFields[criterionId]?.[field]) {
       setBlankFields(prev => ({ ...prev, [criterionId]: { ...prev[criterionId], [field]: false } }));
@@ -703,7 +711,8 @@ const PromotionDetails = () => {
       originalPrice: baseTier?.price || 0,
       pricingTiers: product.prices || [],
       cost: productCost,
-      rebateAmount: 0,
+      // Starts blank, not "0" (user 19/10/2026); a blank rebate saves as 0.
+      rebateAmount: '',
       rebatePercentage: 0,
       excluded: false
     };
@@ -1810,7 +1819,8 @@ const PromotionDetails = () => {
           <NumberField
                             size="small"
                             value={blankFields[criterion.id]?.purchaseValue ? '' : criterion.purchaseValue}
-                            onCommit={(n) => handleUpdateCriterion(criterion.id, 'purchaseValue', n)}
+                            fallback=""
+                            onCommit={(n) => commitCriterionValue(criterion.id, 'purchaseValue', n)}
                             sx={{ width: 80 }}
                             InputProps={{
                               startAdornment: criterion.purchaseType === 'spend' ? (
@@ -1855,7 +1865,8 @@ const PromotionDetails = () => {
                             <NumberField
                               size="small"
                               value={blankFields[criterion.id]?.receiveValue ? '' : criterion.receiveValue}
-                              onCommit={(n) => handleUpdateCriterion(criterion.id, 'receiveValue', n)}
+                              fallback=""
+                              onCommit={(n) => commitCriterionValue(criterion.id, 'receiveValue', n)}
                               sx={{ width: 100 }}
             InputProps={{
                                 // Reference: "$" before the amount, "%" after the percentage.
