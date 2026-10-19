@@ -543,6 +543,16 @@ const SalesHistory = () => {
     navigate("/", { state: { returnSaleNumber: sale?.saleNumber } });
   };
 
+  // Cancelled sale -> sell screen with its items loaded as a new sale (reference
+  // "Reload Sale"). The cancelled sale itself is not touched.
+  const handleReloadSale = (sale) => {
+    if (!selectedRegister?.id) {
+      notify("You must be in a register location to reload a sale", "warning");
+      return;
+    }
+    navigate("/", { state: { reloadSaleId: sale?.id } });
+  };
+
   const handleCloseEmailModal = () => {
     setShowEmailModal(false);
   };
@@ -998,7 +1008,11 @@ const SalesHistory = () => {
                               >
                                 ✕ Close
                               </Button>
-                              {[
+                              {/* Reference (checked 19/10/2026): a cancelled sale offers only
+                                  Reload Sale - its items go back onto the sell screen as a new sale. */}
+                              {((selectedSale?.id === sale.id ? selectedSale : sale).status === "CANCELLED" ? [
+                                ["Reload Sale", () => handleReloadSale((selectedSale?.id === sale.id ? selectedSale : sale)), true],
+                              ] : [
                                 ["Reprint Receipt", () => handleReprintReceipt((selectedSale?.id === sale.id ? selectedSale : sale)), true],
                                 ["Email Receipt", () => handleEmailReceipt((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("reports.sales")],
                                 ["Modify Details", () => handleModifyDetails((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("history_modify_sale")],
@@ -1009,7 +1023,14 @@ const SalesHistory = () => {
                                     setAssignCustomerId((selectedSale?.id === sale.id ? selectedSale : sale).customerId || "");
                                     setAssignCustomerOpen(true);
                                   },
-                                  hasPermission("history_modify_sale"),
+                                  // Reference (checked 19/10/2026): only on a paid-in-full sale
+                                  // with no customer - hidden once a customer is attached, while
+                                  // the sale still owes money (On Account), and on cancelled/parked.
+                                  hasPermission("history_modify_sale") && (() => {
+                                    const s = selectedSale?.id === sale.id ? selectedSale : sale;
+                                    return s.status !== "CANCELLED" && s.status !== "PARKED"
+                                      && !s.customerId && !s.customer && saleOutstanding(s) <= 0;
+                                  })(),
                                 ],
                                 ["Return Items", () => handleReturnItems((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("refund")],
                                 ...((selectedSale?.id === sale.id ? selectedSale : sale).status !== "CANCELLED"
@@ -1025,7 +1046,7 @@ const SalesHistory = () => {
                                       ],
                                     ]
                                   : []),
-                              ].filter(([, , allowed]) => allowed).map(([label, onClick]) => (
+                              ]).filter(([, , allowed]) => allowed).map(([label, onClick]) => (
                                 <Button
                                   key={label}
                                   disableElevation

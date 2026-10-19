@@ -501,6 +501,17 @@ const SaleKeyPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routerLocation.state]);
 
+  // Sales History "Reload Sale" (cancelled sale) lands here with the sale id.
+  const reloadDoneRef = useRef(false);
+  useEffect(() => {
+    const saleId = routerLocation.state?.reloadSaleId;
+    if (!saleId || reloadDoneRef.current) return;
+    reloadDoneRef.current = true;
+    navigate(routerLocation.pathname, { replace: true, state: {} });
+    reloadCancelledSale(saleId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routerLocation.state]);
+
   // Every page reads the active outlet from SelectedOutletContext. Keeping a
   // second copy here is what made the location selector look like a no-op: it
   // only moved this component's state and wrote localStorage directly, so
@@ -2318,6 +2329,64 @@ const SaleKeyPage = () => {
     if (searchRef.current) {
       const inputElement = searchRef.current.querySelector('input');
       if (inputElement) inputElement.focus();
+    }
+  };
+
+  // Reference "Reload Sale": a cancelled sale's lines go back into the cart as a
+  // NEW sale - same products, quantities, case/unit and the prices charged - and
+  // its customer is re-attached. Nothing is saved until the cashier finalises.
+  const reloadCancelledSale = async (saleId) => {
+    try {
+      const ok = await ensureRegisterControl();
+      if (!ok) return false;
+      const detail = await salesService.getSaleById(saleId);
+      const sale = detail?.sale || detail;
+      const items = (sale?.items || []).filter((it) => (parseFloat(it.quantity) || 0) !== 0);
+      if (!sale || items.length === 0) { alert('This sale has no items to reload.'); return false; }
+      const ts = Date.now();
+      setCart((prev) => [...prev, ...items.map((it, i) => {
+        // A cancelled RETURN reloads as a return (negative line), a sale as a sale.
+        const sign = (parseFloat(it.quantity) || 0) < 0 ? -1 : 1;
+        const qty = Math.abs(parseFloat(it.quantity) || 1);
+        const lineTotal = Math.abs(parseFloat(it.totalPrice) || 0);
+        const product = it.productId ? resolveProductLocal(it.productId, it.productName) : null;
+        return {
+          id: `reload-${sale.id}-${it.id ?? i}-${ts}`,
+          productId: it.productId || null,
+          name: it.productName || product?.name,
+          price: sign * lineTotal,
+          normalPrice: sign * (product ? calculateNormalPriceForQuantity(product, qty) : lineTotal),
+          ...(sign < 0 ? { priceLocked: true, lockedUnitPrice: qty > 0 ? lineTotal / qty : 0 } : {}),
+          unitCost: getUnitCost(product, qty > 0 ? lineTotal / qty : 0),
+          retailTaxRate: product?.retailTaxRate || null,
+          taxPercent: getTaxRatePercent(product?.retailTaxRate),
+          caseQuantity: getItemsPerCase(product),
+          isCase: !!it.isCase,
+          familyColor: product?.family?.color || null,
+          quantity: sign * qty,
+          timestamp: ts + i,
+          action: sign < 0 ? 'return-item' : 'add-product',
+        };
+      })]);
+      setSelectedCartItem(null);
+      const customerId = sale.customerId || sale.customer?.id;
+      if (customerId && !selectedCustomer) {
+        const cached = posLocalDb.getCustomerById(customerId);
+        if (cached) setSelectedCustomer(cached);
+        else {
+          try {
+            const full = await customerService.getCustomer(customerId);
+            setSelectedCustomer(full.customer || full);
+          } catch {
+            if (sale.customer) setSelectedCustomer(sale.customer);
+          }
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Error reloading sale:', error);
+      alert('Failed to reload that sale. Please try again.');
+      return false;
     }
   };
 
