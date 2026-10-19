@@ -2069,6 +2069,16 @@ const SaleKeyPage = () => {
   // control stopped the add (a dialog is shown), false for an unusable product.
   // `addQuantity` lets barcode pack sizes (e.g. a "12 x Milk" carton code) add
   // more than 1 unit; ignored for promotion items which carry their own quantity.
+  // The quantity of a product's smallest own price point (price-set rows are not
+  // its ladder); 1 when it has a single-unit price or no prices at all.
+  const smallestPriceTierQty = (product) => {
+    const tierQtys = (product?.prices || [])
+      .filter((p) => !p.priceSetId)
+      .map((p) => parseInt(p.quantity, 10))
+      .filter((q) => q > 0);
+    return tierQtys.length ? Math.min(...tierQtys) : 1;
+  };
+
   const handleAddProductFromSearch = async (productOrPromotionItem, addQuantity = 1) => {
     const ok = await ensureRegisterControl();
     if (!ok) return 'blocked';
@@ -2100,6 +2110,20 @@ const SaleKeyPage = () => {
       promotionQuantity = getItemsPerCase(product);
       asCase = true;
       setUseCaseQuantity(false);
+    }
+
+    // Reference (measured 19/10/2026): a product with no single-unit price starts
+    // at its SMALLEST price point - "12 for $125.15" (case of 12) adds 1 Case
+    // (12) at $125.15, "6 for $60" adds 6 items at $60. It used to add 1 unit at
+    // a pro-rated $10.43, selling a single the product has no price for. Only the
+    // first add changes; the cashier can still set the quantity to 1 afterwards
+    // (reference allows it). Price-set rows are not the product's own ladder.
+    if (!asCase && !isPromotionItem && promotionQuantity === 1) {
+      const smallestTier = smallestPriceTierQty(product);
+      if (smallestTier > 1) {
+        promotionQuantity = smallestTier;
+        asCase = smallestTier === getItemsPerCase(product);
+      }
     }
 
     // Product-level Request Quantity / Request Price (Stock > product > Sell &
@@ -3091,6 +3115,17 @@ const SaleKeyPage = () => {
             resolvedQuantity *= getItemsPerCase(latestProduct);
             asCase = getItemsPerCase(latestProduct) > 1;
             setUseCaseQuantity(false);
+          }
+
+          // Same rule as handleAddProductFromSearch: a product with no single-unit
+          // price starts at its smallest price point (a case of 12 priced only
+          // "12 for $125.15" adds 1 Case). A key with its own quantity is left alone.
+          if (!asCase && resolvedQuantity === 1 && !saleKey?.requestQuantity) {
+            const smallestTier = smallestPriceTierQty(latestProduct);
+            if (smallestTier > 1) {
+              resolvedQuantity = smallestTier;
+              asCase = smallestTier === getItemsPerCase(latestProduct);
+            }
           }
 
           // Product-level Request Quantity / Request Price also apply when the
