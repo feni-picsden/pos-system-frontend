@@ -790,7 +790,7 @@ const GeneralSettings = () => {
   const searchOptions = useMemo(() => [
     ...COMPANY_SECTIONS.flatMap((section) =>
       section.fields
-        .filter((f) => f.label)
+        .filter((f) => f.label && !f.hidden)
         .map((f) => ({ label: f.label, tab: 'Company', tabIndex: 0 }))),
     ...LOCAL_TAB_FIELDS.map((f) => ({ label: f.fieldLabel, tab: f.tab, tabIndex: f.tabIndex }))
   ], []);
@@ -1521,7 +1521,7 @@ const GeneralSettings = () => {
           label={section.label}
           flash={flashSection === section.key}
         >
-          {section.fields.map(renderCompanyField)}
+          {section.fields.filter((f) => !f.hidden).map(renderCompanyField)}
         </SettingsSection>
       ))}
 

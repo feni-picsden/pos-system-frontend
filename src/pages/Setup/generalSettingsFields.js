@@ -126,6 +126,8 @@ export const COMPANY_SECTIONS = [
       },
       {
         key: 'useComponentsAndPackages',
+        // Hidden (user 19/10/2026): stored but nothing in the app reads it yet.
+        hidden: true,
         label: 'Use Components and Packages',
         type: 'toggle',
         description: 'Determine whether Components and Packages can be used.',
@@ -136,6 +138,8 @@ export const COMPANY_SECTIONS = [
       },
       {
         key: 'productsCanHaveWeight',
+        // Hidden (user 19/10/2026): stored but nothing in the app reads it yet.
+        hidden: true,
         label: 'Products Can Have Weight',
         type: 'toggle',
         description: 'Determines whether products can be sold as weight instead of individual items.',
