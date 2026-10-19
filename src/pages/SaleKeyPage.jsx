@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import PageLoader from '../components/Common/PageLoader';
 import {
@@ -564,6 +564,29 @@ const SaleKeyPage = () => {
   const [parkedSales, setParkedSales] = useState([]);
   const [parkedSalesLoading, setParkedSalesLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('sales-keys'); // 'sales-keys' or 'parked-sales'
+  // One underline bar for the bottom tab strip that SLIDES to the picked tab
+  // (user 19/10/2026) instead of jumping: measured from the active tab button.
+  const tabStripRef = useRef(null);
+  const [tabBar, setTabBar] = useState(null);
+  useLayoutEffect(() => {
+    // Runs after every render (the strip mounts/unmounts with the search and
+    // promotion views), so it only sets state when the bar actually moved.
+    const put = (next) => setTabBar((prev) => (
+      (prev === null && next === null) || (prev && next && prev.left === next.left && prev.width === next.width) ? prev : next
+    ));
+    const strip = tabStripRef.current;
+    if (!strip) { put(null); return undefined; }
+    const measure = () => {
+      const btn = strip.querySelector(`[data-tab="${activeTab}"]`);
+      if (!btn) { put(null); return; }
+      const width = Math.min(312, btn.offsetWidth);
+      put({ left: btn.offsetLeft + (btn.offsetWidth - width) / 2, width });
+    };
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(strip);
+    return () => ro?.disconnect();
+  });
   const [currentParkedSaleId, setCurrentParkedSaleId] = useState(restoredSale.parkedSaleId ?? null); // Track if current cart is from a resumed parked sale
 
   // Persist the WHOLE open sale on every change — cart plus the payments,
@@ -8587,7 +8610,17 @@ const SaleKeyPage = () => {
               is marked by a blue underline bar — the tabs themselves are borderless.
               order:5 pushes this below the content area (which flexes to fill). */}
           {!showPromotionView && !showClassificationView && !isCustomerSearchMode && !searchResultsVisible && !componentsPaneVisible && (
-          <Box sx={{ order: 5, mt: 'auto', flexShrink: 0, height: 50, bgcolor: 'transparent', display: 'flex' }}>
+          <Box ref={tabStripRef} sx={{ order: 5, mt: 'auto', flexShrink: 0, height: 50, bgcolor: 'transparent', display: 'flex', position: 'relative' }}>
+            {tabBar && (
+              <Box
+                aria-hidden
+                sx={{
+                  position: 'absolute', bottom: 0, height: '6px', bgcolor: 'rgb(28,134,242)', zIndex: 1, pointerEvents: 'none',
+                  left: tabBar.left, width: tabBar.width,
+                  transition: 'left 250ms ease, width 250ms ease',
+                }}
+              />
+            )}
             {[
               { v: 'sales-keys', label: 'Sales Keys', icon: <KeyboardOutlinedIcon sx={{ fontSize: 24 }} /> },
               { v: 'parked-sales', label: 'Parked Sales', icon: <LocalParkingOutlinedIcon sx={{ fontSize: 24 }} /> },
@@ -8598,6 +8631,7 @@ const SaleKeyPage = () => {
                 key={t.v}
                 component="button"
                 type="button"
+                data-tab={t.v}
                 onClick={() => setActiveTab(t.v)}
                 sx={{
                   // Content-sized tabs sharing the spare width equally (reference
@@ -8623,17 +8657,8 @@ const SaleKeyPage = () => {
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   color: activeTab === t.v ? 'rgb(28,134,242)' : '#000',
-                  // Selected tab is marked by an underline bar under the strip.
-                  '&::after': activeTab === t.v ? {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: 0,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: 'min(312px, 100%)',
-                    height: '6px',
-                    bgcolor: 'rgb(28,134,242)',
-                  } : undefined,
+                  transition: 'color 250ms ease',
+                  // Selected tab is marked by the shared sliding bar above (tabBar).
                 }}
               >
                 {t.icon}

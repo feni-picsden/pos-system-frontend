@@ -147,7 +147,8 @@ const LocationSelectorDialog = () => {
           </Box>
         )}
         <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
-          Register Selector
+          {/* Step 1 picks the outlet, step 2 the register (user 19/10/2026). */}
+          {locationStep === 'register' ? 'Register Selector' : 'Outlet Selector'}
         </Typography>
         <Typography sx={{ fontSize: 16, fontWeight: 400, mb: '16px' }}>
           Please select which location best describes where your device is located.
