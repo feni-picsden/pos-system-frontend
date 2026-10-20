@@ -496,6 +496,8 @@ const menuItems = [
         icon: <ExtensionOutlined />,
         path: "/settings/integrations",
         permissions: ["modify_integrations"],
+        // Hidden for now (user 20/10/2026: sample data only) - kept, route still works.
+        hidden: true,
       },
       {
         id: "push-notifications",
@@ -538,6 +540,8 @@ const menuItems = [
         icon: <StorageOutlined />,
         path: "/settings/master-database-products",
         permissions: ["products.add"],
+        // Hidden for now (user 20/10/2026) - kept, route still works.
+        hidden: true,
       },
       {
         id: "enterprise-policies",
@@ -545,6 +549,8 @@ const menuItems = [
         icon: <AccountTreeOutlined />,
         path: "/enterprise",
         permissions: ["settings.view"],
+        // Hidden for now (user 20/10/2026) - kept, route still works.
+        hidden: true,
       },
     ],
   },
@@ -679,6 +685,9 @@ const Sidebar = ({ onClick }) => {
   };
 
   const shouldShowMenuItem = (item) => {
+    // Pages hidden for now (`hidden: true` on the menu item) - not removed.
+    if (item.hidden) return false;
+
     if (item.id === 'outlets') {
       return isTrueSuperAdmin;
     }
@@ -880,7 +889,8 @@ export const APP_PAGES = menuItems.flatMap((item) => {
     return item.path ? [{ id: item.id, label: item.title, title: item.title, path: item.path, permissions: item.permissions || [] }] : [];
   }
   return children
-    .filter((child) => child.path)
+    // Hidden pages stay out of the Quick Menu "Page" picker too.
+    .filter((child) => child.path && !child.hidden)
     .map((child) => ({
       id: child.id,
       label: `${item.title} > ${child.title}`,
