@@ -21,6 +21,7 @@ import {
 import promotionCategoryService from '../../services/promotionCategoryService';
 import ShopfrontSwitch from '../Common/ShopfrontSwitch';
 import { useAuth } from '../../contexts/AuthContext';
+import useHeaderScope from '../../hooks/useHeaderScope';
 
 // System input styling: #404040 1px outline, radius 8px, focused #000 2px
 const INPUT_SX = {
@@ -46,6 +47,10 @@ const MenuProps = {
 
 const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = null, mode = 'create' }) => {
   const { user, isTrueSuperAdmin } = useAuth();
+  // Header outlet rule: with an outlet picked in the header the category belongs to
+  // that outlet, so the in-form outlet pickers are hidden (shown on All Outlets).
+  const { showOutletFilter, headerOutletId } = useHeaderScope();
+  const scopedOutletId = headerOutletId ?? user?.outletId ?? null;
   const isEditMode = mode === 'edit' && promotionCategory;
 
   const [formData, setFormData] = useState({
@@ -141,7 +146,11 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
         promotionSource: formData.promotionSource.trim() || null,
         showOnOrder: formData.showOnOrder,
         includeInIntegrations: formData.includeInIntegrations,
-        outletIds: formData.outletIds.length > 0 ? formData.outletIds.map(id => parseInt(id)) : null,
+        // Picker hidden (header outlet): a new category's promotions go to that
+        // outlet; an edited one keeps the outlets it already had.
+        outletIds: !showOutletFilter && !isEditMode && scopedOutletId
+          ? [parseInt(scopedOutletId)]
+          : (formData.outletIds.length > 0 ? formData.outletIds.map(id => parseInt(id)) : null),
         isActive: formData.isActive,
         outletId: formData.outletId || null,
       };
@@ -256,8 +265,8 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
             <MenuItem value="Top Shelf">Top Shelf</MenuItem>
           </TextField>
 
-          {/* Outlet Selection - Only for Super Admin */}
-          {isTrueSuperAdmin() && (
+          {/* Outlet Selection - Only for Super Admin, and only on All Outlets */}
+          {isTrueSuperAdmin() && showOutletFilter && (
             <TextField
               select
               label="Outlet"
@@ -278,13 +287,14 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
           )}
 
           {/* Current outlet info for non-super admin */}
-          {!isTrueSuperAdmin() && user?.outletId && (
+          {!showOutletFilter && scopedOutletId && (
             <Typography variant="body2" color="text.secondary">
               This promotion category will be created for your current outlet.
             </Typography>
           )}
 
-          {/* Outlets to receive promotions */}
+          {/* Outlets to receive promotions - All Outlets only (header outlet rule) */}
+          {showOutletFilter && (
           <FormControl fullWidth sx={INPUT_SX}>
             <InputLabel>Outlets to receive promotions</InputLabel>
             <Select
@@ -315,6 +325,7 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
               ))}
             </Select>
           </FormControl>
+          )}
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <FormControlLabel
