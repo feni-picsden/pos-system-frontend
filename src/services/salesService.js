@@ -142,7 +142,7 @@ const salesService = {
     try {
       const response = await apiClient.put(`/sales/${saleId}`, {
         status: 'CANCELLED',
-        notes: cancelData.notes
+        cancelReason: cancelData.cancelReason
       });
       return response.data;
     } catch (error) {

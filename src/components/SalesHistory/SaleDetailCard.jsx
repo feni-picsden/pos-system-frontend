@@ -183,7 +183,7 @@ const SaleDetailCard = ({
             <SplitPrice value={sale.totalAmount} />
           </Box>
           <Box sx={cell}>
-            #{settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || sale.saleNumber}
+            #{settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || String(sale.saleNumber || "").replace(/^#/, "")}
           </Box>
           {/* Reference: the sale's customer sits under the invoice number
               (ref screenshots 14/10/2026: "Buangor Community Sports Centre"). */}
@@ -269,12 +269,18 @@ const SaleDetailCard = ({
       <Box sx={{ gridColumn: "1", display: "flex", flexDirection: "column" }}>
         {/* Reference: the sale note sits above the lines as a small grey
             "SALE NOTE" label over the text (ref screenshots 14/10/2026). */}
-        {sale.notes && String(sale.notes).trim() && (
-          <Box sx={{ mb: "16px" }}>
-            <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#757575", lineHeight: "13px" }}>SALE NOTE</Box>
-            <Box sx={{ ...cell, whiteSpace: "pre-wrap" }}>{sale.notes}</Box>
+        {/* Cancelled sale: reference "CANCELLATION REASON" block. Sales cancelled
+            before the reason had its own field carried it in the note (the cancel
+            overwrote the note), so that note reads as the reason. */}
+        {[
+          ["CANCELLATION REASON", cancelled ? sale.cancelReason || sale.notes : null],
+          ["SALE NOTE", cancelled && !sale.cancelReason ? null : sale.notes],
+        ].filter(([, text]) => text && String(text).trim()).map(([label, text]) => (
+          <Box key={label} sx={{ mb: "16px" }}>
+            <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#757575", lineHeight: "13px" }}>{label}</Box>
+            <Box sx={{ ...cell, whiteSpace: "pre-wrap" }}>{text}</Box>
           </Box>
-        )}
+        ))}
         <Box>
           {sale.items?.map((item, index) => {
             // A line sold as a case reads "1 Case <name>" (reference); the case
@@ -348,6 +354,10 @@ const SaleDetailCard = ({
                   >
                     {paymentLabel(p)}
                   </Box>
+                ) : cancelled ? (
+                  // Reference: a cancelled sale lists its tenders as "Cancelled Cash",
+                  // "Cancelled Cash (Change)".
+                  `Cancelled ${paymentLabel(p)}`
                 ) : (
                   paymentLabel(p)
                 )}
@@ -386,7 +396,9 @@ const SaleDetailCard = ({
         >
           <Box sx={{ flex: 1, textAlign: "right", mr: "16px" }}>Balance</Box>
           <Box>
-            <SplitPrice value={incomplete ? owed : sale.balance} />
+            {/* Reference: a cancelled sale's Balance is its total (nothing was
+                kept), e.g. #001455 $12.00 with "Cancelled Cash $12.00". */}
+            <SplitPrice value={incomplete ? owed : cancelled ? sale.totalAmount : sale.balance} />
           </Box>
         </Box>
       </Box>

@@ -312,6 +312,7 @@ const SaleKeyPage = () => {
   const [scanNotFound, setScanNotFound] = useState(null); // barcode string that failed lookup
   const [saleWarning, setSaleWarning] = useState(null); // warning toast text (reference-style guards)
   const [saleSuccess, setSaleSuccess] = useState(null); // green confirmation toast text
+  const [saleInfo, setSaleInfo] = useState(null); // blue info toast text
   const [barcodeChoices, setBarcodeChoices] = useState(null); // { code, products } when a scan matches 2+ products
   // "Associate an unknown barcode" flow, three steps:
   //  1. scanNotFound       — the code missed; offer to bind it to a product
@@ -498,6 +499,31 @@ const SaleKeyPage = () => {
     // Clear the state so a refresh doesn't re-trigger the recall prompt.
     navigate(routerLocation.pathname, { replace: true, state: {} });
     recallSaleAsReturn(String(num));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routerLocation.state]);
+
+  // Sales History "Continue Sale" (parked sale) lands here with the sale id: the
+  // same load as the Parked Sales list's resume (reference "Load Sale").
+  const continueDoneRef = useRef(false);
+  useEffect(() => {
+    const saleId = routerLocation.state?.continueParkedSaleId;
+    if (!saleId || continueDoneRef.current) return;
+    continueDoneRef.current = true;
+    navigate(routerLocation.pathname, { replace: true, state: {} });
+    (async () => {
+      try {
+        const detail = await salesService.getSaleById(saleId);
+        const sale = detail?.sale || detail;
+        if (!sale || sale.status !== 'PARKED') {
+          alert('This sale is no longer parked.');
+          return;
+        }
+        await resumeParkedSale(sale);
+      } catch (error) {
+        console.error('Error continuing parked sale:', error);
+        alert('Failed to resume parked sale. Please try again.');
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routerLocation.state]);
 
@@ -2341,8 +2367,9 @@ const SaleKeyPage = () => {
       if (!ok) return false;
       const detail = await salesService.getSaleById(saleId);
       const sale = detail?.sale || detail;
-      const items = (sale?.items || []).filter((it) => (parseFloat(it.quantity) || 0) !== 0);
-      if (!sale || items.length === 0) { alert('This sale has no items to reload.'); return false; }
+      // Reference: a sale with no lines still reloads - its customer comes back.
+      if (!sale) { alert('Failed to reload that sale. Please try again.'); return false; }
+      const items = (sale.items || []).filter((it) => (parseFloat(it.quantity) || 0) !== 0);
       const ts = Date.now();
       setCart((prev) => [...prev, ...items.map((it, i) => {
         // A cancelled RETURN reloads as a return (negative line), a sale as a sale.
@@ -2350,14 +2377,20 @@ const SaleKeyPage = () => {
         const qty = Math.abs(parseFloat(it.quantity) || 1);
         const lineTotal = Math.abs(parseFloat(it.totalPrice) || 0);
         const product = it.productId ? resolveProductLocal(it.productId, it.productName) : null;
+        // A sold line reloads at TODAY's price (user 20/10/2026: Reload Sale uses the
+        // live price, not the price on the cancelled sale). A returned line keeps the
+        // amount that was refunded, locked like every return. A line whose product
+        // is no longer in the catalog keeps its old amount.
+        const livePrice = sign > 0 && product ? calculatePriceForQuantity(product, qty) : NaN;
+        const linePrice = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : lineTotal;
         return {
           id: `reload-${sale.id}-${it.id ?? i}-${ts}`,
           productId: it.productId || null,
           name: it.productName || product?.name,
-          price: sign * lineTotal,
-          normalPrice: sign * (product ? calculateNormalPriceForQuantity(product, qty) : lineTotal),
+          price: sign * linePrice,
+          normalPrice: sign * (product ? calculateNormalPriceForQuantity(product, qty) : linePrice),
           ...(sign < 0 ? { priceLocked: true, lockedUnitPrice: qty > 0 ? lineTotal / qty : 0 } : {}),
-          unitCost: getUnitCost(product, qty > 0 ? lineTotal / qty : 0),
+          unitCost: getUnitCost(product, qty > 0 ? linePrice / qty : 0),
           retailTaxRate: product?.retailTaxRate || null,
           taxPercent: getTaxRatePercent(product?.retailTaxRate),
           caseQuantity: getItemsPerCase(product),
@@ -2382,6 +2415,7 @@ const SaleKeyPage = () => {
           }
         }
       }
+      setSaleInfo('Invoice reloaded successfully');
       return true;
     } catch (error) {
       console.error('Error reloading sale:', error);
@@ -4991,7 +5025,15 @@ const SaleKeyPage = () => {
           ? resolveProductLocal(item.productId, item.productName)
           : null;
         const qty = parseFloat(item.quantity) || 1;
+        const lineTotal = parseFloat(item.totalPrice) || 0;
         return {
+          // Reference (measured live 20/10/2026): a loaded parked sale keeps the
+          // prices it was parked at - each line shows the padlock, a quantity
+          // change stays at the parked unit price ($5 x 3 = $15 after the product
+          // went to $6), and clicking the padlock re-prices at today's price.
+          ...(item.productId && qty !== 0
+            ? { priceLocked: true, lockedUnitPrice: Math.abs(lineTotal / qty) }
+            : {}),
           id: `resumed-${item.id}`,
           // Keep the real productId - the completion PUT posts these lines back
           // and stock matching by name alone hits wrong-outlet duplicates.
@@ -10436,6 +10478,19 @@ const SaleKeyPage = () => {
       >
         <Alert severity="success" variant="filled" onClose={() => setSaleSuccess(null)}>
           {saleSuccess}
+        </Alert>
+      </Snackbar>
+
+      {/* Info toast - reference "Invoice reloaded successfully" (light blue, top). */}
+      <Snackbar
+        key={saleInfo || 'sale-info'}
+        open={!!saleInfo}
+        autoHideDuration={4000}
+        onClose={() => setSaleInfo(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="info" onClose={() => setSaleInfo(null)}>
+          {saleInfo}
         </Alert>
       </Snackbar>
 

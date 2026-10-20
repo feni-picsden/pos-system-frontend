@@ -474,7 +474,7 @@ const SalesHistory = () => {
     setActionBusy(true);
     try {
       const response = await salesService.cancelSale(selectedSale.id, {
-        notes: cancelReason,
+        cancelReason,
       });
       applySaleUpdate(response?.sale);
       setCancelStep(null);
@@ -551,6 +551,16 @@ const SalesHistory = () => {
       return;
     }
     navigate("/", { state: { reloadSaleId: sale?.id } });
+  };
+
+  // Parked sale -> sell screen with that sale loaded (reference "Continue Sale",
+  // the Parked Sales list's "Load Sale").
+  const handleContinueSale = (sale) => {
+    if (!selectedRegister?.id) {
+      notify("You must be in a register location to continue a sale", "warning");
+      return;
+    }
+    navigate("/", { state: { continueParkedSaleId: sale?.id } });
   };
 
   const handleCloseEmailModal = () => {
@@ -932,7 +942,7 @@ const SalesHistory = () => {
                             {/* Invoice number, zero-padded to the configured
                                 length; falls back to the sale number. */}
                             <Box sx={{ fontSize: "13.44px", lineHeight: "16px" }}>
-                              #{settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || sale.saleNumber}
+                              #{settingsService.padInvoice(sale.invoiceNumber, sale.invoiceSuffix) || String(sale.saleNumber || "").replace(/^#/, "")}
                             </Box>
                           </Box>
 
@@ -946,8 +956,10 @@ const SalesHistory = () => {
                               <Box>{sale.user?.name || "Unknown User"}</Box>
                             </Box>
                             {/* Reference: a sale note shows in the row's spare middle
-                                space under a small grey "SALE NOTE" label. */}
-                            {sale.notes && String(sale.notes).trim() && (
+                                space under a small grey "SALE NOTE" label. A sale cancelled
+                                before cancelReason existed carries its cancel reason in the
+                                note - that is not a sale note (reference lists no reason). */}
+                            {sale.notes && String(sale.notes).trim() && !(sale.status === "CANCELLED" && !sale.cancelReason) && (
                               <Box sx={{ flex: 1, minWidth: 0, pl: 4 }}>
                                 <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#757575", lineHeight: "13px" }}>SALE NOTE</Box>
                                 <Box sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sale.notes}</Box>
@@ -1010,8 +1022,16 @@ const SalesHistory = () => {
                               </Button>
                               {/* Reference (checked 19/10/2026): a cancelled sale offers only
                                   Reload Sale - its items go back onto the sell screen as a new sale. */}
+                              {/* Reference (checked 20/10/2026, 3 parked sales, with and without
+                                  a customer): a parked sale offers Reprint / Email / Modify /
+                                  Continue Sale - no Return Items, Cancel Sale or Assign Customer. */}
                               {((selectedSale?.id === sale.id ? selectedSale : sale).status === "CANCELLED" ? [
                                 ["Reload Sale", () => handleReloadSale((selectedSale?.id === sale.id ? selectedSale : sale)), true],
+                              ] : (selectedSale?.id === sale.id ? selectedSale : sale).status === "PARKED" ? [
+                                ["Reprint Receipt", () => handleReprintReceipt((selectedSale?.id === sale.id ? selectedSale : sale)), true],
+                                ["Email Receipt", () => handleEmailReceipt((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("reports.sales")],
+                                ["Modify Details", () => handleModifyDetails((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("history_modify_sale")],
+                                ["Continue Sale", () => handleContinueSale((selectedSale?.id === sale.id ? selectedSale : sale)), true],
                               ] : [
                                 ["Reprint Receipt", () => handleReprintReceipt((selectedSale?.id === sale.id ? selectedSale : sale)), true],
                                 ["Email Receipt", () => handleEmailReceipt((selectedSale?.id === sale.id ? selectedSale : sale)), hasPermission("reports.sales")],
@@ -1184,7 +1204,9 @@ const SalesHistory = () => {
                 onClick={handleConfirmCancelSale}
                 disabled={!cancelReason.trim() || actionBusy}
               >
-                Confirm
+                {/* While the cancel is saving (stock put back, loyalty reversed)
+                    the button says so instead of only fading (user 20/10/2026). */}
+                {actionBusy ? "Confirm..." : "Confirm"}
               </DialogButton>
             )}
           </>

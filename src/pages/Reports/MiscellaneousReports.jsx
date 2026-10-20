@@ -53,8 +53,11 @@ const reports = [
     title: 'Metcash MSC Sales',
     description: 'Run a sales report grouped by Metcash\'s classifications',
     icon: MetcashIcon,
+    // Hidden with the product / classification MSC fields (user 20/10/2026) -
+    // kept, not removed; the route still works.
+    hidden: true,
   },
-];
+].filter((report) => !report.hidden);
 
 const SLATE = 'rgb(49,52,57)';
 
