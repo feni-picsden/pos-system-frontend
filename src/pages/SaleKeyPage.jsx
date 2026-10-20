@@ -136,6 +136,9 @@ import classificationService from '../services/classificationService';
 import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
 import CartSidebar, { KeypadPopover } from '../components/SaleKey/CartSidebar';
+import SaleDetailCard from '../components/SalesHistory/SaleDetailCard';
+import PrintReceiptDialog from '../components/PrintReceiptDialog';
+import EmailReceiptModal from '../components/SalesHistory/EmailReceiptModal';
 import AddSaleKeyDialog from '../components/SaleKey/AddSaleKeyDialog';
 import BarcodeSelectDialog, { getBarcodeQuantity } from '../components/SaleKey/BarcodeSelectDialog';
 import BarcodeNotFoundDialog from '../components/SaleKey/BarcodeNotFoundDialog';
@@ -4910,19 +4913,19 @@ const SaleKeyPage = () => {
         payments: []
       };
 
-      await salesService.parkSale(saleData);
+      const parkedResp = await salesService.parkSale(saleData);
+      const parked = parkedResp?.sale || parkedResp || {};
 
-      saleEpochRef.current++;
-      clearCartAndNote();
-      setPayments([]);
-      setSelectedCustomer(null);
+      // Reference: parking opens the "Sale Parked" panel - Print / Add Customer /
+      // Email, the template select and the "Held Sale" receipt, then Done. It is
+      // the completed-sale panel with the parked receipt; Done (startNextSale)
+      // clears the cart, customer and loyalty exactly as parking used to here.
       setCurrentParkedSaleId(null);
-      setLoyaltyRedemption(null);
-      setLoyaltyCalculation(null);
+      generateReceipt(parked.saleNumber || null, [], cartTotal, 0, parked.invoiceNumber ?? null, { parked: true });
+      setTransactionId(parked.saleNumber || null);
+      setLastSaleId(parked.id ?? null);
+      setIsTransactionComplete(true);
       await loadParkedSales();
-      
-      alert('Sale parked successfully!');
-      logoutAfterSaleIfRequired();
     } catch (error) {
       console.error('Error parking sale:', error);
       alert('Failed to park sale. Please try again.');
@@ -4989,14 +4992,38 @@ const SaleKeyPage = () => {
   };
 
   // Remove Parked Sale (reference: confirm, then the held sale is discarded).
+  // Parked Sales list (reference): a click opens the sale's card with Load Sale /
+  // Reprint Receipt / Email Receipt / Add Sale Note / Add Internal Note / Remove
+  // Parked Sale instead of loading it straight away.
+  const [openParkedId, setOpenParkedId] = useState(null);
+  const [parkedPrintSale, setParkedPrintSale] = useState(null);
+  const [parkedEmailSale, setParkedEmailSale] = useState(null);
+
+  // Add Sale Note / Add Internal Note: textarea prompt, Cancel / Add (reference).
+  // The sale note prints on the receipt; the internal note is staff-only.
+  const editParkedNote = async (parkedSale, field) => {
+    const title = field === 'internalNotes' ? 'Add Internal Note' : 'Add Sale Note';
+    const text = await prompt('', parkedSale[field] || '', { title, confirmText: 'Add', multiline: true });
+    if (text === null || text === undefined) return;
+    try {
+      await salesService.updateSale(parkedSale.id, { [field]: text });
+      await loadParkedSales();
+    } catch (error) {
+      console.error('Error saving parked sale note:', error);
+      alert(error?.response?.data?.error || 'Failed to save the note.');
+    }
+  };
+
   const removeParkedSale = async (parkedSale) => {
+    // Reference wording: "Are you sure you wish to remove this parked sale?" No / Yes.
     const ok = await confirm(
-      `Remove parked sale ${parkedSale.saleNumber} ($${Number(parkedSale.totalAmount || 0).toFixed(2)})?`,
-      { title: 'Remove Parked Sale', confirmText: 'Remove', severity: 'warning' }
+      'Are you sure you wish to remove this parked sale?',
+      { title: 'Remove Parked Sale', confirmText: 'Yes', cancelText: 'No', severity: 'warning' }
     );
     if (!ok) return;
     try {
       await salesService.updateSale(parkedSale.id, { status: 'CANCELLED' });
+      setOpenParkedId((id) => (id === parkedSale.id ? null : id));
       await loadParkedSales();
       notify(`Parked sale ${parkedSale.saleNumber} removed`);
     } catch (error) {
@@ -5092,7 +5119,9 @@ const SaleKeyPage = () => {
         console.error('Failed to log Unparked Sale security event:', error);
       }
       setActiveTab('sales-keys');
-      alert('Parked sale resumed! You can now continue with the sale.');
+      // A toast that closes by itself, like Reload Sale's - it was a modal the
+      // cashier had to click away (user 20/10/2026).
+      setSaleInfo('Parked sale resumed');
     } catch (error) {
       console.error('Error resuming parked sale:', error);
       alert('Failed to resume parked sale. Please try again.');
@@ -5271,6 +5300,8 @@ const SaleKeyPage = () => {
       invoiceNo: formatInvoiceNo(invoiceNumber, extra.invoiceSuffix) || (txnId ? String(txnId).replace(/^#/, '') : ''),
       // Training Mode receipts carry a banner so the paper can never pass as a real sale.
       training: Boolean(extra.training),
+      // Parked: the template prints its "Parked Sale" heading ("Held Sale").
+      isParked: Boolean(extra.parked),
       completedAt: new Date().toISOString(),
       user: user ? { name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || user.name || '' } : null,
       register: selectedRegister ? { name: selectedRegister.name } : null,
@@ -5319,9 +5350,12 @@ const SaleKeyPage = () => {
     // it off suppresses the automatic print. Non-refund sales use the group/method flags.
     const isRefund = cartTotal < 0;
     const printOnRefund = registerSettings?.printReceiptOnRefund !== false;
-    const autoPrint = isRefund
-      ? printOnRefund
-      : Boolean(selectedCustomer?.customerGroup?.autoPrintReceipt) || methodAutoPrint;
+    // A parked sale follows the group's own "Auto Print Parked Receipt" flag.
+    const autoPrint = extra.parked
+      ? Boolean(selectedCustomer?.customerGroup?.autoPrintParkedReceipt)
+      : isRefund
+        ? printOnRefund
+        : Boolean(selectedCustomer?.customerGroup?.autoPrintReceipt) || methodAutoPrint;
 
     // Use setTimeout to ensure state updates are processed. No modal here: the
     // reference shows Change / Print / Email / Done inline above the receipt in the
@@ -8923,10 +8957,51 @@ const SaleKeyPage = () => {
                     const formattedAmount = formatMoney(totalAmount);
                     // Reference rows: 89px, 16px padding, zebra #f8f8f8/#fff.
                     const rowBgColor = index % 2 === 0 ? '#f8f8f8' : '#ffffff';
+                    if (openParkedId === sale.id) {
+                      const actionSx = (primary) => ({
+                        width: '100%', height: 42, borderRadius: 0, fontSize: 14, fontWeight: 400, textTransform: 'none', boxShadow: 'none', mb: '8px',
+                        bgcolor: primary ? '#1c86f2' : '#f8f8f8', color: primary ? '#f8f8f8' : '#313439',
+                        border: `1px solid ${primary ? '#f8f8f8' : '#313439'}`,
+                        '&:hover': { boxShadow: 'none', bgcolor: primary ? '#1c86f2' : '#f8f8f8' },
+                      });
+                      const parkedActions = [
+                        ['Load Sale', () => { setOpenParkedId(null); resumeParkedSale(sale); }],
+                        ['Reprint Receipt', () => setParkedPrintSale(sale)],
+                        ['Email Receipt', () => setParkedEmailSale(sale)],
+                        ['Add Sale Note', () => editParkedNote(sale, 'notes')],
+                        ['Add Internal Note', () => editParkedNote(sale, 'internalNotes')],
+                        // Merge stays available while a sale is in the cart (reference docs).
+                        ...(cart.length > 0 ? [['Merge Sale', () => mergeIntoParkedSale(sale)]] : []),
+                        ['Remove Parked Sale', () => removeParkedSale(sale)],
+                      ];
+                      return (
+                        <Box key={sale.id} sx={{ bgcolor: '#f8f8f8' }}>
+                          <SaleDetailCard
+                            sale={sale}
+                            formatDate={(d) => new Date(d).toLocaleDateString('en-GB')}
+                            formatTime={(d) => new Date(d).toLocaleTimeString('en-GB', { hour12: false })}
+                            outletName={sale.outlet?.name || ''}
+                            actionsWidth={260}
+                            actions={
+                              <>
+                                <Button disableElevation onClick={() => setOpenParkedId(null)} sx={{ ...actionSx(true), mb: '24px' }}>
+                                  ✕ Close
+                                </Button>
+                                {parkedActions.map(([label, onClick]) => (
+                                  <Button key={label} disableElevation onClick={onClick} sx={actionSx(false)}>
+                                    {label}
+                                  </Button>
+                                ))}
+                              </>
+                            }
+                          />
+                        </Box>
+                      );
+                    }
                     return (
                       <Box
                         key={sale.id}
-                        onClick={() => resumeParkedSale(sale)}
+                        onClick={() => setOpenParkedId(sale.id)}
                         sx={{
                           display: 'flex',
                           alignItems: 'center',
@@ -9016,26 +9091,8 @@ const SaleKeyPage = () => {
                           )}
                         </Box>
 
-                        {/* Reference row actions: row click = Load; Merge combines the
-                            current cart into this held sale; Remove discards it. */}
-                        <Box sx={{ flexShrink: 0, display: 'flex', gap: 1, mr: 1 }} onClick={(e) => e.stopPropagation()}>
-                          {cart.length > 0 && (
-                            <Box
-                              role="button"
-                              onClick={() => mergeIntoParkedSale(sale)}
-                              sx={{ px: 1.5, py: 0.5, border: '1px solid #0084d1', color: '#0084d1', fontSize: 13, fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
-                            >
-                              Merge Sale
-                            </Box>
-                          )}
-                          <Box
-                            role="button"
-                            onClick={() => removeParkedSale(sale)}
-                            sx={{ px: 1.5, py: 0.5, border: '1px solid #e33430', color: '#e33430', fontSize: 13, fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
-                          >
-                            Remove
-                          </Box>
-                        </Box>
+                        {/* Row actions (Load / Merge / Remove ...) live on the card a
+                            click opens - the reference row carries no buttons. */}
 
                         <Box sx={{
                           flex: '0 0 180px',
@@ -9409,7 +9466,11 @@ const SaleKeyPage = () => {
                     on an #f8f8f8 stage; Done pinned below. */}
                 <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ flexShrink: 0, bgcolor: '#2ca03b', color: '#f8f8f8', p: '16px', textAlign: 'center' }}>
-                    {(parseFloat(receiptData?.change) || 0) > 0 ? (
+                    {receiptData?.isParked ? (
+                      <Typography component="div" sx={{ fontWeight: 700, fontSize: 'clamp(28px, 3.6vw, 64px)', lineHeight: 1.1, color: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                        Sale Parked
+                      </Typography>
+                    ) : (parseFloat(receiptData?.change) || 0) > 0 ? (
                       <>
                         <Typography sx={{ fontWeight: 700, fontSize: '24px', lineHeight: 'normal', color: 'inherit' }}>
                           Change
@@ -10275,6 +10336,35 @@ const SaleKeyPage = () => {
           if (customer) {
             handleSelectCustomer(customer);
           }
+        }}
+      />
+
+      {/* Parked Sales card: Reprint Receipt (template select + Print) and Email
+          Receipt - the same dialogs Sales History uses (reference). */}
+      <PrintReceiptDialog
+        open={!!parkedPrintSale}
+        onClose={() => setParkedPrintSale(null)}
+        sale={parkedPrintSale}
+      />
+      <EmailReceiptModal
+        open={!!parkedEmailSale}
+        onClose={() => setParkedEmailSale(null)}
+        saleId={parkedEmailSale?.id}
+        senderEmail={selectedRegister?.outlet?.email || undefined}
+        customer={parkedEmailSale?.customer}
+        onSend={async (saleId, receiverEmails, senderEmail) => {
+          try {
+            const result = await emailSaleReceipt({ saleId, receiverEmails, senderEmail, sale: parkedEmailSale });
+            if (result?.success === false) throw new Error(result.message || 'Failed to send email');
+            notify(`Receipt sent to ${receiverEmails.length} email address(es)`);
+            setParkedEmailSale(null);
+          } catch (e) {
+            alert(e?.message || 'Failed to send email');
+          }
+        }}
+        onUpdateCustomerEmail={async (customer, email) => {
+          const res = await customerService.addEmail(customer, email);
+          return res?.customer || null;
         }}
       />
 
