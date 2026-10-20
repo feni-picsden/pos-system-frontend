@@ -772,8 +772,9 @@ export const LOCAL_TAB_FIELDS = [
     'Safe drop alert amount', 'Default Payment Method', 'Default Receipt Template'
   ]),
   ...local('Registers', 2, 'Sell Screen', [
+    // 'Use Tyro integrated receipts' hidden (user 20/10/2026) - not searchable either.
     'Login after sale', 'Never open cash drawer', 'Print receipt on refund',
-    'Use Tyro integrated receipts', 'Consolidate products', 'Allow training mode to be toggled',
+    'Consolidate products', 'Allow training mode to be toggled',
     'Require note on register closure with discrepancy', 'Run promotion calculation in a dedicated thread'
   ]),
   ...local('Registers', 2, 'Customer Display', [

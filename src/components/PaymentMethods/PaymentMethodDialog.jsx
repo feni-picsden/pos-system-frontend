@@ -22,7 +22,10 @@ const INSTANT = 'all 0s ease';
 // transactions (the misconfiguration trap Shopfront's help warns about).
 const TYPE_GROUPS = [
   { label: 'Standard', options: ['Cash', 'Cheque', 'Direct Deposit', 'EFTPOS', 'Gift Card', 'Voucher'] },
-  { label: 'Integrations', options: ['Linkly', 'Tyro'] },
+  // 'Tyro' hidden (user 20/10/2026): only the type name and a pairing screen
+  // exist - no real Tyro processing, so a Tyro method would "pay" without the
+  // terminal. Linkly is the integrated EFTPOS. Server still accepts the type.
+  { label: 'Integrations', options: ['Linkly'] },
   { label: 'External', options: ['Custom'] },
 ];
 

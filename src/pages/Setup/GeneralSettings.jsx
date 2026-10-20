@@ -2452,7 +2452,8 @@ const GeneralSettings = () => {
             { key: 'loginAfterSale', label: 'Login after sale' },
             { key: 'neverOpenCashDrawer', label: 'Never open cash drawer' },
             { key: 'printReceiptOnRefund', label: 'Print receipt on refund' },
-            { key: 'useTyroIntegratedReceipts', label: 'Use Tyro integrated receipts' },
+            // 'Use Tyro integrated receipts' hidden with the Tyro payment type
+            // (user 20/10/2026); it was saved but never read. Value kept as is.
             { key: 'consolidateProducts', label: 'Consolidate products' },
             { key: 'allowTrainingModeToggle', label: 'Allow training mode to be toggled' },
             { key: 'requireNoteOnRegisterClosureWithDiscrepancy', label: 'Require note on register closure with discrepancy' },

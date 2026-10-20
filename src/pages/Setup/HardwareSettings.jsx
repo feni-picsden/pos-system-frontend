@@ -188,7 +188,9 @@ const HardwareSettings = () => {
 
       {/* Tyro terminal pairing — stored per browser device (reference model:
           the pairing lives in the browser). Replacement terminal = clear here,
-          then pair the new terminal from the sell screen's Tyro payment. */}
+          then pair the new terminal from the sell screen's Tyro payment.
+          Hidden with the Tyro payment type (user 20/10/2026) - kept, not removed. */}
+      {false && (
       <Paper sx={{ p: 3, mt: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
           <CardIcon color="primary" />
@@ -232,6 +234,7 @@ const HardwareSettings = () => {
           </Typography>
         )}
       </Paper>
+      )}
 
       <Snackbar
         open={snackbar.open}
