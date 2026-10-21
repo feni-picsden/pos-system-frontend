@@ -19,6 +19,7 @@ import {
   IconButton,
   Tooltip,
   Menu,
+  Popover,
   FormControlLabel,
   Divider,
   Dialog,
@@ -60,10 +61,212 @@ import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import useHeaderScope from '../../hooks/useHeaderScope';
 
+// Reference formats $11,686.18 / 1,914 (thousands separators).
 const formatCurrency = (value) => {
   const num = Number(value) || 0;
-  return `$${num.toFixed(2)}`;
+  const abs = Math.abs(num).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return num < 0 ? `-$${abs}` : `$${abs}`;
 };
+const formatCount = (value) => (Number(value) || 0).toLocaleString('en-AU', { maximumFractionDigits: 2 });
+// Reference: 06/01/2025 09:01:09
+const formatSaleDate = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
+
+// Reference table: NAME column stays fixed on the left while the rest scrolls.
+const STICKY_NAME_SX = { position: 'sticky', left: 0, zIndex: 1, whiteSpace: 'nowrap' };
+// Reference header: ⇕ after every label (does not change on click).
+// Hollow up+down triangles, 10px wide, a small gap after the label (reference header).
+const SortIcon = () => (
+  <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: "middle", display: "inline-block" }} aria-hidden="true">
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+  </svg>
+);
+// Reference odd-row stripe is a visible grey.
+const ROW_ALT_BG = '#e8e8e8';
+
+// Reference column list + order (22) with render functions; also used by export/print.
+// Calculated Cases/Items Sold are kept but hidden from the picker (not in the reference list).
+const REPORT_COLUMNS = [
+  {
+    key: 'revenue',
+    label: 'Revenue',
+    headerLabel: 'REVENUE',
+    render: (row) => formatCurrency(row.revenue || 0)
+  },
+  {
+    key: 'revenueEx',
+    label: 'Revenue (ex)',
+    headerLabel: 'REVENUE (EX)',
+    render: (row) => formatCurrency(row.revenueEx || 0)
+  },
+  {
+    key: 'costOfGoods',
+    label: 'Cost of Goods Sold',
+    headerLabel: 'COST OF GOODS SOLD',
+    render: (row) => formatCurrency(row.costOfGoods || 0)
+  },
+  {
+    key: 'costOfGoodsEx',
+    label: 'Cost of Goods Sold (ex)',
+    headerLabel: 'COST OF GOODS SOLD (EX)',
+    render: (row) => formatCurrency(row.costOfGoodsEx || 0)
+  },
+  {
+    key: 'transactionCount',
+    label: 'Transaction Count',
+    headerLabel: 'TRANSACTION COUNT',
+    render: (row) => formatCount(row.transactionCount || 0)
+  },
+  {
+    key: 'averageSale',
+    label: 'Average Sale',
+    headerLabel: 'AVERAGE SALE',
+    render: (row) => formatCurrency((row.revenue || 0) / (row.transactionCount || 1))
+  },
+  {
+    key: 'profit',
+    label: 'Profit',
+    headerLabel: 'PROFIT',
+    render: (row) => formatCurrency(row.profit || 0)
+  },
+  {
+    key: 'profitEx',
+    label: 'Profit (ex)',
+    headerLabel: 'PROFIT (EX)',
+    render: (row) => formatCurrency(row.profitEx || 0)
+  },
+  {
+    key: 'profitPercentage',
+    label: 'Profit Percentage',
+    headerLabel: 'PROFIT PERCENTAGE',
+    render: (row) => `${(row.profitPercentage || 0).toFixed(2)}%`
+  },
+  { 
+    key: 'markup', 
+    label: 'Markup',
+    headerLabel: 'MARKUP',
+    render: (row) => `${((row.profit / (row.costOfGoods || 1)) * 100 || 0).toFixed(2)}%`
+  },
+  { 
+    key: 'taxAmount', 
+    label: 'Tax Amount',
+    headerLabel: 'TAX AMOUNT',
+    render: (row) => formatCurrency(row.taxAmount || 0)
+  },
+  { 
+    key: 'totalItems', 
+    label: 'Total Items',
+    headerLabel: 'TOTAL ITEMS',
+    // Backend field, so the Total row (which reduces row[key]) matches the cells.
+    render: (row) => formatCount(row.totalItems ?? row.quantity ?? 0)
+  },
+  {
+    key: 'casesSold',
+    label: 'Cases Sold',
+    headerLabel: 'CASES SOLD',
+    render: (row) => formatCount(row.casesSold || 0)
+  },
+  {
+    key: 'itemsSold',
+    label: 'Items Sold',
+    headerLabel: 'ITEMS SOLD',
+    render: (row) => formatCount(row.itemsSold || 0)
+  },
+  // Consolidate By Report Type = No only (reference per-sale-line columns).
+  {
+    key: 'saleDate',
+    label: 'Date and Time',
+    headerLabel: 'DATE AND TIME',
+    detailOnly: true,
+    text: true,
+    render: (row) => formatSaleDate(row.saleDate)
+  },
+  {
+    key: 'calculatedCasesSold',
+    label: 'Calculated Cases Sold',
+    headerLabel: 'CALCULATED CASES SOLD',
+    hidden: true,
+    render: (row) => formatCount(row.calculatedCasesSold || 0)
+  },
+  {
+    key: 'calculatedItemsSold',
+    label: 'Calculated Items Sold',
+    headerLabel: 'CALCULATED ITEMS SOLD',
+    hidden: true,
+    render: (row) => formatCount(row.calculatedItemsSold || 0)
+  },
+  { 
+    key: 'discountAmount', 
+    label: 'Discount Amount',
+    headerLabel: 'DISCOUNT AMOUNT',
+    render: (row) => formatCurrency(row.discountAmount || 0)
+  },
+  {
+    key: 'invoiceNumber',
+    label: 'Invoice Number',
+    headerLabel: 'INVOICE NUMBER',
+    detailOnly: true,
+    text: true,
+    render: (row) => row.invoiceNumber || '',
+    // Blue link to the sale (Register > History deep link).
+    renderCell: (row) => (row.saleId
+      ? <RouterLink to={`/register/history?saleId=${row.saleId}`} style={{ color: '#0284c7' }}>{row.invoiceNumber || ''}</RouterLink>
+      : (row.invoiceNumber || ''))
+  },
+  { key: 'outletName', label: 'Outlet', headerLabel: 'OUTLET', detailOnly: true, text: true, render: (row) => row.outletName || '' },
+  { key: 'registerName', label: 'Register', headerLabel: 'REGISTER', detailOnly: true, text: true, render: (row) => row.registerName || '' },
+  { key: 'customerName', label: 'Customer', headerLabel: 'CUSTOMER', detailOnly: true, text: true, render: (row) => row.customerName || '' },
+  { key: 'userName', label: 'User', headerLabel: 'USER', detailOnly: true, text: true, render: (row) => row.userName || '' },
+  { 
+    key: 'rebateQuantity', 
+    label: 'Rebate Quantity',
+    headerLabel: 'REBATE QUANTITY',
+    render: (row) => formatCount(row.rebateQuantity || 0)
+  },
+  { 
+    key: 'expectedRebate', 
+    label: 'Expected Rebate',
+    headerLabel: 'EXPECTED REBATE',
+    render: (row) => formatCurrency(row.expectedRebate || 0)
+  },
+  { 
+    key: 'promotionQuantity', 
+    label: 'Promotion Quantity',
+    headerLabel: 'PROMOTION QUANTITY',
+    render: (row) => formatCount(row.promotionQuantity || 0)
+  },
+  { 
+    key: 'promotionalSavings', 
+    label: 'Promotional Savings',
+    headerLabel: 'PROMOTIONAL SAVINGS',
+    render: (row) => formatCurrency(row.promotionalSavings || 0)
+  },
+  { 
+    key: 'earnedLoyaltyPoints', 
+    label: 'Earned Loyalty Points',
+    headerLabel: 'EARNED LOYALTY POINTS',
+    render: (row) => formatCount(row.earnedLoyaltyPoints || 0)
+  },
+  {
+    key: 'revenuePercentage',
+    label: 'Revenue Percentage',
+    headerLabel: 'REVENUE PERCENTAGE',
+    render: (row) => `${(row.revenuePercentage || 0).toFixed(2)}%`
+  },
+  {
+    key: 'transactionPercentage',
+    label: 'Transaction Percentage',
+    headerLabel: 'TRANSACTION PERCENTAGE',
+    render: (row) => `${(row.transactionPercentage || 0).toFixed(2)}%`
+  },
+];
+
 
 // Shopfront reference has no transitions/ripple.
 const INSTANT = 'all 0s ease';
@@ -113,6 +316,7 @@ const TABLE_ROW_SX = {
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
+    whiteSpace: 'nowrap', // reference rows never wrap; the table scrolls sideways
   },
 };
 
@@ -124,7 +328,13 @@ const TABLE_TOTAL_SX = {
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
+    // Total row pinned to the bottom of the scrolling table (reference).
+    position: 'sticky',
+    bottom: 0,
+    backgroundColor: '#5ebbeb',
+    zIndex: 1,
   },
+  '& td:first-of-type': { zIndex: 3 },
 };
 
 // Reference filter block: flush slate box, 80px tall, square, 1px near-white border.
@@ -489,20 +699,32 @@ const SalesReport = () => {
   const [sort, setSort] = useState({ key: null, dir: 'asc' });
   
   // Column visibility state
-  const [visibleColumns, setVisibleColumns] = useState({
+  // Reference default: 10 columns on (chips show "Revenue, Cost of Goods S..., 8 More...").
+  const isDetailMode = consolidate !== 'consolidated';
+  // Consolidate = No keeps its own column set (reference default: Revenue, COGS, Profit,
+  // Profit %, Tax, Cases Sold, Items Sold, Date and Time, Discount, Invoice, Outlet, Register, Customer, User).
+  const [detailVisibleColumns, setDetailVisibleColumns] = useState({
+    revenue: true, costOfGoods: true, profit: true, profitPercentage: true, taxAmount: true,
+    casesSold: true, itemsSold: true, saleDate: true, discountAmount: true, invoiceNumber: true,
+    outletName: true, registerName: true, customerName: true, userName: true,
+  });
+  const [summaryVisibleColumns, setSummaryVisibleColumns] = useState({
     revenue: true,
+    revenueEx: false,
     costOfGoods: true,
+    costOfGoodsEx: false,
     transactionCount: true,
     averageSale: true,
     profit: true,
+    profitEx: false,
     profitPercentage: true,
     markup: false,
     taxAmount: true,
     totalItems: false,
     casesSold: false,
     itemsSold: false,
-    calculatedCasesSold: true,
-    calculatedItemsSold: true,
+    calculatedCasesSold: false,
+    calculatedItemsSold: false,
     discountAmount: true,
     rebateQuantity: false,
     expectedRebate: false,
@@ -510,8 +732,10 @@ const SalesReport = () => {
     promotionalSavings: false,
     earnedLoyaltyPoints: false,
     revenuePercentage: true,
-    transactionPercentage: false,
+    transactionPercentage: true,
   });
+  const visibleColumns = isDetailMode ? detailVisibleColumns : summaryVisibleColumns;
+  const setVisibleColumns = isDetailMode ? setDetailVisibleColumns : setSummaryVisibleColumns;
 
   // All Outlets (no header outlet / register): Outlet filter. 'all' = every outlet.
   const { globalMode, outlets: allOutlets } = useGlobalOutlet();
@@ -729,29 +953,7 @@ const SalesReport = () => {
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
 
     // Prepare table data
-    const allColumns = [
-      { key: 'revenue', label: 'Revenue' },
-      { key: 'costOfGoods', label: 'Cost of Goods Sold' },
-      { key: 'transactionCount', label: 'Transaction Count' },
-      { key: 'averageSale', label: 'Average Sale' },
-      { key: 'profit', label: 'Profit' },
-      { key: 'profitPercentage', label: 'Profit %' },
-      { key: 'markup', label: 'Markup' },
-      { key: 'taxAmount', label: 'Tax Amount' },
-      { key: 'totalItems', label: 'Total Items' },
-      { key: 'casesSold', label: 'Cases Sold' },
-      { key: 'itemsSold', label: 'Items Sold' },
-      { key: 'calculatedCasesSold', label: 'Calculated Cases Sold' },
-      { key: 'calculatedItemsSold', label: 'Calculated Items Sold' },
-      { key: 'discountAmount', label: 'Discount Amount' },
-      { key: 'rebateQuantity', label: 'Rebate Quantity' },
-      { key: 'expectedRebate', label: 'Expected Rebate' },
-      { key: 'promotionQuantity', label: 'Promotion Quantity' },
-      { key: 'promotionalSavings', label: 'Promotional Savings' },
-      { key: 'earnedLoyaltyPoints', label: 'Earned Loyalty Points' },
-      { key: 'revenuePercentage', label: 'Revenue %' },
-      { key: 'transactionPercentage', label: 'Transaction %' },
-    ];
+    const allColumns = REPORT_COLUMNS;
 
     const visibleCols = allColumns.filter(col => visibleColumns[col.key]);
     const flatData = flattenReportData();
@@ -763,7 +965,7 @@ const SalesReport = () => {
         const value = row[col.key];
         if (col.key.includes('Percentage') || col.key === 'markup') {
           return `${(value || 0).toFixed(2)}%`;
-        } else if (col.key.includes('Amount') || col.key === 'revenue' || col.key === 'costOfGoods' || col.key === 'profit' || col.key === 'averageSale' || col.key === 'taxAmount' || col.key === 'discountAmount') {
+        } else if (col.key.includes('Amount') || ['revenue', 'revenueEx', 'costOfGoods', 'costOfGoodsEx', 'profit', 'profitEx'].includes(col.key) || col.key === 'averageSale' || col.key === 'taxAmount' || col.key === 'discountAmount') {
           return `$${(value || 0).toFixed(2)}`;
         }
         return value || 0;
@@ -803,29 +1005,7 @@ const SalesReport = () => {
 
   const exportToXLSX = async () => {
     // Prepare columns
-    const allColumns = [
-      { key: 'revenue', label: 'Revenue' },
-      { key: 'costOfGoods', label: 'Cost of Goods Sold' },
-      { key: 'transactionCount', label: 'Transaction Count' },
-      { key: 'averageSale', label: 'Average Sale' },
-      { key: 'profit', label: 'Profit' },
-      { key: 'profitPercentage', label: 'Profit %' },
-      { key: 'markup', label: 'Markup' },
-      { key: 'taxAmount', label: 'Tax Amount' },
-      { key: 'totalItems', label: 'Total Items' },
-      { key: 'casesSold', label: 'Cases Sold' },
-      { key: 'itemsSold', label: 'Items Sold' },
-      { key: 'calculatedCasesSold', label: 'Calculated Cases Sold' },
-      { key: 'calculatedItemsSold', label: 'Calculated Items Sold' },
-      { key: 'discountAmount', label: 'Discount Amount' },
-      { key: 'rebateQuantity', label: 'Rebate Quantity' },
-      { key: 'expectedRebate', label: 'Expected Rebate' },
-      { key: 'promotionQuantity', label: 'Promotion Quantity' },
-      { key: 'promotionalSavings', label: 'Promotional Savings' },
-      { key: 'earnedLoyaltyPoints', label: 'Earned Loyalty Points' },
-      { key: 'revenuePercentage', label: 'Revenue %' },
-      { key: 'transactionPercentage', label: 'Transaction %' },
-    ];
+    const allColumns = REPORT_COLUMNS;
 
     const visibleCols = allColumns.filter(col => visibleColumns[col.key]);
     const flatData = flattenReportData();
@@ -882,29 +1062,7 @@ const SalesReport = () => {
 
   const exportToCSV = async () => {
     // Prepare columns
-    const allColumns = [
-      { key: 'revenue', label: 'Revenue' },
-      { key: 'costOfGoods', label: 'Cost of Goods Sold' },
-      { key: 'transactionCount', label: 'Transaction Count' },
-      { key: 'averageSale', label: 'Average Sale' },
-      { key: 'profit', label: 'Profit' },
-      { key: 'profitPercentage', label: 'Profit %' },
-      { key: 'markup', label: 'Markup' },
-      { key: 'taxAmount', label: 'Tax Amount' },
-      { key: 'totalItems', label: 'Total Items' },
-      { key: 'casesSold', label: 'Cases Sold' },
-      { key: 'itemsSold', label: 'Items Sold' },
-      { key: 'calculatedCasesSold', label: 'Calculated Cases Sold' },
-      { key: 'calculatedItemsSold', label: 'Calculated Items Sold' },
-      { key: 'discountAmount', label: 'Discount Amount' },
-      { key: 'rebateQuantity', label: 'Rebate Quantity' },
-      { key: 'expectedRebate', label: 'Expected Rebate' },
-      { key: 'promotionQuantity', label: 'Promotion Quantity' },
-      { key: 'promotionalSavings', label: 'Promotional Savings' },
-      { key: 'earnedLoyaltyPoints', label: 'Earned Loyalty Points' },
-      { key: 'revenuePercentage', label: 'Revenue %' },
-      { key: 'transactionPercentage', label: 'Transaction %' },
-    ];
+    const allColumns = REPORT_COLUMNS;
 
     const visibleCols = allColumns.filter(col => visibleColumns[col.key]);
     const flatData = flattenReportData();
@@ -998,7 +1156,7 @@ const SalesReport = () => {
       // Get time period columns for precision mode
       if (reportData.length > 0) {
         const firstRow = reportData[0];
-        const standardKeys = ['name', 'revenue', 'costOfGoods', 'transactionCount', 'averageSale', 
+        const standardKeys = ['name', 'revenue', 'revenueEx', 'costOfGoods', 'costOfGoodsEx', 'profitEx', 'transactionCount', 'averageSale', 
           'profit', 'profitPercentage', 'markup', 'taxAmount', 'totalItems', 'casesSold', 
           'itemsSold', 'calculatedCasesSold', 'calculatedItemsSold', 'discountAmount',
           'rebateQuantity', 'expectedRebate', 'promotionQuantity', 'promotionalSavings',
@@ -1017,29 +1175,7 @@ const SalesReport = () => {
       }
     } else {
       // Use regular columns
-      const allColumns = [
-        { key: 'revenue', label: 'Revenue' },
-        { key: 'costOfGoods', label: 'Cost of Goods Sold' },
-        { key: 'transactionCount', label: 'Transaction Count' },
-        { key: 'averageSale', label: 'Average Sale' },
-        { key: 'profit', label: 'Profit' },
-        { key: 'profitPercentage', label: 'Profit %' },
-        { key: 'markup', label: 'Markup' },
-        { key: 'taxAmount', label: 'Tax Amount' },
-        { key: 'totalItems', label: 'Total Items' },
-        { key: 'casesSold', label: 'Cases Sold' },
-        { key: 'itemsSold', label: 'Items Sold' },
-        { key: 'calculatedCasesSold', label: 'Calculated Cases Sold' },
-        { key: 'calculatedItemsSold', label: 'Calculated Items Sold' },
-        { key: 'discountAmount', label: 'Discount Amount' },
-        { key: 'rebateQuantity', label: 'Rebate Quantity' },
-        { key: 'expectedRebate', label: 'Expected Rebate' },
-        { key: 'promotionQuantity', label: 'Promotion Quantity' },
-        { key: 'promotionalSavings', label: 'Promotional Savings' },
-        { key: 'earnedLoyaltyPoints', label: 'Earned Loyalty Points' },
-        { key: 'revenuePercentage', label: 'Revenue %' },
-        { key: 'transactionPercentage', label: 'Transaction %' },
-      ];
+      const allColumns = REPORT_COLUMNS;
       columnsToShow = allColumns.filter(col => visibleColumns[col.key]);
     }
 
@@ -1101,16 +1237,19 @@ const SalesReport = () => {
             font-weight: bold;
             font-size: 11px;
             text-align: center;
+            white-space: nowrap;
           }
           #print-content td {
             font-size: 11px;
+            white-space: nowrap;
           }
           #print-content td:first-child {
             font-weight: 500;
           }
           #print-content td:not(:first-child) {
-            text-align: right;
+            text-align: center;
           }
+          @page { size: landscape; margin: 10mm; }
           #print-content tr:nth-child(even) {
             background-color: #f9f9f9;
           }
@@ -1165,11 +1304,10 @@ const SalesReport = () => {
                   let formattedValue;
                   if (isPrecisionMode) {
                     // For precision mode, all values are revenue amounts
-                    formattedValue = value ? `$${(value || 0).toFixed(2)}` : '$0.00';
-                  } else if (col.key.includes('Percentage') || col.key === 'markup') {
-                    formattedValue = `${(value || 0).toFixed(2)}%`;
-                  } else if (col.key.includes('Amount') || col.key === 'revenue' || col.key === 'costOfGoods' || col.key === 'profit' || col.key === 'averageSale' || col.key === 'taxAmount' || col.key === 'discountAmount' || col.key === 'expectedRebate' || col.key === 'promotionalSavings') {
-                    formattedValue = `$${(value || 0).toFixed(2)}`;
+                    formattedValue = value ? formatCurrency(value) : '$0.00';
+                  } else if (col.render) {
+                    // Same formatting as the on-screen table (Average Sale is computed, counts 1,234).
+                    formattedValue = col.render(row);
                   } else {
                     formattedValue = value || 0;
                   }
@@ -1193,10 +1331,10 @@ const SalesReport = () => {
                     totalValue = `${reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0).toFixed(2)}%`;
                   } else if (col.key === 'markup') {
                     totalValue = `${((reportData.reduce((sum, row) => sum + (row.profit || 0), 0) / reportData.reduce((sum, row) => sum + (row.costOfGoods || 1), 0)) * 100 || 0).toFixed(2)}%`;
-                  } else if (col.key.includes('Amount') || col.key === 'revenue' || col.key === 'costOfGoods' || col.key === 'profit' || col.key === 'taxAmount' || col.key === 'discountAmount' || col.key === 'expectedRebate' || col.key === 'promotionalSavings') {
+                  } else if (col.key.includes('Amount') || ['revenue', 'revenueEx', 'costOfGoods', 'costOfGoodsEx', 'profit', 'profitEx'].includes(col.key) || col.key === 'taxAmount' || col.key === 'discountAmount' || col.key === 'expectedRebate' || col.key === 'promotionalSavings') {
                     totalValue = formatCurrency(reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0));
                   } else {
-                    totalValue = reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0);
+                    totalValue = formatCount(reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0));
                   }
                   return `<td>${totalValue}</td>`;
                 }).join('')}
@@ -1298,7 +1436,7 @@ const SalesReport = () => {
     // Time period keys are the ones that look like dates/times (not standard metrics)
     const timePeriodKeys = Object.keys(firstRow).filter(key => {
       // Exclude standard metric keys and metadata keys
-      const standardKeys = ['name', 'revenue', 'costOfGoods', 'transactionCount', 'averageSale', 
+      const standardKeys = ['name', 'revenue', 'revenueEx', 'costOfGoods', 'costOfGoodsEx', 'profitEx', 'transactionCount', 'averageSale', 
         'profit', 'profitPercentage', 'markup', 'taxAmount', 'totalItems', 'casesSold', 
         'itemsSold', 'calculatedCasesSold', 'calculatedItemsSold', 'discountAmount',
         'rebateQuantity', 'expectedRebate', 'promotionQuantity', 'promotionalSavings',
@@ -1345,136 +1483,12 @@ const SalesReport = () => {
     return key;
   };
 
-  // Define all available columns with their render functions
-  const allColumns = [
-    { 
-      key: 'revenue', 
-      label: 'Revenue',
-      headerLabel: 'REVENUE',
-      render: (row) => formatCurrency(row.revenue || 0)
-    },
-    { 
-      key: 'costOfGoods', 
-      label: 'Cost of Goods Sold',
-      headerLabel: 'COST OF GOODS SOLD',
-      render: (row) => formatCurrency(row.costOfGoods || 0)
-    },
-    { 
-      key: 'transactionCount', 
-      label: 'Transaction Count',
-      headerLabel: 'TRANSACTION COUNT',
-      render: (row) => row.transactionCount || 0
-    },
-    { 
-      key: 'averageSale', 
-      label: 'Average Sale',
-      headerLabel: 'AVERAGE SALE',
-      render: (row) => formatCurrency((row.revenue || 0) / (row.transactionCount || 1))
-    },
-    { 
-      key: 'profit', 
-      label: 'Profit',
-      headerLabel: 'PROFIT',
-      render: (row) => formatCurrency(row.profit || 0)
-    },
-    { 
-      key: 'profitPercentage', 
-      label: 'Profit Percentage',
-      headerLabel: 'PROFIT %',
-      render: (row) => `${(row.profitPercentage || 0).toFixed(2)}%`
-    },
-    { 
-      key: 'markup', 
-      label: 'Markup',
-      headerLabel: 'MARKUP',
-      render: (row) => `${((row.profit / (row.costOfGoods || 1)) * 100 || 0).toFixed(2)}%`
-    },
-    { 
-      key: 'taxAmount', 
-      label: 'Tax Amount',
-      headerLabel: 'TAX AMOUNT',
-      render: (row) => formatCurrency(row.taxAmount || 0)
-    },
-    { 
-      key: 'totalItems', 
-      label: 'Total Items',
-      headerLabel: 'TOTAL ITEMS',
-      // Backend field, so the Total row (which reduces row[key]) matches the cells.
-      render: (row) => row.totalItems ?? row.quantity ?? 0
-    },
-    { 
-      key: 'casesSold', 
-      label: 'Cases Sold',
-      headerLabel: 'CASES SOLD',
-      render: (row) => row.casesSold || 0
-    },
-    { 
-      key: 'itemsSold', 
-      label: 'Items Sold',
-      headerLabel: 'ITEMS SOLD',
-      render: (row) => row.itemsSold || 0
-    },
-    { 
-      key: 'calculatedCasesSold', 
-      label: 'Calculated Cases Sold',
-      headerLabel: 'CALCULATED CASES SOLD',
-      render: (row) => row.calculatedCasesSold || 0
-    },
-    { 
-      key: 'calculatedItemsSold', 
-      label: 'Calculated Items Sold',
-      headerLabel: 'CALCULATED ITEMS SOLD',
-      render: (row) => row.calculatedItemsSold || 0
-    },
-    { 
-      key: 'discountAmount', 
-      label: 'Discount Amount',
-      headerLabel: 'DISCOUNT AMOUNT',
-      render: (row) => formatCurrency(row.discountAmount || 0)
-    },
-    { 
-      key: 'rebateQuantity', 
-      label: 'Rebate Quantity',
-      headerLabel: 'REBATE QUANTITY',
-      render: (row) => row.rebateQuantity || 0
-    },
-    { 
-      key: 'expectedRebate', 
-      label: 'Expected Rebate',
-      headerLabel: 'EXPECTED REBATE',
-      render: (row) => formatCurrency(row.expectedRebate || 0)
-    },
-    { 
-      key: 'promotionQuantity', 
-      label: 'Promotion Quantity',
-      headerLabel: 'PROMOTION QUANTITY',
-      render: (row) => row.promotionQuantity || 0
-    },
-    { 
-      key: 'promotionalSavings', 
-      label: 'Promotional Savings',
-      headerLabel: 'PROMOTIONAL SAVINGS',
-      render: (row) => formatCurrency(row.promotionalSavings || 0)
-    },
-    { 
-      key: 'earnedLoyaltyPoints', 
-      label: 'Earned Loyalty Points',
-      headerLabel: 'EARNED LOYALTY POINTS',
-      render: (row) => row.earnedLoyaltyPoints || 0
-    },
-    { 
-      key: 'revenuePercentage', 
-      label: 'Revenue Percentage',
-      headerLabel: 'REVENUE %',
-      render: (row) => `${(row.revenuePercentage || 0).toFixed(2)}%`
-    },
-    { 
-      key: 'transactionPercentage', 
-      label: 'Transaction Percentage',
-      headerLabel: 'TRANSACTION %',
-      render: (row) => `${(row.transactionPercentage || 0).toFixed(2)}%`
-    },
-  ];
+  // Detail-only columns exist in Consolidate = No; the rest are shared.
+  const allColumns = REPORT_COLUMNS.filter((col) => isDetailMode || !col.detailOnly);
+  // User 21/10: a single data row has nothing to sort, so the header icons are hidden.
+  const showSortIcons = reportData.length > 1;
+  const pickerColumns = allColumns.filter((col) => !col.hidden);
+  const selectedPickerLabels = pickerColumns.filter((col) => visibleColumns[col.key]).map((col) => col.label);
 
   useEffect(() => {
     if (reportData.length > 0) {
@@ -1603,15 +1617,26 @@ const SalesReport = () => {
         </Box>
 
         {/* Search + Action Buttons */}
+        {/* Reference: search box with "Include Deleted" as a bordered cell on its right,
+            then Export / Print / Save on the left and Columns alone on the right. */}
         <Paper elevation={0} sx={{ p: 2, mb: '8px' }}>
-          <TextField
-            size="small"
-            fullWidth
-            placeholder="Search for anything"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ ...FIELD_SX, mb: 2 }}
-          />
+          {/* Search keeps the old rounded field; Include Deleted sits to its right (user 21/10). */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 2 }}>
+            <TextField
+              size="small"
+              placeholder="Search for anything"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{ ...FIELD_SX, flex: 1 }}
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+              <Typography sx={{ fontSize: 16, whiteSpace: 'nowrap' }}>Include Deleted</Typography>
+              <ShopfrontSwitch
+                checked={includeDeleted}
+                onChange={(e) => setIncludeDeleted(e.target.checked)}
+              />
+            </Box>
+          </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
               <Button
@@ -1638,71 +1663,69 @@ const SalesReport = () => {
               >
                 Save
               </Button>
-              {!isPrecisionMode && (
-                <Button
-                  variant="outlined"
-                  startIcon={<ColumnsIcon />}
-                  onClick={handleColumnsMenuOpen}
-                  sx={SKY_BUTTON_SX}
-                >
-                  Columns
-                </Button>
-              )}
             </Box>
-            <FormControlLabel
-              sx={{ m: 0 }}
-              labelPlacement="start"
-              control={
-                <ShopfrontSwitch
-                  checked={includeDeleted}
-                  onChange={(e) => setIncludeDeleted(e.target.checked)}
-                  sx={{ ml: 1 }}
-                />
-              }
-              label={<Typography variant="body2">Include Deleted</Typography>}
-            />
+            {!isPrecisionMode && (
+              <Button
+                variant="outlined"
+                startIcon={<ColumnsIcon />}
+                onClick={handleColumnsMenuOpen}
+                sx={SKY_BUTTON_SX}
+              >
+                Columns
+              </Button>
+            )}
           </Box>
         </Paper>
 
-        {/* Columns Menu */}
-        <Menu
+        {/* Columns picker — reference: chip strip (first two + "N More...") above a
+            scrolling checkbox list; checked rows read sky-blue, unchecked black. */}
+        <Popover
           anchorEl={columnsMenuAnchor}
           open={Boolean(columnsMenuAnchor)}
           onClose={handleColumnsMenuClose}
-          PaperProps={{
-            sx: {
-              maxHeight: 400,
-              width: 300,
-            }
-          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ sx: { width: 540, p: 1.5, mt: 1, borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' } }}
         >
-          <Box sx={{ px: 2, py: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#666' }}>
-              Select Columns
-            </Typography>
-          </Box>
-          <Divider />
-          <Box sx={{ px: 1, py: 1 }}>
-            {allColumns.map((column) => (
-              <MenuItem
-                key={column.key}
-                onClick={() => toggleColumn(column.key)}
-                sx={{ py: 0.5 }}
-              >
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={visibleColumns[column.key]}
-                      size="small"
-                    />
-                  }
-                  label={column.label}
-                  sx={{ m: 0, width: '100%' }}
-                />
-              </MenuItem>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, border: '1px solid #c8c8c8', borderRadius: '6px', px: 1.5, py: 0.75, mb: 1 }}>
+            {selectedPickerLabels.slice(0, 2).map((label) => (
+              <Box key={label} sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: 1, py: 0.25, fontSize: 15, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {label}
+              </Box>
             ))}
+            {selectedPickerLabels.length > 2 && (
+              <Box sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: 1, py: 0.25, fontSize: 15, whiteSpace: 'nowrap' }}>
+                {selectedPickerLabels.length - 2} More...
+              </Box>
+            )}
+            <Box sx={{ flex: 1 }} />
+            <ArrowDropUp sx={{ color: '#555', fontSize: 20 }} />
           </Box>
-        </Menu>
+          <Box sx={{ border: '1px solid #c8c8c8', borderRadius: '6px', maxHeight: 290, overflowY: 'auto' }}>
+            {pickerColumns.map((column) => {
+              const on = !!visibleColumns[column.key];
+              return (
+                <Box
+                  key={column.key}
+                  onClick={() => toggleColumn(column.key)}
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, height: 56, cursor: 'pointer',
+                    color: on ? '#2aa9e0' : '#000', fontSize: 17,
+                    '&:hover': { bgcolor: '#7fd3f7', color: '#000' },
+                  }}
+                >
+                  <Checkbox
+                    checked={on}
+                    size="small"
+                    disableRipple
+                    sx={{ p: 0, color: 'inherit', '&.Mui-checked': { color: 'inherit' }, '& .MuiSvgIcon-root': { fontSize: 18 } }}
+                  />
+                  {column.label}
+                </Box>
+              );
+            })}
+          </Box>
+        </Popover>
 
         {/* Report Table */}
         <Paper elevation={0} sx={{ borderRadius: 0 }}>
@@ -1711,17 +1734,21 @@ const SalesReport = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <TableContainer>
-              <Table size="small">
+            // Reference: rows scroll inside the table; header stays at the top and the
+            // total row at the bottom (Consolidate = No can list hundreds of lines).
+            <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)' }}>
+              <Table size="small" stickyHeader sx={{ '& .MuiTableCell-stickyHeader': { backgroundColor: '#5ebbeb' } }}>
                 <TableHead>
                   <TableRow sx={TABLE_HEAD_SX}>
-                    <TableCell onClick={() => handleSort('name')}>NAME</TableCell>
+                    <TableCell onClick={() => handleSort('name')} sx={{ ...STICKY_NAME_SX, zIndex: 3 }}>
+                      NAME{showSortIcons && <SortIcon />}
+                    </TableCell>
                     {(isPrecisionMode
                       ? getTimePeriodColumns()
                       : allColumns.filter(col => visibleColumns[col.key])
                     ).map(column => (
-                      <TableCell key={column.key} align="right" onClick={() => handleSort(column.key)}>
-                        {column.headerLabel}
+                      <TableCell key={column.key} align="center" onClick={() => handleSort(column.key)}>
+                        {column.headerLabel}{showSortIcons && <SortIcon />}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -1747,13 +1774,13 @@ const SalesReport = () => {
                         <TableRow
                           sx={{
                             ...TABLE_ROW_SX,
-                            bgcolor: row.children ? '#f8f8f8' : index % 2 === 0 ? '#fff' : '#f8f8f8',
+                            bgcolor: row.children ? ROW_ALT_BG : index % 2 === 0 ? '#fff' : ROW_ALT_BG,
                             cursor: row.children ? 'pointer' : 'default',
                             '& td': { ...TABLE_ROW_SX['& td'], fontWeight: row.children ? 700 : 400 },
                           }}
                           onClick={() => row.children && toggleRow(index)}
                         >
-                          <TableCell>
+                          <TableCell sx={{ ...STICKY_NAME_SX, bgcolor: 'inherit' }}>
                             {row.children && (
                               <span style={{ marginRight: '8px', display: 'inline-flex', verticalAlign: 'middle' }}>
                                 {expandedRows[index] ? <ExpandIcon /> : <CollapseIcon />}
@@ -1765,8 +1792,8 @@ const SalesReport = () => {
                             ? getTimePeriodColumns()
                             : allColumns.filter(col => visibleColumns[col.key])
                           ).map(column => (
-                            <TableCell key={column.key} align="right">
-                              {column.render(row)}
+                            <TableCell key={column.key} align="center">
+                              {column.renderCell ? column.renderCell(row) : column.render(row)}
                             </TableCell>
                           ))}
                         </TableRow>
@@ -1777,7 +1804,7 @@ const SalesReport = () => {
                               key={`${index}-child-${childIndex}`}
                               sx={{
                                 ...TABLE_ROW_SX,
-                                bgcolor: child.isTotalRow ? '#5ebbeb' : childIndex % 2 === 0 ? '#fff' : '#f8f8f8',
+                                bgcolor: child.isTotalRow ? '#5ebbeb' : childIndex % 2 === 0 ? '#fff' : ROW_ALT_BG,
                                 '& td': {
                                   ...TABLE_ROW_SX['& td'],
                                   color: child.isTotalRow ? '#f8f8f8' : '#000',
@@ -1786,12 +1813,12 @@ const SalesReport = () => {
                                 '& td:first-of-type': { paddingLeft: '34px' },
                               }}
                             >
-                              <TableCell>{child.name}</TableCell>
+                              <TableCell sx={{ ...STICKY_NAME_SX, bgcolor: 'inherit' }}>{child.name}</TableCell>
                               {(isPrecisionMode
                                 ? getTimePeriodColumns()
                                 : allColumns.filter(col => visibleColumns[col.key])
                               ).map(column => (
-                                <TableCell key={column.key} align="right">
+                                <TableCell key={column.key} align="center">
                                   {column.render(child)}
                                 </TableCell>
                               ))}
@@ -1802,13 +1829,14 @@ const SalesReport = () => {
                   )}
                   {reportData.length > 0 && !isPrecisionMode && (
                     <TableRow sx={TABLE_TOTAL_SX}>
-                      <TableCell>Total</TableCell>
+                      {/* Reference total row has no label in the NAME cell. */}
+                      <TableCell sx={{ ...STICKY_NAME_SX, bgcolor: 'inherit' }} />
                       {allColumns.filter(col => visibleColumns[col.key]).map(column => (
                         <TableCell
                           key={column.key}
-                          align="right"
+                          align="center"
                         >
-                          {column.key === 'averageSale' ? (
+                          {column.text ? '' : column.key === 'averageSale' ? (
                             formatCurrency(
                           reportData.reduce((sum, row) => sum + (row.revenue || 0), 0) /
                           reportData.reduce((sum, row) => sum + (row.transactionCount || 0), 0) || 0
@@ -1823,10 +1851,10 @@ const SalesReport = () => {
                             `${((reportData.reduce((sum, row) => sum + (row.profit || 0), 0) / reportData.reduce((sum, row) => sum + (row.costOfGoods || 1), 0)) * 100 || 0).toFixed(2)}%`
                           ) : column.key.includes('Percentage') || column.key.includes('percentage') ? (
                             `${(reportData.reduce((sum, row) => sum + (row[column.key] || 0), 0)).toFixed(2)}%`
-                          ) : column.key.includes('Amount') || column.key.includes('rebate') || column.key.includes('savings') || column.key === 'revenue' || column.key === 'costOfGoods' || column.key === 'profit' || column.key === 'averageSale' ? (
+                          ) : column.key.includes('Amount') || column.key.includes('Rebate') || column.key.includes('Savings') || ['revenue', 'revenueEx', 'costOfGoods', 'costOfGoodsEx', 'profit', 'profitEx', 'averageSale'].includes(column.key) ? (
                             formatCurrency(reportData.reduce((sum, row) => sum + (row[column.key] || 0), 0))
                           ) : (
-                            reportData.reduce((sum, row) => sum + (row[column.key] || 0), 0)
+                            formatCount(reportData.reduce((sum, row) => sum + (row[column.key] || 0), 0))
                         )}
                       </TableCell>
                       ))}
@@ -1834,11 +1862,11 @@ const SalesReport = () => {
                   )}
                   {reportData.length > 0 && isPrecisionMode && (
                     <TableRow sx={TABLE_TOTAL_SX}>
-                      <TableCell>Total</TableCell>
+                      <TableCell sx={{ ...STICKY_NAME_SX, bgcolor: 'inherit' }} />
                       {getTimePeriodColumns().map(column => (
                         <TableCell
                           key={column.key}
-                          align="right"
+                          align="center"
                         >
                           {formatCurrency(reportData.reduce((sum, row) => sum + (row[column.key] || 0), 0))}
                       </TableCell>
