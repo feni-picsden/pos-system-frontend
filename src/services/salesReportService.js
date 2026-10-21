@@ -25,6 +25,7 @@ const salesReportService = {
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.outletId) params.append('outletId', filters.outletId);
+      if (filters.registerId) params.append('registerId', filters.registerId);
 
       const response = await apiClient.get(`/sales-reports/report?${params.toString()}`, { noCache: true });
       return response.data;

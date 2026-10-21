@@ -58,6 +58,7 @@ const { jsPDF } = await import('jspdf');
 import autoTable from 'jspdf-autotable';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import useHeaderScope from '../../hooks/useHeaderScope';
 
 const formatCurrency = (value) => {
   const num = Number(value) || 0;
@@ -517,6 +518,11 @@ const SalesReport = () => {
   const [outletFilterId, setOutletFilterId] = useState('all');
   useEffect(() => { if (!globalMode) setOutletFilterId('all'); }, [globalMode]);
   const outletGroups = [{ items: [{ value: 'all', label: 'All Outlets' }, ...allOutlets.map((o) => ({ value: String(o.id), label: o.name }))] }];
+  // Navbar register (outlet mode only): the report covers that register. In All
+  // Outlets mode a register left selected belongs to no chosen outlet, so it is
+  // ignored there (same rule as Register Closures).
+  const headerScope = useHeaderScope();
+  const headerRegisterId = !headerScope.showOutletFilter && !headerScope.showRegisterFilter ? headerScope.headerRegisterId : null;
 
   const reportRequests = useRef(createRequestGate());
 
@@ -529,6 +535,7 @@ const SalesReport = () => {
     try {
       const filters = {
         ...(globalMode && outletFilterId !== 'all' ? { outletId: outletFilterId } : {}),
+        ...(headerRegisterId != null ? { registerId: headerRegisterId } : {}),
         reportType,
         groupBy,
         dateTime: dateRange.preset,
@@ -589,7 +596,7 @@ const SalesReport = () => {
         reportRequests.current.invalidate();
       };
     }
-  }, [reportType, groupBy, dateRange, consolidate, precision, includeDeleted, outletFilterId]);
+  }, [reportType, groupBy, dateRange, consolidate, precision, includeDeleted, outletFilterId, headerRegisterId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

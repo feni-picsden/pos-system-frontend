@@ -20,6 +20,7 @@ import { userService } from '../../services/userService';
 import { roleService } from '../../services/roleService';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 // Parity input styling: #404040 1px outline, focused #000 2px, radius 8px.
 const inputSx = {
@@ -87,9 +88,17 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
   // Only a TRUE global admin (super admin / all-permission NOT pinned to an outlet)
   // may choose an arbitrary outlet for a user. Outlet admins and regular users are
   // confined to their own outlet — the backend enforces this regardless of the UI.
+  // Header-outlet rule (user, 21/10/2026): the Outlet picker shows only in All
+  // Outlets mode; with an outlet selected in the navbar the new user is created
+  // for that outlet and the field is hidden.
+  const { selectedOutletId: headerOutletId, selectedOutlet: headerOutlet } = useSelectedOutlet();
   const canPickAnyOutlet =
     (currentUser?.isSuperAdmin === true || currentUser?.hasAllPermission === true) &&
-    (currentUser?.outletId === null || currentUser?.outletId === undefined);
+    (currentUser?.outletId === null || currentUser?.outletId === undefined) &&
+    headerOutletId == null;
+  // The outlet a non-picking form writes to: the session outlet, else the navbar one.
+  const fixedOutletId = currentUser?.outletId || headerOutletId || null;
+  const fixedOutletName = currentUser?.outlet?.name || headerOutlet?.name || getOutletName?.(fixedOutletId) || '';
 
   // Load roles and outlets when dialog opens
   useEffect(() => {
@@ -99,8 +108,8 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
         loadOutlets();
         loadRoles();
       } else {
-        if (currentUser?.outletId) {
-          loadRoles(currentUser.outletId);
+        if (fixedOutletId) {
+          loadRoles(fixedOutletId);
         }
       }
     }
@@ -140,12 +149,12 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           role: '',
           isActive: true,
           hasAllPermission: false,
-          outletId: canPickAnyOutlet ? null : currentUser?.outletId || null,
+          outletId: canPickAnyOutlet ? null : fixedOutletId,
           assignMultipleOutlets: false,
           outletIds: canPickAnyOutlet
             ? []
-            : currentUser?.outletId
-              ? [currentUser.outletId]
+            : fixedOutletId
+              ? [fixedOutletId]
               : [],
         });
       }
@@ -308,10 +317,8 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
       } else if (!formData.outletId) {
         errors.outletId = 'Outlet is required';
       }
-    } else {
-      if (!currentUser?.outletId) {
-        errors.outletId = 'You must be assigned to an outlet to create users';
-      }
+    } else if (!isEditMode && !fixedOutletId) {
+      errors.outletId = 'You must be assigned to an outlet to create users';
     }
 
     // Role validation
@@ -364,9 +371,11 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
         userData.assignMultipleOutlets = true;
         userData.outletIds = formData.outletIds;
       }
-      } else {
-        // Regular users and outlet admins can only create users in their own outlet
-        userData.outletId = currentUser?.outletId;
+      } else if (!isEditMode) {
+        // Regular users / outlet admins create in their own outlet; a global admin
+        // standing in a navbar outlet creates for that outlet. Editing without the
+        // picker leaves the user's assignments untouched.
+        userData.outletId = fixedOutletId;
       }
 
       if (isEditMode) {
@@ -495,10 +504,10 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           />
 
                                  {/* Outlet Information for Regular Users and Outlet Admins */}
-            {!canPickAnyOutlet && currentUser?.outlet && (
+            {!canPickAnyOutlet && fixedOutletId && !isEditMode && (
               <Box sx={{ p: 2, backgroundColor: '#e3f2fd', borderRadius: 1, border: '1px solid #2196f3' }}>
                 <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
-                  Creating user for outlet: {currentUser.outlet.name}
+                  Creating user for outlet: {fixedOutletName || `Outlet ${fixedOutletId}`}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   You can only create users in your assigned outlet

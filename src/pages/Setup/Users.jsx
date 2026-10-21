@@ -49,8 +49,10 @@ import { userService } from '../../services/userService';
 import usePageCache from '../../hooks/usePageCache';
 import { roleService } from '../../services/roleService';
 import { outletService } from '../../services/outletService';
+import settingsService from '../../services/settingsService';
 import { useHasPermission } from '../../hooks/usePermissions';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // Shopfront reference has no transitions and no ripple anywhere.
@@ -361,9 +363,14 @@ const OUTLET_REQUIRED_ERROR = 'At least one outlet is required.';
 
 const UserEditPage = ({ user, roles, onBack, onSaved }) => {
   const { user: currentUser } = useAuth();
+  const { selectedOutletId: headerOutletId } = useSelectedOutlet();
+  // Header-outlet rule (user, 21/10/2026): the Outlets picker shows only in All
+  // Outlets mode. With an outlet selected in the navbar the field is hidden and
+  // the user's assignments are left as they are.
   const canPickAnyOutlet =
     (currentUser?.isSuperAdmin === true || currentUser?.hasAllPermission === true) &&
-    (currentUser?.outletId === null || currentUser?.outletId === undefined);
+    (currentUser?.outletId === null || currentUser?.outletId === undefined) &&
+    headerOutletId == null;
 
   const activeUserOutlets = useMemo(
     () => (user.user_outlets || []).filter((uo) => uo.isActive),
@@ -421,6 +428,32 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
         .catch(() => setOutlets([]));
     }
   }, [canPickAnyOutlet]);
+
+  // Reporting Access follows the Outlets picked on the General tab as they change
+  // (it used to be a one-time snapshot, so a removed outlet stayed listed until the
+  // page was reopened). A dropped outlet leaves the list; a newly added one
+  // appears with the company default (Setup > General > "Default New Users to
+  // Reporting Access for All Outlets"); the rest keep their switch.
+  useEffect(() => {
+    const ids = form.outletIds || [];
+    setReporting((prev) => {
+      const kept = prev.filter((r) => ids.includes(r.outletId));
+      const defaultOn = settingsService.getCachedGeneralSettings()?.defaultNewUsersReportingAccessAllOutlets !== false;
+      const added = ids
+        .filter((id) => !prev.some((r) => r.outletId === id))
+        .map((id) => ({
+          outletId: id,
+          outletName: outlets.find((o) => o.id === id)?.name || `Outlet ${id}`,
+          reportAccess: defaultOn,
+        }));
+      const next = [...kept, ...added].map((r) => ({
+        ...r,
+        outletName: outlets.find((o) => o.id === r.outletId)?.name || r.outletName,
+      }));
+      const same = next.length === prev.length && next.every((r, i) => r.outletId === prev[i].outletId && r.outletName === prev[i].outletName && r.reportAccess === prev[i].reportAccess);
+      return same ? prev : next;
+    });
+  }, [form.outletIds, outlets]);
 
   const setField = (field) => (e) => {
     const value = e?.target ? e.target.value : e;
@@ -511,7 +544,9 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
           sortOrder: idx,
         }));
       }
-      if (activeUserOutlets.some((uo) => uo.reportAccess !== undefined)) {
+      // Sent whenever the list API supplied the switches OR the outlets changed here
+      // (a user who had no outlets gets rows on save and their switches must land too).
+      if (activeUserOutlets.some((uo) => uo.reportAccess !== undefined) || (outletsTouched && reporting.length > 0)) {
         payload.reportingAccess = reporting.map((r) => ({
           outletId: r.outletId,
           reportAccess: r.reportAccess,
