@@ -369,40 +369,75 @@ const filterLabelSx = { mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' };
 
 // Reference filter select: flat 42px box, "Select..." placeholder, clear (x)
 // once something is picked. Options are plain {id, name} rows.
-const ClosureSelect = ({ value, onChange, options }) => (
-  <FormControl fullWidth size="small">
-    <Select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      displayEmpty
-      input={<OutlinedInput />}
-      IconComponent={ArrowDropDown}
-      renderValue={(selected) =>
-        options.find((o) => String(o.id) === String(selected))?.name || (
-          <span style={{ color: '#808080' }}>Select...</span>
-        )
-      }
-      endAdornment={
-        value ? (
-          <InputAdornment position="end" sx={{ mr: 2 }}>
-            <IconButton
-              size="small"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => onChange('')}
-            >
-              <Close fontSize="small" />
-            </IconButton>
-          </InputAdornment>
-        ) : null
-      }
-      sx={{ bgcolor: '#fff', borderRadius: 0, minHeight: 42, fontSize: 16, transition: INSTANT }}
-    >
-      {options.map((o) => (
-        <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
-      ))}
-    </Select>
-  </FormControl>
-);
+// Reference: Outlets / Registers are multi-select — each pick shows as a chip
+// with its own x, plus a clear-all x on the right.
+const ClosureSelect = ({ value, onChange, options, label }) => {
+  const selected = Array.isArray(value) ? value : (value ? [value] : []);
+  const nameOf = (id) => options.find((o) => String(o.id) === String(id))?.name || String(id);
+  return (
+    <FormControl fullWidth size="small">
+      <Select
+        multiple
+        value={selected}
+        onChange={(e) => onChange(Array.isArray(e.target.value) ? e.target.value : [])}
+        displayEmpty
+        input={<OutlinedInput inputProps={{ 'aria-label': label }} />}
+        IconComponent={ArrowDropDown}
+        renderValue={(sel) =>
+          sel.length ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              {sel.map((id) => (
+                <Box
+                  key={id}
+                  data-chip={nameOf(id)}
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: '4px', bgcolor: '#e6e6e6', borderRadius: '2px', px: '6px', fontSize: 14, lineHeight: '24px' }}
+                >
+                  {nameOf(id)}
+                  <Close
+                    fontSize="inherit"
+                    sx={{ cursor: 'pointer', fontSize: 14 }}
+                    onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                    onClick={(e) => { e.stopPropagation(); onChange(sel.filter((x) => String(x) !== String(id))); }}
+                  />
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <span style={{ color: '#808080' }}>Select...</span>
+          )
+        }
+        endAdornment={
+          selected.length ? (
+            <InputAdornment position="end" sx={{ mr: 2 }}>
+              <IconButton
+                size="small"
+                aria-label={`Clear ${label}`}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => onChange([])}
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            </InputAdornment>
+          ) : null
+        }
+        // Same box as the Date Range filter beside it (1px #404040, 8px radius, 43px).
+        sx={{
+          bgcolor: '#fff', borderRadius: '8px', minHeight: 43, fontSize: 16, transition: INSTANT,
+          '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
+          '&:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' }
+        }}
+      >
+        {options.map((o) => (
+          <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+};
+
+const PAGE = 50;
+const fmtMoney = (n) => { const v = Number(n || 0); return `${v < 0 ? '-' : ''}$${Math.abs(v).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; };
 
 const RegisterClosures = () => {
   const [rows, setRows] = useState([]);
@@ -411,17 +446,23 @@ const RegisterClosures = () => {
   // Single source of truth for both ends so neither handler can ship a stale sibling value.
   const [range, setRange] = useState({ start: null, end: null });
   // Reference filter row: Outlets / Registers / Date Range.
-  const [outletId, setOutletId] = useState('');
-  const [registerId, setRegisterId] = useState('');
+  const [outletIds, setOutletIds] = useState([]);
+  const [registerIds, setRegisterIds] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [registers, setRegisters] = useState([]);
   const reqId = useRef(0);
+  const sentinelRef = useRef(null);
   const navigate = useNavigate();
   // Header outlet/register rule: hide the matching in-page filter (display only).
-  const { showOutletFilter, showRegisterFilter, headerRegisterId } = useHeaderScope();
+  const scope = useHeaderScope();
+  const showOutletFilter = scope.showOutletFilter;
+  // All Outlets (global) mode: a register left selected in the header belongs to no
+  // chosen outlet, so the Registers filter shows too and the list is not pinned to it.
+  const showRegisterFilter = showOutletFilter || scope.showRegisterFilter;
+  const headerRegisterId = showOutletFilter ? null : scope.headerRegisterId;
   useEffect(() => {
-    if (!showOutletFilter && outletId) { setOutletId(''); setRegisterId(''); }
-    if (!showRegisterFilter && registerId) setRegisterId('');
+    if (!showOutletFilter && outletIds.length) { setOutletIds([]); setRegisterIds([]); }
+    if (!showRegisterFilter && registerIds.length) setRegisterIds([]);
   }, [showOutletFilter, showRegisterFilter]);
 
   useEffect(() => {
@@ -442,7 +483,9 @@ const RegisterClosures = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const load = useCallback(async () => {
+  // Reference list is an infinite scroll: a filter change reloads page 1, reaching
+  // the bottom appends the next page until every closure is in.
+  const load = useCallback(async (skip = 0) => {
     const id = ++reqId.current;
     try {
       setLoading(true);
@@ -450,44 +493,66 @@ const RegisterClosures = () => {
       const query = new URLSearchParams({
         ...(range.start ? { from: range.start.toISOString() } : {}),
         ...(range.end ? { to: range.end.toISOString() } : {}),
-        ...(showOutletFilter && outletId ? { outletId } : {}),
+        ...(showOutletFilter && outletIds.length ? { outletIds: outletIds.join(',') } : {}),
         // hidden Register filter -> the header register
-        ...(showRegisterFilter ? (registerId ? { registerId } : {}) : (headerRegisterId ? { registerId: headerRegisterId } : {}))
+        ...(showRegisterFilter ? (registerIds.length ? { registerIds: registerIds.join(',') } : {}) : (headerRegisterId ? { registerIds: String(headerRegisterId) } : {})),
+        skip: String(skip),
+        take: String(PAGE)
       }).toString();
-      const res = await apiClient.get(`/register-closures${query ? `?${query}` : ''}`);
+      const res = await apiClient.get(`/register-closures?${query}`);
       if (id !== reqId.current) return; // a newer request already answered
       const closures = res.data?.closures || [];
-      setRows(closures);
+      setRows((prev) => (skip ? [...prev, ...closures] : closures));
       setTotal(res.data?.total ?? closures.length);
     } finally {
       if (id === reqId.current) setLoading(false);
     }
-  }, [range, outletId, registerId, showOutletFilter, showRegisterFilter, headerRegisterId]);
+  }, [range, outletIds, registerIds, showOutletFilter, showRegisterFilter, headerRegisterId]);
 
   useEffect(() => {
-    load();
+    load(0);
   }, [load]);
 
-  // Registers are outlet-scoped, so picking an outlet narrows the list rather
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || rows.length >= total) return undefined;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) load(rows.length);
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [rows.length, total, load]);
+
+  // Registers are outlet-scoped, so picking outlets narrows the list rather
   // than offering pairs that can never match a closure.
   const visibleRegisters = registers.filter(
-    (r) => !outletId || String(r.outletId) === String(outletId)
+    (r) => !outletIds.length || outletIds.some((o) => String(r.outletId) === String(o))
   );
   const outletNameById = (id) =>
     outlets.find((o) => String(o.id) === String(id))?.name || '';
 
-  const cellSx = { p: '8px', fontSize: 16, color: '#000', border: '1px solid #000' };
-  const headerCellSx = { ...cellSx, fontWeight: 700, textTransform: 'none', bgcolor: 'transparent' };
+  // Same table design as the other report pages (Security Centre / Sales History):
+  // sky-blue header with white caps, zebra rows, no cell borders.
+  const cellSx = { p: '8px 8px 8px 10px', fontSize: 16, color: '#000', borderBottom: 'none' };
+  const headerCellSx = { p: '8px', fontSize: 16, fontWeight: 700, textTransform: 'uppercase', color: '#f8f8f8', bgcolor: '#5ebbeb', borderBottom: 'none' };
 
   return (
-    <Box sx={{ p: 1 }}>
-      <Typography
-        variant="h4"
-        component="h1"
-        sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: '21.44px 0' }}
-      >
-        Register Closures
-      </Typography>
+    // Same page padding as Products (24px) so the Results block clears the edge.
+    <Box sx={{ p: 3 }}>
+      {/* Title row: heading left, count block top-right (like Products / Stocktakes) */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', m: '21.44px 0' }}>
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: 0 }}
+        >
+          Register Closures
+        </Typography>
+        <Box data-total-count sx={{ textAlign: 'right' }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: '#000' }}>{total}</Typography>
+          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
+        </Box>
+      </Box>
 
       <Box
         sx={{
@@ -503,8 +568,16 @@ const RegisterClosures = () => {
         <Box>
           <Typography variant="body2" sx={filterLabelSx}>Outlets</Typography>
           <ClosureSelect
-            value={outletId}
-            onChange={(next) => { setOutletId(next); setRegisterId(''); }}
+            label="Outlets"
+            value={outletIds}
+            onChange={(next) => {
+              setOutletIds(next);
+              // drop registers that no longer belong to a picked outlet
+              setRegisterIds((prev) => prev.filter((rid) => {
+                const r = registers.find((x) => String(x.id) === String(rid));
+                return !next.length || (r && next.some((o) => String(o) === String(r.outletId)));
+              }));
+            }}
             options={outlets}
           />
         </Box>
@@ -513,8 +586,9 @@ const RegisterClosures = () => {
         <Box>
           <Typography variant="body2" sx={filterLabelSx}>Registers</Typography>
           <ClosureSelect
-            value={registerId}
-            onChange={setRegisterId}
+            label="Registers"
+            value={registerIds}
+            onChange={setRegisterIds}
             options={visibleRegisters}
           />
         </Box>
@@ -529,9 +603,6 @@ const RegisterClosures = () => {
         </Box>
       </Box>
 
-      <Typography sx={{ textAlign: 'right', fontSize: '12.8px', color: '#676b72', mb: 1 }}>
-        Showing {rows.length} of {total} Register Closures
-      </Typography>
 
       <Table sx={{ borderCollapse: 'collapse' }}>
         <TableHead>
@@ -542,20 +613,20 @@ const RegisterClosures = () => {
             <TableCell sx={headerCellSx}>Close Time</TableCell>
             <TableCell sx={headerCellSx}>Expected</TableCell>
             <TableCell sx={headerCellSx}>Received</TableCell>
-            <TableCell sx={headerCellSx}>Actions</TableCell>
+            <TableCell sx={headerCellSx}>View</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((rc) => (
-            <TableRow key={rc.id}>
+          {rows.map((rc, i) => (
+            <TableRow key={rc.id} sx={{ bgcolor: i % 2 ? '#f8f8f8' : '#fff' }}>
               <TableCell sx={cellSx}>{rc.register?.name || rc.registerId}</TableCell>
               {/* RegisterClosure stores outletId with no outlet relation, so the
-                  name comes from the list loaded for the filter. */}
-              <TableCell sx={cellSx}>{outletNameById(rc.outletId)}</TableCell>
+                  name comes from the register's outlet or the filter list. */}
+              <TableCell sx={cellSx}>{rc.register?.outlet?.name || outletNameById(rc.outletId)}</TableCell>
               <TableCell sx={cellSx}>{fmtDateTime(rc.openedAt)}</TableCell>
               <TableCell sx={cellSx}>{fmtDateTime(rc.closedAt)}</TableCell>
-              <TableCell sx={cellSx}>${(rc.expectedAmount ?? 0).toFixed(2)}</TableCell>
-              <TableCell sx={cellSx}>${(rc.receivedAmount ?? 0).toFixed(2)}</TableCell>
+              <TableCell sx={cellSx}>{fmtMoney(rc.expectedAmount)}</TableCell>
+              <TableCell sx={cellSx}>{fmtMoney(rc.receivedAmount)}</TableCell>
               <TableCell sx={cellSx}>
                 <Box
                   component="a"
@@ -584,6 +655,7 @@ const RegisterClosures = () => {
           ))}
         </TableBody>
       </Table>
+      {rows.length < total && <Box ref={sentinelRef} data-sentinel sx={{ height: 1 }} />}
     </Box>
   );
 };

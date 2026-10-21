@@ -49,6 +49,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import salesReportService from '../../services/salesReportService';
 import { totalProfitPercentage } from '../../utils/reportTotals';
+import { createRequestGate } from '../../utils/reportingDashboard';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
@@ -517,10 +518,14 @@ const SalesReport = () => {
   useEffect(() => { if (!globalMode) setOutletFilterId('all'); }, [globalMode]);
   const outletGroups = [{ items: [{ value: 'all', label: 'All Outlets' }, ...allOutlets.map((o) => ({ value: String(o.id), label: o.name }))] }];
 
-  // Load report data
+  const reportRequests = useRef(createRequestGate());
+
+  // A slow response for an earlier date must not overwrite the new range.
   const loadReportData = async () => {
+    const request = reportRequests.current.next();
     setLoading(true);
     setLoadError('');
+    setReportData([]);
     try {
       const filters = {
         ...(globalMode && outletFilterId !== 'all' ? { outletId: outletFilterId } : {}),
@@ -536,6 +541,7 @@ const SalesReport = () => {
       };
 
       const response = await salesReportService.getSalesReport(filters);
+      if (!reportRequests.current.isCurrent(request)) return;
       
       if (response.success) {
         setReportData(response.data || []);
@@ -545,12 +551,13 @@ const SalesReport = () => {
         setLoadError('We encountered an error with that report type, check your filters and report type to make sure they aren\'t contradictory.');
       }
     } catch (error) {
+      if (!reportRequests.current.isCurrent(request)) return;
       console.error('Error loading report:', error);
       setReportData([]);
       // Reference shows a red error bar; an empty table would read as "no data".
       setLoadError(!error?.response ? 'Unable to load the report — you appear to be offline. Check your connection and try again.' : 'We encountered an error with that report type, check your filters and report type to make sure they aren\'t contradictory.');
     } finally {
-      setLoading(false);
+      if (reportRequests.current.isCurrent(request)) setLoading(false);
     }
   };
 
@@ -577,7 +584,10 @@ const SalesReport = () => {
         loadReportData();
       }, delay);
       
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        reportRequests.current.invalidate();
+      };
     }
   }, [reportType, groupBy, dateRange, consolidate, precision, includeDeleted, outletFilterId]);
 
@@ -585,7 +595,10 @@ const SalesReport = () => {
     const timer = setTimeout(() => {
       loadReportData();
     }, 500);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      reportRequests.current.invalidate();
+    };
   }, [searchTerm]);
 
   const generateSQLQuery = () => {

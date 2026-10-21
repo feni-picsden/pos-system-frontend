@@ -69,6 +69,9 @@ import {
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useThemeMode } from '../../contexts/themeMode';
 import { useActivePriceSet } from '../../contexts/ActivePriceSetContext';
+
+// Navbar "active price set" badge — switched off 21/10/2026 at the user's request.
+const SHOW_PRICE_SET_BADGE = false;
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import notificationService from '../../services/notificationService';
 import apiClient, { resolveAssetUrl } from '../../services/apiClient';
@@ -855,7 +858,8 @@ const DashboardLayout = ({ children }) => {
                 whether they are ringing up at Default or at some other set. Only
                 a non-default set is shown — Default is the normal state and
                 badging it would be noise. */}
-            {activePriceSetName && (
+            {/* Hidden 21/10/2026 (user: "not show tag") — kept so it can be switched back on. */}
+            {SHOW_PRICE_SET_BADGE && activePriceSetName && (
               <Box
                 aria-label="active price set"
                 title={`Price Set: ${activePriceSetName}`}

@@ -460,6 +460,9 @@ export const COMPANY_SECTIONS = [
         label: 'Share Parked Sales Between Outlets',
         type: 'toggle',
         default: true,
+        // Hidden 21/10/2026 (user): parked sales are always per outlet now — the
+        // sell screen lists only the header outlet's parked sales (routes/sales.js).
+        hidden: true,
         description: "When enabled, all parked sales will appear in all Outlet's **Parked Sales** sell screen option tab.",
         enabledLabel: 'Parked sales shared between outlets',
         disabledLabel: 'Parked sales unique per outlet'

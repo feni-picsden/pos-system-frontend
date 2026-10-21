@@ -72,7 +72,7 @@ const salesService = {
         }
       });
 
-      const response = await apiClient.get(`/sales/stats/summary?${queryParams.toString()}`);
+        const response = await apiClient.get(`/sales/stats/summary?${queryParams.toString()}`, { noCache: true });
       return response.data;
     } catch (error) {
       console.error('Error fetching sales stats:', error);

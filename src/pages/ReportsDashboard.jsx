@@ -1,19 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
-  Grid,
+  Button, Alert, CircularProgress, Select, MenuItem, Checkbox, ListItemText,
   Typography,
 } from '@mui/material';
 import SalesChart from '../components/Charts/SalesChart';
-import KPILineChart from '../components/Charts/KPILineChart';
-import ReportBox from '../components/Reports/ReportBox';
+import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined';
+import ReportingKPI from '../components/Charts/ReportingKPI';
+import ReportTable from '../components/Reports/ReportTable';
 import salesService from '../services/salesService';
-import { useAuth } from '../contexts/AuthContext';
+import useHeaderScope from '../hooks/useHeaderScope';
+import { activeTimeline, createRequestGate, money, outletColor, tableWithTotal } from '../utils/reportingDashboard';
 
-const formatCurrency = (value) => {
-  const num = Number(value) || 0;
-  return `$${num.toFixed(2)}`;
-};
+const formatCurrency = money;
 
 // Shopfront-parity segmented control (matches reference .inline-select / .inline-select-option)
 const SegmentedToggle = ({ value, options, onChange }) => (
@@ -91,341 +90,127 @@ const dashboardLoadError = (e) => (!e?.response
   ? 'Failed to load the dashboard — you appear to be offline. Check your connection and try again.'
   : 'Failed to load the dashboard');
 
+const COMPARES = {
+  day: ['none', 'last_week', 'last_month', 'last_year'],
+  week: ['none', 'last_month', 'last_year'],
+  month: ['none', 'last_year'],
+  year: ['none'],
+};
+const COMPARE_LABELS = { none: 'None', last_week: 'Last Week', last_month: 'Last Month', last_year: 'Last Year' };
+
 const ReportsDashboard = () => {
-  const { getOutletName } = useAuth();
+  const { showOutletFilter, headerOutletId, headerRegisterId } = useHeaderScope();
   const [timelineValue, setTimelineValue] = useState('count');
-  const [period, setPeriod] = useState('day'); 
-  const [compare, setCompare] = useState('none'); 
-  const [loading, setLoading] = useState(false);
+  const [period, setPeriod] = useState('day');
+  const [compare, setCompare] = useState('none');
+  const [pickedOutlets, setPickedOutlets] = useState([]);
+  const [availableOutlets, setAvailableOutlets] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [summary, setSummary] = useState({
-    revenue: 0,
-    saleCount: 0,
-    customerCount: 0,
-    averageSale: 0,
-    basketSize: 0,
-    grossProfit: 0,
-    discountAmount: 0,
-    profitPercentage: 0,
-    topProducts: [],
-    topUsers: [],
-    timeline: [],
-    comparisonTimeline: [],
-  });
-  const [mainChartData, setMainChartData] = useState({
-    timeline: [],
-    comparisonTimeline: [],
-  });
+  const [refresh, setRefresh] = useState(0);
+  const gate = useRef(createRequestGate());
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  // Fetch data for main chart only (half-hour buckets; small charts unaffected)
   useEffect(() => {
-    const fetchMainChartData = async () => {
-      try {
-        const data = await salesService.getSalesStats({
-          period: 'day',
-          compare: 'none',
-          timelineInterval: 'half_hour',
-        });
-        setMainChartData({
-          timeline: data?.timeline || [],
-          comparisonTimeline: data?.comparisonTimeline || [],
-        });
-      } catch (e) {
-        console.error('Failed to load main chart data:', e);
-        setError(dashboardLoadError(e));
-      }
-    };
-    fetchMainChartData();
-  }, []); 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-
-        const data = await salesService.getSalesStats({
-          period,
-          compare,
-        });
-        setSummary({
-          revenue: data?.revenue || 0,
-          saleCount: data?.saleCount || 0,
-          customerCount: data?.customerCount || 0,
-          averageSale: data?.averageSale || 0,
-          basketSize: data?.basketSize || 0,
-          grossProfit: data?.grossProfit || 0,
-          discountAmount: data?.discountAmount || 0,
-          profitPercentage: data?.profitPercentage || 0,
-          topProducts: data?.topProducts || [],
-          topUsers: data?.topUsers || [],
-          timeline: data?.timeline || [],
-          comparisonTimeline: data?.comparisonTimeline || [],
-        });
-      } catch (e) {
-        setError(dashboardLoadError(e));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [period, compare]);
-
-  const topProductsColumns = [
-    { field: 'name', headerName: 'Name', width: 300 },
-    { field: 'revenue', headerName: 'Revenue', width: 120, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'quantity', headerName: 'Quantity', width: 100 },
-  ];
-
-  const topUsersColumns = [
-    { field: 'name', headerName: 'Name', width: 200 },
-    { field: 'revenue', headerName: 'Revenue', width: 140, valueFormatter: (v) => formatCurrency(v) },
-    { field: 'transactionCount', headerName: 'Transaction Count', width: 160 },
-    { field: 'averageSale', headerName: 'Average Sale', width: 140, valueFormatter: (v) => formatCurrency(v) },
-  ];
-
-  // Value of one metric for one timeline bucket (used for both the current and
-  // the comparison series, so Compare With draws a real second series).
-  const metricForSlot = (timeSlot, metricKey) => {
-    let value = 0;
-
-    switch (metricKey) {
-        case 'revenue':
-          value = Number(timeSlot.revenue || 0);
-          break;
-        case 'saleCount':
-          value = Number(timeSlot.saleCount || 0);
-          break;
-        case 'customerCount':
-          // Calculate unique customers from sales array if available
-          if (timeSlot.sales && Array.isArray(timeSlot.sales)) {
-            const uniqueCustomers = new Set(
-              timeSlot.sales
-                .map(sale => sale.customerId)
-                .filter(id => id != null)
-            );
-            value = uniqueCustomers.size;
-          } else {
-            // Distribute total customer count proportionally
-            value = summary.customerCount > 0 && summary.saleCount > 0
-              ? Math.round((summary.customerCount / summary.saleCount) * (timeSlot.saleCount || 0))
-              : 0;
-          }
-          break;
-        case 'averageSale':
-          value = timeSlot.saleCount > 0
-            ? Number(timeSlot.revenue || 0) / Number(timeSlot.saleCount || 1)
-            : 0;
-          break;
-        case 'basketSize':
-          // Calculate from sales if items data is available
-          if (timeSlot.sales && Array.isArray(timeSlot.sales) && timeSlot.sales.length > 0) {
-            const totalItems = timeSlot.sales.reduce((sum, sale) => sum + (Number(sale.itemCount) || 0), 0);
-            value = timeSlot.saleCount > 0 ? totalItems / timeSlot.saleCount : 0;
-          } else {
-            // Distribute total basket size proportionally
-            value = summary.basketSize > 0 && summary.saleCount > 0
-              ? (summary.basketSize / summary.saleCount) * (timeSlot.saleCount || 0)
-              : 0;
-          }
-          break;
-        case 'grossProfit':
-          // Calculate from sales if profit data is available
-          if (timeSlot.sales && Array.isArray(timeSlot.sales) && timeSlot.sales.length > 0) {
-            value = timeSlot.sales.reduce((sum, sale) => sum + (Number(sale.grossProfit) || 0), 0);
-          } else {
-            // Distribute total gross profit proportionally by revenue
-            value = summary.grossProfit > 0 && summary.revenue > 0
-              ? (summary.grossProfit / summary.revenue) * (Number(timeSlot.revenue || 0))
-              : 0;
-          }
-          break;
-        case 'discountAmount':
-          // Calculate from sales if discount data is available
-          if (timeSlot.sales && Array.isArray(timeSlot.sales) && timeSlot.sales.length > 0) {
-            value = timeSlot.sales.reduce((sum, sale) => {
-              const discount = Number(sale.discount) || 0;
-              const savings = Number(sale.savings) || 0;
-              return sum + discount + savings;
-            }, 0);
-          } else {
-            // Distribute total discount proportionally by revenue
-            value = summary.discountAmount > 0 && summary.revenue > 0
-              ? (summary.discountAmount / summary.revenue) * (Number(timeSlot.revenue || 0))
-              : 0;
-          }
-          break;
-        case 'profitPercentage': {
-          const revenue = Number(timeSlot.revenue || 0);
-          let profit = 0;
-          if (timeSlot.sales && Array.isArray(timeSlot.sales) && timeSlot.sales.length > 0) {
-            profit = timeSlot.sales.reduce((sum, sale) => sum + (Number(sale.grossProfit) || 0), 0);
-          } else {
-            profit = summary.grossProfit > 0 && summary.revenue > 0
-              ? (summary.grossProfit / summary.revenue) * revenue
-              : 0;
-          }
-          value = revenue > 0 ? (profit / revenue) * 100 : 0;
-          break;
-        }
-      default:
-        value = 0;
-    }
-
-    return value;
-  };
-
-  const showComparison = compare !== 'none' && (summary.comparisonTimeline || []).length > 0;
-
-  // Prepare timeline data for each KPI metric (+ the comparison series)
-  const prepareKPITimeline = (metricKey) => {
-    if (!summary.timeline || summary.timeline.length === 0) {
-      return [];
-    }
-
-    const compareByTime = new Map(
-      (summary.comparisonTimeline || []).map((slot) => [slot.time, slot])
-    );
-
-    return summary.timeline.map((timeSlot, index) => {
-      const row = { time: timeSlot.time, value: metricForSlot(timeSlot, metricKey) };
-      if (showComparison) {
-        // Align by bucket label where the prior period shares it, else positionally.
-        const compareSlot =
-          compareByTime.get(timeSlot.time) || summary.comparisonTimeline[index] || null;
-        row.compare = compareSlot ? metricForSlot(compareSlot, metricKey) : 0;
-      }
-      return row;
+    const request = gate.current.next();
+    setLoading(true);
+    setError('');
+    salesService.getSalesStats({ period, compare, timeZone,
+      ...(headerOutletId != null ? { outletId: headerOutletId } : {}),
+      ...(headerRegisterId != null ? { registerId: headerRegisterId } : {}),
+      ...(showOutletFilter && pickedOutlets.length ? { outletIds: pickedOutlets.join(',') } : {}),
+    }).then(data => {
+      if (!gate.current.isCurrent(request)) return;
+      setSummary(data);
+      setAvailableOutlets(data.availableOutlets || []);
+    }).catch(e => {
+      if (!gate.current.isCurrent(request)) return;
+      setError(dashboardLoadError(e));
+      setSummary(null);
+    }).finally(() => {
+      if (gate.current.isCurrent(request)) setLoading(false);
     });
+    const currentGate = gate.current;
+    return () => currentGate.invalidate();
+  }, [period, compare, timeZone, headerOutletId, headerRegisterId, showOutletFilter, pickedOutlets, refresh]);
+
+  const changePeriod = value => {
+    setPeriod(value);
+    if (!COMPARES[value].includes(compare)) setCompare('none');
   };
+  const productColumns = [
+    { field: 'name', headerName: 'Name', width: 350, percentWidth: '67%' },
+    { field: 'revenue', headerName: 'Revenue', width: 150, percentWidth: '15%', align: 'center', format: money },
+    { field: 'quantity', headerName: 'Quantity', width: 130, percentWidth: '18%', align: 'center' },
+  ];
+  const userColumns = [
+    { field: 'name', headerName: 'Name', width: 300, percentWidth: '15%' },
+    { field: 'revenue', headerName: 'Revenue', width: 150, percentWidth: '17%', align: 'center', format: money },
+    { field: 'transactionCount', headerName: 'Transaction Count', width: 180, percentWidth: '42%', align: 'center' },
+    { field: 'averageSale', headerName: 'Average Sale', width: 150, percentWidth: '26%', align: 'center', format: money },
+  ];
+  const date = value => new Date(value).toLocaleDateString('en-GB', { timeZone });
+  const colors = Object.fromEntries((summary?.outlets || []).map(o => [o.id, outletColor(o.id)]));
+  const timeline = activeTimeline(summary?.timeline);
 
   return (
     <Box>
-      {/* Filters: bare flex row, no card (reference .report-dashboard-filters) */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-around',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          height: 120,
-          p: 0,
-          backgroundColor: 'transparent',
-        }}
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <FilterGroup label="Timeline Value">
-          <SegmentedToggle
-            value={timelineValue}
-            onChange={setTimelineValue}
-            options={[
-              { value: 'count', label: 'Sale Count' },
-              { value: 'revenue', label: 'Revenue' },
-            ]}
-          />
+          <SegmentedToggle value={timelineValue} onChange={setTimelineValue}
+            options={[{ value: 'count', label: 'Sale Count' }, { value: 'revenue', label: 'Revenue' }]} />
         </FilterGroup>
         <FilterGroup label="Time Period">
-          <SegmentedToggle
-            value={period}
-            onChange={setPeriod}
-            options={[
-              { value: 'day', label: 'Day' },
-              { value: 'week', label: 'Week' },
-              { value: 'month', label: 'Month' },
-              { value: 'year', label: 'Year' },
-            ]}
-          />
+          <SegmentedToggle value={period} onChange={changePeriod}
+            options={['day', 'week', 'month', 'year'].map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) }))} />
         </FilterGroup>
         <FilterGroup label="Compare With">
-          <SegmentedToggle
-            value={compare}
-            onChange={setCompare}
-            options={[
-              { value: 'none', label: 'None' },
-              { value: 'last_week', label: 'Last Week' },
-              { value: 'last_month', label: 'Last Month' },
-              { value: 'last_year', label: 'Last Year' },
-            ]}
-          />
+          <SegmentedToggle value={compare} onChange={setCompare}
+            options={COMPARES[period].map(value => ({ value, label: COMPARE_LABELS[value] }))} />
         </FilterGroup>
+        {showOutletFilter && <FilterGroup label="Outlets">
+          <Select multiple displayEmpty size="small" value={pickedOutlets} onChange={e => setPickedOutlets(e.target.value.includes('all') ? [] : e.target.value)}
+            inputProps={{ 'aria-label': 'Outlets' }} sx={{ width: 300, maxWidth: '100%', height: 42, mt: 0.5 }}
+            renderValue={ids => ids.length ? availableOutlets.filter(o => ids.includes(o.id)).map(o => o.name).join(', ') : 'Select Outlets…'}>
+            <MenuItem value="all" disabled={!pickedOutlets.length}>All permitted outlets</MenuItem>
+            {availableOutlets.map(o => <MenuItem key={o.id} value={o.id}>
+              <Checkbox checked={pickedOutlets.includes(o.id)} /><ListItemText primary={o.name} />
+            </MenuItem>)}
+          </Select>
+        </FilterGroup>}
       </Box>
-
-      {/* Load failure (e.g. offline): reference shows "Failed to load the user
-          dashboard"; an empty chart saying "No data available" reads as "no sales". */}
-      {error && !loading && (
-        <Box sx={{ bgcolor: 'rgb(227,52,47)', color: '#fff', px: 2, py: 1.5, mb: 2, fontSize: 15 }}>
-          {error}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', px: 1 }}>
+        <Button onClick={() => setRefresh(n => n + 1)} disabled={loading}>Refresh</Button>
+      </Box>
+      {error && <Alert severity="error">{error}</Alert>}
+      {loading && <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress size={26} /></Box>}
+      {!loading && !error && summary && <>
+        {timeline.length ? <SalesChart height={400} type="bar" data={timeline} timelineValue={timelineValue}
+          compare="none" period="day" isMainChart outletColors={colors} showOutletNames={showOutletFilter}
+          colorBy={showOutletFilter ? 'outlet' : 'user'} showRegisterNames={headerRegisterId == null} />
+          : <Box role="status" sx={{ minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, p: 3, flexWrap: 'wrap' }}>
+            <ShoppingCartOutlined aria-hidden="true" sx={{ fontSize: 160, color: 'text.primary' }} />
+            <Box>
+              <Typography sx={{ fontSize: 24, fontWeight: 600, mb: 3 }}>No Sales Data</Typography>
+              <Typography sx={{ fontSize: 16 }}>No completed sales today for the selected outlets or register.</Typography>
+            </Box>
+          </Box>}
+        <Box sx={{ display: 'grid', px: 1, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(4, 1fr)', xl: 'repeat(5, 1fr)' }, rowGap: 3 }}>
+          {KPI_CARDS.map(card => <ReportingKPI key={card.metric} title={card.title} metric={card.metric}
+            description={KPI_DESCRIPTIONS[card.title]} format={card.format} compare={compare}
+            outlets={summary.outlets} history={summary.history} showOutletNames={showOutletFilter} />)}
         </Box>
-      )}
-
-      {/* Timeline: no card, 400px tall (reference .report-dashboard-timeline) */}
-      <Box sx={{ height: 400, backgroundColor: 'transparent', p: 0 }}>
-        {loading || error ? null : (
-          <SalesChart
-            height={400}
-            type="bar"
-            data={mainChartData.timeline}
-            comparisonData={mainChartData.comparisonTimeline || []}
-            timelineValue={timelineValue}
-            compare="none"
-            period="day"
-            isMainChart
-          />
-        )}
-      </Box>
-
-      {/* KPI graphs */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(3, 1fr)',
-            lg: 'repeat(5, 1fr)',
-          },
-          gap: 0,
-        }}
-      >
-        {KPI_CARDS.map((card) => (
-          <KPILineChart
-            key={card.title}
-            title={card.title}
-            description={KPI_DESCRIPTIONS[card.title]}
-            value={summary[card.metric]}
-            data={prepareKPITimeline(card.metric)}
-            dataKey={card.metric}
-            formatValue={card.format}
-            height={300}
-            color="#e96f9d"
-            showComparison={showComparison}
-            outletName={getOutletName() || ''}
-          />
+        {[['Top 20 Products', summary.topProducts, productColumns, 'products'], ['Users', summary.topUsers, userColumns, 'users']].map(([title, rows, columns, kind]) => (
+          <Box key={title} sx={{ mt: 4, px: 1 }}>
+            <Typography sx={{ fontSize: 24, textTransform: 'uppercase', lineHeight: '29px', mb: 1 }}>{title}</Typography>
+            <Typography title={date(summary.todayRange.start)} sx={{ fontSize: 16, color: '#b7b7b7', textTransform: 'uppercase', lineHeight: '19px', mb: 1 }}>Since the start of the day</Typography>
+            <ReportTable columns={columns} data={tableWithTotal(rows, kind)} hideFooter maxHeight="none" referenceSizing />
+          </Box>
         ))}
-      </Box>
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <ReportBox
-            title="Top 20 Products"
-            data={summary.topProducts}
-            columns={topProductsColumns}
-            width={6}
-            isDraggable={false}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <ReportBox
-            title="Users"
-            data={summary.topUsers}
-            columns={topUsersColumns}
-            width={6}
-            isDraggable={false}
-          />
-        </Grid>
-      </Grid>
+      </>}
     </Box>
   );
 };
 
 export default ReportsDashboard;
-
-

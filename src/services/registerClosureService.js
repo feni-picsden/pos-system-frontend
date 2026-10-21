@@ -12,6 +12,11 @@ const registerClosureService = {
     const res = await apiClient.get(`${BASE}/${id}`);
     return res.data?.closure;
   },
+  // Account Sales / Refunds / Discounts / Tax / Payment Subtypes / Movements in one call.
+  getDetails: async (id) => {
+    const res = await apiClient.get(`${BASE}/${id}/details`);
+    return res.data;
+  },
   getTax: async (id) => {
     const res = await apiClient.get(`${BASE}/${id}/tax`);
     return res.data;
@@ -24,6 +29,14 @@ const registerClosureService = {
     const res = await apiClient.get(`${BASE}/${id}/hourly-stats`);
     return res.data;
   },
+  getNotes: async (id) => {
+    const res = await apiClient.get(`${BASE}/${id}/notes`);
+    return res.data?.notes || [];
+  },
+  addNote: async (id, text) => {
+    const res = await apiClient.post(`${BASE}/${id}/notes`, { text });
+    return res.data?.notes || [];
+  },
   updateNote: async (id, note) => {
     const res = await apiClient.patch(`${BASE}/${id}/note`, { note });
     return res.data?.closure;
@@ -31,4 +44,3 @@ const registerClosureService = {
 };
 
 export default registerClosureService;
-

@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { timelineSaleColor } from '../../utils/reportingDashboard';
 import { 
   Box,
   Typography,
@@ -55,6 +56,10 @@ export const SalesChart = ({
   compare = 'none',
   period = 'day',
   isMainChart = false,
+  outletColors = {},
+  showOutletNames = true,
+  showRegisterNames = true,
+  colorBy = 'outlet',
 }) => {
   const [hoveredSegment, setHoveredSegment] = useState(null); // { bucketKey, segmentIndex }
 
@@ -154,8 +159,8 @@ export const SalesChart = ({
       // Reference `.report-dashboard-tooltip`: 295px, white, square, no shadow,
       // 16px colour strip then a plain table of per-sale rows.
       const rows = [
-        ['Outlet', sale.outlet ?? '-'],
-        ['Register', sale.register ?? '-'],
+        ...(showOutletNames ? [['Outlet', sale.outlet ?? '-']] : []),
+        ...(showRegisterNames ? [['Register', sale.register ?? '-']] : []),
         ['User', sale.user ?? '-'],
         ['Revenue', formatCurrency(sale.revenue)],
         ['Invoice Number', sale.invoiceNumber ?? '-'],
@@ -163,7 +168,7 @@ export const SalesChart = ({
       ];
       return (
         <Box sx={{ width: 295, backgroundColor: '#fff', borderRadius: 0, boxShadow: 'none' }}>
-          <Box sx={{ height: 16, backgroundColor: DARK_PINK }} />
+          <Box sx={{ height: 16, backgroundColor: timelineSaleColor(sale, colorBy, outletColors) }} />
           <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
             <Box component="tbody">
               {rows.map(([label, val]) => (
@@ -199,14 +204,14 @@ export const SalesChart = ({
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Sale Details</Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            {showOutletNames && <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>Outlet</Typography>
               <Typography variant="body2">{sale.outlet}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            </Box>}
+            {showRegisterNames && <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>Register</Typography>
               <Typography variant="body2">{sale.register}</Typography>
-            </Box>
+            </Box>}
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>User</Typography>
               <Typography variant="body2">{sale.user}</Typography>
@@ -295,7 +300,7 @@ export const SalesChart = ({
                       {chartData.map((entry, timeIdx) => (
                         <Cell
                           key={`${timeIdx}-${i}`}
-                          fill={colors[i % 2]}
+                          fill={timelineSaleColor(entry.sales?.[i], colorBy, outletColors)}
                           onMouseEnter={() => setHoveredSegment({ bucketKey: entry.displayLabel, segmentIndex: i })}
                           onMouseLeave={() => setHoveredSegment(null)}
                           style={{ cursor: 'pointer' }}

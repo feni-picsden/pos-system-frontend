@@ -53,6 +53,13 @@ const CHART_PALETTE = [
   'rgb(75,192,192)',
   'rgb(153,102,255)',
   'rgb(201,203,207)',
+  // Beyond the 7 Chart.js defaults (reference) the colours repeated, so an 8th+
+  // event type looked like part of a neighbouring slice — 5 more distinct ones.
+  'rgb(0,128,96)',
+  'rgb(156,39,176)',
+  'rgb(121,85,72)',
+  'rgb(233,30,99)',
+  'rgb(63,81,181)',
 ];
 
 // Reference date-range popover tokens
@@ -61,6 +68,7 @@ const SKY_SELECTED = '#0ea5e9';   // oklch(0.685 0.169 237.323) — selected day
 const NEUTRAL = '#6b6b6b';        // oklch(0.439 0 0) — month titles / preset button
 const DT_FORMAT = 'dd-MMM-yyyy hh:mm:ss a';   // 30-Jul-2026 12:00:00 AM
 const TRIGGER_FORMAT = 'dd/MM/yyyy HH:mm:ss'; // trigger always shows the literal pair
+const TRIGGER_PLACEHOLDER = 'DD/MM/YYYY HH:mm:ss'; // reference shows this when an end is cleared
 const DAY_HEADS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -349,16 +357,22 @@ const SecurityDateRange = ({ value, onChange }) => {
                 height: 40,
                 border: 0,
                 bgcolor: 'transparent',
-                p: '8px 16px',
+                p: '8px 6px',
                 font: 'inherit',
-                fontSize: 16,
+                // Reference trigger: monospace "DD/MM/YYYY HH:mm:ss" pair on one line.
+                fontFamily: '"Roboto Mono", Consolas, "Courier New", monospace',
+                fontSize: 15,
                 fontWeight: 400,
                 color: '#000',
                 textAlign: 'left',
                 cursor: 'default',
+                // The literal placeholder is wider than a real date and used to wrap
+                // onto a second line outside the pill.
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
               }}
             >
-              {endValue(which) ? format(endValue(which), TRIGGER_FORMAT) : TRIGGER_FORMAT}
+              {endValue(which) ? format(endValue(which), TRIGGER_FORMAT) : TRIGGER_PLACEHOLDER}
             </Box>
           </React.Fragment>
         ))}
@@ -419,12 +433,13 @@ const SecurityDateRange = ({ value, onChange }) => {
           <Button
             onClick={handleCurrentDay}
             sx={{
-              width: 107,
+              minWidth: 107,
               height: 42,
               borderRadius: '12px',
               fontSize: 16,
               fontWeight: 700,
               textTransform: 'none',
+              whiteSpace: 'nowrap',
               color: NEUTRAL,
               '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
             }}
@@ -534,6 +549,35 @@ const doneButtonSx = {
 };
 
 // Chart.js default tooltip: dark translucent rounded box, bold title, swatch + "Name: 84" body
+// Reference "Meta Data" block: pretty JSON with syntax colours (keys teal, strings
+// blue, numbers magenta, true/false/null orange, punctuation grey).
+const JSON_TOKEN = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+const JsonView = ({ value }) => {
+  const text = JSON.stringify(value, null, 4) || '';
+  const parts = [];
+  let last = 0;
+  let m;
+  while ((m = JSON_TOKEN.exec(text)) !== null) {
+    if (m.index > last) parts.push(<span key={last} style={{ color: '#676b72' }}>{text.slice(last, m.index)}</span>);
+    if (m[1] !== undefined) {
+      const isKey = m[2] !== undefined;
+      parts.push(<span key={m.index} style={{ color: isKey ? '#2aa198' : '#268bd2' }}>{m[1]}</span>);
+      if (isKey) parts.push(<span key={m.index + 'c'} style={{ color: '#676b72' }}>{m[2]}</span>);
+    } else if (m[3] !== undefined) {
+      parts.push(<span key={m.index} style={{ color: '#cb4b16' }}>{m[3]}</span>);
+    } else {
+      parts.push(<span key={m.index} style={{ color: '#d33682' }}>{m[4]}</span>);
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(<span key={last} style={{ color: '#676b72' }}>{text.slice(last)}</span>);
+  return (
+    <Box component="pre" sx={{ m: 0, fontFamily: '"Roboto Mono", Consolas, "Courier New", monospace', fontSize: 14, lineHeight: '20px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      {parts}
+    </Box>
+  );
+};
+
 const ChartTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   const slice = payload[0].payload;
@@ -697,7 +741,10 @@ const SecurityCentre = () => {
     value: item.count,
     color: CHART_PALETTE[index % CHART_PALETTE.length],
   }));
-  const visibleSlices = pieChartData.filter((d) => !hiddenSeries.includes(d.name));
+  // A hidden slice stays in the data at 0 (not filtered out) so recharts animates it
+  // shrinking and the others growing smoothly — filtering it out dropped it instantly
+  // and left a wedge gap while the rest rotated (reference: Chart.js-style smooth toggle).
+  const visibleSlices = pieChartData.map((d) => (hiddenSeries.includes(d.name) ? { ...d, value: 0 } : d));
 
   const toggleSeries = (name) =>
     setHiddenSeries((prev) =>
@@ -762,15 +809,21 @@ const SecurityCentre = () => {
                   );
                 })}
               </Box>
-              <PieChart width={300} height={300}>
+              {/* Reference pie: 300px across, white separators, ~0.7s smooth toggle */}
+              {/* margin 0: recharts' default 5px chart margin clipped the right edge flat */}
+              <PieChart width={306} height={306} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie
                   data={visibleSlices}
-                  cx={150}
-                  cy={150}
+                  cx={153}
+                  cy={153}
                   labelLine={false}
-                  outerRadius={125}
+                  outerRadius={150}
                   dataKey="value"
-                  stroke="none"
+                  stroke="#fff"
+                  strokeWidth={2}
+                  animationBegin={0}
+                  animationDuration={700}
+                  animationEasing="ease-out"
                 >
                   {visibleSlices.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
@@ -784,16 +837,17 @@ const SecurityCentre = () => {
               No events in selected date range
             </Typography>
           )}
-          <Box sx={{ display: 'flex', gap: 6 }}>
+          {/* Reference: the two counts stack, bold 14px label over a 20px value */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, ml: 4 }}>
             <Box>
-              <Typography sx={{ color: '#676b72', fontSize: 16 }}>Raw Events</Typography>
-              <Typography sx={{ fontWeight: 'bold', fontSize: 40 }}>
+              <Typography sx={{ color: '#000', fontSize: 14, fontWeight: 700 }}>Raw Events</Typography>
+              <Typography sx={{ fontSize: 20, color: '#000' }}>
                 {statistics.rawEventsCount}
               </Typography>
             </Box>
             <Box>
-              <Typography sx={{ color: '#676b72', fontSize: 16 }}>Patterns Detected</Typography>
-              <Typography sx={{ fontWeight: 'bold', fontSize: 40 }}>
+              <Typography sx={{ color: '#000', fontSize: 14, fontWeight: 700 }}>Patterns Detected</Typography>
+              <Typography sx={{ fontSize: 20, color: '#000' }}>
                 {statistics.patternsCount}
               </Typography>
             </Box>
@@ -869,16 +923,27 @@ const SecurityCentre = () => {
               <FormControl
                 size="small"
                 sx={{
-                  minWidth: 220,
+                  width: 300,
+                  maxWidth: '100%',
+                  minWidth: 0,
                   '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: '#fff' },
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
                   '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
                 }}
               >
+                <Typography id="security-event-filter-label" sx={{ fontSize: 14, lineHeight: '20px', color: '#333' }}>Filters</Typography>
                 <Select
+                  labelId="security-event-filter-label"
                   multiple
                   displayEmpty
+                  sx={{ height: 42, fontSize: 16, '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }}
+                  MenuProps={{
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' },
+                    PaperProps: { sx: { mt: 1, maxHeight: 288, border: '1px solid #000', borderRadius: '8px', boxShadow: '0 8px 16px rgba(0,0,0,0.2)' } },
+                    MenuListProps: { sx: { py: 0 } },
+                  }}
                   value={selectedEventTypes}
                   onChange={(e) =>
                     setSelectedEventTypes(
@@ -887,20 +952,16 @@ const SecurityCentre = () => {
                   }
                   renderValue={(selected) =>
                     selected.length === 0 ? (
-                      <span style={{ color: '#808080' }}>Filters</span>
+                      <span style={{ color: '#808080' }}>Select...</span>
                     ) : (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((val) => (
-                          <Chip key={val} label={val} size="small" />
-                        ))}
-                      </Box>
+                      selected.join(', ')
                     )
                   }
                 >
                   {EVENT_TYPE_OPTIONS.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      <Checkbox checked={selectedEventTypes.indexOf(type) > -1} />
-                      <ListItemText primary={type} />
+                    <MenuItem key={type} value={type} sx={{ minHeight: 56, px: 2 }}>
+                      <Checkbox checked={selectedEventTypes.indexOf(type) > -1} size="small" sx={{ p: 0, mr: 1, '& .MuiSvgIcon-root': { fontSize: 16 } }} />
+                      <ListItemText primary={type} primaryTypographyProps={{ fontSize: 16 }} />
                     </MenuItem>
                   ))}
                 </Select>
@@ -1002,9 +1063,7 @@ const SecurityCentre = () => {
                   {selectedEvent.metadata && (
                     <Grid item xs={12}>
                       <Typography variant="subtitle2" color="textSecondary">Metadata</Typography>
-                      <Typography variant="body1" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
-                        {JSON.stringify(selectedEvent.metadata, null, 2)}
-                      </Typography>
+                      <JsonView value={selectedEvent.metadata} />
                     </Grid>
                   )}
                 </Grid>

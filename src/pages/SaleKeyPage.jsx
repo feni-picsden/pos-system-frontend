@@ -389,6 +389,17 @@ const SaleKeyPage = () => {
     saleNoteRef.current = '';
     setCart([]);
   };
+  // Clear Sale / Cancel Sale on a loaded parked sale (UNPARKED): the held sale is
+  // over, so it is cancelled on the server rather than left hidden. Best effort -
+  // the cart resets either way.
+  const discardLoadedParkedSale = () => {
+    const id = currentParkedSaleId;
+    if (!id || isTransactionComplete) return;
+    setCurrentParkedSaleId(null);
+    salesService
+      .updateSale(id, { status: 'CANCELLED', cancelReason: 'Parked sale cleared after loading' })
+      .catch((error) => console.error('Failed to cancel the loaded parked sale:', error));
+  };
   const [generalSettings, setGeneralSettings] = useState(() =>
     settingsService.getCachedGeneralSettings()
   );
@@ -619,8 +630,10 @@ const SaleKeyPage = () => {
     const measure = () => {
       const btn = strip.querySelector(`[data-tab="${activeTab}"]`);
       if (!btn) { put(null); return; }
-      const width = Math.min(312, btn.offsetWidth);
-      put({ left: btn.offsetLeft + (btn.offsetWidth - width) / 2, width });
+      // Full tab width (user 21/10/2026): the old 312px cap, measured when three
+      // tabs shared the strip, left a half-width bar once only two tabs remained.
+      const width = btn.offsetWidth;
+      put({ left: btn.offsetLeft, width });
     };
     measure();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
@@ -3698,6 +3711,7 @@ const SaleKeyPage = () => {
           );
           return;
         }
+        discardLoadedParkedSale();
         saleEpochRef.current++;
         clearCartAndNote();
         setPayments([]);
@@ -3719,6 +3733,7 @@ const SaleKeyPage = () => {
           );
           return;
         }
+        discardLoadedParkedSale();
         saleEpochRef.current++;
         clearCartAndNote();
         setPayments([]);
@@ -4490,7 +4505,9 @@ const SaleKeyPage = () => {
     const total = parseFloat(cartTotal) || 0;
     const overpaid = Math.max(0, totalPaid - total);
     // Change from cash tendered: nets the cash row down.
-    const cashChange = Math.round(Math.min(overpaid, cashPaid) * 100) / 100;
+    // Clamped at 0: a refund tenders NEGATIVE cash, and min(0, -10) printed
+    // "Change -$10.00" on the return receipt (21/10/2026).
+    const cashChange = Math.round(Math.max(0, Math.min(overpaid, cashPaid)) * 100) / 100;
     // Card cash-out: cash that leaves the drawer against a card charge. The card
     // row stays at goods + cash out; only the change row carries it.
     const cashOutPaid = paymentsCopy.reduce((sum, p) => sum + (parseFloat(p.cashOut) || 0), 0);
@@ -4913,7 +4930,11 @@ const SaleKeyPage = () => {
         payments: []
       };
 
-      const parkedResp = await salesService.parkSale(saleData);
+      // A loaded parked sale (UNPARKED) parks back into ITS OWN record with the
+      // live cart - parking it as a new sale left the loaded one hidden forever.
+      const parkedResp = currentParkedSaleId
+        ? await salesService.updateSale(currentParkedSaleId, saleData)
+        : await salesService.parkSale(saleData);
       const parked = parkedResp?.sale || parkedResp || {};
 
       // Reference: parking opens the "Sale Parked" panel - Print / Add Customer /
@@ -5098,6 +5119,20 @@ const SaleKeyPage = () => {
 
       // Track the parked sale ID for completion
       setCurrentParkedSaleId(parkedSale.id);
+
+      // Reference (checked live 21/10/2026): Load Sale takes the sale OFF the Parked
+      // Sales list straight away - it is now the register's current sale. The server
+      // keeps it as UNPARKED (still a held sale) until it completes, is parked again
+      // or is cleared. A previously loaded sale being replaced goes back to PARKED.
+      try {
+        if (currentParkedSaleId && currentParkedSaleId !== parkedSale.id) {
+          await salesService.updateSale(currentParkedSaleId, { status: 'PARKED' });
+        }
+        await salesService.updateSale(parkedSale.id, { status: 'UNPARKED' });
+        setParkedSales((prev) => prev.filter((s) => s.id !== parkedSale.id));
+      } catch (error) {
+        console.error('Failed to take the loaded sale off the parked list:', error);
+      }
 
       // Log security event: Unparked Sale (items added from parked sale to cart)
       try {

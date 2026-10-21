@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Typography, Button, InputBase, Collapse, Snackbar, Alert, Tooltip } from '@mui/material';
+import { Box, Typography, Button, InputBase, Collapse, Snackbar, Alert, Tooltip, Popover } from '@mui/material';
 import {
+  ArrowUpward as SubRowIcon,
   PointOfSaleOutlined as OpenDrawerIcon,
   ChevronRight as ChevronRightIcon,
   ExpandMore as ExpandMoreIcon,
@@ -70,11 +71,10 @@ const TH_SX = {
 };
 const TD_SX = { p: '16px', border: 0, fontSize: 16, color: '#000' };
 
-// Reference help texts. Float's is verbatim from the reference tooltip; the two
-// column ones paraphrase what the columns hold.
+// Reference help texts, verbatim (brand name swapped, as everywhere).
 const HELP = {
-  expected: 'The amount the system expects for this payment method from the sales recorded during this shift.',
-  received: 'The amount you have counted for this payment method.',
+  expected: "The total amount of money Crinit's Shop has recorded for the payment method during the open register period",
+  received: 'The amount physically received for this payment method',
   float: 'The starting balance for your cash drawer before you began trading during this shift',
 };
 const HelpTip = ({ title, light = false }) => (
@@ -103,11 +103,9 @@ const timeAgo = (iso) => {
 };
 
 // Sub-methods the reference nests under a chevron. Gift Card has none.
-const SUB_METHODS = {
-  EFTPOS: ['Non - Integrated Tyro', 'Non - Integrated Tyro CASH OUT'],
-  Linkly: ['EFTPOS', 'EFTPOS Cash Out'],
-  Voucher: ['Uber Eats Delivery', 'Shop MyLocal'],
-};
+// Rows are built from the register's own payment methods (see `rows` below):
+// the old hard-coded sub-rows were the reference store's method names
+// ("Non - Integrated Tyro", "Uber Eats Delivery", ...) and always read $0.00.
 // Default coin/note list. Setup > Payment Methods > Cash > "Close Register
 // Denominations" (comma separated) replaces it when set.
 const DEFAULT_DENOMINATIONS = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
@@ -167,6 +165,11 @@ const CloseRegister = () => {
   const [settling, setSettling] = useState(false);
   const [settleSnack, setSettleSnack] = useState(null); // { message, severity }
   const [settleReceipt, setSettleReceipt] = useState(null);
+  // Linkly row's "Options" menu (reference: Settle / Reset Shift Totals).
+  const [optionsAnchor, setOptionsAnchor] = useState(null);
+  // Active payment methods + this register's enabled map (Setup > Registers).
+  const [allMethods, setAllMethods] = useState([]);
+  const [regPayments, setRegPayments] = useState(null); // { map, complete } | null
   const navigate = useNavigate();
   const { clearSelectedRegister } = useSelectedRegister();
   const registerId = localStorage.getItem('selectedRegisterId')
@@ -193,6 +196,7 @@ const CloseRegister = () => {
     paymentMethodService
       .getPaymentMethods({ isActive: true })
       .then((r) => {
+        setAllMethods(r?.paymentMethods || []);
         const cash = (r?.paymentMethods || []).find(
           (m) => String(m.type || '').toLowerCase() === 'cash' || String(m.name || '').trim().toLowerCase() === 'cash'
         );
@@ -200,6 +204,21 @@ const CloseRegister = () => {
         if (configured) setDenominations(configured);
       })
       .catch(() => {});
+    // Same enabled rule as the sell screen: a complete profile lists every method
+    // (missing = created since = off); an older partial one treats missing as on.
+    settingsService
+      .getSetting(`register_profile_${registerId}`)
+      .then((res) => {
+        const value = res?.setting?.value;
+        setRegPayments(value?.payments ? { map: value.payments, complete: value.paymentsComplete === true } : null);
+        // Setup > Registers > Edit > Register Closures > Floats: today's float
+        // pre-fills the Float box (reference "How to Set a Float for Each Day
+        // of the Week"); the operator can still change it.
+        const day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()];
+        const f = value?.floats?.[day];
+        if (Number.isFinite(Number(f)) && f !== '' && f != null) setFloatAmount((cur) => (cur === '' ? String(f) : cur));
+      })
+      .catch(() => setRegPayments(null));
   }, [registerId]);
 
   const expectedFor = (method) => {
@@ -211,15 +230,37 @@ const CloseRegister = () => {
     return 0;
   };
 
-  // Rows come from whatever was actually tendered this session (any outlet
-  // method name, e.g. 'Credit Card'), so nothing in the breakdown is omitted.
-  // Cash is always shown even with no cash sales.
-  const methods = [
-    'Cash',
-    ...Object.keys(preview?.paymentBreakdown || {})
-      .filter((m) => m.trim().toLowerCase() !== 'cash')
-      .sort(),
-  ];
+  // Reference rows: every payment method enabled on this register, $0.00 or not.
+  // A type with two or more methods is one row (named by the type) whose methods
+  // sit under it; a type with one method is that method's own row. Anything
+  // tendered this shift under a name no longer in the list still gets a row, so
+  // nothing in the breakdown is dropped. Cash always shows.
+  const lc = (s) => String(s || '').trim().toLowerCase();
+  const enabledMethods = allMethods.filter(
+    (m) => !regPayments || (regPayments.map[m.id] ?? !regPayments.complete)
+  );
+  const byType = new Map();
+  enabledMethods.forEach((m) => {
+    const type = m.type || m.name;
+    if (!byType.has(type)) byType.set(type, []);
+    byType.get(type).push(m.name);
+  });
+  const rows = [];
+  byType.forEach((names, type) => {
+    const sorted = [...names].sort((a, b) => a.localeCompare(b));
+    if (sorted.length > 1) rows.push({ key: `type:${type}`, label: type, type, children: sorted });
+    else rows.push({ key: sorted[0], label: sorted[0], type });
+  });
+  const listed = new Set(enabledMethods.map((m) => lc(m.name)));
+  Object.keys(preview?.paymentBreakdown || {}).forEach((name) => {
+    if (!listed.has(lc(name))) rows.push({ key: name, label: name, type: name });
+  });
+  if (!rows.some((r) => lc(r.label) === 'cash')) rows.push({ key: 'Cash', label: 'Cash', type: 'Cash' });
+  rows.sort((a, b) => (lc(a.label) === 'cash' ? -1 : lc(b.label) === 'cash' ? 1 : a.label.localeCompare(b.label)));
+  const cashRow = rows.find((r) => lc(r.label) === 'cash');
+  const otherRows = rows.filter((r) => r !== cashRow);
+  // The amounts that are entered and sent: one per method (never per type row).
+  const methods = rows.flatMap((r) => r.children || [r.label]);
 
   const inDrawer = DENOMINATIONS.reduce(
     (sum, d) => sum + d * (parseFloat(qty[d]) || 0),
@@ -325,77 +366,85 @@ const CloseRegister = () => {
     );
   }
 
-  const methodRow = (method) => {
-    const expected = expectedFor(method);
-    const got = parseFloat(received[method]) || 0;
-    const subs = SUB_METHODS[method];
+  const ROW_GRID = { display: 'grid', gridTemplateColumns: '1fr 130px 170px 110px 200px', alignItems: 'center' };
+  // Long names cut with "…" like the reference ("Foster Street T…").
+  const NAME_SX = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 };
+
+  const methodRow = (row) => {
+    const isGroup = !!row.children;
+    // A type row totals its methods; its Received box is the grey sum (reference).
+    const expected = isGroup ? row.children.reduce((s, n) => s + expectedFor(n), 0) : expectedFor(row.label);
+    const got = isGroup
+      ? row.children.reduce((s, n) => s + (parseFloat(received[n]) || 0), 0)
+      : parseFloat(received[row.label]) || 0;
+    // Reference shows each type's methods open.
+    const open = expanded[row.key] !== false;
+    const isLinkly = lc(row.type) === 'linkly';
     return (
-      <React.Fragment key={method}>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 100px 170px 110px 1fr',
-            alignItems: 'center',
-          }}
-        >
-          <Box sx={{ ...TD_SX, display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {subs ? (
+      <React.Fragment key={row.key}>
+        <Box sx={ROW_GRID}>
+          <Box sx={{ ...TD_SX, display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
+            {isGroup ? (
               <Box
                 component="span"
-                onClick={() => setExpanded((p) => ({ ...p, [method]: !p[method] }))}
+                onClick={() => setExpanded((p) => ({ ...p, [row.key]: !open }))}
                 sx={{ display: 'flex', cursor: 'pointer', color: N600 }}
               >
-                {expanded[method] ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+                {open ? <ExpandMoreIcon /> : <ChevronRightIcon />}
               </Box>
             ) : (
-              <Box sx={{ width: 24 }} />
+              <Box sx={{ width: 24, flexShrink: 0 }} />
             )}
-            {method}
+            <Box component="span" title={row.label} sx={NAME_SX}>{row.label}</Box>
           </Box>
           <Box sx={{ ...TD_SX, textAlign: 'center' }}>{fmt(expected)}</Box>
           <Box sx={{ ...TD_SX, p: '8px' }}>
-            <MoneyInput
-              value={received[method] ?? ''}
-              onChange={(e) => setReceived((p) => ({ ...p, [method]: e.target.value }))}
-            />
+            {isGroup ? (
+              <MoneyInput value={got ? got.toFixed(2) : ''} grey readOnly onChange={() => {}} />
+            ) : (
+              <MoneyInput
+                value={received[row.label] ?? ''}
+                onChange={(e) => setReceived((p) => ({ ...p, [row.label]: e.target.value }))}
+              />
+            )}
           </Box>
           <Box sx={{ ...TD_SX, textAlign: 'center' }}>{fmt(got - expected)}</Box>
           <Box sx={{ ...TD_SX, textAlign: 'center' }}>
-            {method === 'Cash' && (
+            {lc(row.label) === 'cash' && (
               <Button sx={BTN_GREEN_SX} startIcon={<OpenDrawerIcon />} onClick={handleOpenDrawer}>
                 Open Drawer
               </Button>
             )}
-            {method === 'Linkly' && (
-              <Button sx={BTN_GREEN_SX} startIcon={<ChevronRightIcon />}>
+            {isLinkly && (
+              <Button
+                sx={BTN_GREEN_SX}
+                startIcon={optionsAnchor ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+                onClick={(e) => setOptionsAnchor(e.currentTarget)}
+              >
                 Options
               </Button>
             )}
           </Box>
         </Box>
-        {subs && (
-          <Collapse in={!!expanded[method]}>
-            {subs.map((sub) => {
-              const key = `${method} / ${sub}`;
-              const subGot = parseFloat(received[key]) || 0;
+        {isGroup && (
+          <Collapse in={open}>
+            {row.children.map((name) => {
+              const subExpected = expectedFor(name);
+              const subGot = parseFloat(received[name]) || 0;
               return (
-                <Box
-                  key={key}
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 100px 170px 110px 1fr',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Box sx={{ ...TD_SX, pl: '48px', color: N600 }}>{sub}</Box>
-                  <Box sx={{ ...TD_SX, textAlign: 'center' }}>{fmt(0)}</Box>
+                <Box key={name} sx={ROW_GRID}>
+                  <Box sx={{ ...TD_SX, display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
+                    <SubRowIcon sx={{ fontSize: 16, color: '#000', width: 24, flexShrink: 0 }} />
+                    <Box component="span" title={name} sx={NAME_SX}>{name}</Box>
+                  </Box>
+                  <Box sx={{ ...TD_SX, textAlign: 'center' }}>{fmt(subExpected)}</Box>
                   <Box sx={{ ...TD_SX, p: '8px' }}>
                     <MoneyInput
-                      value={received[key] ?? ''}
-                      onChange={(e) => setReceived((p) => ({ ...p, [key]: e.target.value }))}
+                      value={received[name] ?? ''}
+                      onChange={(e) => setReceived((p) => ({ ...p, [name]: e.target.value }))}
                     />
                   </Box>
-                  <Box sx={{ ...TD_SX, textAlign: 'center' }}>{fmt(subGot)}</Box>
+                  <Box sx={{ ...TD_SX, textAlign: 'center' }}>{fmt(subGot - subExpected)}</Box>
                   <Box />
                 </Box>
               );
@@ -479,7 +528,8 @@ const CloseRegister = () => {
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: '1fr 100px 170px 110px 1fr',
+            // Expected is 130px: at 100px its header help icon slid under Received.
+            gridTemplateColumns: '1fr 130px 170px 110px 200px',
             '& > .hd:first-of-type': { borderRadius: '12px 0 0 12px' },
             '& > .hd:last-of-type': { borderRadius: '0 12px 12px 0' },
           }}
@@ -491,31 +541,51 @@ const CloseRegister = () => {
           <Box className="hd" sx={TH_SX} />
         </Box>
 
-        {methodRow('Cash')}
-
-        {/* Reference collapses everything but Cash behind this toggle. */}
-        {methods.length > 1 && (
-          <>
-            <Box
-              onClick={() => setShowMore((v) => !v)}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                p: '8px',
-                cursor: 'pointer',
-                fontSize: 16,
-                userSelect: 'none',
-              }}
-            >
-              {showMore ? <ExpandMoreIcon /> : <ChevronRightIcon />}
-              Show {methods.length - 1} more payment methods
-            </Box>
-            <Collapse in={showMore}>
-              {methods.filter((m) => m !== 'Cash').map(methodRow)}
-            </Collapse>
-          </>
+        {/* Reference: the "Show N more payment methods" toggle sits right under
+            the header, above Cash; Cash always shows, the rest open below it. */}
+        {otherRows.length > 0 && (
+          <Box
+            onClick={() => setShowMore((v) => !v)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              p: '8px',
+              cursor: 'pointer',
+              fontSize: 16,
+              userSelect: 'none',
+            }}
+          >
+            {showMore ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+            Show {otherRows.length} more payment methods
+          </Box>
         )}
+        {cashRow && methodRow(cashRow)}
+        {otherRows.length > 0 && (
+          <Collapse in={showMore}>
+            {otherRows.map(methodRow)}
+          </Collapse>
+        )}
+
+        {/* Linkly "Options" (reference): Settle runs the pinpad's end-of-day
+            settlement. Reset Shift Totals is not built (no matching feature here). */}
+        <Popover
+          open={!!optionsAnchor}
+          anchorEl={optionsAnchor}
+          onClose={() => setOptionsAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+          slotProps={{ paper: { sx: { p: '12px', borderRadius: '12px', minWidth: 170 } } }}
+        >
+          <Button
+            sx={{ ...BTN_GREEN_SX, width: '100%' }}
+            disabled={settling || !pinpadPaired}
+            title={pinpadPaired ? undefined : 'No Linkly pinpad is paired on this register'}
+            onClick={() => { setOptionsAnchor(null); handleSettlement(); }}
+          >
+            {settling ? 'Settling…' : 'Settle'}
+          </Button>
+        </Popover>
 
         <Box sx={{ mt: 3 }}>
           <Typography sx={{ fontSize: 12, color: N600, mb: '4px' }}>
@@ -540,7 +610,9 @@ const CloseRegister = () => {
           <Button sx={BTN_PRIMARY_SX} onClick={handleClose} disabled={closing}>
             {closing ? 'Closing…' : 'Close Register'}
           </Button>
-          {pinpadPaired && (
+          {/* Settlement moved into the Linkly row's Options menu (reference). It
+              stays here only when no Linkly row exists to carry it. */}
+          {pinpadPaired && !rows.some((r) => lc(r.type) === 'linkly') && (
             <Button sx={BTN_GREEN_SX} onClick={handleSettlement} disabled={settling}>
               {settling ? 'Settling…' : 'EFTPOS Settlement'}
             </Button>

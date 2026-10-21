@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
 
-const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400 }) => {
+const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400, referenceSizing = false }) => {
   const totalMinWidth = (columns || []).reduce((sum, column) => {
     const columnWidth = Number(column?.width) || 140;
     return sum + columnWidth;
@@ -50,7 +50,8 @@ const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400 }) => 
             : {}),
         }}
       >
-        <Table stickyHeader size="small" sx={{ minWidth: totalMinWidth }}>
+        <Table stickyHeader size="small" sx={{ minWidth: totalMinWidth, ...(referenceSizing ? { tableLayout: 'fixed' } : {}) }}>
+          {referenceSizing && <colgroup>{columns.map(column => <col key={column.field} style={{ width: column.percentWidth }} />)}</colgroup>}
           <TableHead>
             <TableRow
               sx={{
@@ -63,6 +64,7 @@ const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400 }) => 
                   padding: '8px',
                   height: 36,
                   borderBottom: 'none',
+                  ...(referenceSizing ? { lineHeight: '20px', boxSizing: 'border-box', padding: '8px' } : {}),
                 },
               }}
             >
@@ -70,7 +72,7 @@ const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400 }) => 
                 <TableCell
                   key={column.field}
                   align={column.align || 'left'}
-                  style={{ width: column.width, minWidth: column.width }}
+                  style={referenceSizing ? undefined : { width: column.width, minWidth: column.width }}
                   sx={{ whiteSpace: 'nowrap' }}
                 >
                   {column.headerName}
@@ -85,19 +87,21 @@ const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400 }) => 
                 <TableRow
                   key={index}
                   sx={{
-                    bgcolor: isTotal ? '#5ebbeb' : index % 2 === 0 ? '#fff' : '#f8f8f8',
+                    bgcolor: isTotal ? '#5ebbeb' : index % 2 === 0 ? (referenceSizing ? '#f7f7f7' : '#fff') : (referenceSizing ? '#dedede' : '#f8f8f8'),
                     '& td': {
                       color: isTotal ? '#f8f8f8' : '#000',
                       fontWeight: isTotal ? 700 : 400,
                       fontSize: 16,
                       padding: '8px 8px 8px 10px',
                       borderBottom: 'none',
+                      ...(referenceSizing ? { height: 36, lineHeight: '20px', boxSizing: 'border-box', padding: '8px 10px' } : {}),
                     },
                   }}
                 >
                   {columns.map((column) => (
                     <TableCell key={column.field} align={column.align || 'left'}>
-                      {column.format ? column.format(row[column.field], row) : row[column.field]}
+                      {column.format ? column.format(row[column.field], row)
+                        : column.valueFormatter ? column.valueFormatter(row[column.field], row) : row[column.field]}
                     </TableCell>
                   ))}
                 </TableRow>

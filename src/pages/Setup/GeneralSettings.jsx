@@ -2210,7 +2210,10 @@ const GeneralSettings = () => {
             )}
             {/* reference lists payment methods ascending by name */}
             {[...paymentMethods].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map((pm) => {
-              const enabled = registerProfile.payments?.[pm.id] !== false;
+              // Same rule as Setup > Registers, the sell screen and Close Register: once the
+              // profile lists every method (paymentsComplete), a method missing from it was
+              // created since and starts OFF (reference); older partial profiles keep ON.
+              const enabled = registerProfile.payments?.[pm.id] ?? !(registerProfile.paymentsComplete === true);
               return (
                 <Box key={pm.id} sx={{ mb: '12px' }}>
                   <Typography sx={{ fontSize: 16, fontWeight: 700, height: 30, lineHeight: '30px' }}>

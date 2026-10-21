@@ -285,9 +285,11 @@ export const SelectedRegisterProvider = ({ children }) => {
   const takeControl = async () => {
     try {
       if (registerInUseData) {
-        await registerService.takeControl(registerInUseData.register.id);
+        const result = await registerService.takeControl(registerInUseData.register.id);
 
-        persistRegister({ ...registerInUseData.register, status: 'Locked' });
+        // Server status: an Open shift stays Open under the new user (no second
+        // "Open Register", same open time for the closure).
+        persistRegister({ ...registerInUseData.register, status: result?.register?.status || 'Locked' });
         // Taking control is a deliberate pick too, so it counts as this tab's answer.
         writeTabConfirmation(registerInUseData.register.id);
         setShowRegisterInUseDialog(false);

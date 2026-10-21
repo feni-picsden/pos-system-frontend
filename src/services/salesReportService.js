@@ -26,7 +26,7 @@ const salesReportService = {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.outletId) params.append('outletId', filters.outletId);
 
-      const response = await apiClient.get(`/sales-reports/report?${params.toString()}`);
+      const response = await apiClient.get(`/sales-reports/report?${params.toString()}`, { noCache: true });
       return response.data;
     } catch (error) {
       console.error('Error fetching sales report:', error);

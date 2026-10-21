@@ -307,6 +307,9 @@ const Registers = () => {
       // register", so it starts OFF. Older profiles (toggled entries only) keep
       // treating a missing method as ON.
       paymentsComplete: profile.paymentsComplete === true,
+      // Closure print settings + floats come from the server profile (the
+      // closure report and Close Register read them there); the old
+      // browser-only copy is used once as a fallback for profiles saved before.
       closure: {
         print: {},
         notes: true,
@@ -314,9 +317,9 @@ const Registers = () => {
         paymentSubtypeTotals: false,
         statistics: false,
         closeTags: [],
-        ...(saved.closure || {}),
+        ...(profile.closure || saved.closure || {}),
       },
-      floats: saved.floats || {},
+      floats: profile.floats || saved.floats || {},
     });
   };
 
@@ -361,9 +364,24 @@ const Registers = () => {
       // paymentsComplete above).
       const payments = {};
       for (const method of paymentMethods) payments[method.id] = isMethodEnabled(method);
+      // Floats as numbers; blank = none for that day.
+      const floats = {};
+      for (const day of FLOAT_DAYS) {
+        const v = parseFloat(editSettings.floats?.[day]);
+        if (Number.isFinite(v)) floats[day] = v;
+      }
       await settingsService.updateSetting(
         profileKey(editingRegister.id),
-        { ...profile, payments, paymentsComplete: true },
+        {
+          ...profile,
+          payments,
+          paymentsComplete: true,
+          // Register Closures tab, kept server-side so the closure report's
+          // print and Close Register's float follow them on every device.
+          closure: editSettings.closure || {},
+          closurePrint: editSettings.closure?.print || {},
+          floats,
+        },
         'register',
         'Register profile'
       );
@@ -558,7 +576,7 @@ const Registers = () => {
               </Typography>
               <Grid container spacing={2} sx={{ maxWidth: 764 + 16 }}>
                 {CLOSURE_PRINT_SECTIONS.map(({ key, label }) => (
-                  <Grid item xs={12} sm={6} key={key}>
+                  <Grid item xs={12} key={key}>
                     <Typography sx={fieldLabelSx}>{label}</Typography>
                     <Autocomplete
                       disableClearable
@@ -589,7 +607,7 @@ const Registers = () => {
                   <Box>
                     <Typography sx={{ fontSize: 16, color: '#313439' }}>Notes</Typography>
                     <Typography sx={{ fontSize: 13, color: '#676b72' }}>
-                      Print any notes recorded against the closure.
+                      The register closure printout will show Notes
                     </Typography>
                   </Box>
                   <ShopfrontSwitch
@@ -602,8 +620,7 @@ const Registers = () => {
                   <Box>
                     <Typography sx={{ fontSize: 16, color: '#313439' }}>Close Register Tags</Typography>
                     <Typography sx={{ fontSize: 13, color: '#676b72' }}>
-                      Show accumulated revenue separately per product tag on the closure
-                      view and printout. Tags must be applied to products first.
+                      The register closure printout will show Close Register Tags
                     </Typography>
                   </Box>
                   <ShopfrontSwitch
@@ -616,7 +633,7 @@ const Registers = () => {
                   <Box>
                     <Typography sx={{ fontSize: 16, color: '#313439' }}>Payment Subtype Totals</Typography>
                     <Typography sx={{ fontSize: 13, color: '#676b72' }}>
-                      Print totals for each payment subtype on the closure.
+                      The register closure printout will show Payment Subtype Totals
                     </Typography>
                   </Box>
                   <ShopfrontSwitch
@@ -629,7 +646,7 @@ const Registers = () => {
                   <Box>
                     <Typography sx={{ fontSize: 16, color: '#313439' }}>Statistics</Typography>
                     <Typography sx={{ fontSize: 13, color: '#676b72' }}>
-                      Print sale statistics on the closure.
+                      The register closure printout will show Statistics
                     </Typography>
                   </Box>
                   <ShopfrontSwitch
@@ -648,7 +665,7 @@ const Registers = () => {
               </Typography>
               <Grid container spacing={2} sx={{ maxWidth: 764 + 16 }}>
                 {FLOAT_DAYS.map((day) => (
-                  <Grid item xs={12} sm={6} md={3} key={day}>
+                  <Grid item xs={12} key={day}>
                     <Typography sx={fieldLabelSx}>{day}</Typography>
                     <TextField
                       fullWidth
