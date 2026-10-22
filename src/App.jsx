@@ -12,6 +12,7 @@ import PurchaseReport from "./pages/Reports/PurchaseReport";
 import InventoryReport from "./pages/Reports/InventoryReport";
 import SecurityCentre from "./pages/Reports/SecurityCentre";
 import TransferReports from "./pages/Reports/TransferReports";
+import TransferQueryEditor from "./pages/Reports/TransferQueryEditor";
 import ActionsReports from "./pages/Reports/ActionsReports";
 import InventoryQueryEditor from "./pages/Reports/InventoryQueryEditor";
 import SalesQueryEditor from "./pages/Reports/SalesQueryEditor";
@@ -990,6 +991,16 @@ function App() {
                               requiredPermissions={["reports.view"]}
                             >
                               <TransferReports />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/reports/transfer-reports/query"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["reports.view"]}
+                            >
+                              <TransferQueryEditor />
                             </PermissionProtectedRoute>
                           }
                         />

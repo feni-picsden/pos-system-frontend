@@ -955,18 +955,36 @@ const SalesReport = () => {
       };
       return `SELECT revenue AS "Revenue" FROM sales ${isAgg ? 'AGGREGATE' : 'RANGE'} ${unit} BY ${reportType} START "${fmt(dateRange.startDate)}" END "${fmt(dateRange.endDate)}" CONSOLIDATED`;
     }
+    const isConsolidated = consolidate === 'consolidated';
     let query = 'SELECT\n';
     query += '  BY_NAME AS "Name",\n';
     query += '  revenue AS "Revenue",\n';
     query += '  cost AS "Cost of Goods Sold",\n';
-    query += '  transaction_count AS "Transaction Count",\n';
-    query += '  FORMAT(revenue / transaction_count, \'$\') AS "Average Sale",\n';
-    query += '  profit AS "Profit",\n';
-    query += '  FORMAT((revenue - cost) / revenue * 100, \'\', \'%\', 2) AS "Profit Percentage",\n';
-    query += '  tax AS "Tax Amount",\n';
-    query += '  discount AS "Discount Amount",\n';
-    query += '  FORMAT(revenue, \'\', \'%\', 2) AS "Revenue Percentage" TOTAL(PERCENTAGE_FROM_TOTAL),\n';
-    query += '  FORMAT(transaction_count, \'\', \'%\', 2) AS "Transaction Percentage" TOTAL(PERCENTAGE_FROM_TOTAL)\n';
+    if (isConsolidated) {
+      // Reference Consolidate = Yes query (12 columns).
+      query += '  transaction_count AS "Transaction Count",\n';
+      query += '  FORMAT(revenue / transaction_count, \'$\') AS "Average Sale",\n';
+      query += '  profit AS "Profit",\n';
+      query += '  FORMAT((revenue - cost) / revenue * 100, \'\', \'%\', 2) AS "Profit Percentage",\n';
+      query += '  tax AS "Tax Amount",\n';
+      query += '  discount AS "Discount Amount",\n';
+      query += '  FORMAT(revenue, \'\', \'%\', 2) AS "Revenue Percentage" TOTAL(PERCENTAGE_FROM_TOTAL),\n';
+      query += '  FORMAT(transaction_count, \'\', \'%\', 2) AS "Transaction Percentage" TOTAL(PERCENTAGE_FROM_TOTAL)\n';
+    } else {
+      // Reference Consolidate = No query (one row per sale line, 15 columns).
+      query += '  profit AS "Profit",\n';
+      query += '  FORMAT((revenue - cost) / revenue * 100, \'\', \'%\', 2) AS "Profit Percentage",\n';
+      query += '  tax AS "Tax Amount",\n';
+      query += '  cases AS "Cases Sold",\n';
+      query += '  items AS "Items Sold",\n';
+      query += '  timestamp AS "Date and Time",\n';
+      query += '  discount AS "Discount Amount",\n';
+      query += '  IF_EQUAL(COALESCE(sale_id, ""), "", "Unallocated", LINK(invoice_number, CONCAT(\'/sale/\', sale_id))) AS "Invoice Number",\n';
+      query += '  outlet AS "Outlet",\n';
+      query += '  register AS "Register",\n';
+      query += '  customer AS "Customer",\n';
+      query += '  user AS "User"\n';
+    }
     query += 'FROM sales\n';
     
     // Reference query bar reads "BY outlet" for Report Type Outlet (Group By None).
@@ -978,10 +996,8 @@ const SalesReport = () => {
     
     query += 'ORDER "Name" asc\n';
     
-    if (consolidate === 'consolidated') {
-      query += 'CONSOLIDATED';
-    }
-    
+    query += isConsolidated ? 'CONSOLIDATED' : 'UNCONSOLIDATED';
+
     return query;
   };
 

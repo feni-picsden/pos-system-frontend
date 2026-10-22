@@ -10,7 +10,16 @@ const transferReportService = {
       throw error;
     }
   },
+  async getSearchSuggestions(q, includeDeleted) {
+    const params = new URLSearchParams({ q, includeDeleted: includeDeleted ? 'true' : 'false' });
+    const response = await apiClient.get(`/transfer-reports/search-suggestions?${params.toString()}`, { noCache: true });
+    return response.data?.data || [];
+  },
+  // Transfers Query Editor: { query, dateTime, startDate, endDate, includeDeleted } → { success, columns, data, totals }
+  runQuery: async (params = {}) => {
+    const response = await apiClient.get('/transfer-reports/query', { params });
+    return response.data;
+  },
 };
 
 export default transferReportService;
-
