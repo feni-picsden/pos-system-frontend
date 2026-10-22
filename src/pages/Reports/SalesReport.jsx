@@ -44,6 +44,17 @@ import {
   EditOutlined as EditIcon,
   ArrowDropDown,
   ArrowDropUp,
+  Cancel as CancelIcon,
+  Block as BlockIcon,
+  DeleteOutline as DeleteOutlineIcon,
+  QrCode as QrCodeIcon,
+  Percent as PercentIcon,
+  PersonOutline as PersonOutlineIcon,
+  PeopleOutline as PeopleOutlineIcon,
+  StorefrontOutlined as StorefrontOutlinedIcon,
+  PointOfSaleOutlined as PointOfSaleOutlinedIcon,
+  LocalShippingOutlined as LocalShippingOutlinedIcon,
+  FolderOutlined as FolderOutlinedIcon,
 } from '@mui/icons-material';
 import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -89,6 +100,38 @@ const SortIcon = () => (
 );
 // Reference odd-row stripe is a visible grey.
 const ROW_ALT_BG = '#e8e8e8';
+
+// Search suggestion rows: type label + icon (reference: barcode for products, % badge
+// for promotions, person for users, folder for categories; a deleted product shows a bin).
+const SUGGEST_LABELS = { product: 'Product', promotion: 'Promotion', user: 'User', category: 'Category', brand: 'Brand', family: 'Family', tag: 'Tag', supplier: 'Supplier', customer: 'Customer', outlet: 'Outlet', register: 'Register' };
+const SuggestIcon = ({ type, deleted }) => {
+  const sx = { fontSize: 34, color: '#111' };
+  if (deleted) return <DeleteOutlineIcon sx={sx} />;
+  switch (type) {
+    case 'product': return <QrCodeIcon sx={sx} />;
+    case 'promotion': return <PercentIcon sx={sx} />;
+    case 'user': return <PersonOutlineIcon sx={sx} />;
+    case 'customer': return <PeopleOutlineIcon sx={sx} />;
+    case 'outlet': return <StorefrontOutlinedIcon sx={sx} />;
+    case 'register': return <PointOfSaleOutlinedIcon sx={sx} />;
+    case 'supplier': return <LocalShippingOutlinedIcon sx={sx} />;
+    default: return <FolderOutlinedIcon sx={sx} />;
+  }
+};
+
+const PAYMENT_TYPES = ['paymentMethodType', 'paymentMethodSubtype'];
+const ITEM_LEVEL_TYPES = ['product', 'brand', 'category', 'family', 'tag', 'supplier', 'promotionProduct'];
+const PROMOTION_TYPES = ['promotion', 'promotionProduct', 'promotionCategory', 'rebate'];
+// Reference "Payment Type" report: Payment Amount, Transaction Count, Average Payment,
+// Transaction Percentage, Payment Percentage (all shown, no picker choice needed).
+const PAYMENT_COLUMNS = [
+  { key: 'paymentAmount', label: 'Payment Amount', headerLabel: 'PAYMENT AMOUNT', render: (row) => formatCurrency(row.paymentAmount || 0) },
+  { key: 'transactionCount', label: 'Transaction Count', headerLabel: 'TRANSACTION COUNT', render: (row) => formatCount(row.transactionCount || 0) },
+  { key: 'averagePayment', label: 'Average Payment', headerLabel: 'AVERAGE PAYMENT', render: (row) => formatCurrency((row.paymentAmount || 0) / (row.transactionCount || 1)) },
+  { key: 'transactionPercentage', label: 'Transaction Percentage', headerLabel: 'TRANSACTION PERCENTAGE', render: (row) => `${(row.transactionPercentage || 0).toFixed(2)}%` },
+  { key: 'paymentPercentage', label: 'Payment Percentage', headerLabel: 'PAYMENT PERCENTAGE', render: (row) => `${(row.paymentPercentage || 0).toFixed(2)}%` },
+];
+const PAYMENT_VISIBLE = { paymentAmount: true, transactionCount: true, averagePayment: true, transactionPercentage: true, paymentPercentage: true };
 
 // Reference column list + order (22) with render functions; also used by export/print.
 // Calculated Cases/Items Sold are kept but hidden from the picker (not in the reference list).
@@ -153,14 +196,15 @@ const REPORT_COLUMNS = [
     headerLabel: 'MARKUP',
     render: (row) => `${((row.profit / (row.costOfGoods || 1)) * 100 || 0).toFixed(2)}%`
   },
-  { 
-    key: 'taxAmount', 
+  {
+    key: 'taxAmount',
     label: 'Tax Amount',
     headerLabel: 'TAX AMOUNT',
     render: (row) => formatCurrency(row.taxAmount || 0)
   },
-  { 
-    key: 'totalItems', 
+  { key: 'caseQuantity', label: 'Case Quantity', headerLabel: 'CASE QUANTITY', detailOnly: true, text: true, render: (row) => formatCount(row.caseQuantity || 0) },
+  {
+    key: 'totalItems',
     label: 'Total Items',
     headerLabel: 'TOTAL ITEMS',
     // Backend field, so the Total row (which reduces row[key]) matches the cells.
@@ -179,6 +223,8 @@ const REPORT_COLUMNS = [
     render: (row) => formatCount(row.itemsSold || 0)
   },
   // Consolidate By Report Type = No only (reference per-sale-line columns).
+  { key: 'isSold', label: 'Is Sold', headerLabel: 'IS SOLD', detailOnly: true, render: (row) => formatCount(row.isSold || 0) },
+  { key: 'saleTotal', label: 'Sale Total', headerLabel: 'SALE TOTAL', detailOnly: true, text: true, render: (row) => formatCurrency(row.saleTotal || 0) },
   {
     key: 'saleDate',
     label: 'Date and Time',
@@ -191,14 +237,12 @@ const REPORT_COLUMNS = [
     key: 'calculatedCasesSold',
     label: 'Calculated Cases Sold',
     headerLabel: 'CALCULATED CASES SOLD',
-    hidden: true,
     render: (row) => formatCount(row.calculatedCasesSold || 0)
   },
   {
     key: 'calculatedItemsSold',
     label: 'Calculated Items Sold',
     headerLabel: 'CALCULATED ITEMS SOLD',
-    hidden: true,
     render: (row) => formatCount(row.calculatedItemsSold || 0)
   },
   { 
@@ -223,6 +267,17 @@ const REPORT_COLUMNS = [
   { key: 'registerName', label: 'Register', headerLabel: 'REGISTER', detailOnly: true, text: true, render: (row) => row.registerName || '' },
   { key: 'customerName', label: 'Customer', headerLabel: 'CUSTOMER', detailOnly: true, text: true, render: (row) => row.customerName || '' },
   { key: 'userName', label: 'User', headerLabel: 'USER', detailOnly: true, text: true, render: (row) => row.userName || '' },
+  { key: 'discountReason', label: 'Discount Reason', headerLabel: 'DISCOUNT REASON', detailOnly: true, text: true, render: (row) => row.discountReason || '' },
+  { key: 'refundReason', label: 'Refund Reason', headerLabel: 'REFUND REASON', detailOnly: true, text: true, render: (row) => row.refundReason || '' },
+  { key: 'customerGroup', label: 'Customer Group', headerLabel: 'CUSTOMER GROUP', detailOnly: true, text: true, render: (row) => row.customerGroup || '' },
+  { key: 'userRole', label: 'User Role', headerLabel: 'USER ROLE', detailOnly: true, text: true, render: (row) => row.userRole || '' },
+  { key: 'externalNote', label: 'External Note', headerLabel: 'EXTERNAL NOTE', detailOnly: true, text: true, render: (row) => row.externalNote || '' },
+  { key: 'internalNote', label: 'Internal Note', headerLabel: 'INTERNAL NOTE', detailOnly: true, text: true, render: (row) => row.internalNote || '' },
+  { key: 'saleId', label: 'Sale ID', headerLabel: 'SALE ID', detailOnly: true, text: true, render: (row) => (row.saleId ?? '') },
+  { key: 'outletId', label: 'Outlet ID', headerLabel: 'OUTLET ID', detailOnly: true, text: true, render: (row) => (row.outletId ?? '') },
+  { key: 'registerId', label: 'Register ID', headerLabel: 'REGISTER ID', detailOnly: true, text: true, render: (row) => (row.registerId ?? '') },
+  { key: 'modified', label: 'Modified', headerLabel: 'MODIFIED', detailOnly: true, text: true, render: (row) => row.modified || '' },
+  { key: 'modifyReason', label: 'Modify Reason', headerLabel: 'MODIFY REASON', detailOnly: true, text: true, render: (row) => row.modifyReason || '' },
   { 
     key: 'rebateQuantity', 
     label: 'Rebate Quantity',
@@ -408,7 +463,7 @@ const highlightSQL = (sql) =>
 
 // Reference filter: slate trigger block with an INLINE panel pushed below it
 // (absolute, top 100%, full width, flat #f8f8f8, no shadow, no scroll cap).
-const ShopfrontFilter = ({ label, value, groups, onChange, renderValue }) => {
+const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, disabled = false }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -433,7 +488,7 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue }) => {
 
   return (
     <Box sx={{ position: 'relative', flex: '0 1 33.333%', minWidth: 240 }} ref={ref}>
-      <Box onClick={() => setOpen((o) => !o)} sx={FILTER_BLOCK_SX}>
+      <Box onClick={() => !disabled && setOpen((o) => !o)} sx={{ ...FILTER_BLOCK_SX, ...(disabled ? { bgcolor: '#45484d', color: '#8a8d92', cursor: 'default' } : {}) }}>
         <Box sx={{ minWidth: 0 }}>
           <Box sx={{ fontSize: 16, fontWeight: 400, lineHeight: 1.25 }}>{label}</Box>
           <Box
@@ -537,11 +592,11 @@ const SalesReport = () => {
     ],
     payments: [
       { value: 'paymentMethod', label: 'Payment Method' },
-      { value: 'paymentMethodType', label: 'Payment Method Type' },
+      { value: 'paymentMethodType', label: 'Payment Type' },
       { value: 'paymentMethodSubtype', label: 'Payment Method Subtype' },
     ],
     misc: [
-      { value: 'taxRate', label: 'Tax Rate' },
+      { value: 'taxRate', label: 'Tax' },
     ],
   };
 
@@ -583,14 +638,16 @@ const SalesReport = () => {
       { value: 'quarter', label: 'Quarter' },
       { value: 'year', label: 'Year' },
     ],
+    // Aggregate folds every week/month together (Monday…Sunday, 1…31) — its own values,
+    // so "Aggregate Month" is not the same request as "Range Month".
     aggregate: [
-      { value: 'hour', label: 'Hour' },
-      { value: 'date', label: 'Date' },
-      { value: 'day', label: 'Day' },
-      { value: 'week', label: 'Week' },
-      { value: 'month', label: 'Month' },
-      { value: 'monthDate', label: 'Month Date' },
-      { value: 'quarter', label: 'Quarter' },
+      { value: 'aggregate_hour', label: 'Hour' },
+      { value: 'aggregate_date', label: 'Date' },
+      { value: 'aggregate_day', label: 'Day' },
+      { value: 'aggregate_week', label: 'Week' },
+      { value: 'aggregate_month', label: 'Month' },
+      { value: 'aggregate_monthDate', label: 'Month Date' },
+      { value: 'aggregate_quarter', label: 'Quarter' },
     ],
   };
 
@@ -684,6 +741,40 @@ const SalesReport = () => {
   const [precision, setPrecision] = useState(initialState.precision);
   const [searchTerm, setSearchTerm] = useState(initialState.searchTerm);
   const [includeDeleted, setIncludeDeleted] = useState(initialState.includeDeleted);
+  // Search-bar suggestions + Included / Excluded chips (reference).
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [chips, setChips] = useState([]);
+  const suggestBoxRef = useRef(null);
+  useEffect(() => {
+    const term = searchTerm.trim();
+    if (!term) { setSuggestions([]); return undefined; }
+    let cancelled = false;
+    setSuggestLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const rows = await salesReportService.getSearchSuggestions(term, includeDeleted);
+        if (!cancelled) setSuggestions(rows);
+      } catch { if (!cancelled) setSuggestions([]); }
+      finally { if (!cancelled) setSuggestLoading(false); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchTerm, includeDeleted]);
+  useEffect(() => {
+    if (!suggestOpen) return undefined;
+    const onDown = (e) => { if (suggestBoxRef.current && !suggestBoxRef.current.contains(e.target)) setSuggestOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [suggestOpen]);
+  const addChip = (s) => {
+    setChips((prev) => (prev.some((c) => c.type === s.type && c.id === s.id) ? prev : [...prev, { type: s.type, id: s.id, name: s.name, deleted: !!s.deleted, mode: 'include' }]));
+    setSearchTerm('');
+    setSuggestions([]);
+    setSuggestOpen(false);
+  };
+  const toggleChip = (chip) => setChips((prev) => prev.map((c) => (c.type === chip.type && c.id === chip.id ? { ...c, mode: c.mode === 'off' ? 'include' : 'off' } : c)));
+  const removeChip = (chip) => setChips((prev) => prev.filter((c) => !(c.type === chip.type && c.id === chip.id)));
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [reportData, setReportData] = useState([]);
@@ -734,8 +825,24 @@ const SalesReport = () => {
     revenuePercentage: true,
     transactionPercentage: true,
   });
-  const visibleColumns = isDetailMode ? detailVisibleColumns : summaryVisibleColumns;
-  const setVisibleColumns = isDetailMode ? setDetailVisibleColumns : setSummaryVisibleColumns;
+  // Reference "Payment Type" / "Payment Method Subtype" use their own five columns.
+  const isPaymentType = PAYMENT_TYPES.includes(reportType);
+  const visibleColumns = isPaymentType ? PAYMENT_VISIBLE : isDetailMode ? detailVisibleColumns : summaryVisibleColumns;
+  const setVisibleColumns = isPaymentType ? () => {} : isDetailMode ? setDetailVisibleColumns : setSummaryVisibleColumns;
+  // Detail-only columns exist in Consolidate = No; the rest are shared.
+  const activeColumnDefs = isPaymentType ? PAYMENT_COLUMNS : REPORT_COLUMNS.filter((col) => isDetailMode || !col.detailOnly);
+  // Reference defaults per Report Type: promotion types switch the promotion columns on;
+  // product-level types (Product, Brand, Category, Family, Tag, Supplier) show Calculated
+  // Cases / Items Sold, sale-level types (Outlet, Register, User…) do not.
+  useEffect(() => {
+    const calc = ITEM_LEVEL_TYPES.includes(reportType);
+    setSummaryVisibleColumns((prev) => ({
+      ...prev,
+      calculatedCasesSold: calc,
+      calculatedItemsSold: calc,
+      ...(PROMOTION_TYPES.includes(reportType) ? { rebateQuantity: true, expectedRebate: true, promotionQuantity: true, promotionalSavings: true } : {}),
+    }));
+  }, [reportType]);
 
   // All Outlets (no header outlet / register): Outlet filter. 'all' = every outlet.
   const { globalMode, outlets: allOutlets } = useGlobalOutlet();
@@ -767,6 +874,7 @@ const SalesReport = () => {
         precision,
         searchTerm,
         includeDeleted,
+        chips: chips.filter((c) => c.mode !== 'off'),
         startDate: dateRange.startDate?.toISOString(),
         endDate: dateRange.endDate?.toISOString(),
       };
@@ -820,7 +928,7 @@ const SalesReport = () => {
         reportRequests.current.invalidate();
       };
     }
-  }, [reportType, groupBy, dateRange, consolidate, precision, includeDeleted, outletFilterId, headerRegisterId]);
+  }, [reportType, groupBy, dateRange, consolidate, precision, includeDeleted, outletFilterId, headerRegisterId, chips]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -833,6 +941,19 @@ const SalesReport = () => {
   }, [searchTerm]);
 
   const generateSQLQuery = () => {
+    // Precision: reference query bar reads
+    // SELECT revenue AS "Revenue" FROM sales AGGREGATE day BY outlet START "…" END "…" CONSOLIDATED
+    if (precision && precision !== 'none') {
+      const isAgg = precision.startsWith('aggregate_');
+      const unit = (isAgg ? precision.slice('aggregate_'.length) : precision).replace(/([A-Z])/g, '_$1').toLowerCase();
+      const fmt = (d) => {
+        if (!d) return '';
+        const x = new Date(d);
+        const p = (n) => String(n).padStart(2, '0');
+        return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())} ${p(x.getHours())}:${p(x.getMinutes())}:${p(x.getSeconds())}`;
+      };
+      return `SELECT revenue AS "Revenue" FROM sales ${isAgg ? 'AGGREGATE' : 'RANGE'} ${unit} BY ${reportType} START "${fmt(dateRange.startDate)}" END "${fmt(dateRange.endDate)}" CONSOLIDATED`;
+    }
     let query = 'SELECT\n';
     query += '  BY_NAME AS "Name",\n';
     query += '  revenue AS "Revenue",\n';
@@ -953,7 +1074,7 @@ const SalesReport = () => {
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
 
     // Prepare table data
-    const allColumns = REPORT_COLUMNS;
+    const allColumns = activeColumnDefs;
 
     const visibleCols = allColumns.filter(col => visibleColumns[col.key]);
     const flatData = flattenReportData();
@@ -1005,7 +1126,7 @@ const SalesReport = () => {
 
   const exportToXLSX = async () => {
     // Prepare columns
-    const allColumns = REPORT_COLUMNS;
+    const allColumns = activeColumnDefs;
 
     const visibleCols = allColumns.filter(col => visibleColumns[col.key]);
     const flatData = flattenReportData();
@@ -1062,7 +1183,7 @@ const SalesReport = () => {
 
   const exportToCSV = async () => {
     // Prepare columns
-    const allColumns = REPORT_COLUMNS;
+    const allColumns = activeColumnDefs;
 
     const visibleCols = allColumns.filter(col => visibleColumns[col.key]);
     const flatData = flattenReportData();
@@ -1175,7 +1296,7 @@ const SalesReport = () => {
       }
     } else {
       // Use regular columns
-      const allColumns = REPORT_COLUMNS;
+      const allColumns = activeColumnDefs;
       columnsToShow = allColumns.filter(col => visibleColumns[col.key]);
     }
 
@@ -1483,11 +1604,14 @@ const SalesReport = () => {
     return key;
   };
 
-  // Detail-only columns exist in Consolidate = No; the rest are shared.
-  const allColumns = REPORT_COLUMNS.filter((col) => isDetailMode || !col.detailOnly);
+  const allColumns = activeColumnDefs;
   // User 21/10: a single data row has nothing to sort, so the header icons are hidden.
   const showSortIcons = reportData.length > 1;
   const pickerColumns = allColumns.filter((col) => !col.hidden);
+  const PINNED_DETAIL_KEYS = ['outletName', 'registerName', 'customerName', 'userName'];
+  const pickerRows = isDetailMode
+    ? [...PINNED_DETAIL_KEYS.map((k) => pickerColumns.find((c) => c.key === k)).filter(Boolean), { divider: true }, ...pickerColumns]
+    : pickerColumns;
   const selectedPickerLabels = pickerColumns.filter((col) => visibleColumns[col.key]).map((col) => col.label);
 
   useEffect(() => {
@@ -1592,12 +1716,14 @@ const SalesReport = () => {
             />
           </Box>
 
+          {/* Reference greys this block out while a Precision is set. */}
           <ShopfrontFilter
             label="Consolidate By Report Type"
             value={consolidate}
             groups={consolidateGroups}
             onChange={setConsolidate}
             renderValue={(value) => (value === 'consolidated' ? 'Yes' : 'No')}
+            disabled={isPrecisionMode}
           />
 
           <ShopfrontFilter
@@ -1622,13 +1748,50 @@ const SalesReport = () => {
         <Paper elevation={0} sx={{ p: 2, mb: '8px' }}>
           {/* Search keeps the old rounded field; Include Deleted sits to its right (user 21/10). */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 2 }}>
-            <TextField
-              size="small"
-              placeholder="Search for anything"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ ...FIELD_SX, flex: 1 }}
-            />
+            {/* Reference search: typing lists Product / Promotion / User / Category… suggestions
+                (Active / Deleted), a pick becomes an Included / Excluded chip under the box. */}
+            <Box sx={{ position: 'relative', flex: 1 }} ref={suggestBoxRef}>
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="Search for anything"
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setSuggestOpen(true); }}
+                onFocus={() => setSuggestOpen(true)}
+                sx={FIELD_SX}
+                InputProps={{
+                  endAdornment: searchTerm ? (
+                    <CancelIcon onClick={() => { setSearchTerm(''); setSuggestions([]); }} sx={{ cursor: 'pointer', color: '#333', fontSize: 22 }} />
+                  ) : null,
+                }}
+              />
+              {suggestOpen && (
+                <Paper elevation={4} sx={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20, maxHeight: 520, overflowY: 'auto', borderRadius: 0, bgcolor: '#f8f8f8' }}>
+                  {!searchTerm.trim() ? (
+                    <Box sx={{ px: 2, py: 1.5, fontSize: 22 }}>Start typing to search...</Box>
+                  ) : suggestLoading ? (
+                    <Box sx={{ px: 2, py: 1.5, fontSize: 18, color: '#666' }}>Searching...</Box>
+                  ) : suggestions.length === 0 ? (
+                    <Box sx={{ px: 2, py: 1.5, fontSize: 22 }}>No search results found.</Box>
+                  ) : (
+                    suggestions.map((s, i) => (
+                      <Box
+                        key={`${s.type}-${s.id}`}
+                        onClick={() => addChip(s)}
+                        sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1.5, py: 1, cursor: 'pointer', bgcolor: i % 2 ? '#e8e8e8' : '#f8f8f8', '&:hover': { bgcolor: '#5ebbeb', color: '#fff' } }}
+                      >
+                        <SuggestIcon type={s.type} deleted={s.deleted} />
+                        <Box sx={{ flex: 1 }}>
+                          <Box sx={{ fontSize: 15, lineHeight: 1.2 }}>{SUGGEST_LABELS[s.type] || s.type}</Box>
+                          <Box sx={{ fontSize: 22, lineHeight: 1.2 }}>{s.name}</Box>
+                        </Box>
+                        {s.type === 'product' && <Box sx={{ fontSize: 16 }}>{s.deleted ? 'Deleted' : 'Active'}</Box>}
+                      </Box>
+                    ))
+                  )}
+                </Paper>
+              )}
+            </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
               <Typography sx={{ fontSize: 16, whiteSpace: 'nowrap' }}>Include Deleted</Typography>
               <ShopfrontSwitch
@@ -1637,6 +1800,35 @@ const SalesReport = () => {
               />
             </Box>
           </Box>
+          {chips.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+              {chips.map((c) => (
+                <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid #404040', bgcolor: '#fff' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: '1px solid #404040' }}>
+                    <SuggestIcon type={c.type} deleted={c.deleted} />
+                  </Box>
+                  {/* Reference chip: type label (+ ⊘ "This item no longer exists in your store" for a
+                      deleted item), the name, then a switch labelled "Included" — OFF stops the chip
+                      filtering. Double-click the name to drop the chip. */}
+                  <Box sx={{ px: 1.5, py: 0.75 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: 16, lineHeight: 1.2 }}>
+                      {SUGGEST_LABELS[c.type] || c.type}
+                      {c.deleted && (
+                        <Tooltip title="This item no longer exists in your store" arrow placement="top">
+                          <BlockIcon sx={{ fontSize: 18, color: '#333' }} />
+                        </Tooltip>
+                      )}
+                    </Box>
+                    <Box sx={{ fontSize: 20, lineHeight: 1.3, cursor: 'default' }} onDoubleClick={() => removeChip(c)}>{c.name}</Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                      <ShopfrontSwitch checked={c.mode !== 'off'} onChange={() => toggleChip(c)} />
+                      <Box sx={{ fontSize: 16 }}>Included</Box>
+                    </Box>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
               <Button
@@ -1702,11 +1894,13 @@ const SalesReport = () => {
             <ArrowDropUp sx={{ color: '#555', fontSize: 20 }} />
           </Box>
           <Box sx={{ border: '1px solid #c8c8c8', borderRadius: '6px', maxHeight: 290, overflowY: 'auto' }}>
-            {pickerColumns.map((column) => {
+            {/* Consolidate = No: reference pins Outlet / Register / Customer / User above a divider. */}
+            {pickerRows.map((column, idx) => {
+              if (column.divider) return <Box key={`divider-${idx}`} sx={{ borderTop: '1px solid #c8c8c8', mx: 1.5 }} />;
               const on = !!visibleColumns[column.key];
               return (
                 <Box
-                  key={column.key}
+                  key={`${column.key}-${idx}`}
                   onClick={() => toggleColumn(column.key)}
                   sx={{
                     display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, height: 56, cursor: 'pointer',
@@ -1754,18 +1948,15 @@ const SalesReport = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData.length === 0 ? (
+                  {/* Reference: an empty result keeps the blue total row ($0.00, 100.00%) with no message. */}
+                  {reportData.length === 0 && loadError ? (
                     <TableRow>
                       <TableCell colSpan={(isPrecisionMode ? getTimePeriodColumns().length : allColumns.filter(col => visibleColumns[col.key]).length) + 1} align="center" sx={{ py: 4 }}>
                         {loadError ? (
                           <Box sx={{ bgcolor: 'rgb(227,52,47)', color: '#fff', px: 2, py: 1.5, fontSize: 15, textAlign: 'left' }}>
                             {loadError}
                           </Box>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            No data available for the selected filters
-                          </Typography>
-                        )}
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -1827,7 +2018,7 @@ const SalesReport = () => {
                       </React.Fragment>
                     ))
                   )}
-                  {reportData.length > 0 && !isPrecisionMode && (
+                  {!loadError && !isPrecisionMode && (
                     <TableRow sx={TABLE_TOTAL_SX}>
                       {/* Reference total row has no label in the NAME cell. */}
                       <TableCell sx={{ ...STICKY_NAME_SX, bgcolor: 'inherit' }} />
@@ -1836,17 +2027,21 @@ const SalesReport = () => {
                           key={column.key}
                           align="center"
                         >
-                          {column.text ? '' : column.key === 'averageSale' ? (
+                          {column.text ? '' : column.key === 'averagePayment' ? (
+                            formatCurrency(
+                              reportData.reduce((sum, row) => sum + (row.paymentAmount || 0), 0) /
+                              (reportData.reduce((sum, row) => sum + (row.transactionCount || 0), 0) || 1)
+                            )
+                          ) : column.key === 'averageSale' ? (
                             formatCurrency(
                           reportData.reduce((sum, row) => sum + (row.revenue || 0), 0) /
                           reportData.reduce((sum, row) => sum + (row.transactionCount || 0), 0) || 0
                             )
                           ) : column.key === 'profitPercentage' ? (
                             `${totalProfitPercentage(reportData).toFixed(2)}%`
-                          ) : column.key === 'revenuePercentage' ? (
-                            `${reportData.reduce((sum, row) => sum + (row.revenuePercentage || 0), 0).toFixed(2)}%`
-                          ) : column.key === 'transactionPercentage' ? (
-                            `${reportData.reduce((sum, row) => sum + (row.transactionPercentage || 0), 0).toFixed(2)}%`
+                          ) : column.key === 'revenuePercentage' || column.key === 'transactionPercentage' || column.key === 'paymentPercentage' ? (
+                            // Share-of-total columns always total 100% (reference shows 100.00% even on an empty result).
+                            reportData.length === 0 ? '100.00%' : `${reportData.reduce((sum, row) => sum + (row[column.key] || 0), 0).toFixed(2)}%`
                           ) : column.key === 'markup' ? (
                             `${((reportData.reduce((sum, row) => sum + (row.profit || 0), 0) / reportData.reduce((sum, row) => sum + (row.costOfGoods || 1), 0)) * 100 || 0).toFixed(2)}%`
                           ) : column.key.includes('Percentage') || column.key.includes('percentage') ? (
@@ -1860,7 +2055,7 @@ const SalesReport = () => {
                       ))}
                     </TableRow>
                   )}
-                  {reportData.length > 0 && isPrecisionMode && (
+                  {!loadError && isPrecisionMode && (
                     <TableRow sx={TABLE_TOTAL_SX}>
                       <TableCell sx={{ ...STICKY_NAME_SX, bgcolor: 'inherit' }} />
                       {getTimePeriodColumns().map(column => (

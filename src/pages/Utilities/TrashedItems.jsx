@@ -44,6 +44,7 @@ import {
   KeyboardOutlined as SaleKeysIcon,
   StyleOutlined as PromotionCategoryIcon,
   FindInPageOutlined as NoTrashIcon,
+  StackedLineChartOutlined as ReportIcon,
 } from '@mui/icons-material';
 import {
   formatDistanceToNow,
@@ -162,6 +163,7 @@ const ITEM_TYPES = [
   { value: 'Family', label: 'FAMILY' },
   { value: 'Tag', label: 'TAG' },
   { value: 'Sale_keys', label: 'SALE KEYS' },
+  { value: 'Report', label: 'REPORT' },
 ];
 
 // Typed dd/MM/yyyy stays the source of truth (the calendar popover writes into the
@@ -355,6 +357,8 @@ const TrashedItems = () => {
         return <SaleKeysIcon sx={sx} />;
       case 'Promotion_category':
         return <PromotionCategoryIcon sx={sx} />;
+      case 'Report':
+        return <ReportIcon sx={sx} />;
       default:
         return null;
     }

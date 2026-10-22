@@ -26,6 +26,8 @@ const salesReportService = {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.outletId) params.append('outletId', filters.outletId);
       if (filters.registerId) params.append('registerId', filters.registerId);
+      // Search-bar chips: [{ type, id, name, mode: 'include' | 'exclude' }]
+      if (Array.isArray(filters.chips) && filters.chips.length) params.append('filters', JSON.stringify(filters.chips.map((c) => ({ type: c.type, id: c.id, mode: c.mode }))));
 
       const response = await apiClient.get(`/sales-reports/report?${params.toString()}`, { noCache: true });
       return response.data;
@@ -33,6 +35,13 @@ const salesReportService = {
       console.error('Error fetching sales report:', error);
       throw error;
     }
+  },
+
+  // Reference search-bar suggestions (products / promotions / users / … with Active / Deleted).
+  async getSearchSuggestions(q, includeDeleted) {
+    const params = new URLSearchParams({ q, includeDeleted: includeDeleted ? 'true' : 'false' });
+    const response = await apiClient.get(`/sales-reports/search-suggestions?${params.toString()}`, { noCache: true });
+    return response.data?.data || [];
   },
 
   // Get filter options for dropdowns
