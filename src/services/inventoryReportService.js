@@ -10,6 +10,16 @@ const inventoryReportService = {
       throw error;
     }
   },
+  async getSearchSuggestions(q, includeDeleted) {
+    const params = new URLSearchParams({ q, includeDeleted: includeDeleted ? 'true' : 'false' });
+    const response = await apiClient.get(`/inventory-reports/search-suggestions?${params.toString()}`, { noCache: true });
+    return response.data?.data || [];
+  },
+  // Inventory Query Editor: { query, includeDeleted } → { success, columns, data, totals }
+  runQuery: async ({ query, includeDeleted } = {}) => {
+    const response = await apiClient.get('/inventory-reports/query', { params: { query, includeDeleted } });
+    return response.data;
+  },
   getInventoryAtDate: async (filters) => {
     try {
       const response = await apiClient.get('/inventory-reports/at-date', { params: filters });

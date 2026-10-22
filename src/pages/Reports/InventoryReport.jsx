@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -9,7 +9,6 @@ import {
   Select,
   MenuItem,
   FormControl,
-  FormControlLabel,
   Table,
   TableBody,
   TableCell,
@@ -17,14 +16,12 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
-  Checkbox,
-  IconButton,
-  Menu,
+  Popover,
+  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Chip,
 } from '@mui/material';
 import {
   FileDownload as ExportIcon,
@@ -32,12 +29,25 @@ import {
   SaveOutlined as SaveIcon,
   ViewColumn as ColumnsIcon,
   EditOutlined as EditIcon,
-  CheckBox as CheckBoxIcon,
+  CheckBoxOutlined as CheckBoxIcon,
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
   ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
   ArrowDropDown,
   ArrowDropUp,
+  LayersOutlined as GroupsIcon,
+  Cancel as CancelIcon,
+  HelpOutline as HelpIcon,
+  PictureAsPdf as PdfIcon,
+  Description as CsvIcon,
+  TableChart as XlsxIcon,
+  Code as JsonIcon,
+  Block as BlockIcon,
+  DeleteOutline as DeleteOutlineIcon,
+  QrCode as QrCodeIcon,
+  StorefrontOutlined as StorefrontOutlinedIcon,
+  LocalShippingOutlined as LocalShippingOutlinedIcon,
+  FolderOutlined as FolderOutlinedIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
@@ -74,7 +84,7 @@ const FIELD_SX = {
   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
   '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder, & textarea::placeholder': { color: '#808080', opacity: 1 },
 };
 
 // Data table chrome — identical to components/Reports/ReportTable.jsx.
@@ -89,6 +99,7 @@ const TABLE_HEAD_SX = {
     height: 36,
     borderBottom: 'none',
     whiteSpace: 'nowrap',
+    cursor: 'pointer',
   },
 };
 
@@ -99,6 +110,7 @@ const TABLE_ROW_SX = {
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
+    whiteSpace: 'nowrap',
   },
 };
 
@@ -110,7 +122,95 @@ const TABLE_TOTAL_SX = {
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
+    position: 'sticky',
+    bottom: 0,
+    backgroundColor: '#5ebbeb',
+    zIndex: 1,
   },
+  '& td:first-of-type': { zIndex: 3 },
+};
+
+// Reference odd-row stripe is a visible grey.
+const ROW_ALT_BG = '#e8e8e8';
+
+// Search suggestion rows (same as the Sales Report): type label + icon; a deleted item shows a bin.
+const SUGGEST_LABELS = { product: 'Product', category: 'Category', brand: 'Brand', family: 'Family', tag: 'Tag', supplier: 'Supplier', outlet: 'Outlet' };
+const SuggestIcon = ({ type, deleted }) => {
+  const sx = { fontSize: 34, color: '#111' };
+  if (deleted) return <DeleteOutlineIcon sx={sx} />;
+  switch (type) {
+    case 'product': return <QrCodeIcon sx={sx} />;
+    case 'outlet': return <StorefrontOutlinedIcon sx={sx} />;
+    case 'supplier': return <LocalShippingOutlinedIcon sx={sx} />;
+    default: return <FolderOutlinedIcon sx={sx} />;
+  }
+};
+
+// Reference header: ⇕ after every label; `active` = 'asc' | 'desc' fills the
+// triangle of the current sort direction (same as SalesReport.jsx).
+const SortIcon = ({ active }) => (
+  <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-block' }} aria-hidden="true">
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill={active === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'asc' ? 1.6 : 1.1} strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
+  </svg>
+);
+
+// Reference Columns picker (31 columns, in the reference order). `kind` drives the
+// cell format and the totals row: level/value columns add up, costs and
+// attributes stay blank, Value % totals 100%.
+const ALL_COLUMNS = [
+  { key: 'productId', label: 'Product ID', kind: 'text', sql: 'id AS "Product ID"' },
+  { key: 'status', label: 'Status', kind: 'text', sql: 'status AS "Status"' },
+  { key: 'caseQuantity', label: 'Case Quantity', kind: 'int', noTotal: true, sql: 'case_quantity AS "Case Quantity"' },
+  { key: 'outlet', label: 'Outlet', kind: 'text', sql: 'inventory.outlet AS "Outlet"' },
+  { key: 'caseLevel', label: 'Case Level', kind: 'int', sql: 'inventory.case_level AS "Case Level"' },
+  { key: 'itemLevel', label: 'Item Level', kind: 'int', sql: 'inventory.single_level AS "Item Level"' },
+  { key: 'totalItems', label: 'Total Items', kind: 'int', sql: 'inventory.single_level + (inventory.case_level * case_quantity) AS "Total Items" TOTAL(SUM)' },
+  { key: 'lastCaseCostEx', label: 'Last Case Cost (Ex)', kind: 'currency', noTotal: true, sql: 'costs.last_cost_ex AS "Last Case Cost (Ex)" TOTAL(NONE)' },
+  { key: 'lastCaseCostEx', label: 'Last Case Cost (Global) (Ex)', kind: 'currency', noTotal: true, global: true, sql: 'costs.last_cost_ex AS "Last Case Cost (Global) (Ex)" TOTAL(NONE)' },
+  { key: 'averageCaseCostEx', label: 'Average Case Cost (Ex)', kind: 'currency', noTotal: true, sql: 'costs.average_cost_ex AS "Average Case Cost (Ex)" TOTAL(NONE)' },
+  { key: 'averageCaseCostEx', label: 'Average Case Cost (Global) (Ex)', kind: 'currency', noTotal: true, global: true, sql: 'costs.average_cost_ex AS "Average Case Cost (Global) (Ex)" TOTAL(NONE)' },
+  { key: 'lastCaseCostInc', label: 'Last Case Cost (Inc)', kind: 'currency', noTotal: true, sql: 'costs.last_cost AS "Last Case Cost (Inc)" TOTAL(NONE)' },
+  { key: 'lastCaseCostInc', label: 'Last Case Cost (Global)', kind: 'currency', noTotal: true, global: true, sql: 'last_cost AS "Last Case Cost (Global)" TOTAL(NONE)' },
+  { key: 'averageCaseCostInc', label: 'Average Case Cost (Inc)', kind: 'currency', noTotal: true, sql: 'costs.average_cost AS "Average Case Cost (Inc)" TOTAL(NONE)' },
+  { key: 'averageCaseCostInc', label: 'Average Case Cost (Global)', kind: 'currency', noTotal: true, global: true, sql: 'average_cost AS "Average Case Cost (Global)" TOTAL(NONE)' },
+  { key: 'valueExcLast', label: 'Value (Ex) (Last)', kind: 'currency', sql: 'FORMAT(costs.last_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Ex) (Last)" TOTAL(SUM)' },
+  { key: 'valueExcLast', label: 'Value (Global) (Ex) (Last)', kind: 'currency', global: true, sql: 'FORMAT(costs.last_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Global) (Ex) (Last)" TOTAL(SUM)' },
+  { key: 'valueIncLast', label: 'Value (Inc) (Last)', kind: 'currency', sql: 'FORMAT(costs.last_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Inc) (Last)" TOTAL(SUM)' },
+  { key: 'valueIncLast', label: 'Value (Global) (Inc) (Last)', kind: 'currency', global: true, sql: 'FORMAT(costs.last_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Global) (Inc) (Last)" TOTAL(SUM)' },
+  { key: 'valueExcAverage', label: 'Value (Ex) (Average)', kind: 'currency', sql: 'FORMAT(costs.average_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Ex) (Average)" TOTAL(SUM)' },
+  { key: 'valueExcAverage', label: 'Value (Global) (Ex) (Average)', kind: 'currency', global: true, sql: 'FORMAT(costs.average_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Global) (Ex) (Average)" TOTAL(SUM)' },
+  { key: 'valueIncAverage', label: 'Value (Inc) (Average)', kind: 'currency', sql: 'FORMAT(costs.average_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Inc) (Average)" TOTAL(SUM)' },
+  { key: 'valueIncAverage', label: 'Value (Global) (Inc) (Average)', kind: 'currency', global: true, sql: 'FORMAT(costs.average_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Global) (Inc) (Average)" TOTAL(SUM)' },
+  { key: 'valuePctExLast', label: 'Value % (Ex) (Last)', kind: 'percent', sql: 'FORMAT(costs.last_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'\', \'%\', 2) AS "Value % (Ex) (Last)" TOTAL(PERCENTAGE_FROM_TOTAL)' },
+  { key: 'valuePctExLast', label: 'Value % (Global) (Ex) (Last)', kind: 'percent', global: true, sql: 'FORMAT(costs.last_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'\', \'%\', 2) AS "Value % (Global) (Ex) (Last)" TOTAL(PERCENTAGE_FROM_TOTAL)' },
+  { key: 'valuePctIncLast', label: 'Value % (Inc) (Last)', kind: 'percent', sql: 'FORMAT(costs.last_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'\', \'%\', 2) AS "Value % (Inc) (Last)" TOTAL(PERCENTAGE_FROM_TOTAL)' },
+  { key: 'valuePctIncLast', label: 'Value % (Global) (Inc) (Last)', kind: 'percent', global: true, sql: 'FORMAT(costs.last_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'\', \'%\', 2) AS "Value % (Global) (Inc) (Last)" TOTAL(PERCENTAGE_FROM_TOTAL)' },
+  { key: 'valuePctExAverage', label: 'Value % (Ex) (Average)', kind: 'percent', sql: 'FORMAT(costs.average_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'\', \'%\', 2) AS "Value % (Ex) (Average)" TOTAL(PERCENTAGE_FROM_TOTAL)' },
+  { key: 'valuePctExAverage', label: 'Value % (Global) (Ex) (Average)', kind: 'percent', global: true, sql: 'FORMAT(costs.average_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'\', \'%\', 2) AS "Value % (Global) (Ex) (Average)" TOTAL(PERCENTAGE_FROM_TOTAL)' },
+  { key: 'valuePctIncAverage', label: 'Value % (Inc) (Average)', kind: 'percent', sql: 'FORMAT(costs.average_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'\', \'%\', 2) AS "Value % (Inc) (Average)" TOTAL(PERCENTAGE_FROM_TOTAL)' },
+  { key: 'valuePctIncAverage', label: 'Value % (Global) (Inc) (Average)', kind: 'percent', global: true, sql: 'FORMAT(costs.average_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'\', \'%\', 2) AS "Value % (Global) (Inc) (Average)" TOTAL(PERCENTAGE_FROM_TOTAL)' },
+].map((c) => ({ ...c, id: c.label, headerLabel: c.label.toUpperCase() }));
+// "Global" columns are the store-wide cost of the reference; we hold one cost per
+// product, so they would repeat their outlet twin — hidden from the picker
+// (user decision 22/10/2026). Flip SHOW_GLOBAL_COLUMNS to bring them back.
+const SHOW_GLOBAL_COLUMNS = false;
+const PICKER_COLUMNS = ALL_COLUMNS.filter((c) => SHOW_GLOBAL_COLUMNS || !c.global);
+
+// Reference default picks.
+const DEFAULT_VISIBLE = ['Case Quantity', 'Outlet', 'Case Level', 'Item Level', 'Last Case Cost (Inc)', 'Average Case Cost (Inc)', 'Value (Inc) (Average)'];
+
+const fmtNumber = (n, d) => Number(n || 0).toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
+// Reference cells: 5,456 · $599,471.47 · -$298.80 · 12.34%
+const formatCell = (value, col) => {
+  if (value === '' || value === null || value === undefined) return '';
+  if (col.kind === 'text') return String(value);
+  const n = Number(value);
+  if (Number.isNaN(n)) return String(value);
+  const sign = n < 0 ? '-' : '';
+  if (col.kind === 'currency') return `${sign}$${fmtNumber(Math.abs(n), 2)}`;
+  if (col.kind === 'percent') return `${fmtNumber(n, 2)}%`;
+  return `${sign}${fmtNumber(Math.abs(n), Number.isInteger(n) ? 0 : 2)}`;
 };
 
 // Reference filter block: flush slate box, 80px tall, square, 1px near-white border.
@@ -159,7 +259,7 @@ const highlightSQL = (sql) =>
 
 // Reference filter: slate trigger block with an INLINE panel pushed below it
 // (absolute, top 100%, full width, flat #f8f8f8, no shadow, no animation).
-const ShopfrontFilter = ({ label, value, groups, onChange, renderValue }) => {
+const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, basis = '50%' }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -183,7 +283,7 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue }) => {
   const display = renderValue ? renderValue(value) : selected?.label || '';
 
   return (
-    <Box sx={{ position: 'relative', flex: '0 1 50%', minWidth: 240 }} ref={ref}>
+    <Box sx={{ position: 'relative', flex: `0 1 ${basis}`, minWidth: 240 }} ref={ref}>
       <Box onClick={() => setOpen((o) => !o)} sx={FILTER_BLOCK_SX}>
         <Box sx={{ minWidth: 0 }}>
           <Box sx={{ fontSize: 16, fontWeight: 400, lineHeight: 1.25 }}>{label}</Box>
@@ -207,20 +307,21 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue }) => {
           sx={{
             position: 'absolute',
             top: '100%',
-            left: 0,
-            width: '100%',
+            // panel sits inside the trigger block's 1px border (same as SalesReport.jsx)
+            left: '1px',
+            width: 'calc(100% - 2px)',
             zIndex: 8,
             boxSizing: 'border-box',
             bgcolor: '#f8f8f8',
             borderRadius: 0,
             boxShadow: 'none',
-            p: '16px',
+            p: '11px 16px',
           }}
         >
           {groups.map((group, gi) => (
             <Box key={group.label || `g${gi}`}>
               {group.label && (
-                <Box sx={{ fontWeight: 700, fontSize: '19.2px', lineHeight: '23px', color: '#313439' }}>
+                <Box sx={{ fontWeight: 700, fontSize: '19.2px', color: '#313439', mb: '8px' }}>
                   {group.label}
                 </Box>
               )}
@@ -235,7 +336,7 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue }) => {
                     sx={{
                       fontSize: '19.2px',
                       lineHeight: '23px',
-                      p: '4px',
+                      p: '3px 4px',
                       cursor: 'pointer',
                       bgcolor: option.value === value ? '#5ebbeb' : 'transparent',
                       color: option.value === value ? '#f8f8f8' : '#313439',
@@ -293,6 +394,17 @@ const GROUP_BY_GROUPS = [
   },
 ];
 
+// Reference "Consolidate By Report Type": Yes = one row per product name,
+// No = every product with its outlet (product × outlet rows).
+const CONSOLIDATE_GROUPS = [
+  {
+    items: [
+      { value: 'consolidated', label: 'Consolidated' },
+      { value: 'detailed', label: 'Unconsolidated' },
+    ],
+  },
+];
+
 const InventoryReport = () => {
   const [searchParams] = useSearchParams();
   const { getOutletId } = useAuth();
@@ -310,46 +422,38 @@ const InventoryReport = () => {
     const savedGroupBy = searchParams.get('groupBy');
     const savedSearchTerm = searchParams.get('searchTerm');
     const savedIncludeDeleted = searchParams.get('includeDeleted');
+    const savedConsolidate = searchParams.get('consolidate');
 
     return {
+      // Reference opens on Inventory On Hand · Group By Outlet · Consolidate No.
       reportType: savedReportType || 'inventory_on_hand',
-      groupBy: savedGroupBy || 'none',
+      groupBy: savedGroupBy || 'outlet',
       searchTerm: savedSearchTerm !== null ? savedSearchTerm : '',
       includeDeleted: savedIncludeDeleted === 'true' || false,
+      consolidate: savedConsolidate === 'consolidated' ? 'consolidated' : 'detailed',
     };
   };
 
   const initialState = getInitialState();
-  
+
   // Filter states
   const [reportType, setReportType] = useState(initialState.reportType);
   const [groupBy, setGroupBy] = useState(initialState.groupBy);
+  const [consolidate, setConsolidate] = useState(initialState.consolidate);
   const [searchTerm, setSearchTerm] = useState(initialState.searchTerm);
   const [includeDeleted, setIncludeDeleted] = useState(initialState.includeDeleted);
-  
+
   // Data states
   const [reportData, setReportData] = useState([]);
+  const [apiTotals, setApiTotals] = useState({});
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
-  const [expandedRows, setExpandedRows] = useState({});
-  
-  // Column visibility
-  const [visibleColumns, setVisibleColumns] = useState({
-    caseQuantity: true,
-    caseLevel: true,
-    itemLevel: true,
-    valueIncAverage: true,
-    productId: false,
-    status: false,
-    totalItems: false,
-    lastCaseCostEx: false,
-    averageCaseCostEx: false,
-    lastCaseCostInc: false,
-    averageCaseCostInc: false,
-    valueExcLast: false,
-    valueIncLast: false,
-  });
-  
+  const [collapsed, setCollapsed] = useState({}); // group name → children hidden
+  const [sortConfig, setSortConfig] = useState(null);
+
+  // Column visibility (by picker label; two picker entries may read one engine field)
+  const [visibleColumns, setVisibleColumns] = useState(() => Object.fromEntries(ALL_COLUMNS.map((c) => [c.id, DEFAULT_VISIBLE.includes(c.id)])));
+
   // UI states
   const [columnsAnchorEl, setColumnsAnchorEl] = useState(null);
   const [columnsChipsExpanded, setColumnsChipsExpanded] = useState(false);
@@ -357,33 +461,60 @@ const InventoryReport = () => {
   const [exportType, setExportType] = useState('pdf');
   const [exportOrientation, setExportOrientation] = useState('portrait');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  
+
   // Query preview (edited on the query editor page)
   const [customQuery, setCustomQuery] = useState('');
 
-  // Column definitions
-  // Title-case picker labels; uppercase header labels for the data table;
-  // `sql` is the Reporting Query Language projection shown in the query bar.
-  const allColumns = [
-    { key: 'caseQuantity', label: 'Case Quantity', headerLabel: 'CASE QUANTITY', sql: 'case_quantity AS "Case Quantity"' },
-    { key: 'caseLevel', label: 'Case Level', headerLabel: 'CASE LEVEL', sql: 'inventory.case_level AS "Case Level"' },
-    { key: 'itemLevel', label: 'Item Level', headerLabel: 'ITEM LEVEL', sql: 'inventory.single_level AS "Item Level"' },
-    { key: 'valueIncAverage', label: 'Value (Inc) (Average)', headerLabel: 'VALUE (INC) (AVERAGE)', sql: 'FORMAT(costs.average_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Inc) (Average)" TOTAL(SUM)' },
-    { key: 'productId', label: 'Product ID', headerLabel: 'PRODUCT ID', sql: 'id AS "Product ID"' },
-    { key: 'status', label: 'Status', headerLabel: 'STATUS', sql: 'status AS "Status"' },
-    { key: 'totalItems', label: 'Total Items', headerLabel: 'TOTAL ITEMS', sql: 'inventory.single_level + (inventory.case_level * case_quantity) AS "Total Items" TOTAL(SUM)' },
-    { key: 'lastCaseCostEx', label: 'Last Case Cost (Ex)', headerLabel: 'LAST CASE COST (EX)', sql: 'FORMAT(costs.last_cost_ex, \'$\', \'\', 2) AS "Last Case Cost (Ex)"' },
-    { key: 'averageCaseCostEx', label: 'Average Case Cost (Ex)', headerLabel: 'AVERAGE CASE COST (EX)', sql: 'FORMAT(costs.average_cost_ex, \'$\', \'\', 2) AS "Average Case Cost (Ex)"' },
-    { key: 'lastCaseCostInc', label: 'Last Case Cost (Inc)', headerLabel: 'LAST CASE COST (INC)', sql: 'FORMAT(costs.last_cost, \'$\', \'\', 2) AS "Last Case Cost (Inc)"' },
-    { key: 'averageCaseCostInc', label: 'Average Case Cost (Inc)', headerLabel: 'AVERAGE CASE COST (INC)', sql: 'FORMAT(costs.average_cost, \'$\', \'\', 2) AS "Average Case Cost (Inc)"' },
-    { key: 'valueExcLast', label: 'Value (Ex) (Last)', headerLabel: 'VALUE (EX) (LAST)', sql: 'FORMAT(costs.last_cost_ex * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Ex) (Last)" TOTAL(SUM)' },
-    { key: 'valueIncLast', label: 'Value (Inc) (Last)', headerLabel: 'VALUE (INC) (LAST)', sql: 'FORMAT(costs.last_cost * (inventory.case_level + (inventory.single_level / case_quantity)), \'$\', \'\', 2) AS "Value (Inc) (Last)" TOTAL(SUM)' },
-  ];
+  // Search-bar suggestions + Included chips (reference, same as the Sales Report).
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [chips, setChips] = useState([]);
+  const suggestBoxRef = useRef(null);
+  useEffect(() => {
+    const term = searchTerm.trim();
+    if (!term) { setSuggestions([]); return undefined; }
+    let cancelled = false;
+    setSuggestLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const rows = await inventoryReportService.getSearchSuggestions(term, includeDeleted);
+        if (!cancelled) setSuggestions(rows);
+      } catch { if (!cancelled) setSuggestions([]); }
+      finally { if (!cancelled) setSuggestLoading(false); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchTerm, includeDeleted]);
+  useEffect(() => {
+    if (!suggestOpen) return undefined;
+    const onDown = (e) => { if (suggestBoxRef.current && !suggestBoxRef.current.contains(e.target)) setSuggestOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [suggestOpen]);
+  const addChip = (s) => {
+    setChips((prev) => (prev.some((c) => c.type === s.type && c.id === s.id) ? prev : [...prev, { type: s.type, id: s.id, name: s.name, deleted: !!s.deleted, mode: 'include' }]));
+    setSearchTerm('');
+    setSuggestions([]);
+    setSuggestOpen(false);
+  };
+  const toggleChip = (chip) => setChips((prev) => prev.map((c) => (c.type === chip.type && c.id === chip.id ? { ...c, mode: c.mode === 'off' ? 'include' : 'off' } : c)));
+  const removeChip = (chip) => setChips((prev) => prev.filter((c) => !(c.type === chip.type && c.id === chip.id)));
+
+  // Consolidate = Yes (reference): the Outlet column drops and the outlet cost
+  // columns read as their store-wide "(Global)" twins.
+  const allColumns = PICKER_COLUMNS;
+  const GLOBAL_TWIN = { 'Last Case Cost (Inc)': 'Last Case Cost (Global)', 'Average Case Cost (Inc)': 'Average Case Cost (Global)', 'Last Case Cost (Ex)': 'Last Case Cost (Global) (Ex)', 'Average Case Cost (Ex)': 'Average Case Cost (Global) (Ex)' };
+  const shownColumns = (() => {
+    if (consolidate !== 'consolidated') return allColumns.filter((col) => visibleColumns[col.id]);
+    const wanted = new Set(Object.keys(visibleColumns).filter((id) => visibleColumns[id]).map((id) => (SHOW_GLOBAL_COLUMNS && GLOBAL_TWIN[id]) || id));
+    wanted.delete('Outlet');
+    return allColumns.filter((col) => wanted.has(col.id));
+  })();
 
   useEffect(() => {
     // Ensure we load data on mount, especially when URL params are present
     loadReportData();
-  }, [reportType, groupBy, includeDeleted, outletFilterId]);
+  }, [reportType, groupBy, consolidate, includeDeleted, outletFilterId, chips]);
   
   // Also trigger load when URL params change
   useEffect(() => {
@@ -412,23 +543,20 @@ const InventoryReport = () => {
       const filters = {
         reportType,
         groupBy,
+        consolidate,
         searchTerm,
         includeDeleted,
         outletId: reportOutletId(),
+        // Included chips (OFF chips stay on screen but do not filter)
+        ...(chips.some((c) => c.mode !== 'off') ? { filters: JSON.stringify(chips.filter((c) => c.mode !== 'off').map(({ type, id, mode }) => ({ type, id, mode }))) } : {}),
       };
 
       const response = await inventoryReportService.getInventoryReport(filters);
-      
+
       if (response.success) {
-        const data = response.data || [];
-        setReportData(data);
-        
-        // Initialize all rows as expanded
-        const initialExpanded = {};
-        data.forEach((_, index) => {
-          initialExpanded[index] = true;
-        });
-        setExpandedRows(initialExpanded);
+        setReportData(response.data || []);
+        setApiTotals(response.totals || {});
+        setCollapsed({});
       } else {
         console.error('Failed to load inventory report');
         setReportData([]);
@@ -473,21 +601,23 @@ const InventoryReport = () => {
     handleExportDialogClose();
   };
 
-  const formatCurrency = (value) => {
-    return `$${Number(value || 0).toFixed(2)}`;
-  };
-
+  // Reference groups: header row (name), children, then the group's "Totals" row.
   const flattenReportData = () => {
     const flattened = [];
-    reportData.forEach(row => {
-      flattened.push({ ...row, isParent: !!row.children });
+    sortedRows.forEach(row => {
       if (row.children && Array.isArray(row.children)) {
-        row.children.forEach(child => {
-          flattened.push({ ...child, isChild: true });
-        });
+        flattened.push({ ...row, isParent: true });
+        row.children.forEach(child => flattened.push({ ...child, isChild: !child.isTotalRow }));
+      } else {
+        flattened.push(row);
       }
     });
     return flattened;
+  };
+  const cellText = (row, col) => {
+    if (row.isParent) return '';
+    if (row.isTotalRow && (col.noTotal || col.kind === 'text')) return '';
+    return formatCell(row[col.key], col);
   };
 
   const exportToPDF = () => {
@@ -505,34 +635,18 @@ const InventoryReport = () => {
     doc.text(`Group By: ${groupBy}`, 14, 30);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 35);
 
-    const columns = [
-      { header: 'Name', dataKey: 'name' },
-      ...allColumns.filter(col => visibleColumns[col.key]).map(col => ({
-        header: col.headerLabel,
-        dataKey: col.key,
-      })),
-    ];
-
+    const headers = ['Name', ...shownColumns.map(col => col.headerLabel)];
     const flatData = flattenReportData();
-    const rows = flatData.map(row => {
-      const rowData = { name: row.isChild ? `  ${row.name}` : row.name };
-      allColumns.filter(col => visibleColumns[col.key]).forEach(col => {
-        const value = row[col.key];
-        if (col.key.includes('value') || col.key.includes('Cost')) {
-          rowData[col.key] = formatCurrency(value);
-        } else {
-          rowData[col.key] = value || 0;
-        }
-      });
-      return rowData;
-    });
+    const body = flatData.map(row => [row.isChild ? `  ${row.name}` : row.name, ...shownColumns.map(col => cellText(row, col))]);
+    body.push(['', ...shownColumns.map(col => totalText(col))]);
 
     autoTable(doc, {
-      head: [columns.map(col => col.header)],
-      body: rows.map(row => columns.map(col => row[col.dataKey])),
+      head: [headers],
+      body,
       startY: 40,
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [33, 150, 243] },
+      headStyles: { fillColor: [94, 187, 235] },
+      didParseCell: (data) => { if (data.section === 'body' && data.row.index === body.length - 1) { data.cell.styles.fillColor = [94, 187, 235]; data.cell.styles.textColor = [248, 248, 248]; data.cell.styles.fontStyle = 'bold'; } },
     });
 
     doc.save('inventory-report.pdf');
@@ -542,11 +656,13 @@ const InventoryReport = () => {
     const flatData = flattenReportData();
     const worksheetData = flatData.map(row => {
       const rowData = { Name: row.name };
-      allColumns.filter(col => visibleColumns[col.key]).forEach(col => {
-        rowData[col.headerLabel] = row[col.key] || 0;
+      shownColumns.forEach(col => {
+        const v = row[col.key];
+        rowData[col.headerLabel] = row.isParent || (row.isTotalRow && (col.noTotal || col.kind === 'text')) ? '' : (col.kind === 'text' ? (v ?? '') : Number(v || 0));
       });
       return rowData;
     });
+    worksheetData.push({ Name: '', ...Object.fromEntries(shownColumns.map((col) => [col.headerLabel, totalText(col) === '' ? '' : Number(apiTotals[col.key] || (col.kind === 'percent' ? 100 : 0))])) });
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
     const workbook = XLSX.utils.book_new();
@@ -556,16 +672,12 @@ const InventoryReport = () => {
 
   const exportToCSV = () => {
     const flatData = flattenReportData();
-    const headers = ['Name', ...allColumns.filter(col => visibleColumns[col.key]).map(col => col.headerLabel)];
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const headers = ['Name', ...shownColumns.map(col => col.headerLabel)];
     const csvContent = [
-      headers.join(','),
-      ...flatData.map(row => {
-        const values = [
-          row.name,
-          ...allColumns.filter(col => visibleColumns[col.key]).map(col => row[col.key] || 0)
-        ];
-        return values.join(',');
-      })
+      headers.map(esc).join(','),
+      ...flatData.map(row => [row.name, ...shownColumns.map(col => cellText(row, col))].map(esc).join(',')),
+      ['', ...shownColumns.map(col => totalText(col))].map(esc).join(','),
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -683,32 +795,20 @@ const InventoryReport = () => {
           <thead>
             <tr>
               <th>Name</th>
-              ${allColumns.filter(col => visibleColumns[col.key]).map(col => `<th>${col.headerLabel}</th>`).join('')}
+              ${shownColumns.map(col => `<th>${col.headerLabel}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
             ${flattenReportData().map(row => `
-              <tr${row.isChild ? ' class="child-row"' : ''}>
+              <tr${row.isChild ? ' class="child-row"' : ''}${row.isParent || row.isTotalRow ? ' style="background:#e8e8e8"' : ''}>
                 <td>${row.name}</td>
-                ${allColumns.filter(col => visibleColumns[col.key]).map(col => {
-                  const value = row[col.key];
-                  const formattedValue = col.key.includes('value') || col.key.includes('Cost') 
-                    ? formatCurrency(value)
-                    : (value || 0);
-                  return `<td>${formattedValue}</td>`;
-                }).join('')}
+                ${shownColumns.map(col => `<td>${cellText(row, col)}</td>`).join('')}
               </tr>
             `).join('')}
             ${reportData.length > 0 ? `
               <tr class="total-row">
-                <td>Total</td>
-                ${allColumns.filter(col => visibleColumns[col.key]).map(col => {
-                  const total = reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0);
-                  const formattedTotal = col.key.includes('value') || col.key.includes('Cost')
-                    ? formatCurrency(total)
-                    : total;
-                  return `<td>${formattedTotal}</td>`;
-                }).join('')}
+                <td></td>
+                ${shownColumns.map(col => `<td>${totalText(col)}</td>`).join('')}
               </tr>
             ` : ''}
           </tbody>
@@ -736,18 +836,39 @@ const InventoryReport = () => {
     }, 100);
   };
 
-  const handleToggleRow = (index) => {
-    setExpandedRows(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
+  const toggleGroup = (name) => setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }));
+  // Reference "Groups" button: collapse every group / expand them all again.
+  const toggleAllGroups = () => {
+    const groups = reportData.filter((r) => Array.isArray(r.children));
+    const allCollapsed = groups.length > 0 && groups.every((g) => collapsed[g.name]);
+    setCollapsed(allCollapsed ? {} : Object.fromEntries(groups.map((g) => [g.name, true])));
   };
+
+  // Header click: sort rows (children inside their group, groups by name).
+  const handleSort = (key) => {
+    setSortConfig((prev) => (prev && prev.key === key ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' }));
+  };
+  const sortedRows = useMemo(() => {
+    if (!sortConfig) return reportData;
+    const dir = sortConfig.direction === 'asc' ? 1 : -1;
+    const cmp = (a, b) => {
+      const av = a[sortConfig.key]; const bv = b[sortConfig.key];
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av ?? '').localeCompare(String(bv ?? ''), undefined, { sensitivity: 'base', numeric: true }) * dir;
+    };
+    return [...reportData].sort(cmp).map((row) => {
+      if (!Array.isArray(row.children)) return row;
+      const kids = row.children.filter((c) => !c.isTotalRow).sort(cmp);
+      const total = row.children.find((c) => c.isTotalRow);
+      return { ...row, children: total ? [...kids, total] : kids };
+    });
+  }, [reportData, sortConfig]);
 
   // Generate the Reporting Query Language preview from the current filters + visible columns
   const generateSQLQuery = () => {
     const projections = [
       'BY_NAME AS "Name"',
-      ...allColumns.filter(col => visibleColumns[col.key]).map(col => col.sql),
+      ...shownColumns.map(col => col.sql),
     ];
     let query = `SELECT\n${projections.map(p => `  ${p}`).join(',\n')}\n`;
     query += 'FROM products\n';
@@ -778,15 +899,11 @@ const InventoryReport = () => {
     }
 
     if (searchTerm) {
-      query += `  AND BY_NAME LIKE '%${searchTerm}%'\n`;
-    }
-
-    if (!includeDeleted) {
-      query += '  EXCLUDE DELETED\n';
+      query += `  AND BY_NAME LIKE '%${searchTerm.replace(/'/g, "''")}%'\n`;
     }
 
     query += 'ORDER "Name" asc\n';
-    query += 'CONSOLIDATED';
+    query += consolidate === 'consolidated' ? 'CONSOLIDATED' : 'UNCONSOLIDATED';
 
     return query;
   };
@@ -795,31 +912,23 @@ const InventoryReport = () => {
   useEffect(() => {
     setCustomQuery(generateSQLQuery());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType, groupBy, searchTerm, includeDeleted, visibleColumns]);
+  }, [reportType, groupBy, consolidate, searchTerm, includeDeleted, visibleColumns]);
 
-  const handleColumnToggle = (columnKey) => {
+  const handleColumnToggle = (columnId) => {
     setVisibleColumns(prev => ({
       ...prev,
-      [columnKey]: !prev[columnKey]
+      [columnId]: !prev[columnId]
     }));
   };
 
-  const calculateTotals = () => {
-    const totals = {};
-    allColumns.forEach(col => {
-      if (col.key === 'caseQuantity') {
-        totals[col.key] = '-';
-      } else {
-        totals[col.key] = reportData.reduce((sum, row) => {
-          const value = row[col.key];
-          return sum + (typeof value === 'number' ? value : 0);
-        }, 0);
-      }
-    });
-    return totals;
+  // Grand total (reference): levels and values add up, Value % = 100%, costs and
+  // attributes (Case Quantity, Outlet, Product ID, Status) stay blank.
+  const totalText = (col) => {
+    if (col.noTotal || col.kind === 'text') return '';
+    if (col.kind === 'percent') return reportData.length ? '100.00%' : '';
+    return formatCell(apiTotals[col.key] ?? 0, col);
   };
-
-  const totals = calculateTotals();
+  const hasGroups = reportData.some((r) => Array.isArray(r.children));
 
   return (
     <Box sx={{ p: '8px' }}>
@@ -843,7 +952,7 @@ const InventoryReport = () => {
           sx={{
             flex: 1,
             minWidth: 0,
-            overflowX: 'auto',
+            overflow: 'hidden',
             whiteSpace: 'nowrap',
             fontFamily: "'Roboto Mono', monospace",
             fontSize: 16,
@@ -855,11 +964,11 @@ const InventoryReport = () => {
         <Button
           variant="text"
           startIcon={<EditIcon />}
-          component={RouterLink} to={'/reports/inventory/query'}
+          component={RouterLink} to={'/reports/inventory/query'} state={{ query: customQuery }}
           sx={{
             ml: 2,
             minWidth: 88,
-            color: '#16a34a',
+            color: '#00a63e',
             textTransform: 'none',
             whiteSpace: 'nowrap',
             fontWeight: 700,
@@ -875,7 +984,7 @@ const InventoryReport = () => {
         </Button>
       </Box>
 
-      {/* Filters — flush 80px slate blocks, half width each, with inline dropdowns */}
+      {/* Filters — flush 80px slate blocks (Report Type / Group By / Consolidate), inline dropdowns */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', mb: '8px' }}>
         {globalMode && (
           <ShopfrontFilter
@@ -883,6 +992,7 @@ const InventoryReport = () => {
             value={outletFilterId}
             groups={outletGroups}
             onChange={setOutletFilterId}
+            basis="25%"
           />
         )}
         <ShopfrontFilter
@@ -890,6 +1000,7 @@ const InventoryReport = () => {
           value={reportType}
           groups={REPORT_TYPE_GROUPS}
           onChange={setReportType}
+          basis={globalMode ? '25%' : '33.3333%'}
           renderValue={(value) =>
             value === 'inventory_on_hand'
               ? 'Inventory On Hand'
@@ -901,117 +1012,171 @@ const InventoryReport = () => {
           value={groupBy}
           groups={GROUP_BY_GROUPS}
           onChange={setGroupBy}
+          basis={globalMode ? '25%' : '33.3333%'}
+        />
+        <ShopfrontFilter
+          label="Consolidate By Report Type"
+          value={consolidate}
+          groups={CONSOLIDATE_GROUPS}
+          onChange={setConsolidate}
+          basis={globalMode ? '25%' : '33.3333%'}
+          renderValue={(value) => (value === 'consolidated' ? 'Yes' : 'No')}
         />
       </Box>
 
-      {/* Search + action buttons */}
+      {/* Reference: search box with "Include Deleted" as a bordered cell on its right,
+          then Export / Print / Save on the left, Groups (grouped) + Columns on the right. */}
+      {/* Same chrome as the Sales Report page: rounded search field with Include
+          Deleted to its right (user 21/10), buttons row below. */}
       <Paper elevation={0} sx={{ p: 2, mb: '8px' }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Search for anything"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ ...FIELD_SX, mb: 2 }}
-        />
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-            <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExport} sx={SKY_BUTTON_SX}>
-              Export
-            </Button>
-            <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={SKY_BUTTON_SX}>
-              Print
-            </Button>
-            <Button variant="outlined" startIcon={<SaveIcon />} onClick={handleSave} sx={SKY_BUTTON_SX}>
-              Save
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<ColumnsIcon />}
-              onClick={(e) => setColumnsAnchorEl(e.currentTarget)}
-              sx={SKY_BUTTON_SX}
-            >
-              Columns
-            </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 2 }}>
+          {/* Reference search: typing lists Product / Brand / Category… suggestions
+              (Active / Deleted); a pick becomes an Included chip under the box. */}
+          <Box sx={{ position: 'relative', flex: 1 }} ref={suggestBoxRef}>
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Search for anything"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setSuggestOpen(true); }}
+              onFocus={() => setSuggestOpen(true)}
+              sx={FIELD_SX}
+              InputProps={{
+                endAdornment: searchTerm ? <CancelIcon onClick={() => { setSearchTerm(''); setSuggestions([]); }} sx={{ cursor: 'pointer', color: '#333', fontSize: 22 }} /> : null,
+              }}
+            />
+            {suggestOpen && (
+              <Paper elevation={4} sx={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20, maxHeight: 520, overflowY: 'auto', borderRadius: 0, bgcolor: '#f8f8f8' }}>
+                {!searchTerm.trim() ? (
+                  <Box sx={{ px: 2, py: 1.5, fontSize: 22 }}>Start typing to search...</Box>
+                ) : suggestLoading ? (
+                  <Box sx={{ px: 2, py: 1.5, fontSize: 18, color: '#666' }}>Searching...</Box>
+                ) : suggestions.length === 0 ? (
+                  <Box sx={{ px: 2, py: 1.5, fontSize: 22 }}>No search results found.</Box>
+                ) : (
+                  suggestions.map((s, i) => (
+                    <Box
+                      key={`${s.type}-${s.id}`}
+                      onClick={() => addChip(s)}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1.5, py: 1, cursor: 'pointer', bgcolor: i % 2 ? '#e8e8e8' : '#f8f8f8', '&:hover': { bgcolor: '#5ebbeb', color: '#fff' } }}
+                    >
+                      <SuggestIcon type={s.type} deleted={s.deleted} />
+                      <Box sx={{ flex: 1 }}>
+                        <Box sx={{ fontSize: 15, lineHeight: 1.2 }}>{SUGGEST_LABELS[s.type] || s.type}</Box>
+                        <Box sx={{ fontSize: 22, lineHeight: 1.2 }}>{s.name}</Box>
+                      </Box>
+                      {s.type === 'product' && <Box sx={{ fontSize: 16 }}>{s.deleted ? 'Deleted' : 'Active'}</Box>}
+                    </Box>
+                  ))
+                )}
+              </Paper>
+            )}
           </Box>
-          <FormControlLabel
-            sx={{ m: 0 }}
-            labelPlacement="start"
-            control={
-              <ShopfrontSwitch
-                checked={includeDeleted}
-                onChange={(e) => setIncludeDeleted(e.target.checked)}
-                sx={{ ml: 1 }}
-              />
-            }
-            label={<Typography variant="body2">Include Deleted</Typography>}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+            <Typography sx={{ fontSize: 16, whiteSpace: 'nowrap' }}>Include Deleted</Typography>
+            <ShopfrontSwitch checked={includeDeleted} onChange={(e) => setIncludeDeleted(e.target.checked)} />
+          </Box>
         </Box>
+        {chips.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+            {chips.map((c) => (
+              <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid #404040', bgcolor: '#fff' }}>
+                {/* Reference: clicking the chip's icon (bin for a deleted item) removes the chip. */}
+                <Box onClick={() => removeChip(c)} sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: '1px solid #404040', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' } }}>
+                  <SuggestIcon type={c.type} deleted={c.deleted} />
+                </Box>
+                {/* Reference chip: type (+ ⊘ "This item no longer exists in your store" for a deleted
+                    item), the name, then an "Included" switch — OFF stops the chip filtering.
+                    Double-click the name to drop the chip. */}
+                <Box sx={{ px: 1.5, py: 0.75 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: 16, lineHeight: 1.2 }}>
+                    {SUGGEST_LABELS[c.type] || c.type}
+                    {c.deleted && (
+                      <Tooltip title="This item no longer exists in your store" arrow placement="top">
+                        <BlockIcon sx={{ fontSize: 18, color: '#333' }} />
+                      </Tooltip>
+                    )}
+                  </Box>
+                  <Box sx={{ fontSize: 20, lineHeight: 1.3, cursor: 'default' }} onDoubleClick={() => removeChip(c)}>{c.name}</Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                    <ShopfrontSwitch checked={c.mode !== 'off'} onChange={() => toggleChip(c)} />
+                    <Box sx={{ fontSize: 16 }}>Included</Box>
+                  </Box>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        )}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExport} sx={SKY_BUTTON_SX}>
+            Export
+          </Button>
+          <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={SKY_BUTTON_SX}>
+            Print
+          </Button>
+          <Button variant="outlined" startIcon={<SaveIcon />} onClick={handleSave} sx={SKY_BUTTON_SX}>
+            Save
+          </Button>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {hasGroups && (
+            <Button variant="outlined" startIcon={<GroupsIcon />} onClick={toggleAllGroups} sx={SKY_BUTTON_SX}>
+              Groups
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            startIcon={<ColumnsIcon />}
+            onClick={(e) => setColumnsAnchorEl(e.currentTarget)}
+            sx={SKY_BUTTON_SX}
+          >
+            Columns
+          </Button>
+        </Box>
+      </Box>
       </Paper>
 
-      {/* Columns Menu */}
-      <Menu
+      {/* Columns picker (reference): selected chips + "N More..." on top, a scrolling
+          checkbox list below; a selected row reads sky-blue, the hovered one sits on sky. */}
+      <Popover
         anchorEl={columnsAnchorEl}
         open={Boolean(columnsAnchorEl)}
-        onClose={() => setColumnsAnchorEl(null)}
-        PaperProps={{
-          style: { maxHeight: 460, width: 320 }
-        }}
+        onClose={() => { setColumnsAnchorEl(null); setColumnsChipsExpanded(false); }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{ sx: { width: 544, mt: '6px', p: '16px', borderRadius: '8px', border: '1px solid #404040', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' } }}
       >
-        {/* Selected-columns chips summary bar */}
-        <Box sx={{ px: 1.5, py: 1, borderBottom: '1px solid #e0e0e0' }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flexWrap: 'wrap' }}>
-            {(() => {
-              const selected = allColumns.filter(c => visibleColumns[c.key]);
-              const shown = columnsChipsExpanded ? selected : selected.slice(0, 2);
-              const remaining = selected.length - shown.length;
-              return (
-                <>
-                  {shown.map(c => (
-                    <Chip
-                      key={c.key}
-                      label={c.label}
-                      size="small"
-                      onDelete={() => handleColumnToggle(c.key)}
-                      sx={{ bgcolor: '#e6f4fb', color: '#0284c7', fontWeight: 600 }}
-                    />
-                  ))}
-                  {remaining > 0 && (
-                    <Chip
-                      label={`${remaining} More...`}
-                      size="small"
-                      onClick={() => setColumnsChipsExpanded(true)}
-                      sx={{ bgcolor: '#f0f0f0', color: '#313439', cursor: 'pointer' }}
-                    />
-                  )}
-                  <IconButton size="small" onClick={() => setColumnsChipsExpanded(v => !v)} sx={{ ml: 'auto', p: 0.25 }}>
-                    {columnsChipsExpanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
-                  </IconButton>
-                </>
-              );
-            })()}
-          </Box>
-        </Box>
-        {allColumns.map((column) => {
-          const checked = visibleColumns[column.key];
+        {(() => {
+          const selected = allColumns.filter(c => visibleColumns[c.id]);
+          const shown = columnsChipsExpanded ? selected : selected.slice(0, 2);
+          const remaining = selected.length - shown.length;
           return (
-            <MenuItem
-              key={column.key}
-              onClick={() => handleColumnToggle(column.key)}
-            >
-              <Checkbox
-                checked={checked}
-                icon={<CheckBoxOutlineBlankIcon />}
-                checkedIcon={<CheckBoxIcon />}
-                sx={{ color: '#5ebbeb', '&.Mui-checked': { color: '#5ebbeb' } }}
-              />
-              <Typography sx={{ color: checked ? '#0284c7' : 'inherit', fontWeight: checked ? 600 : 400 }}>
-                {column.label}
-              </Typography>
-            </MenuItem>
+            <Box onClick={() => setColumnsChipsExpanded((v) => !v)} sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', border: '1px solid #404040', borderRadius: '8px', px: '12px', py: '8px', mb: '12px', cursor: 'pointer', minHeight: 44 }}>
+              {shown.map(c => (
+                <Box key={c.id} sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{c.label}</Box>
+              ))}
+              {remaining > 0 && <Box sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{remaining} More...</Box>}
+              <Box sx={{ ml: 'auto', display: 'inline-flex', color: '#313439' }}>{columnsChipsExpanded ? <ArrowDropDown /> : <ArrowDropUp />}</Box>
+            </Box>
           );
-        })}
-      </Menu>
+        })()}
+        <Box sx={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #404040', borderRadius: '8px' }}>
+          {allColumns.map((column) => {
+            const checked = !!visibleColumns[column.id];
+            return (
+              <Box
+                key={column.id}
+                onClick={() => handleColumnToggle(column.id)}
+                sx={{ display: 'flex', alignItems: 'center', gap: '10px', px: '16px', height: 56, cursor: 'pointer', fontSize: 16, color: checked ? '#0284c7' : '#313439', '&:hover': { bgcolor: '#5ebbeb', color: '#000' } }}
+              >
+                {checked ? <CheckBoxIcon sx={{ fontSize: 20 }} /> : <CheckBoxOutlineBlankIcon sx={{ fontSize: 20 }} />}
+                {column.label}
+              </Box>
+            );
+          })}
+        </Box>
+      </Popover>
 
       {/* Load failure (e.g. offline): reference shows a red bar instead of an
           empty "No data available" table, so an outage is not read as "no stock". */}
@@ -1021,21 +1186,23 @@ const InventoryReport = () => {
         </Box>
       )}
 
-      {/* Data Table */}
+      {/* Data Table — loading spinner like the Sales Report (user 22/10: no overlay). */}
       <Paper elevation={0} sx={{ borderRadius: 0 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
             <CircularProgress />
           </Box>
         ) : (
-          <TableContainer>
-            <Table size="small">
+          // Same as the Sales Report: the table scrolls inside the page (total row pinned
+          // at the bottom, NAME column pinned on the left).
+          <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
+            <Table size="small" stickyHeader sx={{ width: '100%', '& .MuiTableCell-stickyHeader': { backgroundColor: '#5ebbeb' }, '& th': { cursor: 'pointer', userSelect: 'none' }, '& td:first-of-type': { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'inherit' } }}>
               <TableHead>
                 <TableRow sx={TABLE_HEAD_SX}>
-                  <TableCell>NAME</TableCell>
-                  {allColumns.filter(col => visibleColumns[col.key]).map(column => (
-                    <TableCell key={column.key} align="right">
-                      {column.headerLabel}
+                  <TableCell onClick={() => handleSort('name')} sx={{ position: 'sticky', left: 0, zIndex: 3 }}>NAME<SortIcon active={sortConfig?.key === 'name' ? sortConfig.direction : null} /></TableCell>
+                  {shownColumns.map(column => (
+                    <TableCell key={column.id} align={column.kind === 'text' ? 'left' : 'center'} onClick={() => handleSort(column.key)}>
+                      {column.headerLabel}<SortIcon active={sortConfig?.key === column.key ? sortConfig.direction : null} />
                     </TableCell>
                   ))}
                 </TableRow>
@@ -1043,8 +1210,8 @@ const InventoryReport = () => {
               <TableBody>
                 {reportData.length === 0 ? (
                   <TableRow>
-                    <TableCell 
-                      colSpan={allColumns.filter(col => visibleColumns[col.key]).length + 1}
+                    <TableCell
+                      colSpan={shownColumns.length + 1}
                       align="center"
                       sx={{ py: 5 }}
                     >
@@ -1054,71 +1221,70 @@ const InventoryReport = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  reportData.map((row, index) => {
-                    const hasChildren = Boolean(row.children && row.children.length > 0);
+                  (() => { let stripe = 0; return sortedRows.map((row, index) => {
+                    const hasChildren = Array.isArray(row.children);
+                    if (!hasChildren) {
+                      const shade = stripe++ % 2 === 0 ? '#fff' : ROW_ALT_BG;
+                      return (
+                        <TableRow key={index} sx={{ ...TABLE_ROW_SX, bgcolor: shade }}>
+                          <TableCell>{row.name}</TableCell>
+                          {shownColumns.map(column => (
+                            <TableCell key={column.id} align={column.kind === 'text' ? 'left' : 'center'}>{formatCell(row[column.key], column)}</TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    }
+                    // Reference group: ▽ header (grey, click collapses), ├─ children, grey "Totals" row.
+                    stripe = 0;
+                    const open = !collapsed[row.name];
                     return (
-                    <React.Fragment key={index}>
-                      <TableRow
-                        sx={{
-                          ...TABLE_ROW_SX,
-                          bgcolor: hasChildren ? '#f8f8f8' : index % 2 === 0 ? '#fff' : '#f8f8f8',
-                          cursor: hasChildren ? 'pointer' : 'default',
-                          '& td': { ...TABLE_ROW_SX['& td'], fontWeight: hasChildren ? 700 : 400 },
-                        }}
-                        onClick={() => hasChildren && handleToggleRow(index)}
-                      >
-                        <TableCell>
-                          {hasChildren && (
-                            <span style={{ marginRight: '8px', display: 'inline-flex', verticalAlign: 'middle' }}>
-                              {expandedRows[index] ? <ExpandMoreIcon /> : <ChevronRightIcon />}
-                            </span>
-                          )}
-                          {row.name}
-                        </TableCell>
-                        {allColumns.filter(col => visibleColumns[col.key]).map(column => (
-                          <TableCell key={column.key} align="right">
-                            {column.key.includes('value') || column.key.includes('Cost')
-                              ? formatCurrency(row[column.key])
-                              : (row[column.key] || 0)}
+                      <React.Fragment key={index}>
+                        <TableRow sx={{ ...TABLE_ROW_SX, bgcolor: ROW_ALT_BG }}>
+                          <TableCell colSpan={shownColumns.length + 1} onClick={() => toggleGroup(row.name)} sx={{ cursor: 'pointer', userSelect: 'none', py: '10px !important' }}>
+                            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              {open ? <ExpandMoreIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}
+                              {row.name}
+                            </Box>
                           </TableCell>
-                        ))}
-                      </TableRow>
-
-                      {row.children && Array.isArray(row.children) && expandedRows[index] &&
-                        row.children.map((child, childIndex) => (
-                          <TableRow
-                            key={`${index}-child-${childIndex}`}
-                            sx={{
-                              ...TABLE_ROW_SX,
-                              bgcolor: childIndex % 2 === 0 ? '#fff' : '#f8f8f8',
-                              '& td:first-of-type': { paddingLeft: '34px' },
-                            }}
-                          >
-                            <TableCell>{child.name}</TableCell>
-                            {allColumns.filter(col => visibleColumns[col.key]).map(column => (
-                              <TableCell key={column.key} align="right">
-                                {column.key.includes('value') || column.key.includes('Cost')
-                                  ? formatCurrency(child[column.key])
-                                  : (child[column.key] || 0)}
+                        </TableRow>
+                        {row.children.map((child, childIndex) => {
+                          if (child.isTotalRow) {
+                            return (
+                              <TableRow key={`${index}-t`} sx={{ ...TABLE_ROW_SX, bgcolor: ROW_ALT_BG }}>
+                                <TableCell sx={{ fontSize: '13px !important' }}>Totals</TableCell>
+                                {shownColumns.map(column => (
+                                  <TableCell key={column.id} align={column.kind === 'text' ? 'left' : 'center'}>{cellText(child, column)}</TableCell>
+                                ))}
+                              </TableRow>
+                            );
+                          }
+                          if (!open) return null;
+                          const shade = stripe++ % 2 === 0 ? '#fff' : ROW_ALT_BG;
+                          return (
+                            <TableRow key={`${index}-child-${childIndex}`} sx={{ ...TABLE_ROW_SX, bgcolor: shade }}>
+                              <TableCell sx={{ pl: '14px !important' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 24 }}>
+                                  <Box sx={{ width: 14, flexShrink: 0, borderLeft: '2px solid #000', position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: '2px solid #000' } }} />
+                                  <Box sx={{ pl: '12px', display: 'flex', alignItems: 'center' }}>{child.name}</Box>
+                                </Box>
                               </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                    </React.Fragment>
+                              {shownColumns.map(column => (
+                                <TableCell key={column.id} align={column.kind === 'text' ? 'left' : 'center'}>{formatCell(child[column.key], column)}</TableCell>
+                              ))}
+                            </TableRow>
+                          );
+                        })}
+                      </React.Fragment>
                     );
-                  })
+                  }); })()
                 )}
 
-                {/* Totals Row */}
+                {/* Grand total (reference): Name / Case Quantity / Outlet / costs blank */}
                 {reportData.length > 0 && (
                   <TableRow sx={TABLE_TOTAL_SX}>
-                    <TableCell>Total</TableCell>
-                    {allColumns.filter(col => visibleColumns[col.key]).map(column => (
-                      <TableCell key={column.key} align="right">
-                        {column.key.includes('value') || column.key.includes('Cost')
-                          ? formatCurrency(totals[column.key])
-                          : totals[column.key]}
-                      </TableCell>
+                    <TableCell></TableCell>
+                    {shownColumns.map(column => (
+                      <TableCell key={column.id} align={column.kind === 'text' ? 'left' : 'center'}>{totalText(column)}</TableCell>
                     ))}
                   </TableRow>
                 )}
@@ -1141,68 +1307,76 @@ const InventoryReport = () => {
           }
         }}
       >
-        <DialogTitle sx={{ 
-          bgcolor: '#b3e5fc', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 1.5,
-          py: 2,
-          px: 3,
-        }}>
-          <ExportIcon sx={{ color: '#0288d1', fontSize: 28 }} />
-          <Typography variant="h6" sx={{ color: '#0288d1', fontWeight: 600 }}>
+        {/* Same dialog as the Sales Report page. */}
+        <DialogTitle sx={{ bgcolor: '#b3e5fc', display: 'flex', alignItems: 'center', gap: 1.5, py: 2, px: 3, borderBottom: '1px solid #e0e0e0' }}>
+          <HelpIcon sx={{ color: '#0288d1', fontSize: 28 }} />
+          <Typography variant="h6" component="span" sx={{ color: '#0288d1', fontWeight: 600, fontSize: '1.25rem' }}>
             Export Report
           </Typography>
         </DialogTitle>
 
         <DialogContent sx={{ px: 3, py: 3 }}>
           <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#666', fontWeight: 500 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#666', fontSize: '0.9rem', fontWeight: 500 }}>
               Export Type
             </Typography>
             <FormControl fullWidth>
               <Select
                 value={exportType}
                 onChange={(e) => setExportType(e.target.value)}
+                displayEmpty
+                sx={{ bgcolor: 'white', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ddd' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#bbb' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#0288d1' } }}
+                renderValue={(value) => {
+                  const icons = { pdf: <PdfIcon sx={{ mr: 1.5, color: '#d32f2f' }} />, xlsx: <XlsxIcon sx={{ mr: 1.5, color: '#2e7d32' }} />, csv: <CsvIcon sx={{ mr: 1.5, color: '#ed6c02' }} />, json: <JsonIcon sx={{ mr: 1.5, color: '#0288d1' }} /> };
+                  const labels = { pdf: 'PDF', xlsx: 'XLSX', csv: 'CSV', json: 'JSON' };
+                  return <Box sx={{ display: 'flex', alignItems: 'center' }}>{icons[value]}<span style={{ fontWeight: 500 }}>{labels[value]}</span></Box>;
+                }}
               >
-                <MenuItem value="pdf">PDF</MenuItem>
-                <MenuItem value="xlsx">XLSX</MenuItem>
-                <MenuItem value="csv">CSV</MenuItem>
-                <MenuItem value="json">JSON</MenuItem>
+                <MenuItem value="pdf"><Box sx={{ display: 'flex', alignItems: 'center' }}><PdfIcon sx={{ mr: 1.5, color: '#d32f2f' }} /><span>PDF</span></Box></MenuItem>
+                <MenuItem value="xlsx"><Box sx={{ display: 'flex', alignItems: 'center' }}><XlsxIcon sx={{ mr: 1.5, color: '#2e7d32' }} /><span>XLSX</span></Box></MenuItem>
+                <MenuItem value="csv"><Box sx={{ display: 'flex', alignItems: 'center' }}><CsvIcon sx={{ mr: 1.5, color: '#ed6c02' }} /><span>CSV</span></Box></MenuItem>
+                <MenuItem value="json"><Box sx={{ display: 'flex', alignItems: 'center' }}><JsonIcon sx={{ mr: 1.5, color: '#0288d1' }} /><span>JSON</span></Box></MenuItem>
               </Select>
             </FormControl>
           </Box>
 
           {exportType === 'pdf' && (
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#666', fontWeight: 500 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#666', fontSize: '0.9rem', fontWeight: 500 }}>
                 Orientation
               </Typography>
-              <FormControl fullWidth>
-                <Select
-                  value={exportOrientation}
-                  onChange={(e) => setExportOrientation(e.target.value)}
-                >
-                  <MenuItem value="portrait">Portrait</MenuItem>
-                  <MenuItem value="landscape">Landscape</MenuItem>
-                </Select>
-              </FormControl>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                {['portrait', 'landscape'].map((o) => {
+                  const on = exportOrientation === o;
+                  return (
+                    <Button
+                      key={o}
+                      fullWidth
+                      variant={on ? 'contained' : 'outlined'}
+                      onClick={() => setExportOrientation(o)}
+                      sx={{
+                        py: 1.5, textTransform: 'uppercase', fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.5px',
+                        ...(on
+                          ? (o === 'portrait'
+                            ? { bgcolor: 'white', color: '#333', border: '2px solid #0288d1', boxShadow: '0 2px 8px rgba(2, 136, 209, 0.15)', '&:hover': { bgcolor: '#f5f5f5', border: '2px solid #0277bd', boxShadow: '0 2px 12px rgba(2, 136, 209, 0.25)' } }
+                            : { bgcolor: '#e0e0e0', color: '#333', border: '2px solid #9e9e9e', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', '&:hover': { bgcolor: '#d5d5d5', border: '2px solid #757575', boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)' } })
+                          : { bgcolor: 'white', color: '#666', border: '1px solid #ddd', '&:hover': { bgcolor: '#fafafa', border: '1px solid #bbb' } }),
+                      }}
+                    >
+                      {o === 'portrait' ? 'Portrait' : 'Landscape'}
+                    </Button>
+                  );
+                })}
+              </Box>
             </Box>
           )}
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleExportDialogClose} sx={{ color: '#666' }}>
+        <DialogActions sx={{ px: 3, py: 2.5, bgcolor: '#fafafa', borderTop: '1px solid #e0e0e0' }}>
+          <Button onClick={handleExportDialogClose} variant="outlined" sx={{ minWidth: 100, py: 1, textTransform: 'none', fontSize: '0.95rem', fontWeight: 500, color: '#666', borderColor: '#ccc', '&:hover': { borderColor: '#999', bgcolor: '#f5f5f5' } }}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleExportConfirm} 
-            variant="contained"
-            sx={{ 
-              bgcolor: '#0288d1',
-              '&:hover': { bgcolor: '#0277bd' }
-            }}
-          >
+          <Button onClick={handleExportConfirm} variant="contained" sx={{ minWidth: 100, py: 1, textTransform: 'none', fontSize: '0.95rem', fontWeight: 600, bgcolor: '#00bcd4', boxShadow: '0 2px 8px rgba(0, 188, 212, 0.3)', '&:hover': { bgcolor: '#00acc1', boxShadow: '0 4px 12px rgba(0, 188, 212, 0.4)' } }}>
             Export
           </Button>
         </DialogActions>
@@ -1221,6 +1395,7 @@ const InventoryReport = () => {
         filters={{
           reportType,
           groupBy,
+          consolidate,
           searchTerm,
           includeDeleted,
           outletId: reportOutletId(),

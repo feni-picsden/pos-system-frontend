@@ -1814,7 +1814,8 @@ const SalesReport = () => {
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
               {chips.map((c) => (
                 <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid #404040', bgcolor: '#fff' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: '1px solid #404040' }}>
+                  {/* Reference: clicking the chip's icon (bin for a deleted item) removes the chip. */}
+                  <Box onClick={() => removeChip(c)} sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: '1px solid #404040', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' } }}>
                     <SuggestIcon type={c.type} deleted={c.deleted} />
                   </Box>
                   {/* Reference chip: type label (+ ⊘ "This item no longer exists in your store" for a
