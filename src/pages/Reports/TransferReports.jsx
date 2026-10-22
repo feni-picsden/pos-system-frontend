@@ -44,6 +44,7 @@ import {
   TableChart as XlsxIcon,
   Code as JsonIcon,
   Block as BlockIcon,
+  RadioButtonUnchecked as ExistsIcon,
   DeleteOutline as DeleteOutlineIcon,
   QrCode as QrCodeIcon,
   StorefrontOutlined as StorefrontOutlinedIcon,
@@ -480,6 +481,9 @@ const TransferReports = () => {
 
   const [columnsAnchorEl, setColumnsAnchorEl] = useState(null);
   const [columnsChipsExpanded, setColumnsChipsExpanded] = useState(false);
+  // Reference: typing in the picker's chip bar filters the column list.
+  const [columnsSearch, setColumnsSearch] = useState('');
+  const matchesSearch = (c) => !columnsSearch.trim() || c.label.toLowerCase().includes(columnsSearch.trim().toLowerCase());
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportType, setExportType] = useState('pdf');
   const [exportOrientation, setExportOrientation] = useState('portrait');
@@ -931,14 +935,18 @@ const TransferReports = () => {
             {chips.map((c) => (
               <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid #404040', bgcolor: '#fff' }}>
                 <Box onClick={() => removeChip(c)} sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: '1px solid #404040', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' } }}>
-                  <SuggestIcon type={c.type} deleted={c.deleted} />
+                  <DeleteOutlineIcon sx={{ fontSize: 34, color: '#111' }} />
                 </Box>
                 <Box sx={{ px: 1.5, py: 0.75 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: 16, lineHeight: 1.2 }}>
                     {SUGGEST_LABELS[c.type] || c.type}
-                    {c.deleted && (
+                    {c.deleted ? (
                       <Tooltip title="This item no longer exists in your store" arrow placement="top">
                         <BlockIcon sx={{ fontSize: 18, color: '#333' }} />
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="This item exists in your store" arrow placement="top">
+                        <ExistsIcon sx={{ fontSize: 18, color: '#333' }} />
                       </Tooltip>
                     )}
                   </Box>
@@ -972,7 +980,7 @@ const TransferReports = () => {
       <Popover
         anchorEl={columnsAnchorEl}
         open={Boolean(columnsAnchorEl)}
-        onClose={() => { setColumnsAnchorEl(null); setColumnsChipsExpanded(false); }}
+        onClose={() => { setColumnsAnchorEl(null); setColumnsChipsExpanded(false); setColumnsSearch(''); }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         PaperProps={{ sx: { width: 544, mt: '6px', p: '16px', borderRadius: '8px', border: '1px solid #404040', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' } }}
@@ -987,6 +995,7 @@ const TransferReports = () => {
                 <Box key={c.id} sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{c.label}</Box>
               ))}
               {remaining > 0 && <Box sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{remaining} More...</Box>}
+              <Box component="input" value={columnsSearch} onClick={(e) => e.stopPropagation()} onChange={(e) => setColumnsSearch(e.target.value)} placeholder="" sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 16, color: '#313439', fontFamily: 'inherit' }} />
               <Box sx={{ ml: 'auto', display: 'inline-flex', color: '#313439' }}>{columnsChipsExpanded ? <ArrowDropDown /> : <ArrowDropUp />}</Box>
             </Box>
           );
@@ -1007,6 +1016,7 @@ const TransferReports = () => {
                 </Box>
               );
             };
+            if (columnsSearch.trim()) return pickerColumns.filter(matchesSearch).map((c) => rowOf(c, 'find'));
             if (isPrecisionMode) return pickerColumns.map((c) => rowOf(c, 'metric'));
             const selected = pickerColumns.filter(isPicked);
             return (

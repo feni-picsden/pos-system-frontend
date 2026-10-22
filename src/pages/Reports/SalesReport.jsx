@@ -46,6 +46,7 @@ import {
   ArrowDropUp,
   Cancel as CancelIcon,
   Block as BlockIcon,
+  RadioButtonUnchecked as ExistsIcon,
   DeleteOutline as DeleteOutlineIcon,
   QrCode as QrCodeIcon,
   Percent as PercentIcon,
@@ -1530,8 +1531,11 @@ const SalesReport = () => {
     setColumnsMenuAnchor(event.currentTarget);
   };
 
+  // Reference: typing in the picker's chip bar filters the column list.
+  const [columnsSearch, setColumnsSearch] = useState('');
   const handleColumnsMenuClose = () => {
     setColumnsMenuAnchor(null);
+    setColumnsSearch('');
   };
 
   // Header click: first click sorts lowest-to-highest, second reverses it.
@@ -1625,9 +1629,12 @@ const SalesReport = () => {
   const showSortIcons = reportData.length > 1;
   const pickerColumns = allColumns.filter((col) => !col.hidden);
   const PINNED_DETAIL_KEYS = ['outletName', 'registerName', 'customerName', 'userName'];
-  const pickerRows = isDetailMode
-    ? [...PINNED_DETAIL_KEYS.map((k) => pickerColumns.find((c) => c.key === k)).filter(Boolean), { divider: true }, ...pickerColumns]
-    : pickerColumns;
+  const columnsSearchTerm = columnsSearch.trim().toLowerCase();
+  const pickerRows = columnsSearchTerm
+    ? pickerColumns.filter((c) => c.label.toLowerCase().includes(columnsSearchTerm))
+    : isDetailMode
+      ? [...PINNED_DETAIL_KEYS.map((k) => pickerColumns.find((c) => c.key === k)).filter(Boolean), { divider: true }, ...pickerColumns]
+      : pickerColumns;
   const selectedPickerLabels = pickerColumns.filter((col) => visibleColumns[col.key]).map((col) => col.label);
 
   useEffect(() => {
@@ -1832,7 +1839,7 @@ const SalesReport = () => {
                 <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid #404040', bgcolor: '#fff' }}>
                   {/* Reference: clicking the chip's icon (bin for a deleted item) removes the chip. */}
                   <Box onClick={() => removeChip(c)} sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: '1px solid #404040', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' } }}>
-                    <SuggestIcon type={c.type} deleted={c.deleted} />
+                    <DeleteOutlineIcon sx={{ fontSize: 34, color: '#111' }} />
                   </Box>
                   {/* Reference chip: type label (+ ⊘ "This item no longer exists in your store" for a
                       deleted item), the name, then a switch labelled "Included" — OFF stops the chip
@@ -1840,9 +1847,13 @@ const SalesReport = () => {
                   <Box sx={{ px: 1.5, py: 0.75 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: 16, lineHeight: 1.2 }}>
                       {SUGGEST_LABELS[c.type] || c.type}
-                      {c.deleted && (
+                      {c.deleted ? (
                         <Tooltip title="This item no longer exists in your store" arrow placement="top">
                           <BlockIcon sx={{ fontSize: 18, color: '#333' }} />
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title="This item exists in your store" arrow placement="top">
+                          <ExistsIcon sx={{ fontSize: 18, color: '#333' }} />
                         </Tooltip>
                       )}
                     </Box>
@@ -1917,7 +1928,7 @@ const SalesReport = () => {
                 {selectedPickerLabels.length - 2} More...
               </Box>
             )}
-            <Box sx={{ flex: 1 }} />
+            <Box component="input" value={columnsSearch} onChange={(e) => setColumnsSearch(e.target.value)} sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 15, color: '#313439', fontFamily: 'inherit' }} />
             <ArrowDropUp sx={{ color: '#555', fontSize: 20 }} />
           </Box>
           <Box sx={{ border: '1px solid #c8c8c8', borderRadius: '6px', maxHeight: 290, overflowY: 'auto' }}>
