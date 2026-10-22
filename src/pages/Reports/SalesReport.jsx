@@ -92,10 +92,11 @@ const formatSaleDate = (value) => {
 const STICKY_NAME_SX = { position: 'sticky', left: 0, zIndex: 1, whiteSpace: 'nowrap' };
 // Reference header: ⇕ after every label (does not change on click).
 // Hollow up+down triangles, 10px wide, a small gap after the label (reference header).
-const SortIcon = () => (
+// `active` = 'asc' | 'desc' fills (bolds) the triangle of the current sort direction.
+const SortIcon = ({ active }) => (
   <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: "middle", display: "inline-block" }} aria-hidden="true">
-    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
-    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill={active === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'asc' ? 1.6 : 1.1} strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
   </svg>
 );
 // Reference odd-row stripe is a visible grey.
@@ -968,9 +969,8 @@ const SalesReport = () => {
     query += '  FORMAT(transaction_count, \'\', \'%\', 2) AS "Transaction Percentage" TOTAL(PERCENTAGE_FROM_TOTAL)\n';
     query += 'FROM sales\n';
     
-    if (groupBy && groupBy !== 'none') {
-      query += `BY ${groupBy}\n`;
-    }
+    // Reference query bar reads "BY outlet" for Report Type Outlet (Group By None).
+    query += `BY ${groupBy && groupBy !== 'none' ? groupBy : reportType}\n`;
     
     if (searchTerm) {
       query += `WHERE BY_NAME LIKE "%${searchTerm}%"\n`;
@@ -1659,7 +1659,17 @@ const SalesReport = () => {
           <Button
             variant="text"
             startIcon={<EditIcon />}
-            component={RouterLink} to={'/reports/sales/query'}
+            // The editor opens on this page's query and date range (reference: Edit
+            // carries the current report across, no separate date filter there).
+            // Handed over in router state so the URL stays /reports/sales/query (reference).
+            component={RouterLink}
+            to="/reports/sales/query"
+            state={{
+              query: customQuery,
+              dateTime: dateRange.preset || 'today',
+              startDate: dateRange.startDate ? dateRange.startDate.toISOString() : undefined,
+              endDate: dateRange.endDate ? dateRange.endDate.toISOString() : undefined,
+            }}
             sx={{
               ml: 2,
               minWidth: 88,
@@ -1935,14 +1945,14 @@ const SalesReport = () => {
                 <TableHead>
                   <TableRow sx={TABLE_HEAD_SX}>
                     <TableCell onClick={() => handleSort('name')} sx={{ ...STICKY_NAME_SX, zIndex: 3 }}>
-                      NAME{showSortIcons && <SortIcon />}
+                      NAME{showSortIcons && <SortIcon active={sort.key === 'name' ? sort.dir : null} />}
                     </TableCell>
                     {(isPrecisionMode
                       ? getTimePeriodColumns()
                       : allColumns.filter(col => visibleColumns[col.key])
                     ).map(column => (
                       <TableCell key={column.key} align="center" onClick={() => handleSort(column.key)}>
-                        {column.headerLabel}{showSortIcons && <SortIcon />}
+                        {column.headerLabel}{showSortIcons && <SortIcon active={sort.key === column.key ? sort.dir : null} />}
                       </TableCell>
                     ))}
                   </TableRow>

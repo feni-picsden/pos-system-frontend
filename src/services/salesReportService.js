@@ -37,6 +37,19 @@ const salesReportService = {
     }
   },
 
+  // Query Editor: the SELECT list of the query decides the result columns.
+  // Resolves { success, columns, data, totals } or throws; a 400 carries the parse error.
+  async runQuery({ query, dateTime, startDate, endDate, outletId, registerId }) {
+    const params = new URLSearchParams({ query });
+    if (dateTime) params.append('dateTime', dateTime);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (outletId) params.append('outletId', outletId);
+    if (registerId) params.append('registerId', registerId);
+    const response = await apiClient.get(`/sales-reports/query?${params.toString()}`, { noCache: true });
+    return response.data;
+  },
+
   // Reference search-bar suggestions (products / promotions / users / … with Active / Deleted).
   async getSearchSuggestions(q, includeDeleted) {
     const params = new URLSearchParams({ q, includeDeleted: includeDeleted ? 'true' : 'false' });
