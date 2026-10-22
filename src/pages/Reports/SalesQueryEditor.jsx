@@ -37,6 +37,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   PriorityHigh as ErrorMarkIcon,
   Close as CloseIcon,
+  LayersOutlined as GroupsIcon,
 } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
 const { jsPDF } = await import('jspdf');
@@ -159,9 +160,9 @@ BY outlet
 ORDER "Name" asc
 CONSOLIDATED`;
 
-// Popular Queries. The first three are the reference's own sales-based queries
-// (text as in Shopfront); the rest replace Shop MyLocal / orders / revisions ones
-// (not applicable here) with outlet-wise templates (user decision 22/10/2026).
+// Popular Queries (user decision 22/10/2026): the reference's own seven that run on
+// our data (text as in Shopfront — sales, orders and revisions), and two outlet-wise
+// templates in place of the two Shop MyLocal ones (no online channel here).
 const POPULAR_QUERIES = [
   {
     name: 'Refunded Sales',
@@ -180,6 +181,26 @@ START "1 months ago"
 UNCONSOLIDATED`,
   },
   {
+    name: 'Sales with Inventory',
+    description: 'The sales for 4 weeks ago with inventory on hand',
+    query: `SELECT
+    BY_NAME AS "Name",
+    product.case_quantity AS "Case QTY",
+    ROUND(inventory.case_level / transaction_count,0) AS "On Hand Cases",
+    ROUND(inventory.single_level / transaction_count, 0) AS "On Hand Singles ",
+    FLOOR(quantity / case_quantity) AS "Sold Cases" TOTAL(SUM),
+    quantity % case_quantity AS "Sold Items" TOTAL(SUM),
+    revenue AS "Revenue",
+    FORMAT((revenue - cost) / revenue * 100, '', '%', 2) AS "Profit Percentage"
+FROM sales
+BY product
+ON Category
+START "4 weeks ago"
+END "yesterday"
+ORDER "Name" asc
+CONSOLIDATED`,
+  },
+  {
     name: 'Sales by Price Point',
     description: 'The products on sales grouped by the price point they were sold by',
     query: `SELECT
@@ -191,19 +212,6 @@ FROM sales
 BY products
 ON price_point
 START "1 week ago"`,
-  },
-  {
-    name: 'Hourly Transaction Count by Days of the Week',
-    description: 'The total number of transactions for each weekday by each hour',
-    query: `SELECT
-    transaction_count AS "transaction count"
-FROM sales
-AGGREGATE hour
-BY outlet
-ON DATE_FORMAT(timestamp, "YYYY ddd")
-START "last year"
-END "today"
-CONSOLIDATED`,
   },
   {
     name: 'Sales by Outlet',
@@ -224,20 +232,29 @@ ORDER "Name" asc
 CONSOLIDATED`,
   },
   {
-    name: 'Sales by Register',
-    description: 'Transactions, revenue and average sale per register this week',
+    name: 'Orders & Returns Processed Since a Date',
+    description: 'Orders & Returns Processed Since a Date',
     query: `SELECT
-    BY_NAME AS "Name",
-    transaction_count AS "Transaction Count",
-    revenue AS "Revenue",
-    FORMAT(revenue / transaction_count, '$') AS "Average Sale",
-    profit AS "Profit"
-FROM sales
-BY register
-ON outlet
-START "this week"
-ORDER "Revenue" desc
-CONSOLIDATED`,
+ BY_NAME AS "Name",
+ type AS "Order Type",
+ supplier AS "Supplier",
+ order_date AS "Order Date",
+ LINK(order_number, CONCAT('/order/', order_id)) AS "Order Number",
+ sent_at as "Sent At",
+ received_at AS "Received At",
+ cost AS "Total Cost"
+FROM orders
+BY supplier
+WHERE (type <> "return" AND received_at >=
+    "1 months ago" // Processed since (a date like "2026-10-01" also works)
+)
+OR (type = "return" AND sent_at >=
+    "1 months ago" // Process since (must be the same as the date above - processed since)
+)
+START ALL_OF_TIME
+END "today" // Invoice date up to
+ORDER "Name" asc
+UNCONSOLIDATED`,
   },
   {
     name: 'Top Selling Products',
@@ -257,51 +274,65 @@ ORDER "Revenue" desc
 CONSOLIDATED`,
   },
   {
-    name: 'Sales by Category',
-    description: 'Revenue and profit percentage grouped by category this month',
+    name: 'Hourly Transaction Count by Days of the Week',
+    description: 'The total number of transactions for each weekday by each hour',
     query: `SELECT
-    BY_NAME AS "Name",
-    quantity AS "Quantity",
-    revenue AS "Revenue",
-    profit AS "Profit",
-    FORMAT((revenue - cost) / revenue * 100, '', '%', 2) AS "Profit Percentage",
-    FORMAT(revenue, '', '%', 2) AS "Revenue Percentage" TOTAL(PERCENTAGE_FROM_TOTAL)
+    transaction_count AS "transaction count"
 FROM sales
-BY category
-START "this month"
-ORDER "Revenue" desc
+AGGREGATE hour
+BY outlet
+ON DATE_FORMAT(timestamp, "YYYY ddd")
+START "last year"
+END "today"
 CONSOLIDATED`,
   },
   {
-    name: 'Sales by User',
-    description: 'Transactions, revenue and average sale per staff member this month',
+    name: 'Last costs recently changed',
+    description: 'This will show the products that have had a cost change in the last 7 days',
     query: `SELECT
-    BY_NAME AS "Name",
-    transaction_count AS "Transaction Count",
-    revenue AS "Revenue",
-    FORMAT(revenue / transaction_count, '$') AS "Average Sale",
-    discount AS "Discount Amount",
-    profit AS "Profit"
-FROM sales
-BY user
-START "this month"
-ORDER "Revenue" desc
-CONSOLIDATED`,
+ BY_NAME AS "Name",
+ user AS "User",
+ key AS "Key",
+ FORMAT(old, "$", "", 2) AS "Old Value",
+ FORMAT(new, "$", "", 2) AS "New Value",
+ FORMAT(100 - ((old / new) * 100), "", "%", 2) as "Change Percentage",
+ timestamp AS "Timestamp"
+FROM revisions
+BY revisions
+WHERE key = 'last_cost'
+    AND ((100 - (old / new) * 100) > 1 OR (100 - (old / new) * 100) < -1)
+START "7 days ago"
+ORDER "Timestamp" desc, "Time Cancelled" desc
+UNCONSOLIDATED`,
   },
   {
-    name: 'Tax Summary',
-    description: 'Revenue and tax collected by tax rate this month',
+    name: 'Orders & Returns Received During a Period',
+    description: 'Orders & Returns Received During a Period',
     query: `SELECT
-    BY_NAME AS "Name",
-    revenue AS "Revenue",
-    tax AS "Tax Amount",
-    FORMAT(revenue - tax, '$') AS "Revenue (ex)",
-    transaction_count AS "Transaction Count"
-FROM sales
-BY taxRate
-START "this month"
+ BY_NAME AS "Name",
+ type AS "Order Type",
+ supplier AS "Supplier",
+ order_date AS "Order Date",
+ LINK(order_number, CONCAT('/order/', order_id)) AS "Order Number",
+ sent_at as "Sent At",
+ received_at AS "Received At",
+ cost AS "Total Cost"
+FROM orders
+BY supplier
+WHERE (type <> "return" AND received_at >=
+    "1 months ago" // Start Date (a date like "2026-10-01" also works)
+    AND received_at <=
+    "today" // End Date
+)
+OR (type = "return" AND sent_at >=
+    "1 months ago" // Start Date (must be the same as the start date above)
+    AND sent_at <=
+    "today" // End Date (must be the same as the end date above)
+)
+START ALL_OF_TIME
+END ALL_OF_TIME
 ORDER "Name" asc
-CONSOLIDATED`,
+UNCONSOLIDATED`,
   },
 ];
 
@@ -312,7 +343,7 @@ const KEYWORDS = new Set([
   'ASCENDING', 'DESCENDING', 'INCLUDE', 'EXCLUDE', 'ONLY', 'TODAY', 'ALL_OF_TIME', 'CURRENT_TIMESTAMP',
   'PERCENTAGE_FROM_TOTAL', 'SUM', 'AVERAGE', 'NONE',
 ]);
-const FUNCTIONS = new Set(['FORMAT', 'TOTAL', 'ROUND', 'ABS']);
+const FUNCTIONS = new Set(['FORMAT', 'TOTAL', 'ROUND', 'ABS', 'FLOOR', 'CEIL', 'LINK', 'CONCAT', 'DATE_FORMAT']);
 
 const colourToken = (token) => {
   if (/^["']/.test(token)) return '#669900';
@@ -340,19 +371,21 @@ const highlightLine = (line) =>
 const fmtNumber = (value, decimals) =>
   Number(value || 0).toLocaleString('en-AU', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-const fmtDate = (value) => {
+// Reference: timestamps as 22/10/2026 13:01:09, date fields (order_date) as 28/01/2020.
+const fmtDate = (value, dateOnly = false) => {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  const day = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+  return dateOnly ? day : `${day} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 };
 
 const formatCell = (value, col) => {
   if (value === '' || value === null || value === undefined) return '';
   if (value && typeof value === 'object' && value.__link) return String(value.text ?? '');
   if (col.text) {
-    if ((col.date || /date|time/i.test(col.label)) && typeof value === 'string' && value.includes('T') && !Number.isNaN(new Date(value).getTime())) return fmtDate(value);
+    if ((col.date || /date|time/i.test(col.label)) && typeof value === 'string' && value.includes('T') && !Number.isNaN(new Date(value).getTime())) return fmtDate(value, !!col.dateOnly);
     return String(value);
   }
   const n = Number(value);
@@ -388,6 +421,7 @@ const SalesQueryEditor = () => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [sortConfig, setSortConfig] = useState(null);
+  const [collapsed, setCollapsed] = useState({}); // group header name → hidden children
   const [toast, setToast] = useState(null);
 
   // Export / save states
@@ -427,6 +461,7 @@ const SalesQueryEditor = () => {
         setReportData(response.data || []);
         setTotals(response.totals || {});
         setSortConfig(null);
+        setCollapsed({});
         setHasRun(true);
       } else {
         setColumns([]); setReportData([]); setTotals({}); setHasRun(true);
@@ -495,17 +530,49 @@ const SalesQueryEditor = () => {
   const handleSort = (key) => {
     setSortConfig((prev) => (prev && prev.key === key ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' }));
   };
+  // Rows arrive as groups (reference ON …): header `_group`, children `_child`,
+  // then a `_groupTotal` row. Sorting orders groups by their Totals row and the
+  // children inside each group; collapsed groups show the header only.
+  const groupedRows = useMemo(() => {
+    const groups = [];
+    let current = null;
+    for (const row of reportData) {
+      if (row._group) { current = { header: row, children: [], total: null }; groups.push(current); continue; }
+      if (row._child && current) { current.children.push(row); continue; }
+      if (row._groupTotal && current) { current.total = row; current = null; continue; }
+      current = null;
+      groups.push({ header: null, children: [row], total: null });
+    }
+    return groups;
+  }, [reportData]);
+  const hasGroups = groupedRows.some((g) => g.header);
   const sortedData = useMemo(() => {
-    if (!sortConfig) return reportData;
-    const dir = sortConfig.direction === 'asc' ? 1 : -1;
-    return [...reportData].sort((a, b) => {
+    const dir = sortConfig?.direction === 'asc' ? 1 : -1;
+    const cmp = (a, b) => {
       const av = a[sortConfig.key]; const bv = b[sortConfig.key];
       if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
       return String(av ?? '').localeCompare(String(bv ?? ''), undefined, { sensitivity: 'base', numeric: true }) * dir;
+    };
+    const groups = sortConfig
+      ? [...groupedRows].map((g) => ({ ...g, children: [...g.children].sort(cmp) })).sort((a, b) => cmp(a.header ? { ...a.total, [sortConfig.key]: sortConfig.key === 'name' ? a.header.name : a.total?.[sortConfig.key] } : a.children[0], b.header ? { ...b.total, [sortConfig.key]: sortConfig.key === 'name' ? b.header.name : b.total?.[sortConfig.key] } : b.children[0]))
+      : groupedRows;
+    const out = [];
+    groups.forEach((g) => {
+      if (!g.header) { out.push(...g.children); return; }
+      out.push(g.header);
+      if (!collapsed[g.header.name]) out.push(...g.children);
+      if (g.total) out.push(g.total);
     });
-  }, [reportData, sortConfig]);
+    return out;
+  }, [groupedRows, sortConfig, collapsed]);
+  const toggleGroup = (name) => setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }));
+  // "Groups" button (reference): collapse every group, or expand them all again.
+  const toggleAllGroups = () => {
+    const allCollapsed = groupedRows.filter((g) => g.header).every((g) => collapsed[g.header.name]);
+    setCollapsed(allCollapsed ? {} : Object.fromEntries(groupedRows.filter((g) => g.header).map((g) => [g.header.name, true])));
+  };
 
-  const showSortIcons = reportData.length > 1;
+  const showSortIcons = reportData.filter((r) => !r._group && !r._groupTotal).length > 1;
   // Same icon as the Sales Report page; the current sort direction is filled (bold).
   const SortIcon = ({ active }) => (
     <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-block' }} aria-hidden="true">
@@ -515,7 +582,7 @@ const SalesQueryEditor = () => {
   );
 
   const cellAlign = (col) => (col.text ? 'left' : 'center');
-  const tableRows = () => sortedData.map((row) => columns.map((col) => formatCell(row[col.key], col)));
+  const tableRows = () => sortedData.map((row) => columns.map((col, i) => (i === 0 ? (row._group ? row.name : row._groupTotal ? 'Totals' : formatCell(row[col.key], col)) : row._group ? '' : formatCell(row[col.key], col))));
   const totalRowCells = () => columns.map((col) => (col.text ? '' : formatCell(totals[col.key], col)));
 
   // Export -------------------------------------------------------------------
@@ -548,7 +615,7 @@ const SalesQueryEditor = () => {
         });
         doc.save(`${fileName()}.pdf`);
       } else if (exportType === 'xlsx') {
-        const ws = XLSX.utils.aoa_to_sheet([head, ...sortedData.map((row) => columns.map((c) => (c.text ? formatCell(row[c.key], c) : Number(row[c.key] || 0)))), columns.map((c) => (c.text ? '' : Number(totals[c.key] || 0)))]);
+        const ws = XLSX.utils.aoa_to_sheet([head, ...sortedData.map((row, r) => columns.map((c, i) => (row._group || i === 0 || c.text || row[c.key] === '' ? body[r][i] : Number(row[c.key] || 0)))), columns.map((c) => (c.text ? '' : Number(totals[c.key] || 0)))]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Sales Query Report');
         XLSX.writeFile(wb, `${fileName()}.xlsx`);
@@ -557,7 +624,7 @@ const SalesQueryEditor = () => {
         const csv = [head.map(esc).join(','), ...body.map((r) => r.map(esc).join(',')), totalRow.map(esc).join(',')].join('\n');
         downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${fileName()}.csv`);
       } else {
-        const json = JSON.stringify({ query: customQuery, generated: new Date().toISOString(), columns: columns.map((c) => c.label), data: sortedData.map((row) => Object.fromEntries(columns.map((c) => [c.label, row[c.key]]))), totals: Object.fromEntries(columns.map((c) => [c.label, totals[c.key]])) }, null, 2);
+        const json = JSON.stringify({ query: customQuery, generated: new Date().toISOString(), columns: columns.map((c) => c.label), data: sortedData.filter((row) => !row._group).map((row) => ({ ...(row._groupTotal ? { group: 'Totals' } : {}), ...Object.fromEntries(columns.map((c) => [c.label, row[c.key]])) })), totals: Object.fromEntries(columns.map((c) => [c.label, totals[c.key]])) }, null, 2);
         downloadBlob(new Blob([json], { type: 'application/json;charset=utf-8;' }), `${fileName()}.json`);
       }
       setExportDialogOpen(false);
@@ -595,7 +662,7 @@ const SalesQueryEditor = () => {
         <table>
           <thead><tr>${columns.map((c) => `<th class="${c.text ? '' : 'num'}">${esc(c.label)}</th>`).join('')}</tr></thead>
           <tbody>
-            ${tableRows().map((r) => `<tr>${r.map((v, i) => `<td class="${columns[i].text ? '' : 'num'}">${esc(v)}</td>`).join('')}</tr>`).join('')}
+            ${tableRows().map((r, ri) => `<tr${sortedData[ri]._group || sortedData[ri]._groupTotal ? ' style="background:#e8e8e8"' : ''}>${r.map((v, i) => `<td class="${columns[i].text ? '' : 'num'}"${i === 0 && sortedData[ri]._child ? ' style="padding-left:28px"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}
             <tr class="total">${totalRowCells().map((v, i) => `<td class="${columns[i].text ? '' : 'num'}">${esc(v)}</td>`).join('')}</tr>
           </tbody>
         </table>
@@ -783,6 +850,12 @@ const SalesQueryEditor = () => {
           </Button>
         </Box>
       </Box>
+      {/* Reference: a grouped result (ON …) gets a Groups button under the toolbar — collapse / expand every group. */}
+      {hasGroups && (
+        <Box sx={{ mb: '16px' }}>
+          <Button variant="outlined" startIcon={<GroupsIcon />} onClick={toggleAllGroups} sx={outlinedBtnSx}>Groups</Button>
+        </Box>
+      )}
 
       {/* Results (a failed Execute clears the table — reference) */}
       {hasRun && columns.length > 0 ? (
@@ -798,24 +871,62 @@ const SalesQueryEditor = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedData.map((row, idx) => (
-                <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: idx % 2 === 0 ? '#fff' : '#e8e8e8' }}>
-                  {columns.map((col, ci) => {
-                    const value = row[col.key];
-                    const link = value && typeof value === 'object' && value.__link ? value : null;
-                    const saleMatch = link && String(link.href || '').match(/^\/sale\/(\d+)/);
-                    return (
-                      <TableCell key={col.key} align={cellAlign(col)} sx={ci === 0 && row._child ? { pl: '34px !important' } : undefined}>
-                        {link
-                          ? (saleMatch
-                            ? <RouterLink to={`/register/history?saleId=${saleMatch[1]}`} style={{ color: '#0284c7' }}>{link.text}</RouterLink>
-                            : <a href={link.href} style={{ color: '#0284c7' }}>{link.text}</a>)
-                          : formatCell(value, col)}
+              {(() => { let stripe = 0; return sortedData.map((row, idx) => {
+                // Reference: group header (▽ name) and "Totals" rows sit on grey;
+                // data rows alternate white / grey, the stripe restarting per group.
+                if (row._group) {
+                  stripe = 0;
+                  return (
+                    <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: '#e8e8e8' }}>
+                      <TableCell colSpan={columns.length} onClick={() => toggleGroup(row.name)} sx={{ cursor: 'pointer', userSelect: 'none', py: '10px !important' }}>
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          {collapsed[row.name] ? <ChevronRightIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                          {row.name}
+                        </Box>
                       </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
+                    </TableRow>
+                  );
+                }
+                if (row._groupTotal) {
+                  return (
+                    <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: '#e8e8e8' }}>
+                      {columns.map((col, ci) => (
+                        <TableCell key={col.key} align={cellAlign(col)} sx={ci === 0 ? { fontSize: '13px !important', pl: '10px !important' } : undefined}>{ci === 0 ? 'Totals' : formatCell(row[col.key], col)}</TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                }
+                const shade = stripe++ % 2 === 0 ? '#fff' : '#e8e8e8';
+                return (
+                  <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: shade }}>
+                    {columns.map((col, ci) => {
+                      const value = row[col.key];
+                      const link = value && typeof value === 'object' && value.__link ? value : null;
+                      const saleMatch = link && String(link.href || '').match(/^\/sale\/(\d+)/);
+                      const orderMatch = link && String(link.href || '').match(/^\/order\/(\d+)/);
+                      const content = link
+                        ? (saleMatch
+                          ? <RouterLink to={`/register/history?saleId=${saleMatch[1]}`} style={{ color: '#0284c7' }}>{link.text}</RouterLink>
+                          : orderMatch
+                            ? <RouterLink to={`/orders-invoices/${orderMatch[1]}`} style={{ color: '#0284c7' }}>{link.text}</RouterLink>
+                            : <a href={link.href} style={{ color: '#0284c7' }}>{link.text}</a>)
+                        : formatCell(value, col);
+                      // Reference tree line: a child row's name hangs off a "├─" guide.
+                      if (ci === 0 && row._child) {
+                        return (
+                          <TableCell key={col.key} align={cellAlign(col)} sx={{ pl: '14px !important' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 24 }}>
+                              <Box sx={{ width: 14, flexShrink: 0, borderLeft: '2px solid #000', position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: '2px solid #000' } }} />
+                              <Box sx={{ pl: '12px', display: 'flex', alignItems: 'center' }}>{content}</Box>
+                            </Box>
+                          </TableCell>
+                        );
+                      }
+                      return <TableCell key={col.key} align={cellAlign(col)}>{content}</TableCell>;
+                    })}
+                  </TableRow>
+                );
+              }); })()}
               <TableRow sx={TABLE_TOTAL_SX}>
                 {columns.map((col) => (
                   <TableCell key={col.key} align={cellAlign(col)}>{col.text ? '' : formatCell(totals[col.key], col)}</TableCell>
