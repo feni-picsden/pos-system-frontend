@@ -269,6 +269,7 @@ const REPORT_COLUMNS = [
       ? <RouterLink to={`/register/history?saleId=${row.saleId}`} style={{ color: '#0284c7' }}>{row.invoiceNumber || ''}</RouterLink>
       : (row.invoiceNumber || ''))
   },
+  { key: 'reference', label: 'Reference', headerLabel: 'REFERENCE', detailOnly: true, text: true, render: (row) => row.reference || '' },
   { key: 'outletName', label: 'Outlet', headerLabel: 'OUTLET', detailOnly: true, text: true, render: (row) => row.outletName || '' },
   { key: 'registerName', label: 'Register', headerLabel: 'REGISTER', detailOnly: true, text: true, render: (row) => row.registerName || '' },
   { key: 'customerName', label: 'Customer', headerLabel: 'CUSTOMER', detailOnly: true, text: true, render: (row) => row.customerName || '' },
