@@ -178,11 +178,17 @@ const renderTotal = (component, data) => {
 
 const renderTax = (component, data) => {
   const columns = enabledColumns(component.value, 'tax').map((c) => c.column);
+  // Reference: "Surcharge amounts will automatically [appear] on receipts at the top
+  // of any Totals table, this will use your custom name" — the surcharge rows sit
+  // above the tax rows (measured: "Public Holiday Surcharge $2.25" then "GST $4.09").
+  const surchargeRows = (data.surcharges || [])
+    .filter((s) => Number(String(s.amount).replace(/[^0-9.-]/g, '')) > 0)
+    .map((s) => ({ label: s.surcharge, value: s.amount }));
   const rows = (data.tax || []).map((entry) => ({
     label: columns.includes('tax') ? entry.tax : '',
     value: columns.includes('total') ? entry.total : '',
   }));
-  return <RowTable rows={rows} style={component.style} />;
+  return <RowTable rows={[...surchargeRows, ...rows]} style={component.style} />;
 };
 
 const renderPayment = (component, data) => {

@@ -121,8 +121,10 @@ export const AppDialogProvider = ({ children }) => {
     return () => clearTimeout(timer);
   }, [request, close]);
 
-  const notify = useCallback((message, severity = 'success') => {
-    setToast({ message: String(message ?? ''), severity });
+  // options.position: 'top' puts the toast top-centre (reference validation
+  // toasts, e.g. "The surcharge amount is not valid"); default stays bottom.
+  const notify = useCallback((message, severity = 'success', options = {}) => {
+    setToast({ message: String(message ?? ''), severity, position: options.position || 'bottom' });
   }, []);
 
   const api = useMemo(() => ({
@@ -232,7 +234,7 @@ export const AppDialogProvider = ({ children }) => {
         open={Boolean(toast)}
         autoHideDuration={AUTO_CLOSE_MS}
         onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: toast?.position === 'top' ? 'top' : 'bottom', horizontal: 'center' }}
         sx={{ zIndex: 2100 }}
       >
         <Alert

@@ -176,7 +176,12 @@ const CustomerDisplayRenderer = ({
                 ))}
               </Box>
             ))}
-            <Box sx={{ mt: 'auto', pt: 1, fontSize: 32, textAlign: 'right', color: component?.settings?.footerTextColor || '#fff', bgcolor: component?.settings?.footerBackgroundColor || 'transparent' }}>{Number(totals.itemCount || 0)} Items</Box>
+            {/* Reference footer: "Public Holiday Surcharge: $2.25 | 1 Item" — the surcharge
+                (custom name) sits at the bottom of the sale table, before the item count. */}
+            <Box sx={{ mt: 'auto', pt: 1, fontSize: 32, textAlign: 'right', color: component?.settings?.footerTextColor || '#fff', bgcolor: component?.settings?.footerBackgroundColor || 'transparent' }}>
+              {Object.entries(totals.surcharges || {}).filter(([, amt]) => Number(amt) > 0).map(([name, amt]) => `${name}: $${Number(amt).toFixed(2)} | `).join('')}
+              {Number(totals.itemCount || 0)} {Number(totals.itemCount || 0) === 1 ? 'Item' : 'Items'}
+            </Box>
           </Box>
         );
       }

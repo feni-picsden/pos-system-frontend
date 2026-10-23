@@ -1772,6 +1772,10 @@ const SalesReport = () => {
             <ArrowDropUp sx={{ color: '#555', fontSize: 20 }} />
           </Box>
           <Box sx={{ border: '1px solid #c8c8c8', borderRadius: '6px', maxHeight: 290, overflowY: 'auto' }}>
+            {/* Reference: a search with no match reads "No Options". */}
+            {pickerRows.length === 0 && (
+              <Box sx={{ px: 1.5, height: 56, display: 'flex', alignItems: 'center', fontSize: 17, color: '#757575' }}>No Options</Box>
+            )}
             {/* Consolidate = No: reference pins Outlet / Register / Customer / User above a divider. */}
             {pickerRows.map((column, idx) => {
               if (column.divider) return <Box key={`divider-${idx}`} sx={{ borderTop: '1px solid #c8c8c8', mx: 1.5 }} />;

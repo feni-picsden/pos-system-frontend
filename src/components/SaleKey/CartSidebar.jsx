@@ -246,12 +246,20 @@ const CartSidebar = ({
       alert(`Manual discounts are not allowed for ${blocked.name}.`);
       return;
     }
+    // Reference: "when discounting the total sale, we'll include the surcharge amount
+    // in the total" — $45 + 5% ($2.25) discounted to $40 → product $38.10, surcharge
+    // $1.90. The typed total is the WHOLE sale (lines + surcharge), so the lines are
+    // scaled against that; the surcharge then re-computes from the new line prices.
+    calculateTotal?.();
+    const surchargeTotal = cart.reduce((sum, item) =>
+      sum + Object.values(item.surchargeBreakdown || {}).reduce((s, v) => s + (Number(v) || 0), 0), 0);
+    const saleTotal = cartBaseTotal + surchargeTotal;
     const target = saleDiscountMode === 'discount_percentage'
-      ? cartBaseTotal * (1 - Math.min(100, amount) / 100)
+      ? saleTotal * (1 - Math.min(100, amount) / 100)
       : amount;
     // ponytail: per-line rounding can leave the sale total a cent off the typed
     // figure; add a remainder sweep onto the last line if that ever matters.
-    const factor = target / cartBaseTotal;
+    const factor = target / saleTotal;
     setCart(cart.map((item) => {
       const price = parseFloat(item.price) || 0;
       const newPrice = Math.round(price * factor * 100) / 100;
@@ -598,18 +606,20 @@ const CartSidebar = ({
                     View Live Profit sale key is switched on (and the user holds
                     the live-profit permission). */}
                 {canViewLiveProfit && showLiveProfit && isSelected && (
-                  <Box sx={{ position: 'relative', flexBasis: '100%', textAlign: 'right', mt: '0.25rem' }}>
-                    <Typography component="div" sx={{ fontSize: 14, lineHeight: 'normal', color: '#313439' }}>
-                      {(() => {
-                        const stats = lineProfit(item);
-                        const { totalCost, profit } = stats;
-                        const pct = profitPercent(stats, profitDisplay);
-                        // The View Live Profit sale key still does something: it
-                        // adds the cost of the line next to the profit.
-                        const cost = showLiveProfit ? `Cost: $${totalCost.toFixed(2)}  ` : '';
-                        return `${cost}Profit: $${profit.toFixed(2)}  ${pct.toFixed(2)}%`;
-                      })()}
-                    </Typography>
+                  // Reference: a full-width line under the product — "Cost: $33.33
+                  // Profit: $11.67  25.93%", left-aligned with the % at the right.
+                  <Box sx={{ position: 'relative', flexBasis: '100%', mt: '0.25rem' }}>
+                    {(() => {
+                      const stats = lineProfit(item);
+                      const pct = profitPercent(stats, profitDisplay);
+                      return (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, lineHeight: 'normal', color: '#000' }}>
+                          <span>Cost: ${stats.totalCost.toFixed(2)}</span>
+                          <span>Profit: ${stats.profit.toFixed(2)}</span>
+                          <span>{pct.toFixed(2)}%</span>
+                        </Box>
+                      );
+                    })()}
                   </Box>
                 )}
               </Box>
@@ -819,40 +829,53 @@ const CartSidebar = ({
           </Typography>
         </Box>
       ) : (
-      // 93px on the reference; it grows rather than clipping when a sale-level
-      // surcharge line is added above the counters.
+      <>
+      {/* Reference: the surcharge is its own full-width row above the totals block
+          ("Public Holiday Surcharge: $2.25"), one line per surcharge name. */}
+      {(() => {
+        // calculateTotal() refreshes each item's surchargeBreakdown as a side
+        // effect; run it BEFORE reading them or the labels lag one action
+        // behind the total (which is rendered after this block).
+        calculateTotal?.();
+        const surchargeSummary = {};
+        cart.forEach((item) => {
+          if (!item.surchargeBreakdown) return;
+          Object.entries(item.surchargeBreakdown).forEach(([name, amount]) => {
+            const num = Number(amount) || 0;
+            if (!num) return;
+            surchargeSummary[name] = (surchargeSummary[name] || 0) + num;
+          });
+        });
+        const entries = Object.entries(surchargeSummary);
+        if (!entries.length) return null;
+        return entries.map(([name, amount]) => (
+          <Box key={name} sx={{ px: '8px', py: '6px', borderBottom: '1px solid #000', fontSize: 16, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
+            {name}: ${Number(amount).toFixed(2)}
+          </Box>
+        ));
+      })()}
+      {/* Reference Live Profit: a full-width row above the totals — "Cost: $35.58
+          Profit: $16.17  24.69%" — cost = line costs + surcharge, % on the whole sale. */}
+      {!cartEmpty && canViewLiveProfit && showLiveProfit && (() => {
+        const saleSurcharge = cart.reduce((sum, item) =>
+          sum + Object.values(item.surchargeBreakdown || {}).reduce((s, v) => s + (Number(v) || 0), 0), 0);
+        const lines = cart.reduce((acc, item) => {
+          const st = lineProfit(item);
+          return { price: acc.price + (Number(st.totalPrice) || 0), cost: acc.cost + (Number(st.totalCost) || 0) };
+        }, { price: 0, cost: 0 });
+        const stats = { totalPrice: lines.price + saleSurcharge, totalCost: lines.cost + saleSurcharge, profit: lines.price - lines.cost };
+        const pct = profitPercent(stats, profitDisplay);
+        return (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', px: '8px', py: '6px', borderBottom: '1px solid #000', fontSize: 16, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
+            <span>Cost: ${stats.totalCost.toFixed(2)}</span>
+            <span>Profit: ${stats.profit.toFixed(2)}</span>
+            <span>{pct.toFixed(2)}%</span>
+          </Box>
+        );
+      })()}
+      {/* 93px on the reference. */}
       <Box sx={{ display: 'flex', minHeight: 93, boxSizing: 'border-box' }}>
         <Box sx={{ width: '50%', boxSizing: 'border-box', p: '8px', color: totalsColor, fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal' }}>
-          {/* Surcharges summary (sale-level) – directly above item summary, like reference design */}
-          {(() => {
-            // calculateTotal() refreshes each item's surchargeBreakdown as a side
-            // effect; run it BEFORE reading them or the labels lag one action
-            // behind the total (which is rendered after this block).
-            calculateTotal?.();
-            const surchargeSummary = {};
-            cart.forEach((item) => {
-              if (!item.surchargeBreakdown) return;
-              Object.entries(item.surchargeBreakdown).forEach(([name, amount]) => {
-                const num = Number(amount) || 0;
-                if (!num) return;
-                surchargeSummary[name] = (surchargeSummary[name] || 0) + num;
-              });
-            });
-
-            const entries = Object.entries(surchargeSummary);
-            if (!entries.length) return null;
-
-            return entries.map(([name, amount]) => (
-              <Typography
-                key={name}
-                variant="body2"
-                sx={{ fontWeight: 600, color: 'text.primary', display: 'block' }}
-              >
-                {name}: ${Number(amount).toFixed(2)}
-              </Typography>
-            ));
-          })()}
-
           {showPromotionView && selectedPromotionProduct && canViewLiveProfit ? (
             <>
               {(() => {
@@ -942,6 +965,7 @@ const CartSidebar = ({
           </Typography>
         </Box>
       </Box>
+      </>
       )}
 
       {/* Action Buttons */}

@@ -1057,6 +1057,10 @@ const InventoryReport = () => {
           );
         })()}
         <Box sx={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #404040', borderRadius: '8px' }}>
+          {/* Reference: a search with no match reads "No Options". */}
+          {allColumns.filter(matchesSearch).length === 0 && (
+            <Box sx={{ px: '16px', height: 56, display: 'flex', alignItems: 'center', fontSize: 16, color: '#757575' }}>No Options</Box>
+          )}
           {allColumns.filter(matchesSearch).map((column) => {
             const checked = !!visibleColumns[column.id];
             return (

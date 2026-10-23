@@ -29,6 +29,7 @@ const TILE = {
   accountPayments: '#1e6b1e',
   refunds: '#a61b1b',
   discounts: '#e85d04',
+  surcharges: '#6a1b9a',
   movements: '#0D6B6B'
 };
 
@@ -258,6 +259,8 @@ const RegisterClosureView = () => {
   const refunds = details?.refunds || EMPTY;
   const accountPayments = details?.accountPayments || EMPTY;
   const discounts = details?.discounts || EMPTY;
+  // Reference: a Surcharge row only when a surcharge was applied in the window.
+  const surcharges = details?.surcharges || EMPTY;
   const tax = details?.tax || { rows: [], total: closure?.taxTotal || 0 };
   const subtypes = details?.paymentSubtypes || EMPTY;
   const movements = details?.movements || { rows: [], total: closure?.cashMovementsTotal || 0 };
@@ -277,7 +280,9 @@ const RegisterClosureView = () => {
     ['Opened At', when(closure.openedAt)],
     ['Closed At', when(closure.closedAt)],
     ['Closed By', closure.closedBy?.name || '-'],
-    ['Total Transactions', closure.totalTransactions]
+    ['Total Transactions', closure.totalTransactions],
+    // Reference: "Total Surcharge" row under Total Transactions, only when a surcharge was applied.
+    ...(surcharges.rows.length ? [['Total Surcharge', money(surcharges.total)]] : [])
   ] : [];
 
   // "Print" prints the closure document the reference prints (sections per the
@@ -322,6 +327,11 @@ const RegisterClosureView = () => {
     const dc = mode('discounts', 'Print Table');
     if (discounts.rows.length && dc === 'Print Table') parts.push(table('Discounts', ['Date and Time', 'User', 'Customer', 'Sale', 'Price', 'Discount'], discounts.rows.map((r) => tr([when(r.createdAt), r.user, r.customer, saleLabel(r), money(r.price), money(r.discount)]) + (r.reason ? `<tr class="reason"><td colspan="6">&#9492; ${esc(r.reason)}</td></tr>` : '')).join(''), esc(moneyLong(discounts.total))));
     else if (discounts.rows.length && dc === 'Print Total') parts.push(table('Discounts', ['Amount'], tr([money(discounts.total)])));
+
+    // Reference: the closure prints the day's surcharge total only when one was applied.
+    const sc = mode('surcharges', 'Print Total');
+    if (surcharges.rows.length && sc === 'Print Table') parts.push(table('Surcharge', ['Date and Time', 'User', 'Customer', 'Sale', 'Surcharge', 'Amount'], surcharges.rows.map((r) => tr([when(r.createdAt), r.user, r.customer, saleLabel(r), r.name, money(r.amount)])).join(''), esc(moneyLong(surcharges.total))));
+    else if (surcharges.rows.length && sc === 'Print Total') parts.push(table('Surcharge', ['Amount'], tr([money(surcharges.total)])));
 
     if (toggles.statistics && (closure.userStats || []).length) parts.push(table('Statistics', ['Name', 'Revenue', 'Cost of Goods Sold', 'Profit', 'Profit Percentage', 'Average Sale'], closure.userStats.map((s) => tr([s.user?.name || s.userId, money(s.revenue), money(s.costOfGoodsSold), money(s.profit), `${Number(s.profitPercentage || 0).toFixed(2)}%`, money(s.averageSale)])).join('') + tr(['', money(statsTotal.revenue), money(statsTotal.cogs), money(statsTotal.profit), `${statsTotal.pct.toFixed(2)}%`, money(statsTotal.avg)], 'total')));
 
@@ -583,6 +593,7 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
         </React.Fragment>
       )}
       text="This screen shows the sales that were discounted while the register was open, with the reason given for each discount." />
+
     </>
   );
 };

@@ -980,7 +980,12 @@ const PurchaseReport = () => {
                 </Box>
               );
             };
-            if (columnsSearch.trim()) return pickerColumns.filter(matchesSearch).map((c) => rowOf(c, 'find'));
+            if (columnsSearch.trim()) {
+              const hits = pickerColumns.filter(matchesSearch);
+              // Reference: a search with no match reads "No Options".
+              if (!hits.length) return <Box sx={{ px: 1.5, height: 56, display: 'flex', alignItems: 'center', fontSize: 17, color: '#757575' }}>No Options</Box>;
+              return hits.map((c) => rowOf(c, 'find'));
+            }
             if (isPrecisionMode) return pickerColumns.map((c) => rowOf(c, 'metric'));
             const selected = pickerColumns.filter(isPicked);
             return (

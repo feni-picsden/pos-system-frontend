@@ -964,6 +964,20 @@ const SaleKeyPage = () => {
     if (!selectedRegister?.id) return;
 
     const subtotal = (cart || []).reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+    // Reference: the surcharge (custom name) shows at the bottom of the display's sale
+    // table and is part of the total the customer sees.
+    const displaySurcharges = {};
+    let displaySurchargeTotal = 0;
+    expandCartForSale(cart).forEach((item) => {
+      if (!item.productId) return;
+      const { totalExtra, byName } = calculateSurchargeBreakdown(
+        item.product || { id: item.productId, name: item.name },
+        parseFloat(item.quantity) || 1,
+        parseFloat(item.price) || 0,
+      );
+      displaySurchargeTotal += totalExtra;
+      Object.entries(byName || {}).forEach(([name, amt]) => { displaySurcharges[name] = (displaySurcharges[name] || 0) + (Number(amt) || 0); });
+    });
     const displayPayload = {
       mode: cart.length ? 'sale' : 'idle',
       cartItems: cart.map((item) => ({
@@ -976,9 +990,11 @@ const SaleKeyPage = () => {
       })),
       totals: {
         subtotal,
-        total: subtotal,
+        total: subtotal + displaySurchargeTotal,
         savings: getCartDiscountTotals(cart).savings,
         itemCount: cart.reduce((sum, item) => sum + (parseFloat(item.quantity) || 1), 0),
+        surcharges: displaySurcharges,
+        surchargeTotal: displaySurchargeTotal,
       },
       customer: selectedCustomer
         ? {
@@ -1985,6 +2001,11 @@ const SaleKeyPage = () => {
       }
 
       const response = await surchargeService.getSchedulesForRegister(selectedRegister.id);
+      // Reference: nothing is surcharged while the register's Schedule Active toggle is off.
+      if (response && response.scheduleActive === false) {
+        setSurchargeSchedules([]);
+        return;
+      }
       const apiSchedules = response?.schedules || response || [];
       setSurchargeSchedules(Array.isArray(apiSchedules) ? apiSchedules : []);
     } catch (error) {
@@ -7885,10 +7906,17 @@ const SaleKeyPage = () => {
    * Calculate surcharge breakdown for a given product / quantity / base total.
    * Returns the total surcharge amount and a map of surcharge name -> amount.
    */
-  const calculateSurchargeBreakdown = (product, quantity, baseTotal) => {
+  const calculateSurchargeBreakdown = (productRef, quantity, baseTotal) => {
     const base = Number(baseTotal) || 0;
     const qty = Number(quantity) || 0;
     if (base <= 0 || qty <= 0) return { totalExtra: 0, byName: {} };
+    // A cart line only carries { id, name }; a Limited surcharge needs the product's
+    // category / tags, so resolve the full product from the local catalog.
+    const bare = productRef && productRef.categoryId == null && !productRef.category && !Array.isArray(productRef.tags);
+    const product = bare ? (resolveProductLocal(productRef.id, productRef.name) || productRef) : productRef;
+    // Reference: "the surcharge will be automatically removed from the sale when any
+    // item on the sale is being refunded (has a quantity lower than zero)".
+    if ((cart || []).some((line) => (parseFloat(line.quantity) || 0) < 0)) return { totalExtra: 0, byName: {} };
 
     const schedules = getApplicableSurchargeSchedules(product);
     if (!schedules.length) return { totalExtra: 0, byName: {} };
@@ -7916,6 +7944,9 @@ const SaleKeyPage = () => {
         // Fixed Amount – apply per unit quantity
         extraForThis = amount * qty;
       }
+      // Money is banked to the cent per line (reference: $38.10 × 5% = $1.905 → $1.90,
+      // sale total exactly $40.00); unrounded cents made the total read $12.01.
+      extraForThis = Math.round(extraForThis * 100) / 100;
 
       totalExtra += extraForThis;
       byName[name] = (byName[name] || 0) + extraForThis;

@@ -1061,22 +1061,34 @@ const renderTaxComponent = (receiptData, component, index) => {
     })
     .filter(Boolean);
   
-  if (taxRows.length === 0 && !showTotal) {
+  // Reference: surcharge amounts print automatically at the top of any Totals table,
+  // under the surcharge's custom name.
+  const surchargeRows = Object.entries(receiptData.surcharges || {})
+    .filter(([, amt]) => Number(amt) > 0)
+    .map(([name, amt]) => (
+      <Box key={`surcharge-${name}`} sx={{ display: 'flex', justifyContent: 'space-between', py: 1, fontSize: `${fontSize}px`, color: fontColor, fontWeight }}>
+        <Typography variant="body2">{name}</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(Number(amt))}</Typography>
+      </Box>
+    ));
+
+  if (taxRows.length === 0 && surchargeRows.length === 0 && !showTotal) {
     return null;
   }
-  
+
   return (
     <Box key={index} sx={styles}>
       {showTitle && title && (
-        <Typography variant="subtitle1" sx={{ 
-          fontSize: `${fontSize}px`, 
-          fontWeight: 'bold', 
-          color: fontColor, 
-          mb: 1 
+        <Typography variant="subtitle1" sx={{
+          fontSize: `${fontSize}px`,
+          fontWeight: 'bold',
+          color: fontColor,
+          mb: 1
         }}>
           {title}
         </Typography>
       )}
+      {surchargeRows}
       {taxRows}
       {showTotal && totalLabel && taxRows.length > 0 && (
         <Box sx={{ 

@@ -5,7 +5,6 @@ import {
   TextField,
   Button,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   Box,
@@ -20,12 +19,11 @@ import {
   Paper,
   ClickAwayListener,
   Chip,
-  Tooltip,
+  Autocomplete,
 } from '@mui/material';
 import ShopfrontSwitch from '../Common/ShopfrontSwitch';
 import {
   Edit as EditIcon,
-  AccessTime as TimeIcon,
   Close as CloseIcon,
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
   CheckBox as CheckBoxIcon,
@@ -36,7 +34,7 @@ import { useAppDialogs } from '../Common/AppDialogProvider';
 
 const DAYS_OF_WEEK = [
   'Monday',
-  'Tuesday', 
+  'Tuesday',
   'Wednesday',
   'Thursday',
   'Friday',
@@ -50,20 +48,50 @@ const SURCHARGE_TYPES = [
   { value: 'Fixed Amount', label: 'Fixed' },
 ];
 
+// Reference: the Applies To picker only searches once two characters are typed.
+const MIN_SEARCH_CHARS = 2;
+
 const isAllDay = (startTime, endTime) =>
   startTime === '00:00' && (endTime === '23:59' || endTime === '24:00');
 
-const AddScheduleDialog = ({ 
-  open, 
-  onClose, 
-  onSave, 
+// Reference dialog fields: thin grey border, 8px radius, 42px tall.
+const fieldSx = {
+  '& .MuiOutlinedInput-root': {
+    bgcolor: 'white',
+    borderRadius: '8px',
+    minHeight: 42,
+    '& fieldset': { borderColor: '#c7c7c7', borderWidth: 1 },
+    '&:hover fieldset': { borderColor: '#8a8a8a' },
+    '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: 1 },
+  },
+  '& .MuiOutlinedInput-input': { py: '9.5px' },
+  '& input::placeholder': { color: '#808080', opacity: 1 },
+};
+const selectSx = {
+  bgcolor: 'white',
+  borderRadius: '8px',
+  minHeight: 42,
+  '& .MuiSelect-select': { py: '9.5px' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#c7c7c7', borderWidth: 1 },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#8a8a8a' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: 1 },
+};
+const labelSx = { mb: 0.5, color: '#000000', fontWeight: 600, fontSize: 14 };
+
+const AddScheduleDialog = ({
+  open,
+  onClose,
+  onSave,
   onDelete,
   selectedDay = null,
-  schedule = null
+  schedule = null,
+  saving = false,
 }) => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
-  const { alert, confirm } = useAppDialogs();
+  const { alert, confirm, notify } = useAppDialogs();
   const isEditMode = !!schedule;
+  // Reference: validation feedback is a top toast ("The surcharge amount is not valid").
+  const toastError = (message) => (notify ? notify(message, 'error', { position: 'top' }) : alert(message));
 
   const [formData, setFormData] = useState({
     surchargeName: 'Surcharge',
@@ -88,7 +116,7 @@ const AddScheduleDialog = ({
     if (open) {
       loadTaxRates();
       loadClassifications();
-      
+
       if (isEditMode && schedule) {
         // Get appliesTo and stored classifications from surcharge (backend now persists these)
         const surchargeAppliesTo = schedule.surcharge?.appliesTo || schedule.appliesTo || 'All Products';
@@ -207,34 +235,27 @@ const AddScheduleDialog = ({
     }));
   };
 
-  const filteredCategories = searchTerm
-    ? categories.filter(cat =>
-        cat.name?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : categories;
-
-  const filteredTags = searchTerm
-    ? tags.filter(tag =>
-        tag.name?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : tags;
+  // Reference: nothing is listed until MIN_SEARCH_CHARS are typed ("Keep Typing to Search...").
+  const canSearch = searchTerm.trim().length >= MIN_SEARCH_CHARS;
+  const needle = searchTerm.trim().toLowerCase();
+  const filteredCategories = canSearch ? categories.filter(cat => cat.name?.toLowerCase().includes(needle)) : [];
+  const filteredTags = canSearch ? tags.filter(tag => tag.name?.toLowerCase().includes(needle)) : [];
 
   const handleSubmit = () => {
-    // Validate required fields
-        if (!formData.surchargeName.trim()) {
-      alert('Surcharge name is required');
-          return;
-        }
+    if (!formData.surchargeName.trim()) {
+      toastError('The surcharge name is not valid');
+      return;
+    }
 
     if (!formData.applyAllDay && (formData.startTime === '--:--' || formData.endTime === '--:--')) {
-      alert('Please select start and end times');
-          return;
-        }
+      toastError('The start and end times are not valid');
+      return;
+    }
 
     if (!formData.surchargeAmount || isNaN(parseFloat(formData.surchargeAmount)) || parseFloat(formData.surchargeAmount) < 0) {
-      alert('Surcharge amount must be a valid positive number');
-        return;
-      }
+      toastError('The surcharge amount is not valid');
+      return;
+    }
 
     // Determine appliesTo based on whether categories/tags are selected
     const hasSelections = formData.selectedCategories.length > 0 || formData.selectedTags.length > 0;
@@ -243,7 +264,7 @@ const AddScheduleDialog = ({
     const scheduleData = {
       ...formData,
       appliesTo: appliesTo,
-          surchargeAmount: parseFloat(formData.surchargeAmount),
+      surchargeAmount: parseFloat(formData.surchargeAmount),
       // Apply all day = full-day window
       startTime: formData.applyAllDay ? '00:00' : formData.startTime,
       endTime: formData.applyAllDay ? '23:59' : formData.endTime,
@@ -286,6 +307,51 @@ const AddScheduleDialog = ({
     return selected;
   };
 
+  const renderOptionGroup = (title, items, selectedIds, onToggle, withTopBorder) => (
+    <Box>
+      <Typography
+        sx={{
+          px: 1.5,
+          py: 0.75,
+          fontWeight: 700,
+          fontSize: 14,
+          color: '#000000',
+          borderTop: withTopBorder ? '1px solid #e0e0e0' : 'none',
+        }}
+      >
+        {title}
+      </Typography>
+      <List dense sx={{ p: 0 }}>
+        {items.map((item) => {
+          const checked = selectedIds.includes(item.id);
+          return (
+            <ListItem key={item.id} disablePadding>
+              <ListItemButton
+                onClick={() => onToggle(item.id)}
+                sx={{
+                  py: 0.25,
+                  bgcolor: checked ? '#e3f3fb' : 'transparent',
+                  '&:hover': { bgcolor: checked ? '#cfe9f7' : '#f5f5f5' },
+                }}
+              >
+                <Checkbox
+                  checked={checked}
+                  icon={<CheckBoxOutlineBlankIcon />}
+                  checkedIcon={<CheckBoxIcon />}
+                  sx={{ color: '#000000', p: 0.5 }}
+                />
+                <ListItemText
+                  primary={item.name}
+                  primaryTypographyProps={{ sx: { color: '#000000', fontSize: 14 } }}
+                />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
+      </List>
+    </Box>
+  );
+
   return (
     <Dialog
       open={open}
@@ -300,112 +366,80 @@ const AddScheduleDialog = ({
         }
       }}
     >
-      {/* Light Green Header */}
+      {/* Reference header: pale green band, dark-green pencil + title */}
       <Box sx={{
-        bgcolor: '#C8E6C9',
-        p: 1.5,
+        bgcolor: '#e6f4ea',
+        px: 2,
+        py: 1.25,
         display: 'flex',
         alignItems: 'center',
         gap: 1,
         borderTopLeftRadius: '8px',
         borderTopRightRadius: '8px'
       }}>
-        <EditIcon sx={{ color: '#16a34a', fontSize: 20 }} />
-        <Typography sx={{ fontSize: 18, fontWeight: 400, color: '#16a34a', flex: 1 }}>
+        <EditIcon sx={{ color: '#1b5e20', fontSize: 20 }} />
+        <Typography sx={{ fontSize: 18, fontWeight: 600, color: '#1b5e20', flex: 1 }}>
           {isEditMode ? 'Modify Schedule' : 'Add to Schedule'}
         </Typography>
       </Box>
 
       <DialogContent sx={{ p: 3, bgcolor: 'white' }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* Surcharge Name */}
-            <Box>
-            <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-              Surcharge Name
-              </Typography>
-                <TextField
+          <Box>
+            <Typography sx={labelSx}>Surcharge Name</Typography>
+            <TextField
               fullWidth
-                  value={formData.surchargeName}
-                  onChange={(e) => handleInputChange('surchargeName', e.target.value)}
+              value={formData.surchargeName}
+              onChange={(e) => handleInputChange('surchargeName', e.target.value)}
               variant="outlined"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  bgcolor: 'white',
-                  '& fieldset': {
-                    borderColor: '#000000',
-                    borderWidth: 2,
-                  },
-                  '&:hover fieldset': {
-                    borderColor: '#000000',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#000000',
-                  },
-                },
-              }}
+              inputProps={{ autoComplete: 'off' }}
+              sx={fieldSx}
             />
           </Box>
 
-          {/* Applies To - Multi-select with chips */}
+          {/* Applies To - search (2+ chars) over Categories and Tags, chips for picks */}
           <Box sx={{ position: 'relative' }}>
-            <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-              Applies To
-            </Typography>
+            <Typography sx={labelSx}>Applies To</Typography>
             <ClickAwayListener onClickAway={() => setShowAppliesToDropdown(false)}>
               <Box>
-                {/* Input field with chips */}
-                <Tooltip title="Restrict surcharge to product categories and tags" placement="top" arrow>
                 <Box
                   sx={{
-                    border: '2px solid #000000',
-                    borderRadius: 1,
-                    minHeight: 40,
+                    border: '1px solid #c7c7c7',
+                    borderRadius: '8px',
+                    minHeight: 42,
                     bgcolor: 'white',
-                    p: 1,
+                    px: 1,
+                    py: 0.5,
                     display: 'flex',
                     flexWrap: 'wrap',
                     gap: 0.5,
                     alignItems: 'center',
                     cursor: 'text',
-                    '&:hover': {
-                      borderColor: '#000000',
-                    },
-                    '&:focus-within': {
-                      borderColor: '#000000',
-                      borderWidth: 2,
-                    }
+                    '&:hover': { borderColor: '#8a8a8a' },
+                    '&:focus-within': { borderColor: '#000000' },
                   }}
                   onClick={() => setShowAppliesToDropdown(true)}
                 >
-                  {/* Selected chips */}
                   {getSelectedItems().map((item) => (
                     <Chip
                       key={`${item.type}-${item.id}`}
                       label={item.name}
                       onDelete={() => {
-                        if (item.type === 'category') {
-                          handleRemoveCategory(item.id);
-                        } else {
-                          handleRemoveTag(item.id);
-                        }
+                        if (item.type === 'category') handleRemoveCategory(item.id);
+                        else handleRemoveTag(item.id);
                       }}
                       deleteIcon={<CloseIcon sx={{ fontSize: 16, color: '#000000' }} />}
                       sx={{
-                        bgcolor: 'white',
+                        bgcolor: '#f1f1f1',
                         color: '#000000',
-                        border: '1px solid #000000',
-                        '& .MuiChip-deleteIcon': {
-                          color: '#000000',
-                          '&:hover': {
-                            color: '#000000',
-                          }
-                        }
+                        borderRadius: '6px',
+                        '& .MuiChip-deleteIcon': { color: '#000000', '&:hover': { color: '#000000' } },
                       }}
                       size="small"
                     />
                   ))}
-                  
-                  {/* Search input */}
+
                   <TextField
                     value={searchTerm}
                     onChange={(e) => {
@@ -413,8 +447,9 @@ const AddScheduleDialog = ({
                       setShowAppliesToDropdown(true);
                     }}
                     onFocus={() => setShowAppliesToDropdown(true)}
-                    placeholder={getSelectedItems().length === 0 ? "All Products" : ""}
+                    placeholder={getSelectedItems().length === 0 ? 'All Products' : ''}
                     variant="standard"
+                    inputProps={{ autoComplete: 'off', 'aria-label': 'Applies To search' }}
                     InputProps={{
                       disableUnderline: true,
                       endAdornment: (
@@ -435,17 +470,11 @@ const AddScheduleDialog = ({
                     sx={{
                       flex: 1,
                       minWidth: 150,
-                      '& .MuiInputBase-input': {
-                        color: '#000000',
-                        fontSize: '0.875rem',
-                        py: 0.5
-                      }
+                      '& .MuiInputBase-input': { color: '#000000', fontSize: 14, py: 0.5 },
                     }}
                   />
                 </Box>
-                </Tooltip>
 
-                {/* Dropdown for Categories and Tags */}
                 {showAppliesToDropdown && (
                   <Paper
                     sx={{
@@ -457,183 +486,62 @@ const AddScheduleDialog = ({
                       mt: 0.5,
                       maxHeight: 300,
                       overflow: 'auto',
-                      border: '2px solid #000000',
+                      border: '1px solid #c7c7c7',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                       bgcolor: 'white'
                     }}
                   >
-                    {/* Categories Section */}
-                    {filteredCategories.length > 0 && (
-                      <Box>
-                        <Typography 
-                          variant="subtitle2" 
-                          sx={{ 
-                            p: 1, 
-                            fontWeight: 'bold', 
-                            color: '#000000',
-                            borderBottom: '1px solid #e0e0e0'
-                          }}
-                        >
-                          Categories
-                        </Typography>
-                        <List dense sx={{ p: 0 }}>
-                          {filteredCategories.map((category) => (
-                            <ListItem key={category.id} disablePadding>
-                              <ListItemButton
-                                onClick={() => handleCategoryToggle(category.id)}
-                                sx={{ 
-                                  py: 0.5,
-                                  bgcolor: formData.selectedCategories.includes(category.id) ? '#E3F2FD' : 'transparent',
-                                  '&:hover': {
-                                    bgcolor: formData.selectedCategories.includes(category.id) ? '#BBDEFB' : '#F5F5F5'
-                                  }
-                                }}
-                              >
-                                <Checkbox
-                                  checked={formData.selectedCategories.includes(category.id)}
-                                  icon={<CheckBoxOutlineBlankIcon />}
-                                  checkedIcon={<CheckBoxIcon />}
-                                  sx={{ color: '#000000', p: 0.5 }}
-                                />
-                                <ListItemText 
-                                  primary={category.name}
-                                  primaryTypographyProps={{
-                                    sx: { 
-                                      color: formData.selectedCategories.includes(category.id) ? '#1976D2' : '#000000', 
-                                      fontSize: '0.875rem' 
-                                    }
-                                  }}
-                                />
-                              </ListItemButton>
-                            </ListItem>
-                          ))}
-                        </List>
+                    {!canSearch && (
+                      <Box sx={{ p: 2 }}>
+                        <Typography sx={{ color: '#757575', fontSize: 14 }}>Keep Typing to Search...</Typography>
                       </Box>
                     )}
-
-                    {/* Tags Section */}
-                    {filteredTags.length > 0 && (
-                      <Box>
-                        <Typography 
-                          variant="subtitle2" 
-                          sx={{ 
-                            p: 1, 
-                            fontWeight: 'bold', 
-                            color: '#000000',
-                            borderTop: filteredCategories.length > 0 ? '1px solid #e0e0e0' : 'none',
-                            borderBottom: '1px solid #e0e0e0'
-                          }}
-                        >
-                          Tags
-                        </Typography>
-                        <List dense sx={{ p: 0 }}>
-                          {filteredTags.map((tag) => (
-                            <ListItem key={tag.id} disablePadding>
-                              <ListItemButton
-                                onClick={() => handleTagToggle(tag.id)}
-                                sx={{ 
-                                  py: 0.5,
-                                  bgcolor: formData.selectedTags.includes(tag.id) ? '#E3F2FD' : 'transparent',
-                                  '&:hover': {
-                                    bgcolor: formData.selectedTags.includes(tag.id) ? '#BBDEFB' : '#F5F5F5'
-                                  }
-                                }}
-                              >
-                                <Checkbox
-                                  checked={formData.selectedTags.includes(tag.id)}
-                                  icon={<CheckBoxOutlineBlankIcon />}
-                                  checkedIcon={<CheckBoxIcon />}
-                                  sx={{ color: '#000000', p: 0.5 }}
-                                />
-                                <ListItemText 
-                                  primary={tag.name}
-                                  primaryTypographyProps={{
-                                    sx: { 
-                                      color: formData.selectedTags.includes(tag.id) ? '#1976D2' : '#000000', 
-                                      fontSize: '0.875rem' 
-                                    }
-                                  }}
-                                />
-                              </ListItemButton>
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Box>
-                    )}
-
-                    {filteredCategories.length === 0 && filteredTags.length === 0 && searchTerm && (
-                      <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="body2" sx={{ color: '#757575' }}>
-                          No Options
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {!searchTerm && filteredCategories.length === 0 && filteredTags.length === 0 && categories.length === 0 && tags.length === 0 && (
-                      <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="body2" sx={{ color: '#757575' }}>
-                          Keep Typing to Search...
-                  </Typography>
+                    {canSearch && filteredCategories.length > 0 &&
+                      renderOptionGroup('Categories', filteredCategories, formData.selectedCategories, handleCategoryToggle, false)}
+                    {canSearch && filteredTags.length > 0 &&
+                      renderOptionGroup('Tags', filteredTags, formData.selectedTags, handleTagToggle, filteredCategories.length > 0)}
+                    {canSearch && filteredCategories.length === 0 && filteredTags.length === 0 && (
+                      <Box sx={{ p: 2 }}>
+                        <Typography sx={{ color: '#757575', fontSize: 14 }}>No Options</Typography>
                       </Box>
                     )}
                   </Paper>
                 )}
               </Box>
             </ClickAwayListener>
-            </Box>
+          </Box>
 
-          {/* Day of Week + Apply all day */}
+          {/* Reference: Day of Week select with the "Apply all day" toggle on the same row */}
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-              Day of Week
-            </Typography>
-            <FormControl fullWidth>
-              <Select
-                value={formData.dayOfWeek}
-                onChange={(e) => handleInputChange('dayOfWeek', e.target.value)}
-                sx={{
-                  bgcolor: 'white',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#000000',
-                    borderWidth: 2,
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#000000',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#000000',
-                  },
-                }}
-              >
-                {DAYS_OF_WEEK.map((day) => (
-                  <MenuItem key={day} value={day}>
-                    {day}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Apply all day toggle - ON hides Start/End Time */}
-          <Box sx={{ pb: 0.5 }}>
-            <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-              Apply all day
-            </Typography>
-            <ShopfrontSwitch
-              checked={formData.applyAllDay}
-              onChange={(e) => handleInputChange('applyAllDay', e.target.checked)}
-            />
-          </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography sx={labelSx}>Day of Week</Typography>
+              <FormControl fullWidth>
+                <Select
+                  value={formData.dayOfWeek}
+                  onChange={(e) => handleInputChange('dayOfWeek', e.target.value)}
+                  sx={selectSx}
+                >
+                  {DAYS_OF_WEEK.map((day) => (
+                    <MenuItem key={day} value={day}>{day}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, height: 42 }}>
+              <ShopfrontSwitch
+                checked={formData.applyAllDay}
+                onChange={(e) => handleInputChange('applyAllDay', e.target.checked)}
+              />
+              <Typography sx={{ color: '#000000', fontSize: 14 }}>Apply all day</Typography>
+            </Box>
           </Box>
 
           {/* Start Time and End Time (hidden while Apply all day is on) */}
           {!formData.applyAllDay && (
-              <Box sx={{ display: 'flex', gap: 2 }}>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-                Start Time
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={labelSx}>Start Time</Typography>
                 <TextField
                   fullWidth
                   type="time"
@@ -641,24 +549,11 @@ const AddScheduleDialog = ({
                   onChange={(e) => handleInputChange('startTime', e.target.value || '--:--')}
                   InputLabelProps={{ shrink: true }}
                   inputProps={{ step: 300 }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: 'white',
-                      '& fieldset': {
-                        borderColor: '#000000',
-                        borderWidth: 2,
-                      },
-                    },
-                  }}
+                  sx={fieldSx}
                 />
               </Box>
-            </Box>
-
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-                End Time
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={labelSx}>End Time</Typography>
                 <TextField
                   fullWidth
                   type="time"
@@ -666,57 +561,38 @@ const AddScheduleDialog = ({
                   onChange={(e) => handleInputChange('endTime', e.target.value || '--:--')}
                   InputLabelProps={{ shrink: true }}
                   inputProps={{ step: 300 }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: 'white',
-                      '& fieldset': {
-                        borderColor: '#000000',
-                        borderWidth: 2,
-                      },
-                    },
-                  }}
+                  sx={fieldSx}
                 />
               </Box>
             </Box>
-          </Box>
           )}
 
           {/* Surcharge Type and Amount */}
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-                Surcharge Type
-              </Typography>
+              <Typography sx={labelSx}>Surcharge Type</Typography>
               <FormControl fullWidth>
                 <Select
                   value={formData.surchargeType}
                   onChange={(e) => handleInputChange('surchargeType', e.target.value)}
-                  sx={{
-                    bgcolor: 'white',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#000000',
-                      borderWidth: 2,
-                    },
-                  }}
+                  sx={selectSx}
                 >
                   {SURCHARGE_TYPES.map((type) => (
-                    <MenuItem key={type.value} value={type.value}>
-                      {type.label}
-                    </MenuItem>
+                    <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Box>
 
             <Box sx={{ flex: 1 }}>
-              <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-                Surcharge Amount
-              </Typography>
+              <Typography sx={labelSx}>Surcharge Amount</Typography>
               <TextField
                 fullWidth
                 type="number"
+                placeholder="Amount"
                 value={formData.surchargeAmount}
                 onChange={(e) => handleInputChange('surchargeAmount', e.target.value)}
+                inputProps={{ autoComplete: 'off', min: 0, step: 'any' }}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -726,71 +602,37 @@ const AddScheduleDialog = ({
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'white',
-                    '& fieldset': {
-                      borderColor: '#000000',
-                      borderWidth: 2,
-                    },
-                  },
-                }}
+                sx={fieldSx}
               />
             </Box>
           </Box>
 
-          {/* Tax Rate */}
+          {/* Tax Rate — reference: searchable select */}
           <Box>
-            <Typography variant="body2" sx={{ mb: 0.5, color: '#000000', fontWeight: 500 }}>
-              Tax Rate
-            </Typography>
-            <FormControl fullWidth>
-              <Select
-                value={formData.taxRate}
-                onChange={(e) => handleInputChange('taxRate', e.target.value)}
-                displayEmpty
-                renderValue={(value) => {
-                  if (!value) {
-                    return <span style={{ color: '#808080' }}>Select...</span>;
-                  }
-                  return taxRates.find((r) => r.id === value)?.name || '';
-                }}
-                sx={{
-                  bgcolor: 'white',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#000000',
-                    borderWidth: 2,
-                  },
-                }}
-                endAdornment={
-                  formData.taxRate && (
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleInputChange('taxRate', '');
-                      }}
-                      sx={{ mr: 1 }}
-                    >
-                      <CloseIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  )
-                }
-              >
-                {taxRates.map((taxRate) => (
-                  <MenuItem key={taxRate.id} value={taxRate.id}>
-                    {taxRate.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Typography sx={labelSx}>Tax Rate</Typography>
+            <Autocomplete
+              options={taxRates}
+              getOptionLabel={(option) => option?.name || ''}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={taxRates.find((r) => r.id === formData.taxRate) || null}
+              onChange={(e, value) => handleInputChange('taxRate', value?.id || '')}
+              size="small"
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select..."
+                  inputProps={{ ...params.inputProps, autoComplete: 'off' }}
+                  sx={fieldSx}
+                />
+              )}
+            />
           </Box>
         </Box>
       </DialogContent>
 
       {/* Action Buttons */}
-      <Box sx={{ 
-        p: 2, 
+      <Box sx={{
+        p: 2,
         bgcolor: 'white',
         display: 'flex',
         justifyContent: 'flex-end',
@@ -799,12 +641,11 @@ const AddScheduleDialog = ({
       }}>
         <Button
           onClick={handleClose}
+          disabled={saving}
           sx={{
             bgcolor: '#d4d4d4',
             color: '#000000',
-            '&:hover': {
-              bgcolor: '#c4c4c4',
-            },
+            '&:hover': { bgcolor: '#c4c4c4' },
             textTransform: 'none',
             minWidth: 118,
             height: 42,
@@ -831,9 +672,7 @@ const AddScheduleDialog = ({
             sx={{
               bgcolor: '#dc2626',
               color: 'white',
-              '&:hover': {
-                bgcolor: '#b91c1c',
-              },
+              '&:hover': { bgcolor: '#b91c1c' },
               textTransform: 'none',
               minWidth: 118,
               height: 42,
@@ -848,12 +687,12 @@ const AddScheduleDialog = ({
 
         <Button
           onClick={handleSubmit}
+          disabled={saving}
           sx={{
             bgcolor: '#22c55e',
             color: 'white',
-            '&:hover': {
-              bgcolor: '#16a34a',
-            },
+            '&:hover': { bgcolor: '#16a34a' },
+            '&.Mui-disabled': { bgcolor: '#9ad8ad', color: 'white' },
             textTransform: 'none',
             minWidth: 118,
             height: 42,
@@ -862,7 +701,8 @@ const AddScheduleDialog = ({
             fontSize: 16
           }}
         >
-          {isEditMode ? 'Update' : 'Add'}
+          {/* Reference: the button reads "Add..." and stays disabled while saving */}
+          {saving ? (isEditMode ? 'Update...' : 'Add...') : (isEditMode ? 'Update' : 'Add')}
         </Button>
       </Box>
     </Dialog>
