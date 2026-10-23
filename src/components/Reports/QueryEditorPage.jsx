@@ -47,6 +47,7 @@ import favouriteReportService from '../../services/favouriteReportService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import useHeaderScope from '../../hooks/useHeaderScope';
 import { printReportTable, reportPrintTitle, reportPrintRange } from '../../utils/reportPrint';
+import FavouriteRevisionsButton from './FavouriteRevisionsButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalOutlet } from '../Common/GlobalOutletFilter';
 
@@ -835,6 +836,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
           <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExport} disabled={columns.length === 0} sx={outlinedBtnSx}>Export</Button>
           <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} disabled={columns.length === 0} sx={outlinedBtnSx}>Print</Button>
           <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => { if (!customQuery.trim()) { setToast({ severity: 'warning', message: 'Please enter a query to save.' }); return; } setSaveDialogOpen(true); }} sx={outlinedBtnSx}>Save</Button>
+          <FavouriteRevisionsButton sx={outlinedBtnSx} />
         </Box>
         <Box sx={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <Button variant="outlined" startIcon={editorVisible ? <ChevronUpIcon /> : <ChevronDownIcon />} onClick={() => setEditorVisible((v) => !v)} sx={neutralBtnSx}>

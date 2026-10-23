@@ -53,6 +53,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { printReportTable, reportPrintTitle, reportPrintRange, optionLabel } from '../../utils/reportPrint';
+import { chipsToParam, chipsFromParams } from '../../utils/reportChips';
+import FavouriteRevisionsButton from '../../components/Reports/FavouriteRevisionsButton';
 import inventoryReportService from '../../services/inventoryReportService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
@@ -474,7 +476,7 @@ const InventoryReport = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
-  const [chips, setChips] = useState([]);
+  const [chips, setChips] = useState(() => chipsFromParams(searchParams));
   const suggestBoxRef = useRef(null);
   useEffect(() => {
     const term = searchTerm.trim();
@@ -1006,6 +1008,7 @@ const InventoryReport = () => {
           <Button variant="outlined" startIcon={<SaveIcon />} onClick={handleSave} sx={SKY_BUTTON_SX}>
             Save
           </Button>
+          <FavouriteRevisionsButton sx={SKY_BUTTON_SX} />
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           {hasGroups && (
@@ -1281,11 +1284,14 @@ const InventoryReport = () => {
         }}
         reportType="inventory"
         reportPath="/reports/inventory"
+        dynamicAllowed={false}
+        defaultName={`Products by ${groupBy && groupBy !== 'none' ? optionLabel(GROUP_BY_GROUPS, groupBy) : 'Product'}`}
         filters={{
           reportType,
           groupBy,
           consolidate,
           searchTerm,
+          chips: chipsToParam(chips),
           includeDeleted,
           outletId: reportOutletId(),
         }}

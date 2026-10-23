@@ -72,6 +72,8 @@ import autoTable from 'jspdf-autotable';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { printReportTable, reportPrintTitle, reportPrintRange, optionLabel } from '../../utils/reportPrint';
+import { chipsToParam, chipsFromParams } from '../../utils/reportChips';
+import FavouriteRevisionsButton from '../../components/Reports/FavouriteRevisionsButton';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
 
@@ -749,7 +751,7 @@ const SalesReport = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
-  const [chips, setChips] = useState([]);
+  const [chips, setChips] = useState(() => chipsFromParams(searchParams));
   const suggestBoxRef = useRef(null);
   useEffect(() => {
     const term = searchTerm.trim();
@@ -1729,6 +1731,7 @@ const SalesReport = () => {
               >
                 Save
               </Button>
+              <FavouriteRevisionsButton sx={SKY_BUTTON_SX} />
             </Box>
             {!isPrecisionMode && (
               <Button
@@ -2205,6 +2208,7 @@ const SalesReport = () => {
           }}
           reportType="sales"
           reportPath="/reports/sales"
+          defaultName={`Sales by ${optionLabel(reportTypeGroups, reportType)}${groupBy && groupBy !== 'none' ? ` grouped by ${optionLabel(groupByGroups, groupBy)}` : ''}`}
           filters={{
             reportType,
             groupBy,
@@ -2212,6 +2216,7 @@ const SalesReport = () => {
             consolidate,
             precision,
             searchTerm,
+            chips: chipsToParam(chips),
             includeDeleted,
             startDate: dateRange.startDate?.toISOString(),
             endDate: dateRange.endDate?.toISOString(),

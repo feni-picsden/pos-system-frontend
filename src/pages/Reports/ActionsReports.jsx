@@ -52,6 +52,8 @@ import {
 } from '@mui/icons-material';
 import { format as formatDate } from 'date-fns';
 import { printReportTable, reportPrintTitle, reportPrintRange } from '../../utils/reportPrint';
+import { chipsToParam, chipsFromParams } from '../../utils/reportChips';
+import FavouriteRevisionsButton from '../../components/Reports/FavouriteRevisionsButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import actionsReportService from '../../services/actionsReportService';
@@ -443,7 +445,7 @@ const ActionsReports = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
-  const [chips, setChips] = useState([]);
+  const [chips, setChips] = useState(() => chipsFromParams(searchParams));
   const suggestBoxRef = useRef(null);
   useEffect(() => {
     const term = searchTerm.trim();
@@ -769,6 +771,7 @@ const ActionsReports = () => {
             <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExport} sx={SKY_BUTTON_SX}>Export</Button>
             <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={SKY_BUTTON_SX}>Print</Button>
             <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)} sx={SKY_BUTTON_SX}>Save</Button>
+            <FavouriteRevisionsButton sx={SKY_BUTTON_SX} />
           </Box>
           <Button variant="outlined" startIcon={<ColumnsIcon />} onClick={(e) => setColumnsAnchorEl(e.currentTarget)} sx={SKY_BUTTON_SX}>Columns</Button>
         </Box>
@@ -941,12 +944,14 @@ const ActionsReports = () => {
         onClose={() => setSaveDialogOpen(false)}
         reportType="actions"
         reportPath="/reports/actions"
+        defaultName={`Actions by ${REPORT_TYPE_LABEL[reportType] || reportType}`}
         filters={{
           reportType,
           dateTime: dateRange.preset,
           startDate: dateRange.startDate ? dateRange.startDate.toISOString() : null,
           endDate: dateRange.endDate ? dateRange.endDate.toISOString() : null,
           searchTerm,
+          chips: chipsToParam(chips),
           includeDeleted,
           outletId: reportOutletId(),
         }}

@@ -83,6 +83,7 @@ import MiscellaneousReports from "./pages/Reports/MiscellaneousReports";
 import InventoryAtDate from "./pages/Reports/InventoryAtDate";
 import SlowMovingStock from "./pages/Reports/SlowMovingStock";
 import FavouriteReports from "./pages/Reports/FavouriteReports";
+import FavouriteReportRevisions from "./pages/Reports/FavouriteReportRevisions";
 import StocktakedProducts from "./pages/Reports/StocktakedProducts";
 import ProductRevisionHistory from "./pages/Reports/ProductRevisionHistory";
 import InventoryMovement from "./pages/Reports/InventoryMovement";
@@ -1112,6 +1113,16 @@ function App() {
                               requiredPermissions={["reports.view"]}
                             >
                               <FavouriteReports />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/reports/favourite/:id/revisions"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["reports.view"]}
+                            >
+                              <FavouriteReportRevisions />
                             </PermissionProtectedRoute>
                           }
                         />

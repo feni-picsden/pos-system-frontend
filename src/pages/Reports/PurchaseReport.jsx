@@ -53,6 +53,8 @@ import {
 } from '@mui/icons-material';
 import { format as formatDate } from 'date-fns';
 import { printReportTable, reportPrintTitle, reportPrintRange, optionLabel } from '../../utils/reportPrint';
+import { chipsToParam, chipsFromParams } from '../../utils/reportChips';
+import FavouriteRevisionsButton from '../../components/Reports/FavouriteRevisionsButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import purchaseReportService from '../../services/purchaseReportService';
@@ -493,7 +495,7 @@ const PurchaseReport = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
-  const [chips, setChips] = useState([]);
+  const [chips, setChips] = useState(() => chipsFromParams(searchParams));
   const suggestBoxRef = useRef(null);
   useEffect(() => {
     const term = searchTerm.trim();
@@ -926,6 +928,7 @@ const PurchaseReport = () => {
             <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExport} sx={SKY_BUTTON_SX}>Export</Button>
             <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={SKY_BUTTON_SX}>Print</Button>
             <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)} sx={SKY_BUTTON_SX}>Save</Button>
+            <FavouriteRevisionsButton sx={SKY_BUTTON_SX} />
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             {hasGroups && (
@@ -1160,6 +1163,7 @@ const PurchaseReport = () => {
         onClose={() => setSaveDialogOpen(false)}
         reportType="purchase"
         reportPath="/reports/purchases"
+        defaultName={`Orders by ${REPORT_TYPE_LABEL[reportType] || reportType}${groupBy && groupBy !== 'none' ? ` grouped by ${optionLabel(groupByGroups, groupBy)}` : ''}`}
         filters={{
           reportType,
           groupBy,
@@ -1169,6 +1173,7 @@ const PurchaseReport = () => {
           startDate: dateRange.startDate ? dateRange.startDate.toISOString() : null,
           endDate: dateRange.endDate ? dateRange.endDate.toISOString() : null,
           searchTerm,
+          chips: chipsToParam(chips),
           includeDeleted,
           outletId: reportOutletId(),
         }}

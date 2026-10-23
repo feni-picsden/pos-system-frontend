@@ -52,15 +52,20 @@ const PANEL_SHADOW = '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0
 const FILTER_LABEL_SX = { mb: 0.5, fontSize: 16, fontWeight: 400, color: '#000', letterSpacing: 'normal' };
 
 // Report type catalog — texts and order as on the reference Favourite Reports screen.
+// Each option lists every saved reportType it matches (pages save their own
+// names: transfer, product-revision-history, slow-moving-stock, inventory-at-date).
 const REPORT_TYPE_OPTIONS = [
-  { value: 'actions', label: 'Actions' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'inventory', label: 'Inventory' },
-  { value: 'purchase', label: 'Purchase' },
-  { value: 'sales', label: 'Sales' },
-  { value: 'revision', label: 'Revision' },
-  { value: 'inventory-movement', label: 'Inventory Movement' },
+  { value: 'actions', label: 'Actions', types: ['actions'] },
+  { value: 'advanced', label: 'Advanced', types: ['advanced'] },
+  { value: 'inventory', label: 'Inventory', types: ['inventory', 'inventory-at-date', 'slow-moving-stock'] },
+  { value: 'purchase', label: 'Purchase', types: ['purchase'] },
+  { value: 'sales', label: 'Sales', types: ['sales'] },
+  { value: 'transfer', label: 'Transfers', types: ['transfer', 'transfers'] },
+  { value: 'revision', label: 'Revision', types: ['revision', 'product-revision-history'] },
+  { value: 'inventory-movement', label: 'Inventory Movement', types: ['inventory-movement'] },
 ];
+const reportTypeMatches = (selected, type) =>
+  selected.some((v) => (REPORT_TYPE_OPTIONS.find((o) => o.value === v)?.types || [v]).includes(type));
 
 const EMAIL_FILTER_OPTIONS = [
   { value: 'disabled', label: 'No Email' },
@@ -321,13 +326,42 @@ const FavouriteReports = () => {
     }
   };
 
+  // Reference "Dynamic Time Period": the saved report re-runs over the last
+  // <amount> <period> ending yesterday (or today when "Include today" is on).
+  const dynamicRange = (dyn) => {
+    const amount = Math.max(1, parseInt(dyn?.amount, 10) || 1);
+    const now = new Date();
+    const end = new Date(now);
+    if (!dyn?.includeToday) end.setDate(end.getDate() - 1);
+    end.setHours(23, 59, 59, 999);
+    const start = new Date(end);
+    start.setHours(0, 0, 0, 0);
+    switch (dyn?.period) {
+      case 'Week(s)': start.setDate(start.getDate() - amount * 7 + 1); break;
+      case 'Month(s)': start.setMonth(start.getMonth() - amount); start.setDate(start.getDate() + 1); break;
+      case 'Year(s)': start.setFullYear(start.getFullYear() - amount); start.setDate(start.getDate() + 1); break;
+      default: start.setDate(start.getDate() - amount + 1);
+    }
+    return { start, end };
+  };
+
   const handleView = (report) => {
     // Navigate to the report with saved filters
     const path = report.reportPath;
-    const filters = report.filters || {};
+    const filters = { ...(report.filters || {}) };
+    const dyn = filters.dynamic;
+    delete filters.dynamic;
+    if (dyn && dyn.amount) {
+      const { start, end } = dynamicRange(dyn);
+      filters.dateTime = 'custom';
+      filters.startDate = start.toISOString();
+      filters.endDate = end.toISOString();
+    }
 
     // Build query string from filters
     const queryParams = new URLSearchParams();
+    // The report page shows "Revisions" and Save updates this favourite.
+    queryParams.append('favouriteId', String(report.id));
     Object.keys(filters).forEach(key => {
       if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') {
         if (Array.isArray(filters[key])) {
@@ -433,10 +467,9 @@ const FavouriteReports = () => {
     setTimePeriod(initialTimePeriod);
     setCustomPeriod(storedPeriod || 'P14D');
 
-    // Calculate or use existing next email date
+    // Show the stored next email date as-is (reference); only compute one when none is saved yet.
     const existingDate = report.nextEmailDate ? new Date(report.nextEmailDate) : null;
-    const calculatedDate = calculateNextEmailDate(initialTimePeriod, existingDate);
-    setNextEmailDate(calculatedDate);
+    setNextEmailDate(existingDate && !Number.isNaN(existingDate.getTime()) ? existingDate : calculateNextEmailDate(initialTimePeriod));
 
     setSettingsDialogOpen(true);
   };
@@ -532,14 +565,16 @@ const FavouriteReports = () => {
   };
 
   const getReportTypeLabel = (type) => {
-    const option = REPORT_TYPE_OPTIONS.find(opt => opt.value === type);
+    const SPECIFIC = { 'inventory-at-date': 'Inventory At Date', 'slow-moving-stock': 'Slow Moving Stock', 'product-revision-history': 'Product Revision History' };
+    if (SPECIFIC[type]) return SPECIFIC[type];
+    const option = REPORT_TYPE_OPTIONS.find(opt => opt.value === type || opt.types.includes(type));
     return option ? option.label : type;
   };
 
   // Report-type multi-select is applied client-side (empty selection = all).
   const displayedReports = reportTypes.length === 0
     ? reports
-    : reports.filter(r => reportTypes.includes(r.reportType));
+    : reports.filter(r => reportTypeMatches(reportTypes, r.reportType));
 
   // Shared outlined field styling (parity: #404040 border, 8px radius).
   const outlinedSx = {
@@ -615,11 +650,15 @@ const FavouriteReports = () => {
         </Box>
       </Box>
 
-      {/* Reports Table */}
+      {/* Reports Table — reference: no header at all when nothing matches, just the line */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
+      ) : displayedReports.length === 0 ? (
+        <Typography sx={{ fontSize: 18, color: '#404040', textAlign: 'center', py: 8 }}>
+          No reports found. Change the filters and try again.
+        </Typography>
       ) : (
         <TableContainer>
           <Table sx={{ borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
@@ -657,16 +696,7 @@ const FavouriteReports = () => {
                 '& tr:first-of-type td:last-of-type': { borderTopRightRadius: '12px' },
               }}
             >
-              {displayedReports.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                    <Typography sx={{ fontSize: 16, color: '#737373' }}>
-                      No favourite reports found.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                displayedReports.map((report) => (
+              {displayedReports.map((report) => (
                   <TableRow key={report.id}>
                     <TableCell>
                       <Box sx={{ maxWidth: '30vw' }}>
@@ -689,7 +719,7 @@ const FavouriteReports = () => {
                       <Box>
                         <Typography sx={{ fontSize: 16, color: '#000' }}>{formatDate(report.updatedAt)}</Typography>
                         <Typography sx={{ fontSize: 14, color: '#4b5563' }}>
-                          {report.updatedBy || 'Crinit\'s Shop'}
+                          {report.updatedBy || report.user?.name || 'Shopfront'}
                         </Typography>
                       </Box>
                     </TableCell>
@@ -737,8 +767,7 @@ const FavouriteReports = () => {
                       </Box>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -781,11 +810,12 @@ const FavouriteReports = () => {
           <EditIcon sx={{ fontSize: 20 }} />
           Email Settings
         </DialogTitle>
-        <DialogContent sx={{ pt: 2, px: 2, pb: 1 }}>
+        {/* MUI zeroes the top padding of a DialogContent that follows a DialogTitle — keep the gap. */}
+        <DialogContent sx={{ pt: '20px !important', px: 2, pb: 1 }}>
           {selectedReport && (
             <Box>
               {/* Report Name */}
-              <Typography sx={{ mb: 2, fontSize: 16, color: '#000' }}>
+              <Typography sx={{ mb: 2, fontSize: 16, fontWeight: 600, color: '#000' }}>
                 {selectedReport.name}
               </Typography>
 
@@ -822,61 +852,56 @@ const FavouriteReports = () => {
               {/* Show all email settings only when enabled */}
               {emailEnabled && (
                 <>
-                  {/* Export Type and Page Orientation Row */}
-                  <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Export Type</InputLabel>
-                      <Select
-                        value={exportType}
-                        onChange={(e) => setExportType(e.target.value)}
-                        label="Export Type"
-                      >
-                        <MenuItem value="PDF">PDF</MenuItem>
-                        <MenuItem value="CSV">CSV</MenuItem>
-                        <MenuItem value="XLSX">XLSX</MenuItem>
-                        <MenuItem value="JSON">JSON</MenuItem>
-                      </Select>
-                    </FormControl>
-
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Page Orientation</InputLabel>
-                      <Select
-                        value={pageOrientation}
-                        onChange={(e) => setPageOrientation(e.target.value)}
-                        label="Page Orientation"
-                      >
-                        <MenuItem value="Portrait">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DescriptionIcon sx={{ fontSize: 18 }} />
-                            Portrait
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="Landscape">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DescriptionIcon sx={{ fontSize: 18, transform: 'rotate(90deg)' }} />
-                            Landscape
-                          </Box>
-                        </MenuItem>
-                      </Select>
-                    </FormControl>
+                  {/* Reference row: Export Type | Time Period (labels above the fields) */}
+                  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Export Type</Typography>
+                      <FormControl fullWidth size="small">
+                        <Select value={exportType} onChange={(e) => setExportType(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}>
+                          <MenuItem value="PDF">PDF</MenuItem>
+                          <MenuItem value="CSV">CSV</MenuItem>
+                          <MenuItem value="XLSX">XLSX</MenuItem>
+                          <MenuItem value="JSON">JSON</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Time Period</Typography>
+                      <FormControl fullWidth size="small">
+                        <Select value={timePeriod} onChange={(e) => handleTimePeriodChange(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}>
+                          <MenuItem value="Every 5 minutes">Every 5 minutes</MenuItem>
+                          <MenuItem value="Daily">Daily</MenuItem>
+                          <MenuItem value="Weekly">Weekly</MenuItem>
+                          <MenuItem value="Fortnightly">Fortnightly</MenuItem>
+                          <MenuItem value="Monthly">Monthly</MenuItem>
+                          <MenuItem value="Custom">Custom</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
                   </Box>
 
-                  {/* Time Period */}
-                  <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                    <InputLabel>Time Period</InputLabel>
-                    <Select
-                      value={timePeriod}
-                      onChange={(e) => handleTimePeriodChange(e.target.value)}
-                      label="Time Period"
-                    >
-                      <MenuItem value="Every 5 minutes">Every 5 minutes</MenuItem>
-                      <MenuItem value="Daily">Daily</MenuItem>
-                      <MenuItem value="Weekly">Weekly</MenuItem>
-                      <MenuItem value="Fortnightly">Fortnightly</MenuItem>
-                      <MenuItem value="Monthly">Monthly</MenuItem>
-                      <MenuItem value="Custom">Custom</MenuItem>
-                    </Select>
-                  </FormControl>
+                  {/* Page Orientation only matters for a PDF export */}
+                  {exportType === 'PDF' && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Page Orientation</Typography>
+                      <FormControl fullWidth size="small">
+                        <Select value={pageOrientation} onChange={(e) => setPageOrientation(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}>
+                          <MenuItem value="Portrait">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <DescriptionIcon sx={{ fontSize: 18 }} />
+                              Portrait
+                            </Box>
+                          </MenuItem>
+                          <MenuItem value="Landscape">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <DescriptionIcon sx={{ fontSize: 18, transform: 'rotate(90deg)' }} />
+                              Landscape
+                            </Box>
+                          </MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  )}
 
                   {/* Custom: anchor date + ISO 8601 period, per the help docs */}
                   {timePeriod === 'Custom' && (
@@ -908,11 +933,11 @@ const FavouriteReports = () => {
 
                   {/* Email Addresses */}
                   <Box sx={{ mb: 1 }}>
-                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                    <Typography sx={{ mb: 0.5, fontSize: 16, color: '#000' }}>
                       Emails
                     </Typography>
                     {emailAddresses.map((email, index) => (
-                      <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Box key={index} sx={{ mb: 1 }}>
                         <TextField
                           fullWidth
                           size="small"
@@ -920,16 +945,16 @@ const FavouriteReports = () => {
                           value={email}
                           onChange={(e) => handleEmailChange(index, e.target.value)}
                           placeholder="Email Address"
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', pr: 0.5 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
+                          InputProps={{
+                            // Remove icon inside the field so every input lines up with the selects above.
+                            endAdornment: emailAddresses.length > 1 ? (
+                              <IconButton size="small" onClick={() => handleRemoveEmail(index)} aria-label="Remove email address" edge="end">
+                                <CloseIcon sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            ) : null,
+                          }}
                         />
-                        {emailAddresses.length > 1 && (
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveEmail(index)}
-                            aria-label="Remove email address"
-                          >
-                            <CloseIcon sx={{ fontSize: 18 }} />
-                          </IconButton>
-                        )}
                       </Box>
                     ))}
                     <Button

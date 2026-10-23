@@ -41,6 +41,12 @@ const favouriteReportService = {
     }
   },
 
+  // Reference "Report Revision History" rows for a saved report.
+  getRevisions: async (id) => {
+    const response = await apiClient.get(`/favourite-reports/${id}/revisions`);
+    return response.data;
+  },
+
   delete: async (id) => {
     try {
       const response = await apiClient.delete(`/favourite-reports/${id}`);
