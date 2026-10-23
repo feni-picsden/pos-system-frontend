@@ -46,6 +46,9 @@ import salesReportService from '../../services/salesReportService';
 import favouriteReportService from '../../services/favouriteReportService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { printReportTable, reportPrintTitle, reportPrintRange } from '../../utils/reportPrint';
+import { useAuth } from '../../contexts/AuthContext';
+import { useGlobalOutlet } from '../Common/GlobalOutletFilter';
 
 // ───────────────────────────────────────────── reference styles
 const INSTANT = 'none';
@@ -438,6 +441,8 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [queryName, setQueryName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const { getOutletId } = useAuth();
+  const { globalMode, outlets: allOutlets } = useGlobalOutlet();
 
   // Date range handed over by the Sales Report page (Edit) or a saved report.
   const dateParams = useMemo(() => ({
@@ -650,34 +655,18 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
   };
 
   // Print --------------------------------------------------------------------
+  // Reference print: store name, report title, date range, black-rule table.
   const handlePrint = () => {
     if (reportData.length === 0) { setToast({ severity: 'warning', message: 'Please execute a query first to print results.' }); return; }
-    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    const html = `
-      <div id="print-content">
-        <style>
-          @media print { body * { visibility: hidden; } #print-content, #print-content * { visibility: visible; } #print-content { position: absolute; left: 0; top: 0; width: 100%; } }
-          #print-content { font-family: Arial, sans-serif; padding: 16px; font-size: 12px; }
-          #print-content table { width: 100%; border-collapse: collapse; }
-          #print-content th { background: #5ebbeb; color: #f8f8f8; font-weight: 700; text-transform: uppercase; padding: 6px 8px; text-align: left; }
-          #print-content td { padding: 6px 8px; border-bottom: 1px solid #eee; }
-          #print-content tr:nth-child(even) td { background: #f8f8f8; }
-          #print-content tr.total td { background: #5ebbeb; color: #f8f8f8; font-weight: 700; }
-          #print-content td.num, #print-content th.num { text-align: center; }
-        </style>
-        <table>
-          <thead><tr>${columns.map((c) => `<th class="${c.text ? '' : 'num'}">${esc(c.label)}</th>`).join('')}</tr></thead>
-          <tbody>
-            ${tableRows().map((r, ri) => `<tr${sortedData[ri]._group || sortedData[ri]._groupTotal ? ' style="background:#e8e8e8"' : ''}>${r.map((v, i) => `<td class="${columns[i].text ? '' : 'num'}"${i === 0 && sortedData[ri]._child ? ' style="padding-left:28px"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}
-            <tr class="total">${totalRowCells().map((v, i) => `<td class="${columns[i].text ? '' : 'num'}">${esc(v)}</td>`).join('')}</tr>
-          </tbody>
-        </table>
-      </div>`;
-    document.getElementById('print-content')?.remove();
-    const holder = document.createElement('div');
-    holder.innerHTML = html;
-    document.body.appendChild(holder);
-    setTimeout(() => { window.print(); setTimeout(() => holder.remove(), 100); }, 100);
+    const rows = tableRows();
+    printReportTable({
+      title: reportPrintTitle(allOutlets, globalMode, getOutletId()),
+      subtitle: title,
+      range: reportPrintRange({ preset: dateParams.dateTime, startDate: dateParams.startDate, endDate: dateParams.endDate }),
+      headers: columns.map((c, i) => ({ label: c.label, align: i === 0 ? 'left' : 'center' })),
+      rows: rows.map((cells, ri) => ({ cells, indent: !!sortedData[ri]?._child, bold: !!(sortedData[ri]?._group || sortedData[ri]?._groupTotal) })),
+      totals: totalRowCells(),
+    });
   };
 
   // Save ---------------------------------------------------------------------

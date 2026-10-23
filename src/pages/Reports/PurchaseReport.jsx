@@ -52,6 +52,7 @@ import {
   FolderOutlined as FolderOutlinedIcon,
 } from '@mui/icons-material';
 import { format as formatDate } from 'date-fns';
+import { printReportTable, reportPrintTitle, reportPrintRange, optionLabel } from '../../utils/reportPrint';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import purchaseReportService from '../../services/purchaseReportService';
@@ -735,56 +736,18 @@ const PurchaseReport = () => {
     link.click();
   };
 
+  // Reference print: store name, "<Report Type> by <Group By>", date range, black-rule table.
   const handlePrint = () => {
-    const printContent = `
-      <div id="print-content" style="display: none;">
-        <style>
-          @media print {
-            body * { visibility: hidden; }
-            #print-content, #print-content * { visibility: visible; }
-            #print-content { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
-          }
-          #print-content { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
-          #print-content h1 { font-size: 24px; margin-bottom: 20px; color: #333; }
-          #print-content .report-info { margin-bottom: 20px; padding: 10px; background: #f5f5f5; border-radius: 4px; }
-          #print-content .report-info p { margin: 5px 0; font-size: 13px; color: #666; }
-          #print-content table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          #print-content th, #print-content td { padding: 8px; text-align: left; border: 1px solid #ddd; }
-          #print-content th { background-color: #2196f3; color: white; font-weight: bold; font-size: 11px; text-align: center; }
-          #print-content td { font-size: 11px; }
-          #print-content td:not(:first-child) { text-align: right; }
-          #print-content tr:nth-child(even) { background-color: #f9f9f9; }
-          #print-content .child-row td:first-child { padding-left: 24px; font-style: italic; color: #666; }
-          #print-content .total-row { background-color: #5ebbeb !important; }
-          #print-content .total-row td { font-weight: bold; color: white; }
-        </style>
-        <h1>Purchase Report</h1>
-        <div class="report-info">
-          <p><strong>Report Type:</strong> ${REPORT_TYPE_LABEL[reportType] || reportType}</p>
-          <p><strong>Group By:</strong> ${groupBy}</p>
-          <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-        </div>
-        <table>
-          <thead><tr><th>Name</th>${shownColumns.map((col) => `<th>${col.headerLabel}</th>`).join('')}</tr></thead>
-          <tbody>
-            ${flattenReportData().map((row) => `
-              <tr${row.isChild ? ' class="child-row"' : ''}${row.isParent || row.isTotalRow ? ' style="background:#e8e8e8"' : ''}>
-                <td>${row.name}</td>
-                ${shownColumns.map((col) => `<td>${cellText(row, col)}</td>`).join('')}
-              </tr>`).join('')}
-            ${reportData.length > 0 ? `<tr class="total-row"><td></td>${shownColumns.map((col) => `<td>${totalText(col)}</td>`).join('')}</tr>` : ''}
-          </tbody>
-        </table>
-      </div>`;
-    const existing = document.getElementById('print-content');
-    if (existing) existing.remove();
-    const printDiv = document.createElement('div');
-    printDiv.innerHTML = printContent;
-    document.body.appendChild(printDiv);
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => { const el = document.getElementById('print-content'); if (el) el.remove(); }, 100);
-    }, 100);
+    const typeLabel = REPORT_TYPE_LABEL[reportType] || reportType;
+    const byLabel = groupBy && groupBy !== 'none' ? optionLabel(groupByGroups, groupBy) : typeLabel;
+    printReportTable({
+      title: reportPrintTitle(allOutlets, globalMode, getOutletId()),
+      subtitle: `${typeLabel} by ${byLabel}`,
+      range: reportPrintRange(dateRange),
+      headers: [{ label: 'Name', align: 'left' }, ...shownColumns.map((col) => ({ label: col.label || col.headerLabel, align: 'center' }))],
+      rows: flattenReportData().map((row) => ({ cells: [row.name, ...shownColumns.map((col) => cellText(row, col))], indent: !!row.isChild, bold: !!(row.isParent || row.isTotalRow) })),
+      totals: reportData.length > 0 ? ['', ...shownColumns.map((col) => totalText(col))] : null,
+    });
   };
 
   const align = (col) => (col.numeric ? 'center' : 'left');

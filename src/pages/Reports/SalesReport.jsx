@@ -71,6 +71,8 @@ const { jsPDF } = await import('jspdf');
 import autoTable from 'jspdf-autotable';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import { printReportTable, reportPrintTitle, reportPrintRange, optionLabel } from '../../utils/reportPrint';
+import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
 
 // Reference formats $11,686.18 / 1,914 (thousands separators).
@@ -848,6 +850,7 @@ const SalesReport = () => {
 
   // All Outlets (no header outlet / register): Outlet filter. 'all' = every outlet.
   const { globalMode, outlets: allOutlets } = useGlobalOutlet();
+  const { getOutletId } = useAuth();
   const [outletFilterId, setOutletFilterId] = useState('all');
   useEffect(() => { if (!globalMode) setOutletFilterId('all'); }, [globalMode]);
   const outletGroups = [{ items: [{ value: 'all', label: 'All Outlets' }, ...allOutlets.map((o) => ({ value: String(o.id), label: o.name }))] }];
@@ -1319,201 +1322,34 @@ const SalesReport = () => {
 
     const flatData = isPrecisionMode ? reportData : flattenReportData();
 
-    // Build HTML for print
-    const printContent = `
-      <div id="print-content" style="display: none;">
-        <style>
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            #print-content, #print-content * {
-              visibility: visible;
-            }
-            #print-content {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              display: block !important;
-            }
-          }
-          #print-content {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            font-size: 12px;
-          }
-          #print-content h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: #333;
-          }
-          #print-content .report-info {
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 4px;
-          }
-          #print-content .report-info p {
-            margin: 5px 0;
-            font-size: 13px;
-            color: #666;
-          }
-          #print-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-          }
-          #print-content th, #print-content td {
-            padding: 8px;
-            text-align: left;
-            border: 1px solid #ddd;
-          }
-          #print-content th {
-            background-color: #2196f3;
-            color: white;
-            font-weight: bold;
-            font-size: 11px;
-            text-align: center;
-            white-space: nowrap;
-          }
-          #print-content td {
-            font-size: 11px;
-            white-space: nowrap;
-          }
-          #print-content td:first-child {
-            font-weight: 500;
-          }
-          #print-content td:not(:first-child) {
-            text-align: center;
-          }
-          @page { size: landscape; margin: 10mm; }
-          #print-content tr:nth-child(even) {
-            background-color: #f9f9f9;
-          }
-          #print-content .child-row td:first-child {
-            padding-left: 24px;
-            font-style: italic;
-            color: #666;
-            font-weight: normal;
-          }
-          #print-content .total-row {
-            background-color: #e3f2fd !important;
-            font-weight: bold;
-          }
-          #print-content .total-row td {
-            font-weight: bold;
-            color: #000;
-          }
-          @media print {
-            #print-content {
-              padding: 10px;
-            }
-            #print-content table {
-              page-break-inside: auto;
-            }
-            #print-content tr {
-              page-break-inside: avoid;
-              page-break-after: auto;
-            }
-          }
-        </style>
-        <h1>Sales Report</h1>
-        <div class="report-info">
-          <p><strong>Report Type:</strong> ${reportType}</p>
-          <p><strong>Group By:</strong> ${groupBy}</p>
-          ${isPrecisionMode ? `<p><strong>Precision:</strong> ${precision}</p>` : ''}
-          <p><strong>Date Range:</strong> ${dateRange.preset === 'custom' ? `${dateRange.startDate?.toLocaleDateString()} - ${dateRange.endDate?.toLocaleDateString()}` : dateRange.preset}</p>
-          <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              ${columnsToShow.map(col => `<th>${col.label}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${flatData.map(row => `
-              <tr${row.isChild ? ' class="child-row"' : ''}>
-                <td>${row.name}</td>
-                ${columnsToShow.map(col => {
-                  const value = row[col.key];
-                  let formattedValue;
-                  if (isPrecisionMode) {
-                    // For precision mode, all values are revenue amounts
-                    formattedValue = value ? formatCurrency(value) : '$0.00';
-                  } else if (col.render) {
-                    // Same formatting as the on-screen table (Average Sale is computed, counts 1,234).
-                    formattedValue = col.render(row);
-                  } else {
-                    formattedValue = value || 0;
-                  }
-                  return `<td>${formattedValue}</td>`;
-                }).join('')}
-              </tr>
-            `).join('')}
-            ${reportData.length > 0 && !isPrecisionMode ? `
-              <tr class="total-row">
-                <td>Total</td>
-                ${columnsToShow.map(col => {
-                  let totalValue;
-                  if (col.key === 'averageSale') {
-                    totalValue = formatCurrency(
-                      reportData.reduce((sum, row) => sum + (row.revenue || 0), 0) /
-                      reportData.reduce((sum, row) => sum + (row.transactionCount || 0), 0) || 0
-                    );
-                  } else if (col.key === 'profitPercentage') {
-                    totalValue = `${totalProfitPercentage(reportData).toFixed(2)}%`;
-                  } else if (col.key === 'revenuePercentage' || col.key === 'transactionPercentage') {
-                    totalValue = `${reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0).toFixed(2)}%`;
-                  } else if (col.key === 'markup') {
-                    totalValue = `${((reportData.reduce((sum, row) => sum + (row.profit || 0), 0) / reportData.reduce((sum, row) => sum + (row.costOfGoods || 1), 0)) * 100 || 0).toFixed(2)}%`;
-                  } else if (col.key.includes('Amount') || ['revenue', 'revenueEx', 'costOfGoods', 'costOfGoodsEx', 'profit', 'profitEx'].includes(col.key) || col.key === 'taxAmount' || col.key === 'discountAmount' || col.key === 'expectedRebate' || col.key === 'promotionalSavings') {
-                    totalValue = formatCurrency(reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0));
-                  } else {
-                    totalValue = formatCount(reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0));
-                  }
-                  return `<td>${totalValue}</td>`;
-                }).join('')}
-              </tr>
-            ` : ''}
-            ${isPrecisionMode && reportData.length > 0 ? `
-              <tr class="total-row">
-                <td>Total</td>
-                ${columnsToShow.map(col => {
-                  const totalValue = reportData.reduce((sum, row) => sum + (row[col.key] || 0), 0);
-                  return `<td>$${totalValue.toFixed(2)}</td>`;
-                }).join('')}
-              </tr>
-            ` : ''}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    // Remove any existing print content
-    const existingPrintContent = document.getElementById('print-content');
-    if (existingPrintContent) {
-      existingPrintContent.remove();
-    }
-
-    // Add print content to document
-    const printDiv = document.createElement('div');
-    printDiv.innerHTML = printContent;
-    document.body.appendChild(printDiv);
-    
-    // Trigger print
-    setTimeout(() => {
-    window.print();
-      // Clean up after print (or cancel)
-      setTimeout(() => {
-        const printElement = document.getElementById('print-content');
-        if (printElement) {
-          printElement.remove();
-        }
-      }, 100);
-    }, 100);
+    // Reference print: store name, "<Report Type> by <Group By>", date range, black-rule table.
+    const typeLabel = optionLabel(reportTypeGroups, reportType);
+    const byLabel = groupBy && groupBy !== 'none' ? optionLabel(groupByGroups, groupBy) : typeLabel;
+    const cell = (row, col) => {
+      const value = row[col.key];
+      if (isPrecisionMode) return value ? formatCurrency(value) : '$0.00';
+      if (col.render) return col.render(row);
+      return value || 0;
+    };
+    const money = (key) => key.includes('Amount') || ['revenue', 'revenueEx', 'costOfGoods', 'costOfGoodsEx', 'profit', 'profitEx', 'taxAmount', 'discountAmount', 'expectedRebate', 'promotionalSavings'].includes(key);
+    const sum = (key) => reportData.reduce((s, row) => s + (row[key] || 0), 0);
+    const total = (col) => {
+      if (isPrecisionMode) return `$${sum(col.key).toFixed(2)}`;
+      if (col.key === 'averageSale') return formatCurrency(sum('revenue') / sum('transactionCount') || 0);
+      if (col.key === 'profitPercentage') return `${totalProfitPercentage(reportData).toFixed(2)}%`;
+      if (col.key === 'revenuePercentage' || col.key === 'transactionPercentage') return `${sum(col.key).toFixed(2)}%`;
+      if (col.key === 'markup') return `${((sum('profit') / reportData.reduce((s, row) => s + (row.costOfGoods || 1), 0)) * 100 || 0).toFixed(2)}%`;
+      if (money(col.key)) return formatCurrency(sum(col.key));
+      return formatCount(sum(col.key));
+    };
+    printReportTable({
+      title: reportPrintTitle(allOutlets, globalMode, getOutletId()),
+      subtitle: `${typeLabel} by ${byLabel}`,
+      range: reportPrintRange(dateRange),
+      headers: [{ label: 'Name', align: 'left' }, ...columnsToShow.map((col) => ({ label: col.label || col.headerLabel, align: 'center' }))],
+      rows: flatData.map((row) => ({ cells: [row.name, ...columnsToShow.map((col) => cell(row, col))], indent: !!row.isChild, bold: !!(row.isParent || row.isTotalRow) })),
+      totals: reportData.length > 0 ? ['', ...columnsToShow.map((col) => total(col))] : null,
+    });
   };
 
   const handleSave = () => {

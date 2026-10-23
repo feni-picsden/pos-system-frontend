@@ -5590,6 +5590,8 @@ const SaleKeyPage = () => {
         {
           productName,
           quantity,
+          // Reference Actions report Additional: {"quantity":1,"price":7.5,"register":…,"outlet":…}
+          price: Number(itemToRemove?.price) || 0,
         },
         registerId
       );

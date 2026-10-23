@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Dialog } from '@mui/material';
+import { Box, Button, Dialog, TextField } from '@mui/material';
 import SaleDetailCard from './SaleDetailCard';
 
 // Reference "Modify Details": the SAME expanded sale card, in a frameless
@@ -32,9 +32,13 @@ const railButtonSx = {
 const EditSaleDetailsDialog = ({ open, onClose, sale, onSave, paymentMethods = [] }) => {
   const [saleDate, setSaleDate] = useState('');
   const [methods, setMethods] = useState([]);
+  // Reference Misc > Modified Sales "Modification Reason" ("CL"): typed here,
+  // sent as modifyReason and logged with the Edited Sale action.
+  const [reason, setReason] = useState('');
 
   useEffect(() => {
     if (!open || !sale) return;
+    setReason('');
     setSaleDate(toLocalInput(sale.saleDate));
     setMethods(
       (sale.payments?.length ? sale.payments : [{ paymentMethod: sale.paymentMethod }]).map(
@@ -48,6 +52,7 @@ const EditSaleDetailsDialog = ({ open, onClose, sale, onSave, paymentMethods = [
   const handleSave = () => {
     if (!onSave) return;
     onSave({
+      modifyReason: reason.trim(),
       saleDate: saleDate ? new Date(saleDate).toISOString() : null,
       // The header method follows the first payment row; the rows themselves are
       // updated by id so a split payment keeps its own methods.
@@ -93,6 +98,18 @@ const EditSaleDetailsDialog = ({ open, onClose, sale, onSave, paymentMethods = [
             payment method balance.
             <br />
             Modifying the sale will <strong>NOT</strong> change your inventory levels.
+            <Box sx={{ mt: 1.5 }}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Modification reason"
+                placeholder="e.g. CL"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                inputProps={{ maxLength: 200 }}
+                sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 0 } }}
+              />
+            </Box>
           </>
         }
         actions={
