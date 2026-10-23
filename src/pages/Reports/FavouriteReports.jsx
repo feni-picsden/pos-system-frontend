@@ -45,6 +45,8 @@ import { format } from 'date-fns';
 import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 // The Shopfront reference has no transitions on filters, panels or rows.
 const INSTANT = 'all 0s ease';
@@ -189,6 +191,11 @@ const FilterSelect = ({ multiple, options, value, onChange, placeholder }) => {
               <Box component="span" sx={{ fontSize: 16, color: '#808080' }}>
                 {placeholder}
               </Box>
+            ) : multiple && selectedOptions.length > 2 ? (
+              // More than two picks collapse to one "N Selected..." pill.
+              <Box component="span" sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', px: 1, fontSize: 16, color: '#000', whiteSpace: 'nowrap' }}>
+                {selectedOptions.length} Selected...
+              </Box>
             ) : (
               selectedOptions.map((o) => (
                 <Box
@@ -280,6 +287,11 @@ const FavouriteReports = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert } = useAppDialogs();
   const navigate = useNavigate();
+  // Outlet rule: navbar outlet set → list scoped (apiClient sends outletId), no Outlet
+  // filter/column; All Outlets → Outlet filter + Outlet column (Global for null).
+  const { globalMode, outletNameOf, outlets } = useGlobalOutlet();
+  const { selectedOutletId } = useSelectedOutlet();
+  const [outletFilter, setOutletFilter] = useState([]); // All Outlets mode only; multi-select, [] = all
 
   // Filter states
   const [reportName, setReportName] = useState('');
@@ -305,7 +317,7 @@ const FavouriteReports = () => {
 
   useEffect(() => {
     loadReports();
-  }, [reportName, emailFilter]);
+  }, [reportName, emailFilter, selectedOutletId, globalMode]);
 
   const loadReports = async () => {
     setLoading(true);
@@ -575,6 +587,10 @@ const FavouriteReports = () => {
   const displayedReports = reportTypes.length === 0
     ? reports
     : reports.filter(r => reportTypeMatches(reportTypes, r.reportType));
+  // All Outlets mode: Outlet multi-select applied client-side (empty = every outlet + Global).
+  const visibleReports = globalMode && outletFilter.length > 0
+    ? displayedReports.filter((r) => outletFilter.includes(r.outletId))
+    : displayedReports;
 
   // Shared outlined field styling (parity: #404040 border, 8px radius).
   const outlinedSx = {
@@ -602,7 +618,7 @@ const FavouriteReports = () => {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', md: globalMode ? '2fr 1fr 1fr 1fr' : '2fr 1fr 1fr' },
           gap: '16px',
           mb: 3,
           alignItems: 'start',
@@ -648,6 +664,22 @@ const FavouriteReports = () => {
             placeholder="Filter Report Emailing..."
           />
         </Box>
+
+        {/* Outlet filter — All Outlets mode only (renders nothing otherwise) */}
+        {globalMode && (
+          <Box>
+            <Typography component="label" sx={{ ...FILTER_LABEL_SX, display: 'block' }}>
+              Outlet
+            </Typography>
+            <FilterSelect
+              multiple
+              options={outlets.map((o) => ({ value: o.id, label: o.name }))}
+              value={outletFilter}
+              onChange={setOutletFilter}
+              placeholder="All Outlets"
+            />
+          </Box>
+        )}
       </Box>
 
       {/* Reports Table — reference: no header at all when nothing matches, just the line */}
@@ -655,7 +687,7 @@ const FavouriteReports = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      ) : displayedReports.length === 0 ? (
+      ) : visibleReports.length === 0 ? (
         <Typography sx={{ fontSize: 18, color: '#404040', textAlign: 'center', py: 8 }}>
           No reports found. Change the filters and try again.
         </Typography>
@@ -681,6 +713,7 @@ const FavouriteReports = () => {
                 }}
               >
                 <TableCell>Name</TableCell>
+                {globalMode && <TableCell sx={{ width: 200 }}>Outlet</TableCell>}
                 <TableCell sx={{ width: 253 }}>Created</TableCell>
                 <TableCell sx={{ width: 253 }}>Updated</TableCell>
                 <TableCell sx={{ width: 253 }}>Next Email</TableCell>
@@ -696,7 +729,7 @@ const FavouriteReports = () => {
                 '& tr:first-of-type td:last-of-type': { borderTopRightRadius: '12px' },
               }}
             >
-              {displayedReports.map((report) => (
+              {visibleReports.map((report) => (
                   <TableRow key={report.id}>
                     <TableCell>
                       <Box sx={{ maxWidth: '30vw' }}>
@@ -714,6 +747,7 @@ const FavouriteReports = () => {
                         </Typography>
                       </Box>
                     </TableCell>
+                    {globalMode && <TableCell>{report.outlet?.name || outletNameOf(report.outletId)}</TableCell>}
                     <TableCell>{formatDate(report.createdAt)}</TableCell>
                     <TableCell>
                       <Box>

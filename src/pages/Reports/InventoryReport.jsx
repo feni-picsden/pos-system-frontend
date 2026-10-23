@@ -415,8 +415,11 @@ const InventoryReport = () => {
   // All Outlets (no header outlet / register): Outlet filter. 'all' = every outlet.
   // Declared here, before the effects below read it (a later declaration blanked
   // the page on 15/10 - temporal dead zone).
+  // All Outlets (no header outlet / register): Outlet filter. 'all' = every outlet
+  // with Reporting Access (one group per outlet when grouped by Outlet); a favourite
+  // saved with an outlet re-selects it.
   const { globalMode, outlets: allOutlets } = useGlobalOutlet();
-  const [outletFilterId, setOutletFilterId] = useState('all');
+  const [outletFilterId, setOutletFilterId] = useState(() => searchParams.get('outletId') || 'all');
   useEffect(() => { if (!globalMode) setOutletFilterId('all'); }, [globalMode]);
   const outletGroups = [{ items: [{ value: 'all', label: 'All Outlets' }, ...allOutlets.map((o) => ({ value: String(o.id), label: o.name }))] }];
   const reportOutletId = () => (globalMode && outletFilterId !== 'all' ? outletFilterId : getOutletId());
