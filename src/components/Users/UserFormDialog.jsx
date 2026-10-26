@@ -189,7 +189,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
 
   const loadOutlets = async () => {
     try {
-      const response = await outletService.getAllOutlets();
+      const response = await outletService.getEveryOutlet();
       setOutlets(response.outlets || []);
     } catch (err) {
       console.error('Error loading outlets:', err);

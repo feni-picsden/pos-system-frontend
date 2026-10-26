@@ -423,7 +423,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
   useEffect(() => {
     if (canPickAnyOutlet) {
       outletService
-        .getAllOutlets()
+        .getEveryOutlet()
         .then((r) => setOutlets(r.outlets || []))
         .catch(() => setOutlets([]));
     }

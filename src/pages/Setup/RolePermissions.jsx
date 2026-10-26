@@ -99,7 +99,7 @@ const RolePermissions = () => {
       if (isEditMode) {
         requests.push(roleService.getRole(roleId), roleService.getRolePermissions(roleId));
       } else if (isTrueSuperAdmin()) {
-        requests.push(outletService.getAllOutlets());
+        requests.push(outletService.getEveryOutlet());
       }
 
       const [catalogResponse, second, third] = await Promise.all(requests);

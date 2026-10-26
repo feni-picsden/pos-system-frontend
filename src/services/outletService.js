@@ -6,12 +6,21 @@ const OUTLETS_BASE_URL = '/outlets';
 export const outletService = {
   // Get all outlets (superadmin only). Served from IndexedDB — every caller gets
   // the list without waiting on the network.
+  // The outlets the signed-in user is assigned to (reference: what they see in the
+  // login selector, navbar and page filters).
   getAllOutlets: async () => {
     const outlets = await cachedList('outlets', async () => {
       const response = await apiClient.get(OUTLETS_BASE_URL);
       return response.data?.outlets || [];
     });
     return { outlets };
+  },
+
+  // EVERY outlet — Setup pages that manage outlets/users/roles (super admin only;
+  // others get their assigned list back).
+  getEveryOutlet: async () => {
+    const response = await apiClient.get(OUTLETS_BASE_URL, { params: { all: true } });
+    return { outlets: response.data?.outlets || [] };
   },
 
   // Get outlet by ID (superadmin only)

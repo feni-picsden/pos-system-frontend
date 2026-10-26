@@ -256,7 +256,7 @@ const Outlets = () => {
     }
     try {
       setLoading(true);
-      const response = await outletService.getAllOutlets();
+      const response = await outletService.getEveryOutlet();
       const items = response.outlets || [];
       await posLocalDb.putStoreAll("outlets", items);
       setOutlets(items);
@@ -495,7 +495,7 @@ const Outlets = () => {
     apiClient.bustCache("/registers");
     await posLocalDb.invalidateStore("outlets");
     await posLocalDb.invalidateStore("registers");
-    const [o, r] = await Promise.all([outletService.getAllOutlets(), registerService.list()]);
+    const [o, r] = await Promise.all([outletService.getEveryOutlet(), registerService.list()]);
     const outletItems = o.outlets || [];
     const registerItems = Array.isArray(r) ? r : [];
     await posLocalDb.putStoreAll("outlets", outletItems);

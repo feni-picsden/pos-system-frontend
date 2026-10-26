@@ -9,7 +9,6 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   Table,
   TableBody,
   TableCell,
@@ -17,32 +16,34 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
-  Checkbox,
   IconButton,
   Popover,
-  Chip,
-  FormControlLabel,
+  InputAdornment,
 } from '@mui/material';
 import {
   FileDownload as ExportIcon,
   PrintOutlined as PrintIcon,
-  SaveOutlined as SaveIcon,
   ViewColumn as ColumnsIcon,
   CalendarTodayOutlined as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   CheckBox as CheckBoxIcon,
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
-  ArrowUpward,
-  ArrowDownward,
+  ExpandMore as ExpandMoreIcon,
+  ChevronRight as ChevronRightIcon,
+  ArrowDropDown,
+  ArrowDropUp,
+  Cancel as ClearIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import inventoryReportService from '../../services/inventoryReportService';
-import outletService from '../../services/outletService';
+import apiClient from '../../services/apiClient';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
-import { printHtmlDocument } from '../../utils/printHtmlDocument';
+import { reportPrintTitle } from '../../utils/reportPrint';
 import {
   format,
   parse,
@@ -125,6 +126,7 @@ const TABLE_ROW_SX = {
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
+    whiteSpace: 'nowrap',
   },
 };
 
@@ -136,8 +138,28 @@ const TABLE_TOTAL_SX = {
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
+    position: 'sticky',
+    bottom: 0,
+    backgroundColor: '#5ebbeb',
+    zIndex: 1,
   },
+  '& td:first-of-type': { zIndex: 3 },
 };
+
+// Reference filter caption sits above its field in small dark text.
+const LABEL_SX = { fontSize: 13, color: '#313439', mb: '4px', lineHeight: 1.2 };
+
+// Reference odd-row stripe is a visible grey (same as InventoryReport.jsx).
+const ROW_ALT_BG = '#e8e8e8';
+
+// Reference header: ⇕ after every label; `active` = 'asc' | 'desc' fills the
+// triangle of the current sort direction (same as InventoryReport.jsx).
+const SortIcon = ({ active }) => (
+  <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-block' }} aria-hidden="true">
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill={active === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'asc' ? 1.6 : 1.1} strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
+  </svg>
+);
 
 const DATE_FORMAT = 'dd/MM/yyyy';
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -150,9 +172,10 @@ const ALL_COLUMNS = [
   { key: 'caseLevel', label: 'Case Level', headerLabel: 'CASE LEVEL' },
   { key: 'itemLevel', label: 'Item Level', headerLabel: 'ITEM LEVEL' },
   { key: 'totalItems', label: 'Total Items', headerLabel: 'TOTAL ITEMS' },
+  // Reference order: both (Ex) costs first, then the inclusive pair.
   { key: 'lastCaseCostEx', label: 'Last Case Cost (Ex)', headerLabel: 'LAST CASE COST (EX)' },
-  { key: 'lastCaseCost', label: 'Last Case Cost', headerLabel: 'LAST CASE COST' },
   { key: 'averageCaseCostEx', label: 'Average Case Cost (Ex)', headerLabel: 'AVERAGE CASE COST (EX)' },
+  { key: 'lastCaseCost', label: 'Last Case Cost', headerLabel: 'LAST CASE COST' },
   { key: 'averageCaseCost', label: 'Average Case Cost', headerLabel: 'AVERAGE CASE COST' },
   { key: 'stockValueEx', label: 'Stock Value (Ex) (Last)', headerLabel: 'STOCK VALUE (EX) (LAST)' },
   { key: 'stockValueInc', label: 'Stock Value (Inc) (Last)', headerLabel: 'STOCK VALUE (INC) (LAST)' },
@@ -163,6 +186,27 @@ const ALL_COLUMNS = [
 const DEFAULT_VISIBLE_COLUMNS = ALL_COLUMNS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {});
 
 const isCurrencyColumn = (key) => key.includes('Cost') || key.includes('Value');
+// Reference: group "Totals" rows and the grand total only carry the four Stock Value
+// columns; with Show Products off the table shrinks to Name + these four.
+const STOCK_VALUE_KEYS = ['stockValueEx', 'stockValueInc', 'stockValueExAvg', 'stockValueIncAvg'];
+
+// Reference Group By list (Tag, Core Supplier and Last Supplier included).
+const GROUP_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'brand', label: 'Brand' },
+  { value: 'category', label: 'Category' },
+  { value: 'family', label: 'Family' },
+  { value: 'tag', label: 'Tag' },
+  { value: 'core_supplier', label: 'Core Supplier' },
+  { value: 'last_supplier', label: 'Last Supplier' },
+];
+
+// Reference money: "-$1.36", never "$-1.36".
+const formatCurrency = (value) => {
+  const n = Number(value || 0);
+  const abs = Math.abs(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${n < 0 ? '-' : ''}$${abs}`;
+};
 
 // Reference calendar month: Monday-first, 38px square cells, 12px radius.
 const MonthGrid = ({ month, value, maxDate, onPick, onPrev, onNext }) => {
@@ -248,7 +292,10 @@ const MonthGrid = ({ month, value, maxDate, onPick, onPrev, onNext }) => {
 const InventoryAtDate = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { getOutletId, user } = useAuth();
+  const { getOutletId } = useAuth();
+  const { notify } = useAppDialogs();
+  const { globalMode, outlets: headerOutlets } = useGlobalOutlet();
+  const { headerOutletId, showOutletFilter } = useHeaderScope();
 
   // Filter states — reference starts with an EMPTY date and nothing run.
   const [selectedDate, setSelectedDate] = useState(null);
@@ -262,6 +309,8 @@ const InventoryAtDate = () => {
 
   // Data states
   const [reportData, setReportData] = useState([]);
+  const [reportTotals, setReportTotals] = useState(null);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
 
@@ -273,11 +322,11 @@ const InventoryAtDate = () => {
   const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()));
   const [columnsAnchorEl, setColumnsAnchorEl] = useState(null);
   const [columnsChipsExpanded, setColumnsChipsExpanded] = useState(false);
+  const [columnsSearch, setColumnsSearch] = useState('');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
-  const { showOutletFilter } = useHeaderScope();
   useEffect(() => {
     if (!showOutletFilter && outletId) setOutletId(null);
   }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -287,20 +336,20 @@ const InventoryAtDate = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Reference: the Outlet list shows EVERY outlet the account is assigned to —
+  // Reporting Access is not a filter here; picking an outlet without it answers the
+  // red toast on Run (/auth/report-outlets `assigned`; a pure global admin with no
+  // assignments gets every outlet).
   const loadOutlets = async () => {
     try {
-      if (user?.isSuperAdmin) {
-        const response = await outletService.getAllOutlets();
-        const outletsList = response?.outlets || response || [];
-        setOutlets(Array.isArray(outletsList) ? outletsList : []);
-        if (outletsList && Array.isArray(outletsList) && outletsList.length > 0 && !outletId) {
-          setOutletId(outletsList[0].id);
-        }
-      } else {
-        const currentOutletId = getOutletId();
-        if (currentOutletId) {
-          setOutletId(currentOutletId);
-        }
+      const res = await apiClient.get('/auth/report-outlets');
+      const outletsList = Array.isArray(res?.data?.assigned) && res.data.assigned.length
+        ? res.data.assigned
+        : (Array.isArray(res?.data?.outlets) ? res.data.outlets : []);
+      setOutlets(outletsList);
+      if (outletsList.length > 0 && !outletId) {
+        const current = getOutletId();
+        setOutletId(outletsList.some((o) => o.id === current) ? current : outletsList[0].id);
       }
     } catch (error) {
       console.error('Error loading outlets:', error);
@@ -318,7 +367,8 @@ const InventoryAtDate = () => {
     setDateText(format(parsed, DATE_FORMAT));
     setCalendarMonth(startOfMonth(parsed));
     const savedGroupBy = searchParams.get('groupBy');
-    if (savedGroupBy) setGroupBy(savedGroupBy);
+    // Favourites saved before the supplier split stored "supplier" (= core supplier).
+    if (savedGroupBy) setGroupBy(savedGroupBy === 'supplier' ? 'core_supplier' : savedGroupBy);
     const savedZero = searchParams.get('showZeroInventory');
     if (savedZero !== null) setShowZeroInventory(savedZero !== 'false');
   }, [searchParams]);
@@ -339,8 +389,9 @@ const InventoryAtDate = () => {
       setSelectedDate(null);
       return;
     }
+    // Reference accepts any date here; Run is what refuses today / the future.
     const parsed = parse(text, DATE_FORMAT, new Date());
-    if (isValid(parsed) && !isAfter(startOfDay(parsed), startOfDay(new Date()))) {
+    if (isValid(parsed)) {
       setSelectedDate(startOfDay(parsed));
       setCalendarMonth(startOfMonth(parsed));
     }
@@ -348,6 +399,11 @@ const InventoryAtDate = () => {
 
   const handleRun = async () => {
     if (!selectedDate) {
+      return;
+    }
+    // Reference: "Inventory reports must be run for a date prior to today" (red toast).
+    if (!isAfter(startOfDay(new Date()), startOfDay(selectedDate))) {
+      notify?.('Inventory reports must be run for a date prior to today', 'error', { position: 'top' });
       return;
     }
 
@@ -366,14 +422,23 @@ const InventoryAtDate = () => {
 
       if (response.success) {
         setReportData(response.data || []);
+        setReportTotals(response.totals || null);
+        setCollapsedGroups({});
       } else {
         console.error('Failed to load inventory at date report:', response);
         setReportData([]);
+        setReportTotals(null);
       }
     } catch (error) {
       console.error('Error loading inventory at date report:', error);
       console.error('Error details:', error.response?.data || error.message);
       setReportData([]);
+      setReportTotals(null);
+      // Reference: an outlet without Reporting Access answers a red toast and the
+      // page stays as it was before Run.
+      const message = error.response?.data?.error || error.response?.data?.message || 'Failed to load the report';
+      notify?.(message, 'error', { position: 'top' });
+      setHasRun(false);
     } finally {
       setLoading(false);
     }
@@ -391,76 +456,75 @@ const InventoryAtDate = () => {
     });
   };
 
-  const sortedData = React.useMemo(() => {
-    if (!sortConfig.key) return reportData;
+  const isGrouped = groupBy !== 'none';
+  const searchLower = searchTerm.trim().toLowerCase();
+  const matchesSearch = (row) => !searchLower || String(row.name || '').toLowerCase().includes(searchLower);
 
-    return [...reportData].sort((a, b) => {
+  const sortRows = React.useCallback((rows) => {
+    if (!sortConfig.key) return rows;
+    const dir = sortConfig.direction === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
-
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-
-      const aStr = String(aValue || '').toLowerCase();
-      const bStr = String(bValue || '').toLowerCase();
-
-      if (sortConfig.direction === 'asc') {
-        return aStr.localeCompare(bStr);
-      }
-      return bStr.localeCompare(aStr);
+      if (typeof aValue === 'number' && typeof bValue === 'number') return (aValue - bValue) * dir;
+      return String(aValue || '').localeCompare(String(bValue || ''), undefined, { sensitivity: 'base' }) * dir;
     });
-  }, [reportData, sortConfig]);
+  }, [sortConfig]);
 
-  // "Show Products" off leaves only the grouped totals (documented behaviour).
-  const flattenReportData = React.useCallback(() => {
-    const flattened = [];
-    sortedData.forEach(row => {
-      const hasChildren = Boolean(row.children && Array.isArray(row.children));
-      flattened.push({ ...row, isParent: hasChildren });
-      if (hasChildren && showProducts) {
-        row.children.forEach(child => {
-          flattened.push({ ...child, isChild: true });
-        });
-      }
+  // Reference layout: group header (chevron, collapsible) → product rows (tree line)
+  // → grey "Totals" row with the four Stock Value sums; Show Products off keeps
+  // the header + Totals rows only. Search narrows the product rows live.
+  const displayRows = React.useMemo(() => {
+    if (!isGrouped) return sortRows(reportData.filter(matchesSearch)).map((r) => ({ ...r, kind: 'product' }));
+    const rows = [];
+    reportData.forEach((group) => {
+      const children = sortRows((group.children || []).filter(matchesSearch));
+      if (searchLower && children.length === 0) return;
+      const collapsed = Boolean(collapsedGroups[group.name]);
+      rows.push({ kind: 'group', name: group.name, collapsed });
+      if (showProducts && !collapsed) children.forEach((c) => rows.push({ ...c, kind: 'product', isChild: true }));
+      const totalsRow = { kind: 'groupTotal', name: 'Totals' };
+      STOCK_VALUE_KEYS.forEach((k) => { totalsRow[k] = children.reduce((s, c) => s + (Number(c[k]) || 0), 0); });
+      rows.push(totalsRow);
     });
-    return flattened;
-  }, [sortedData, showProducts]);
+    return rows;
+  }, [reportData, isGrouped, sortRows, searchLower, collapsedGroups, showProducts]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const formatCurrency = (value) => {
-    return `$${Number(value || 0).toFixed(2)}`;
-  };
+  const toggleGroup = (name) => setCollapsedGroups((prev) => ({ ...prev, [name]: !prev[name] }));
 
-  const activeColumns = ALL_COLUMNS.filter(col => visibleColumns[col.key]);
+  // Show Products off → Name + the four Stock Value columns only (reference).
+  const activeColumns = ALL_COLUMNS.filter((col) => visibleColumns[col.key]
+    && (showProducts || !isGrouped || col.key === 'name' || STOCK_VALUE_KEYS.includes(col.key)));
 
   const cellValue = (row, col) => {
-    if (col.key === 'name') return `${row.isChild ? '  ' : ''}${row.name || ''}`;
+    if (col.key === 'name') return row.name || '';
+    if (row.kind === 'group') return '';
+    if (row.kind === 'groupTotal') return STOCK_VALUE_KEYS.includes(col.key) ? formatCurrency(row[col.key]) : '';
     if (col.key === 'outlet') return row.outlet || '';
     const value = row[col.key];
     return isCurrencyColumn(col.key) ? formatCurrency(value) : (value || 0);
   };
 
-  const filteredFlatData = React.useMemo(() => {
-    const flatData = flattenReportData();
-    if (!searchTerm) return flatData;
-    const searchLower = searchTerm.toLowerCase();
-    return flatData.filter(row =>
-      row.name?.toLowerCase().includes(searchLower)
-    );
-  }, [flattenReportData, searchTerm]);
-
-  // Calculate totals
+  // Grand total: each product once (a multi-tag product sits in several groups);
+  // with a search only the matching products count.
   const totals = React.useMemo(() => {
-    const totalsObj = {};
-    ALL_COLUMNS.forEach(col => {
-      if (col.key !== 'outlet' && col.key !== 'name') {
-        totalsObj[col.key] = filteredFlatData.reduce((sum, row) => {
-          return sum + (Number(row[col.key]) || 0);
-        }, 0);
-      }
-    });
-    return totalsObj;
-  }, [filteredFlatData]);
+    if (!searchLower && reportTotals) return reportTotals;
+    const seen = new Set();
+    const out = Object.fromEntries(STOCK_VALUE_KEYS.map((k) => [k, 0]));
+    const take = (p) => {
+      if (!matchesSearch(p)) return;
+      const id = p.productId ?? p.name;
+      if (seen.has(id)) return;
+      seen.add(id);
+      STOCK_VALUE_KEYS.forEach((k) => { out[k] += Number(p[k]) || 0; });
+    };
+    reportData.forEach((row) => (row.children ? row.children.forEach(take) : take(row)));
+    return out;
+  }, [reportData, reportTotals, searchLower]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredFlatData = displayRows;
+
+  const totalsCells = (col) => (STOCK_VALUE_KEYS.includes(col.key) ? formatCurrency(totals[col.key] || 0) : '');
 
   const exportToCSV = () => {
     const headers = activeColumns.map(col => col.headerLabel);
@@ -472,6 +536,7 @@ const InventoryAtDate = () => {
           return typeof value === 'string' ? `"${value}"` : value;
         }).join(',')
       ),
+      activeColumns.map((col) => `"${totalsCells(col)}"`).join(','),
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -481,106 +546,49 @@ const InventoryAtDate = () => {
     link.click();
   };
 
+  // Reference Print: a NEW TAB holding the print page (store name / "Inventory At
+  // Date" / date, ruled table, grey stripes, bold group names) which then opens the
+  // browser's print dialog.
   const handlePrint = () => {
-    const dateLabel = selectedDate ? format(selectedDate, DATE_FORMAT) : '-';
-    const printContent = `
-      <div id="print-content">
-        <style>
-          #print-content {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            font-size: 12px;
-          }
-          #print-content h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: #333;
-          }
-          #print-content .report-info {
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #f8f8f8;
-          }
-          #print-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-          }
-          #print-content th, #print-content td {
-            padding: 8px;
-            text-align: left;
-          }
-          #print-content th {
-            background-color: #5ebbeb;
-            color: #f8f8f8;
-            font-weight: bold;
-            font-size: 11px;
-          }
-          #print-content td {
-            font-size: 11px;
-          }
-          #print-content td:not(:first-child) {
-            text-align: right;
-          }
-          #print-content tr:nth-child(even) {
-            background-color: #f8f8f8;
-          }
-          #print-content .child-row td:first-child {
-            padding-left: 24px;
-          }
-          #print-content .total-row {
-            background-color: #5ebbeb !important;
-          }
-          #print-content .total-row td {
-            color: #f8f8f8;
-            font-weight: bold;
-          }
-        </style>
-        <h1>Inventory at Date</h1>
-        <div class="report-info">
-          <p><strong>Date (inclusive):</strong> ${dateLabel}</p>
-          <p><strong>Group By:</strong> ${groupBy}</p>
-          <p><strong>Show Inventory With Zero Stock:</strong> ${showZeroInventory ? 'Yes' : 'No'}</p>
-          <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              ${activeColumns.map(col => `<th>${col.headerLabel}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${filteredFlatData.map(row => `
-              <tr${row.isChild ? ' class="child-row"' : ''}>
-                ${activeColumns.map(col => `<td>${cellValue(row, col)}</td>`).join('')}
-              </tr>
-            `).join('')}
-            ${filteredFlatData.length > 0 ? `
-              <tr class="total-row">
-                ${activeColumns.map(col => {
-                  if (col.key === 'name') return '<td>Total</td>';
-                  if (col.key === 'outlet') return '<td></td>';
-                  return `<td>${isCurrencyColumn(col.key) ? formatCurrency(totals[col.key]) : (totals[col.key] || 0)}</td>`;
-                }).join('')}
-              </tr>
-            ` : ''}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    // Prints over the report itself: window.open put the print dialog on a new tab
-    // and threw outright when the popup blocker refused it.
-    printHtmlDocument(`
-      <html>
-        <head>
-          <title>Inventory at Date - ${dateLabel}</title>
-        </head>
-        <body>
-          ${printContent}
-        </body>
-      </html>
-    `);
+    const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const dateLabel = selectedDate ? format(selectedDate, DATE_FORMAT) : '';
+    const outletList = headerOutlets?.length ? headerOutlets : outlets;
+    const title = reportPrintTitle(outletList, globalMode && !outletId, outletId || headerOutletId);
+    const alignOf = (col) => (col.align === 'left' ? 'left' : 'center');
+    const head = activeColumns.map((col) => `<th style="text-align:${alignOf(col)}">${esc(col.label)}</th>`).join('');
+    let stripe = 0;
+    const body = filteredFlatData.map((row) => {
+      if (row.kind === 'group') { stripe = 0; return `<tr class="grp"><td colspan="${activeColumns.length}">${esc(row.name)}</td></tr>`; }
+      if (row.kind === 'groupTotal') return `<tr class="gt">${activeColumns.map((col) => `<td style="text-align:${alignOf(col)}">${esc(cellValue(row, col))}</td>`).join('')}</tr>`;
+      const cls = stripe++ % 2 === 0 ? 'odd' : 'even';
+      return `<tr class="${cls}">${activeColumns.map((col) => `<td style="text-align:${alignOf(col)}">${esc(cellValue(row, col))}</td>`).join('')}</tr>`;
+    }).join('');
+    const tot = filteredFlatData.length ? `<tr class="total">${activeColumns.map((col) => `<td style="text-align:${alignOf(col)}">${esc(totalsCells(col))}</td>`).join('')}</tr>` : '';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Inventory At Date</title>
+      <style>
+        body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 16px 24px; }
+        h1 { text-align: center; font-size: 22px; margin: 24px 0 12px; }
+        h2 { text-align: center; font-size: 15px; margin: 0 0 8px; }
+        .d { text-align: center; font-size: 12px; margin: 0 0 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        thead th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px 4px; font-weight: 700; }
+        td { padding: 5px 4px; white-space: nowrap; }
+        tr.odd td { background: #e8e8e8; }
+        tr.grp td { font-weight: 700; font-size: 13px; padding: 8px 4px 4px; }
+        tr.gt td { font-size: 11px; background: #f2f2f2; }
+        tr.total td { border-top: 2px solid #000; border-bottom: 2px solid #000; font-weight: 700; }
+        tr { page-break-inside: avoid; }
+        @page { margin: 12mm; }
+      </style></head><body>
+      <h1>${esc(title)}</h1><h2>Inventory At Date</h2><div class="d">${esc(dateLabel)}</div>
+      <table><thead><tr>${head}</tr></thead><tbody>${body}${tot}</tbody></table>
+      <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 150); });</script>
+      </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) { notify?.('Please allow pop-ups to print this report', 'error', { position: 'top' }); return; }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
   };
 
   const toggleColumn = (key) => {
@@ -593,6 +601,7 @@ const InventoryAtDate = () => {
   const selectedColumns = ALL_COLUMNS.filter(col => visibleColumns[col.key]);
   const shownChips = columnsChipsExpanded ? selectedColumns : selectedColumns.slice(0, 2);
   const remainingChips = selectedColumns.length - shownChips.length;
+  const pickerColumns = ALL_COLUMNS.filter((c) => !columnsSearch.trim() || c.label.toLowerCase().includes(columnsSearch.trim().toLowerCase()));
 
   return (
     <Box sx={{ p: '16px' }}>
@@ -604,92 +613,76 @@ const InventoryAtDate = () => {
         <Button startIcon={<PrintIcon />} onClick={handlePrint} sx={{ ...TOOLBAR_BUTTON_SX, minWidth: 95 }}>
           Print
         </Button>
-        <Button startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)} sx={{ ...TOOLBAR_BUTTON_SX, minWidth: 95 }}>
-          Save
-        </Button>
+        {/* Reference toolbar has no Save here (favourites come from the email flow) — hidden, not removed */}
       </Box>
 
       {/* Filters — flat on the page background, no card */}
-      <Box sx={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', mb: '24px' }}>
-        <TextField
-          label="Date (inclusive)"
-          placeholder="DD/MM/YYYY"
-          value={dateText}
-          onChange={(e) => handleDateTextChange(e.target.value)}
-          onClick={(e) => {
-            setCalendarAnchorEl(e.currentTarget);
-            setColumnsChipsExpanded(false);
-          }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ ...FIELD_SX, width: 452 }}
-        />
-        <FormControl sx={{ ...FIELD_SX, minWidth: 200 }}>
-          <InputLabel shrink>Group By</InputLabel>
-          <Select
-            value={groupBy}
-            label="Group By"
-            notched
-            onChange={(e) => {
-              setGroupBy(e.target.value);
-              if (e.target.value === 'none') setShowProducts(true);
+      <Box sx={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', mb: '24px' }}>
+        <Box sx={{ flex: '1 1 300px' }}>
+          <Typography sx={LABEL_SX}>Date (inclusive)</Typography>
+          <TextField
+            placeholder="DD/MM/YYYY"
+            value={dateText}
+            fullWidth
+            onChange={(e) => handleDateTextChange(e.target.value)}
+            onClick={(e) => {
+              setCalendarAnchorEl(e.currentTarget);
+              setColumnsChipsExpanded(false);
             }}
-            sx={{ height: 43 }}
-          >
-            <MenuItem value="none">None</MenuItem>
-            <MenuItem value="brand">Brand</MenuItem>
-            <MenuItem value="category">Category</MenuItem>
-            <MenuItem value="family">Family</MenuItem>
-            <MenuItem value="supplier">Supplier</MenuItem>
-          </Select>
-        </FormControl>
-        {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
-        {user?.isSuperAdmin && showOutletFilter && (
-          <FormControl sx={{ ...FIELD_SX, minWidth: 200 }}>
-            <InputLabel shrink>Outlet</InputLabel>
+            sx={FIELD_SX}
+          />
+        </Box>
+        <Box sx={{ flex: '1 1 300px' }}>
+          <Typography sx={LABEL_SX}>Group By</Typography>
+          <FormControl fullWidth sx={FIELD_SX}>
             <Select
-              value={outletId || ''}
-              label="Outlet"
-              notched
-              onChange={(e) => setOutletId(e.target.value)}
+              value={groupBy}
+              onChange={(e) => {
+                setGroupBy(e.target.value);
+                if (e.target.value === 'none') setShowProducts(true);
+              }}
               sx={{ height: 43 }}
             >
-              {outlets.map((outlet) => (
-                <MenuItem key={outlet.id} value={outlet.id}>
-                  {outlet.name}
-                </MenuItem>
-              ))}
+              {GROUP_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
             </Select>
           </FormControl>
+        </Box>
+        {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+        {showOutletFilter && outlets.length > 0 && (
+          <Box sx={{ flex: '1 1 300px' }}>
+            <Typography sx={LABEL_SX}>Outlet</Typography>
+            <FormControl fullWidth sx={FIELD_SX}>
+              <Select
+                value={outletId || ''}
+                onChange={(e) => setOutletId(e.target.value)}
+                sx={{ height: 43 }}
+              >
+                {outlets.map((outlet) => (
+                  <MenuItem key={outlet.id} value={outlet.id}>
+                    {outlet.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
         )}
-        <FormControlLabel
-          sx={{ m: 0 }}
-          labelPlacement="start"
-          control={
-            <ShopfrontSwitch
-              checked={showZeroInventory}
-              onChange={(e) => setShowZeroInventory(e.target.checked)}
-              sx={{ ml: 1 }}
-            />
-          }
-          label={<Typography sx={{ fontSize: 16, color: '#313439' }}>Show Inventory With Zero Stock</Typography>}
-        />
-        <FormControlLabel
-          sx={{ m: 0 }}
-          labelPlacement="start"
-          control={
+        <Box sx={{ flex: '1 1 160px' }}>
+          <Typography sx={LABEL_SX}>Show Zero Inventory</Typography>
+          <ShopfrontSwitch
+            checked={showZeroInventory}
+            onChange={(e) => setShowZeroInventory(e.target.checked)}
+          />
+        </Box>
+        {/* Reference: the toggle only exists once a Group By is picked */}
+        {groupBy !== 'none' && (
+          <Box sx={{ flex: '1 1 160px' }}>
+            <Typography sx={LABEL_SX}>Show Products</Typography>
             <ShopfrontSwitch
               checked={showProducts}
-              disabled={groupBy === 'none'}
               onChange={(e) => setShowProducts(e.target.checked)}
-              sx={{ ml: 1 }}
             />
-          }
-          label={
-            <Typography sx={{ fontSize: 16, color: groupBy === 'none' ? '#737373' : '#313439' }}>
-              Show Products
-            </Typography>
-          }
-        />
+          </Box>
+        )}
       </Box>
 
       {/* Date picker popover — two months, Monday first, manual entry + Current Day */}
@@ -735,17 +728,18 @@ const InventoryAtDate = () => {
           </Button>
         </Box>
         <Box sx={{ display: 'flex', gap: '16px' }}>
+          {/* Reference calendar lets any day be picked; Run answers the toast for today/future */}
           <MonthGrid
             month={calendarMonth}
             value={selectedDate}
-            maxDate={new Date()}
+            maxDate={null}
             onPick={pickDate}
             onPrev={() => setCalendarMonth(subMonths(calendarMonth, 1))}
           />
           <MonthGrid
             month={addMonths(calendarMonth, 1)}
             value={selectedDate}
-            maxDate={new Date()}
+            maxDate={null}
             onPick={pickDate}
             onNext={() => setCalendarMonth(addMonths(calendarMonth, 1))}
           />
@@ -792,88 +786,55 @@ const InventoryAtDate = () => {
       {hasRun && (
         <TextField
           fullWidth
-          placeholder="Search Products"
+          placeholder="Search Products..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ ...FIELD_SX, mb: '16px' }}
+          InputProps={{
+            endAdornment: searchTerm ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: '#404040' }}>
+                  <ClearIcon />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }}
         />
       )}
 
       {/* Columns popover — caret, chip summary, scrollable checkbox list */}
+      {/* Columns picker — same as the Inventory Report: selected chips + "N More..." in an
+          outlined box (click to expand, type to search), a bordered scrolling checkbox list. */}
       <Popover
         anchorEl={columnsAnchorEl}
         open={Boolean(columnsAnchorEl)}
-        onClose={() => setColumnsAnchorEl(null)}
+        onClose={() => { setColumnsAnchorEl(null); setColumnsChipsExpanded(false); setColumnsSearch(''); }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        transitionDuration={0}
-        slotProps={{
-          paper: {
-            sx: {
-              width: 320,
-              mt: '10px',
-              overflow: 'visible',
-              borderRadius: '12px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: -8,
-                right: 24,
-                width: 16,
-                height: 16,
-                bgcolor: '#fff',
-                transform: 'rotate(45deg)',
-                boxShadow: '-2px -2px 4px rgba(0,0,0,0.06)',
-              },
-            },
-          },
-        }}
+        PaperProps={{ sx: { width: 544, mt: '6px', p: '16px', borderRadius: '8px', border: '1px solid #404040', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' } }}
       >
-        <Box sx={{ p: '8px 12px', borderBottom: '1px solid #e0e0e0', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-          {shownChips.map(col => (
-            <Chip
-              key={col.key}
-              label={col.label}
-              size="small"
-              onDelete={() => toggleColumn(col.key)}
-              sx={{ bgcolor: '#f0f0f0', color: '#313439' }}
-            />
+        <Box onClick={() => setColumnsChipsExpanded((v) => !v)} sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', border: '1px solid #404040', borderRadius: '8px', px: '12px', py: '8px', mb: '12px', cursor: 'pointer', minHeight: 44 }}>
+          {shownChips.map((c) => (
+            <Box key={c.key} sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{c.label}</Box>
           ))}
-          {remainingChips > 0 && (
-            <Chip
-              label={`${remainingChips} More...`}
-              size="small"
-              onClick={() => setColumnsChipsExpanded(true)}
-              sx={{ bgcolor: '#f0f0f0', color: '#313439', cursor: 'pointer' }}
-            />
-          )}
+          {remainingChips > 0 && <Box sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{remainingChips} More...</Box>}
+          <Box component="input" value={columnsSearch} onClick={(e) => e.stopPropagation()} onChange={(e) => setColumnsSearch(e.target.value)} placeholder="" sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 16, color: '#313439', fontFamily: 'inherit' }} />
+          <Box sx={{ ml: 'auto', display: 'inline-flex', color: '#313439' }}>{columnsChipsExpanded ? <ArrowDropDown /> : <ArrowDropUp />}</Box>
         </Box>
-        <Box sx={{ maxHeight: 380, overflowY: 'auto' }}>
-          {ALL_COLUMNS.map((column) => {
+        <Box sx={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #404040', borderRadius: '8px' }}>
+          {pickerColumns.length === 0 && (
+            <Box sx={{ px: '16px', height: 56, display: 'flex', alignItems: 'center', fontSize: 16, color: '#757575' }}>No Options</Box>
+          )}
+          {pickerColumns.map((column) => {
             const checked = Boolean(visibleColumns[column.key]);
             return (
               <Box
                 key={column.key}
                 onClick={() => toggleColumn(column.key)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  px: '8px',
-                  cursor: 'pointer',
-                  transition: 'background 200ms ease',
-                  '&:hover': { bgcolor: '#f8f8f8' },
-                }}
+                sx={{ display: 'flex', alignItems: 'center', gap: '10px', px: '16px', height: 56, cursor: 'pointer', fontSize: 16, color: checked ? '#0284c7' : '#313439', '&:hover': { bgcolor: '#5ebbeb', color: '#000' } }}
               >
-                <Checkbox
-                  checked={checked}
-                  icon={<CheckBoxOutlineBlankIcon />}
-                  checkedIcon={<CheckBoxIcon />}
-                  sx={{ color: '#38a9e2', '&.Mui-checked': { color: '#38a9e2' } }}
-                />
-                <Typography sx={{ fontSize: 16, color: checked ? '#38a9e2' : '#313439' }}>
-                  {column.label}
-                </Typography>
+                {checked ? <CheckBoxIcon sx={{ fontSize: 20 }} /> : <CheckBoxOutlineBlankIcon sx={{ fontSize: 20 }} />}
+                {column.label}
               </Box>
             );
           })}
@@ -886,64 +847,71 @@ const InventoryAtDate = () => {
           <CircularProgress />
         </Box>
       ) : hasRun && filteredFlatData.length > 0 ? (
-        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 0 }}>
-          <Table size="small">
+        // Same chrome as the Inventory Report: table scrolls inside the page, header and
+        // NAME column pinned, total row pinned at the bottom.
+        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 0, maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
+          <Table size="small" stickyHeader sx={{ width: '100%', '& .MuiTableCell-stickyHeader': { backgroundColor: '#5ebbeb' }, '& th': { cursor: 'pointer', userSelect: 'none' }, '& td:first-of-type': { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'inherit' } }}>
             <TableHead>
               <TableRow sx={TABLE_HEAD_SX}>
-                {activeColumns.map((column) => (
+                {activeColumns.map((column, i) => (
                   <TableCell
                     key={column.key}
-                    align={column.align || 'right'}
+                    align={column.align || 'center'}
                     onClick={() => handleSort(column.key)}
+                    sx={i === 0 ? { position: 'sticky', left: 0, zIndex: 3 } : undefined}
                   >
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: column.align === 'left' ? 'flex-start' : 'flex-end',
-                        gap: 0.5,
-                      }}
-                    >
-                      {column.headerLabel}
-                      {sortConfig.key === column.key && (
-                        sortConfig.direction === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
-                      )}
-                    </Box>
+                    {column.headerLabel}<SortIcon active={sortConfig.key === column.key ? sortConfig.direction : null} />
                   </TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredFlatData.map((row, index) => (
-                <TableRow
-                  key={index}
-                  sx={{
-                    ...TABLE_ROW_SX,
-                    bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
-                    '& td': { ...TABLE_ROW_SX['& td'], fontWeight: row.isParent ? 700 : 400 },
-                  }}
-                >
-                  {activeColumns.map((column) => (
-                    <TableCell
-                      key={column.key}
-                      align={column.align || 'right'}
-                      sx={column.key === 'name' && row.isChild ? { pl: '34px' } : undefined}
-                    >
-                      {cellValue(row, column)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
+              {(() => { let stripe = 0; return filteredFlatData.map((row, index) => {
+                if (row.kind === 'group') {
+                  // Reference group: ▽ header (grey, click collapses), ├─ children, grey "Totals" row.
+                  stripe = 0;
+                  return (
+                    <TableRow key={`g-${index}`} sx={{ ...TABLE_ROW_SX, bgcolor: ROW_ALT_BG }}>
+                      <TableCell colSpan={activeColumns.length} onClick={() => toggleGroup(row.name)} sx={{ cursor: 'pointer', userSelect: 'none', py: '10px !important' }}>
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          {row.collapsed ? <ChevronRightIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                          {row.name}
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                if (row.kind === 'groupTotal') {
+                  return (
+                    <TableRow key={`t-${index}`} sx={{ ...TABLE_ROW_SX, bgcolor: ROW_ALT_BG }}>
+                      {activeColumns.map((column) => (
+                        <TableCell key={column.key} align={column.align || 'center'} sx={column.key === 'name' ? { fontSize: '13px !important' } : undefined}>{cellValue(row, column)}</TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                }
+                const shade = stripe++ % 2 === 0 ? '#fff' : ROW_ALT_BG;
+                return (
+                  <TableRow key={`p-${index}`} sx={{ ...TABLE_ROW_SX, bgcolor: shade }}>
+                    {activeColumns.map((column) => (
+                      column.key === 'name' && row.isChild ? (
+                        <TableCell key={column.key} sx={{ pl: '14px !important' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 24 }}>
+                            <Box sx={{ width: 14, flexShrink: 0, borderLeft: '2px solid #000', position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: '2px solid #000' } }} />
+                            <Box sx={{ pl: '12px', display: 'flex', alignItems: 'center' }}>{row.name}</Box>
+                          </Box>
+                        </TableCell>
+                      ) : (
+                        <TableCell key={column.key} align={column.align || 'center'}>{cellValue(row, column)}</TableCell>
+                      )
+                    ))}
+                  </TableRow>
+                );
+              }); })()}
               <TableRow sx={TABLE_TOTAL_SX}>
                 {activeColumns.map((column) => (
-                  <TableCell key={column.key} align={column.align || 'right'}>
-                    {column.key === 'name'
-                      ? 'Total'
-                      : column.key === 'outlet'
-                        ? ''
-                        : isCurrencyColumn(column.key)
-                          ? formatCurrency(totals[column.key] || 0)
-                          : totals[column.key] || 0}
+                  <TableCell key={column.key} align={column.align || 'center'}>
+                    {totalsCells(column)}
                   </TableCell>
                 ))}
               </TableRow>

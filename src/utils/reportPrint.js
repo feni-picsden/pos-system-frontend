@@ -49,8 +49,40 @@ export const reportPrintRange = (dateRange) => {
 // totals: [...] (same length as headers) — omitted when null.
 export const printReportTable = ({ title = '', subtitle = '', range = '', headers = [], rows = [], totals = null }) => {
   const th = headers.map((h) => `<th style="text-align:${h.align || 'center'}">${esc(h.label)}</th>`).join('');
-  const tr = rows.map((r) => `<tr>${(r.cells || []).map((c, i) => `<td style="text-align:${headers[i]?.align || 'center'}${i === 0 && r.indent ? ';padding-left:18px' : ''}${r.bold ? ';font-weight:700' : ''}">${esc(c)}</td>`).join('')}</tr>`).join('');
+  const tr = rows.map((r, idx) => `<tr class="${idx % 2 === 0 ? 'odd' : 'even'}">${(r.cells || []).map((c, i) => `<td style="text-align:${headers[i]?.align || 'center'}${i === 0 && r.indent ? ';padding-left:18px' : ''}${r.bold ? ';font-weight:700' : ''}">${esc(c)}</td>`).join('')}</tr>`).join('');
   const tot = totals ? `<tr class="total">${totals.map((c, i) => `<td style="text-align:${headers[i]?.align || 'center'}">${esc(c)}</td>`).join('')}</tr>` : '';
+
+  // Reference: Print opens the report's print page in a NEW TAB (…/print?…) and that
+  // tab raises the browser print dialog. Falls back to printing over the page when
+  // the pop-up is blocked.
+  const win = window.open('', '_blank');
+  if (win) {
+    const docTitle = [title, subtitle].filter(Boolean).join(' - ') || 'Report';
+    win.document.open();
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(docTitle)}</title>
+      <style>
+        body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 16px 24px; }
+        .ttl { text-align: center; font-weight: 700; font-size: 22px; margin: 24px 0 12px; }
+        .sub { text-align: center; font-weight: 700; font-size: 15px; margin: 0 0 8px; }
+        .rng { text-align: center; font-weight: 700; font-size: 12px; margin: 0 0 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        thead th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px 4px; font-weight: 700; }
+        td { padding: 5px 4px; vertical-align: middle; word-break: break-word; }
+        tr.odd td { background: #e8e8e8; }
+        tr.total td { border-top: 2px solid #000; border-bottom: 2px solid #000; font-weight: 700; background: none; }
+        tr { page-break-inside: avoid; }
+        @page { margin: 12mm; }
+      </style></head><body>
+      ${title ? `<div class="ttl">${esc(title)}</div>` : ''}
+      ${subtitle ? `<div class="sub">${esc(subtitle)}</div>` : ''}
+      ${range ? `<div class="rng">${esc(range)}</div>` : ''}
+      <table><thead><tr>${th}</tr></thead><tbody>${tr}${tot}</tbody></table>
+      <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 150); });</script>
+      </body></html>`);
+    win.document.close();
+    return;
+  }
+
   const html = `
     <div id="print-content">
       <style>
