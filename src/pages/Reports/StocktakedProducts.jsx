@@ -9,7 +9,6 @@ import {
   Chip,
   Popover,
   IconButton,
-  FormControlLabel,
   Table,
   TableBody,
   TableCell,
@@ -20,8 +19,6 @@ import {
 } from '@mui/material';
 import {
   TableChartOutlined as ExportIcon,
-  ArrowUpward,
-  ArrowDownward,
   ArrowDropDown,
   CalendarTodayOutlined as CalendarIcon,
   ChevronLeft,
@@ -31,8 +28,9 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import apiClient from '../../services/apiClient';
 import inventoryReportService from '../../services/inventoryReportService';
-import outletService from '../../services/outletService';
 import productService from '../../services/productService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import {
@@ -73,23 +71,30 @@ const fieldSx = {
     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
     '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
   },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
-  '& .MuiInputLabel-root': { fontSize: 16, color: 'rgba(103,107,114,0.6)' },
-  '& .MuiInputLabel-root.MuiInputLabel-shrink': {
-    color: '#000',
-    transform: 'translate(14px, -9px) scale(0.8)',
-  },
-  '& .MuiInputLabel-root.Mui-focused': { color: '#000' },
+  '& input::placeholder': { color: '#676b72', opacity: 1 },
   '& .MuiAutocomplete-popupIndicator': {
     color: '#313439',
     transition: 'background 200ms ease',
     '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
   },
+  '& .MuiAutocomplete-clearIndicator': { color: '#313439', visibility: 'visible' },
 };
+// Reference (26/10 ss): the field name sits as small text ABOVE the box.
+const LABEL_SX = { fontSize: 13, color: '#313439', mb: '4px', lineHeight: 1.2 };
+const FIELD_BOX_SX = { flex: '1 1 0', minWidth: 220 };
+
+// Reference header: ⇕ after every label; `active` = 'asc' | 'desc' fills the
+// triangle of the current sort direction (same as InventoryReport.jsx).
+const SortIcon = ({ active }) => (
+  <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-block' }} aria-hidden="true">
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill={active === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'asc' ? 1.6 : 1.1} strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
+  </svg>
+);
 
 // Reference dropdown: white panel, 1px SOLID BLACK, 8px radius, 288px scroll,
 // xl shadow, no open/close transition, 56px option rows with 16px padding.
-const panelSx = (selectedSx) => ({
+const panelSx = (selectedSx, focusedSx = { backgroundColor: 'rgba(0,0,0,0.04)' }) => ({
   paper: {
     sx: {
       border: '1px solid #000',
@@ -103,17 +108,20 @@ const panelSx = (selectedSx) => ({
         padding: '16px',
         fontSize: 16,
         color: '#262626',
-        '&.Mui-focused': { backgroundColor: 'rgba(0,0,0,0.04)' },
-        "&[aria-selected='true'], &[aria-selected='true'].Mui-focused": selectedSx,
+        '&.Mui-focused': focusedSx,
+        "&[aria-selected='true']": selectedSx,
+        "&[aria-selected='true'].Mui-focused": { ...selectedSx, ...focusedSx },
       },
     },
   },
 });
 
-// Multi-select panels highlight the picked row (sky-200); the single outlet
-// panel just recolours the picked label (sky-400 text on white).
-const multiPanelSlotProps = panelSx({ backgroundColor: '#7dd3fc' });
+// Reference (26/10 ss): picked rows show blue text on white; the hovered/focused
+// row (picked or not) is sky. The single outlet panel just recolours the label.
+const multiPanelSlotProps = panelSx({ backgroundColor: '#fff', color: '#38bdf8' }, { backgroundColor: '#7dd3fc' });
 const singlePanelSlotProps = panelSx({ backgroundColor: '#fff', color: '#38bdf8' });
+// Pseudo row shown under the picked items while the search is too short.
+const HINT_ROW = { id: '__hint', name: 'Keep Typing to Search...' };
 
 // Toolbar (Export CSV): flat filled sky, square, NO hover change on the reference.
 const TOOLBAR_BUTTON_SX = {
@@ -138,7 +146,8 @@ const RUN_BUTTON_SX = {
   ...TOOLBAR_BUTTON_SX,
   minWidth: 62,
   '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#404040', color: '#737373', border: '1px solid #404040' },
+  '&:focus-visible': { outline: '2px solid #000', outlineOffset: 0 },
+  '&.Mui-disabled': { bgcolor: '#5ebbeb', color: '#f8f8f8', opacity: 0.6 },
 };
 
 const TABLE_HEAD_SX = {
@@ -160,9 +169,13 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
   const searching = inputValue.trim().length >= MIN_SEARCH;
 
   return (
+    <Box sx={FIELD_BOX_SX}>
+    <Typography sx={LABEL_SX}>{label}</Typography>
     <Autocomplete
       multiple
       disableCloseOnSelect
+      // Reference: a "x" clear-all sits beside the arrow whenever something is picked.
+      clearIcon={<span style={{ fontSize: 18, lineHeight: 1 }}>×</span>}
       options={options}
       value={value}
       onChange={(e, newValue) => onChange(newValue)}
@@ -173,14 +186,23 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
       popupIcon={<ArrowDropDown />}
       filterOptions={(opts, state) => {
         const input = state.inputValue.trim().toLowerCase();
-        if (input.length < MIN_SEARCH) return [];
+        // Too short to search: the picked rows (checked) + the hint row.
+        if (input.length < MIN_SEARCH) return [...value, HINT_ROW];
         return opts.filter((o) => (o.name || '').toLowerCase().includes(input));
       }}
+      getOptionDisabled={(o) => o.id === HINT_ROW.id}
       noOptionsText={searching ? 'No Options' : 'Keep Typing to Search...'}
       slotProps={multiPanelSlotProps}
-      sx={{ width: 358, maxWidth: '100%', ...fieldSx }}
+      sx={fieldSx}
       renderOption={(props, option, { selected }) => {
         const { key, ...optionProps } = props;
+        if (option.id === HINT_ROW.id) {
+          return (
+            <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#262626', cursor: 'default' }}>
+              {HINT_ROW.name}
+            </li>
+          );
+        }
         return (
           <li key={key} {...optionProps}>
             <Checkbox
@@ -194,22 +216,18 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
           </li>
         );
       }}
-      renderTags={(vals, getTagProps) =>
-        vals.map((option, index) => {
-          const { key, ...tagProps } = getTagProps({ index });
-          return (
-            <Chip
-              key={key}
-              label={option.name}
-              size="small"
-              {...tagProps}
-              sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#262626', fontSize: 14 }}
-            />
-          );
-        })
-      }
-      renderInput={(params) => <TextField {...params} label={label} placeholder={value.length ? '' : label} />}
+      // Reference: one grey chip — the name for a single pick, "N Selected..." for
+      // more; no per-chip x (the field's clear-all x removes everything).
+      renderTags={(vals) => (
+        <Chip
+          label={vals.length === 1 ? vals[0].name : `${vals.length} Selected...`}
+          size="small"
+          sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#262626', fontSize: 16, height: 26, ml: '4px' }}
+        />
+      )}
+      renderInput={(params) => <TextField {...params} placeholder={value.length ? '' : label} />}
     />
+    </Box>
   );
 };
 
@@ -294,7 +312,8 @@ const MonthGrid = ({ month, value, onPick, onPrev, onNext }) => {
 };
 
 const StocktakedProducts = () => {
-  const { getOutletId, getOutletName, isTrueSuperAdmin } = useAuth();
+  const { getOutletId } = useAuth();
+  const { notify } = useAppDialogs();
 
   // Filters — reference starts with an EMPTY date and nothing run; brands /
   // categories / families / tags are MULTI-select.
@@ -308,7 +327,8 @@ const StocktakedProducts = () => {
   // Documented default for this report: both toggles start OFF.
   const [showZeroInventory, setShowZeroInventory] = useState(false);
   const [includeInactive, setIncludeInactive] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  // The STATUS column follows the toggle as it was when the report RAN.
+  const [ranWithInactive, setRanWithInactive] = useState(false);
 
   const [outlets, setOutlets] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -336,16 +356,16 @@ const StocktakedProducts = () => {
     const load = async () => {
       const currentOutletId = getOutletId();
       try {
-        if (isTrueSuperAdmin()) {
-          const response = await outletService.getAllOutlets();
-          const outletsList = response?.outlets || response || [];
-          setOutlets(Array.isArray(outletsList) ? outletsList : []);
-        } else if (currentOutletId) {
-          // Non-super-admins can only ever report on their own outlet.
-          setOutlets([{ id: currentOutletId, name: getOutletName() || 'My Outlet' }]);
-        }
+        // Reference: every outlet the account is assigned to is listed (Reporting
+        // Access is not a filter here); picking one without it answers the red
+        // toast on Run. Same source as Inventory at Date.
+        const res = await apiClient.get('/auth/report-outlets');
+        const outletsList = Array.isArray(res?.data?.assigned) && res.data.assigned.length
+          ? res.data.assigned
+          : (Array.isArray(res?.data?.outlets) ? res.data.outlets : []);
+        setOutlets(outletsList);
         // Reference has no 'All Outlets' — the user's own outlet is pre-selected.
-        setOutletId((prev) => prev ?? currentOutletId ?? null);
+        setOutletId((prev) => prev ?? (outletsList.some((o) => o.id === currentOutletId) ? currentOutletId : outletsList[0]?.id ?? null));
       } catch (error) {
         console.error('Error loading outlets:', error);
       }
@@ -367,7 +387,7 @@ const StocktakedProducts = () => {
       }
     };
     load();
-  }, [getOutletId, getOutletName, isTrueSuperAdmin]);
+  }, [getOutletId]);
 
   const pickDate = (date) => {
     setSelectedDate(startOfDay(date));
@@ -395,7 +415,11 @@ const StocktakedProducts = () => {
   const ids = (list) => (list.length ? list.map((item) => item.id) : undefined);
 
   const handleRun = async () => {
-    if (!selectedDate) return;
+    // Reference: Run with no date answers a red toast instead of a disabled button.
+    if (!selectedDate) {
+      notify?.('Please select a date', 'error', { position: 'top' });
+      return;
+    }
 
     setLoading(true);
     setHasRun(true);
@@ -409,12 +433,12 @@ const StocktakedProducts = () => {
         tagIds: ids(selectedTags),
         showZeroInventory: showZeroInventory ? 'true' : 'false',
         includeInactive: includeInactive ? 'true' : 'false',
-        searchTerm: searchTerm || undefined,
       };
 
       const response = await inventoryReportService.getStocktakedProducts(filters);
       if (response.success) {
         setReportData(response.data || []);
+        setRanWithInactive(includeInactive);
       } else {
         console.error('Error fetching stocktaked products:', response.error);
         setReportData([]);
@@ -422,6 +446,11 @@ const StocktakedProducts = () => {
     } catch (error) {
       console.error('Error fetching stocktaked products:', error);
       setReportData([]);
+      // Reference: an outlet without Reporting Access answers a red toast and the
+      // page stays as it was before Run.
+      const message = error.response?.data?.error || error.response?.data?.message || 'Failed to load the report';
+      notify?.(message, 'error', { position: 'top' });
+      setHasRun(false);
     } finally {
       setLoading(false);
     }
@@ -438,7 +467,7 @@ const StocktakedProducts = () => {
     let aVal = a[sortConfig.key];
     let bVal = b[sortConfig.key];
 
-    if (sortConfig.key === 'name' || sortConfig.key === 'category') {
+    if (sortConfig.key === 'name' || sortConfig.key === 'category' || sortConfig.key === 'status') {
       aVal = (aVal || '').toLowerCase();
       bVal = (bVal || '').toLowerCase();
     } else if (sortConfig.key === 'date') {
@@ -467,7 +496,7 @@ const StocktakedProducts = () => {
 
   // Reference Export CSV is always enabled — it exports whatever is on screen.
   const exportToCSV = () => {
-    const headers = ['NAME', 'CATEGORY', 'DATE', 'INVENTORY'];
+    const headers = ['NAME', 'CATEGORY', 'DATE', 'INVENTORY', ...(ranWithInactive ? ['STATUS'] : [])];
 
     const csvContent = [
       headers.join(','),
@@ -477,6 +506,7 @@ const StocktakedProducts = () => {
           `"${row.category || ''}"`,
           formatDate(row.date),
           row.inventory || 0,
+          ...(ranWithInactive ? [row.status || ''] : []),
         ].join(',')
       ),
     ].join('\n');
@@ -499,16 +529,10 @@ const StocktakedProducts = () => {
           display: 'flex',
           alignItems: 'center',
           gap: 0.5,
-          justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+          justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
         }}
       >
-        {label}
-        {sortConfig.key === columnKey &&
-          (sortConfig.direction === 'asc' ? (
-            <ArrowUpward fontSize="small" />
-          ) : (
-            <ArrowDownward fontSize="small" />
-          ))}
+        {label}<SortIcon active={sortConfig.key === columnKey ? sortConfig.direction : null} />
       </Box>
     </TableCell>
   );
@@ -522,74 +546,60 @@ const StocktakedProducts = () => {
         </Button>
       </Box>
 
-      {/* Reference: bare filter block, no card. */}
+      {/* Reference (26/10 ss): bare filter block, no card. Row 1: Outlet, Date,
+          Brands, Categories, Families stretched edge to edge; row 2: Tags and the
+          two switches, each with its name as small text above. */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
         {showOutletFilter && (
-        <Autocomplete
-          options={outlets}
-          value={outlets.find((o) => o.id === outletId) || null}
-          onChange={(e, newValue) => setOutletId(newValue?.id || null)}
-          getOptionLabel={(option) => option?.name || ''}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
-          popupIcon={<ArrowDropDown />}
-          slotProps={singlePanelSlotProps}
-          sx={{ width: 358, maxWidth: '100%', ...fieldSx }}
-          renderInput={(params) => <TextField {...params} label="Outlet" />}
-        />
+        <Box sx={FIELD_BOX_SX}>
+          <Typography sx={LABEL_SX}>Outlet</Typography>
+          <Autocomplete
+            options={outlets}
+            value={outlets.find((o) => o.id === outletId) || null}
+            onChange={(e, newValue) => setOutletId(newValue?.id || null)}
+            getOptionLabel={(option) => option?.name || ''}
+            isOptionEqualToValue={(o, v) => o.id === v.id}
+            popupIcon={<ArrowDropDown />}
+            disableClearable
+            slotProps={singlePanelSlotProps}
+            sx={fieldSx}
+            renderInput={(params) => <TextField {...params} placeholder="Outlet" />}
+          />
+        </Box>
         )}
 
-        <TextField
-          label="Date"
-          placeholder="DD/MM/YYYY"
-          value={dateText}
-          onChange={(e) => handleDateTextChange(e.target.value)}
-          onClick={(e) => setCalendarAnchorEl(e.currentTarget)}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 358, maxWidth: '100%', ...fieldSx }}
-        />
+        <Box sx={FIELD_BOX_SX}>
+          <Typography sx={LABEL_SX}>Date</Typography>
+          <TextField
+            placeholder="Date"
+            value={dateText}
+            onChange={(e) => handleDateTextChange(e.target.value)}
+            onClick={(e) => setCalendarAnchorEl(e.currentTarget)}
+            fullWidth
+            // Same 42px box as the Autocomplete fields beside it.
+            sx={{ ...fieldSx, '& .MuiOutlinedInput-root': { ...fieldSx['& .MuiOutlinedInput-root'], height: 42 }, '& .MuiOutlinedInput-input': { py: 0 } }}
+          />
+        </Box>
 
         <SearchMultiSelect label="Brands" options={brands} value={selectedBrands} onChange={setSelectedBrands} />
         <SearchMultiSelect label="Categories" options={categories} value={selectedCategories} onChange={setSelectedCategories} />
         <SearchMultiSelect label="Families" options={families} value={selectedFamilies} onChange={setSelectedFamilies} />
-        <SearchMultiSelect label="Tags" options={tags} value={selectedTags} onChange={setSelectedTags} />
-
-        {/* Local-only product search — kept from the existing page. */}
-        <TextField
-          label="Search"
-          placeholder="Search Products"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 358, maxWidth: '100%', ...fieldSx }}
-        />
       </Box>
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '24px', mt: '16px' }}>
-        <FormControlLabel
-          sx={{ m: 0 }}
-          labelPlacement="start"
-          control={
-            <ShopfrontSwitch
-              checked={showZeroInventory}
-              onChange={(e) => setShowZeroInventory(e.target.checked)}
-              sx={{ ml: 1 }}
-            />
-          }
-          label={<Typography sx={{ fontSize: 16, color: '#313439' }}>Show Inventory With Zero Stock</Typography>}
-        />
-        <FormControlLabel
-          sx={{ m: 0 }}
-          labelPlacement="start"
-          control={
-            <ShopfrontSwitch
-              checked={includeInactive}
-              onChange={(e) => setIncludeInactive(e.target.checked)}
-              sx={{ ml: 1 }}
-            />
-          }
-          label={<Typography sx={{ fontSize: 16, color: '#313439' }}>Include Inactive Products</Typography>}
-        />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '16px', mt: '16px' }}>
+        <SearchMultiSelect label="Tags" options={tags} value={selectedTags} onChange={setSelectedTags} />
+        <Box sx={FIELD_BOX_SX}>
+          <Typography sx={LABEL_SX}>Show Inventory With Zero Stock</Typography>
+          <ShopfrontSwitch checked={showZeroInventory} onChange={(e) => setShowZeroInventory(e.target.checked)} />
+        </Box>
+        <Box sx={FIELD_BOX_SX}>
+          <Typography sx={LABEL_SX}>Include Inactive Products</Typography>
+          <ShopfrontSwitch checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} />
+        </Box>
+        {/* Keep the switches on the Date / Brands columns like the reference. */}
+        <Box sx={{ ...FIELD_BOX_SX, display: { xs: 'none', md: 'block' } }} />
+        <Box sx={{ ...FIELD_BOX_SX, display: { xs: 'none', md: 'block' } }} />
       </Box>
 
       {/* Date picker popover — two months, Monday first, manual entry + Current Day */}
@@ -655,13 +665,13 @@ const StocktakedProducts = () => {
       <Box sx={{ mt: '32px', mb: '16px' }}>
         <Button
           onClick={handleRun}
-          // The reference will not produce rows until a date has been chosen.
-          disabled={loading || !selectedDate}
+          // Reference keeps Run enabled; a missing date answers a toast.
+          disabled={loading}
           disableElevation
           disableRipple
           sx={RUN_BUTTON_SX}
         >
-          {loading ? <CircularProgress size={20} sx={{ color: '#737373' }} /> : 'Run'}
+          {loading ? <CircularProgress size={20} sx={{ color: '#f8f8f8' }} /> : 'Run'}
         </Button>
       </Box>
 
@@ -677,24 +687,21 @@ const StocktakedProducts = () => {
             <TableHead>
               <TableRow sx={TABLE_HEAD_SX}>
                 <SortableHeader columnKey="name" label="NAME" />
-                <SortableHeader columnKey="category" label="CATEGORY" />
-                <SortableHeader columnKey="date" label="DATE" />
-                <SortableHeader columnKey="inventory" label="INVENTORY" align="right" />
+                <SortableHeader columnKey="category" label="CATEGORY" align="center" />
+                <SortableHeader columnKey="date" label="DATE" align="center" />
+                <SortableHeader columnKey="inventory" label="INVENTORY" align="center" />
+                {ranWithInactive && <SortableHeader columnKey="status" label="STATUS" align="center" />}
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedData.length === 0 ? (
-                <TableRow sx={{ '& td': { borderBottom: 'none', fontSize: 16, color: '#000' } }}>
-                  <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                    No products found matching the selected filters.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortedData.map((row, index) => (
+              {/* Reference: no "no results" row — an empty run shows just the header
+                  and the sky footer bar below. */}
+              {sortedData.map((row, index) => (
                   <TableRow
                     key={row.id || index}
                     sx={{
-                      bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
+                      // Reference stripes: grey first row, white next.
+                      bgcolor: index % 2 === 0 ? '#e8e8e8' : '#fff',
                       '& td': {
                         color: '#000',
                         fontSize: 16,
@@ -704,20 +711,24 @@ const StocktakedProducts = () => {
                     }}
                   >
                     <TableCell>{row.name || ''}</TableCell>
-                    <TableCell>{row.category || ''}</TableCell>
-                    <TableCell>{formatDate(row.date)}</TableCell>
-                    <TableCell align="right">{row.inventory || 0}</TableCell>
+                    <TableCell align="center">{row.category || ''}</TableCell>
+                    <TableCell align="center">{formatDate(row.date)}</TableCell>
+                    <TableCell align="center">{row.inventory || 0}</TableCell>
+                    {ranWithInactive && <TableCell align="center">{row.status || ''}</TableCell>}
                   </TableRow>
-                ))
-              )}
+              ))}
+              {/* Reference: a sky bar closes the table (taller when the run is empty). */}
+              <TableRow>
+                <TableCell colSpan={ranWithInactive ? 5 : 4} sx={{ bgcolor: '#5ebbeb', borderBottom: 'none', padding: 0, height: sortedData.length ? 36 : 56 }} />
+              </TableRow>
             </TableBody>
           </Table>
         </TableContainer>
       )}
 
       {!loading && !hasRun && (
-        <Typography sx={{ fontSize: 16, color: '#676b72' }}>
-          Please select a date and press Run.
+        <Typography sx={{ fontSize: 16, color: '#000' }}>
+          Please select your parameters and press run.
         </Typography>
       )}
     </Box>

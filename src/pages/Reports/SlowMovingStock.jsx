@@ -17,8 +17,6 @@ import {
 } from '@mui/material';
 import {
   TableChartOutlined as ExportIcon,
-  ArrowUpward,
-  ArrowDownward,
   ArrowDropDown,
   CheckBoxOutlineBlankOutlined as SquareIcon,
   CheckBoxOutlined as CheckSquareIcon,
@@ -50,6 +48,15 @@ const fieldSx = {
   '& .MuiAutocomplete-clearIndicator': { color: '#313439', visibility: 'visible' },
 };
 const LABEL_SX = { fontSize: 13, color: '#313439', mb: '4px', lineHeight: 1.2 };
+
+// Reference header: ⇕ after every label; `active` = 'asc' | 'desc' fills the
+// triangle of the current sort direction (same as InventoryReport.jsx).
+const SortIcon = ({ active }) => (
+  <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-block' }} aria-hidden="true">
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill={active === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'asc' ? 1.6 : 1.1} strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
+  </svg>
+);
 // Reference button: the Export CSV block (53px, square, sky) is reused for Run;
 // focus draws the 2px black rail seen in the screenshots.
 const BLOCK_BUTTON_SX = {
@@ -361,10 +368,7 @@ const SlowMovingStock = () => {
           justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
         }}
       >
-        {label}
-        {sortConfig.key === columnKey && (
-          sortConfig.direction === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
-        )}
+        {label}<SortIcon active={sortConfig.key === columnKey ? sortConfig.direction : null} />
       </Box>
     </TableCell>
   );
