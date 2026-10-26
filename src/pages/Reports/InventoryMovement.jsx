@@ -45,8 +45,9 @@ import {
   subDays,
 } from 'date-fns';
 import inventoryReportService from '../../services/inventoryReportService';
-import outletService from '../../services/outletService';
+import apiClient from '../../services/apiClient';
 import productService from '../../services/productService';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import classificationService from '../../services/classificationService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import { useAuth } from '../../contexts/AuthContext';
@@ -160,14 +161,20 @@ const GROUPING_OPTIONS = [
   { value: 'family', label: 'Family' },
 ];
 
+// Reference: these three are button toggles, not dropdowns.
 const SHOW_PRODUCTS_OPTIONS = [
-  { value: 'movements', label: 'Only Products With Movements' },
-  { value: 'all', label: 'All Products' },
+  { value: 'movements', label: 'Only With Movements' },
+  { value: 'all', label: 'All' },
 ];
 
 const COST_OPTIONS = [
-  { value: 'average', label: 'Average' },
   { value: 'last', label: 'Last Cost' },
+  { value: 'average', label: 'Average Cost' },
+];
+
+const TAX_OPTIONS = [
+  { value: 'inclusive', label: 'Tax Inclusive' },
+  { value: 'exclusive', label: 'Tax Exclusive' },
 ];
 
 // Documented result columns for the Inventory Movement report.
@@ -187,6 +194,8 @@ const COLUMNS = [
   { key: 'transferValueOut', label: 'Transfer Value Out', numeric: true, currency: true },
   { key: 'stocktakeAdjustmentQuantity', label: 'Stocktake Adjustment Quantity', numeric: true },
   { key: 'stocktakeAdjustmentValue', label: 'Stocktake Adjustment Value', numeric: true, currency: true },
+  { key: 'basketQuantity', label: 'Basket Quantity', numeric: true },
+  { key: 'basketValue', label: 'Basket Value', numeric: true, currency: true },
   { key: 'manualAdjustmentQuantity', label: 'Manual Adjustment Quantity', numeric: true },
   { key: 'manualAdjustmentValue', label: 'Manual Adjustment Value', numeric: true, currency: true },
   { key: 'closingQuantity', label: 'Closing Quantity', numeric: true },
@@ -202,6 +211,7 @@ const VALUE_PAIRS = [
   ['transferQuantityIn', 'transferValueIn'],
   ['transferQuantityOut', 'transferValueOut'],
   ['stocktakeAdjustmentQuantity', 'stocktakeAdjustmentValue'],
+  ['basketQuantity', 'basketValue'],
   ['manualAdjustmentQuantity', 'manualAdjustmentValue'],
   ['closingQuantity', 'closingValue'],
 ];
@@ -214,7 +224,16 @@ const CLASSIFICATION_GROUPS = [
 ];
 
 const num = (value) => Number(value || 0);
-const money = (value) => `$${num(value).toFixed(2)}`;
+// Reference: "-$19.70", "$1,640.50", and "-$0.00" for a negative quantity at $0.
+const money = (value) => {
+  // Not num(): `-0 || 0` is 0, which would drop the reference's "-$0.00".
+  const raw = Number(value);
+  const n = Number.isFinite(raw) ? raw : 0;
+  const negative = n < 0 || Object.is(n, -0);
+  const text = Math.abs(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${negative ? '-' : ''}$${text}`;
+};
+const qty = (value) => Math.round(num(value) * 100) / 100;
 
 // Reference calendar month: Monday-first, 38px square cells.
 const MonthGrid = ({ month, startDate, endDate, onPick, onPrev, onNext }) => {
@@ -297,7 +316,8 @@ const MonthGrid = ({ month, startDate, endDate, onPick, onPrev, onNext }) => {
 };
 
 // Single-select combobox styled like the reference: bordered field + bordered option panel.
-const RefSelect = ({ label, value, options, onChange, width = 358 }) => {
+// `clearValue`: reference shows an ✕ that resets to it once something else is picked.
+const RefSelect = ({ label, value, options, onChange, width = 358, clearValue }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const current = options.find((option) => option.value === value);
 
@@ -308,6 +328,18 @@ const RefSelect = ({ label, value, options, onChange, width = 358 }) => {
         <Box sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {current ? current.label : ''}
         </Box>
+        {clearValue !== undefined && value !== clearValue && (
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(clearValue);
+            }}
+            sx={{ color: '#404040', p: '2px' }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        )}
         <ArrowDropDown sx={{ color: '#404040' }} />
       </Box>
       <Popover
@@ -328,6 +360,90 @@ const RefSelect = ({ label, value, options, onChange, width = 358 }) => {
             }}
           >
             {option.label}
+          </Box>
+        ))}
+      </Popover>
+    </Box>
+  );
+};
+
+// Reference button toggle: 16px label, then the buttons centred in a 358px slot;
+// the picked one is blue, the others dark.
+const RefToggle = ({ label, value, options, onChange, width = 358 }) => (
+  <Box sx={{ width }}>
+    <Typography sx={{ fontSize: 16, color: '#000', mb: '4px' }}>{label}</Typography>
+    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <Button
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            disableRipple
+            sx={{
+              height: 53,
+              p: '16px',
+              borderRadius: 0,
+              border: '1px solid #343a40',
+              bgcolor: active ? '#1c9ee1' : '#343a40',
+              color: '#f8f8f8',
+              fontSize: 16,
+              fontWeight: 400,
+              textTransform: 'none',
+              whiteSpace: 'nowrap',
+              '&:hover': { bgcolor: active ? '#1c9ee1' : '#23272b' },
+            }}
+          >
+            {option.label}
+          </Button>
+        );
+      })}
+    </Box>
+  </Box>
+);
+
+// Reference "Outlets": multi-select, blank = every outlet the user can report on.
+const OutletMultiSelect = ({ outlets, value, onChange, width = 358 }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const picked = outlets.filter((o) => value.includes(o.id));
+  const toggle = (id) => onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+
+  return (
+    <Box sx={{ width }}>
+      <Typography sx={FIELD_LABEL_SX}>&nbsp;</Typography>
+      <Box sx={{ ...FIELD_BOX_SX, flexWrap: 'wrap', gap: '4px', py: '4px' }} onClick={(e) => setAnchorEl(e.currentTarget)}>
+        {picked.map((o) => (
+          <Box key={o.id} sx={{ bgcolor: 'rgba(0,0,0,0.10)', borderRadius: '4px', px: '8px', fontSize: 16, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {o.name}
+          </Box>
+        ))}
+        <Box sx={{ flex: 1, minWidth: 60, color: '#808080' }}>{picked.length ? '' : 'Outlets'}</Box>
+        {picked.length > 0 && (
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange([]);
+            }}
+            sx={{ color: '#404040', p: '2px' }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        )}
+        <ArrowDropDown sx={{ color: '#404040' }} />
+      </Box>
+      <Popover
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transitionDuration={0}
+        slotProps={{ paper: { sx: panelSx(width) } }}
+      >
+        {outlets.map((o) => (
+          <Box key={o.id} sx={optionSx(false)} onClick={() => toggle(o.id)}>
+            {value.includes(o.id) ? <CheckBoxIcon sx={{ color: '#38a9e2' }} /> : <CheckBoxOutlineBlankIcon sx={{ color: '#404040' }} />}
+            <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.name}</Box>
           </Box>
         ))}
       </Popover>
@@ -396,7 +512,8 @@ const ProductClassificationFilter = ({ selection, onChange, width = 358 }) => {
 
   return (
     <Box sx={{ width }}>
-      <Typography sx={FIELD_LABEL_SX}>Products and Classifications</Typography>
+      {/* Reference: no label above this field, only the placeholder. */}
+      <Typography sx={FIELD_LABEL_SX}>&nbsp;</Typography>
       <Box
         sx={{ ...FIELD_BOX_SX, flexWrap: 'wrap', gap: '4px', py: '4px' }}
         onClick={(e) => setAnchorEl(e.currentTarget)}
@@ -508,9 +625,12 @@ const InventoryMovement = () => {
   const [selection, setSelection] = useState([]);
   const [grouping, setGrouping] = useState('none');
   const [outlets, setOutlets] = useState([]);
-  const [outletId, setOutletId] = useState('');
+  const [outletIds, setOutletIds] = useState([]);
   const [showProducts, setShowProducts] = useState('movements');
-  const [costBasis, setCostBasis] = useState('average');
+  const [costBasis, setCostBasis] = useState('last');
+  const [taxMode, setTaxMode] = useState('inclusive');
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
+  const { notify } = useAppDialogs();
 
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState([]);
@@ -520,17 +640,19 @@ const InventoryMovement = () => {
   // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
   const { showOutletFilter } = useHeaderScope();
   useEffect(() => {
-    if (!showOutletFilter && outletId) setOutletId('');
+    if (!showOutletFilter && outletIds.length) setOutletIds([]);
   }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // Same source as the other inventory reports: every outlet the account is
+    // assigned to; one without Reporting Access answers a red toast on Run.
     const loadOutlets = async () => {
       try {
-        if (user?.isSuperAdmin) {
-          const res = await outletService.getAllOutlets();
-          const list = res?.outlets || res || [];
-          setOutlets(Array.isArray(list) ? list : []);
-        }
+        const res = await apiClient.get('/auth/report-outlets');
+        const list = Array.isArray(res?.data?.assigned) && res.data.assigned.length
+          ? res.data.assigned
+          : (Array.isArray(res?.data?.outlets) ? res.data.outlets : []);
+        setOutlets(list);
       } catch (error) {
         console.error('Error loading outlets for inventory movement:', error);
       }
@@ -603,7 +725,7 @@ const InventoryMovement = () => {
       const filters = {
         startDate: startDate?.toISOString(),
         endDate: endDate?.toISOString(),
-        outletId: outletId || undefined,
+        outletIds: outletIds.length ? outletIds.join(',') : undefined,
         showProducts,
       };
 
@@ -616,6 +738,8 @@ const InventoryMovement = () => {
     } catch (error) {
       console.error('Error loading inventory movement report:', error);
       setReportData([]);
+      const message = error.response?.data?.error || error.response?.data?.message || 'Failed to load the report';
+      notify?.(message, 'error', { position: 'top' });
     } finally {
       setLoading(false);
     }
@@ -634,60 +758,60 @@ const InventoryMovement = () => {
       });
     };
 
+    // Product costs are stored tax-inclusive; "Tax Exclusive" divides by the
+    // product's current rate (the note under Run says so, as the reference does).
     return reportData.filter(matches).map((row) => {
       const basis = costBasis === 'average' ? num(row.averageCost) : num(row.lastCost);
-      if (!basis) return row;
-      const recosted = { ...row };
+      const unit = taxMode === 'exclusive' ? basis / (num(row.taxMultiplier) || 1) : basis;
+      const recosted = { ...row, closingCost: unit * (num(row.caseQuantity) || 1) };
       VALUE_PAIRS.forEach(([qtyKey, valueKey]) => {
-        recosted[valueKey] = num(row[qtyKey]) * basis;
+        recosted[valueKey] = num(row[qtyKey]) * unit;
       });
       return recosted;
     });
-  }, [reportData, selection, costBasis]);
+  }, [reportData, selection, costBasis, taxMode]);
 
-  const sumRows = (list) => {
-    const totals = {};
-    COLUMNS.filter((c) => c.numeric).forEach((column) => {
-      totals[column.key] = list.reduce((sum, row) => sum + num(row[column.key]), 0);
-    });
-    return totals;
-  };
-
-  // Grouping renders a bold subtotal row per classification, then its products.
+  // Reference grouping: a collapsible "▽ name" row per classification (no totals),
+  // "No Group" first, then the names in order; its products hang under it.
   const displayRows = useMemo(() => {
     if (grouping === 'none') return rows.map((row) => ({ ...row, kind: 'row' }));
 
     const key = `${grouping}Name`;
     const buckets = new Map();
     rows.forEach((row) => {
-      const name = row[key] || 'Unclassified';
+      const name = row[key] || '';
       if (!buckets.has(name)) buckets.set(name, []);
       buckets.get(name).push(row);
     });
 
     const out = [];
-    [...buckets.keys()].sort((a, b) => a.localeCompare(b)).forEach((name) => {
-      const bucket = buckets.get(name);
-      out.push({ kind: 'group', productName: name, ...sumRows(bucket) });
-      bucket.forEach((row) => out.push({ ...row, kind: 'row' }));
+    [...buckets.keys()].sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b))).forEach((name) => {
+      const label = name || 'No Group';
+      out.push({ kind: 'group', productName: label });
+      if (!collapsedGroups.has(label)) buckets.get(name).forEach((row) => out.push({ ...row, kind: 'row', grouped: true }));
     });
     return out;
-  }, [rows, grouping]);
+  }, [rows, grouping, collapsedGroups]);
 
-  const totals = useMemo(() => sumRows(rows), [rows]);
+  const toggleGroup = (label) => setCollapsedGroups((prev) => {
+    const next = new Set(prev);
+    if (next.has(label)) next.delete(label); else next.add(label);
+    return next;
+  });
 
   const cellText = (row, column) => {
-    if (row.kind === 'group' && (column.key === 'productId' || column.key === 'outletName')) return '';
     const value = row[column.key];
     if (column.currency) return money(value);
-    if (column.numeric) return num(value);
+    if (column.numeric) return qty(value);
     return value ?? '';
   };
 
   const handleExportCSV = () => {
     const lines = [
       COLUMNS.map((c) => c.label),
-      ...displayRows.map((row) => COLUMNS.map((column) => cellText(row, column))),
+      ...displayRows.map((row) => (row.kind === 'group'
+        ? [row.productName]
+        : COLUMNS.map((column) => cellText(row, column)))),
     ];
 
     const csv = lines
@@ -759,26 +883,20 @@ const InventoryMovement = () => {
 
         <ProductClassificationFilter selection={selection} onChange={setSelection} />
 
-        <RefSelect label="Grouping" value={grouping} options={GROUPING_OPTIONS} onChange={setGrouping} />
-
         {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
-        {user?.isSuperAdmin && showOutletFilter && (
-          <RefSelect
-            label="Outlets"
-            value={outletId}
-            options={[{ value: '', label: 'All Outlets' }, ...outlets.map((o) => ({ value: o.id, label: o.name }))]}
-            onChange={setOutletId}
-          />
+        {showOutletFilter && (
+          <OutletMultiSelect outlets={outlets} value={outletIds} onChange={setOutletIds} />
         )}
 
-        <RefSelect
-          label="Show Products"
-          value={showProducts}
-          options={SHOW_PRODUCTS_OPTIONS}
-          onChange={setShowProducts}
-        />
+        <RefSelect label="Grouping" value={grouping} options={GROUPING_OPTIONS} onChange={setGrouping} clearValue="none" />
 
-        <RefSelect label="Cost to Use" value={costBasis} options={COST_OPTIONS} onChange={setCostBasis} />
+        <RefToggle label="Show Products" value={showProducts} options={SHOW_PRODUCTS_OPTIONS} onChange={setShowProducts} />
+      </Box>
+
+      {/* Reference second row: the two cost toggles */}
+      <Box sx={{ display: 'flex', gap: '16px', flexWrap: 'wrap', mb: '24px' }}>
+        <RefToggle label="Cost to Use" value={costBasis} options={COST_OPTIONS} onChange={setCostBasis} />
+        <RefToggle label="Show Costs As" value={taxMode} options={TAX_OPTIONS} onChange={setTaxMode} />
       </Box>
 
       {/* Date range popover — masked inputs, Current Day preset, two months */}
@@ -877,6 +995,11 @@ const InventoryMovement = () => {
           Run
         </Button>
       </Box>
+      {taxMode === 'exclusive' && (
+        <Typography sx={{ fontSize: 16, color: '#000', mb: '16px' }}>
+          Exclusive costs are shown using the product&apos;s current tax rate, not the tax rate at the time of the movement.
+        </Typography>
+      )}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -888,7 +1011,7 @@ const InventoryMovement = () => {
             <TableHead>
               <TableRow sx={TABLE_HEAD_SX}>
                 {COLUMNS.map((column) => (
-                  <TableCell key={column.key} align={column.numeric ? 'right' : 'left'}>
+                  <TableCell key={column.key} align={column.key === 'productId' ? 'left' : 'center'}>
                     {column.label}
                   </TableCell>
                 ))}
@@ -905,33 +1028,44 @@ const InventoryMovement = () => {
                 </TableRow>
               ) : (
                 <>
-                  {displayRows.map((row, index) => (
+                  {displayRows.map((row, index) => (row.kind === 'group' ? (
                     <TableRow
-                      key={`${row.id || row.productName}-${index}`}
-                      sx={{
-                        bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
-                        '& td': { ...TABLE_CELL_SX, fontWeight: row.kind === 'group' ? 700 : 400 },
-                      }}
+                      key={`group-${row.productName}`}
+                      onClick={() => toggleGroup(row.productName)}
+                      sx={{ bgcolor: '#e4e4e4', cursor: 'pointer', '& td': TABLE_CELL_SX }}
+                    >
+                      <TableCell colSpan={COLUMNS.length}>
+                        <Box component="span" sx={{ display: 'inline-block', width: 16, mr: '8px', fontSize: 12 }}>
+                          {collapsedGroups.has(row.productName) ? '▷' : '▽'}
+                        </Box>
+                        {row.productName}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    <TableRow
+                      key={`${row.id}-${index}`}
+                      sx={{ bgcolor: index % 2 === 0 ? '#e4e4e4' : '#f8f8f8', '& td': TABLE_CELL_SX }}
                     >
                       {COLUMNS.map((column) => (
-                        <TableCell key={column.key} align={column.numeric ? 'right' : 'left'}>
+                        <TableCell
+                          key={column.key}
+                          align={column.key === 'productId' ? 'left' : 'center'}
+                          // Reference tree line: a rail down the group with a stub to each ID.
+                          sx={column.key === 'productId' && row.grouped ? {
+                            position: 'relative',
+                            pl: '42px !important',
+                            '&::before': { content: '""', position: 'absolute', left: 16, top: 0, bottom: 0, borderLeft: '1px solid #000' },
+                            '&::after': { content: '""', position: 'absolute', left: 16, width: 16, top: '50%', borderTop: '1px solid #000' },
+                          } : undefined}
+                        >
                           {cellText(row, column)}
                         </TableCell>
                       ))}
                     </TableRow>
-                  ))}
+                  )))}
+                  {/* Reference footer: a plain sky bar, no totals */}
                   <TableRow sx={TABLE_TOTAL_SX}>
-                    {COLUMNS.map((column) => (
-                      <TableCell key={column.key} align={column.numeric ? 'right' : 'left'}>
-                        {column.key === 'productName'
-                          ? 'Total'
-                          : column.numeric
-                            ? column.currency
-                              ? money(totals[column.key])
-                              : totals[column.key]
-                            : ''}
-                      </TableCell>
-                    ))}
+                    <TableCell colSpan={COLUMNS.length} sx={{ height: 36 }} />
                   </TableRow>
                 </>
               )}
@@ -952,10 +1086,11 @@ const InventoryMovement = () => {
         filters={{
           startDate: startDate ? format(startDate, 'yyyy-MM-dd') : '',
           endDate: endDate ? format(endDate, 'yyyy-MM-dd') : '',
-          outletId: outletId || undefined,
+          outletIds: outletIds.length ? outletIds.join(',') : undefined,
           showProducts,
           grouping,
           costBasis,
+          taxMode,
         }}
       />
     </Box>
