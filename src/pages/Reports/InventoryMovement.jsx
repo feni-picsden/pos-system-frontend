@@ -40,6 +40,7 @@ import {
   isSameDay,
   isSameMonth,
   startOfDay,
+  endOfDay,
   startOfMonth,
   endOfMonth,
   startOfWeek,
@@ -58,6 +59,8 @@ import supplierService from '../../services/supplierService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import { reportPrintTitle, reportPrintRange } from '../../utils/reportPrint';
 
 // ponytail: reference chrome is copied per page (parallel parity agents own one page each),
 // same constants as pages/Reports/InventoryAtDate.jsx.
@@ -661,11 +664,11 @@ const InventoryMovement = () => {
 
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState([]);
-  const [hasRun, setHasRun] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
-  const { showOutletFilter } = useHeaderScope();
+  const { showOutletFilter, headerOutletId } = useHeaderScope();
+  const { globalMode, outlets: headerOutlets } = useGlobalOutlet();
   useEffect(() => {
     if (!showOutletFilter && outletIds.length) setOutletIds([]);
   }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -755,7 +758,6 @@ const InventoryMovement = () => {
 
   const handleRun = async () => {
     setLoading(true);
-    setHasRun(true);
     try {
       const filters = {
         startDate: startDate?.toISOString(),
@@ -865,8 +867,52 @@ const InventoryMovement = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Reference Print (same as Inventory At Date): a NEW TAB with the print page —
+  // outlet name / "Inventory Movement" / date range, ruled table, grey stripes,
+  // bold group names — which then opens the browser's print dialog. Prints the
+  // table as shown (chosen cost basis and tax mode).
   const handlePrint = () => {
-    window.print();
+    const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const outletList = headerOutlets?.length ? headerOutlets : outlets;
+    const picked = outletList.filter((o) => outletIds.includes(o.id)).map((o) => o.name);
+    const title = picked.length ? picked.join(' & ') : reportPrintTitle(outletList, globalMode, headerOutletId);
+    const range = startDate && endDate ? reportPrintRange({ startDate: startOfDay(startDate), endDate: endOfDay(endDate), preset: 'custom' }) : '';
+    const alignOf = (col) => (col.key === 'productId' || col.key === 'productName' ? 'left' : 'center');
+    const head = COLUMNS.map((col) => `<th style="text-align:${alignOf(col)}">${esc(col.label)}</th>`).join('');
+    let stripe = 0;
+    const body = displayRows.map((row) => {
+      if (row.kind === 'group') { stripe = 0; return `<tr class="grp"><td colspan="${COLUMNS.length}">${esc(row.productName)}</td></tr>`; }
+      const cls = stripe++ % 2 === 0 ? 'odd' : 'even';
+      return `<tr class="${cls}">${COLUMNS.map((col) => `<td style="text-align:${alignOf(col)}">${esc(cellText(row, col))}</td>`).join('')}</tr>`;
+    }).join('');
+    const note = taxMode === 'exclusive'
+      ? '<div class="n">Exclusive costs are shown using the product&apos;s current tax rate, not the tax rate at the time of the movement.</div>'
+      : '';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Inventory Movement</title>
+      <style>
+        body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 16px 24px; }
+        h1 { text-align: center; font-size: 22px; margin: 24px 0 12px; }
+        h2 { text-align: center; font-size: 15px; margin: 0 0 8px; }
+        .d { text-align: center; font-size: 12px; font-weight: 700; margin: 0 0 14px; }
+        .n { font-size: 11px; margin: 0 0 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        thead th { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 6px 4px; font-weight: 700; }
+        td { padding: 5px 4px; white-space: nowrap; }
+        tr.odd td { background: #e8e8e8; }
+        tr.grp td { font-weight: 700; font-size: 12px; padding: 8px 4px 4px; }
+        tbody tr:last-child td { border-bottom: 2px solid #000; }
+        tr { page-break-inside: avoid; }
+        @page { size: landscape; margin: 10mm; }
+      </style></head><body>
+      <h1>${esc(title)}</h1><h2>Inventory Movement</h2><div class="d">${esc(range)}</div>${note}
+      <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+      <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 150); });</script>
+      </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) { notify?.('Please allow pop-ups to print this report', 'error', { position: 'top' }); return; }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
   };
 
   const rangeLabel = (date) => (date ? format(date, DATE_FORMAT) : 'dd/mm/yyyy');
@@ -1041,6 +1087,12 @@ const InventoryMovement = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
+      ) : displayRows.length === 0 ? (
+        // Reference: before Run, and when Run finds nothing, there is no table —
+        // just this line under the Run button, at the left edge.
+        <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'left' }}>
+          No inventory movements found, check the filters above and press run
+        </Typography>
       ) : (
         <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 0 }}>
           <Table size="small">
@@ -1054,57 +1106,45 @@ const InventoryMovement = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {displayRows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={COLUMNS.length} align="center" sx={{ ...TABLE_CELL_SX, py: '24px' }}>
-                    {hasRun
-                      ? 'No inventory movement found for the selected criteria.'
-                      : 'Select your filters and press Run.'}
+              {displayRows.map((row, index) => (row.kind === 'group' ? (
+                <TableRow
+                  key={`group-${row.productName}`}
+                  onClick={() => toggleGroup(row.productName)}
+                  sx={{ bgcolor: '#e4e4e4', cursor: 'pointer', '& td': TABLE_CELL_SX }}
+                >
+                  <TableCell colSpan={COLUMNS.length}>
+                    <Box component="span" sx={{ display: 'inline-block', width: 16, mr: '8px', fontSize: 12 }}>
+                      {collapsedGroups.has(row.productName) ? '▷' : '▽'}
+                    </Box>
+                    {row.productName}
                   </TableCell>
                 </TableRow>
               ) : (
-                <>
-                  {displayRows.map((row, index) => (row.kind === 'group' ? (
-                    <TableRow
-                      key={`group-${row.productName}`}
-                      onClick={() => toggleGroup(row.productName)}
-                      sx={{ bgcolor: '#e4e4e4', cursor: 'pointer', '& td': TABLE_CELL_SX }}
+                <TableRow
+                  key={`${row.id}-${index}`}
+                  sx={{ bgcolor: index % 2 === 0 ? '#e4e4e4' : '#f8f8f8', '& td': TABLE_CELL_SX }}
+                >
+                  {COLUMNS.map((column) => (
+                    <TableCell
+                      key={column.key}
+                      align={column.key === 'productId' ? 'left' : 'center'}
+                      // Reference tree line: a rail down the group with a stub to each ID.
+                      sx={column.key === 'productId' && row.grouped ? {
+                        position: 'relative',
+                        pl: '42px !important',
+                        '&::before': { content: '""', position: 'absolute', left: 16, top: 0, bottom: 0, borderLeft: '1px solid #000' },
+                        '&::after': { content: '""', position: 'absolute', left: 16, width: 16, top: '50%', borderTop: '1px solid #000' },
+                      } : undefined}
                     >
-                      <TableCell colSpan={COLUMNS.length}>
-                        <Box component="span" sx={{ display: 'inline-block', width: 16, mr: '8px', fontSize: 12 }}>
-                          {collapsedGroups.has(row.productName) ? '▷' : '▽'}
-                        </Box>
-                        {row.productName}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    <TableRow
-                      key={`${row.id}-${index}`}
-                      sx={{ bgcolor: index % 2 === 0 ? '#e4e4e4' : '#f8f8f8', '& td': TABLE_CELL_SX }}
-                    >
-                      {COLUMNS.map((column) => (
-                        <TableCell
-                          key={column.key}
-                          align={column.key === 'productId' ? 'left' : 'center'}
-                          // Reference tree line: a rail down the group with a stub to each ID.
-                          sx={column.key === 'productId' && row.grouped ? {
-                            position: 'relative',
-                            pl: '42px !important',
-                            '&::before': { content: '""', position: 'absolute', left: 16, top: 0, bottom: 0, borderLeft: '1px solid #000' },
-                            '&::after': { content: '""', position: 'absolute', left: 16, width: 16, top: '50%', borderTop: '1px solid #000' },
-                          } : undefined}
-                        >
-                          {cellText(row, column)}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  )))}
-                  {/* Reference footer: a plain sky bar, no totals */}
-                  <TableRow sx={TABLE_TOTAL_SX}>
-                    <TableCell colSpan={COLUMNS.length} sx={{ height: 36 }} />
-                  </TableRow>
-                </>
-              )}
+                      {cellText(row, column)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              )))}
+              {/* Reference footer: a plain sky bar, no totals */}
+              <TableRow sx={TABLE_TOTAL_SX}>
+                <TableCell colSpan={COLUMNS.length} sx={{ height: 36 }} />
+              </TableRow>
             </TableBody>
           </Table>
         </TableContainer>
