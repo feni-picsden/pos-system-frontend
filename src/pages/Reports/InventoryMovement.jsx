@@ -15,6 +15,9 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
+  Autocomplete,
+  Checkbox,
+  Chip,
 } from '@mui/material';
 import {
   FileDownload as ExportIcon,
@@ -27,6 +30,8 @@ import {
   Close as CloseIcon,
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
   CheckBox as CheckBoxIcon,
+  CheckBoxOutlineBlankOutlined as SquareIcon,
+  CheckBoxOutlined as CheckSquareIcon,
 } from '@mui/icons-material';
 import {
   format,
@@ -49,6 +54,7 @@ import apiClient from '../../services/apiClient';
 import productService from '../../services/productService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import classificationService from '../../services/classificationService';
+import supplierService from '../../services/supplierService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
@@ -451,51 +457,95 @@ const OutletMultiSelect = ({ outlets, value, onChange, width = 358 }) => {
   );
 };
 
-// Type-ahead multi-select over products AND classifications (reference "Products and Classifications").
-const ProductClassificationFilter = ({ selection, onChange, width = 358 }) => {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [term, setTerm] = useState('');
-  const [groups, setGroups] = useState([]);
-  const [searching, setSearching] = useState(false);
+// Reference "Products and Classifications": the same type-to-search multi-select as
+// Slow Moving Stock / Stocktaked Products — typed in the field itself, searches from
+// two characters, picked rows (checked) + 'Keep Typing to Search...' below that, one
+// grey chip ("N Selected..." for more), "x" clear-all. Results are grouped
+// Products / Categories / Brands / Families / Suppliers.
+const MIN_SEARCH = 2;
+const HINT_ROW = { key: '__hint', name: 'Keep Typing to Search...' };
+
+const PCF_FIELD_SX = {
+  bgcolor: '#fff',
+  '& .MuiOutlinedInput-root': {
+    minHeight: 42,
+    borderRadius: '8px',
+    fontSize: 16,
+    py: '3px',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#5e5e5e', borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#5e5e5e', borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    '& input::placeholder': { color: '#808080', opacity: 1 },
+  },
+  '& .MuiAutocomplete-popupIndicator': { color: '#404040' },
+  '& .MuiAutocomplete-clearIndicator': { color: '#404040', visibility: 'visible' },
+};
+
+const PCF_PANEL_PROPS = {
+  paper: {
+    sx: {
+      border: '1px solid #000',
+      borderRadius: '8px',
+      boxShadow: 'none',
+      mt: '4px',
+      '& .MuiAutocomplete-listbox': { maxHeight: 288, py: 0 },
+      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: '#252525' },
+      '& .MuiAutocomplete-loading': { padding: '16px', fontSize: 16, color: '#252525' },
+      '& .MuiAutocomplete-option': {
+        minHeight: 56,
+        padding: '16px',
+        fontSize: 16,
+        color: '#252525',
+        '&.Mui-focused': { backgroundColor: '#f8f8f8' },
+        "&[aria-selected='true']": { backgroundColor: '#fff', color: '#38bdf8' },
+        "&[aria-selected='true'].Mui-focused": { backgroundColor: '#f8f8f8', color: '#38bdf8' },
+      },
+    },
+  },
+};
+
+const ProductClassificationFilter = ({ selection, onChange, suppliers = [], width = 358 }) => {
+  const [inputValue, setInputValue] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const term = inputValue.trim();
+  const searching = term.length >= MIN_SEARCH;
 
   useEffect(() => {
-    const search = term.trim();
-    if (!search) {
-      setGroups([]);
+    if (!searching) {
+      setResults([]);
+      setLoading(false);
       return undefined;
     }
 
     let cancelled = false;
-    setSearching(true);
+    setLoading(true);
     const timer = setTimeout(async () => {
       try {
         const [productRes, classificationRes] = await Promise.all([
-          productService.getProducts({ search, limit: 20 }),
-          classificationService.getClassifications({ search }),
+          productService.getProducts({ search: term, limit: 20 }),
+          classificationService.getClassifications({ search: term }),
         ]);
         if (cancelled) return;
 
         const products = productRes?.products || productRes?.data || [];
         const classifications = classificationRes?.classifications || [];
-        const next = [];
-        if (products.length) {
-          next.push({
-            heading: 'Products',
-            items: products.map((p) => ({ key: `product:${p.id}`, kind: 'product', id: p.id, name: p.name })),
-          });
-        }
+        const lower = term.toLowerCase();
+        // Kept in heading order: Autocomplete groups consecutive rows only.
+        const next = products.map((p) => ({ key: `product:${p.id}`, kind: 'product', id: p.id, name: p.name, heading: 'Products' }));
         CLASSIFICATION_GROUPS.forEach(({ type, heading }) => {
-          const items = classifications
-            .filter((c) => String(c.type).toUpperCase() === type)
-            .map((c) => ({ key: `${type}:${c.id}`, kind: type, id: c.id, name: c.name }));
-          if (items.length) next.push({ heading, items });
+          // Suppliers live in their own table, not in classifications.
+          const source = type === 'SUPPLIER'
+            ? suppliers.filter((s) => (s.name || '').toLowerCase().includes(lower))
+            : classifications.filter((c) => String(c.type).toUpperCase() === type);
+          source.forEach((c) => next.push({ key: `${type}:${c.id}`, kind: type, id: c.id, name: c.name, heading }));
         });
-        setGroups(next);
+        setResults(next);
       } catch (error) {
         console.error('Error searching products and classifications:', error);
-        if (!cancelled) setGroups([]);
+        if (!cancelled) setResults([]);
       } finally {
-        if (!cancelled) setSearching(false);
+        if (!cancelled) setLoading(false);
       }
     }, 300);
 
@@ -503,107 +553,84 @@ const ProductClassificationFilter = ({ selection, onChange, width = 358 }) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [term]);
+  }, [term, searching, suppliers]);
 
-  const toggle = (item) => {
-    const exists = selection.some((s) => s.key === item.key);
-    onChange(exists ? selection.filter((s) => s.key !== item.key) : [...selection, item]);
-  };
+  // Picked rows stay among the options (checked) even when this search did not
+  // return them; sorted by heading because Autocomplete groups consecutive rows.
+  const options = useMemo(() => {
+    if (!searching) return [...selection, HINT_ROW];
+    const order = ['Products', ...CLASSIFICATION_GROUPS.map((g) => g.heading)];
+    const keys = new Set(results.map((o) => o.key));
+    return [...results, ...selection.filter((s) => !keys.has(s.key))]
+      .map((o, i) => ({ o, i }))
+      .sort((a, b) => order.indexOf(a.o.heading) - order.indexOf(b.o.heading) || a.i - b.i)
+      .map(({ o }) => o);
+  }, [searching, results, selection]);
 
   return (
     <Box sx={{ width }}>
       {/* Reference: no label above this field, only the placeholder. */}
       <Typography sx={FIELD_LABEL_SX}>&nbsp;</Typography>
-      <Box
-        sx={{ ...FIELD_BOX_SX, flexWrap: 'wrap', gap: '4px', py: '4px' }}
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-      >
-        {selection.map((item) => (
-          <Box
-            key={item.key}
-            sx={{
-              bgcolor: 'rgba(0,0,0,0.10)',
-              borderRadius: '4px',
-              px: '8px',
-              fontSize: 16,
-              maxWidth: 150,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {item.name}
-          </Box>
-        ))}
-        <Box sx={{ flex: 1, minWidth: 60, color: selection.length ? 'transparent' : '#808080' }}>
-          {selection.length ? '' : 'Products and Classifications'}
-        </Box>
-        {selection.length > 0 && (
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange([]);
-            }}
-            sx={{ color: '#404040', p: '2px' }}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
+      <Autocomplete
+        multiple
+        disableCloseOnSelect
+        clearIcon={<span style={{ fontSize: 18, lineHeight: 1 }}>×</span>}
+        popupIcon={<ArrowDropDown />}
+        options={options}
+        value={selection}
+        onChange={(e, next) => onChange(next.filter((o) => o.key !== HINT_ROW.key))}
+        inputValue={inputValue}
+        onInputChange={(e, next) => setInputValue(next)}
+        filterOptions={(opts) => opts}
+        groupBy={searching ? (o) => o.heading : undefined}
+        getOptionLabel={(o) => o?.name || ''}
+        getOptionKey={(o) => o.key}
+        isOptionEqualToValue={(o, v) => o.key === v.key}
+        getOptionDisabled={(o) => o.key === HINT_ROW.key}
+        loading={searching && loading}
+        loadingText="Searching..."
+        noOptionsText="No Options"
+        slotProps={PCF_PANEL_PROPS}
+        sx={PCF_FIELD_SX}
+        renderGroup={(params) => (
+          <li key={params.key}>
+            <Box sx={{ p: '16px', fontSize: 16, fontWeight: 700, color: '#000' }}>{params.group}</Box>
+            <Box component="ul" sx={{ p: 0 }}>{params.children}</Box>
+          </li>
         )}
-      </Box>
-      <Popover
-        open={Boolean(anchorEl)}
-        anchorEl={anchorEl}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transitionDuration={0}
-        slotProps={{ paper: { sx: panelSx(width) } }}
-      >
-        <Box sx={{ p: '8px' }}>
-          <TextField
-            autoFocus
-            fullWidth
+        renderOption={(props, option, { selected }) => {
+          const { key, ...optionProps } = props;
+          if (option.key === HINT_ROW.key) {
+            return (
+              <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#252525', cursor: 'default' }}>
+                {HINT_ROW.name}
+              </li>
+            );
+          }
+          return (
+            <li key={key} {...optionProps}>
+              <Checkbox
+                icon={<SquareIcon />}
+                checkedIcon={<CheckSquareIcon />}
+                checked={selected}
+                disableRipple
+                sx={{ p: 0, mr: '8px', color: '#252525', '&.Mui-checked': { color: '#252525' } }}
+              />
+              {option.name}
+            </li>
+          );
+        }}
+        renderTags={(vals) => (
+          <Chip
+            label={vals.length === 1 ? vals[0].name : `${vals.length} Selected...`}
             size="small"
-            placeholder="Keep Typing to Search..."
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            sx={{
-              '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-              '& input::placeholder': { color: '#808080', opacity: 1 },
-            }}
+            sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#252525', fontSize: 16, height: 26, ml: '4px', maxWidth: 220 }}
           />
-        </Box>
-        {!term.trim() && (
-          <Box sx={{ p: '16px', fontSize: 16, color: '#676b72' }}>Keep Typing to Search...</Box>
         )}
-        {term.trim() && searching && (
-          <Box sx={{ p: '16px', fontSize: 16, color: '#676b72' }}>Searching...</Box>
+        renderInput={(params) => (
+          <TextField {...params} placeholder={selection.length ? '' : 'Products and Classifications'} />
         )}
-        {term.trim() && !searching && groups.length === 0 && (
-          <Box sx={{ p: '16px', fontSize: 16, color: '#676b72' }}>No matches found.</Box>
-        )}
-        {groups.map((group) => (
-          <Box key={group.heading}>
-            <Box sx={{ p: '16px', fontSize: 16, fontWeight: 700, color: '#000' }}>{group.heading}</Box>
-            {group.items.map((item) => {
-              const checked = selection.some((s) => s.key === item.key);
-              return (
-                <Box key={item.key} sx={optionSx(false)} onClick={() => toggle(item)}>
-                  {checked ? (
-                    <CheckBoxIcon sx={{ color: '#38a9e2' }} />
-                  ) : (
-                    <CheckBoxOutlineBlankIcon sx={{ color: '#404040' }} />
-                  )}
-                  <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.name}
-                  </Box>
-                </Box>
-              );
-            })}
-          </Box>
-        ))}
-      </Popover>
+      />
     </Box>
   );
 };
@@ -660,6 +687,14 @@ const InventoryMovement = () => {
 
     loadOutlets();
   }, [user]);
+
+  // Suppliers for the "Products and Classifications" search (own table, loaded once).
+  const [suppliers, setSuppliers] = useState([]);
+  useEffect(() => {
+    supplierService.getSuppliers()
+      .then((res) => setSuppliers(res?.suppliers || (Array.isArray(res) ? res : [])))
+      .catch((error) => console.error('Error loading suppliers for inventory movement:', error));
+  }, []);
 
   const setDate = useCallback(
     (field, date) => {
@@ -754,6 +789,7 @@ const InventoryMovement = () => {
         if (item.kind === 'CATEGORY') return row.categoryId === item.id;
         if (item.kind === 'BRAND') return row.brandId === item.id;
         if (item.kind === 'FAMILY') return row.familyId === item.id;
+        if (item.kind === 'SUPPLIER') return (row.supplierIds || []).includes(item.id);
         return false;
       });
     };
@@ -881,7 +917,7 @@ const InventoryMovement = () => {
           </Box>
         </Box>
 
-        <ProductClassificationFilter selection={selection} onChange={setSelection} />
+        <ProductClassificationFilter selection={selection} onChange={setSelection} suppliers={suppliers} />
 
         {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
         {showOutletFilter && (
