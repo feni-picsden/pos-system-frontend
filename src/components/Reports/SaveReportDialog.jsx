@@ -26,7 +26,10 @@ const FIELD_SX = {
 };
 const LABEL_SX = { fontSize: 14, color: '#000', mb: 0.5 };
 
-const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defaultName = '', dynamicAllowed = true }) => {
+// alwaysDynamic: reports whose reference dialog has no "Dynamic Time Period"
+// switch (Product Revision History) — Amount / Period / Include today show
+// straight away and the saved favourite is always dynamic.
+const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defaultName = '', dynamicAllowed = true, alwaysDynamic = false }) => {
   const { selectedOutletId } = useSelectedOutlet();
   const [searchParams] = useSearchParams();
   const favouriteId = searchParams.get('favouriteId');
@@ -42,7 +45,7 @@ const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defa
   useEffect(() => {
     if (!open) return;
     setError('');
-    setDynamic(false); setAmount('1'); setPeriod('Day(s)'); setIncludeToday(false);
+    setDynamic(alwaysDynamic); setAmount('1'); setPeriod('Day(s)'); setIncludeToday(alwaysDynamic);
     setName(defaultName || '');
     if (!favouriteId) return;
     let alive = true;
@@ -116,13 +119,17 @@ const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defa
 
         {dynamicAllowed && (
           <>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: dynamic ? 1.5 : 0 }}>
-              <ShopfrontSwitch checked={dynamic} onChange={(e) => setDynamic(e.target.checked)} />
-              <Typography sx={{ fontSize: 16, color: '#000' }}>Dynamic Time Period</Typography>
-            </Box>
+            {!alwaysDynamic && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: dynamic ? 1.5 : 0 }}>
+                <ShopfrontSwitch checked={dynamic} onChange={(e) => setDynamic(e.target.checked)} />
+                <Typography sx={{ fontSize: 16, color: '#000' }}>Dynamic Time Period</Typography>
+              </Box>
+            )}
             {dynamic && (
               <>
-                <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>(Note: The report will be modified)</Typography>
+                {!alwaysDynamic && (
+                  <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>(Note: The report will be modified)</Typography>
+                )}
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <Box sx={{ flex: 1 }}>
                     <Typography sx={LABEL_SX}>Amount</Typography>

@@ -46,9 +46,11 @@ import { userService } from '../../services/userService';
 import { matchesProductSearch } from '../../utils/productSearch';
 import { rankProducts } from '../../utils/searchRank';
 
+// Reference Keys list (26/10 ss), alphabetical as shown there.
 const PRODUCT_FIELD_OPTIONS = [
   'active',
   'additional',
+  'alternateNames',
   'averageCost',
   'barcodes',
   'brandId',
@@ -63,6 +65,8 @@ const PRODUCT_FIELD_OPTIONS = [
   'deletedAt',
   'description',
   'familyId',
+  'ignoreBarcodeHostChanges',
+  'ignorePriceHostChanges',
   'image',
   'images',
   'invoiceNotes',
@@ -73,13 +77,26 @@ const PRODUCT_FIELD_OPTIONS = [
   'metcashMsc',
   'name',
   'orderNotes',
-  'price',
+  'preventManualDiscounts',
   'prices',
-  'sellOnShopMyLocal',
+  'reorder',
+  'requestPrice',
+  'requestQuantity',
   'status',
+  'suppliers',
+  'tags',
+  'taxRateId',
+  'tempProduct',
   'trackInventory',
   'type',
+  'usePriceLabel',
+  'useScales',
 ];
+
+// Reference type-to-search lists (Products, Users) show "Keep Typing to Search..."
+// until this many characters are typed; picked rows stay listed above it.
+const MIN_SEARCH = 2;
+const HINT_ROW = { id: '__hint', name: 'Keep Typing to Search...', __hint: true };
 
 // Reference toolbar buttons: square, flat, #5ebbeb, and they INVERT on hover.
 const toolbarBtnSx = (minWidth) => ({
@@ -116,12 +133,16 @@ const fieldSx = {
   // Resting label sits vertically centred in the 44px box, 16px in — same spot
   // as the date field's placeholder text beside it.
   '& .MuiInputLabel-root:not(.MuiInputLabel-shrink)': { transform: 'translate(16px, 11px) scale(1)' },
+  // Reference: once focused or filled the name moves ABOVE the box as small
+  // dark text at its left edge (no notch cut into the border).
   '& .MuiInputLabel-root.MuiInputLabel-shrink': {
     color: '#313439',
-    transform: 'translate(14px, -9px) scale(0.8)',
+    transform: 'translate(0px, -22px) scale(0.8)',
   },
+  '& .MuiOutlinedInput-notchedOutline legend': { maxWidth: 0 },
   '& .MuiInputLabel-root.Mui-focused': { color: '#313439' },
   '& .MuiAutocomplete-popupIndicator': { color: '#313439' },
+  '& .MuiAutocomplete-clearIndicator': { color: '#313439', visibility: 'visible' },
 };
 
 // Reference dropdown: anchored under the field, 288px scroll, 1px solid black,
@@ -135,7 +156,9 @@ const panelSlotProps = {
       mt: '4px',
       '& .MuiAutocomplete-listbox': { maxHeight: 288, py: 0 },
       '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: '#262626' },
-      '& .MuiAutocomplete-option': {
+      // "&&" doubles the selector weight: MUI's own option rules (min-height auto
+      // on desktop, its selected fill) otherwise win and squash the 56px rows.
+      '&& .MuiAutocomplete-option': {
         minHeight: 56,
         padding: '16px',
         fontSize: 16,
@@ -151,22 +174,27 @@ const panelSlotProps = {
   },
 };
 
-// Reference filters are type-to-search multi-selects showing grey chips in the field.
-const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => o }) => (
+// Reference filters are multi-selects showing grey chips in the field. Keys lists
+// every option at once; Products / Users (typeToSearch) wait for typing.
+const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => o, typeToSearch = false }) => (
   <Autocomplete
     autoHighlight
     multiple
     disableCloseOnSelect
+    // Reference: a "x" clear-all sits beside the arrow whenever something is picked.
+    clearIcon={<span style={{ fontSize: 18, lineHeight: 1 }}>×</span>}
     options={options}
     value={value}
-    onChange={(e, newValue) => onChange(newValue)}
-    getOptionLabel={getLabel}
+    onChange={(e, newValue) => onChange(newValue.filter((o) => !o?.__hint))}
+    getOptionLabel={(o) => (o?.__hint ? o.name : getLabel(o))}
+    getOptionDisabled={(o) => !!o?.__hint}
     popupIcon={<ArrowDropDown />}
     // ponytail: cap the rendered list instead of pulling in a virtualiser
     filterOptions={(opts, state) => {
       // Sell-screen search rules (every typed word, any order, name /
       // description / barcode; best match first) for any option type.
       const input = state.inputValue.trim();
+      if (typeToSearch && input.length < MIN_SEARCH) return [...value, HINT_ROW];
       if (!input) return opts.slice(0, 100);
       const wrapped = opts.map((o) => ({ o, name: getLabel(o), description: o?.description, barcodes: o?.barcodes }));
       return rankProducts(wrapped.filter((w) => matchesProductSearch(w, input)), input).map((w) => w.o).slice(0, 100);
@@ -175,6 +203,13 @@ const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => 
     sx={fieldSx}
     renderOption={(props, option, { selected }) => {
       const { key, ...optionProps } = props;
+      if (option?.__hint) {
+        return (
+          <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#262626', cursor: 'default' }}>
+            {option.name}
+          </li>
+        );
+      }
       return (
         <li key={key} {...optionProps}>
           <Checkbox
@@ -188,27 +223,16 @@ const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => 
         </li>
       );
     }}
-    renderTags={(vals, getTagProps) =>
-      vals.map((option, index) => {
-        const { key, ...tagProps } = getTagProps({ index });
-        return (
-          <Chip
-            key={key}
-            label={getLabel(option)}
-            size="small"
-            {...tagProps}
-            sx={{
-              bgcolor: 'rgba(0,0,0,0.1)',
-              borderRadius: '4px',
-              color: '#000',
-              fontSize: 16,
-              maxWidth: 150,
-              px: '8px',
-            }}
-          />
-        );
-      })
-    }
+    // Reference: the first two picks as grey chips (long names cut with "…"), then
+    // one "N More..." chip; no per-chip x (the clear-all x removes everything).
+    renderTags={(vals) => {
+      const chipSx = { bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#000', fontSize: 16, maxWidth: 150, height: 26, mr: '6px', '& .MuiChip-label': { px: '8px' } };
+      const shown = vals.slice(0, 2);
+      return [
+        ...shown.map((option, i) => <Chip key={i} label={getLabel(option)} size="small" sx={chipSx} />),
+        ...(vals.length > 2 ? [<Chip key="more" label={`${vals.length - 2} More...`} size="small" sx={chipSx} />] : []),
+      ];
+    }}
     renderInput={(params) => <TextField {...params} label={label} />}
   />
 );
@@ -244,7 +268,7 @@ const DateRangeField = ({ value, onChange, label }) => {
   const dateInput = (which) => {
     const d = which === 'start' ? startDate : endDate;
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}>
         <Box
           component="input"
           type="date"
@@ -255,7 +279,8 @@ const DateRangeField = ({ value, onChange, label }) => {
             else setRange(startDate, parsed);
           }}
           sx={{
-            width: 147,
+            flex: 1,
+            minWidth: 0,
             height: 36,
             fontSize: 12,
             fontFamily: 'monospace',
@@ -541,6 +566,40 @@ const DateRangeField = ({ value, onChange, label }) => {
   );
 };
 
+// Pink = a row the change removed (From side), green = a row it added (To side).
+const TONE_BG = { removed: '#f8d7da', added: '#d4edda' };
+const MINI_CELL = { border: '1px solid #000', padding: '8px', fontSize: 16, color: '#000' };
+
+// Reference nested table: black 1px grid, bold centred header, plain cells.
+const MiniTable = ({ title, headers, rows }) => (
+  <Box>
+    {title && <Typography sx={{ fontWeight: 700, fontSize: 16, textAlign: 'center', mb: '4px' }}>{title}</Typography>}
+    <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
+      {headers && (
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <Box component="th" key={h} sx={{ ...MINI_CELL, fontWeight: 700, textAlign: 'center' }}>{h}</Box>
+            ))}
+          </tr>
+        </thead>
+      )}
+      <tbody>
+        {rows.map((r, i) => (
+          <Box component="tr" key={i} sx={{ bgcolor: r.tone ? TONE_BG[r.tone] : 'transparent' }}>
+            {r.span ? (
+              <Box component="td" colSpan={headers?.length || 2} sx={{ ...MINI_CELL, textAlign: r.spanAlign || 'center' }}>{r.span}</Box>
+            ) : (
+              r.cells.map((c, j) => <Box component="td" key={j} sx={MINI_CELL}>{c}</Box>)
+            )}
+          </Box>
+        ))}
+      </tbody>
+    </Box>
+  </Box>
+);
+
+
 const ProductRevisionHistory = () => {
   const [dateRange, setDateRange] = useState({
     startDate: new Date(),
@@ -553,8 +612,10 @@ const ProductRevisionHistory = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [users, setUsers] = useState([]);
   const [reportData, setReportData] = useState([]);
+  // Names for ids in the revision values (brand / category / family / tags,
+  // suppliers, outlets), sent by the report API with each run.
+  const [lookups, setLookups] = useState({ classifications: {}, suppliers: {}, outlets: [] });
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   // Reference /reports/misc/revisions/<product id>: open with that product picked
   // (all dates) and the report already run.
@@ -609,7 +670,6 @@ const ProductRevisionHistory = () => {
     fields: selectedKeys,
     productIds: selectedProducts.map((p) => p.id),
     userIds: selectedUsers.map((u) => u.id),
-    searchTerm,
   };
 
   const handleRun = async (filters = activeFilters) => {
@@ -618,6 +678,7 @@ const ProductRevisionHistory = () => {
       const response = await productService.getProductRevisionHistory(filters);
       if (response.success) {
         setReportData(response.data || []);
+        setLookups({ classifications: {}, suppliers: {}, outlets: [], ...(response.lookups || {}) });
       } else {
         setReportData([]);
       }
@@ -634,7 +695,7 @@ const ProductRevisionHistory = () => {
   useEffect(() => {
     if (autoRunFor && selectedProducts.some((p) => p.id === autoRunFor)) {
       setAutoRunFor(null);
-      handleRun({ fields: [], productIds: [autoRunFor], userIds: [], searchTerm: '' });
+      handleRun({ fields: [], productIds: [autoRunFor], userIds: [] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRunFor, selectedProducts]);
@@ -684,96 +745,218 @@ const ProductRevisionHistory = () => {
     URL.revokeObjectURL(url);
   };
 
-  const renderPriceTable = (prices, otherPrices, isFrom) => {
-    const parsedPrices = Array.isArray(prices) ? prices : tryParseJson(prices);
-    const parsedOther = Array.isArray(otherPrices) ? otherPrices : tryParseJson(otherPrices);
-    if (!Array.isArray(parsedPrices) || parsedPrices.length === 0) return String(prices ?? '');
+  // ---- Reference value cells (26/10 ss) -------------------------------------
+  const money = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return String(v ?? '');
+    return `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)}`;
+  };
+  const asArray = (v) => {
+    const parsed = Array.isArray(v) ? v : tryParseJson(v);
+    return Array.isArray(parsed) ? parsed : null;
+  };
+  const outletName = (row) => {
+    if (row?.outlet) return row.outlet;
+    const o = (lookups.outlets || []).find((x) => x.id === Number(row?.outletId));
+    return o ? o.name : 'Default';
+  };
+  // Rows on this side that the other side does not have (by their own key).
+  const diffTone = (list, other, keyOf, isFrom) => {
+    const otherKeys = new Set((other || []).map(keyOf));
+    return (row) => (otherKeys.has(keyOf(row)) ? null : isFrom ? 'removed' : 'added');
+  };
 
-    const hasChanged = (idx) => {
-      if (!Array.isArray(parsedOther) || !parsedOther[idx]) return true;
-      const a = parsedPrices[idx];
-      const b = parsedOther[idx];
-      return (
-        a.quantity !== b.quantity ||
-        a.price !== b.price ||
-        (a.priceSet || 'Default') !== (b.priceSet || 'Default')
-      );
-    };
-
+  const renderPrices = (value, otherValue, isFrom) => {
+    const list = asArray(value);
+    if (!list) return String(value ?? '');
+    if (list.length === 0) return '';
+    const keyOf = (p) => `${Number(p.quantity)}|${Number(p.price)}|${p.priceSet || 'Default'}`;
+    const tone = diffTone(list, asArray(otherValue), keyOf, isFrom);
     return (
-      <Table size="small" sx={{ bgcolor: 'transparent', border: '1px solid #e0e0e0' }}>
-        <TableHead>
-          <TableRow sx={{ bgcolor: '#f9f9f9' }}>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', py: 0.5, px: 1 }}>Quantity</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', py: 0.5, px: 1 }}>Price</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', py: 0.5, px: 1 }}>Price Set</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {parsedPrices.map((p, idx) => {
-            const changed = hasChanged(idx);
-            const bg = changed ? (isFrom ? '#fff9f0' : '#f1f8f4') : 'transparent';
-            return (
-              <TableRow key={idx} sx={{ bgcolor: bg }}>
-                <TableCell sx={{ py: 0.5, px: 1 }}>{p.quantity}</TableCell>
-                <TableCell sx={{ py: 0.5, px: 1 }}>{p.price}</TableCell>
-                <TableCell sx={{ py: 0.5, px: 1 }}>{p.priceSet || 'Default'}</TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+      <MiniTable
+        headers={['Quantity', 'Price', 'Price Set']}
+        rows={list.map((p) => ({ tone: tone(p), cells: [p.quantity, money(p.price), p.priceSet || 'Default'] }))}
+      />
     );
   };
 
-  const renderBarcodeTable = (barcodes, otherBarcodes, isFrom) => {
-    const parsed = Array.isArray(barcodes) ? barcodes : tryParseJson(barcodes);
-    const parsedOther = Array.isArray(otherBarcodes) ? otherBarcodes : tryParseJson(otherBarcodes);
-    if (!Array.isArray(parsed) || parsed.length === 0) return String(barcodes ?? '');
-
-    const hasChanged = (idx) => {
-      if (!Array.isArray(parsedOther) || !parsedOther[idx]) return true;
-      const a = parsed[idx];
-      const b = parsedOther[idx];
-      return a.code !== b.code || a.quantity !== b.quantity;
-    };
-
+  const renderCosts = (value, otherValue, isFrom) => {
+    const list = asArray(value);
+    if (!list) return String(value ?? '');
+    if (list.length === 0) return '';
+    const keyOf = (c) => `${outletName(c)}|${Number(c.lastCost)}|${Number(c.averageCost)}`;
+    const tone = diffTone(list, asArray(otherValue), keyOf, isFrom);
     return (
-      <Table size="small" sx={{ bgcolor: 'transparent', border: '1px solid #e0e0e0' }}>
-        <TableHead>
-          <TableRow sx={{ bgcolor: '#f9f9f9' }}>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', py: 0.5, px: 1 }}>Quantity</TableCell>
-            <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', py: 0.5, px: 1 }}>Code</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {parsed.map((b, idx) => {
-            const changed = hasChanged(idx);
-            const bg = changed ? (isFrom ? '#fff9f0' : '#f1f8f4') : 'transparent';
-            return (
-              <TableRow key={idx} sx={{ bgcolor: bg }}>
-                <TableCell sx={{ py: 0.5, px: 1 }}>{b.quantity}</TableCell>
-                <TableCell sx={{ py: 0.5, px: 1 }}>{b.code}</TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+      <MiniTable
+        headers={['Outlet', 'Last Cost', 'Average Cost']}
+        rows={list.map((c) => ({ tone: tone(c), cells: [outletName(c), money(c.lastCost), money(c.averageCost)] }))}
+      />
     );
   };
 
-  const renderValueCell = (field, value, otherValue, isFrom) => {
+  // Reference barcodes: Quantity / Code in the saved order; a code the other side
+  // lacks is pink (From) / green (To); an unreadable old value says so instead.
+  const renderBarcodes = (value, otherValue, isFrom) => {
+    const list = asArray(value);
+    if (!list) {
+      return value === null || value === undefined || value === ''
+        ? ''
+        : 'The barcodes changed, but we could not parse the changes';
+    }
+    if (list.length === 0) return '';
+    const keyOf = (b) => `${Number(b.quantity)}|${b.code}`;
+    const tone = diffTone(list, asArray(otherValue), keyOf, isFrom);
+    return <MiniTable headers={['Quantity', 'Code']} rows={list.map((b) => ({ tone: tone(b), cells: [b.quantity, b.code] }))} />;
+  };
+
+  // Reference lastCost / averageCost: "$84" with the cents in small type.
+  const renderSmallCents = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const n = Number(value);
+    if (!Number.isFinite(n)) return String(value);
+    const [whole, cents] = Math.abs(n).toFixed(2).split('.');
+    return <span>{n < 0 ? '-' : ''}${whole}<Box component="span" sx={{ fontSize: '0.7em' }}>.{cents}</Box></span>;
+  };
+
+  // Reference reorder: per outlet, a heading row then the nine settings. A
+  // snapshot with no outlet (global product) applies to every outlet.
+  const REORDER_ROWS = [
+    ['Single Reorder Level', 'reorderLevelItems'], ['Case Reorder Level', 'reorderLevelCases'],
+    ['Single Reorder Amount', 'reorderAmountItems'], ['Case Reorder Amount', 'reorderAmountCases'],
+    ['Single Reorder Limit', 'reorderLimitItems'], ['Case Reorder Limit', 'reorderLimitCases'],
+    ['Single Max Quantity', 'maxOnHandItems'], ['Case Max Quantity', 'maxOnHandCases'],
+    ['Reorder Rounding', 'reorderRounding'],
+  ];
+  const renderReorder = (value) => {
+    const list = asArray(value);
+    if (!list || list.length === 0) return '';
+    const rows = [];
+    list.forEach((entry) => {
+      const outlets = entry.outletId == null
+        ? (lookups.outlets || [])
+        : [{ name: outletName(entry) }];
+      outlets.forEach((o) => {
+        rows.push({ span: o.name, spanAlign: 'left' });
+        REORDER_ROWS.forEach(([label, key]) => {
+          let v = entry[key];
+          if (key === 'reorderRounding' && v === 'No Rounding') v = 'none';
+          rows.push({ cells: [label, v === null || v === undefined ? '' : String(v)] });
+        });
+      });
+    });
+    return <MiniTable headers={['Field', 'Value']} rows={rows} />;
+  };
+
+  // Reference components: raw JSON, one entry per line, never wrapped.
+  const renderComponents = (value) => {
+    const list = asArray(value);
+    if (!list || list.length === 0) return '';
+    const lines = list.map((c, i) => `${i === 0 ? '[' : ''}${JSON.stringify(c)}${i === list.length - 1 ? ']' : ','}`);
+    return <Box sx={{ whiteSpace: 'pre' }}>{lines.join('\n')}</Box>;
+  };
+
+  // Reference images: From only says they changed; To lists file names, each a
+  // link to the image.
+  const renderImages = (value, isFrom) => {
+    if (isFrom) return 'The images changed, but we could not parse the changes';
+    const list = asArray(value);
+    if (!list || list.length === 0) return '';
+    return (
+      <Box component="ul" sx={{ m: 0, pl: '24px' }}>
+        {list.map((url, i) => (
+          <li key={i}>
+            <a href={url} target="_blank" rel="noopener noreferrer">{String(url).split('/').pop()}</a>
+          </li>
+        ))}
+      </Box>
+    );
+  };
+
+  // Reference suppliers: one block per supplier (name heading), Field / Value
+  // rows for Code and Minimum Order Quantity, then Replacement Costs per outlet.
+  const renderSuppliers = (value, otherValue, isFrom) => {
+    const list = asArray(value);
+    if (!list) return String(value ?? '');
+    if (list.length === 0) return '';
+    const other = asArray(otherValue) || [];
+    const changeTone = isFrom ? 'removed' : 'added';
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {list.map((s, i) => {
+          const twin = other.find((o) => Number(o.supplierId) === Number(s.supplierId));
+          const toneFor = (field) => (!twin || String(twin[field] ?? '') !== String(s[field] ?? '') ? changeTone : null);
+          const replacement = s.replacementCost && s.replacementCost !== 'Inherit From Product' ? s.replacementCost : '';
+          const name = lookups.suppliers?.[s.supplierId] || `Supplier #${s.supplierId}`;
+          return (
+            <MiniTable
+              key={i}
+              title={name}
+              headers={['Field', 'Value']}
+              rows={[
+                { tone: toneFor('code'), cells: ['Code', s.code ?? ''] },
+                { tone: toneFor('minimumOrderQuantity'), cells: ['Minimum Order Quantity', s.minimumOrderQuantity ?? ''] },
+                { span: 'Replacement Costs' },
+                ...(lookups.outlets || []).map((o) => ({
+                  tone: twin && String(twin.replacementCost ?? '') !== String(s.replacementCost ?? '') ? changeTone : null,
+                  cells: [o.name, replacement === '' ? '' : (Number.isFinite(Number(replacement)) ? money(replacement) : replacement)],
+                })),
+              ]}
+            />
+          );
+        })}
+      </Box>
+    );
+  };
+
+  // Reference tags: a bullet list of tag names.
+  const renderTags = (value) => {
+    const list = asArray(value);
+    if (!list) return String(value ?? '');
+    if (list.length === 0) return '';
+    return (
+      <Box component="ul" sx={{ m: 0, pl: '24px' }}>
+        {list.map((id, i) => <li key={i}>{lookups.classifications?.[id] || String(id)}</li>)}
+      </Box>
+    );
+  };
+
+  const CLASS_EMPTY = { brandId: 'No Brand', categoryId: 'No Category', familyId: 'No Family' };
+
+  const renderValueCell = (row, isFrom) => {
+    const field = row.field;
+    const value = isFrom ? (row.fromRaw ?? row.from) : (row.toRaw ?? row.to);
+    const otherValue = isFrom ? (row.toRaw ?? row.to) : (row.fromRaw ?? row.from);
     // Lifecycle rows (createdAt / deletedAt) carry a timestamp: show it the way
     // the Timestamp column does, not as a raw ISO string.
-    if (field === 'createdAt' || field === 'deletedAt') {
+    // (deletedAt arrives already in the reference's raw UTC form.)
+    if (field === 'createdAt') {
       return <span>{value ? formatTimestamp(value) : ''}</span>;
     }
-    if (field === 'prices' || field === 'costs') {
-      return renderPriceTable(value, otherValue, isFrom);
+    if (field === 'prices') return renderPrices(value, otherValue, isFrom);
+    if (field === 'costs') return renderCosts(value, otherValue, isFrom);
+    if (field === 'barcodes') return renderBarcodes(value, otherValue, isFrom);
+    if (field === 'suppliers') return renderSuppliers(value, otherValue, isFrom);
+    if (field === 'tags') return renderTags(value);
+    if (field === 'lastCost' || field === 'averageCost') return renderSmallCents(value);
+    if (field === 'reorder') return renderReorder(value);
+    if (field === 'components') return renderComponents(value);
+    if (field === 'images') return renderImages(value, isFrom);
+    if (field === 'coreSupplierId') {
+      if (value === null || value === undefined || value === '') return 'No Supplier';
+      return lookups.suppliers?.[value] || String(value);
     }
-    if (field === 'barcodes') {
-      return renderBarcodeTable(value, otherValue, isFrom);
+    if (CLASS_EMPTY[field]) {
+      if (value === null || value === undefined || value === '') return CLASS_EMPTY[field];
+      return lookups.classifications?.[value] || String(value);
     }
+    // Reference: the description text is never shown, only that it changed —
+    // and nothing at all when there was no description before.
+    if (field === 'description') {
+      return isFrom && value ? 'The description changed, but we could not display the content.' : '';
+    }
+    // Reference shows true / false as 1 / 0.
+    if (typeof value === 'boolean') return value ? '1' : '0';
+    if (value === 'true' || value === 'false') return value === 'true' ? '1' : '0';
 
     const parsed = tryParseJson(value);
     if (typeof parsed === 'object' && parsed !== null) {
@@ -784,7 +967,7 @@ const ProductRevisionHistory = () => {
       );
     }
 
-    return <span>{String(value ?? '')}</span>;
+    return <span>{value === null || value === undefined ? '' : String(value)}</span>;
   };
 
   return (
@@ -831,6 +1014,7 @@ const ProductRevisionHistory = () => {
           value={selectedProducts}
           onChange={setSelectedProducts}
           getLabel={(o) => o?.name || ''}
+          typeToSearch
         />
         <SearchMultiSelect
           label="Users"
@@ -838,18 +1022,12 @@ const ProductRevisionHistory = () => {
           value={selectedUsers}
           onChange={setSelectedUsers}
           getLabel={(o) => o?.name || o?.username || ''}
-        />
-      </Box>
-      <Box className="revision-noprint" sx={{ mt: '16px', maxWidth: 452 }}>
-        <TextField
-          size="small"
-          label="Search by product or field"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={fieldSx}
+          typeToSearch
         />
       </Box>
 
+      {/* Reference: Run sits on its own row in the same square sky block as the
+          toolbar; focus draws a 2px black rail. */}
       <Box className="revision-noprint" sx={{ mt: '32px', mb: '16px' }}>
         <Button
           onClick={() => handleRun()}
@@ -857,21 +1035,12 @@ const ProductRevisionHistory = () => {
           disableElevation
           disableRipple
           sx={{
-            height: 42,
-            minWidth: 120,
-            borderRadius: '12px',
-            bgcolor: '#5ebbeb',
-            color: '#f8f8f8',
-            fontSize: 16,
-            fontWeight: 700,
-            textTransform: 'none',
-            boxShadow: 'none',
-            transition: 'background 0.2s ease',
-            '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-            '&.Mui-disabled': { bgcolor: '#404040', color: '#737373' },
+            ...toolbarBtnSx(62),
+            '&:focus-visible': { outline: '2px solid #000', outlineOffset: 0 },
+            '&.Mui-disabled': { bgcolor: '#5ebbeb', color: '#f8f8f8', opacity: 0.6 },
           }}
         >
-          {loading ? <CircularProgress size={20} sx={{ color: '#737373' }} /> : 'Run'}
+          {loading ? <CircularProgress size={20} sx={{ color: '#f8f8f8' }} /> : 'Run'}
         </Button>
       </Box>
 
@@ -881,24 +1050,49 @@ const ProductRevisionHistory = () => {
         </Box>
       ) : reportData.length === 0 ? (
         // Reference: before Run, and when Run finds nothing, there is no table at
-        // all — just this one line under the Run button.
-        <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'center', py: 4 }}>
+        // all — just this one line under the Run button, at the left edge.
+        <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'left', mt: '8px' }}>
           No revisions found, check the filters above and press run
         </Typography>
       ) : (
-        <TableContainer className="revision-results" sx={{ borderRadius: 0, boxShadow: 'none', overflowX: 'auto' }}>
-          <Table size="small">
+        // Reference table: black 1px grid everywhere, white header with bold black
+        // centred titles that sticks (with a soft shadow) while scrolling, a grey
+        // "Please Note" row, no stripes.
+        <TableContainer
+          className="revision-results"
+          sx={{ borderRadius: 0, boxShadow: 'none', overflow: 'auto', maxHeight: 'calc(100vh - 260px)' }}
+        >
+          <Table
+            size="small"
+            stickyHeader
+            // Separate borders (right + bottom per cell, left + top on the edges):
+            // with collapsed borders a sticky header loses its lines once scrolled.
+            sx={{
+              borderCollapse: 'separate',
+              borderSpacing: 0,
+              borderLeft: '1px solid #000',
+              '& th, & td': {
+                borderRight: '1px solid #000',
+                borderBottom: '1px solid #000',
+                color: '#000',
+                fontSize: 16,
+                padding: '8px',
+              },
+              // Reference: Product / Field / User / Timestamp sit mid-height in tall rows.
+              '& td': { verticalAlign: 'middle' },
+            }}
+          >
             <TableHead>
               <TableRow
                 sx={{
                   '& th': {
-                    backgroundColor: '#5ebbeb',
-                    color: '#f8f8f8',
+                    bgcolor: '#fff',
                     fontWeight: 700,
-                    fontSize: 16,
-                    textTransform: 'uppercase',
-                    padding: '8px',
-                    borderBottom: 'none',
+                    textAlign: 'center',
+                    borderTop: '1px solid #000',
+                    // Reference: a soft grey shadow under the sticky header.
+                    boxShadow: '0 6px 8px -4px rgba(0,0,0,0.25)',
+                    zIndex: 2,
                   },
                 }}
               >
@@ -913,34 +1107,19 @@ const ProductRevisionHistory = () => {
             <TableBody>
               {/* Reference prints this notice as the first body row of the report. */}
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ color: '#000', fontSize: 16, padding: '8px', borderBottom: 'none' }}>
+                <TableCell colSpan={6} align="center" sx={{ bgcolor: '#f0f0f0' }}>
                   Please Note: Revisions may take up to five minutes to appear
                 </TableCell>
               </TableRow>
               {reportData.map((row, index) => (
-                  <TableRow
-                    key={index}
-                    sx={{
-                      bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
-                      '& td': {
-                        color: '#000',
-                        fontSize: 16,
-                        padding: '8px 8px 8px 10px',
-                        borderBottom: 'none',
-                      },
-                    }}
-                  >
-                    <TableCell>{row.productName}</TableCell>
-                    <TableCell>{row.field}</TableCell>
-                    <TableCell sx={{ maxWidth: 360 }}>
-                      {renderValueCell(row.field, row.from, row.to, true)}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 360 }}>
-                      {renderValueCell(row.field, row.to, row.from, false)}
-                    </TableCell>
-                    <TableCell>{row.user}</TableCell>
-                    <TableCell>{formatTimestamp(row.timestamp)}</TableCell>
-                  </TableRow>
+                <TableRow key={index} sx={{ bgcolor: '#fff' }}>
+                  <TableCell>{row.productName}</TableCell>
+                  <TableCell>{row.field}</TableCell>
+                  <TableCell>{renderValueCell(row, true)}</TableCell>
+                  <TableCell>{renderValueCell(row, false)}</TableCell>
+                  <TableCell>{row.user}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatTimestamp(row.timestamp)}</TableCell>
+                </TableRow>
               ))}
             </TableBody>
           </Table>
@@ -953,6 +1132,8 @@ const ProductRevisionHistory = () => {
         reportType="product-revision-history"
         reportPath="/reports/product-revision-history"
         filters={activeFilters}
+        defaultName="Product Revision History"
+        alwaysDynamic
       />
     </Box>
   );
