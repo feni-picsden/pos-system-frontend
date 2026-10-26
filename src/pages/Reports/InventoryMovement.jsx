@@ -376,12 +376,13 @@ const RefSelect = ({ label, value, options, onChange, width = 358, clearValue })
   );
 };
 
-// Reference button toggle: 16px label, then the buttons centred in a 358px slot;
-// the picked one is blue, the others dark.
+// Button toggle: 16px label, the buttons start under it (user, 27/10: label and
+// buttons aligned; the reference centres them in the 358px slot). The picked one
+// is blue, the others dark.
 const RefToggle = ({ label, value, options, onChange, width = 358 }) => (
   <Box sx={{ width }}>
     <Typography sx={{ fontSize: 16, color: '#000', mb: '4px' }}>{label}</Typography>
-    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -484,24 +485,25 @@ const PCF_FIELD_SX = {
   '& .MuiAutocomplete-clearIndicator': { color: '#404040', visibility: 'visible' },
 };
 
+// Panel identical to Slow Moving Stock's multi-select (pages/Reports/SlowMovingStock.jsx).
 const PCF_PANEL_PROPS = {
   paper: {
     sx: {
       border: '1px solid #000',
       borderRadius: '8px',
-      boxShadow: 'none',
+      boxShadow: '0 20px 25px -5px rgba(0,0,0,0.10), 0 8px 10px -6px rgba(0,0,0,0.10)',
       mt: '4px',
       '& .MuiAutocomplete-listbox': { maxHeight: 288, py: 0 },
-      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: '#252525' },
-      '& .MuiAutocomplete-loading': { padding: '16px', fontSize: 16, color: '#252525' },
+      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: '#262626' },
+      '& .MuiAutocomplete-loading': { padding: '16px', fontSize: 16, color: '#262626' },
       '& .MuiAutocomplete-option': {
         minHeight: 56,
         padding: '16px',
         fontSize: 16,
-        color: '#252525',
-        '&.Mui-focused': { backgroundColor: '#f8f8f8' },
+        color: '#262626',
+        '&.Mui-focused': { backgroundColor: '#7dd3fc' },
         "&[aria-selected='true']": { backgroundColor: '#fff', color: '#38bdf8' },
-        "&[aria-selected='true'].Mui-focused": { backgroundColor: '#f8f8f8', color: '#38bdf8' },
+        "&[aria-selected='true'].Mui-focused": { backgroundColor: '#7dd3fc', color: '#38bdf8' },
       },
     },
   },
@@ -605,7 +607,7 @@ const ProductClassificationFilter = ({ selection, onChange, suppliers = [], widt
           const { key, ...optionProps } = props;
           if (option.key === HINT_ROW.key) {
             return (
-              <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#252525', cursor: 'default' }}>
+              <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#262626', cursor: 'default' }}>
                 {HINT_ROW.name}
               </li>
             );
@@ -617,7 +619,7 @@ const ProductClassificationFilter = ({ selection, onChange, suppliers = [], widt
                 checkedIcon={<CheckSquareIcon />}
                 checked={selected}
                 disableRipple
-                sx={{ p: 0, mr: '8px', color: '#252525', '&.Mui-checked': { color: '#252525' } }}
+                sx={{ p: 0, mr: '8px', color: '#262626', '&.Mui-checked': { color: '#262626' } }}
               />
               {option.name}
             </li>
@@ -627,7 +629,7 @@ const ProductClassificationFilter = ({ selection, onChange, suppliers = [], widt
           <Chip
             label={vals.length === 1 ? vals[0].name : `${vals.length} Selected...`}
             size="small"
-            sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#252525', fontSize: 16, height: 26, ml: '4px', maxWidth: 220 }}
+            sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#262626', fontSize: 16, height: 26, ml: '4px', maxWidth: 220 }}
           />
         )}
         renderInput={(params) => (
