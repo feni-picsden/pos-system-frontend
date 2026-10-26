@@ -398,7 +398,9 @@ const InventoryAtDate = () => {
   };
 
   const handleRun = async () => {
+    // Reference: Run with no date answers a red toast instead of a disabled button.
     if (!selectedDate) {
+      notify?.('Please specify a date to retrieve the inventory for', 'error', { position: 'top' });
       return;
     }
     // Reference: "Inventory reports must be run for a date prior to today" (red toast).
@@ -750,7 +752,7 @@ const InventoryAtDate = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: '16px', mb: '16px' }}>
         <Button
           onClick={handleRun}
-          disabled={!selectedDate}
+          disabled={loading}
           sx={{
             ...PILL_BUTTON_SX,
             minWidth: 125,

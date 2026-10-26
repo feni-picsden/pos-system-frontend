@@ -19,21 +19,21 @@ import {
   TableChartOutlined as ExportIcon,
   ArrowUpward,
   ArrowDownward,
-  SaveOutlined as SaveIcon,
   ArrowDropDown,
   CheckBoxOutlineBlankOutlined as SquareIcon,
   CheckBoxOutlined as CheckSquareIcon,
 } from '@mui/icons-material';
+import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import apiClient from '../../services/apiClient';
 import inventoryReportService from '../../services/inventoryReportService';
-import outletService from '../../services/outletService';
 import productService from '../../services/productService';
-import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import { format } from 'date-fns';
 
-// Reference tokens: 42px fields, 8px radius, #404040 rail, retracting label
-// (16px grey inside when empty -> 12.8px slate above when filled).
+// Reference (26/10/2026 screenshots): 42px fields, 8px radius, #404040 rail, the
+// field name as small text ABOVE the box and a grey placeholder inside when empty.
 const fieldSx = {
   bgcolor: '#fff',
   '& .MuiOutlinedInput-root': {
@@ -44,19 +44,35 @@ const fieldSx = {
     '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
     '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    '& input::placeholder': { color: '#676b72', opacity: 1 },
   },
-  '& .MuiInputLabel-root': { fontSize: 16, color: 'rgba(103,107,114,0.6)' },
-  '& .MuiInputLabel-root.MuiInputLabel-shrink': {
-    color: '#313439',
-    transform: 'translate(14px, -9px) scale(0.8)',
-  },
-  '& .MuiInputLabel-root.Mui-focused': { color: '#313439' },
   '& .MuiAutocomplete-popupIndicator': { color: '#313439' },
+  '& .MuiAutocomplete-clearIndicator': { color: '#313439', visibility: 'visible' },
+};
+const LABEL_SX = { fontSize: 13, color: '#313439', mb: '4px', lineHeight: 1.2 };
+// Reference button: the Export CSV block (53px, square, sky) is reused for Run;
+// focus draws the 2px black rail seen in the screenshots.
+const BLOCK_BUTTON_SX = {
+  height: 53,
+  minWidth: 62,
+  padding: '16px',
+  borderRadius: 0,
+  border: '1px solid #5ebbeb',
+  bgcolor: '#5ebbeb',
+  color: '#f8f8f8',
+  fontSize: 16,
+  fontWeight: 400,
+  textTransform: 'none',
+  boxShadow: 'none',
+  transition: 'background 0.2s ease, color 0.2s ease',
+  '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
+  '&:focus-visible': { outline: '2px solid #000', outlineOffset: 0 },
+  '&.Mui-disabled': { bgcolor: '#5ebbeb', color: '#f8f8f8', opacity: 0.6 },
 };
 
 // Reference dropdown: white panel, 1px SOLID BLACK, 8px radius, 288px scroll,
 // xl shadow, no open/close transition, 56px option rows with 16px padding.
-const panelSx = (selectedSx) => ({
+const panelSx = (selectedSx, focusedSx = { backgroundColor: 'rgba(0,0,0,0.04)' }) => ({
   paper: {
     sx: {
       border: '1px solid #000',
@@ -70,31 +86,39 @@ const panelSx = (selectedSx) => ({
         padding: '16px',
         fontSize: 16,
         color: '#262626',
-        '&.Mui-focused': { backgroundColor: 'rgba(0,0,0,0.04)' },
-        "&[aria-selected='true'], &[aria-selected='true'].Mui-focused": selectedSx,
+        '&.Mui-focused': focusedSx,
+        "&[aria-selected='true']": selectedSx,
+        "&[aria-selected='true'].Mui-focused": { ...selectedSx, ...focusedSx },
       },
     },
   },
 });
 
-// Multi-select panels highlight the picked row (sky-200); the single outlet
-// panel just recolours the picked label (sky-400 text on white).
-const multiPanelSlotProps = panelSx({ backgroundColor: '#7dd3fc' });
+// Reference (26/10 ss): picked rows show blue text on white; the hovered/focused
+// row (picked or not) is sky. The single outlet panel just recolours the label.
+const multiPanelSlotProps = panelSx({ backgroundColor: '#fff', color: '#38bdf8' }, { backgroundColor: '#7dd3fc' });
 const singlePanelSlotProps = panelSx({ backgroundColor: '#fff', color: '#38bdf8' });
 
 // Reference requires two characters before it will search a filter list.
 const MIN_SEARCH = 2;
+// Pseudo row shown under the picked items while the search is too short.
+const HINT_ROW = { id: '__hint', name: 'Keep Typing to Search...' };
 
-// Reference filter: type-to-search MULTI-select with square / check-square glyphs,
-// 'Keep Typing to Search...' below the minimum and 'No Options' when nothing matches.
+// Reference filter: type-to-search MULTI-select with square / check-square glyphs.
+// Opened without typing it lists what is already picked (checked) and then
+// 'Keep Typing to Search...'; 'No Options' when a search matches nothing.
 const SearchMultiSelect = ({ label, options, value, onChange }) => {
   const [inputValue, setInputValue] = useState('');
   const searching = inputValue.trim().length >= MIN_SEARCH;
 
   return (
+    <Box sx={{ flex: '1 1 0', minWidth: 220 }}>
+    <Typography sx={LABEL_SX}>{label}</Typography>
     <Autocomplete
       multiple
       disableCloseOnSelect
+      // Reference: a "x" clear-all sits beside the arrow whenever something is picked.
+      clearIcon={<span style={{ fontSize: 18, lineHeight: 1 }}>×</span>}
       options={options}
       value={value}
       onChange={(e, newValue) => onChange(newValue)}
@@ -105,14 +129,23 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
       popupIcon={<ArrowDropDown />}
       filterOptions={(opts, state) => {
         const input = state.inputValue.trim().toLowerCase();
-        if (input.length < MIN_SEARCH) return [];
+        // Too short to search: the picked rows (checked) + the hint row.
+        if (input.length < MIN_SEARCH) return [...value, HINT_ROW];
         return opts.filter((o) => (o.name || '').toLowerCase().includes(input));
       }}
+      getOptionDisabled={(o) => o.id === HINT_ROW.id}
       noOptionsText={searching ? 'No Options' : 'Keep Typing to Search...'}
       slotProps={multiPanelSlotProps}
-      sx={{ width: 358, maxWidth: '100%', ...fieldSx }}
+      sx={fieldSx}
       renderOption={(props, option, { selected }) => {
         const { key, ...optionProps } = props;
+        if (option.id === HINT_ROW.id) {
+          return (
+            <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#262626', cursor: 'default' }}>
+              {HINT_ROW.name}
+            </li>
+          );
+        }
         return (
           <li key={key} {...optionProps}>
             <Checkbox
@@ -126,27 +159,24 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
           </li>
         );
       }}
-      renderTags={(vals, getTagProps) =>
-        vals.map((option, index) => {
-          const { key, ...tagProps } = getTagProps({ index });
-          return (
-            <Chip
-              key={key}
-              label={option.name}
-              size="small"
-              {...tagProps}
-              sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#262626', fontSize: 14 }}
-            />
-          );
-        })
-      }
-      renderInput={(params) => <TextField {...params} label={label} />}
+      // Reference: one grey chip — the name for a single pick, "N Selected..." for
+      // more; no per-chip x (the field's clear-all x removes everything).
+      renderTags={(vals) => (
+        <Chip
+          label={vals.length === 1 ? vals[0].name : `${vals.length} Selected...`}
+          size="small"
+          sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#262626', fontSize: 16, height: 26, ml: '4px' }}
+        />
+      )}
+      renderInput={(params) => <TextField {...params} placeholder={value.length ? '' : label} />}
     />
+    </Box>
   );
 };
 
 const SlowMovingStock = () => {
-  const { getOutletId, getOutletName, isTrueSuperAdmin } = useAuth();
+  const { getOutletId } = useAuth();
+  const { notify } = useAppDialogs();
 
   // Filter states — brands/categories/families/tags are MULTI-select on the reference.
   const [outletId, setOutletId] = useState(null);
@@ -167,7 +197,6 @@ const SlowMovingStock = () => {
 
   // UI states
   const [sortConfig, setSortConfig] = useState({ key: 'score', direction: 'desc' });
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
   const { showOutletFilter } = useHeaderScope();
@@ -179,16 +208,16 @@ const SlowMovingStock = () => {
     const load = async () => {
       const currentOutletId = getOutletId();
       try {
-        if (isTrueSuperAdmin()) {
-          const response = await outletService.getAllOutlets();
-          const outletsList = response?.outlets || response || [];
-          setOutlets(Array.isArray(outletsList) ? outletsList : []);
-        } else if (currentOutletId) {
-          // Non-super-admins can only ever report on their own outlet.
-          setOutlets([{ id: currentOutletId, name: getOutletName() || 'My Outlet' }]);
-        }
+        // Reference: every outlet the account is assigned to is listed (Reporting
+        // Access is not a filter here); picking one without it answers the red
+        // toast on Run. Same source as Inventory at Date.
+        const res = await apiClient.get('/auth/report-outlets');
+        const outletsList = Array.isArray(res?.data?.assigned) && res.data.assigned.length
+          ? res.data.assigned
+          : (Array.isArray(res?.data?.outlets) ? res.data.outlets : []);
+        setOutlets(outletsList);
         // Reference has no 'All Outlets' — the user's own outlet is pre-selected.
-        setOutletId((prev) => prev ?? currentOutletId ?? null);
+        setOutletId((prev) => prev ?? (outletsList.some((o) => o.id === currentOutletId) ? currentOutletId : outletsList[0]?.id ?? null));
       } catch (error) {
         console.error('Error loading outlets:', error);
       }
@@ -210,7 +239,7 @@ const SlowMovingStock = () => {
       }
     };
     load();
-  }, [getOutletId, getOutletName, isTrueSuperAdmin]);
+  }, [getOutletId]);
 
   const ids = (list) => (list.length ? list.map((item) => item.id) : undefined);
 
@@ -236,6 +265,11 @@ const SlowMovingStock = () => {
     } catch (error) {
       console.error('Error fetching slow moving stock:', error);
       setReportData([]);
+      // Reference: an outlet without Reporting Access answers a red toast and the
+      // page stays as it was before Run.
+      const message = error.response?.data?.error || error.response?.data?.message || 'Failed to load the report';
+      notify?.(message, 'error', { position: 'top' });
+      setHasRun(false);
     } finally {
       setLoading(false);
     }
@@ -270,12 +304,13 @@ const SlowMovingStock = () => {
     }
   });
 
+  // Reference leaves a date the product never had (e.g. Last Ordered) blank.
   const formatDate = (date) => {
-    if (!date) return 'Never';
+    if (!date) return '';
     try {
       return format(new Date(date), 'dd/MM/yyyy');
     } catch {
-      return 'Never';
+      return '';
     }
   };
 
@@ -323,7 +358,7 @@ const SlowMovingStock = () => {
           display: 'flex',
           alignItems: 'center',
           gap: 0.5,
-          justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+          justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
         }}
       >
         {label}
@@ -341,54 +376,16 @@ const SlowMovingStock = () => {
         Slow Moving Stock
       </Typography>
 
+      {/* Reference toolbar: Export CSV only (Save is not on this report). */}
       <Box sx={{ display: 'flex', gap: '16px', mb: '16px' }}>
         <Button
           onClick={exportToCSV}
           startIcon={<ExportIcon />}
           disableElevation
           disableRipple
-          sx={{
-            height: 53,
-            minWidth: 142,
-            padding: '16px',
-            borderRadius: 0,
-            border: '1px solid #5ebbeb',
-            bgcolor: '#5ebbeb',
-            color: '#f8f8f8',
-            fontSize: 16,
-            fontWeight: 400,
-            textTransform: 'none',
-            boxShadow: 'none',
-            transition: 'background 0.2s ease, color 0.2s ease',
-            '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
-          }}
+          sx={{ ...BLOCK_BUTTON_SX, minWidth: 142 }}
         >
           Export CSV
-        </Button>
-
-        {/* Local-only favourite-report shortcut, in the parity palette. */}
-        <Button
-          onClick={() => setSaveDialogOpen(true)}
-          startIcon={<SaveIcon />}
-          disableElevation
-          disableRipple
-          sx={{
-            height: 53,
-            minWidth: 110,
-            padding: '16px',
-            borderRadius: 0,
-            border: '1px solid #5ebbeb',
-            bgcolor: '#f8f8f8',
-            color: '#5ebbeb',
-            fontSize: 16,
-            fontWeight: 400,
-            textTransform: 'none',
-            boxShadow: 'none',
-            transition: 'background 0.2s ease, color 0.2s ease',
-            '&:hover': { bgcolor: '#5ebbeb', color: '#f8f8f8', boxShadow: 'none' },
-          }}
-        >
-          Save
         </Button>
       </Box>
 
@@ -396,17 +393,21 @@ const SlowMovingStock = () => {
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
         {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
         {showOutletFilter && (
-        <Autocomplete
-          options={outlets}
-          value={outlets.find((o) => o.id === outletId) || null}
-          onChange={(e, newValue) => setOutletId(newValue?.id || null)}
-          getOptionLabel={(option) => option?.name || ''}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
-          popupIcon={<ArrowDropDown />}
-          slotProps={singlePanelSlotProps}
-          sx={{ width: 358, maxWidth: '100%', ...fieldSx }}
-          renderInput={(params) => <TextField {...params} label="Outlet" />}
-        />
+        <Box sx={{ flex: '1 1 0', minWidth: 220 }}>
+          <Typography sx={LABEL_SX}>Outlet</Typography>
+          <Autocomplete
+            options={outlets}
+            value={outlets.find((o) => o.id === outletId) || null}
+            onChange={(e, newValue) => setOutletId(newValue?.id || null)}
+            getOptionLabel={(option) => option?.name || ''}
+            isOptionEqualToValue={(o, v) => o.id === v.id}
+            popupIcon={<ArrowDropDown />}
+            disableClearable
+            slotProps={singlePanelSlotProps}
+            sx={fieldSx}
+            renderInput={(params) => <TextField {...params} placeholder="Outlet" />}
+          />
+        </Box>
         )}
 
         <SearchMultiSelect label="Brands" options={brands} value={selectedBrands} onChange={setSelectedBrands} />
@@ -415,7 +416,8 @@ const SlowMovingStock = () => {
         <SearchMultiSelect label="Tags" options={tags} value={selectedTags} onChange={setSelectedTags} />
       </Box>
 
-      {/* Reference puts Run on its own row, 32px below the filters, at the left edge. */}
+      {/* Reference puts Run on its own row, 32px below the filters, at the left edge,
+          in the same square sky block as Export CSV. */}
       <Box sx={{ mt: '32px' }}>
         <Button
           onClick={handleRun}
@@ -423,26 +425,13 @@ const SlowMovingStock = () => {
           disabled={loading || !outletId}
           disableElevation
           disableRipple
-          sx={{
-            height: 42,
-            minWidth: 120,
-            borderRadius: '12px',
-            bgcolor: '#5ebbeb',
-            color: '#f8f8f8',
-            fontSize: 16,
-            fontWeight: 700,
-            textTransform: 'none',
-            boxShadow: 'none',
-            transition: 'background 0.2s ease',
-            '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-            '&.Mui-disabled': { bgcolor: '#404040', color: '#737373' },
-          }}
+          sx={BLOCK_BUTTON_SX}
         >
-          {loading ? <CircularProgress size={20} sx={{ color: '#737373' }} /> : 'Run'}
+          {loading ? <CircularProgress size={20} sx={{ color: '#f8f8f8' }} /> : 'Run'}
         </Button>
       </Box>
 
-      <Typography sx={{ my: '16px', fontSize: 16, color: '#676b72' }}>
+      <Typography sx={{ mt: '16px', mb: '16px', fontSize: 16, color: '#000' }}>
         Please Note: This report presumes that your inventory is correct.
       </Typography>
 
@@ -470,28 +459,24 @@ const SlowMovingStock = () => {
                 }}
               >
                 <SortableHeader columnKey="name" label="NAME" />
-                <SortableHeader columnKey="averageSoldPerDay" label="AVERAGE SOLD PER DAY" align="right" />
-                <SortableHeader columnKey="inventory" label="INVENTORY" align="right" />
-                <SortableHeader columnKey="creationDate" label="CREATION DATE" />
-                <SortableHeader columnKey="lastSold" label="LAST SOLD" />
-                <SortableHeader columnKey="lastOrdered" label="LAST ORDERED" />
-                <SortableHeader columnKey="lastReceived" label="LAST RECEIVED" />
-                <SortableHeader columnKey="score" label="SCORE" align="right" />
+                <SortableHeader columnKey="averageSoldPerDay" label="AVERAGE SOLD PER DAY" align="center" />
+                <SortableHeader columnKey="inventory" label="INVENTORY" align="center" />
+                <SortableHeader columnKey="creationDate" label="CREATION DATE" align="center" />
+                <SortableHeader columnKey="lastSold" label="LAST SOLD" align="center" />
+                <SortableHeader columnKey="lastOrdered" label="LAST ORDERED" align="center" />
+                <SortableHeader columnKey="lastReceived" label="LAST RECEIVED" align="center" />
+                <SortableHeader columnKey="score" label="SCORE" align="center" />
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedData.length === 0 ? (
-                <TableRow sx={{ '& td': { borderBottom: 'none', fontSize: 16, color: '#000' } }}>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    No products found matching the selected filters.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortedData.map((row, index) => (
+              {/* Reference: no "no results" row — an empty run shows just the header
+                  and the sky footer bar below. */}
+              {sortedData.map((row, index) => (
                   <TableRow
                     key={row.id || index}
                     sx={{
-                      bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
+                      // Reference stripes: grey first row, white next.
+                      bgcolor: index % 2 === 0 ? '#e8e8e8' : '#fff',
                       '& td': {
                         color: '#000',
                         fontSize: 16,
@@ -500,35 +485,41 @@ const SlowMovingStock = () => {
                       },
                     }}
                   >
-                    <TableCell>{row.name || ''}</TableCell>
-                    <TableCell align="right">{row.averageSoldPerDay?.toFixed(3) || '0.000'}</TableCell>
-                    <TableCell align="right">{row.inventory || 0}</TableCell>
-                    <TableCell>{formatDate(row.creationDate)}</TableCell>
-                    <TableCell>{formatDate(row.lastSold)}</TableCell>
-                    <TableCell>{formatDate(row.lastOrdered)}</TableCell>
-                    <TableCell>{formatDate(row.lastReceived)}</TableCell>
-                    <TableCell align="right">{row.score || 0}</TableCell>
+                    <TableCell>
+                      {/* Reference: the name links to the product view page. */}
+                      {row.id ? (
+                        <Box
+                          component={RouterLink}
+                          to={`/products/${row.id}/view`}
+                          sx={{ color: '#2563eb', textDecoration: 'underline', '&:hover': { color: '#1d4ed8' } }}
+                        >
+                          {row.name || ''}
+                        </Box>
+                      ) : (row.name || '')}
+                    </TableCell>
+                    <TableCell align="center">{row.averageSoldPerDay?.toFixed(3) || '0.000'}</TableCell>
+                    <TableCell align="center">{row.inventory || 0}</TableCell>
+                    <TableCell align="center">{formatDate(row.creationDate)}</TableCell>
+                    <TableCell align="center">{formatDate(row.lastSold)}</TableCell>
+                    <TableCell align="center">{formatDate(row.lastOrdered)}</TableCell>
+                    <TableCell align="center">{formatDate(row.lastReceived)}</TableCell>
+                    <TableCell align="center">{row.score ?? 0}</TableCell>
                   </TableRow>
-                ))
-              )}
+              ))}
+              {/* Reference: a sky bar closes the table (taller when the run is empty). */}
+              <TableRow>
+                <TableCell colSpan={8} sx={{ bgcolor: '#5ebbeb', borderBottom: 'none', padding: 0, height: sortedData.length ? 36 : 56 }} />
+              </TableRow>
             </TableBody>
           </Table>
         </TableContainer>
       )}
 
       {!loading && !hasRun && (
-        <Typography sx={{ fontSize: 16, color: '#676b72' }}>
-          Adjust the filters above and press Run to generate the report.
+        <Typography sx={{ fontSize: 16, color: '#000' }}>
+          Please select your parameters and press run.
         </Typography>
       )}
-
-      <SaveReportDialog
-        open={saveDialogOpen}
-        onClose={() => setSaveDialogOpen(false)}
-        reportType="slow-moving-stock"
-        reportPath="/reports/slow-moving-stock"
-        filters={activeFilters}
-      />
     </Box>
   );
 };
