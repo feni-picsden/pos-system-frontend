@@ -423,8 +423,9 @@ const CustomerGroupDetails = () => {
   const emailReceiptOptions = receiptTemplates
     .filter((t) => t.type === 'Email Receipt' || t.for === 'Email')
     .map((t) => ({ label: t.name, value: String(t.id) }));
-  // Statement templates come from the localStorage statement store, not the receipt-templates API.
+  // Statement templates come from /statement-templates, not the receipt-templates API.
   const statementOptions = statementTemplates
+    .filter((t) => t.id != null)
     .map((t) => ({ label: t.name, value: String(t.id) }));
 
   const tabSx = {

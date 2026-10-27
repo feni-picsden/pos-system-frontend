@@ -71,7 +71,7 @@ import DateRangePicker from "../../components/Common/DateRangePicker";
 import ReceiptRenderer from "../../components/Receipt/ReceiptRenderer";
 import { buildReceiptPrintHtml } from "../../utils/receiptPrintHtml";
 import { printHtmlDocument } from "../../utils/printHtmlDocument";
-import { groupActivitiesByAge, buildDefaultStatementConfig } from "../../utils/statementDefaults";
+import { buildDefaultStatementConfig } from "../../utils/statementDefaults";
 import { formatCurrency } from "../../utils/currency";
 import {
   shouldAutoPrintPaymentReceipt,
@@ -296,8 +296,9 @@ const previousMonthRange = () => [
 
 // Wraps the statement body in its own print document; printHtmlDocument prints it
 // over this page. fontFamily defaults to the receipt's monospace; statements print
-// in the canvas font instead.
-const printHtmlViaIframe = (bodyHtml, title, fontFamily = "'Courier New',monospace") => {
+// in the canvas font instead. keepColours forces background fills onto paper;
+// the reference statement prints without them (Download keeps them).
+const printHtmlViaIframe = (bodyHtml, title, fontFamily = "'Courier New',monospace", keepColours = true) => {
   // The statement is rendered with MUI/emotion classes, whose CSS lives in
   // <style> tags on THIS page. Copy them into the print document, or the print
   // comes out unstyled (no borders, no table layout, no green terms block).
@@ -307,8 +308,7 @@ const printHtmlViaIframe = (bodyHtml, title, fontFamily = "'Courier New',monospa
   printHtmlDocument(
     `<html><head><title>${title}</title>${headStyles}<style>
       body{font-family:${fontFamily};margin:0;padding:20px;background:#fff;color:#000;}
-      /* Keep template background colours (the terms block) on paper. */
-      *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      ${keepColours ? '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' : ''}
       table{page-break-inside:auto;} tr{page-break-inside:avoid;}
       @media print{body{margin:0;padding:0;}@page{size:A4 portrait;margin:12mm;}}
     </style></head><body>${bodyHtml}</body></html>`
@@ -408,7 +408,8 @@ const Balance = () => {
     const p = profile || {};
     const line1 = [p.street1, p.street2].filter(Boolean).join(', ');
     const line2 = [p.suburb || p.city, p.state, p.postcode].filter(Boolean).join(' ');
-    const address = [line1, line2].filter(Boolean).join(', ') || outlet.address || '';
+    // Reference prints the street and the suburb line on two lines ("121 Percy Street," / "Portland VIC 3305").
+    const address = [line1, line2].filter(Boolean).join(',<br/>') || outlet.address || '';
     return {
       name: outlet.name || '',
       address,
@@ -595,12 +596,25 @@ const Balance = () => {
     setSelectedCustomer(customersForRun[0]);
     // Reference: the range defaults to the previous month
     setStatementDateRange(previousMonthRange());
-    const firstTemplate = statementTemplates.length > 0 && statementTemplates[0]?.id != null
-      ? statementTemplates[0].id.toString()
-      : "";
-    setSelectedTemplate(firstTemplate);
+    setSelectedTemplate(defaultTemplateId(customersForRun[0]));
     setViewStatementDialogOpen(true);
   };
+
+  // Reference: the customer group's Statement Template is preselected; with none
+  // (or one this user cannot see), the first template.
+  const defaultTemplateId = (customer) => {
+    const group = customerGroups.find((g) => g.id === customer?.customerGroupId) || customer?.customerGroup;
+    const groupTemplate = statementTemplates.find((t) => t?.id != null && String(t.id) === String(group?.statementTemplate ?? ''));
+    const template = groupTemplate || (statementTemplates[0]?.id != null ? statementTemplates[0] : null);
+    return template ? template.id.toString() : "";
+  };
+  // Opened from a link before the templates had loaded: pick the default once they arrive.
+  useEffect(() => {
+    if (viewStatementDialogOpen && !selectedTemplate && statementTemplates.length) {
+      setSelectedTemplate(defaultTemplateId(statementCustomers[0]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewStatementDialogOpen, statementTemplates, customerGroups]);
 
   const handleViewStatement = (customer) => openStatementDialog([customer]);
 
@@ -630,20 +644,14 @@ const Balance = () => {
       template: statementTemplates.find(t => t.id.toString() === selectedTemplate),
       data: {
         summary: {
-          // ponytail: backend statement endpoint returns only {overdue,current,total},
-          // no true 0-30/30+ aging buckets. Map current->"0 days", overdue->"30 days"
-          // so both Overview boxes show real figures. Upgrade path: return real
-          // per-age buckets from the statement endpoint and map 1:1 here.
-          days0: { days: '0 days', amount: formatCurrency(summary.current || 0) },
-          days30: { days: '30 days', amount: formatCurrency(summary.overdue || 0) },
           dateRange: `${statementDateRange[0].toLocaleDateString("en-AU")} - ${statementDateRange[1].toLocaleDateString("en-AU")}`,
           overdue: formatCurrency(summary.overdue || 0),
           current: formatCurrency(summary.current || 0),
           total: formatCurrency(summary.total || 0),
         },
-        // Flat, as the hardcoded fallback table expects; the dynamic renderer
-        // gets these grouped by aging category (see the viewer below).
         activities: statementData.activities || [],
+        // Credit Terms block: the customer group's terms ({label, duration} days).
+        creditTerms: (customerGroups.find((g) => g.id === customer.customerGroupId) || customer.customerGroup)?.creditTerms || [],
       }
     };
   };
@@ -751,7 +759,8 @@ const Balance = () => {
     printHtmlViaIframe(
       statementContent.innerHTML,
       "Statement",
-      generatedStatement?.template?.config?.canvas?.fontFamily || "Arial,sans-serif"
+      generatedStatement?.template?.config?.canvas?.fontFamily || "Arial,sans-serif",
+      false
     );
   };
 
@@ -1475,10 +1484,10 @@ const Balance = () => {
                 <StatementRenderer
                   statementData={{
                     summary: generatedStatement.data.summary,
-                    activities: groupActivitiesByAge(
-                      generatedStatement.data.activities || [],
-                      generatedStatement.dateRange[1]
-                    ),
+                    // Reference prints one flat list, no aging headings.
+                    activities: generatedStatement.data.activities || [],
+                    creditTerms: generatedStatement.data.creditTerms,
+                    rangeEnd: generatedStatement.dateRange[1],
                     customer: generatedStatement.customer,
                     business: generatedStatement.business,
                   }}
@@ -1513,20 +1522,6 @@ const Balance = () => {
 
               <Box sx={{ mb: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>Summary</Typography>
-                <Box sx={{ display: 'flex', gap: 4, mb: 2 }}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">0 days</Typography>
-                    <Typography variant="body1" fontWeight="bold">
-                      {generatedStatement.data.summary.days0.amount}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">30 days</Typography>
-                    <Typography variant="body1" fontWeight="bold">
-                      {generatedStatement.data.summary.days30.amount}
-                    </Typography>
-                  </Box>
-                </Box>
                 <Typography variant="caption" sx={{ mb: 2, display: 'block' }}>
                   {generatedStatement.data.summary.dateRange}
                 </Typography>
@@ -1564,40 +1559,26 @@ const Balance = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {generatedStatement.data.activities && generatedStatement.data.activities.length > 0 ? (
-                      generatedStatement.data.activities.map((activity, index, rows) => (
-                        // Reference: a dotted line separates the overdue invoices (from
-                        // before the range) from the range's own transactions.
-                        <TableRow
-                          key={index}
-                          sx={activity.overdue && !rows[index + 1]?.overdue
-                            ? { '& td': { borderBottom: '2px dotted #676b72' } }
-                            : undefined}
-                        >
-                          <TableCell>
-                            {new Date(activity.date).toLocaleDateString('en-GB', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric'
-                            })}
-                          </TableCell>
-                          <TableCell>{activity.overdue ? `${activity.activity} (Overdue)` : activity.activity}</TableCell>
-                          <TableCell>{activity.reference || '-'}</TableCell>
-                          <TableCell>
-                            {formatCurrency(activity.total)}
-                          </TableCell>
-                          <TableCell>
-                            {formatCurrency(activity.balance)} {/* Running balance from the endpoint, payments included */}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} align="center">
-                          No transactions found for the selected date range
+                    {/* Reference: one date-ordered list; an empty range shows no message. */}
+                    {(generatedStatement.data.activities || []).map((activity, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          {new Date(activity.date).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
                         </TableCell>
-                          </TableRow>
-                    )}
+                        <TableCell>{activity.activity}</TableCell>
+                        <TableCell>{[activity.number, activity.reference].filter(Boolean).join(' ')}</TableCell>
+                        <TableCell>
+                          {formatCurrency(activity.total)}
+                        </TableCell>
+                        <TableCell>
+                          {formatCurrency(activity.balance)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>

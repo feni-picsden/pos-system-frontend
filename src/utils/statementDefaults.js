@@ -21,8 +21,10 @@ const noPad = { top: 0, right: 0, bottom: 0, left: 0 };
 const buildVariableMap = (customer = {}, business = {}) => {
   const join = (...parts) => parts.filter(Boolean).join(' ');
   return {
-    customerCode: customer.code ?? customer.customerCode ?? (customer.id != null ? String(customer.id) : ''),
-    customerName: customer.company || customer.name || join(customer.firstName, customer.lastName),
+    // Reference: a customer with no code prints no code line (never the id).
+    customerCode: customer.code ?? customer.customerCode ?? '',
+    customerCompany: customer.company ?? '',
+    customerName: customer.name || join(customer.firstName, customer.lastName),
     customerContact: customer.contact || join(customer.firstName, customer.lastName),
     customerAddress: customer.address || join(customer.billingStreet1, customer.billingStreet2),
     customerCity: customer.city || join(customer.billingSuburb, customer.billingPostcode, customer.billingState),
@@ -38,31 +40,52 @@ const buildVariableMap = (customer = {}, business = {}) => {
 };
 
 // Replaces {customerName}/{businessName} etc. Unknown tokens are left untouched
-// so ordinary braces in a user's text survive.
+// so ordinary braces in a user's text survive. Reference: an empty field keeps
+// its (blank) line, except blank lines at the very top of the block — no code
+// starts the block at the company/name, an empty company leaves a gap below the
+// code.
 export const applyStatementVariables = (html, customer, business) => {
   if (!html) return html;
   const map = buildVariableMap(customer || {}, business || {});
-  return String(html).replace(/\{(\w+)\}/g, (match, key) =>
-    Object.prototype.hasOwnProperty.call(map, key) ? map[key] : match
-  );
+  return String(html)
+    .replace(/\{(\w+)\}/g, (match, key) =>
+      Object.prototype.hasOwnProperty.call(map, key) ? map[key] : match
+    )
+    .replace(/^((?:\s*<(?!br\b)[^>]*>)*)(?:\s*<br\s*\/?>)+/i, '$1')
+    // An outlet with no phone / ABN would print a bare "Ph:" / "ABN:" caption.
+    .replace(/(?:Ph|ABN):\s*(?=<br\s*\/?>|<\/)/g, '');
 };
 
-// Reference: statement activities list under aging category headings. Split on
-// the same 30-day boundary the backend summary uses for overdue vs current.
-// ponytail: two buckets only — the statement endpoint exposes no finer aging.
-export const groupActivitiesByAge = (activities = [], rangeEnd = new Date()) => {
-  const cutoff = new Date(rangeEnd).getTime() - 30 * 24 * 60 * 60 * 1000;
-  // Rows the statement endpoint brought forward from BEFORE the range (reference:
-  // "invoices outside the date range appear as overdue") lead, under their own heading.
-  const overdue = activities.filter((a) => a.overdue);
-  const inRange = activities.filter((a) => !a.overdue);
-  const older = inRange.filter((a) => new Date(a.date).getTime() < cutoff);
-  const current = inRange.filter((a) => new Date(a.date).getTime() >= cutoff);
-  return [
-    ...(overdue.length ? [{ category: 'Overdue', transactions: overdue }] : []),
-    ...(older.length ? [{ category: '30 days', transactions: older }] : []),
-    ...(current.length ? [{ category: 'Current', transactions: current }] : []),
-  ];
+// Customer group credit terms are ISO 8601 durations (P15D, P30D, P2W, P1M).
+// Returns whole days, or null when the text is not one.
+export const isoDurationDays = (value) => {
+  const m = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/i.exec(String(value || '').trim());
+  if (!m || !m.slice(1).some(Boolean)) return null;
+  const [y, mo, w, d] = m.slice(1).map((n) => parseInt(n || 0, 10));
+  return y * 365 + mo * 30 + w * 7 + d;
+};
+
+// Credit Terms box (reference: one cell per group credit term — "0 days",
+// "30 days" — with the balance due in it). Everything still owed at the
+// statement's end (invoice balances, unused credit as a minus) goes in the
+// longest term its age has reached; younger than every term → the first.
+// No terms on the group → no box.
+export const buildCreditTermBuckets = (creditTerms, activities = [], rangeEnd) => {
+  const terms = (Array.isArray(creditTerms) ? creditTerms : [])
+    .map((t) => ({ label: String(t?.label || '').trim(), days: isoDurationDays(t?.duration) }))
+    .filter((t) => t.days != null)
+    .sort((a, b) => a.days - b.days)
+    .map((t) => ({ label: t.label || `${t.days} days`, days: t.days, amount: 0 }));
+  if (!terms.length) return [];
+  const end = new Date(rangeEnd || Date.now()).getTime();
+  for (const row of activities || []) {
+    const balance = parseFloat(row?.balance) || 0;
+    if (!balance) continue;
+    const age = Math.floor((end - new Date(row.date).getTime()) / 86400000);
+    const term = [...terms].reverse().find((t) => age >= t.days) || terms[0];
+    term.amount += balance;
+  }
+  return terms.map((t) => ({ ...t, amount: Math.round(t.amount * 100) / 100 }));
 };
 
 // Activities table columns, reference order/widths. `Running Total` ships OFF.
@@ -78,14 +101,23 @@ export const buildDefaultActionColumns = () => [
   { key: 'runningTotal', label: 'Running Total', enabled: false },
 ];
 
+// `number` is the reference's header-less invoice-number column; it rides with
+// Type (not a column of its own in the settings).
 export const ACTION_COLUMN_WIDTHS = {
-  date: '23%', activity: '35%', reference: '21%', total: '13%', balance: '8%', runningTotal: '13%',
+  date: '15%', activity: '11%', number: '20%', reference: '28%', total: '13%', balance: '13%', runningTotal: '13%',
 };
 
 // Old templates were saved before the column config existed — fall back to the
 // default order, and tolerate a partial/legacy list.
 export const getActionColumns = (props = {}) =>
   Array.isArray(props.columns) && props.columns.length ? props.columns : buildDefaultActionColumns();
+
+// The live statement's columns: the enabled ones, with the invoice numbers
+// right after Type (reference: "Invoice  #0105749").
+export const getPrintedActionColumns = (props = {}) =>
+  getActionColumns(props)
+    .filter((c) => c.enabled !== false)
+    .flatMap((c) => (c.key === 'activity' ? [c, { key: 'number', label: '' }] : [c]));
 
 export const buildDefaultStatementComponents = () => [
   // ---------- HEADER ----------
@@ -110,8 +142,9 @@ export const buildDefaultStatementComponents = () => [
               backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder },
               fontSize: 12, fontWeight: 'normal', textAlign: 'right',
               content: '{businessName}',
-              // Reference: blank line after the address block and before the ABN.
-              richTextContent: '<div style="text-align:right"><strong>{businessName}</strong><br/>{businessAddress}<br/><br/>{businessEmail}<br/>{businessPhone}<br/><br/>{businessAbn}</div>',
+              // Reference: name, address, blank line, "Ph:" phone then email,
+              // blank line, "ABN:" number.
+              richTextContent: '<div style="text-align:right"><strong>{businessName}</strong><br/>{businessAddress}<br/><br/>Ph: {businessPhone}<br/>{businessEmail}<br/><br/>ABN: {businessAbn}</div>',
             },
           }],
         },
@@ -134,17 +167,20 @@ export const buildDefaultStatementComponents = () => [
               backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder },
               fontSize: 12, fontWeight: 'normal', textAlign: 'left',
               content: '{customerName}',
-              richTextContent: '<div style="text-align:left">{customerCode}<br/>{customerName}<br/>{customerContact}<br/>{customerAddress}<br/>{customerCity}</div>',
+              // Reference: code, company, name, then the address in grey. Empty
+              // fields drop their line.
+              richTextContent: '<div style="text-align:left">{customerCode}<br/>{customerCompany}<br/>{customerName}<br/><span style="color:#808080">{customerAddress}<br/>{customerCity}</span></div>',
             },
           }],
         },
         {
           id: uid('col'),
           components: [{
-            id: uid('overview'), type: 'overview', visible: true,
-            // Reference default: one bordered box — date range over
-            // Overdue / Current / Total Due. The 0/30-day aging box is off.
-            properties: { backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontColor: '#000000', fontSize: 12, fontWeight: 'normal', showDays0: false, showDays30: false, showDateRange: true, showTotals: true, totalLabel: 'Total Due' },
+            // Reference default: one Credit Terms component — the group's terms box
+            // ("0 days" / "30 days", only when the group has terms) over the date
+            // range and Overdue / Current / Total Due box.
+            id: uid('credit_terms'), type: 'credit_terms', visible: true,
+            properties: { backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontColor: '#000000', fontSize: 12, fontWeight: 'normal' },
           }],
         },
       ],
@@ -159,7 +195,7 @@ export const buildDefaultStatementComponents = () => [
     properties: {
       backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontSize: 14,
       showTotalDue: true, totalDueLabel: 'Total Due',
-      labelPayment: 'Payment', labelInvoice: 'Invoice', labelPaidInStore: 'Paid in Store',
+      labelPayment: 'Payment', labelInvoice: 'Invoice', labelPaidInStore: 'Paid In Store',
       columns: buildDefaultActionColumns(),
     },
   },
@@ -179,7 +215,7 @@ export const buildDefaultStatementComponents = () => [
 // Bumped whenever the seeded default above changes shape. getTemplates() re-seeds
 // any template the user never edited (no lastModified) so the reference layout
 // reaches existing installs; edited templates are left exactly as saved.
-export const DEFAULT_STATEMENT_SEED_VERSION = 2;
+export const DEFAULT_STATEMENT_SEED_VERSION = 5;
 
 export const buildDefaultStatementConfig = () => ({
   components: buildDefaultStatementComponents(),

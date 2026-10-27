@@ -65,6 +65,13 @@ const roundTender = (amount, method, step = roundingStep()) => {
   return sign * Math.round(Math.abs(amount) / step) * step;
 };
 
+// What a rounded tender that settles `balance` books as Rounding: the balance less
+// the balance rounded (+ when rounded down, - when rounded up), 0 when exact.
+const roundingAdjustment = (balance, method, step = roundingStep()) => {
+  const diff = Math.round((balance - roundTender(balance, method, step)) * 100) / 100;
+  return Math.abs(diff) < step ? diff : 0;
+};
+
 // Cash is the only tender that can be over-paid: the difference is handed back as
 // change from the drawer. Every other method is capped at the balance still owed.
 const isCashMethod = (method) =>
@@ -76,6 +83,10 @@ console.assert(roundTender(10.02, roundingOn, 0.05) === 10, 'rounding: 10.02 -> 
 console.assert(Math.abs(roundTender(10.03, roundingOn, 0.05) - 10.05) < 1e-9, 'rounding: 10.03 -> 10.05');
 console.assert(Math.abs(roundTender(10.04, roundingOn, 0.1) - 10) < 1e-9, 'rounding: Round To 0.10 -> 10.00');
 console.assert(roundTender(10.02, {}, 0.05) === 10.02, 'rounding: off by default');
+console.assert(roundingAdjustment(6.86, roundingOn, 0.05) === 0.01, 'rounding row: 6.86 due 6.85 -> +0.01');
+console.assert(roundingAdjustment(1.39, roundingOn, 0.05) === -0.01, 'rounding row: 1.39 due 1.40 -> -0.01');
+console.assert(roundingAdjustment(1.35, roundingOn, 0.05) === 0, 'rounding row: exact -> none');
+console.assert(roundingAdjustment(1.39, {}, 0.05) === 0, 'rounding row: method without rounding -> none');
 console.assert(refundTender('', -16.5) === -16.5, 'refund: empty amount refunds the balance');
 console.assert(refundTender('16.50', -16.5) === -16.5, 'refund: typed amount is signed negative');
 console.assert(refundTender('5', -16.5) === -5, 'refund: partial refund keeps balance owing');
@@ -219,10 +230,12 @@ const FinalizeSaleDialog = ({
 
   // The payment row(s) for a non-integrated tender of `requested` dollars.
   //  * Cash may exceed the balance (change); other methods are capped at it.
-  //  * A method with "Use Rounding" rounds what it takes. When that tender pays the
-  //    WHOLE balance but rounds it DOWN (10.02 -> 10.00), the customer owes nothing
-  //    more, so the unrounded cents go on a Rounding row — otherwise 2c stays
-  //    "remaining" and the sale can never finish.
+  //  * A method with "Use Rounding" rounds what it takes. When that tender settles
+  //    the sale, the balance is due ROUNDED (6.86 -> 6.85, 1.39 -> 1.40) and the
+  //    difference goes on a Rounding row: +0.01 down, -0.01 up (reference
+  //    "(Rounding)"). Change is only what was handed over beyond the rounded
+  //    balance: $7 on $6.86 is Rounding +0.01 and $0.15 change; $1.40 on $1.39 is
+  //    Rounding -0.01 and no change (it used to bank a 1c "Cash (Change)").
   //  * Never a $0 row (a tender that rounds to nothing adds nothing).
   const tenderRows = (requested, method) => {
     const name = method.name || method.type;
@@ -231,9 +244,9 @@ const FinalizeSaleDialog = ({
     const rounded = Math.round(roundTender(tender, method) * 100) / 100;
     const rows = rounded > 0 ? [{ amount: rounded, method: name, description: name }] : [];
     const coversBalance = tender >= remainingBalance - PAYMENT_TOLERANCE;
-    const shortBy = Math.round((remainingBalance - rounded) * 100) / 100;
-    if (coversBalance && shortBy > 0 && shortBy < roundingStep()) {
-      rows.push({ amount: shortBy, method: 'Rounding', description: 'Rounding' });
+    const rounding = roundingAdjustment(remainingBalance, method);
+    if (coversBalance && rounding !== 0) {
+      rows.push({ amount: rounding, method: 'Rounding', description: 'Rounding' });
     }
     return rows;
   };

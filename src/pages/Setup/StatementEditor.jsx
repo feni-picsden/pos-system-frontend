@@ -63,7 +63,7 @@ import {
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import MediaDialog from '../../components/Common/MediaDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
-import StatementRenderer from '../../components/Statement/StatementRenderer';
+import StatementRenderer, { renderCreditTerms, renderOverview } from '../../components/Statement/StatementRenderer';
 import {
   buildDefaultStatementComponents,
   applyStatementVariables,
@@ -71,6 +71,7 @@ import {
   ACTION_COLUMN_WIDTHS,
 } from '../../utils/statementDefaults';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import statementTemplateService from '../../services/statementTemplateService';
 
 const COMPONENT_TYPES = {
   OVERVIEW: 'overview',
@@ -106,62 +107,28 @@ const squareInputSx = (width, height) => ({
     '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '1px' },
   },
 });
-const ACTION_COLUMN_INPUT_SX = squareInputSx(215, 37);
-const ACTION_LABEL_INPUT_SX = squareInputSx(353, 53);
+// Image / logo size: blank or 'auto' = natural size, a bare number = pixels.
+const cssSize = (v) => {
+  const s = String(v ?? '').trim();
+  if (!s || s === 'auto') return 'auto';
+  return /^\d+(\.\d+)?$/.test(s) ? `${s}px` : s;
+};
+
+// Both fill the settings panel: the fixed 353px label boxes ran past its right
+// edge (cut off, horizontal scrollbar), and the column rows ended short of them.
+const ACTION_COLUMN_INPUT_SX = { ...squareInputSx('auto', 37), flex: 1, minWidth: 0 };
+const ACTION_LABEL_INPUT_SX = squareInputSx('100%', 53);
 
 // Reference prints activity/detail through renameable labels.
 const actionLabels = (props = {}) => ({
   Invoice: props.labelInvoice || 'Invoice',
   Payment: props.labelPayment || 'Payment',
-  'Paid in Store': props.labelPaidInStore || 'Paid in Store',
+  'Paid in Store': props.labelPaidInStore || 'Paid In Store',
 });
 
 // ponytail: running total = cumulative transaction amount within a group; the
 // mock/live rows carry no server-side running column.
 const money = (v) => parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0;
-
-// Mock service - replace with actual API service
-const statementTemplateService = {
-  getTemplate: async (id) => {
-    // Mock implementation - in real app, this would fetch from API
-    const stored = localStorage.getItem('statementTemplates');
-    if (stored) {
-      const templates = JSON.parse(stored);
-      const template = templates.find(t => t.id === parseInt(id));
-      if (template) {
-        return { template };
-      }
-    }
-    return { template: { id: parseInt(id), name: 'Statement', config: {} } };
-  },
-  updateTemplateConfig: async (id, config) => {
-    // Mock implementation - in real app, this would PUT to API
-    const stored = localStorage.getItem('statementTemplates');
-    if (stored) {
-      const templates = JSON.parse(stored);
-      const index = templates.findIndex(t => t.id === parseInt(id));
-      if (index !== -1) {
-        templates[index] = { ...templates[index], config, lastModified: new Date().toISOString() };
-        localStorage.setItem('statementTemplates', JSON.stringify(templates));
-        return { success: true };
-      }
-    }
-    return { success: true };
-  },
-  createTemplate: async (data) => {
-    // Mock implementation - in real app, this would POST to API
-    const newTemplate = { 
-      id: Date.now(), 
-      ...data,
-      config: data.config || { components: [], canvas: {} }
-    };
-    const stored = localStorage.getItem('statementTemplates');
-    const templates = stored ? JSON.parse(stored) : [];
-    templates.push(newTemplate);
-    localStorage.setItem('statementTemplates', JSON.stringify(templates));
-    return { template: newTemplate };
-  },
-};
 
 const StatementEditor = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
@@ -286,8 +253,9 @@ const StatementEditor = () => {
       name: 'Top Drops Rossmore',
       address: 'Shop 1 832-850 Bringelly Road, Rossmore, NSW-2557',
       email: 'rossmoretopdrops@outlook.com',
-      phone: 'ph: (02) 9606 6476',
-      abn: 'ABN: 69 645 353 886',
+      // Raw values: the default template supplies the "Ph:" / "ABN:" captions.
+      phone: '(02) 9606 6476',
+      abn: '69 645 353 886',
     },
     customer: {
       code: '1234',
@@ -296,14 +264,14 @@ const StatementEditor = () => {
       address: '425 Smith St',
       city: 'Fitzroy 3065 VIC',
     },
+    creditTerms: [{ label: '0 days', duration: 'P0D', amount: '$0.00' }, { label: '30 days', duration: 'P30D', amount: '$0.00' }],
     summary: {
-      days0: { days: '0 days', amount: '$0.00' },
-      days30: { days: '30 days', amount: '$0.00' },
       dateRange: '11/04/2012 - 11/05/2012',
       overdue: '$0.00',
       current: '$0.00',
       total: '$0.00',
     },
+    rangeEnd: new Date(2012, 4, 11),
     activities: [
       { 
         category: '30 days',
@@ -343,10 +311,12 @@ const StatementEditor = () => {
       const response = await statementTemplateService.getTemplate(templateId);
       setTemplate(response.template);
       
-      if (response.template.config && response.template.config.components && response.template.config.components.length > 0) {
-        setStatementComponents(response.template.config.components);
+      const cfg = response.template.config || {};
+      // A saved design (even an empty one made with "Blank") opens as saved;
+      // a template nobody designed yet opens with the default layout.
+      if (Array.isArray(cfg.components) && (cfg.components.length > 0 || cfg.lastModified)) {
+        setStatementComponents(cfg.components);
       } else {
-        // Reference parity: never open a blank canvas — seed the default design.
         setStatementComponents(buildDefaultStatementComponents());
       }
       
@@ -368,17 +338,21 @@ const StatementEditor = () => {
     try {
       setSaving(true);
       
+      // Keep the Configure dialog's email settings: saving the design used to
+      // replace the whole config and drop them.
       const configData = {
+        ...(template?.config || {}),
         components: statementComponents,
         canvas: canvasSettings,
         lastModified: new Date().toISOString()
       };
 
       if (templateId && templateId !== 'new') {
-        await statementTemplateService.updateTemplateConfig(templateId, configData);
+        const saved = await statementTemplateService.updateTemplateConfig(templateId, configData);
+        if (saved?.template) setTemplate(saved.template);
       } else {
         const newTemplate = await statementTemplateService.createTemplate({
-          ...template,
+          name: template?.name,
           config: configData
         });
         navigate(`/setup/statements/${newTemplate.template.id}/edit`, { replace: true });
@@ -507,26 +481,27 @@ const StatementEditor = () => {
     };
 
     switch (componentType) {
+      // Reference: Overview and Credit Terms share one set of settings.
       case COMPONENT_TYPES.OVERVIEW:
-        return { 
+        return {
           ...baseProperties,
           fontColor: '#000000',
           fontSize: 12,
           fontWeight: 'normal',
-          showDays0: true, 
-          showDays30: true, 
-          showDateRange: true, 
-          showTotals: true 
+        };
+      // Its two boxes carry their own borders; the component itself has none.
+      case COMPONENT_TYPES.CREDIT_TERMS:
+        return {
+          ...baseProperties,
+          border: { enabled: false, width: 0, color: '#000000', style: 'solid' },
+          fontColor: '#000000',
+          fontSize: 12,
+          fontWeight: 'normal',
         };
       case COMPONENT_TYPES.ACTIONS:
-        return { 
+        return {
           ...baseProperties,
-          showButtons: true 
-        };
-      case COMPONENT_TYPES.CREDIT_TERMS:
-        return { 
-          ...baseProperties,
-          terms: 'Net 30' 
+          showButtons: true
         };
       case COMPONENT_TYPES.OUTLET_LOGO:
         return { 
@@ -547,9 +522,9 @@ const StatementEditor = () => {
       case COMPONENT_TYPES.IMAGE:
         return { 
           ...baseProperties,
-          imageUrl: null, 
-          width: 'auto', 
-          height: 'auto',
+          imageUrl: null,
+          width: 'auto',
+          height: '',
           horizontalAlignment: 'center'
         };
       case COMPONENT_TYPES.COLUMNS:
@@ -873,44 +848,8 @@ const StatementEditor = () => {
 
   const renderComponentContent = (component, index) => {
     switch (component.type) {
-      case COMPONENT_TYPES.OVERVIEW: {
-        const s = mockStatementData.summary;
-        const font = component.properties?.fontSize || 16;
-        const color = component.properties?.fontColor || '#000000';
-        // Reference: two stacked boxes with an OUTER border only — no internal
-        // vertical dividers and no rule under the date range.
-        const cell = (label, value) => (
-          <Box key={label} sx={{ flex: 1, textAlign: 'center', px: 0.5, py: 0.5 }}>
-            <Typography sx={{ fontSize: `${font}px`, fontWeight: 700, color, lineHeight: 1.4 }}>{label}</Typography>
-            <Typography sx={{ fontSize: `${font}px`, color, lineHeight: 1.4 }}>{value}</Typography>
-          </Box>
-        );
-        const row = { display: 'flex' };
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.width ? `${component.properties.border.width}px ${component.properties.border.style || 'solid'} ${component.properties.border.color || '#000000'}` : 'none',
-            }}
-          >
-            <Box sx={{ border: '1px solid #000', mb: '4px', ...row }}>
-              {cell(s.days0.days, s.days0.amount)}
-              {cell(s.days30.days, s.days30.amount)}
-            </Box>
-            <Box sx={{ border: '1px solid #000' }}>
-              <Typography sx={{ fontSize: `${font}px`, color, textAlign: 'center', py: '3px' }}>
-                {s.dateRange}
-              </Typography>
-              <Box sx={row}>
-                {cell('Overdue', s.overdue)}
-                {cell('Current', s.current)}
-                {cell('Total', s.total)}
-              </Box>
-            </Box>
-          </Box>
-        );
-      }
+      case COMPONENT_TYPES.OVERVIEW:
+        return renderOverview(component.properties || {}, mockStatementData.summary);
 
       case COMPONENT_TYPES.ACTIONS: {
         // Reference: a PLAIN table — no title bar, no chrome. Header rule only,
@@ -993,13 +932,9 @@ const StatementEditor = () => {
       }
 
 
+      // Sample terms: the live box shows the customer group's own.
       case COMPONENT_TYPES.CREDIT_TERMS:
-        return (
-          <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Credit Terms</Typography>
-            <Typography variant="body2">{component.properties?.terms || 'Net 30'}</Typography>
-          </Box>
-        );
+        return renderCreditTerms(component.properties || {}, mockStatementData.creditTerms, mockStatementData.summary);
       
       case COMPONENT_TYPES.OUTLET_LOGO:
         return (
@@ -1019,8 +954,8 @@ const StatementEditor = () => {
                 src={component.properties.imageUrl}
                 alt="Outlet Logo"
                 style={{
-                  width: component.properties?.width === 'auto' ? 'auto' : `${component.properties?.width}px`,
-                  height: component.properties?.height === 'auto' ? 'auto' : `${component.properties?.height}px`,
+                  width: cssSize(component.properties?.width),
+                  height: cssSize(component.properties?.height),
                   maxWidth: '100%',
                   maxHeight: '300px',
                 }}
@@ -1124,8 +1059,8 @@ const StatementEditor = () => {
                 src={component.properties.imageUrl}
                 alt="Custom Image"
                 style={{
-                  width: component.properties?.width === 'auto' ? 'auto' : `${component.properties?.width}px`,
-                  height: component.properties?.height === 'auto' ? 'auto' : `${component.properties?.height}px`,
+                  width: cssSize(component.properties?.width),
+                  height: cssSize(component.properties?.height),
                   maxWidth: '100%',
                   maxHeight: '100px',
                 }}
@@ -1404,7 +1339,7 @@ const StatementEditor = () => {
           <Typography variant="subtitle2">Enabled</Typography>
         </Box>
         {cols.map((col, i) => (
-          <Box key={col.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+          <Box key={col.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, width: '100%' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column' }}>
               <IconButton size="small" disabled={i === 0} onClick={() => move(i, i - 1)} sx={{ p: 0 }}>
                 <ArrowUpIcon sx={{ fontSize: 16 }} />
@@ -1462,7 +1397,17 @@ const StatementEditor = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Edit Text Button - help icon to the LEFT, compact button (reference parity) */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Tooltip title="Open the rich text editor to format this component's content.">
+              <Tooltip
+                title={
+                  <Box sx={{ fontSize: 13, lineHeight: 1.5 }}>
+                    Edit the text of this component. These dynamic fields are replaced with real details on each statement:
+                    {['customerCode', 'customerCompany', 'customerName', 'customerContact', 'customerAddress', 'customerCity',
+                      'businessName', 'businessAddress', 'businessEmail', 'businessPhone', 'businessAbn'].map((f) => (
+                      <Box key={f} component="div" sx={{ fontFamily: 'monospace' }}>{`{${f}}`}</Box>
+                    ))}
+                  </Box>
+                }
+              >
                 <HelpIcon sx={{ color: '#676b72', fontSize: 20, cursor: 'help' }} />
               </Tooltip>
               <Button
@@ -1637,10 +1582,12 @@ const StatementEditor = () => {
           </Box>
         )}
 
-        {/* Overview Component Settings */}
-        {component.type === COMPONENT_TYPES.OVERVIEW && (
+        {/* Overview / Credit Terms Component Settings (reference: the same panel) */}
+        {(component.type === COMPONENT_TYPES.OVERVIEW || component.type === COMPONENT_TYPES.CREDIT_TERMS) && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>Overview</Typography>
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
+              {component.type === COMPONENT_TYPES.OVERVIEW ? 'Overview' : 'Credit Terms'}
+            </Typography>
             
             {/* Font Colour */}
             <Box>
@@ -1921,7 +1868,7 @@ const StatementEditor = () => {
             {[
               { key: 'labelPayment', label: 'Payment', fallback: 'Payment' },
               { key: 'labelInvoice', label: 'Invoice', fallback: 'Invoice' },
-              { key: 'labelPaidInStore', label: 'Paid in Store', fallback: 'Paid in Store' },
+              { key: 'labelPaidInStore', label: 'Paid in Store', fallback: 'Paid In Store' },
               { key: 'totalDueLabel', label: 'Total Due', fallback: 'Total Due' },
             ].map((f) => (
               <Box key={f.key}>
@@ -2215,19 +2162,6 @@ const StatementEditor = () => {
           </Box>
         )}
 
-        {/* Credit Terms Component Settings */}
-        {component.type === COMPONENT_TYPES.CREDIT_TERMS && (
-          <Box>
-            <TextField
-              fullWidth
-              label="Credit Terms"
-              value={props.terms || ''}
-              onChange={(e) => updateComponentProperty(componentId, 'terms', e.target.value)}
-              sx={{ mb: 2 }}
-            />
-          </Box>
-        )}
-
         {/* Image Component Settings */}
         {component.type === COMPONENT_TYPES.IMAGE && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -2305,25 +2239,26 @@ const StatementEditor = () => {
               )}
             </Box>
 
-            {/* Width */}
-            <TextField
-              fullWidth
-              size="small"
-              label="Width"
-              value={props.width || 'auto'}
-              onChange={(e) => updateComponentProperty(componentId, 'width', e.target.value)}
-              placeholder="auto or pixels (e.g. 100)"
-            />
-
-            {/* Height */}
-            <TextField
-              fullWidth
-              size="small"
-              label="Height"
-              value={props.height || 'auto'}
-              onChange={(e) => updateComponentProperty(componentId, 'height', e.target.value)}
-              placeholder="auto or pixels (e.g. 50)"
-            />
+            {/* Width / Height — reference: label above a square box; Height
+                starts blank (blank = natural height). */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Width</Typography>
+              <TextField
+                size="small"
+                value={props.width ?? 'auto'}
+                onChange={(e) => updateComponentProperty(componentId, 'width', e.target.value)}
+                sx={squareInputSx('100%', 37)}
+              />
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Height</Typography>
+              <TextField
+                size="small"
+                value={props.height === 'auto' ? '' : (props.height ?? '')}
+                onChange={(e) => updateComponentProperty(componentId, 'height', e.target.value)}
+                sx={squareInputSx('100%', 37)}
+              />
+            </Box>
 
             {/* Horizontal Alignment */}
             <Box>
@@ -3469,87 +3404,88 @@ const StatementEditor = () => {
                 <MenuItem value="8">24</MenuItem>
               </Select>
               
+              {/* Reference order: lists, then indent, then alignment. */}
               <Divider orientation="vertical" flexItem />
-              
-              <Button 
-                size="small" 
-                variant="outlined" 
-                sx={{ minWidth: 'auto', p: 0.5 }}
-                onClick={() => execCommand('justifyLeft')}
-                title="Align Left"
-              >
-                ≡
-              </Button>
-              <Button 
-                size="small" 
-                variant="outlined" 
-                sx={{ minWidth: 'auto', p: 0.5 }}
-                onClick={() => execCommand('justifyCenter')}
-                title="Align Center"
-              >
-                ≡
-              </Button>
-              <Button 
-                size="small" 
-                variant="outlined" 
-                sx={{ minWidth: 'auto', p: 0.5 }}
-                onClick={() => execCommand('justifyRight')}
-                title="Align Right"
-              >
-                ≡
-              </Button>
-              <Button 
-                size="small" 
-                variant="outlined" 
-                sx={{ minWidth: 'auto', p: 0.5 }}
-                onClick={() => execCommand('justifyFull')}
-                title="Justify"
-              >
-                ≡
-              </Button>
-              
-              <Divider orientation="vertical" flexItem />
-              
-              <Button 
-                size="small" 
-                variant="outlined" 
+
+              <Button
+                size="small"
+                variant="outlined"
                 sx={{ minWidth: 'auto', p: 0.5 }}
                 onClick={() => execCommand('insertUnorderedList')}
                 title="Bulleted List"
               >
                 •
               </Button>
-              <Button 
-                size="small" 
-                variant="outlined" 
+              <Button
+                size="small"
+                variant="outlined"
                 sx={{ minWidth: 'auto', p: 0.5 }}
                 onClick={() => execCommand('insertOrderedList')}
                 title="Numbered List"
               >
                 1.
               </Button>
-              
+
               <Divider orientation="vertical" flexItem />
-              
-              <Button 
-                size="small" 
-                variant="outlined" 
-                sx={{ minWidth: 'auto', p: 0.5 }}
-                onClick={() => execCommand('outdent')}
-                title="Decrease Indent"
-              >
-                ←
-              </Button>
-              <Button 
-                size="small" 
-                variant="outlined" 
+
+              <Button
+                size="small"
+                variant="outlined"
                 sx={{ minWidth: 'auto', p: 0.5 }}
                 onClick={() => execCommand('indent')}
                 title="Increase Indent"
               >
                 →
               </Button>
-              
+              <Button
+                size="small"
+                variant="outlined"
+                sx={{ minWidth: 'auto', p: 0.5 }}
+                onClick={() => execCommand('outdent')}
+                title="Decrease Indent"
+              >
+                ←
+              </Button>
+
+              <Divider orientation="vertical" flexItem />
+
+              <Button
+                size="small"
+                variant="outlined"
+                sx={{ minWidth: 'auto', p: 0.5 }}
+                onClick={() => execCommand('justifyLeft')}
+                title="Align Left"
+              >
+                ≡
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                sx={{ minWidth: 'auto', p: 0.5 }}
+                onClick={() => execCommand('justifyCenter')}
+                title="Align Center"
+              >
+                ≡
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                sx={{ minWidth: 'auto', p: 0.5 }}
+                onClick={() => execCommand('justifyRight')}
+                title="Align Right"
+              >
+                ≡
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                sx={{ minWidth: 'auto', p: 0.5 }}
+                onClick={() => execCommand('justifyFull')}
+                title="Justify"
+              >
+                ≡
+              </Button>
+
               <Divider orientation="vertical" flexItem />
               
               <Button 

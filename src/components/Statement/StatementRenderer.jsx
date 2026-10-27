@@ -11,8 +11,9 @@ import {
 } from '@mui/material';
 import {
   applyStatementVariables,
-  getActionColumns,
+  getPrintedActionColumns,
   ACTION_COLUMN_WIDTHS,
+  buildCreditTermBuckets,
 } from '../../utils/statementDefaults';
 
 /**
@@ -22,20 +23,55 @@ import {
  * statement matches the editor design (preview == live).
  *
  * statementData shape (from Balance.buildStatement -> generatedStatement.data):
- *   summary: { days0:{days,amount}, days30:{days,amount}, dateRange, overdue, current, total }  // pre-formatted strings
- *   activities: [{ date, activity, reference, total, balance, type, detail? }]  // flat, raw values
- * or grouped: [{ category, transactions:[{date,activity,reference,total,balance,detail?}] }]
+ *   summary: { dateRange, overdue, current, total }  // pre-formatted strings
+ *   activities: [{ date, activity, number, reference, total, balance, type }]  // flat, raw values
+ *   creditTerms: the customer group's [{ label, duration: 'P30D' }], rangeEnd
  */
 
-// Reference prints activity/detail through the component's renameable labels
-// (same map StatementEditor uses so preview == live).
+// Reference prints the Type through the component's renameable labels.
 const actionLabels = (props = {}) => ({
   Invoice: props.labelInvoice || 'Invoice',
   Payment: props.labelPayment || 'Payment',
-  'Paid in Store': props.labelPaidInStore || 'Paid in Store',
 });
 
 const money = (v) => parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0;
+
+const boxSx = (props) => ({
+  backgroundColor: props.backgroundColor || '#ffffff',
+  padding: `${props.padding?.top || 0}px ${props.padding?.right || 0}px ${props.padding?.bottom || 0}px ${props.padding?.left || 0}px`,
+  border: props.border?.width ? `${props.border.width}px ${props.border.style || 'solid'} ${props.border.color || '#000000'}` : 'none',
+});
+
+// Overview / Credit Terms cell: bold caption over its amount, centred.
+const summaryCell = (props, label, value) => {
+  const text = { fontSize: `${props.fontSize || 12}px`, color: props.fontColor || '#000000', lineHeight: 1.4 };
+  return (
+    <Box key={label} sx={{ flex: 1, textAlign: 'center', px: 0.5, py: 0.5 }}>
+      <Typography sx={{ ...text, fontWeight: 700 }}>{label}</Typography>
+      <Typography sx={{ ...text, fontWeight: props.fontWeight || 'normal' }}>{value}</Typography>
+    </Box>
+  );
+};
+
+// The date range over Overdue / Current / Total Due.
+const totalsBlock = (props, summary = {}) => (
+  <>
+    <Typography sx={{ fontSize: `${props.fontSize || 12}px`, color: props.fontColor || '#000000', fontWeight: props.fontWeight || 'normal', textAlign: 'center', py: '3px' }}>
+      {summary.dateRange || ''}
+    </Typography>
+    <Box sx={{ display: 'flex' }}>
+      {summaryCell(props, 'Overdue', summary.overdue || formatCurrency(0))}
+      {summaryCell(props, 'Current', summary.current || formatCurrency(0))}
+      {summaryCell(props, 'Total Due', summary.total || formatCurrency(0))}
+    </Box>
+  </>
+);
+
+// Reference Overview: the totals, styled only by the component's own settings
+// (font, colours, padding, border).
+export const renderOverview = (props, summary = {}) => (
+  <Box sx={boxSx(props)}>{totalsBlock(props, summary)}</Box>
+);
 
 const formatCurrency = (amount) => {
   if (typeof amount === 'string') return amount; // already formatted
@@ -57,58 +93,30 @@ const toActivityGroups = (activities = []) => {
   return [{ category: null, transactions: activities }];
 };
 
+// Reference Credit Terms: ONE component drawing two boxes, each with its own
+// black border, a small gap apart — one cell per customer-group credit term
+// ("0 days" / "30 days") with what is due in it, then the date range over
+// Overdue / Current / Total Due. `terms` = buildCreditTermBuckets(); with none
+// (the group has no terms) only the totals box prints.
+const innerBox = { border: '1px solid #000' };
+export const renderCreditTerms = (props, terms, summary) => (
+  <Box sx={boxSx(props)}>
+    {terms && terms.length > 0 && (
+      <Box sx={{ ...innerBox, display: 'flex', mb: '4px' }}>
+        {terms.map((t) => summaryCell(props, t.label, typeof t.amount === 'number' ? formatCurrency(t.amount) : t.amount))}
+      </Box>
+    )}
+    <Box sx={innerBox}>{totalsBlock(props, summary)}</Box>
+  </Box>
+);
+
 const renderComponentContent = (component, statementData) => {
   const props = component.properties || {};
   const summary = statementData.summary || {};
 
   switch (component.type) {
-    case 'overview': {
-      // Two stacked bordered boxes of equal, centered cells (reference parity
-      // with StatementEditor's canvas render).
-      const font = props.fontSize || 16;
-      const color = props.fontColor || '#000000';
-      const cell = (label, value) => (
-        <Box key={label} sx={{ flex: 1, textAlign: 'center', px: 0.5, py: 0.5 }}>
-          <Typography sx={{ fontSize: `${font}px`, fontWeight: 700, color, lineHeight: 1.4 }}>{label}</Typography>
-          <Typography sx={{ fontSize: `${font}px`, color, lineHeight: 1.4 }}>{value}</Typography>
-        </Box>
-      );
-      // Outer border only — no internal vertical dividers, no rule under the
-      // date range (matches the editor canvas exactly).
-      const row = { display: 'flex' };
-      return (
-        <Box
-          sx={{
-            backgroundColor: props.backgroundColor || '#ffffff',
-            padding: `${props.padding?.top || 0}px ${props.padding?.right || 0}px ${props.padding?.bottom || 0}px ${props.padding?.left || 0}px`,
-            border: props.border?.width ? `${props.border.width}px ${props.border.style || 'solid'} ${props.border.color || '#000000'}` : 'none',
-          }}
-        >
-          {/* The aging box and the date-range line follow the template's toggles
-              (reference default shows only the Overdue / Current / Total Due box). */}
-          {(props.showDays0 !== false || props.showDays30 !== false) && (
-            <Box sx={{ border: '1px solid #000', mb: '4px', ...row }}>
-              {props.showDays0 !== false && cell(summary.days0?.days || '0 days', summary.days0?.amount || formatCurrency(0))}
-              {props.showDays30 !== false && cell(summary.days30?.days || '30 days', summary.days30?.amount || formatCurrency(0))}
-            </Box>
-          )}
-          <Box sx={{ border: '1px solid #000' }}>
-            {props.showDateRange !== false && (
-              <Typography sx={{ fontSize: `${font}px`, color, textAlign: 'center', py: '3px' }}>
-                {summary.dateRange || ''}
-              </Typography>
-            )}
-            {props.showTotals !== false && (
-              <Box sx={row}>
-                {cell('Overdue', summary.overdue || formatCurrency(0))}
-                {cell('Current', summary.current || formatCurrency(0))}
-                {cell(props.totalLabel || 'Total Due', summary.total || formatCurrency(0))}
-              </Box>
-            )}
-          </Box>
-        </Box>
-      );
-    }
+    case 'overview':
+      return renderOverview(props, summary);
 
     case 'actions': {
       const groups = toActivityGroups(statementData.activities);
@@ -117,16 +125,18 @@ const renderComponentContent = (component, statementData) => {
       // Columns/labels/order come from the template's Actions config, so
       // renaming or disabling a column in the editor shows on the live
       // statement. Plain table: header rule only, no gridlines, all left.
-      const cols = getActionColumns(props).filter((c) => c.enabled !== false);
+      const cols = getPrintedActionColumns(props);
       const labels = actionLabels(props);
       const cellValue = (key, t, running) => {
         switch (key) {
           case 'date': return formatDate(t.date);
           case 'activity': return labels[t.activity] || t.activity;
-          case 'reference': return `${t.reference || '-'}${t.detail ? ` ${labels[t.detail] || t.detail}` : ''}`;
+          // The invoice number(s) the row is for (blank for unused credit).
+          case 'number': return t.number || '';
+          // What was typed with the payment, or "in-store" for a till payment.
+          case 'reference': return t.reference || '';
           case 'total': return formatCurrency(t.total);
-          // Running account balance the endpoint already computes — payments
-          // included, so the column reconciles with Total Due.
+          // What is still owed on that invoice; a payment's unused part as a minus.
           case 'balance': return formatCurrency(t.balance);
           case 'runningTotal': return formatCurrency(running);
           default: return '';
@@ -156,15 +166,9 @@ const renderComponentContent = (component, statementData) => {
                   ))}
                 </TableRow>
               </TableHead>
+              {/* Reference: nothing in the range leaves the table empty, no message. */}
               <TableBody>
-                {groups.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={cols.length} align="center" sx={cellSx}>
-                      No transactions found for the selected date range
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  groups.map((group, catIndex) => (
+                {groups.map((group, catIndex) => (
                     <React.Fragment key={catIndex}>
                       {group.category && (
                         <TableRow>
@@ -174,7 +178,8 @@ const renderComponentContent = (component, statementData) => {
                       {(group.transactions || []).map((t, tIndex) => {
                         const running = (group.transactions || [])
                           .slice(0, tIndex + 1)
-                          .reduce((sum, x) => sum + money(x.total), 0);
+                          // Account running total: payments reduce it.
+                          .reduce((sum, x) => sum + (x.type === 'payment' || x.activity === 'Payment' ? -1 : 1) * money(x.total), 0);
                         // Reference closes the table with a full-width rule under
                         // the last line, right above "Total Due".
                         const isLast = catIndex === groups.length - 1 && tIndex === (group.transactions || []).length - 1;
@@ -189,8 +194,7 @@ const renderComponentContent = (component, statementData) => {
                         );
                       })}
                     </React.Fragment>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -204,12 +208,7 @@ const renderComponentContent = (component, statementData) => {
     }
 
     case 'credit_terms':
-      return (
-        <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Credit Terms</Typography>
-          <Typography variant="body2">{props.terms || 'Net 30'}</Typography>
-        </Box>
-      );
+      return renderCreditTerms(props, buildCreditTermBuckets(statementData.creditTerms, statementData.activities, statementData.rangeEnd), summary);
 
     case 'outlet_logo': {
       // No logo picked -> render nothing. The "component empty" placeholder is

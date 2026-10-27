@@ -11,7 +11,6 @@ import {
   TableRow,
   IconButton,
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
@@ -21,12 +20,11 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
-  Divider,
 } from '@mui/material';
 import {
-  Settings as SettingsIcon,
-  Close as CloseIcon,
   ArrowDropDownOutlined as ArrowDropDownIcon,
+  InsertDriveFileOutlined as BlankIcon,
+  ArticleOutlined as DefaultIcon,
   FormatBoldOutlined,
   FormatItalicOutlined,
   FormatUnderlinedOutlined,
@@ -56,15 +54,68 @@ import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import PageLoader from '../../components/Common/PageLoader';
 import statementTemplateService from '../../services/statementTemplateService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+
+const blankCanvas = () => ({ width: 210, padding: 10, fontFamily: 'Arial', fontSize: 12, backgroundColor: '#ffffff' });
+
+// Blue circular "?" badge overhanging the top edge (reference .question dialogs).
+const QuestionBadge = () => (
+  <Box
+    sx={{
+      position: 'absolute', top: -48, left: '50%', transform: 'translateX(-50%)',
+      width: 96, height: 96, borderRadius: '50%', bgcolor: '#1c86f2',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}
+  >
+    <Box component="i" className="fal fa-question" aria-hidden="true" sx={{ display: 'flex', color: '#f8f8f8', '& svg': { height: 72 } }}>
+      <svg viewBox="0 0 320 512" fill="currentColor" focusable="false">
+        <path d="M80 160c0-35.3 28.7-64 64-64l32 0c35.3 0 64 28.7 64 64l0 3.6c0 21.8-11.1 42.1-29.4 53.8l-42.2 27.1c-25.2 16.2-40.4 44.1-40.4 74l0 1.4c0 17.7 14.3 32 32 32s32-14.3 32-32l0-1.4c0-8.2 4.2-15.8 11-20.2l42.2-27.1c36.6-23.6 58.8-64.1 58.8-107.7l0-3.6c0-70.7-57.3-128-128-128l-32 0C73.3 32 16 89.3 16 160c0 17.7 14.3 32 32 32s32-14.3 32-32zm80 320a40 40 0 1 0 0-80 40 40 0 1 0 0 80z" />
+      </svg>
+    </Box>
+  </Box>
+);
+
+const questionPaperSx = (width) => ({
+  width, maxWidth: 'calc(100vw - 32px)', m: 0, mt: '48px', bgcolor: '#fff', borderRadius: 0, overflow: 'visible',
+  boxShadow: 'rgba(0,0,0,0.25) 0 0 30px 0, rgba(0,0,0,0.19) 0 15px 30px 0',
+});
+
+const dialogTitleSx = { fontSize: '18.72px', fontWeight: 700, color: '#000', textAlign: 'center', p: '8px 0 0', m: 0, mt: '48px' };
+
+// Reference Cancel: pale grey, grey outline, 32px text.
+const cancelButtonSx = {
+  height: 48, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', borderRadius: 0,
+  fontSize: 32, fontWeight: 400, lineHeight: 1, textTransform: 'none', boxShadow: 'none', p: '4px 8px',
+  transition: 'background 0.2s ease, color 0.2s ease',
+  '&:hover': { bgcolor: '#676b72', color: '#f8f8f8', boxShadow: 'none' },
+};
+
+// Reference form inputs: label above, square 1px black box.
+const squareFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    height: 53, bgcolor: '#fff', borderRadius: 0,
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+  },
+  '& .MuiOutlinedInput-input': { p: '16px', fontSize: 16, color: '#000' },
+};
+const fieldLabelSx = { fontSize: 16, fontWeight: 400, color: '#000', lineHeight: '20px' };
 
 const StatementTemplates = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert, prompt } = useAppDialogs();
   const navigate = useNavigate();
   const { isTrueSuperAdmin } = useAuth();
+  // Outlet rule: with a navbar outlet the new template belongs to it (no Outlet
+  // picker); on All Outlets the picker shows and defaults to Global.
+  const { selectedOutletId } = useSelectedOutlet();
+  const showOutletPicker = isTrueSuperAdmin() && selectedOutletId == null;
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Reference: + New asks the name first, then Blank or Default creates it.
+  const [showStartDialog, setShowStartDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState(null);
@@ -104,7 +155,7 @@ const StatementTemplates = () => {
     if (isTrueSuperAdmin()) {
       loadOutlets();
     }
-  }, [isTrueSuperAdmin]);
+  }, [isTrueSuperAdmin, selectedOutletId]);
 
   const loadOutlets = async () => {
     try {
@@ -129,7 +180,17 @@ const StatementTemplates = () => {
     }
   };
 
-  const handleCreateTemplate = async () => {
+  // Name dialog's Create: keep the name / outlet and ask Blank or Default.
+  const handleNameEntered = () => {
+    if (!newTemplate.name.trim()) {
+      setError('Please enter a name for the statement template');
+      return;
+    }
+    setShowCreateDialog(false);
+    setShowStartDialog(true);
+  };
+
+  const handleCreateTemplate = async (startFrom) => {
     try {
       if (!newTemplate.name.trim()) {
         setError('Please enter a name for the statement template');
@@ -137,12 +198,18 @@ const StatementTemplates = () => {
       }
 
       const templateData = {
-        name: newTemplate.name,
-        createdAt: new Date().toISOString(),
+        name: newTemplate.name.trim(),
+        // Blank = empty canvas; marked as designed so it is never re-seeded
+        // with the default layout. Default = the reference layout.
+        ...(startFrom === 'blank'
+          ? { config: { components: [], canvas: blankCanvas(), lastModified: new Date().toISOString() } }
+          : {}),
       };
 
-      if (isTrueSuperAdmin() && newTemplate.outletId) {
-        templateData.outletId = parseInt(newTemplate.outletId);
+      // All Outlets: the picked outlet, or null = Global. With a navbar outlet
+      // nothing is sent and the request carries that outlet.
+      if (showOutletPicker) {
+        templateData.outletId = newTemplate.outletId ? parseInt(newTemplate.outletId, 10) : null;
       }
 
       const response = await statementTemplateService.createTemplate(templateData);
@@ -163,6 +230,7 @@ const StatementTemplates = () => {
 
   const handleCloseCreateDialog = () => {
     setShowCreateDialog(false);
+    setShowStartDialog(false);
     setNewTemplate({
       name: '',
       outletId: '',
@@ -249,13 +317,7 @@ const StatementTemplates = () => {
 
   const handleClone = async (template) => {
     try {
-      const clonedTemplate = {
-        ...template,
-        name: `${template.name} (Copy)`,
-        id: undefined,
-        createdAt: new Date().toISOString(),
-      };
-      await statementTemplateService.createTemplate(clonedTemplate);
+      await statementTemplateService.cloneTemplate(template);
       await loadTemplates();
     } catch (err) {
       console.error('Error cloning statement template:', err);
@@ -428,6 +490,46 @@ const StatementTemplates = () => {
         </Table>
       </TableContainer>
 
+      {/* + New, step 2 (reference): after the name, Blank or Default creates it */}
+      <Dialog
+        open={showStartDialog}
+        onClose={handleCloseCreateDialog}
+        maxWidth={false}
+        // Same size as the name dialog before it.
+        PaperProps={{ className: 'question show-frame', sx: questionPaperSx(382) }}
+      >
+        <QuestionBadge />
+        <Typography component="h3" className="dialog-header-title" sx={dialogTitleSx}>
+          Create New Statement
+        </Typography>
+        <Box sx={{ display: 'flex', gap: '16px', p: '16px 16px 0' }}>
+          {[
+            { key: 'blank', label: 'Blank', Icon: BlankIcon },
+            { key: 'default', label: 'Default', Icon: DefaultIcon },
+          ].map(({ key, label, Icon }) => (
+            <Button
+              key={key}
+              disableRipple
+              onClick={() => handleCreateTemplate(key)}
+              sx={{
+                flex: 1, height: 120, bgcolor: '#1c86f2', color: '#f8f8f8', borderRadius: 0,
+                display: 'flex', flexDirection: 'column', gap: '8px', textTransform: 'none',
+                fontSize: 20, fontWeight: 700, lineHeight: 1, boxShadow: 'none',
+                '&:hover': { bgcolor: '#73b4f7', boxShadow: 'none' },
+              }}
+            >
+              <Icon sx={{ fontSize: 48 }} />
+              {label}
+            </Button>
+          ))}
+        </Box>
+        <Box sx={{ p: '16px' }}>
+          <Button disableRipple fullWidth onClick={handleCloseCreateDialog} sx={cancelButtonSx}>
+            Cancel
+          </Button>
+        </Box>
+      </Dialog>
+
       {/* Create New Statement Dialog */}
       <Dialog
         open={showCreateDialog}
@@ -436,45 +538,12 @@ const StatementTemplates = () => {
         PaperProps={{
           id: 'dialog',
           className: 'question show-frame',
-          sx: {
-            width: 382,
-            m: 0,
-            mt: '48px',
-            bgcolor: '#fff',
-            borderRadius: 0,
-            overflow: 'visible',
-            boxShadow: 'rgba(0,0,0,0.25) 0 0 30px 0, rgba(0,0,0,0.19) 0 15px 30px 0',
-          },
+          sx: questionPaperSx(382),
         }}
       >
-        {/* Blue circular badge overhanging the top edge (reference .question badge) */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -48,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 96,
-            height: 96,
-            borderRadius: '50%',
-            bgcolor: '#1c86f2',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Box component="i" className="fal fa-question" aria-hidden="true" sx={{ display: 'flex', color: '#f8f8f8', '& svg': { height: 72 } }}>
-            <svg viewBox="0 0 320 512" fill="currentColor" focusable="false">
-              <path d="M80 160c0-35.3 28.7-64 64-64l32 0c35.3 0 64 28.7 64 64l0 3.6c0 21.8-11.1 42.1-29.4 53.8l-42.2 27.1c-25.2 16.2-40.4 44.1-40.4 74l0 1.4c0 17.7 14.3 32 32 32s32-14.3 32-32l0-1.4c0-8.2 4.2-15.8 11-20.2l42.2-27.1c36.6-23.6 58.8-64.1 58.8-107.7l0-3.6c0-70.7-57.3-128-128-128l-32 0C73.3 32 16 89.3 16 160c0 17.7 14.3 32 32 32s32-14.3 32-32zm80 320a40 40 0 1 0 0-80 40 40 0 1 0 0 80z" />
-            </svg>
-          </Box>
-        </Box>
+        <QuestionBadge />
 
-        <Typography
-          component="h3"
-          className="dialog-header-title"
-          sx={{ fontSize: '18.72px', fontWeight: 700, color: '#000', textAlign: 'center', p: '8px 0 0', m: 0, mt: '48px' }}
-        >
+        <Typography component="h3" className="dialog-header-title" sx={dialogTitleSx}>
           Create New Statement
         </Typography>
 
@@ -485,8 +554,10 @@ const StatementTemplates = () => {
           <TextField
             name="name"
             variant="outlined"
+            autoFocus
             value={newTemplate.name}
             onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleNameEntered(); }}
             required
             sx={{
               width: 350,
@@ -503,11 +574,19 @@ const StatementTemplates = () => {
             }}
           />
 
-          {/* Outlet Selector for Super Admins */}
-          {isTrueSuperAdmin() && (
+          {/* Outlet picker: All Outlets only (a navbar outlet owns the new template) */}
+          {showOutletPicker && (
             <FormControl sx={{ width: 350, mt: '16px' }}>
-              <InputLabel>Assign to Outlet (Optional)</InputLabel>
+              {/* Shows its default (Global) instead of an empty box. */}
+              <InputLabel shrink>Assign to Outlet (Optional)</InputLabel>
               <Select
+                displayEmpty
+                notched
+                renderValue={(v) => {
+                  if (v === '' || v == null) return 'Global Template (All Outlets)';
+                  const o = outlets.find((x) => x.id === v);
+                  return o ? `${o.name} (${o.code})` : '';
+                }}
                 value={newTemplate.outletId}
                 onChange={(e) => setNewTemplate(prev => ({ ...prev, outletId: e.target.value }))}
                 label="Assign to Outlet (Optional)"
@@ -550,30 +629,14 @@ const StatementTemplates = () => {
             disableRipple
             className="button-cancel"
             onClick={handleCloseCreateDialog}
-            sx={{
-              width: 167,
-              minWidth: 167,
-              height: 48,
-              bgcolor: '#f8f8f8',
-              color: '#676b72',
-              border: '1px solid #676b72',
-              borderRadius: 0,
-              fontSize: 32,
-              fontWeight: 400,
-              lineHeight: 1,
-              textTransform: 'none',
-              boxShadow: 'none',
-              p: '4px 8px',
-              transition: 'background 0.2s ease, color 0.2s ease',
-              '&:hover': { bgcolor: '#676b72', color: '#f8f8f8', boxShadow: 'none' },
-            }}
+            sx={{ ...cancelButtonSx, width: 167, minWidth: 167 }}
           >
             Cancel
           </Button>
           <Button
             disableRipple
             className="button-add"
-            onClick={handleCreateTemplate}
+            onClick={handleNameEntered}
             disabled={!newTemplate.name.trim()}
             sx={{
               width: 167,
@@ -600,89 +663,56 @@ const StatementTemplates = () => {
       </Dialog>
 
       {/* Configure Statement Email Dialog */}
+      {/* Reference: the same "?" question dialog — no header bar, no ✕ (Cancel closes). */}
       <Dialog
         open={showConfigureDialog}
         onClose={handleCloseConfigure}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' } }}
+        maxWidth={false}
+        PaperProps={{ className: 'question show-frame', sx: questionPaperSx(948) }}
       >
-        <DialogTitle sx={{
-          bgcolor: '#5ebbeb',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          position: 'relative'
-        }}>
-          <Box sx={{
-            bgcolor: '#4aa9dd',
-            borderRadius: '50%',
-            p: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <SettingsIcon sx={{ color: 'white', fontSize: '2rem' }} />
-          </Box>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            Configure Statement
-          </Typography>
-          <IconButton
-            onClick={handleCloseConfigure}
-            sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
+        <QuestionBadge />
+        <Typography component="h3" className="dialog-header-title" sx={dialogTitleSx}>
+          Configure Statement
+        </Typography>
 
-        <DialogContent sx={{ p: 3 }}>
+        <DialogContent sx={{ p: '8px 16px 16px', overflow: 'visible' }}>
           {configLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress />
             </Box>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-              <TextField
-                fullWidth
-                label="Reply to address"
-                variant="outlined"
-                value={emailReplyTo}
-                onChange={(e) => setEmailReplyTo(e.target.value)}
-                placeholder="replies@example.com"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '8px',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
-                  }
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Subject Template"
-                variant="outlined"
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-                placeholder="Your Statement from {start} to {end}"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '8px',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
-                  }
-                }}
-              />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <Box>
+                <Typography sx={fieldLabelSx}>Reply to address</Typography>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  value={emailReplyTo}
+                  onChange={(e) => setEmailReplyTo(e.target.value)}
+                  placeholder="example@example.com"
+                  sx={squareFieldSx}
+                />
+              </Box>
+              <Box>
+                <Typography sx={fieldLabelSx}>Subject Template</Typography>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="Your Statement from {start} to {end}"
+                  sx={squareFieldSx}
+                />
+              </Box>
 
               <Box>
-                <Typography sx={{ fontWeight: 700, fontSize: 16, mb: 1, color: '#313439' }}>
+                <Typography sx={fieldLabelSx}>
                   Template
                 </Typography>
                 <Box sx={{ border: '1px solid #000', borderRadius: 0 }}>
                   {/* Toolbar */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', p: 1, borderBottom: '1px solid #000', bgcolor: '#f7f7f7' }}>
+                  {/* Reference: one row of tools, no dividers. */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: '2px', flexWrap: 'wrap', p: 1, borderBottom: '1px solid #000', bgcolor: '#f7f7f7', '& .MuiIconButton-root': { p: '5px' } }}>
                     {[
                       { icon: <FormatBoldOutlined fontSize="small" />, cmd: 'bold', title: 'Bold' },
                       { icon: <FormatItalicOutlined fontSize="small" />, cmd: 'italic', title: 'Italic' },
@@ -703,7 +733,7 @@ const StatementTemplates = () => {
                       <SubscriptOutlined fontSize="small" />
                     </IconButton>
 
-                    <Divider orientation="vertical" flexItem sx={{ borderColor: '#d9d9d9', mx: 0.5 }} />
+                    <Box sx={{ width: 4 }} />
 
                     <Select
                       size="small"
@@ -722,31 +752,33 @@ const StatementTemplates = () => {
                       onChange={(e) => emailExec('fontSize', e.target.value)}
                       sx={{ minWidth: 64, height: 32, bgcolor: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
                     >
-                      <MenuItem value="1">8</MenuItem>
-                      <MenuItem value="2">10</MenuItem>
-                      <MenuItem value="3">12</MenuItem>
-                      <MenuItem value="4">14</MenuItem>
-                      <MenuItem value="5">18</MenuItem>
-                      <MenuItem value="6">24</MenuItem>
-                      <MenuItem value="7">36</MenuItem>
+                      {/* execCommand sizes 1-7 in px; reference shows 16 by default (size 3). */}
+                      <MenuItem value="1">10</MenuItem>
+                      <MenuItem value="2">13</MenuItem>
+                      <MenuItem value="3">16</MenuItem>
+                      <MenuItem value="4">18</MenuItem>
+                      <MenuItem value="5">24</MenuItem>
+                      <MenuItem value="6">32</MenuItem>
+                      <MenuItem value="7">48</MenuItem>
                     </Select>
 
-                    <Divider orientation="vertical" flexItem sx={{ borderColor: '#d9d9d9', mx: 0.5 }} />
+                    <Box sx={{ width: 4 }} />
 
-                    <IconButton size="small" title="Numbered List" onClick={() => emailExec('insertOrderedList')} sx={{ color: '#313439', borderRadius: 0 }}>
-                      <FormatListNumberedOutlined fontSize="small" />
-                    </IconButton>
+                    {/* Reference order: bulleted, numbered, indent, outdent */}
                     <IconButton size="small" title="Bulleted List" onClick={() => emailExec('insertUnorderedList')} sx={{ color: '#313439', borderRadius: 0 }}>
                       <FormatListBulletedOutlined fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" title="Decrease Indent" onClick={() => emailExec('outdent')} sx={{ color: '#313439', borderRadius: 0 }}>
-                      <FormatIndentDecreaseOutlined fontSize="small" />
+                    <IconButton size="small" title="Numbered List" onClick={() => emailExec('insertOrderedList')} sx={{ color: '#313439', borderRadius: 0 }}>
+                      <FormatListNumberedOutlined fontSize="small" />
                     </IconButton>
                     <IconButton size="small" title="Increase Indent" onClick={() => emailExec('indent')} sx={{ color: '#313439', borderRadius: 0 }}>
                       <FormatIndentIncreaseOutlined fontSize="small" />
                     </IconButton>
+                    <IconButton size="small" title="Decrease Indent" onClick={() => emailExec('outdent')} sx={{ color: '#313439', borderRadius: 0 }}>
+                      <FormatIndentDecreaseOutlined fontSize="small" />
+                    </IconButton>
 
-                    <Divider orientation="vertical" flexItem sx={{ borderColor: '#d9d9d9', mx: 0.5 }} />
+                    <Box sx={{ width: 4 }} />
 
                     <IconButton size="small" title="Align Left" onClick={() => emailExec('justifyLeft')} sx={{ color: '#313439', borderRadius: 0 }}>
                       <FormatAlignLeftOutlined fontSize="small" />
@@ -761,7 +793,7 @@ const StatementTemplates = () => {
                       <FormatAlignJustifyOutlined fontSize="small" />
                     </IconButton>
 
-                    <Divider orientation="vertical" flexItem sx={{ borderColor: '#d9d9d9', mx: 0.5 }} />
+                    <Box sx={{ width: 4 }} />
 
                     <IconButton
                       size="small"
@@ -800,7 +832,7 @@ const StatementTemplates = () => {
                       <ImageOutlined fontSize="small" />
                     </IconButton>
 
-                    <Divider orientation="vertical" flexItem sx={{ borderColor: '#d9d9d9', mx: 0.5 }} />
+                    <Box sx={{ width: 4 }} />
 
                     <IconButton size="small" title="Undo" onClick={() => emailExec('undo')} sx={{ color: '#313439', borderRadius: 0 }}>
                       <UndoOutlined fontSize="small" />
@@ -823,7 +855,6 @@ const StatementTemplates = () => {
                       fontSize: 14,
                       color: '#000',
                       overflow: 'auto',
-                      '&:empty:before': { content: '"Compose your statement email..."', color: '#808080' },
                     }}
                   />
                 </Box>
@@ -832,19 +863,20 @@ const StatementTemplates = () => {
           )}
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, pt: 0, gap: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={handleCloseConfigure}
-            sx={{ minWidth: 100, height: 42, textTransform: 'none', fontWeight: 600, borderRadius: '12px', bgcolor: '#f8f8f8', color: '#676b72', borderColor: '#676b72', '&:hover': { borderColor: '#676b72', bgcolor: '#f8f8f8' } }}
-          >
+        <DialogActions sx={{ p: '0 16px 16px', gap: '16px', '& > :not(:first-of-type)': { ml: 0 } }}>
+          <Button disableRipple onClick={handleCloseConfigure} sx={{ ...cancelButtonSx, flex: 1 }}>
             Cancel
           </Button>
           <Button
-            variant="contained"
+            disableRipple
             onClick={handleConfirmConfigure}
             disabled={configLoading || configSaving}
-            sx={{ bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, minWidth: 100, height: 42 }}
+            sx={{
+              flex: 1, height: 48, bgcolor: '#1c86f2', color: '#f8f8f8', border: '1px solid #f8f8f8', borderRadius: 0,
+              fontSize: 32, fontWeight: 400, lineHeight: 1, textTransform: 'none', boxShadow: 'none', p: '4px 8px',
+              '&:hover': { bgcolor: '#f8f8f8', color: '#1c86f2', boxShadow: 'none' },
+              '&.Mui-disabled': { bgcolor: '#404040', color: '#737373', border: '1px solid #404040' },
+            }}
           >
             {configSaving ? 'Saving...' : 'Update'}
           </Button>
