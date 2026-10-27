@@ -153,8 +153,11 @@ const DateRangePicker = ({
     } else if (tempStartDate && !tempEndDate) {
       // Complete selection — applies immediately (reference has no Done button)
       if (date >= tempStartDate) {
-        setTempEndDate(date);
-        commit(tempStartDate, date, 'custom');
+        // Reference: the end day is included whole (26/10 → 26/10 = 12:00:00 AM to
+        // 11:59:59 PM). Midnight here cut it off: a one-day pick returned nothing.
+        const end = endOfDay(date);
+        setTempEndDate(end);
+        commit(tempStartDate, end, 'custom');
         handleClose();
       } else {
         setTempStartDate(date);
@@ -195,15 +198,17 @@ const DateRangePicker = ({
       commit(d, d, 'custom');
       return;
     }
+    // A typed end day is included whole, same as a clicked one.
+    const typedEnd = endOfDay(d);
     if (which === 'start') {
       setTempStartDate(d);
       setLeftMonth(startOfMonth(d));
       setRightMonth(startOfMonth(addMonths(d, 1)));
     } else {
-      setTempEndDate(d);
+      setTempEndDate(typedEnd);
     }
     const start = which === 'start' ? d : committedRef.current.start;
-    const end = which === 'end' ? d : committedRef.current.end;
+    const end = which === 'end' ? typedEnd : committedRef.current.end;
     // Inverted mid-typing (new start past the old end): hold until the other end catches up.
     if (start && end && end < start) return;
     commit(start, end, 'custom');

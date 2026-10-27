@@ -1,4 +1,9 @@
 import apiClient from './apiClient';
+import { appTimeZone } from '../utils/appDateTime';
+
+const browserTimeZone = () => {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
+};
 
 const salesReportService = {
   // Get sales report data
@@ -26,6 +31,11 @@ const salesReportService = {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.outletId) params.append('outletId', filters.outletId);
       if (filters.registerId) params.append('registerId', filters.registerId);
+      // Presets (Today, This Week…) are the browser's days, not the server's (UTC on Vercel).
+      params.append('timeZone', browserTimeZone());
+      // Precision columns (hour / day / week…) read Setup > General > Timezone, like
+      // every other time the app shows (reference: "all times should be shown in").
+      params.append('displayTimeZone', appTimeZone());
       // Search-bar chips: [{ type, id, name, mode: 'include' | 'exclude' }]
       if (Array.isArray(filters.chips) && filters.chips.length) params.append('filters', JSON.stringify(filters.chips.map((c) => ({ type: c.type, id: c.id, mode: c.mode }))));
 
@@ -46,6 +56,8 @@ const salesReportService = {
     if (endDate) params.append('endDate', endDate);
     if (outletId) params.append('outletId', outletId);
     if (registerId) params.append('registerId', registerId);
+    params.append('timeZone', browserTimeZone());
+    params.append('displayTimeZone', appTimeZone());
     const response = await apiClient.get(`/sales-reports/query?${params.toString()}`, { noCache: true });
     return response.data;
   },

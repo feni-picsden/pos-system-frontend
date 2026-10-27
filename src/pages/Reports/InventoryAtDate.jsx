@@ -330,6 +330,10 @@ const InventoryAtDate = () => {
   useEffect(() => {
     if (!showOutletFilter && outletId) setOutletId(null);
   }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The outlet the report runs for: the in-page pick, or the header outlet while the
+  // pick is hidden. The page pre-selects an outlet once its list loads, and that
+  // pick used to be sent even under a header outlet (navbar Outlet 1 ran outlet 4).
+  const reportOutletId = (showOutletFilter ? outletId : headerOutletId) || getOutletId();
 
   useEffect(() => {
     loadOutlets();
@@ -417,7 +421,7 @@ const InventoryAtDate = () => {
         groupBy,
         searchTerm,
         showZeroInventory: showZeroInventory.toString(),
-        outletId: outletId || getOutletId(),
+        outletId: reportOutletId,
       };
 
       const response = await inventoryReportService.getInventoryAtDate(filters);
@@ -555,7 +559,7 @@ const InventoryAtDate = () => {
     const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const dateLabel = selectedDate ? format(selectedDate, DATE_FORMAT) : '';
     const outletList = headerOutlets?.length ? headerOutlets : outlets;
-    const title = reportPrintTitle(outletList, globalMode && !outletId, outletId || headerOutletId);
+    const title = reportPrintTitle(outletList, globalMode && !reportOutletId, reportOutletId);
     const alignOf = (col) => (col.align === 'left' ? 'left' : 'center');
     const head = activeColumns.map((col) => `<th style="text-align:${alignOf(col)}">${esc(col.label)}</th>`).join('');
     let stripe = 0;
@@ -939,7 +943,7 @@ const InventoryAtDate = () => {
           date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '',
           groupBy,
           showZeroInventory: showZeroInventory.toString(),
-          outletId: outletId || getOutletId(),
+          outletId: reportOutletId,
         }}
       />
     </Box>

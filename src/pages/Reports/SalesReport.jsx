@@ -125,10 +125,11 @@ const SuggestIcon = ({ type, deleted }) => {
   }
 };
 
-const PAYMENT_TYPES = ['paymentMethodType', 'paymentMethodSubtype'];
+const PAYMENT_TYPES = ['paymentMethod', 'paymentMethodType', 'paymentMethodSubtype'];
+const REPORT_TYPE_SHORT_LABEL = { paymentMethodType: 'Payment Type', paymentMethodSubtype: 'Payment Subtype' };
 const ITEM_LEVEL_TYPES = ['product', 'brand', 'category', 'family', 'tag', 'supplier', 'promotionProduct'];
 const PROMOTION_TYPES = ['promotion', 'promotionProduct', 'promotionCategory', 'rebate'];
-// Reference "Payment Type" report: Payment Amount, Transaction Count, Average Payment,
+// Reference Payments reports: Payment Amount, Transaction Count, Average Payment,
 // Transaction Percentage, Payment Percentage (all shown, no picker choice needed).
 const PAYMENT_COLUMNS = [
   { key: 'paymentAmount', label: 'Payment Amount', headerLabel: 'PAYMENT AMOUNT', render: (row) => formatCurrency(row.paymentAmount || 0) },
@@ -599,7 +600,7 @@ const SalesReport = () => {
     ],
     payments: [
       { value: 'paymentMethod', label: 'Payment Method' },
-      { value: 'paymentMethodType', label: 'Payment Type' },
+      { value: 'paymentMethodType', label: 'Payment Method Type' },
       { value: 'paymentMethodSubtype', label: 'Payment Method Subtype' },
     ],
     misc: [
@@ -832,7 +833,7 @@ const SalesReport = () => {
     revenuePercentage: true,
     transactionPercentage: true,
   });
-  // Reference "Payment Type" / "Payment Method Subtype" use their own five columns.
+  // Reference "Payment Method" / "Payment Method Type" / "Payment Method Subtype" use their own five columns.
   const isPaymentType = PAYMENT_TYPES.includes(reportType);
   const visibleColumns = isPaymentType ? PAYMENT_VISIBLE : isDetailMode ? detailVisibleColumns : summaryVisibleColumns;
   const setVisibleColumns = isPaymentType ? () => {} : isDetailMode ? setDetailVisibleColumns : setSummaryVisibleColumns;
@@ -961,6 +962,30 @@ const SalesReport = () => {
         return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())} ${p(x.getHours())}:${p(x.getMinutes())}:${p(x.getSeconds())}`;
       };
       return `SELECT revenue AS "Revenue" FROM sales ${isAgg ? 'AGGREGATE' : 'RANGE'} ${unit} BY ${reportType} START "${fmt(dateRange.startDate)}" END "${fmt(dateRange.endDate)}" CONSOLIDATED`;
+    }
+    // Payments types (reference): FROM sales_payments BY payment_method | payment_type |
+    // payment_subtype; a custom range adds START / END, a preset does not.
+    if (PAYMENT_TYPES.includes(reportType)) {
+      const by = { paymentMethod: 'payment_method', paymentMethodType: 'payment_type', paymentMethodSubtype: 'payment_subtype' }[reportType];
+      const p = (n) => String(n).padStart(2, '0');
+      const fmt = (d) => { const x = new Date(d); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())} ${p(x.getHours())}:${p(x.getMinutes())}:${p(x.getSeconds())}`; };
+      let q = 'SELECT\n';
+      q += '  BY_NAME AS "Name",\n';
+      q += '  amount AS "Payment Amount",\n';
+      q += '  transaction_count AS "Transaction Count",\n';
+      q += '  FORMAT(amount / transaction_count, \'$\') AS "Average Payment",\n';
+      q += '  FORMAT(transaction_count, \'\', \'%\', 2) AS "Transaction Percentage" TOTAL(PERCENTAGE_FROM_TOTAL),\n';
+      q += '  FORMAT(amount, \'\', \'%\', 2) AS "Payment Percentage" TOTAL(PERCENTAGE_FROM_TOTAL)\n';
+      q += 'FROM sales_payments\n';
+      q += `BY ${by}\n`;
+      if (dateRange.preset === 'custom' && dateRange.startDate && dateRange.endDate) {
+        q += `START "${fmt(dateRange.startDate)}"\n`;
+        q += `END "${fmt(dateRange.endDate)}"\n`;
+      }
+      if (searchTerm) q += `WHERE BY_NAME LIKE "%${searchTerm}%"\n`;
+      q += 'ORDER "Name" asc\n';
+      q += 'CONSOLIDATED';
+      return q;
     }
     const isConsolidated = consolidate === 'consolidated';
     let query = 'SELECT\n';
@@ -1567,6 +1592,8 @@ const SalesReport = () => {
             value={reportType}
             groups={reportTypeGroups}
             onChange={setReportType}
+            // Reference: the list reads "Payment Method Type / Subtype", the chosen value "Payment Type / Subtype".
+            renderValue={(value) => REPORT_TYPE_SHORT_LABEL[value] || reportTypeGroups.flatMap((g) => g.items).find((o) => o.value === value)?.label || ''}
           />
 
           <ShopfrontFilter

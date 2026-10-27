@@ -347,10 +347,14 @@ const StocktakedProducts = () => {
   const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()));
 
   // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
-  const { showOutletFilter } = useHeaderScope();
+  const { showOutletFilter, headerOutletId } = useHeaderScope();
   useEffect(() => {
     if (!showOutletFilter && outletId) setOutletId(null);
   }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The outlet the report runs for: the in-page pick, or the header outlet while the
+  // pick is hidden. The page pre-selects an outlet once its list loads, and that
+  // pick used to be sent even under a header outlet (navbar Outlet 1 ran outlet 4).
+  const reportOutletId = showOutletFilter ? outletId : headerOutletId;
 
   useEffect(() => {
     const load = async () => {
@@ -426,7 +430,7 @@ const StocktakedProducts = () => {
     try {
       const filters = {
         date: format(selectedDate, 'yyyy-MM-dd'),
-        outletId: outletId || undefined,
+        outletId: reportOutletId || undefined,
         brandId: ids(selectedBrands),
         categoryId: ids(selectedCategories),
         familyId: ids(selectedFamilies),

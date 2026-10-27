@@ -10,7 +10,9 @@ const securityReportService = {
     return response.data?.data || {};
   },
 
-  getEvents: async (startDate, endDate, eventType = 'all', limit = 1000, offset = 0) => {
+  // 10000, not 1000: the list stopped at the oldest 1000 of a long range while the
+  // counters showed every event.
+  getEvents: async (startDate, endDate, eventType = 'all', limit = 10000, offset = 0) => {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
