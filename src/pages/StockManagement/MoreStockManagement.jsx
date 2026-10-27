@@ -63,13 +63,17 @@ const stockManagementCards = [
 const visibleCards = stockManagementCards.filter((card) => !card.hidden);
 
 const MoreStockManagement = () => (
+  // Same layout as Reports > Miscellaneous (MiscellaneousReports.jsx): the card grid
+  // sits in the middle of the page, each card centred in its column.
   <Box
     sx={{
+      minHeight: "calc(100vh - 50px)",
       display: "grid",
       gridTemplateColumns: "repeat(auto-fit, 460px)",
-      justifyContent: "center",
       gap: "16px",
       p: "16px",
+      placeContent: "center",
+      justifyItems: "center",
     }}
   >
     {visibleCards.map((card) => {
