@@ -77,3 +77,51 @@ assert.equal(untaxed.tax.length, 0);
 assert.equal(untaxed.products[0].tax, '');
 
 console.log('referenceReceiptData: all assertions passed');
+
+// --- reference receipt rules (ARARAT reprint + S3 screenshots, 28/10/2026) ---
+const multi = buildReferenceData({
+  items: [{ name: 'X', quantity: 1, price: 74.99, taxPercent: 10, retailTaxRate: 'GST' }],
+  payments: [
+    { method: 'Cash', amount: 50 }, { method: 'Cash', amount: 10 }, { method: 'Cash', amount: 10 },
+    { method: 'Eftpos', amount: 4.99 },
+  ],
+  total: 74.99,
+});
+assert.deepEqual(multi.payments, [
+  { payment: 'Tendered Cash', amount: '$70.00' },
+  { payment: 'Tendered Eftpos', amount: '$4.99' },
+], 'tenders of one method merge onto one line');
+
+const onAccount = buildReferenceData({
+  items: [{ name: 'X', quantity: 1, price: 81.99, taxPercent: 10, retailTaxRate: 'GST' }],
+  payments: [{ method: 'On Account', amount: 81.99 }],
+  total: 81.99,
+  account: { startBalance: 0, balanceChanged: 81.99, endBalance: 81.99, currentBalance: 81.99 },
+  loyalty: { currentPoints: 0, earned: 0, spent: 0, beforeSale: 0, afterSale: 0 },
+});
+assert.deepEqual(onAccount.payments, [], 'no "Tendered On Account" line');
+assert.equal(onAccount.loyalty.earned, false, 'zero loyalty stays hidden');
+assert.equal(onAccount.account['changed-balance'], 81.99, 'account block only for an on-account sale');
+assert.equal(buildReferenceData({ account: { startBalance: 5, balanceChanged: 0, endBalance: 5, currentBalance: 5 } }).account['start-balance'], false, 'cash sale: no balance rows');
+
+const refund = buildReferenceData({
+  items: [{ name: 'X', quantity: -1, price: -11.81, taxPercent: 10, retailTaxRate: 'GST' }],
+  payments: [{ method: 'Cash', amount: -11.8 }, { method: 'Rounding', amount: -0.01 }],
+  total: -11.81,
+});
+assert.deepEqual(refund.payments, [{ payment: 'Tendered Cash', amount: '-$11.80' }], 'refund prints as a negative tender');
+assert.equal(refund.total.rounding, -0.01, 'rounding row moves into the totals');
+
+const rounded = buildReferenceData({
+  payments: [{ method: 'Cash', amount: 7 }, { method: 'Cash (Change)', amount: -0.15 }, { method: 'Rounding', amount: 0.01 }],
+  total: 6.86, change: 0.15,
+});
+assert.deepEqual(rounded.payments, [{ payment: 'Tendered Cash', amount: '$7.00' }], 'change / rounding rows are not tender lines');
+assert.equal(rounded.total.rounding, 0.01);
+assert.equal(rounded.total.change, 0.15);
+
+const twoSlips = buildReferenceData({ payments: [{ method: 'Eftpos', amount: 1, eftposReceipt: 'A' }, { method: 'Eftpos', amount: 1, eftposReceipt: 'B' }] });
+assert.equal(twoSlips.eftpos, ['A', '-'.repeat(24), 'B'].join(String.fromCharCode(10)), 'two slips separated by a dashed rule');
+assert.equal(buildReferenceData({ outlet: { receiptLogo: 'data:x' } }).logo, 'data:x', 'logo falls back to the outlet receipt logo');
+assert.equal(buildReferenceData({ outlet: { name: 'O', abn: '11 222' } }).text.outlet.contact.abn, '11 222', 'ABN reaches the expression context');
+console.log('referenceReceiptData: OK');

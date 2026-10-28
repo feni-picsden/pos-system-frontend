@@ -8,6 +8,7 @@
 import receiptTemplateService from './receiptTemplateService';
 import salesService from './salesService';
 import { saleToReceiptData } from '../utils/saleToReceiptData';
+import { withOutletProfile } from '../utils/outletReceiptProfile';
 import { buildReceiptEmailHtml } from '../utils/receiptEmailHtml';
 import { isReferenceShape } from '../components/Receipt/ReferenceReceipt';
 import { renderExpressions, buildReceiptContext } from '../utils/receiptExpressions';
@@ -89,7 +90,7 @@ export async function emailSaleReceipt({ saleId, receiverEmails, senderEmail, sa
   let html = null;
   let attachments = [];
   try {
-    const data = receiptData || (sale ? saleToReceiptData(sale) : null);
+    const data = await withOutletProfile(receiptData || (sale ? saleToReceiptData(sale) : null));
     if (data) {
       const emailTemplate = template || (await fetchEmailTemplate());
       const bodyTemplate = template || (await resolveBodyTemplate(emailTemplate));

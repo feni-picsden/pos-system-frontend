@@ -70,6 +70,9 @@ export const createBarcodeSvgMarkup = (value, options = {}) => {
   const sourceValue = extractBarcodeValue(value);
   const normalizedValue = normalizeBarcodeValue(sourceValue, normalizedFormat);
   if (!normalizedValue) return '';
+  // No DOM (server-side render of the default template in a node test / the
+  // backend's email fallback): the barcode is simply left out.
+  if (typeof document === 'undefined') return '';
 
   const svgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   const baseOptions = {

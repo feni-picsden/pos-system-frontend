@@ -1,6 +1,14 @@
-// Pure helpers for the Balance page's AUTO PRINT PAYMENT RECEIPT (customer-group flag).
-// Kept React/MUI-free so the money guard + flag resolution stay unit-testable.
+// Pure helpers for the customer PAYMENT receipt (Balance & Payments > Make Payment
+// auto-print, and the payment panel's Print). Kept React/MUI-free so the money
+// guard, flag resolution and the layout stay unit-testable.
 // Runnable self-check: `node paymentReceipt.js`
+//
+// Layout = the reference "Payment Receipt" (Acacia $700 / Heywood $1,070 reprints,
+// 27/10/2026): outlet header (logo, name, address, Ph, ABN), a "Payment" heading
+// between two rules, the payment date, customer code + name, a Processed /
+// Inv. No # / Total table (the invoice's FULL total), Total Paid, Invoices Paid,
+// "Unallocated Payment Amount" only when some of the money is unallocated, the
+// method line, then "Account balance: $x as at <print time>".
 
 // Money guard: coerce to a finite, non-negative amount. Never NaN, never negative.
 export const safeAmount = (value) => {
@@ -12,44 +20,72 @@ export const safeAmount = (value) => {
 // Undefined/false => false => caller no-ops (behaviour identical to today).
 export const shouldAutoPrintPaymentReceipt = (group) => Boolean(group && group.autoPrintPaymentReceipt);
 
-// The group's payment-receipt template, else its statement template, else null (store/outlet default).
-export const paymentReceiptTemplateOf = (group) =>
-  (group && (group.paymentReceiptTemplate || group.statementTemplate)) || null;
+// The group's Payment Receipt template id (a for='Payment' ReceiptTemplate), else null.
+// The statement template is a different id space and must never stand in for it.
+export const paymentReceiptTemplateOf = (group) => (group && group.paymentReceiptTemplate) || null;
 
 const esc = (s) =>
   String(s == null ? "" : s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 
-// Minimal printable payment-receipt HTML. `currency` is injected so we reuse the page's formatter;
-// the fallback formatter preserves negatives (a customer can be in credit) but never emits NaN.
+const money = (n) => {
+  const v = Number(n);
+  return Number.isFinite(v) ? `${v < 0 ? "-" : ""}$${Math.abs(v).toFixed(2)}` : "$0.00";
+};
+
+// Reference-shape payment receipt HTML.
+//   business:   { name, address (may hold <br/>), phone, abn, logo }
+//   dateText:   "21st Oct 2026 9:46:12 am" (payment moment)
+//   customer:   { code, name }
+//   invoices:   [{ processed: "07/11/2018 14:02:26", number: "7048277", total: 1068 }]
+//   totalPaid, methodName, unallocated (0 = line hidden), accountBalance, asAtText
 export const buildPaymentReceiptHtml = (
-  { customerName, dateText, methodName, reference, amount, newOwing, templateName },
+  { business, dateText, customer, invoices = [], totalPaid, methodName, unallocated = 0, accountBalance, asAtText },
   currency
 ) => {
-  const money = (n) => {
-    const v = Number(n);
-    return Number.isFinite(v) ? `$${v.toFixed(2)}` : "$0.00";
-  };
   const fmt = typeof currency === "function" ? currency : money;
-  const paid = fmt(safeAmount(amount)); // amount is a payment: guarded >= 0
-  const owing = Number.isFinite(Number(newOwing)) ? Number(newOwing) : 0; // balance may be negative (credit)
-  const row = (label, value) =>
-    `<div style="display:flex;justify-content:space-between;margin:4px 0;font-size:0.8rem;"><span>${label}</span><span>${value}</span></div>`;
+  const b = business || {};
+  const paid = fmt(safeAmount(totalPaid));
+  const balance = Number.isFinite(Number(accountBalance)) ? Number(accountBalance) : 0;
+  const invoicesPaid = new Set(invoices.map((i) => i.number || i.saleId)).size;
+  const row = (label, value, strong = false) =>
+    `<tr><td style="padding:2px 8px 2px 0;text-align:right;${strong ? "font-weight:bold;" : ""}">${label}</td>` +
+    `<td style="padding:2px 0;text-align:right;white-space:nowrap;width:26%;${strong ? "font-weight:bold;" : ""}">${value}</td></tr>`;
   return `
-    <div style="max-width:400px;margin:0 auto;font-family:'Courier New',monospace;padding:20px;">
-      <div style="text-align:center;margin-bottom:16px;">
-        <h3 style="margin:4px 0;font-size:0.95rem;font-weight:bold;">Payment Receipt</h3>
-        ${templateName ? `<p style="margin:2px 0;font-size:0.65rem;color:#666;">${esc(templateName)}</p>` : ""}
+    <div style="max-width:420px;margin:0 auto;font-family:Arial,sans-serif;font-size:12px;color:#000;padding:16px;">
+      <div style="text-align:center;">
+        ${b.logo ? `<img src="${esc(b.logo)}" alt="" style="max-width:220px;max-height:160px;" />` : ""}
+        ${b.name ? `<div style="font-size:15px;font-weight:bold;">${esc(b.name)}</div>` : ""}
+        ${b.address ? `<div>${String(b.address).split(/<br\s*\/?>/i).map(esc).join("<br/>")}</div>` : ""}
+        ${b.phone ? `<div>Ph: ${esc(b.phone)}</div>` : ""}
+        ${b.abn ? `<div>ABN: ${esc(b.abn)}</div>` : ""}
       </div>
-      <hr style="border:none;border-top:1px solid #ddd;margin:12px 0;" />
-      ${row("Customer", esc(customerName))}
-      ${row("Date", esc(dateText))}
-      ${row("Method", esc(methodName))}
-      ${reference ? row("Reference", esc(reference)) : ""}
-      <hr style="border:none;border-top:1px solid #ddd;margin:12px 0;" />
-      ${row("<strong>Amount Paid</strong>", `<strong>${paid}</strong>`)}
-      ${row("Balance Owing", fmt(owing))}
-      <hr style="border:none;border-top:1px solid #ddd;margin:12px 0;" />
-      <p style="font-size:0.7rem;text-align:center;color:#666;margin-top:12px;">Thank you</p>
+      <div style="border-top:1px solid #000;border-bottom:1px solid #000;margin:8px 0;padding:2px 0;text-align:center;font-weight:bold;">Payment</div>
+      <div>${esc(dateText)}</div>
+      ${customer?.code ? `<div>${esc(customer.code)}</div>` : ""}
+      ${customer?.name ? `<div>${esc(customer.name)}</div>` : ""}
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+        <thead><tr>
+          <th style="text-align:left;padding:2px 0;">Processed</th>
+          <th style="text-align:left;padding:2px 0;">Inv. No #</th>
+          <th style="text-align:right;padding:2px 0;width:26%;">Total</th>
+        </tr></thead>
+        <tbody>
+          ${invoices.map((i) => `<tr>
+            <td style="padding:2px 0;">${esc(i.processed)}</td>
+            <td style="padding:2px 0;">${esc(i.number)}</td>
+            <td style="padding:2px 0;text-align:right;white-space:nowrap;">${fmt(Number(i.total) || 0)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+        <tbody>
+          ${row("Total Paid", paid, true)}
+          ${row("Invoices Paid", String(invoicesPaid))}
+          ${safeAmount(unallocated) > 0 ? row("Unallocated Payment Amount", fmt(safeAmount(unallocated))) : ""}
+          ${methodName ? row(esc(methodName), paid) : ""}
+        </tbody>
+      </table>
+      <div style="margin-top:12px;">Account balance: ${fmt(balance)} as at ${esc(asAtText)}</div>
     </div>`;
 };
 
@@ -67,13 +103,25 @@ export const demo = () => {
   assert(shouldAutoPrintPaymentReceipt({}) === false, "missing flag off (no-op default)");
   assert(shouldAutoPrintPaymentReceipt({ autoPrintPaymentReceipt: true }) === true, "flag on");
   assert(paymentReceiptTemplateOf({}) === null, "no template -> null");
-  assert(paymentReceiptTemplateOf({ statementTemplate: "S" }) === "S", "statement fallback");
-  assert(paymentReceiptTemplateOf({ paymentReceiptTemplate: "P", statementTemplate: "S" }) === "P", "payment preferred");
-  const html = buildPaymentReceiptHtml({ customerName: "A <b>", amount: -3, newOwing: -50 }, null);
+  assert(paymentReceiptTemplateOf({ statementTemplate: "S" }) === null, "statement template is NOT a fallback");
+  assert(paymentReceiptTemplateOf({ paymentReceiptTemplate: "P", statementTemplate: "S" }) === "P", "payment template");
+  const html = buildPaymentReceiptHtml({
+    business: { name: "PREMIX KING - Portland", address: "121 Percy Street,<br/>Portland VIC 3305", phone: "03 5523", abn: "86 653 852 861", logo: "" },
+    dateText: "19th Nov 2018 4:42:00 pm",
+    customer: { code: "", name: "Julie Barber <b>" },
+    invoices: [{ processed: "07/11/2018 14:02:26", number: "7048277", total: 1068 }],
+    totalPaid: 1070, methodName: "Cash", unallocated: 2, accountBalance: -2, asAtText: "27th Oct 2026 11:46:39 pm",
+  }, null);
   assert(!html.includes("NaN"), "no NaN in html");
-  assert(html.includes("$0.00"), "negative amount guarded to $0.00");
-  assert(html.includes("$-50.00"), "credit balance preserved");
-  assert(html.includes("A &lt;b&gt;"), "html-escaped customer name");
+  assert(html.includes(">Payment<") && html.includes("Ph: 03 5523") && html.includes("ABN: 86 653 852 861"), "header + heading");
+  assert(html.includes("Julie Barber &lt;b&gt;"), "html-escaped customer name");
+  assert(html.includes("7048277") && html.includes("$1,068.00".replace(",", "")) , "invoice row with full total");
+  assert(html.includes("Total Paid") && html.includes("Invoices Paid</td>") && html.includes(">1</td>"), "totals");
+  assert(html.includes("Unallocated Payment Amount") && html.includes("$2.00"), "unallocated line when > 0");
+  assert(html.includes("Account balance: -$2.00 as at 27th Oct 2026 11:46:39 pm"), "balance as at print time");
+  const none = buildPaymentReceiptHtml({ business: null, dateText: "", customer: null, invoices: [], totalPaid: 5, methodName: "Cash", unallocated: 0, accountBalance: 0, asAtText: "" }, null);
+  assert(!none.includes("Unallocated"), "no unallocated line at 0");
+  assert(none.includes("Invoices Paid</td>") && none.includes(">0</td>"), "zero invoices");
   console.log("paymentReceipt self-check passed");
 };
 

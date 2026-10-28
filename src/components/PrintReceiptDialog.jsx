@@ -25,6 +25,7 @@ import { buildReceiptPrintHtml } from '../utils/receiptPrintHtml';
 import { isWidePreview } from '../utils/receiptTemplateShape';
 import { printHtmlDocument } from '../utils/printHtmlDocument';
 import { saleToReceiptData } from '../utils/saleToReceiptData';
+import { withOutletProfile } from '../utils/outletReceiptProfile';
 
 const PrintReceiptDialog = ({ open, onClose, sale }) => {
   const [receiptTemplates, setReceiptTemplates] = useState([]);
@@ -68,7 +69,9 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
     }
   };
 
-  const convertSaleToReceiptData = (saleRow) => setReceiptData(saleToReceiptData(saleRow));
+  // The outlet's logo / ABN live in its Setup > Outlets profile, not on the sale.
+  const convertSaleToReceiptData = (saleRow) =>
+    withOutletProfile(saleToReceiptData(saleRow)).then(setReceiptData);
 
   const printReceipt = () => {
     if (!receiptData) return;

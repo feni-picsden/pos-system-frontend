@@ -86,29 +86,61 @@ export const buildReferenceData = (receiptData = {}) => {
   taxTotals.forEach((_, name) => { indicators[name] = true; });
 
   // Reference prints the tender line as "Tendered <method>" (measured: "Tendered Cash",
-  // docs/parity/receipt-template.md §8). Change/refund lines keep their own wording.
-  const payments = (receiptData.payments || []).map((payment) => {
+  // docs/parity/receipt-template.md §8; ARARAT reprint 28/10/2026), with:
+  //  * the tenders of ONE method on one line (3 cash tenders -> "Tendered Cash $70.00"),
+  //  * a refund as a negative tender ("Tendered Cash -$11.80"),
+  //  * no "On Account" line (money owed, not taken), no change row (it prints as
+  //    the Change total) and no Rounding row (it prints in the totals block).
+  const paymentLabel = (payment) =>
     // The tender line names the METHOD ("Tendered Cash" / "Tendered EFTPOS"); the
     // description can be a Linkly txn ref, which printed as "Tendered tmsh4wfpvftk6".
-    const label = payment.method || payment.paymentMethod || payment.description || '';
-    const tendered = parseFloat(payment.amount) > 0 && !/^(tendered|change|rounding)/i.test(label);
-    return {
-      payment: tendered ? `Tendered ${label}` : label,
-      amount: money(payment.amount),
-    };
+    String(payment.method || payment.paymentMethod || payment.description || '').trim();
+  const isRoundingRow = (payment) => /^rounding$/i.test(paymentLabel(payment));
+  const isChangeRow = (payment) => /^change$|\(change\)$/i.test(paymentLabel(payment));
+  const isAccountRow = (payment) => /^(on\s*)?account$/i.test(paymentLabel(payment));
+  const paymentsByMethod = new Map();
+  (receiptData.payments || []).forEach((payment) => {
+    if (isRoundingRow(payment) || isChangeRow(payment) || isAccountRow(payment)) return;
+    const label = paymentLabel(payment);
+    paymentsByMethod.set(label, (paymentsByMethod.get(label) || 0) + (parseFloat(payment.amount) || 0));
   });
+  const payments = [
+    ...[...paymentsByMethod.entries()]
+      .filter(([, amount]) => Math.round(amount * 100) !== 0)
+      .map(([label, amount]) => ({
+        payment: /^tendered/i.test(label) ? label : `Tendered ${label}`,
+        amount: money(amount),
+      })),
+    // A caller that lists change as a payment row (older sell-screen feeds) keeps
+    // it, under its own name; the banked "Cash (Change)" row prints as the Change
+    // total instead.
+    ...(receiptData.payments || [])
+      .filter((payment) => /^change$/i.test(paymentLabel(payment)))
+      .map((payment) => ({ payment: paymentLabel(payment), amount: money(payment.amount) })),
+  ];
+  const bankedRounding = (receiptData.payments || [])
+    .filter(isRoundingRow)
+    .reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
 
-  const loyalty = receiptData.loyalty
+  // Loyalty prints only when the sale moved points (a customer sale with the
+  // program off, or 0 earned / 0 spent, printed five "0" rows on a reprint).
+  const loyaltySource = receiptData.loyalty;
+  const loyaltyMoved = loyaltySource
+    && ((Number(loyaltySource.earned) || 0) !== 0 || (Number(loyaltySource.spent) || 0) !== 0);
+  const loyalty = loyaltyMoved
     ? {
-        'current-loyalty': receiptData.loyalty.currentPoints ?? false,
-        earned: receiptData.loyalty.earned ?? false,
-        spent: receiptData.loyalty.spent ?? false,
-        'before-sale': receiptData.loyalty.beforeSale ?? false,
-        'after-sale': receiptData.loyalty.afterSale ?? false,
+        'current-loyalty': loyaltySource.currentPoints ?? false,
+        earned: loyaltySource.earned ?? false,
+        spent: loyaltySource.spent ?? false,
+        'before-sale': loyaltySource.beforeSale ?? false,
+        'after-sale': loyaltySource.afterSale ?? false,
       }
     : { 'current-loyalty': false, earned: false, spent: false, 'before-sale': false, 'after-sale': false };
 
-  const account = receiptData.account
+  // Account block only when this sale was put on the account (the reference's
+  // own receipt prints no balance rows at all; a template that adds the block
+  // gets it for on-account sales only, never "$0.00" rows on a cash sale).
+  const account = receiptData.account && Math.round((Number(receiptData.account.balanceChanged) || 0) * 100) !== 0
     ? {
         'start-balance': receiptData.account.startBalance ?? false,
         'end-balance': receiptData.account.endBalance ?? false,
@@ -136,7 +168,8 @@ export const buildReferenceData = (receiptData = {}) => {
       discount: Number(receiptData.discount) || 0,
       change: Number(receiptData.change) || 0,
       cashout: Number(receiptData.cashout) || 0,
-      rounding: Number(receiptData.rounding) || 0,
+      // The Rounding bookkeeping row banked with the tenders, or the caller's figure.
+      rounding: Math.round(((Number(receiptData.rounding) || 0) + bankedRounding) * 100) / 100,
       surcharge: Number(receiptData.surchargeTotal) || 0,
     },
     text: buildReceiptContext(receiptData),
@@ -154,11 +187,13 @@ export const buildReferenceData = (receiptData = {}) => {
     // The slip is carried per payment (Linkly returns it with the tender), so the
     // external-receipt component reads the payments when no top-level slip is set —
     // otherwise an EFTPOS sale rendered that component empty on screen and on reprint.
+    // Several slips (two card tenders) are separated the way the slip itself
+    // separates its sections: a dashed rule.
     eftpos: receiptData.hideEftposSlip
       ? ''
       : (receiptData.eftposReceipt
-        || (receiptData.payments || []).map((p) => p.eftposReceipt).filter(Boolean).join('\n')),
-    logo: receiptData.outlet?.logo || null,
+        || (receiptData.payments || []).map((p) => p.eftposReceipt).filter(Boolean).join('\n' + '-'.repeat(24) + '\n')),
+    logo: receiptData.outlet?.logo || receiptData.outlet?.receiptLogo || null,
   };
 };
 

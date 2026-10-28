@@ -33,7 +33,6 @@ import {
   Select,
   InputAdornment,
   TableFooter,
-  Collapse,
 } from "@mui/material";
 import {
   ArrowDropDown as ArrowDropDownIcon,
@@ -49,7 +48,6 @@ import {
   Home as HomeIcon,
   History as HistoryIcon,
   RestoreFromTrash as RevisionIcon,
-  CheckCircleOutlined as CheckCircleOutlinedIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -67,7 +65,14 @@ import { emailSaleReceipt } from '../../services/receiptEmailSender';
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import PrintReceiptDialog from "../../components/PrintReceiptDialog";
 import EmailReceiptModal from "../../components/SalesHistory/EmailReceiptModal";
-import { saleBasePrice, saleLineTotal } from "../../utils/saleTotals";
+import PaymentHistoryList from "../../components/Customers/PaymentHistoryList";
+import CustomerSalesHistory from "../../components/Customers/CustomerSalesHistory";
+import PaymentReceiptDialog from "../../components/Customers/PaymentReceiptDialog";
+import outletService from "../../services/outletService";
+import { buildPaymentReceiptHtml } from "./paymentReceipt";
+import { paymentReceiptArgs } from "./paymentReceiptData";
+import { loadBusiness } from "../../utils/outletReceiptProfile";
+import { formatSettingsDate, formatSettingsTime } from "../../utils/appDateTime";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { formatCurrency } from "../../utils/currency";
 
@@ -116,7 +121,6 @@ const menuItemSx = {
   "&.Mui-selected:hover": { bgcolor: "#5ebbeb" },
   "&.Mui-focusVisible": { bgcolor: "#5ebbeb" },
 };
-import { saleOutstanding, INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
 import { useAppDialogs } from "../../components/Common/AppDialogProvider";
 
 const customerInvoiceNumber = (sale) =>
@@ -129,8 +133,10 @@ const CustomerView = () => {
 
   // Reference (Using Account Customers): Cancel voids a payment; Refund keeps
   // it visible and posts an opposing entry. Both re-open the owing balance.
+  // `payment` is a Payment History row: every sale_payments row the payment was
+  // split into, as one — the API reverses the whole payment from any row id.
   const reversePayment = async (payment, kind) => {
-    const dollars = formatCurrency(payment.amount || 0);
+    const dollars = formatCurrency(payment.total ?? payment.amount ?? 0);
     const ok = await appConfirm(
       kind === 'cancel'
         ? `Cancel this ${dollars} payment? It is removed from reports and statements, and the balance re-opens.`
@@ -148,6 +154,25 @@ const CustomerView = () => {
     } catch (err) {
       appAlert(err?.response?.data?.error || `Failed to ${kind} the payment`, 'error');
     }
+  };
+
+  // Payment panel "Print": the reference payment receipt, previewed in the same
+  // panel the sale reprint uses. The outlet header comes from the customer's
+  // outlet (else the register's) plus its Setup > Outlets profile (logo, ABN).
+  const [paymentReceiptHtml, setPaymentReceiptHtml] = useState(null);
+  const printPaymentReceipt = async (payment) => {
+    let outlet = null;
+    const outletId = customer?.outletId || payment.outlet?.id;
+    try {
+      if (outletId) outlet = (await outletService.getOutletById(outletId))?.outlet || payment.outlet || null;
+    } catch {
+      outlet = payment.outlet || null;
+    }
+    const business = await loadBusiness(outlet);
+    setPaymentReceiptHtml(buildPaymentReceiptHtml(
+      paymentReceiptArgs({ payment, customer, business, accountBalance: customer?.currentOwing }),
+      formatCurrency
+    ));
   };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -176,9 +201,6 @@ const CustomerView = () => {
   const [revisions, setRevisions] = useState([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
-  // Sales History tab: several sale cards may be open at once; a card closes
-  // only from its own Close button.
-  const [openSaleIds, setOpenSaleIds] = useState([]);
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -455,9 +477,6 @@ const CustomerView = () => {
     }
   };
 
-  // Sale total from the line totals — same math as the shared sell-side base price.
-  const computeSaleTotal = saleLineTotal;
-
   const formatDateTime = (isoDate) => {
     try {
       return new Date(isoDate).toLocaleString("en-GB", {
@@ -483,6 +502,13 @@ const CustomerView = () => {
   // (it is also the row-expansion state) when the dialog closes.
   const handleClosePrintDialog = () => {
     setShowPrintDialog(false);
+  };
+
+  // Email goes to THIS card's sale: with several cards open the modal used to
+  // mail whichever row was clicked last.
+  const handleEmailReceipt = (sale) => {
+    setSelectedSale(sale);
+    setShowEmailModal(true);
   };
 
   const handleSendEmail = async (saleId, receiverEmails, senderEmail) => {
@@ -779,48 +805,15 @@ const CustomerView = () => {
                 Payment History
               </Typography>
               {payments.length > 0 ? (
-                <TableContainer sx={{ flexShrink: 0 }}>
-                  <Table>
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: "#5ebbeb" }}>
-                        {["Timestamp", "Invoice Number", "User", "Method", "Amount", "Actions"].map((h) => (
-                          <TableCell key={h} sx={{ color: "white", fontWeight: 600 }}>
-                            {h}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {payments.map((payment) => (
-                        <TableRow key={`payment-${payment.id}`}>
-                          <TableCell>{formatDateTime(payment.createdAt)}</TableCell>
-                          <TableCell>{customerInvoiceNumber(payment.sale)}</TableCell>
-                          <TableCell>{payment.sale?.user?.name || "-"}</TableCell>
-                          <TableCell>{payment.paymentMethod || "-"}</TableCell>
-                          <TableCell>{formatCurrency(payment.amount || 0)}</TableCell>
-                          <TableCell>
-                            {/* Reversal only makes sense on positive rows —
-                                negative rows ARE reversals. */}
-                            {Number(payment.amount) > 0 ? (
-                              <Box sx={{ display: "flex", gap: 1 }}>
-                                <Button size="small" disableRipple onClick={() => reversePayment(payment, 'cancel')}
-                                  sx={{ color: "#e33430", textTransform: "none", fontWeight: 600, minWidth: 0 }}>
-                                  Cancel
-                                </Button>
-                                <Button size="small" disableRipple onClick={() => reversePayment(payment, 'refund')}
-                                  sx={{ color: "#0084d1", textTransform: "none", fontWeight: 600, minWidth: 0 }}>
-                                  Refund
-                                </Button>
-                              </Box>
-                            ) : (
-                              <Typography component="span" sx={{ fontSize: 13, color: "#676b72" }}>Reversal</Typography>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <PaymentHistoryList
+                  payments={payments}
+                  customer={customer}
+                  formatDate={formatSettingsDate}
+                  formatTime={formatSettingsTime}
+                  onPrint={printPaymentReceipt}
+                  onRefund={(p) => reversePayment(p, "refund")}
+                  onCancel={(p) => reversePayment(p, "cancel")}
+                />
               ) : (
                 <Typography variant="body2" sx={{ color: "text.secondary", py: 2 }}>
                   No payments recorded
@@ -854,353 +847,15 @@ const CustomerView = () => {
                 msOverflowStyle: "none",
                 "&::-webkit-scrollbar": { display: "none" },
               }}>
-                {historySalesLoading ? (
-                  <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-                    <CircularProgress />
-                  </Box>
-                ) : historySales.length > 0 ? (
-                  historySales.map((sale) => (
-                    <React.Fragment key={`sale-fr-${sale.id}`}>
-                      {!openSaleIds.includes(sale.id) && (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            minHeight: 88,
-                            boxSizing: "border-box",
-                            py: 1.5,
-                            px: 1,
-                            gap: 1.5,
-                            borderBottom: "1px solid #e0e0e0",
-                            cursor: "pointer",
-                            "&:hover": { bgcolor: "#f5f5f5" },
-                          }}
-                          onClick={() => {
-                            setSelectedSale(sale);
-                            setOpenSaleIds((ids) => (ids.includes(sale.id) ? ids : [...ids, sale.id]));
-                          }}
-                        >
-                          {/* Reference: purple hollow circle while the sale still
-                              owes money (On Account, unpaid); black tick once paid. */}
-                          <Box
-                            sx={{
-                              width: 32,
-                              flexShrink: 0,
-                              display: "flex",
-                              justifyContent: "center",
-                            }}
-                          >
-                            {saleOutstanding(sale) > 0 ? (
-                              <Box
-                                title="Incomplete"
-                                sx={{
-                                  width: 24,
-                                  height: 24,
-                                  borderRadius: "50%",
-                                  border: `2px solid ${INCOMPLETE_PURPLE}`,
-                                }}
-                              />
-                            ) : (
-                              <CheckCircleOutlinedIcon titleAccess="Complete" sx={{ fontSize: 28, color: "#000" }} />
-                            )}
-                          </Box>
-
-                          {/* Date/time + invoice number */}
-                          <Box sx={{ width: { xs: 170, md: 220 }, flexShrink: 0 }}>
-                            <Typography
-                              variant="subtitle2"
-                              sx={{ lineHeight: 1.5 }}
-                            >
-                              {formatDateTime(sale.saleDate)}
-                            </Typography>
-                            <Typography variant="caption" color="primary">
-                              {customerInvoiceNumber(sale)}
-                            </Typography>
-                          </Box>
-
-                          {/* User */}
-                          <Box sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
-                            <Typography variant="body2">
-                              {sale.user?.name || "-"}
-                            </Typography>
-                          </Box>
-
-                          {/* Amount right-aligned */}
-                          <Box sx={{ minWidth: 120, flexShrink: 0, textAlign: "right" }}>
-                            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                              {formatCurrency(computeSaleTotal(sale))}
-                            </Typography>
-                            {/* Reference: the amount still owed, small, under the total */}
-                            {saleOutstanding(sale) > 0 && (
-                              <Typography variant="body2" display="block">
-                                {formatCurrency(saleOutstanding(sale))}
-                              </Typography>
-                            )}
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              display="block"
-                            >
-                              {customer.company || "-"}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )}
-
-                      {/* Slides open / closed like the Sales History page. The card
-                          reads this row's own `sale`, so it is safe while sliding shut. */}
-                      <Collapse in={openSaleIds.includes(sale.id)} timeout={400} easing="ease-in-out" unmountOnExit>
-                        <Paper
-                          sx={{
-                            mb: 1,
-                            p: 2,
-                            border: "1px solid #bdbdbd",
-                            borderRadius: 0,
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              pb: 1,
-                              mb: 1,
-                              borderBottom: "1px solid #e0e0e0",
-                            }}
-                          >
-                            {/* Status: reference "○ Incomplete" (purple) while money is
-                                owed, "✓ Complete" once paid. */}
-                            <Box
-                              sx={{
-                                minWidth: 36,
-                                mr: 2,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px",
-                                color: saleOutstanding(sale) > 0 ? INCOMPLETE_PURPLE : "#000",
-                              }}
-                            >
-                              {saleOutstanding(sale) > 0 ? (
-                                <Box sx={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${INCOMPLETE_PURPLE}` }} />
-                              ) : (
-                                <CheckCircleOutlinedIcon sx={{ fontSize: 18 }} />
-                              )}
-                              <Typography variant="body2" sx={{ color: "inherit" }}>
-                                {saleOutstanding(sale) > 0 ? "Incomplete" : "Complete"}
-                              </Typography>
-                            </Box>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                gap: 6,
-                                alignItems: "center",
-                              }}
-                            >
-                              <Box>
-                                <Typography variant="subtitle2">
-                                  {formatDateTime(sale.saleDate)}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  {customerInvoiceNumber(sale)}
-                                </Typography>
-                              </Box>
-                              <Typography variant="body2">
-                                {sale.user?.name || "-"}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ ml: "auto", textAlign: "right" }}>
-                              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                                {formatCurrency(computeSaleTotal(sale))}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {customer.company || "-"}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {/* Summary row with buttons on right */}
-                          <Box sx={{ display: "flex", gap: 3, alignItems: "center", flexDirection: { xs: "column", md: "row" } }}>
-                            <Box
-                              sx={{
-                                flex: 1,
-                                width: "100%",
-                                minWidth: 0,
-                                display: "grid",
-                                gridTemplateColumns: "1fr",
-                                rowGap: 1,
-                                "& > div": { display: "grid", gridTemplateColumns: "90px max-content", gap: 1, alignItems: "baseline", justifyContent: "flex-start" },
-                                "& > div > :last-child": { whiteSpace: "nowrap", flexShrink: 0 },
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                }}
-                              >
-                                <Typography variant="body2">
-                                  Base Price
-                                </Typography>
-                                <Typography variant="body2">
-                                  {formatCurrency(saleBasePrice(sale))}
-                                </Typography>
-                              </Box>
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                }}
-                              >
-                                <Typography variant="body2">Savings</Typography>
-                                <Typography variant="body2">
-                                  {formatCurrency(sale.savings)}
-                                </Typography>
-                              </Box>
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                }}
-                              >
-                                <Typography variant="body2">
-                                  Discount
-                                </Typography>
-                                <Typography variant="body2">
-                                  {formatCurrency(sale.discount)}
-                                </Typography>
-                              </Box>
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                }}
-                              >
-                                <Typography variant="body2">Tax</Typography>
-                                <Typography variant="body2">
-                                  {formatCurrency(sale.tax)}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            <Box sx={{ width: { xs: "100%", md: 320 }, flexShrink: 0 }}>
-                              <Button
-                                onClick={() => {
-                                  setOpenSaleIds((ids) => ids.filter((id) => id !== sale.id));
-                                  if (selectedSale?.id === sale.id) setSelectedSale(null);
-                                }}
-                                variant="contained"
-                                fullWidth
-                                sx={{
-                                  mb: 1,
-                                  bgcolor: "#1976d2",
-                                  "&:hover": { bgcolor: "#115293" },
-                                }}
-                              >
-                                ✕ Close
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                fullWidth
-                                sx={{ mb: 1 }}
-                                onClick={() => handleReprintReceipt(sale)}
-                              >
-                                Reprint Receipt
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                fullWidth
-                                sx={{ mb: 1 }}
-                                onClick={() => setShowEmailModal(true)}
-                              >
-                                Email Receipt
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                fullWidth
-                                onClick={() => handleReturnItems(sale)}
-                              >
-                                Return Items
-                              </Button>
-                            </Box>
-                          </Box>
-
-                          <Box
-                            sx={{
-                              borderTop: "1px solid #bdbdbd",
-                              mt: 2,
-                              pt: 1,
-                            }}
-                          >
-                            {sale.items?.map((it, idx) => (
-                              <Box
-                                key={`sel-item-${sale.id}-${idx}`}
-                                sx={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  py: 0.5,
-                                }}
-                              >
-                                <Box
-                                  sx={{ width: 32, textAlign: "right", pr: 1 }}
-                                >
-                                  <Typography
-                                    variant="body2"
-                                    sx={{ fontWeight: 600 }}
-                                  >
-                                    {it.quantity}
-                                  </Typography>
-                                </Box>
-                                <Box sx={{ width: 56 }}>
-                                  <Typography variant="body2">Items</Typography>
-                                </Box>
-                                <Box sx={{ flex: 1 }}>
-                                  <Typography variant="body2">
-                                    {it.productName}
-                                  </Typography>
-                                </Box>
-                                <Box sx={{ width: 140, textAlign: "right" }}>
-                                  <Typography variant="body2">
-                                    {formatCurrency(
-                                      it.totalPrice ??
-                                        (Number(it.unitPrice) || 0) *
-                                          (Number(it.quantity) || 0)
-                                    )}
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            ))}
-                            <Box
-                              sx={{
-                                mt: 1,
-                                borderTop: "1px solid #9e9e9e",
-                                display: "flex",
-                                justifyContent: "flex-end",
-                                pt: 0.5,
-                              }}
-                            >
-                              <Typography variant="subtitle1" sx={{ mr: 2 }}>
-                                Balance
-                              </Typography>
-                              <Typography variant="subtitle1">
-                                {formatCurrency(sale.outstandingAmount ?? 0)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Paper>
-                      </Collapse>
-                    </React.Fragment>
-                  ))
-                ) : (
-                  <Box sx={{ py: 6, textAlign: "center" }}>
-                    <Typography variant="body2" color="text.secondary">
-                      No sales history found
-                    </Typography>
-                  </Box>
-                )}
+                <CustomerSalesHistory
+                  sales={historySales}
+                  loading={historySalesLoading}
+                  onReprint={handleReprintReceipt}
+                  onEmail={handleEmailReceipt}
+                  onReturnItems={handleReturnItems}
+                  onReloadSale={(sale) => navigate("/", { state: { reloadSaleId: sale.id } })}
+                  onContinueSale={(sale) => navigate("/", { state: { continueParkedSaleId: sale.id } })}
+                />
               </Box>
             </>
           ) : activeTab === "revision" ? (
@@ -1526,6 +1181,12 @@ const CustomerView = () => {
           </Box>
         </Box>
       </Box>
+
+      <PaymentReceiptDialog
+        open={paymentReceiptHtml != null}
+        onClose={() => setPaymentReceiptHtml(null)}
+        html={paymentReceiptHtml}
+      />
 
       {/* Print Receipt Dialog */}
       <PrintReceiptDialog

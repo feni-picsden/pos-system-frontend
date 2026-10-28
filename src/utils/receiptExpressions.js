@@ -212,6 +212,8 @@ export const buildReceiptContext = (receiptData = {}) => {
         addressSuburb: outlet.suburb || outlet.addressSuburb || '',
         addressState: outlet.state || outlet.addressState || '',
         addressPostcode: outlet.postcode || outlet.addressPostcode || '',
+        // ABN / business number (reference header prints "ABN: 86 653 852 861").
+        abn: outlet.abn || outlet.businessNumber || '',
       },
     },
     customer: customer && {

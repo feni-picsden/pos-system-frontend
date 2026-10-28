@@ -72,13 +72,16 @@ const SaleDetailCard = ({
   // row is a cash-out; an ordinary cash sale keeps "Cash (Change)".
   const isChangeRow = (p) => String(p?.paymentMethod || "").trim().toLowerCase() === "cash (change)";
   const isCashRow = (p) => String(p?.paymentMethod || "").trim().toLowerCase() === "cash";
+  // The cash-rounding bookkeeping row is not a tender: it must neither make a
+  // sale a cash-out nor be labelled "(Rounding) Cashout".
+  const isRoundingRow = (p) => /^rounding$/i.test(String(p?.paymentMethod || "").trim());
   // Change can only come back on a cash tender, so a change row WITHOUT any cash
   // paid in is money handed out against a card: a cash-out. "Gift Voucher $50 +
   // Cash $20 + Cash (Change) -$2" (ref) stays an ordinary change.
   const cashOutSale =
     payments.some(isChangeRow) &&
     !payments.some((p) => isCashRow(p) && (parseFloat(p.amount) || 0) > 0) &&
-    payments.some((p) => !isChangeRow(p) && !isCashRow(p) && !isOnAccountPayment(p) && (parseFloat(p.amount) || 0) > 0);
+    payments.some((p) => !isChangeRow(p) && !isCashRow(p) && !isRoundingRow(p) && !isOnAccountPayment(p) && (parseFloat(p.amount) || 0) > 0);
   // Reference prints the voucher / gift card number after the method:
   // "Gift Voucher (20040) $50.00".
   const giftCodes = (sale.giftCardTransactions || [])
@@ -102,7 +105,7 @@ const SaleDetailCard = ({
     let name = p.paymentMethod || "Payment";
     if (/gift (card|voucher)/i.test(name) && giftCodes.length) name = `${name} (${giftCodes.join(", ")})`;
     // Reference prints the cash-rounding bookkeeping row as "(Rounding)".
-    if (/^rounding$/i.test(name.trim())) name = "(Rounding)";
+    if (isRoundingRow(p)) return "(Rounding)";
     if (!cashOutSale) return name;
     if (isChangeRow(p)) return "Cash (Cash Out)";
     if (!isCashRow(p) && !isOnAccountPayment(p) && (parseFloat(p.amount) || 0) > 0) return `${name} Cashout`;
@@ -366,6 +369,19 @@ const SaleDetailCard = ({
             </Box>
           ))}
         </Box>
+
+        {/* Card attempts the terminal declined / the operator cancelled (reference:
+            "Cancelled Eftpos $74.99" under the tenders, not counted in Balance). */}
+        {(sale.cancelledTenders || []).length > 0 && (
+          <Box sx={{ mb: "8px" }}>
+            {sale.cancelledTenders.map((t, idx) => (
+              <Box key={`cancelled-${idx}`} sx={{ display: "flex", alignItems: "center", ...cell }}>
+                <Box sx={{ flex: 1, textAlign: "right", mr: "16px" }}>Cancelled {t.paymentMethod || "Eftpos"}</Box>
+                <Box sx={{ textAlign: "right" }}>{formatCurrency(t.amount || 0)}</Box>
+              </Box>
+            ))}
+          </Box>
+        )}
 
         {/* Gift card movements other than the redemption already shown as the
             "Gift Card (code)" tender line (e.g. a card loaded by this sale). */}

@@ -79,6 +79,7 @@ import {
   buildPaymentReceiptHtml,
   safeAmount,
 } from "./paymentReceipt";
+import { paymentReceiptArgs } from "./paymentReceiptData";
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 
 // Shopfront parity: shared style tokens (presentation only)
@@ -937,7 +938,6 @@ const Balance = () => {
         null;
       if (shouldAutoPrintPaymentReceipt(group)) {
         const method = paymentMethods.find((m) => m.id.toString() === selectedPaymentMethod);
-        const customerName = `${paymentCustomer.firstName} ${paymentCustomer.lastName}`.trim();
         // Receipt dates print in Setup > General > Timezone.
         const dateText = formatAppDateTime(paymentDate);
         const paidAmount = safeAmount(result?.payment?.amount ?? paymentAmt);
@@ -963,7 +963,8 @@ const Balance = () => {
             completedAt: paymentDate.toISOString(),
             timeZone: appTimeZone(),
             status: "completed",
-            outlet: resolveBusiness(paymentCustomer),
+            // (was un-awaited: the header printed a Promise's nothing)
+            outlet: await resolveBusiness(paymentCustomer),
             customer: {
               firstName: paymentCustomer.firstName || "",
               lastName: paymentCustomer.lastName || "",
@@ -990,22 +991,27 @@ const Balance = () => {
           const headStyles = Array.from(document.querySelectorAll("style")).map((n) => n.outerHTML).join("\n");
           printHtmlDocument(buildReceiptPrintHtml({ markup, headStyles, template, title: "Payment Receipt" }));
         } else {
-          // No Payment template assigned (or it failed to load): keep the minimal built-in
-          // receipt, but caption it with the receipt-template name we resolved (never the
-          // statement store).
+          // No Payment template assigned (or it failed to load): the built-in
+          // reference layout (invoice table, Total Paid, Invoices Paid, Unallocated,
+          // "Account balance … as at"). The payment just written is the newest row of
+          // the customer's Payment History.
+          let paymentRow = null;
+          try {
+            const rows = (await customerService.getCustomerPayments(paymentCustomer.id))?.payments || [];
+            paymentRow = rows.find((r) => Math.abs(Number(r.total) - paidAmount) < 0.005) || rows[0] || null;
+          } catch (err) {
+            console.error("Error loading the payment for its receipt:", err);
+          }
           const html = buildPaymentReceiptHtml(
-            {
-              customerName,
-              dateText,
-              methodName: method?.name || "",
-              reference: paymentReference,
-              amount: paidAmount,
-              newOwing: result?.customer?.currentOwing,
-              templateName: template?.name || null,
-            },
+            paymentReceiptArgs({
+              payment: paymentRow || { paymentDate: paymentDate.toISOString(), total: paidAmount, paymentMethod: method?.name || "", invoices: [] },
+              customer: paymentCustomer,
+              business: await resolveBusiness(paymentCustomer),
+              accountBalance: result?.customer?.currentOwing,
+            }),
             formatCurrency
           );
-          printHtmlViaIframe(html, "Payment Receipt");
+          printHtmlViaIframe(html, "Payment Receipt", "Arial, sans-serif");
         }
       }
 

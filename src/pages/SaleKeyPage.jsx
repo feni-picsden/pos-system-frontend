@@ -162,6 +162,7 @@ import posLocalDb from '../services/posLocalDb';
 import { syncAppDataInBackground, warmAppCache, refreshPromotionsStore } from '../services/appDataSync';
 import { refreshProductsInCache } from '../services/posCatalogSync';
 import { promotionAllowedForCustomer, isScheduleActiveAt } from '../utils/promotionEligibility';
+import { loadOutletProfile, mergeOutletProfile } from '../utils/outletReceiptProfile';
 
 // Single source of truth for customer-vs-group precedence (Shopfront spec).
 // overrideCustomerGroup ON => the customer's OWN priceList/disablePromotions/
@@ -573,6 +574,24 @@ const SaleKeyPage = () => {
   } = useSelectedRegister();
   const { setActivePriceSetName } = useActivePriceSet();
   const [outlets, setOutlets] = useState([]);
+  // outletId -> Setup > Outlets profile (logo, ABN, contact) for the receipt header.
+  // generateReceipt is synchronous, so the profile is fetched ahead of the sale.
+  const outletProfilesRef = useRef({});
+  // Linkly card attempts declined / cancelled during THIS sale; sent with the sale
+  // so Sales History can list them ("Cancelled Eftpos $74.99", reference).
+  const declinedCardTxnsRef = useRef([]);
+  useEffect(() => {
+    const ids = [
+      selectedRegister?.outlet?.id,
+      ...outlets.map((o) => o.id),
+      ...availableRegisters.map((r) => r.outlet?.id),
+      user?.outlet?.id,
+    ].filter((id) => id != null && outletProfilesRef.current[id] === undefined);
+    ids.forEach((id) => {
+      outletProfilesRef.current[id] = null;
+      loadOutletProfile(id).then((profile) => { outletProfilesRef.current[id] = profile; });
+    });
+  }, [selectedRegister?.outlet?.id, outlets, availableRegisters, user?.outlet?.id]);
   const [showControlTakenDialog, setShowControlTakenDialog] = useState(false);
   const [controlTakenByName, setControlTakenByName] = useState('');
   const [customerDisplaySettings, setCustomerDisplaySettings] = useState(null);
@@ -4405,6 +4424,7 @@ const SaleKeyPage = () => {
         balance: parseFloat(balance),
         status: 'COMPLETED',
         isReturned: false,
+        cancelledTxnRefs: [...declinedCardTxnsRef.current],
         // Recalled return lines carry the sale they came from; sending it lets the
         // backend flag that original as returned, which is what Sales History's
         // "Returned" filter reads (reference behaviour).
@@ -4456,6 +4476,7 @@ const SaleKeyPage = () => {
 
       try {
         const created = await salesService.createSale(saleData);
+        declinedCardTxnsRef.current = [];
         // The server may have allocated a DIFFERENT invoice number than the one
         // this till took (ours was already used — see routes/sales.js). Hand it
         // back so the receipt prints the number the sale really carries, and
@@ -5252,13 +5273,15 @@ const SaleKeyPage = () => {
     // (matched by effective outlet id), any loaded register's outlet, then the
     // signed-in user's outlet. Null only when no source has it (renderer omits it).
     const eoid = getEffectiveOutletId();
-    const outlet =
+    const outletRow =
       (selectedRegister?.outlet?.name && selectedRegister.outlet) ||
       outlets.find((o) => Number(o.id) === Number(eoid)) ||
       availableRegisters.find((r) => r.outlet?.name)?.outlet ||
       user?.outlet ||
       selectedRegister?.outlet ||
       null;
+    // Logo / ABN come from the outlet's Setup > Outlets profile (preloaded below).
+    const outlet = outletRow ? mergeOutletProfile(outletRow, outletProfilesRef.current[outletRow.id]) : null;
 
     // Loyalty summary for the loyalty receipt component (null-safe: omitted when no data).
     const earned = extra.loyaltyPointsEarned ?? loyaltyCalculation?.totalPointsEarned ?? 0;
@@ -8543,6 +8566,7 @@ const SaleKeyPage = () => {
               availablePaymentMethods={getFilteredPaymentMethods()}
               defaultPaymentMethodId={registerDefaultPaymentId}
               onAddPayment={handleAddPaymentFromDialog}
+              onCardDeclined={(txn) => { if (txn?.txnRef) declinedCardTxnsRef.current.push(txn.txnRef); }}
               onRemovePayment={handleRemovePaymentFromDialog}
               onSelectPaymentMethod={handleSelectPaymentMethodFromDialog}
               onAddCustomer={handleAddCustomerClick}

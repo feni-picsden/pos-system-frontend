@@ -87,6 +87,8 @@ console.assert(roundingAdjustment(6.86, roundingOn, 0.05) === 0.01, 'rounding ro
 console.assert(roundingAdjustment(1.39, roundingOn, 0.05) === -0.01, 'rounding row: 1.39 due 1.40 -> -0.01');
 console.assert(roundingAdjustment(1.35, roundingOn, 0.05) === 0, 'rounding row: exact -> none');
 console.assert(roundingAdjustment(1.39, {}, 0.05) === 0, 'rounding row: method without rounding -> none');
+console.assert(Math.abs(roundTender(-11.81, roundingOn, 0.05) + 11.8) < 1e-9, 'refund rounding: -11.81 -> -11.80');
+console.assert(roundingAdjustment(-11.81, roundingOn, 0.05) === -0.01, 'refund rounding row: -11.81 -> -0.01');
 console.assert(refundTender('', -16.5) === -16.5, 'refund: empty amount refunds the balance');
 console.assert(refundTender('16.50', -16.5) === -16.5, 'refund: typed amount is signed negative');
 console.assert(refundTender('5', -16.5) === -5, 'refund: partial refund keeps balance owing');
@@ -116,6 +118,7 @@ const FinalizeSaleDialog = ({
   onSelectPaymentMethod,
   onAddCustomer,
   onRemoveCustomer,
+  onCardDeclined,
   onReturnToSale,
   onCompleteTransaction,
   customerLoyaltyInfo,
@@ -320,11 +323,17 @@ const FinalizeSaleDialog = ({
     // pays money back — record a negative payment. Same rule the EFTPOS branch above
     // uses; the branches below all assume a positive balance and would no-op.
     if (remainingBalance < -PAYMENT_TOLERANCE) {
-      onAddPayment({
-        amount: refundTender(paymentAmount, remainingBalance),
-        method: method.name || method.type,
-        description: method.name || method.type,
-      });
+      // Same rounding as a sale: a cash refund of $11.81 hands back $11.80 and
+      // banks Rounding -0.01 (reference receipt: "Tendered Cash -$11.80" + Rounding).
+      const name = method.name || method.type;
+      const refund = refundTender(paymentAmount, remainingBalance);
+      const rounded = Math.round(roundTender(refund, method) * 100) / 100;
+      if (rounded !== 0) onAddPayment({ amount: rounded, method: name, description: name });
+      const coversBalance = Math.abs(refund) >= Math.abs(remainingBalance) - PAYMENT_TOLERANCE;
+      const rounding = roundingAdjustment(remainingBalance, method);
+      if (coversBalance && rounding !== 0) {
+        onAddPayment({ amount: rounding, method: 'Rounding', description: 'Rounding' });
+      }
       setPaymentAmount('');
       setSelectedPaymentMethod(null);
       return;
@@ -1076,8 +1085,11 @@ const FinalizeSaleDialog = ({
             setPaymentAmount('');
             setSelectedPaymentMethod(null);
           }}
-          onDeclined={() => {
-            /* leave the dialog open showing the decline; operator can retry */
+          onDeclined={(txn) => {
+            // Leave the dialog open showing the decline; the operator can retry.
+            // The attempt is remembered so the sale card can list it
+            // ("Cancelled Eftpos $74.99", reference).
+            onCardDeclined?.(txn);
           }}
         />
     </Box>

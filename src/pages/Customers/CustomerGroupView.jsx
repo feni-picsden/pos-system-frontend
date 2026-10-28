@@ -33,7 +33,7 @@ import { emailSaleReceipt } from '../../services/receiptEmailSender';
 import PrintReceiptDialog from "../../components/PrintReceiptDialog";
 import EmailReceiptModal from "../../components/SalesHistory/EmailReceiptModal";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
-import { saleBasePrice, saleLineTotal } from "../../utils/saleTotals";
+import CustomerSalesHistory from "../../components/Customers/CustomerSalesHistory";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { formatCurrency } from "../../utils/currency";
 
@@ -59,7 +59,7 @@ const CustomerGroupView = () => {
   const [revisions, setRevisions] = useState([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [sales, setSales] = useState([]);
-  const [salesLoading, setSalesLoading] = useState(false);
+  const [salesLoading, setSalesLoading] = useState(sectionParam === "salesHistory");
   const [selectedSale, setSelectedSale] = useState(null);
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -76,9 +76,11 @@ const CustomerGroupView = () => {
     if (id && activeTab === "revision") {
       loadRevisionHistory();
     } else if (id && activeTab === "salesHistory" && customerGroup) {
-      loadSalesHistory();
+      loadSalesHistory(customerGroup);
     }
-  }, [id, activeTab, customerGroup]);
+    // keyed on the group's id, not the object: a deep link to ?section=salesHistory
+    // could land before/after the group state settled and never load the sales.
+  }, [id, activeTab, customerGroup?.id]);
 
   const loadCustomerGroupData = async () => {
     try {
@@ -131,16 +133,16 @@ const CustomerGroupView = () => {
     }
   };
 
-  const loadSalesHistory = async () => {
+  const loadSalesHistory = async (group = customerGroup) => {
     try {
       setSalesLoading(true);
-      if (!customerGroup?.customers || customerGroup.customers.length === 0) {
+      if (!group?.customers || group.customers.length === 0) {
         setSales([]);
         return;
       }
 
       // Fetch sales for all customers in the group
-      const customerIds = customerGroup.customers.map(c => c.id);
+      const customerIds = group.customers.map(c => c.id);
       const allSales = [];
 
       for (const customerId of customerIds) {
@@ -164,9 +166,6 @@ const CustomerGroupView = () => {
       setSalesLoading(false);
     }
   };
-
-  // Sale total from the line totals — same math as the shared sell-side base price.
-  const computeSaleTotal = saleLineTotal;
 
   const handleSendEmail = async (saleId, receiverEmails, senderEmail) => {
     const result = await emailSaleReceipt({ saleId, receiverEmails, senderEmail, sale: selectedSale });
@@ -506,323 +505,16 @@ const CustomerGroupView = () => {
             <Divider sx={{ mb: 1 }} />
 
             <Box sx={{ flex: 1, overflowY: "auto" }}>
-              {salesLoading ? (
-                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", flex: 1, py: 4 }}>
-                  <CircularProgress />
-                </Box>
-              ) : sales.length > 0 ? (
-                sales.map((sale) => (
-                  <React.Fragment key={`sale-fr-${sale.id}`}>
-                    {selectedSale?.id !== sale.id && (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          py: 1,
-                          borderBottom: "1px solid #e0e0e0",
-                          cursor: "pointer",
-                        }}
-                        onClick={() =>
-                          setSelectedSale(
-                            selectedSale?.id === sale.id ? null : sale
-                          )
-                        }
-                      >
-                        {/* Leading circle */}
-                        <Box
-                          sx={{
-                            width: 32,
-                            display: "flex",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: "50%",
-                              border: "2px solid #4caf50",
-                              bgcolor: "#4caf50",
-                            }}
-                          />
-                        </Box>
-
-                        {/* Date/time + invoice number */}
-                        <Box sx={{ width: 220 }}>
-                          <Typography
-                            variant="subtitle2"
-                            sx={{ lineHeight: 1.1 }}
-                          >
-                            {formatDateTime(sale.saleDate)}
-                          </Typography>
-                          <Typography variant="caption" color="primary">
-                            {sale.saleNumber || `#${String(sale.id).padStart(8, '0')}`}
-                          </Typography>
-                        </Box>
-
-                        {/* User */}
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2">
-                            {sale.user?.name || "-"}
-                          </Typography>
-                        </Box>
-
-                        {/* Amount right-aligned */}
-                        <Box sx={{ width: 160, textAlign: "right" }}>
-                          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                            {formatCurrency(computeSaleTotal(sale))}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    )}
-
-                    {selectedSale?.id === sale.id && (
-                      <Paper
-                        sx={{
-                          mb: 1,
-                          p: 2,
-                          border: "1px solid #bdbdbd",
-                          borderRadius: 0,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            pb: 1,
-                            mb: 1,
-                            borderBottom: "1px solid #e0e0e0",
-                          }}
-                        >
-                          {/* Status + header info line */}
-                          <Box
-                            sx={{
-                              width: 36,
-                              display: "flex",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                width: 24,
-                                height: 24,
-                                borderRadius: "50%",
-                                border: "3px solid #4caf50",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  width: 10,
-                                  height: 10,
-                                  borderRadius: "50%",
-                                  bgcolor: "#4caf50",
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              gap: 6,
-                              alignItems: "center",
-                            }}
-                          >
-                            <Box>
-                              <Typography variant="subtitle2">
-                                {formatDateTime(sale.saleDate)}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {sale.saleNumber || `#${String(sale.id).padStart(8, '0')}`}
-                              </Typography>
-                            </Box>
-                            <Typography variant="body2">
-                              {sale.user?.name || "-"}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ ml: "auto", textAlign: "right" }}>
-                            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                              {formatCurrency(computeSaleTotal(sale))}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        {/* Summary row with buttons on right */}
-                        <Box sx={{ display: "flex", gap: 2 }}>
-                          <Box
-                            sx={{
-                              flex: 1,
-                              display: "grid",
-                              gridTemplateColumns:
-                                "repeat(2, minmax(120px, 1fr))",
-                              rowGap: 1,
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                              }}
-                            >
-                              <Typography variant="body2">
-                                Base Price
-                              </Typography>
-                              <Typography variant="body2">
-                                {formatCurrency(saleBasePrice(sale))}
-                              </Typography>
-                            </Box>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                              }}
-                            >
-                              <Typography variant="body2">Savings</Typography>
-                              <Typography variant="body2">
-                                {formatCurrency(sale.savings)}
-                              </Typography>
-                            </Box>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                              }}
-                            >
-                              <Typography variant="body2">
-                                Discount
-                              </Typography>
-                              <Typography variant="body2">
-                                {formatCurrency(sale.discount)}
-                              </Typography>
-                            </Box>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                              }}
-                            >
-                              <Typography variant="body2">Tax</Typography>
-                              <Typography variant="body2">
-                                {formatCurrency(sale.tax)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Box sx={{ width: 320 }}>
-                            <Button
-                              onClick={() => setSelectedSale(null)}
-                              variant="contained"
-                              fullWidth
-                              sx={{
-                                mb: 1,
-                                bgcolor: "#1976d2",
-                                "&:hover": { bgcolor: "#115293" },
-                              }}
-                            >
-                              ✕ Close
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              fullWidth
-                              sx={{ mb: 1 }}
-                              onClick={() => setShowPrintDialog(true)}
-                            >
-                              Reprint Receipt
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              fullWidth
-                              sx={{ mb: 1 }}
-                              onClick={() => setShowEmailModal(true)}
-                            >
-                              Email Receipt
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              fullWidth
-                              onClick={() =>
-                                navigate("/", {
-                                  state: { returnSaleNumber: sale.saleNumber },
-                                })
-                              }
-                            >
-                              Return Items
-                            </Button>
-                          </Box>
-                        </Box>
-
-                        <Box
-                          sx={{
-                            borderTop: "1px solid #bdbdbd",
-                            mt: 2,
-                            pt: 1,
-                          }}
-                        >
-                          {sale.items?.map((it, idx) => (
-                            <Box
-                              key={`sel-item-${sale.id}-${idx}`}
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                py: 0.5,
-                              }}
-                            >
-                              <Box
-                                sx={{ width: 32, textAlign: "right", pr: 1 }}
-                              >
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: 600 }}
-                                >
-                                  {it.quantity}
-                                </Typography>
-                              </Box>
-                              <Box sx={{ width: 56 }}>
-                                <Typography variant="body2">Items</Typography>
-                              </Box>
-                              <Box sx={{ flex: 1 }}>
-                                <Typography variant="body2">
-                                  {it.productName}
-                                </Typography>
-                              </Box>
-                              <Box sx={{ width: 140, textAlign: "right" }}>
-                                <Typography variant="body2">
-                                  {formatCurrency(
-                                    it.totalPrice ??
-                                      (Number(it.unitPrice) || 0) *
-                                        (Number(it.quantity) || 0)
-                                  )}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          ))}
-                          <Box
-                            sx={{
-                              mt: 1,
-                              borderTop: "1px solid #9e9e9e",
-                              display: "flex",
-                              justifyContent: "flex-end",
-                              pt: 0.5,
-                            }}
-                          >
-                            <Typography variant="subtitle1" sx={{ mr: 2 }}>
-                              Balance {formatCurrency(0)}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Paper>
-                    )}
-                  </React.Fragment>
-                ))
-              ) : (
-                <Typography sx={{ textAlign: 'center', color: '#737373', fontSize: 16, py: 4 }}>
-                  No sales found
-                </Typography>
-              )}
+              <CustomerSalesHistory
+                sales={sales}
+                loading={salesLoading}
+                emptyText="No sales found"
+                onReprint={(sale) => { setSelectedSale(sale); setShowPrintDialog(true); }}
+                onEmail={(sale) => { setSelectedSale(sale); setShowEmailModal(true); }}
+                onReturnItems={(sale) => navigate("/", { state: { returnSaleNumber: sale.saleNumber } })}
+                onReloadSale={(sale) => navigate("/", { state: { reloadSaleId: sale.id } })}
+                onContinueSale={(sale) => navigate("/", { state: { continueParkedSaleId: sale.id } })}
+              />
             </Box>
           </>
         ) : activeTab === "revision" ? (

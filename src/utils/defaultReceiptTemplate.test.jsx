@@ -23,7 +23,7 @@ const receiptData = {
   items: [
     { name: 'QA AUDIT 20261005 Water', quantity: 1, unitPrice: 3, price: 3, taxName: 'GST', taxAmount: 0.27, caseQty: 12 },
   ],
-  outlet: { name: 'Main Outlet', address: '1 Sample St', phone: '02 0000 0000', email: '' },
+  outlet: { name: 'Main Outlet', address: '1 Sample St', phone: '02 0000 0000', email: '', abn: '86 653 852 861' },
   customer: { firstName: 'Vipul', lastName: 'Test', invoiceMessage: 'See you again' },
   payments: [{ method: 'Cash', amount: '3.00', description: 'Cash' }],
   total: 3, change: 0, discount: 0, savings: 0,
@@ -37,17 +37,16 @@ for (const [type, config] of Object.entries(defaults)) {
   assert.ok(text, `${type}: must render`);
 
   for (const expected of [
-    'Main Outlet', '1 Sample St', 'ph: 02 0000 0000',
+    'Main Outlet', '1 Sample St', 'Ph: 02 0000 0000', 'ABN: 86 653 852 861',
     'Tax Invoice',
-    'Inv No #00000215',
-    '6th Oct 2026 8:22:26 pm',
-    'Register: Register 1',
+    'Inv No: #00000215',
+    '6 Oct 26 20:22',
     'QA AUDIT 20261005 Water',
     'GST', '$0.27',
     'Total', '$3.00',
     'Tendered Cash',
     'Indicates items with GST',
-    'Sales Person: Super Admin3',
+    'Sales person: Super Admin3',
     'Leave at door',
     'See you again',
     'Thank you for shopping with us Vipul Test',
@@ -60,8 +59,25 @@ for (const [type, config] of Object.entries(defaults)) {
     receiptData: { ...receiptData, customer: null, note: '', register: null, outlet: { name: 'Main Outlet' } },
     template, title: type,
   }));
-  assert.ok(!/ph:|Register:/.test(bare), `${type}: optional line leaked: ${bare}`);
+  assert.ok(!/Ph:|ABN:|Register:/.test(bare), `${type}: optional line leaked: ${bare}`);
+  assert.ok(!/Register 1/.test(text), `${type}: register line must not print`);
+  assert.ok(!/Start balance|Current Balance|Current Points/.test(text), `${type}: no account / loyalty rows`);
   assert.ok(bare.includes('Thank you for shopping with us'), `${type}: footer missing`);
 }
 
 console.log('defaultReceiptTemplate: OK');
+
+// F5: a template with NO External Receipt block still prints the bank slip at the
+// bottom (left, dashed rules); one that has the block prints it once only.
+{
+  const type = 'Normal Receipt';
+  const withSlip = { ...receiptData, payments: [{ method: 'Eftpos', amount: '3.00', eftposReceipt: 'CUSTOMER COPY\nAPPROVED 00' }] };
+  const noBlock = { name: type, type, config: { ...defaults[type], components: defaults[type].components.filter((c) => c.type !== 'eftpos') } };
+  const html = buildReceiptEmailHtml({ receiptData: withSlip, template: noBlock, title: type });
+  assert.ok(html.includes('CUSTOMER COPY'), 'slip appended without an eftpos block');
+  assert.equal((html.match(/CUSTOMER COPY/g) || []).length, 1, 'slip printed once');
+  assert.ok(/white-space:pre[;"]/.test(html) && /text-align:left/.test(html), 'slip is pre / left');
+  const withBlock = buildReceiptEmailHtml({ receiptData: withSlip, template: { name: type, type, config: defaults[type] }, title: type });
+  assert.equal((withBlock.match(/CUSTOMER COPY/g) || []).length, 1, 'template block prints the slip once, no duplicate');
+  console.log('eftpos fallback: OK');
+}

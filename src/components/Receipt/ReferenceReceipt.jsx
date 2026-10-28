@@ -338,9 +338,21 @@ const ReferenceComponent = ({ component, data, depth = 0 }) => {
     case 'eftpos':
     case 'external_receipt': {
       if (!data.eftpos) return null;
+      // Reference (ARARAT reprint 28/10/2026): a dashed rule, the bank's slip
+      // verbatim - fixed width, left aligned, never re-wrapped - then a dashed rule.
+      const rule = '-'.repeat(32);
       return (
-        <pre style={{ margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap', ...styleToCss(style) }}>
-          {data.eftpos}
+        <pre
+          style={{
+            margin: 0,
+            fontFamily: 'monospace',
+            whiteSpace: 'pre',
+            overflow: 'hidden',
+            textAlign: 'left',
+            ...styleToCss({ ...style, textAlign: style.textAlign === 'center' ? 'left' : style.textAlign }),
+          }}
+        >
+          {`${rule}\n${data.eftpos}\n${rule}`}
         </pre>
       );
     }
@@ -359,11 +371,27 @@ export { ReferenceComponent };
 export const isReferenceShape = (components) => Array.isArray(components)
   && components.some((component) => component && ('style' in component || 'value' in component) && !component.properties);
 
+// True when the template places the EFTPOS slip itself (top level or inside a
+// Columns cell).
+const hasEftposBlock = (components) => (components || []).some((component) => {
+  if (!component) return false;
+  if (component.type === 'eftpos' || component.type === 'external_receipt') return true;
+  if (component.type === 'column' || component.type === 'columns') {
+    return (component.value || []).some((cell) => hasEftposBlock(cell?.components));
+  }
+  return false;
+});
+
 const ReferenceReceipt = ({ components = [], data }) => (
   <div style={{ width: '100%', background: '#fff' }}>
     {components.map((component, index) => (
       <ReferenceComponent key={index} component={component} data={data} />
     ))}
+    {/* Reference: the bank's slip is appended to the receipt whether or not the
+        template was given an External Receipt block (Linkly requires it printed). */}
+    {data?.eftpos && !hasEftposBlock(components) && (
+      <ReferenceComponent component={{ type: 'eftpos', style: { textAlign: 'left' }, value: null }} data={data} />
+    )}
   </div>
 );
 
