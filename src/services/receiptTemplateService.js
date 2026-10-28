@@ -145,9 +145,10 @@ const receiptTemplateService = {
   },
 
   // Get default template configuration for a specific type
-  getDefaultConfig: async (type) => {
+  // forPayment: the "Account Payment Receipt" preset instead of the sale receipt's.
+  getDefaultConfig: async (type, { forPayment = false } = {}) => {
     try {
-      const response = await apiClient.get(`/receipt-templates/default-config/${encodeURIComponent(type)}`);
+      const response = await apiClient.get(`/receipt-templates/default-config/${encodeURIComponent(type)}${forPayment ? '?for=Payment' : ''}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching default template config:', error);

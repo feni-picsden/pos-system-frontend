@@ -140,11 +140,11 @@ export const buildDefaultStatementComponents = () => [
             id: uid('text'), type: 'text', visible: true,
             properties: {
               backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder },
-              fontSize: 12, fontWeight: 'normal', textAlign: 'right',
+              fontSize: 13, fontWeight: 'normal', textAlign: 'right',
               content: '{businessName}',
-              // Reference: name, address, blank line, "Ph:" phone then email,
-              // blank line, "ABN:" number.
-              richTextContent: '<div style="text-align:right"><strong>{businessName}</strong><br/>{businessAddress}<br/><br/>Ph: {businessPhone}<br/>{businessEmail}<br/><br/>ABN: {businessAbn}</div>',
+              // Reference: name (larger, bold), address, blank line, "Ph:" phone then
+              // email, blank line, "ABN:" number.
+              richTextContent: '<div style="text-align:right"><span style="font-size:17px"><strong>{businessName}</strong></span><br/>{businessAddress}<br/><br/>Ph: {businessPhone}<br/>{businessEmail}<br/><br/>ABN: {businessAbn}</div>',
             },
           }],
         },
@@ -165,7 +165,7 @@ export const buildDefaultStatementComponents = () => [
             id: uid('text'), type: 'text', visible: true,
             properties: {
               backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder },
-              fontSize: 12, fontWeight: 'normal', textAlign: 'left',
+              fontSize: 13, fontWeight: 'normal', textAlign: 'left',
               content: '{customerName}',
               // Reference: code, company, name, then the address in grey. Empty
               // fields drop their line.
@@ -180,7 +180,7 @@ export const buildDefaultStatementComponents = () => [
             // ("0 days" / "30 days", only when the group has terms) over the date
             // range and Overdue / Current / Total Due box.
             id: uid('credit_terms'), type: 'credit_terms', visible: true,
-            properties: { backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontColor: '#000000', fontSize: 12, fontWeight: 'normal' },
+            properties: { backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontColor: '#000000', fontSize: 13, fontWeight: 'normal' },
           }],
         },
       ],
@@ -193,7 +193,8 @@ export const buildDefaultStatementComponents = () => [
   {
     id: uid('actions'), type: 'actions', zone: 'body', visible: true,
     properties: {
-      backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontSize: 14,
+      // Reference statement table is small and compact (approx 11px rows).
+      backgroundColor: '#ffffff', padding: { ...noPad }, border: { ...noBorder }, fontSize: 11,
       showTotalDue: true, totalDueLabel: 'Total Due',
       labelPayment: 'Payment', labelInvoice: 'Invoice', labelPaidInStore: 'Paid In Store',
       columns: buildDefaultActionColumns(),
@@ -205,7 +206,7 @@ export const buildDefaultStatementComponents = () => [
     id: uid('text'), type: 'text', zone: 'footer', visible: true,
     properties: {
       backgroundColor: '#c9f3a1', padding: { top: 8, right: 8, bottom: 8, left: 8 }, border: { ...noBorder },
-      fontSize: 12, fontWeight: 'normal', textAlign: 'left',
+      fontSize: 13, fontWeight: 'normal', textAlign: 'left',
       content: 'TERMS: Strictly 15 days of Statement.',
       richTextContent: '<div style="text-align:left">TERMS: Strictly 15 days of Statement.<br/><br/>____________________________<br/><br/><strong>Payment Details:</strong><br/><br/><strong>{businessName}</strong><br/>BSB: 000 000<br/>ACC: 0000 0000<br/><span style="font-size:10px">Thank you........</span></div>',
     },
@@ -215,7 +216,7 @@ export const buildDefaultStatementComponents = () => [
 // Bumped whenever the seeded default above changes shape. getTemplates() re-seeds
 // any template the user never edited (no lastModified) so the reference layout
 // reaches existing installs; edited templates are left exactly as saved.
-export const DEFAULT_STATEMENT_SEED_VERSION = 5;
+export const DEFAULT_STATEMENT_SEED_VERSION = 7;
 
 export const buildDefaultStatementConfig = () => ({
   components: buildDefaultStatementComponents(),

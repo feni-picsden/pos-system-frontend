@@ -68,8 +68,11 @@ const PANEL_PROPS = {
         px: 2,
         fontSize: 16,
         color: '#313439',
-        '&.Mui-focused, &[aria-selected="true"], &[aria-selected="true"].Mui-focused': {
-          backgroundColor: '#5ebbeb',
+        // !important: a global light-grey option tint (MUI's own focused colour)
+        // otherwise won the background while the text stayed white, so the
+        // hovered option ("Receipt") was unreadable.
+        '&.Mui-focused, &[aria-selected="true"], &[aria-selected="true"].Mui-focused, &:hover': {
+          backgroundColor: '#5ebbeb !important',
           color: '#f8f8f8',
         },
       },

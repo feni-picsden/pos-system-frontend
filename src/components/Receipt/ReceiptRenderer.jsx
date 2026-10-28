@@ -354,9 +354,17 @@ const renderAccountComponent = (receiptData, component, index) => {
   const account = receiptData.account;
   if (!account) return null;
 
-  // fields is an object keyed by data key: { startBalance: {name, enabled}, ... }
+  // fields: the editor's array [{key:'start-balance', name, enabled, order}] (reference
+  // column keys), or the legacy object keyed by data key { startBalance: {name, enabled} }.
+  const dataKey = {
+    'start-balance': 'startBalance', 'end-balance': 'endBalance',
+    'changed-balance': 'balanceChanged', 'current-balance': 'currentBalance',
+  };
   const fields = props.fields || {};
-  const rows = Object.entries(fields)
+  const entries = Array.isArray(fields)
+    ? fields.map((f) => [dataKey[f?.key] || f?.key, f])
+    : Object.entries(fields);
+  const rows = entries
     .sort(([, a], [, b]) => (a?.order || 0) - (b?.order || 0))
     .filter(([, f]) => f && f.enabled)
     .map(([key, f], i) => {
@@ -588,7 +596,8 @@ const renderBarcodeComponent = (receiptData, component, index) => {
     <Box key={index} sx={{ ...styles, textAlign: props.textAlign || 'center' }}>
       {svg ? (
         // jsbarcode's svg carries inline width/height:100%, so the wrapper owns the box.
-        <Box sx={{ height: 60, maxWidth: 300, mx: 'auto' }} dangerouslySetInnerHTML={{ __html: svg }} />
+        // Reference reprint preview draws the barcode small and centred (~140x44).
+        <Box sx={{ height: 44, maxWidth: 140, mx: 'auto' }} dangerouslySetInnerHTML={{ __html: svg }} />
       ) : (
         <Typography variant="caption" sx={{ fontSize: `${fontSize}px`, color: fontColor }}>
           {barcodeValue}

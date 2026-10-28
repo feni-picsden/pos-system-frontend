@@ -4,8 +4,57 @@
 // the customer's code + name, the invoice rows with their FULL totals.
 import { format } from 'date-fns';
 import settingsService from '../../services/settingsService';
-import { toAppZonedDate } from '../../utils/appDateTime';
+import { toAppZonedDate, appTimeZone, formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import { customerName } from '../../components/SalesHistory/SaleDetailCard';
+import { safeAmount } from './paymentReceipt';
+
+// receiptData for a Setup > Receipts "Payment" template (ReceiptRenderer), the
+// same shape the Make Payment auto-print builds, so the reprint dialog's
+// template dropdown renders a Payment History row through any payment template.
+export const paymentTemplateReceiptData = ({ payment, customer, business, accountBalance }) => {
+  const person = payment?.customer || customer || {};
+  const paid = safeAmount(payment?.total);
+  const when = payment?.paymentDate ? new Date(payment.paymentDate) : new Date();
+  const dateText = formatAppDateTime(when);
+  // Same invoice rows the built-in reference layout prints (one per invoice, FULL total).
+  const { invoices } = paymentReceiptArgs({ payment, customer, business, accountBalance });
+  const balance = Number(accountBalance);
+  return {
+    // Account payment receipt (reference Payment Receipt template blocks).
+    kind: 'payment',
+    invoices: invoices.map((inv) => ({ processed: inv.processed, invoiceNo: inv.number, total: Number(inv.total) || 0 })),
+    totalPaid: paid,
+    unallocated: safeAmount(payment?.unallocated),
+    transactionId: payment?.reference || (payment?.id ? `#${payment.id}` : ''),
+    date: dateText,
+    formattedDate: dateText,
+    completedAt: when.toISOString(),
+    timeZone: appTimeZone(),
+    status: 'completed',
+    outlet: business || null,
+    customer: {
+      firstName: person.firstName || '',
+      lastName: person.lastName || '',
+      company: person.company || customer?.company || '',
+      code: person.code || customer?.code || '',
+      // Reference {customer.currentOwing}: the account balance printed in the
+      // "Account balance:" block.
+      currentOwing: Number.isFinite(balance) ? balance : 0,
+    },
+    items: [],
+    subtotal: paid,
+    total: paid.toFixed(2),
+    paymentAmount: paid.toFixed(2),
+    change: '0.00',
+    balanceOwing: accountBalance,
+    payments: [{
+      method: payment?.paymentMethod || 'Payment',
+      amount: paid.toFixed(2),
+      description: payment?.reference || payment?.paymentMethod || 'Payment',
+      reference: payment?.reference || null,
+    }],
+  };
+};
 
 export const receiptMoment = (value) => {
   const d = toAppZonedDate(value || new Date());

@@ -140,10 +140,18 @@ const DateRangePicker = ({
 
   const handleDateClick = (date) => {
     if (single) {
-      setTempStartDate(date);
-      setTempEndDate(date);
-      commit(date, date, 'custom');
-      handleClose();
+      // A single date-time (sale date in Modify Details): a day click keeps the
+      // clock the field already holds; the time box below changes the time.
+      let picked = date;
+      if (enableTime && (startDate || tempStartDate)) {
+        const src = startDate || tempStartDate;
+        picked = new Date(date);
+        picked.setHours(src.getHours(), src.getMinutes(), src.getSeconds(), 0);
+      }
+      setTempStartDate(picked);
+      setTempEndDate(picked);
+      commit(picked, picked, 'custom');
+      if (!enableTime) handleClose();
       return;
     }
     if (!tempStartDate || (tempStartDate && tempEndDate && date < tempStartDate)) {
@@ -171,6 +179,15 @@ const DateRangePicker = ({
   };
 
   const handleCurrentDay = () => {
+    if (single && enableTime) {
+      // One date-time: "Current Day" means now.
+      const now = new Date();
+      setTempStartDate(now);
+      setTempEndDate(now);
+      commit(now, now, 'today');
+      handleClose();
+      return;
+    }
     // Whole day, not "now": committing new Date() put the clock time on the range start,
     // so consumers dropped everything earlier today. Every other selection path is midnight-aligned.
     const start = startOfDay(new Date());

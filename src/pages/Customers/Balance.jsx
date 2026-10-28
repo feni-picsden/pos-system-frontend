@@ -58,7 +58,6 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import customerService from "../../services/customerService";
 import statementTemplateService from "../../services/statementTemplateService";
 import settingsService from "../../services/settingsService";
-import { appTimeZone, formatDateTime as formatAppDateTime } from "../../utils/appDateTime";
 import customerGroupService from "../../services/customerGroupService";
 import paymentService from "../../services/paymentService";
 import paymentMethodService from "../../services/paymentMethodService";
@@ -79,7 +78,7 @@ import {
   buildPaymentReceiptHtml,
   safeAmount,
 } from "./paymentReceipt";
-import { paymentReceiptArgs } from "./paymentReceiptData";
+import { paymentReceiptArgs, paymentTemplateReceiptData } from "./paymentReceiptData";
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 
 // Shopfront parity: shared style tokens (presentation only)
@@ -939,7 +938,7 @@ const Balance = () => {
       if (shouldAutoPrintPaymentReceipt(group)) {
         const method = paymentMethods.find((m) => m.id.toString() === selectedPaymentMethod);
         // Receipt dates print in Setup > General > Timezone.
-        const dateText = formatAppDateTime(paymentDate);
+        // (receipt dates print in Setup > General > Timezone via the receipt builders)
         const paidAmount = safeAmount(result?.payment?.amount ?? paymentAmt);
 
         // The group's Payment Receipt is a for='Payment' ReceiptTemplate id (from
@@ -955,36 +954,30 @@ const Balance = () => {
           console.error("Error loading payment receipt template:", err);
         }
 
+        // The payment just written is the newest row of the customer's Payment
+        // History: both print paths read its invoices / unallocated from there.
+        let paymentRow = null;
+        try {
+          const rows = (await customerService.getCustomerPayments(paymentCustomer.id))?.payments || [];
+          paymentRow = rows.find((r) => Math.abs(Number(r.total) - paidAmount) < 0.005) || rows[0] || null;
+        } catch (err) {
+          console.error("Error loading the payment for its receipt:", err);
+        }
+        const paymentForReceipt = paymentRow || {
+          paymentDate: paymentDate.toISOString(), total: paidAmount, paymentMethod: method?.name || "",
+          reference: paymentReference || null, invoices: [],
+        };
+
         if (template?.config?.components?.length) {
-          const receiptData = {
-            transactionId: paymentReference || (result?.payment?.id ? `#${result.payment.id}` : ""),
-            date: dateText,
-            formattedDate: dateText,
-            completedAt: paymentDate.toISOString(),
-            timeZone: appTimeZone(),
-            status: "completed",
+          // Account payment receipt data (Invoices / Total Paid / Invoices Paid /
+          // Unallocated / {customer.currentOwing}) for the group's Payment template.
+          const receiptData = paymentTemplateReceiptData({
+            payment: paymentForReceipt,
+            customer: paymentCustomer,
             // (was un-awaited: the header printed a Promise's nothing)
-            outlet: await resolveBusiness(paymentCustomer),
-            customer: {
-              firstName: paymentCustomer.firstName || "",
-              lastName: paymentCustomer.lastName || "",
-              company: paymentCustomer.company || "",
-            },
-            items: [],
-            subtotal: paidAmount,
-            total: paidAmount.toFixed(2),
-            paymentAmount: paidAmount.toFixed(2),
-            change: "0.00",
-            balanceOwing: result?.customer?.currentOwing,
-            payments: [
-              {
-                method: method?.name || "Payment",
-                amount: paidAmount.toFixed(2),
-                description: paymentReference || method?.name || "Payment",
-                reference: paymentReference || null,
-              },
-            ],
-          };
+            business: await resolveBusiness(paymentCustomer),
+            accountBalance: result?.customer?.currentOwing,
+          });
           const markup = renderToStaticMarkup(
             <ReceiptRenderer receiptData={receiptData} template={template} />
           );
@@ -993,18 +986,10 @@ const Balance = () => {
         } else {
           // No Payment template assigned (or it failed to load): the built-in
           // reference layout (invoice table, Total Paid, Invoices Paid, Unallocated,
-          // "Account balance … as at"). The payment just written is the newest row of
-          // the customer's Payment History.
-          let paymentRow = null;
-          try {
-            const rows = (await customerService.getCustomerPayments(paymentCustomer.id))?.payments || [];
-            paymentRow = rows.find((r) => Math.abs(Number(r.total) - paidAmount) < 0.005) || rows[0] || null;
-          } catch (err) {
-            console.error("Error loading the payment for its receipt:", err);
-          }
+          // "Account balance … as at").
           const html = buildPaymentReceiptHtml(
             paymentReceiptArgs({
-              payment: paymentRow || { paymentDate: paymentDate.toISOString(), total: paidAmount, paymentMethod: method?.name || "", invoices: [] },
+              payment: paymentForReceipt,
               customer: paymentCustomer,
               business: await resolveBusiness(paymentCustomer),
               accountBalance: result?.customer?.currentOwing,
@@ -1090,6 +1075,7 @@ const Balance = () => {
           >
             View All Statements
           </Button>
+          
           <Button
             variant="contained"
             onClick={handlePrintBalances}
@@ -1428,7 +1414,7 @@ const Balance = () => {
           sx: {
             height: '92vh',
             maxHeight: '92vh',
-            width: 760,
+            width: 880,
             maxWidth: 'calc(100% - 32px)',
             m: 2,
             borderRadius: '6px',
@@ -1471,10 +1457,10 @@ const Balance = () => {
               data-statement-content
               sx={{
               bgcolor: 'white',
-              p: 4,
-              // A4 proportions on screen (210 × 297mm); the print path has its own @page.
+              p: 3,
+              // Reference viewer: the page fills the dialog's grey stage edge to edge
+              // (the print path has its own @page).
               width: '100%',
-              maxWidth: 595,
               minHeight: 842,
               mx: 'auto',
               boxSizing: 'border-box',
@@ -1811,7 +1797,12 @@ const Balance = () => {
                                     second: '2-digit'
                                   })}
                                 </TableCell>
-                                <TableCell>{invoice.saleNumber}</TableCell>
+                                {/* The padded invoice number (same as the customer page); a long
+                                    raw sale number wraps inside its own column instead of
+                                    running into User. */}
+                                <TableCell sx={{ overflowWrap: 'anywhere' }}>
+                                  {settingsService.padInvoice(invoice.invoiceNumber, invoice.invoiceSuffix) || String(invoice.saleNumber || '').replace(/^#/, '')}
+                                </TableCell>
                                 <TableCell>{invoice.user?.name || 'N/A'}</TableCell>
                                 <TableCell>{invoice.register?.name || 'Register'}</TableCell>
                                 <TableCell>{formatCurrency(invoice.totalAmount)}</TableCell>

@@ -122,6 +122,24 @@ const FUNCTIONS = {
   concat: (args) => args.map(stringify).join(''),
   upper: (args) => stringify(args[0]).toUpperCase(),
   lower: (args) => stringify(args[0]).toLowerCase(),
+  // Reference help centre "Adding Dynamic Fields to Receipts" functions.
+  add: (args) => args.reduce((sum, value) => sum + (Number(value) || 0), 0),
+  contains: (args) => stringify(args[0]).includes(stringify(args[1])),
+  equal: (args) => stringify(args[0]) === stringify(args[1]),
+  // number_format(value, prepend = "", append = "", decimals = 2, thousands = ",", decimal = ".")
+  // A negative amount keeps its sign in front of the prepend: -2 with "$" -> "-$2.00".
+  number_format: (args) => {
+    const n = Number(args[0]);
+    if (args[0] === '' || args[0] == null || !Number.isFinite(n)) return '';
+    const prepend = args.length > 1 ? stringify(args[1]) : '';
+    const append = args.length > 2 ? stringify(args[2]) : '';
+    const decimals = args.length > 3 && args[3] !== '' ? Math.max(0, parseInt(args[3], 10) || 0) : 2;
+    const thousands = args.length > 4 ? stringify(args[4]) : ',';
+    const point = args.length > 5 ? stringify(args[5]) : '.';
+    const [whole, fraction] = Math.abs(n).toFixed(decimals).split('.');
+    const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, thousands);
+    return `${n < 0 ? '-' : ''}${prepend}${grouped}${fraction ? point + fraction : ''}${append}`;
+  },
 };
 
 // Evaluate one expression body (no braces) and return its raw value.
@@ -180,6 +198,17 @@ export const renderExpressions = (source, context = {}) => {
   return out;
 };
 
+// Our flat customer columns (billingStreet1, deliverySuburb ...) as the reference's
+// nested address object ({ addressStreet1, addressSuburb, ... }).
+const addressOf = (customer, prefix) => ({
+  addressStreet1: customer[`${prefix}Street1`] || '',
+  addressStreet2: customer[`${prefix}Street2`] || '',
+  addressSuburb: customer[`${prefix}Suburb`] || '',
+  addressPostcode: customer[`${prefix}Postcode`] || '',
+  addressState: customer[`${prefix}State`] || '',
+  addressCountry: customer[`${prefix}Country`] || '',
+});
+
 // The context a text component is evaluated against, built from our receiptData.
 // Key names follow the reference's `data.text` object so templates authored on
 // either system resolve the same paths (docs/parity/receipt-template.md §7.5).
@@ -215,10 +244,15 @@ export const buildReceiptContext = (receiptData = {}) => {
         // ABN / business number (reference header prints "ABN: 86 653 852 861").
         abn: outlet.abn || outlet.businessNumber || '',
       },
+      // Reference field name for the ABN.
+      businessNumber: outlet.businessNumber || outlet.abn || '',
     },
     customer: customer && {
       ...customer,
       name: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+      // Reference field names: customer.billing.addressStreet1 / customer.delivery.addressSuburb ...
+      billing: customer.billing || addressOf(customer, 'billing'),
+      delivery: customer.delivery || addressOf(customer, 'delivery'),
     },
     sale: {
       ...receiptData,

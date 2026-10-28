@@ -56,6 +56,7 @@ import {
   EmojiEventsOutlined,
   PersonOutlineOutlined,
   CalculateOutlined,
+  RequestQuoteOutlined,
   CardGiftcardOutlined,
   DescriptionOutlined,
   TextFieldsOutlined,
@@ -69,11 +70,11 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import receiptTemplateService from '../../services/receiptTemplateService';
 import MediaDialog from '../../components/Common/MediaDialog';
-import { toEditorComponents, toReferenceComponents, toReferenceComponent, COLUMN_LABELS, isWideTemplate, paperWidthMm, isEmailTemplate, isTextOnlyTemplate, applyReceiptConfig } from '../../utils/receiptTemplateShape';
+import { toEditorComponents, toReferenceComponents, toReferenceComponent, COLUMN_LABELS, isWideTemplate, paperWidthMm, isEmailTemplate, isTextOnlyTemplate, applyReceiptConfig, isPaymentTemplate } from '../../utils/receiptTemplateShape';
 import ConfigureReceiptDialog from '../../components/Receipt/ConfigureReceiptDialog';
 import { renderExpressions, sampleReceiptContext } from '../../utils/receiptExpressions';
 import { ReferenceComponent } from '../../components/Receipt/ReferenceReceipt';
-import { sampleReferenceData } from '../../utils/referenceReceiptData';
+import { sampleReferenceData, samplePaymentReferenceData } from '../../utils/referenceReceiptData';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 
@@ -101,6 +102,7 @@ const COMPONENT_TYPES = {
   IMAGE: 'image',
   COLUMNS: 'columns',
   SPACER: 'spacer',
+  INVOICES: 'invoices',
 };
 
 // Available components for the palette
@@ -122,7 +124,18 @@ const AVAILABLE_COMPONENTS = [
   { type: COMPONENT_TYPES.IMAGE, label: 'Image', Icon: ImageOutlined, description: 'Custom image' },
   { type: COMPONENT_TYPES.COLUMNS, label: 'Columns', Icon: ViewColumnOutlined, description: 'Column layout' },
   { type: COMPONENT_TYPES.SPACER, label: 'Spacer', Icon: HeightOutlined, description: 'Vertical spacing' },
+  { type: COMPONENT_TYPES.INVOICES, label: 'Invoices', Icon: RequestQuoteOutlined, description: 'Invoices paid' },
 ];
+
+// Reference palettes: a sale receipt offers every block except Invoices; an
+// account payment receipt offers only these, in this order (reference Payment
+// Receipt editor, 28/10/2026).
+const SALE_PALETTE = AVAILABLE_COMPONENTS.filter((c) => c.type !== COMPONENT_TYPES.INVOICES);
+const PAYMENT_PALETTE = [
+  COMPONENT_TYPES.BARCODE, COMPONENT_TYPES.OUTLET_LOGO, COMPONENT_TYPES.INVOICES,
+  COMPONENT_TYPES.TOTALS, COMPONENT_TYPES.PAYMENTS, COMPONENT_TYPES.EXTERNAL_RECEIPT,
+  COMPONENT_TYPES.TEXT, COMPONENT_TYPES.IMAGE, COMPONENT_TYPES.COLUMNS, COMPONENT_TYPES.SPACER,
+].map((type) => AVAILABLE_COMPONENTS.find((c) => c.type === type));
 
 // Padding is a pixel offset and must never be negative: coerce empty/NaN/negative to 0.
 const clampPad = (v) => Math.max(0, parseInt(v, 10) || 0);
@@ -133,6 +146,8 @@ const ReceiptEditor = () => {
   const { templateId } = useParams();
   const navigate = useNavigate();
   const [template, setTemplate] = useState(null);
+  // "Account Payment Receipt" templates get the payment palette, panels and preview.
+  const paymentTemplate = isPaymentTemplate(template);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -605,11 +620,22 @@ const ReceiptEditor = () => {
             }
           ]
         };
+      case COMPONENT_TYPES.INVOICES:
+        return {
+          fields: fieldDefaults('invoices'),
+          fontColor: '#000000',
+          backgroundColor: '#ffffff',
+          fontSize: 12,
+          fontWeight: 'normal',
+          padding: { top: 0, right: 0, bottom: 0, left: 0 },
+          border: { enabled: false, width: 1, color: '#000000', style: 'solid' },
+        };
       case COMPONENT_TYPES.TOTALS:
         return {
           // Columns from the reference set, in reference order, keyed the way the
-          // storage adapter matches — so a fresh block saves real columns.
-          fields: fieldDefaults('total'),
+          // storage adapter matches — so a fresh block saves real columns. A payment
+          // template's Totals block carries the payment columns.
+          fields: fieldDefaults(paymentTemplate ? 'paymentTotal' : 'total'),
           showTitle: false,
           title: '',
           fontColor: '#000000',
@@ -949,8 +975,11 @@ const ReceiptEditor = () => {
 
   // One sample sale per editor session — stamped once so the canvas doesn't
   // re-resolve {currentTimestamp} on every render.
-  const previewContext = useMemo(() => sampleReceiptContext(), []);
-  const previewData = useMemo(() => sampleReferenceData(), []);
+  // A payment template previews against a sample account payment (reference editor).
+  const previewData = useMemo(() => (paymentTemplate ? samplePaymentReferenceData() : sampleReferenceData()), [paymentTemplate]);
+  // Text blocks resolve against the same sample as the data blocks: a payment
+  // template's {customer.code} / {customer.currentOwing} come from the sample payment.
+  const previewContext = useMemo(() => (paymentTemplate ? previewData.text : sampleReceiptContext()), [paymentTemplate, previewData]);
 
   const renderComponent = (component) => {
     // Preview on the reference is not a dialog — it strips the editor chrome off the
@@ -1076,6 +1105,7 @@ const ReceiptEditor = () => {
     // The canvas used to draw its own mock EFTPOS slip (bank/terminal/card literals)
     // in a grey box with a bold title — none of which the receipt prints.
     COMPONENT_TYPES.EXTERNAL_RECEIPT,
+    COMPONENT_TYPES.INVOICES,
   ];
 
   // isPreview: reference preview renders an empty component as nothing, not as a
@@ -4387,11 +4417,16 @@ const ReceiptEditor = () => {
           </Box>
         )}
 
-        {component.type === COMPONENT_TYPES.TOTALS && (
+        {(component.type === COMPONENT_TYPES.TOTALS || component.type === COMPONENT_TYPES.INVOICES) && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Reference edits a data block through one Name|Enabled table bound to its
-                stored columns — measured 2026-08-06. */}
-            {renderFieldsTable(COLUMN_LABELS.total)}
+                stored columns — measured 2026-08-06. A payment template's Totals are
+                Total Paid / Invoices Paid / Unallocated; Invoices has its own columns. */}
+            {renderFieldsTable(
+              component.type === COMPONENT_TYPES.INVOICES
+                ? COLUMN_LABELS.invoices
+                : (paymentTemplate ? COLUMN_LABELS.paymentTotal : COLUMN_LABELS.total),
+            )}
 
             {/* Font Colour */}
             <Box>
@@ -6217,7 +6252,7 @@ const ReceiptEditor = () => {
             {activeTab === 0 && (
               <Box sx={{ p: 2 }}>
                 <Grid container spacing={1.5}>
-                  {AVAILABLE_COMPONENTS.map((comp) => (
+                  {(paymentTemplate ? PAYMENT_PALETTE : SALE_PALETTE).map((comp) => (
                     <Grid item xs={4} key={comp.type}>
                       <Card
                         draggable

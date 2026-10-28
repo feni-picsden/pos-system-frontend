@@ -69,8 +69,10 @@ const totalsBlock = (props, summary = {}) => (
 
 // Reference Overview: the totals, styled only by the component's own settings
 // (font, colours, padding, border).
+// Reference draws the date range + Overdue / Current / Total Due inside a 1px
+// black box whichever component (Overview / Credit Terms) prints it.
 export const renderOverview = (props, summary = {}) => (
-  <Box sx={boxSx(props)}>{totalsBlock(props, summary)}</Box>
+  <Box sx={boxSx(props)}><Box sx={{ border: '1px solid #000' }}>{totalsBlock(props, summary)}</Box></Box>
 );
 
 const formatCurrency = (amount) => {
@@ -186,7 +188,9 @@ const renderComponentContent = (component, statementData) => {
                         return (
                           <TableRow key={tIndex}>
                             {cols.map((c) => (
-                              <TableCell key={c.key} align="left" sx={{ ...cellSx, ...(isLast ? { borderBottom: '1px solid #000' } : {}) }}>
+                              // Reference keeps a payment's invoice numbers on ONE line
+                              // ("#0089208, #0090530, …") and never wraps money / dates.
+                              <TableCell key={c.key} align="left" sx={{ ...cellSx, whiteSpace: c.key === 'reference' ? 'normal' : 'nowrap', ...(isLast ? { borderBottom: '1px solid #000' } : {}) }}>
                                 {cellValue(c.key, t, running)}
                               </TableCell>
                             ))}
@@ -221,7 +225,7 @@ const renderComponentContent = (component, statementData) => {
         <Box
           sx={{
             display: 'flex',
-            // Reference: the logo sits top-LEFT of the statement, about 140px
+            // Reference: the logo sits top-LEFT of the statement, about 190px
             // wide — never the full column width.
             justifyContent: props.horizontalAlignment || 'flex-start',
             backgroundColor: props.backgroundColor || '#ffffff',
@@ -235,10 +239,13 @@ const renderComponentContent = (component, statementData) => {
             src={logoUrl}
             alt="Outlet Logo"
             style={{
-              width: props.width === 'auto' || !props.width ? 'auto' : `${props.width}px`,
+              // Width "auto": the reference draws the logo about 190px wide (PMK
+              // crown, Portland statement) whatever the file's own size — a small
+              // source image used to stay at its natural ~64px.
+              width: props.width === 'auto' || !props.width ? '190px' : `${props.width}px`,
               height: props.height === 'auto' || !props.height ? 'auto' : `${props.height}px`,
-              maxWidth: props.width && props.width !== 'auto' ? '100%' : '140px',
-              maxHeight: props.height && props.height !== 'auto' ? '300px' : '110px',
+              maxWidth: '100%',
+              maxHeight: props.height && props.height !== 'auto' ? '300px' : '160px',
               objectFit: 'contain',
             }}
             onError={(e) => { e.target.style.display = 'none'; }}

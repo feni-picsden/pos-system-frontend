@@ -26,14 +26,8 @@ import {
   Radio,
   Alert,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  EditOutlined as EditIcon,
-  SettingsOutlined as SettingsIcon,
-  DeleteOutline as DeleteIcon,
-  ContentCopy as CloneIcon,
-  ArrowDropDown as ArrowDropDownIcon,
-} from '@mui/icons-material';
+import { ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
+import TemplateListActions, { templateListHeadSx, templateListBodySx } from '../../components/Common/TemplateListActions';
 import { useNavigate } from 'react-router-dom';
 import receiptTemplateService from '../../services/receiptTemplateService';
 import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
@@ -43,20 +37,6 @@ import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { useHasPermission } from '../../hooks/usePermissions';
 import { applyReceiptConfig } from '../../utils/receiptTemplateShape';
 import ConfigureReceiptDialog from '../../components/Receipt/ConfigureReceiptDialog';
-
-// Reference row actions LIGHTEN their text color instantly on hover with no
-// background tint. Mirror that: transparent hover bg + lighter text, no transition.
-const rowActionSx = (color, hoverColor) => ({
-  color,
-  textTransform: 'none',
-  fontWeight: 400,
-  fontSize: 16,
-  minWidth: 0,
-  transition: 'none',
-  // Measured reference action icon is 20px; MUI's small button default is 18.
-  '& .MuiButton-startIcon > svg': { fontSize: 20 },
-  '&:hover': { backgroundColor: 'transparent', color: hoverColor },
-});
 
 const ReceiptTemplates = () => {
   const navigate = useNavigate();
@@ -94,18 +74,23 @@ const ReceiptTemplates = () => {
   const [configLoading, setConfigLoading] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
 
+  // Create is disabled while a create is in flight, so a double click cannot make
+  // two templates.
+  const [creating, setCreating] = useState(false);
   const handleCreateTemplate = async () => {
+    if (creating) return;
     try {
       if (!newTemplate.name.trim()) {
         setError('Please enter a name for the receipt template');
         return;
       }
+      setCreating(true);
 
       // Start from the built-in default preset for this type, or a blank canvas.
       let config;
       if (newTemplate.startFrom === 'default') {
         try {
-          const res = await receiptTemplateService.getDefaultConfig(newTemplate.type);
+          const res = await receiptTemplateService.getDefaultConfig(newTemplate.type, { forPayment: newTemplate.isAccountPayment });
           config = res.config || res;
         } catch {
           config = undefined; // preset unavailable -> fall back to blank
@@ -131,7 +116,9 @@ const ReceiptTemplates = () => {
       }
     } catch (err) {
       console.error('Error creating receipt template:', err);
-      setError('Failed to create receipt template');
+      setError(err?.response?.data?.error || 'Failed to create receipt template');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -269,98 +256,59 @@ const ReceiptTemplates = () => {
 
   // Metrics measured live on the reference 2026-08-06 — docs/parity/receipts-setup-reference.md
   return (
-    <Box sx={{ p: 1 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', fontSize: 32 }}>
-          Receipt List
-        </Typography>
+    <Box sx={{ px: '8px', pt: '15px', pb: 3 }}>
+      {/* Header — same h1 + green "+ New" as the Statements list (reference) */}
+      <Typography
+        component="h1"
+        sx={{ fontSize: 32, fontWeight: 700, color: '#000', height: 48, lineHeight: '48px', m: 0, mb: '22px' }}
+      >
+        Receipt List
         {canModifyReceipts && (
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
+            disableRipple
             onClick={() => setShowCreateDialog(true)}
-            sx={{ bgcolor: '#32b643', color: '#f8f8f8', border: '1px solid #f8f8f8', '&:hover': { bgcolor: '#32b643', boxShadow: 'none' }, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 400, fontSize: 32, height: 48, width: 130, minWidth: 130, p: '4px 8px', whiteSpace: 'nowrap', transition: 'background-color 0.2s', '& .MuiButton-startIcon > svg': { fontSize: 26 } }}
+            sx={{
+              width: 130, height: 48, minWidth: 130, bgcolor: '#32b643', color: '#f8f8f8', border: '1px solid #f8f8f8',
+              borderRadius: 0, fontSize: 32, fontWeight: 400, lineHeight: 1, textTransform: 'none', boxShadow: 'none',
+              p: '4px 8px', verticalAlign: 'middle', ml: '9px', position: 'relative', top: '-3px',
+              transition: 'background 0.2s ease, color 0.2s ease',
+              '&:hover': { bgcolor: '#f8f8f8', color: '#32b643', boxShadow: 'none' },
+            }}
           >
-            New
+            + New
           </Button>
         )}
-      </Box>
+      </Typography>
 
       {errorAlert}
 
-      {/* Receipt Templates Table */}
-      <TableContainer sx={{ mt: 1 }}>
-        <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+      {/* Receipt Templates Table — the Statements list design: bordered cells,
+          centred headers, inline Edit / Configure / Delete / Clone links. */}
+      <TableContainer>
+        <Table sx={{ borderCollapse: 'collapse', tableLayout: 'fixed', bgcolor: 'transparent' }}>
           <TableHead>
-            <TableRow
-              sx={{
-                '& th': { bgcolor: 'transparent', color: '#000', fontWeight: 700, fontSize: 16, textAlign: 'center', borderBottom: '1px solid #000', borderRadius: 0, height: 51, py: 0 },
-              }}
-            >
-              <TableCell>Name</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>For</TableCell>
+            <TableRow sx={templateListHeadSx}>
+              <TableCell sx={{ width: '46%' }}>Name</TableCell>
+              <TableCell sx={{ width: '17%' }}>Type</TableCell>
+              <TableCell sx={{ width: '12%' }}>For</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody
-            sx={{
-              '& tr:nth-of-type(odd)': { bgcolor: '#f8f8f8' },
-              '& tr:nth-of-type(even)': { bgcolor: 'transparent' },
-              '& td': { border: 0, fontSize: 16, color: '#000', height: 52, py: 0 }
-            }}
-          >
+          <TableBody sx={templateListBodySx}>
             {templates.map((template) => (
               <TableRow key={template.id}>
+                <TableCell>{template.name}</TableCell>
+                <TableCell>{template.type?.replace(/ Receipt$/, '')}</TableCell>
+                <TableCell>{template.for || (template.isAccountPayment ? 'Payment' : 'Sale')}</TableCell>
                 <TableCell>
-                  {template.name}
-                </TableCell>
-                <TableCell>
-                  {template.type?.replace(/ Receipt$/, '')}
-                </TableCell>
-                <TableCell>
-                  {template.for || (template.isAccountPayment ? 'Payment' : 'Sale')}
-                </TableCell>
-                <TableCell align="right" sx={{ pr: '20px' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 3 }}>
-                    {canModifyReceipts && (
-                      <>
-                        <Button
-                          size="small"
-                          startIcon={<EditIcon />}
-                          onClick={() => handleEdit(template)}
-                          sx={rowActionSx('#32b643', '#6dd77b')}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="small"
-                          startIcon={<SettingsIcon />}
-                          onClick={() => handleConfigure(template)}
-                          sx={rowActionSx('#1c86f2', '#5ea9f6')}
-                        >
-                          Configure
-                        </Button>
-                        <Button
-                          size="small"
-                          startIcon={<DeleteIcon />}
-                          onClick={() => handleDelete(template.id)}
-                          sx={rowActionSx('#e3342f', '#eb6f6c')}
-                        >
-                          Delete
-                        </Button>
-                        <Button
-                          size="small"
-                          startIcon={<CloneIcon />}
-                          onClick={() => handleClone(template)}
-                          sx={rowActionSx('#1c86f2', '#5ea9f6')}
-                        >
-                          Clone
-                        </Button>
-                      </>
-                    )}
-                  </Box>
+                  {canModifyReceipts && (
+                    <TemplateListActions
+                      onEdit={() => handleEdit(template)}
+                      onConfigure={() => handleConfigure(template)}
+                      onDelete={() => handleDelete(template.id)}
+                      onClone={() => handleClone(template)}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -518,9 +466,15 @@ const ReceiptTemplates = () => {
           <Button
             variant="contained"
             onClick={() => handleCreateTemplate()}
-            sx={{ bgcolor: '#32b643', color: '#f8f8f8', '&:hover': { bgcolor: '#2ba03b', boxShadow: 'none' }, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, minWidth: 100, height: 42 }}
+            disabled={creating}
+            data-create-receipt
+            sx={{
+              bgcolor: '#32b643', color: '#f8f8f8', '&:hover': { bgcolor: '#2ba03b', boxShadow: 'none' }, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, minWidth: 100, height: 42,
+              // While the template is being created: greyed, no second click (no duplicate).
+              '&.Mui-disabled': { bgcolor: '#9fd8a7', color: '#f8f8f8' },
+            }}
           >
-            Create
+            {creating ? 'Creating...' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>

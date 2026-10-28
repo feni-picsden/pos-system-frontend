@@ -12,10 +12,14 @@ export function buildReceiptPrintHtml({ markup, headStyles = '', template, title
   // An explicit Configure > Receipt Width is the paper: without this the page stayed
   // 80mm/A4 while ReceiptRenderer emitted a narrower box, printing a centred strip.
   const explicitMm = paperWidthMm(template);
-  const isWide = !explicitMm && isWideTemplate(template);
-  // Design width in mm: the editor stores canvas.width; fall back to 80mm thermal
-  // for a Normal receipt, 210mm for the wide (A4/Email) layouts.
-  const widthMm = explicitMm || Number(template?.config?.canvas?.width) || (isWide ? 210 : 80);
+  // Reference prints every receipt that has no Configure > Receipt Width on an A4
+  // sheet with the receipt stretched to the full page width (Normal receipt
+  // included — ref print preview 28/10/2026); only a Generic / Text Only
+  // template keeps its thermal canvas width.
+  const textOnly = /text/.test(String(template?.type || '').toLowerCase());
+  const isWide = !explicitMm && (isWideTemplate(template) || !textOnly);
+  // Design width in mm: the editor stores canvas.width; fall back to 80mm thermal.
+  const widthMm = explicitMm || Number(template?.config?.canvas?.width) || 80;
   const pageSize = isWide ? 'A4' : `${widthMm}mm auto`;
   const pageMargin = isWide ? '10mm' : '0';
   const bodyWidth = isWide ? 'auto' : `${widthMm}mm`;
@@ -42,6 +46,10 @@ export function buildReceiptPrintHtml({ markup, headStyles = '', template, title
         padding: ${paperPad} !important;
         box-sizing: border-box;
       }
+      ${isWide ? `/* Stretch the receipt box (either template shape) across the A4 page. */
+      body > * { width: 100% !important; max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; box-sizing: border-box; }
+      /* The barcode must not stretch with the page: reference prints it small, centred. */
+      svg[width="100%"] { width: 110px !important; height: 44px !important; display: block; margin: 0 auto; }` : ''}
     </style>
   </head>
   <body>${markup}</body>

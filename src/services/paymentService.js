@@ -46,20 +46,39 @@ const paymentService = {
   // Payment reversal (reference: Using Account Customers) — Cancel voids the
   // row (gone from reports/statements); Refund keeps it and posts an opposing
   // entry. Both re-open the sale balance and the customer's owing.
-  cancelPayment: async (salePaymentId) => {
-    const response = await apiClient.post(`/payments/${salePaymentId}/cancel`);
-    apiClient.bustCache('/customers');
-    apiClient.bustCache('/sales');
-    await posLocalDb.invalidateStore('customers').catch(() => {});
+  // `payment` is a Payment History row: a customer_payments payment is reversed
+  // by its own id; a legacy (pre-table) group by any of its sale_payments ids.
+  cancelPayment: async (payment) => {
+    const url = payment?.customerPaymentId
+      ? `/payments/customer-payments/${payment.customerPaymentId}/cancel`
+      : `/payments/${payment?.id ?? payment}/cancel`;
+    const response = await apiClient.post(url);
+    await paymentService.bustBalances();
     return response.data;
   },
 
-  refundPayment: async (salePaymentId) => {
-    const response = await apiClient.post(`/payments/${salePaymentId}/refund`);
+  refundPayment: async (payment) => {
+    const url = payment?.customerPaymentId
+      ? `/payments/customer-payments/${payment.customerPaymentId}/refund`
+      : `/payments/${payment?.id ?? payment}/refund`;
+    const response = await apiClient.post(url);
+    await paymentService.bustBalances();
+    return response.data;
+  },
+
+  // Allocate an Incomplete payment's unallocated money onto outstanding
+  // invoices: allocations = [{ saleId, amount }].
+  allocatePayment: async (customerPaymentId, allocations) => {
+    const response = await apiClient.post(`/payments/customer-payments/${customerPaymentId}/allocate`, { allocations });
+    await paymentService.bustBalances();
+    return response.data;
+  },
+
+  bustBalances: async () => {
     apiClient.bustCache('/customers');
     apiClient.bustCache('/sales');
+    apiClient.bustCache('/payments');
     await posLocalDb.invalidateStore('customers').catch(() => {});
-    return response.data;
   },
 };
 

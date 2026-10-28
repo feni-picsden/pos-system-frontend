@@ -1806,7 +1806,7 @@ const StatementEditor = () => {
               >
                 {props.border?.width ? 'Disable Border' : 'Enable Border'}
               </Button>
-              {props.border?.width && (
+              {(Number(props.border?.width) || 0) > 0 && (
                 <Box sx={{ mt: 1 }}>
                   <NumberField
                     int
@@ -2098,7 +2098,7 @@ const StatementEditor = () => {
               >
                 {props.border?.width ? 'Disable Border' : 'Enable Border'}
               </Button>
-              {props.border?.width && (
+              {(Number(props.border?.width) || 0) > 0 && (
                 <Box sx={{ mt: 1 }}>
                   <NumberField
                     int
@@ -2689,7 +2689,7 @@ const StatementEditor = () => {
               >
                 {props.border?.width ? 'Disable Border' : 'Enable Border'}
               </Button>
-              {props.border?.width && (
+              {(Number(props.border?.width) || 0) > 0 && (
                 <Box sx={{ mt: 1 }}>
                   <NumberField
                     int
@@ -2990,7 +2990,9 @@ const StatementEditor = () => {
           </Box>
         )}
 
-        {!['text', 'spacer', 'credit_terms', 'image', 'columns'].includes(component.type) && (
+        {/* Fallback background for a type with no panel of its own: every type below already
+            draws its own Background Colour (Outlet Logo / Overview / Actions showed it twice). */}
+        {!['text', 'spacer', 'credit_terms', 'overview', 'actions', 'image', 'outlet_logo', 'columns'].includes(component.type) && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Background Colour</Typography>

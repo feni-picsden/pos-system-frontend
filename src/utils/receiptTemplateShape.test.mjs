@@ -125,8 +125,10 @@ assert.match(printed, /@page \{ size: 57\.5mm auto;/);
 assert.match(printed, /body \{ width: 57\.5mm; \}/);
 // ...and 40 (the reference's empty-width value) falls back to the canvas paper.
 assert.match(buildReceiptPrintHtml({ markup: '', template: { type: 'Generic / Text Only Receipt', config: { receiptWidth: 40, canvas: { width: 80 } } } }), /@page \{ size: 80mm auto;/);
-// Unset width keeps the old behaviour: canvas width for thermal, A4 for wide.
-assert.match(buildReceiptPrintHtml({ markup: '', template: { type: 'Normal Receipt', config: { canvas: { width: 58 } } } }), /@page \{ size: 58mm auto;/);
+// Unset width: the reference prints a Normal receipt on A4, stretched full width
+// (only Generic / Text Only keeps its canvas paper).
+assert.match(buildReceiptPrintHtml({ markup: '', template: { type: 'Normal Receipt', config: { canvas: { width: 58 } } } }), /@page \{ size: A4;/);
+assert.match(buildReceiptPrintHtml({ markup: '', template: { type: 'Normal Receipt', config: {} } }), /body > \* \{ width: 100% !important/);
 assert.match(buildReceiptPrintHtml({ markup: '', template: { type: 'Email Receipt', config: {} } }), /@page \{ size: A4;/);
 
 // --- Configure dialog save rules, measured 2026-08-07 -----------------------------

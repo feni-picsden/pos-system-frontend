@@ -8,6 +8,10 @@ import { saleItemDisplay } from "../../utils/caseLine";
 import posLocalDb from "../../services/posLocalDb";
 import { formatCurrency } from "../../utils/currency";
 import { saleOutstanding, isOnAccountPayment, INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
+import DateRangePicker from "../Common/DateRangePicker";
+
+// Local "yyyy-MM-ddTHH:mm:ss" of a Date — the shape Modify Details keeps the sale date in.
+const toLocalInput = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
 
 // One place builds a customer's display name — list rows, sale details and both
 // customer pickers all route through it.
@@ -159,24 +163,24 @@ const SaleDetailCard = ({
         {/* Date / total / invoice */}
         <Box>
           {editing ? (
-            <Box
-              component="input"
-              type="datetime-local"
-              step="1"
-              value={dateValue}
-              onChange={(e) => onDateChange(e.target.value)}
-              sx={{
-                width: "100%",
-                maxWidth: 216,
-                height: 40,
-                boxSizing: "border-box",
-                p: "8px",
-                fontSize: 16,
-                textAlign: "center",
-                border: "1px solid #000",
-                borderRadius: 0,
-              }}
-            />
+            // Reference Modify Details: a bordered "28/10/2026 12:10:58" field that
+            // opens the calendar popover (typed box, clock, Current Day, two months).
+            <Box sx={{ maxWidth: 216, mx: "auto", mb: "4px" }}>
+              <DateRangePicker
+                single
+                enableTime
+                hideIcon
+                popoverIcons
+                label=""
+                value={{ startDate: dateValue ? new Date(dateValue) : null, endDate: dateValue ? new Date(dateValue) : null }}
+                onChange={({ startDate }) => startDate && onDateChange(toLocalInput(startDate))}
+                inputSx={{
+                  "& .MuiOutlinedInput-root": { height: 40, fontSize: 16, borderRadius: "8px", bgcolor: "#fff", cursor: "pointer" },
+                  "& .MuiOutlinedInput-input": { textAlign: "center", cursor: "pointer", p: "8px" },
+                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" },
+                }}
+              />
+            </Box>
           ) : (
             <Box sx={{ fontSize: "17.6px", lineHeight: "21px" }}>
               {formatDate(sale.saleDate)} {formatTime(sale.saleDate)}
@@ -338,7 +342,7 @@ const SaleDetailCard = ({
                     fullWidth
                     value={paymentValues[idx] ?? p.paymentMethod ?? ""}
                     onChange={(e) => onPaymentChange(idx, e.target.value)}
-                    sx={{ borderRadius: "8px", fontSize: 16, bgcolor: "#fff" }}
+                    sx={{ borderRadius: "8px", fontSize: 16, bgcolor: "#fff", "& .MuiSelect-select": { textAlign: "left" } }}
                   >
                     {methodOptions(paymentMethods, p.paymentMethod).map((name) => (
                       <MenuItem key={name} value={name}>
@@ -365,7 +369,18 @@ const SaleDetailCard = ({
                   paymentLabel(p)
                 )}
               </Box>
-              <Box sx={{ textAlign: "right" }}>{formatCurrency(p.amount || 0)}</Box>
+              {/* Fixed amount column while editing so every method select is the
+                  same width whatever the figure ($0.98 vs $58.04). */}
+              {/* Editing: fixed amount column (same as the item lines) so every select is
+                  the same width and the "$" of every amount lines up. */}
+              {editing ? (
+                // Editing: fixed column, "$" pinned left and the figure right, so both the
+                // dollar signs and the decimals of every row line up (and every select is
+                // the same width).
+                <Box sx={{ width: 96, flexShrink: 0, textAlign: "right", whiteSpace: "nowrap" }}>{formatCurrency(p.amount || 0)}</Box>
+              ) : (
+                <Box sx={{ textAlign: "right" }}>{formatCurrency(p.amount || 0)}</Box>
+              )}
             </Box>
           ))}
         </Box>

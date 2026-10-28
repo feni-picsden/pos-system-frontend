@@ -98,6 +98,9 @@ export const buildReferenceData = (receiptData = {}) => {
   const isRoundingRow = (payment) => /^rounding$/i.test(paymentLabel(payment));
   const isChangeRow = (payment) => /^change$|\(change\)$/i.test(paymentLabel(payment));
   const isAccountRow = (payment) => /^(on\s*)?account$/i.test(paymentLabel(payment));
+  // An account PAYMENT receipt lists the methods plainly ("Cash $5.00 / EFTPOS
+  // $20.00", reference Payment Receipt), not as sale tenders.
+  const isPayment = receiptData.kind === 'payment';
   const paymentsByMethod = new Map();
   (receiptData.payments || []).forEach((payment) => {
     if (isRoundingRow(payment) || isChangeRow(payment) || isAccountRow(payment)) return;
@@ -108,7 +111,7 @@ export const buildReferenceData = (receiptData = {}) => {
     ...[...paymentsByMethod.entries()]
       .filter(([, amount]) => Math.round(amount * 100) !== 0)
       .map(([label, amount]) => ({
-        payment: /^tendered/i.test(label) ? label : `Tendered ${label}`,
+        payment: isPayment || /^tendered/i.test(label) ? label : `Tendered ${label}`,
         amount: money(amount),
       })),
     // A caller that lists change as a payment row (older sell-screen feeds) keeps
@@ -171,7 +174,18 @@ export const buildReferenceData = (receiptData = {}) => {
       // The Rounding bookkeeping row banked with the tenders, or the caller's figure.
       rounding: Math.round(((Number(receiptData.rounding) || 0) + bankedRounding) * 100) / 100,
       surcharge: Number(receiptData.surchargeTotal) || 0,
+      // Account payment receipt Totals (reference: Total Paid / Invoices Paid /
+      // Unallocated Payment Amount). Zero hides the row, like every total.
+      'total-paid': isPayment ? Number(receiptData.totalPaid ?? receiptData.total) || 0 : 0,
+      'invoices-paid': isPayment ? (receiptData.invoices || []).length : 0,
+      unallocated: isPayment ? Number(receiptData.unallocated) || 0 : 0,
     },
+    // Account payment receipt Invoices table: one row per invoice the payment paid.
+    invoices: (receiptData.invoices || []).map((invoice) => ({
+      processed: invoice.processed || '',
+      'invoice-no': invoice.invoiceNo || invoice.number || '',
+      total: money(invoice.total),
+    })),
     text: buildReceiptContext(receiptData),
     surcharges: Object.entries(receiptData.surcharges || {}).map(([name, amount]) => ({
       surcharge: name,
@@ -231,6 +245,31 @@ export const sampleReferenceData = () => buildReferenceData({
   // The External Receipt block prints the EFT slip verbatim and renders nothing when
   // there is none — without a sample the editor canvas showed an empty block.
   eftposReceipt: 'SAMPLE EFTPOS\nAPPROVED 00\nTOTAL AUD $17.00',
+});
+
+// The account payment the template editor's canvas previews against — the same
+// sample the reference editor shows (12345 / Shopfront / Keith Smith, invoices 12
+// and 13, $39.99 paid, $15.00 unallocated, Cash + EFTPOS).
+export const samplePaymentReferenceData = () => buildReferenceData({
+  kind: 'payment',
+  invoiceNo: '',
+  completedAt: new Date().toISOString(),
+  status: 'COMPLETED',
+  user: { name: 'Sample User' },
+  outlet: { name: 'Sample Outlet', phone: '00 0000 0000', address: '1 Sample St' },
+  customer: { code: '12345', company: 'Shopfront', firstName: 'Keith', lastName: 'Smith', currentOwing: 0 },
+  invoices: [
+    { processed: '17/02/2018 12:00:05', invoiceNo: '12', total: 25 },
+    { processed: '18/02/2018 11:56:42', invoiceNo: '13', total: 14.99 },
+  ],
+  totalPaid: 39.99,
+  unallocated: 15,
+  payments: [
+    { method: 'Cash', amount: 5 },
+    { method: 'EFTPOS', amount: 20 },
+  ],
+  total: 39.99,
+  eftposReceipt: 'SAMPLE EFTPOS\nAPPROVED 00\nTOTAL AUD $5.00',
 });
 
 export default buildReferenceData;

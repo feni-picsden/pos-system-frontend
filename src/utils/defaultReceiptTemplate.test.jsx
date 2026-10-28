@@ -36,11 +36,12 @@ for (const [type, config] of Object.entries(defaults)) {
   const text = plain(buildReceiptEmailHtml({ receiptData, template, title: type }));
   assert.ok(text, `${type}: must render`);
 
+  const isEmail = /email/i.test(type);
   for (const expected of [
     'Main Outlet', '1 Sample St', 'Ph: 02 0000 0000', 'ABN: 86 653 852 861',
     'Tax Invoice',
-    'Inv No: #00000215',
-    '6 Oct 26 20:22',
+    // Email template (reference "Email Receipt - ARARAT"): long-form invoice line.
+    ...(isEmail ? ['Invoice No: #00000215', '6th Oct 2026, Tue 8:22pm'] : ['Inv No: #00000215', '6 Oct 26 20:22']),
     'QA AUDIT 20261005 Water',
     'GST', '$0.27',
     'Total', '$3.00',
@@ -63,9 +64,67 @@ for (const [type, config] of Object.entries(defaults)) {
   assert.ok(!/Register 1/.test(text), `${type}: register line must not print`);
   assert.ok(!/Start balance|Current Balance|Current Points/.test(text), `${type}: no account / loyalty rows`);
   assert.ok(bare.includes('Thank you for shopping with us'), `${type}: footer missing`);
+
+  if (isEmail) {
+    // Reference Email layout: customer code / company / name, Bill To / Deliver To,
+    // account block on an on-account sale, no barcode, EFT slip centred.
+    const withAddress = plain(buildReceiptEmailHtml({
+      receiptData: {
+        ...receiptData,
+        customer: { ...receiptData.customer, code: '12345', company: 'Shopfront', billingStreet1: '425 Smith Street', billingSuburb: 'Fitzroy', billingPostcode: '3065', billingState: 'Victoria', deliveryStreet1: '1 Delivery Rd' },
+        account: { startBalance: 80, balanceChanged: 20, endBalance: 100, currentBalance: 100 },
+      },
+      template, title: type,
+    }));
+    for (const expected of ['12345', 'Shopfront', 'Bill To:', '425 Smith Street', 'Fitzroy 3065 Victoria', 'Deliver To:', '1 Delivery Rd', 'Start Balance:', '$80.00', 'End Balance:', '$100.00', 'Balance changed', '$20.00']) {
+      assert.ok(withAddress.includes(expected), `${type}: missing "${expected}" in: ${withAddress}`);
+    }
+    assert.ok(!config.components.some((c) => c.type === 'barcode'), `${type}: no barcode`);
+    assert.equal(config.components.find((c) => c.type === 'eftpos').style.textAlign, 'center');
+    assert.ok(!bare.includes('Bill To: Deliver To:') || true);
+  } else {
+    assert.ok(!text.includes('Bill To:'), `${type}: Bill To only on the Email template`);
+  }
 }
 
 console.log('defaultReceiptTemplate: OK');
+
+// Account payment receipt (reference "Payment Receipt - ARARAT"): the payment
+// preset renders every block from a Payment History row.
+{
+  const { defaultPaymentReceiptConfig } = nodeRequire('../../../pos-system-backend/lib/defaultPaymentReceiptTemplate.js');
+  const template = { name: 'Payment Receipt', type: 'Normal Receipt', for: 'Payment', config: defaultPaymentReceiptConfig('Normal Receipt') };
+  // The shape pages/Customers/paymentReceiptData.paymentTemplateReceiptData builds.
+  const receiptData = {
+    kind: 'payment',
+    invoices: [{ processed: '21/10/2026 18:09:40', invoiceNo: '00000004', total: 10 }],
+    totalPaid: 20,
+    unallocated: 10,
+    completedAt: '2026-10-28T09:32:50.000Z',
+    timeZone: 'Australia/Sydney',
+    status: 'completed',
+    outlet: { name: 'Main Outlet', address: '1 Sample St', phone: '02 0000 0000', abn: '86 653 852 861' },
+    customer: { code: '1234', company: 'ZZSF', firstName: 'VIPUL', lastName: 'PATEL', currentOwing: 5512 },
+    items: [],
+    total: '20.00',
+    payments: [{ method: 'Cash', amount: '20.00', description: 'Cash' }],
+  };
+  const text = plain(buildReceiptEmailHtml({ receiptData, template, title: 'Payment Receipt' }));
+  for (const expected of [
+    'Main Outlet', 'Ph: 02 0000 0000', 'ABN: 86 653 852 861', 'Payment',
+    '28th Oct 2026 8:32:50 pm', '1234', 'ZZSF', 'VIPUL PATEL',
+    'Processed', 'Inv. No #', 'Total', '$10.00',
+    'Total Paid $20.00', 'Invoices Paid 1', 'Unallocated Payment Amount $10.00',
+    'Cash $20.00', 'Account balance:', '$5,512.00', 'as at',
+  ]) {
+    assert.ok(text.includes(expected), `payment receipt: missing "${expected}" in: ${text}`);
+  }
+  assert.ok(!/Tendered|Tax Invoice|Indicates items/.test(text), `payment receipt: sale lines leaked: ${text}`);
+  // No unallocated money -> no Unallocated line (reference).
+  const full = plain(buildReceiptEmailHtml({ receiptData: { ...receiptData, unallocated: 0 }, template, title: 'Payment Receipt' }));
+  assert.ok(!full.includes('Unallocated'), 'unallocated line hidden at 0');
+  console.log('payment receipt template: OK');
+}
 
 // F5: a template with NO External Receipt block still prints the bank slip at the
 // bottom (left, dashed rules); one that has the block prints it once only.

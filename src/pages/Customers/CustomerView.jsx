@@ -33,6 +33,7 @@ import {
   Select,
   InputAdornment,
   TableFooter,
+  Snackbar,
 } from "@mui/material";
 import {
   ArrowDropDown as ArrowDropDownIcon,
@@ -66,11 +67,12 @@ import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import PrintReceiptDialog from "../../components/PrintReceiptDialog";
 import EmailReceiptModal from "../../components/SalesHistory/EmailReceiptModal";
 import PaymentHistoryList from "../../components/Customers/PaymentHistoryList";
+import AllocatePaymentDialog from "../../components/Customers/AllocatePaymentDialog";
 import CustomerSalesHistory from "../../components/Customers/CustomerSalesHistory";
 import PaymentReceiptDialog from "../../components/Customers/PaymentReceiptDialog";
 import outletService from "../../services/outletService";
 import { buildPaymentReceiptHtml } from "./paymentReceipt";
-import { paymentReceiptArgs } from "./paymentReceiptData";
+import { paymentReceiptArgs, paymentTemplateReceiptData } from "./paymentReceiptData";
 import { loadBusiness } from "../../utils/outletReceiptProfile";
 import { formatSettingsDate, formatSettingsTime } from "../../utils/appDateTime";
 import { formatRevisionValue } from "../../utils/revisionValue";
@@ -145,8 +147,8 @@ const CustomerView = () => {
     );
     if (!ok) return;
     try {
-      if (kind === 'cancel') await paymentService.cancelPayment(payment.id);
-      else await paymentService.refundPayment(payment.id);
+      if (kind === 'cancel') await paymentService.cancelPayment(payment);
+      else await paymentService.refundPayment(payment);
       notify(kind === 'cancel' ? 'Payment cancelled' : 'Payment refunded');
       await loadCustomerData();
       loadOutstandingSales();
@@ -156,10 +158,38 @@ const CustomerView = () => {
     }
   };
 
+  // Reference: an Incomplete payment (money left unallocated) raises
+  // "There is an unallocated payment." with an Allocate button when the
+  // Balance & Payments section opens; Allocate opens that payment's panel and
+  // the Allocate dialog (outstanding invoices with an amount box each).
+  const [allocatePayment, setAllocatePayment] = useState(null);
+  const [openPaymentId, setOpenPaymentId] = useState(null);
+  const [unallocatedToastFor, setUnallocatedToastFor] = useState(null); // payment id the toast is up for
+  const [unallocatedToastSeen, setUnallocatedToastSeen] = useState([]);
+  const firstIncomplete = (list) => list.find((p) => p.status === 'INCOMPLETE' && p.unallocated > 0) || null;
+  const startAllocate = (payment) => {
+    setUnallocatedToastFor(null);
+    setOpenPaymentId(payment.id);
+    setAllocatePayment(payment);
+    // The toast can be clicked before the outstanding invoices have loaded (the
+    // dialog then said "No outstanding invoices"): always load them fresh here.
+    loadOutstandingSales();
+  };
+  const handleAllocate = async (payment, allocations) => {
+    const result = await paymentService.allocatePayment(payment.customerPaymentId, allocations);
+    setAllocatePayment(null);
+    notify(result?.payment?.status === 'COMPLETED' ? 'Payment allocated' : `Payment allocated — ${formatCurrency(result?.payment?.unallocated || 0)} still unallocated`);
+    await loadCustomerData();
+    loadOutstandingSales();
+    loadPayments();
+  };
+
   // Payment panel "Print": the reference payment receipt, previewed in the same
   // panel the sale reprint uses. The outlet header comes from the customer's
   // outlet (else the register's) plus its Setup > Outlets profile (logo, ABN).
-  const [paymentReceiptHtml, setPaymentReceiptHtml] = useState(null);
+  // { html, receiptData } — html is the built-in layout, receiptData feeds a
+  // Setup > Receipts "Payment" template picked in the dialog's title dropdown.
+  const [paymentReceipt, setPaymentReceipt] = useState(null);
   const printPaymentReceipt = async (payment) => {
     let outlet = null;
     const outletId = customer?.outletId || payment.outlet?.id;
@@ -169,10 +199,11 @@ const CustomerView = () => {
       outlet = payment.outlet || null;
     }
     const business = await loadBusiness(outlet);
-    setPaymentReceiptHtml(buildPaymentReceiptHtml(
-      paymentReceiptArgs({ payment, customer, business, accountBalance: customer?.currentOwing }),
-      formatCurrency
-    ));
+    const accountBalance = customer?.currentOwing;
+    setPaymentReceipt({
+      html: buildPaymentReceiptHtml(paymentReceiptArgs({ payment, customer, business, accountBalance }), formatCurrency),
+      receiptData: paymentTemplateReceiptData({ payment, customer, business, accountBalance }),
+    });
   };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -303,7 +334,14 @@ const CustomerView = () => {
   const loadPayments = async () => {
     try {
       const response = await customerService.getCustomerPayments(id);
-      setPayments(response.payments || []);
+      const list = response.payments || [];
+      setPayments(list);
+      // Raise the unallocated toast once per payment per visit.
+      const incomplete = firstIncomplete(list);
+      if (incomplete && !unallocatedToastSeen.includes(incomplete.id)) {
+        setUnallocatedToastSeen((seen) => [...seen, incomplete.id]);
+        setUnallocatedToastFor(incomplete.id);
+      }
     } catch (err) {
       console.error("Error loading customer payments:", err);
       setPayments([]);
@@ -813,6 +851,8 @@ const CustomerView = () => {
                   onPrint={printPaymentReceipt}
                   onRefund={(p) => reversePayment(p, "refund")}
                   onCancel={(p) => reversePayment(p, "cancel")}
+                  onAllocate={startAllocate}
+                  openId={openPaymentId}
                 />
               ) : (
                 <Typography variant="body2" sx={{ color: "text.secondary", py: 2 }}>
@@ -1183,10 +1223,54 @@ const CustomerView = () => {
       </Box>
 
       <PaymentReceiptDialog
-        open={paymentReceiptHtml != null}
-        onClose={() => setPaymentReceiptHtml(null)}
-        html={paymentReceiptHtml}
+        open={paymentReceipt != null}
+        onClose={() => setPaymentReceipt(null)}
+        html={paymentReceipt?.html}
+        receiptData={paymentReceipt?.receiptData}
+        // The group's Payment Receipt template (Customer Groups > Payment Receipt) is preselected.
+        defaultTemplateId={customer?.customerGroup?.paymentReceiptTemplate || null}
       />
+
+      <AllocatePaymentDialog
+        open={Boolean(allocatePayment)}
+        payment={allocatePayment}
+        invoices={outstandingSales}
+        loading={outstandingSalesLoading}
+        onClose={() => setAllocatePayment(null)}
+        onAllocate={handleAllocate}
+      />
+
+      {/* Reference toast on Balance & Payments: "There is an unallocated payment." + Allocate */}
+      <Snackbar
+        open={activeTab === "balance" && unallocatedToastFor != null}
+        onClose={(_, reason) => { if (reason !== "clickaway") setUnallocatedToastFor(null); }}
+        // Reference: the toast sits at the bottom-left of the screen.
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        sx={{ zIndex: 2100 }}
+      >
+        <Alert
+          data-unallocated-toast
+          severity="warning"
+          variant="filled"
+          onClose={() => setUnallocatedToastFor(null)}
+          action={
+            <>
+              <Button
+                color="inherit"
+                size="small"
+                sx={{ fontWeight: 700, textTransform: "none" }}
+                onClick={() => { const p = payments.find((x) => x.id === unallocatedToastFor) || firstIncomplete(payments); if (p) startAllocate(p); }}
+              >
+                Allocate
+              </Button>
+              <Button color="inherit" size="small" sx={{ minWidth: 0, textTransform: "none" }} onClick={() => setUnallocatedToastFor(null)}>✕</Button>
+            </>
+          }
+          sx={{ borderRadius: 0, fontSize: 15, fontWeight: 600, alignItems: "center", bgcolor: "#9561e2" }}
+        >
+          There is an unallocated payment.
+        </Alert>
+      </Snackbar>
 
       {/* Print Receipt Dialog */}
       <PrintReceiptDialog

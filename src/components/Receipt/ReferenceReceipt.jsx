@@ -72,6 +72,9 @@ const DEFAULT_COLUMNS = {
     { column: 'start-balance', name: 'Start balance' }, { column: 'end-balance', name: 'End balance' },
     { column: 'changed-balance', name: 'Balance changed' }, { column: 'current-balance', name: 'Current Balance' },
   ],
+  invoices: [
+    { column: 'processed', name: 'Processed' }, { column: 'invoice-no', name: 'Inv. No #' }, { column: 'total', name: 'Total' },
+  ],
   // What the hardcoded gift-card rows used to print, kept for blocks stored without
   // a column set at all.
   gift_cards: [{ column: 'used', name: 'Amount Used' }, { column: 'current', name: 'Current' }],
@@ -169,11 +172,50 @@ const renderProduct = (component, data) => {
 // the reference leaves an empty table rather than printing "Rounding $0.00".
 const renderTotal = (component, data) => {
   const totals = data.total || {};
-  const key = { sale: 'sale', change: 'change', rounding: 'rounding', savings: 'savings', discount: 'discount' };
+  const key = {
+    sale: 'sale', change: 'change', rounding: 'rounding', savings: 'savings', discount: 'discount',
+    // Account payment receipt totals.
+    'total-paid': 'total-paid', 'invoices-paid': 'invoices-paid', unallocated: 'unallocated',
+  };
+  // "Invoices Paid" is a count, not money.
+  const format = (column, value) => (column === 'invoices-paid' ? String(value) : money(value));
   const rows = enabledColumns(component.value, 'total')
     .filter((column) => Number(totals[key[column.column]]) )
-    .map((column) => ({ label: column.name, value: money(totals[key[column.column]]) }));
+    .map((column) => ({ label: column.name, value: format(column.column, totals[key[column.column]]) }));
   return <RowTable rows={rows} style={component.style} />;
+};
+
+// Account payment receipt Invoices table (reference: Processed / Inv. No # / Total,
+// headers bold, Total in the receipt-wide money column).
+const INVOICE_ALIGN = { processed: 'right', 'invoice-no': 'right', total: 'right' };
+const renderInvoices = (component, data) => {
+  const columns = enabledColumns(component.value, 'invoices');
+  const rows = data.invoices || [];
+  if (!rows.length || !columns.length) return null;
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', ...styleToCss(component.style) }}>
+      <thead>
+        <tr>
+          {columns.map((column) => (
+            <th key={column.column} style={{ fontWeight: 'bold', textAlign: INVOICE_ALIGN[column.column] || 'right', width: column.column === 'total' ? MONEY_COL : undefined, paddingLeft: 6 }}>
+              {column.name}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((invoice, index) => (
+          <tr key={index}>
+            {columns.map((column) => (
+              <td key={column.column} style={{ textAlign: INVOICE_ALIGN[column.column] || 'right', whiteSpace: 'nowrap', width: column.column === 'total' ? MONEY_COL : undefined, paddingLeft: 6 }}>
+                {invoice[column.column]}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 };
 
 const renderTax = (component, data) => {
@@ -281,6 +323,8 @@ const ReferenceComponent = ({ component, data, depth = 0 }) => {
       return renderProduct(component, data);
     case 'total':
       return renderTotal(component, data);
+    case 'invoices':
+      return renderInvoices(component, data);
     case 'tax':
       return renderTax(component, data);
     case 'payment':
@@ -327,11 +371,15 @@ const ReferenceComponent = ({ component, data, depth = 0 }) => {
     case 'barcode': {
       const barcodeValue = value || data.invoiceNo;
       if (!barcodeValue) return null;
+      // Reference prints the barcode small and centred (~140x44), never stretched
+      // to the paper width (the svg carries width/height 100%, so the box sizes it).
       return (
-        <div
-          style={{ textAlign: style.textAlign || 'center', ...styleToCss(style) }}
-          dangerouslySetInnerHTML={{ __html: createBarcodeSvgMarkup(String(barcodeValue)) }}
-        />
+        <div style={{ textAlign: style.textAlign || 'center', ...styleToCss(style) }}>
+          <div
+            style={{ width: 140, maxWidth: '100%', height: 44, margin: '0 auto' }}
+            dangerouslySetInnerHTML={{ __html: createBarcodeSvgMarkup(String(barcodeValue)) }}
+          />
+        </div>
       );
     }
 

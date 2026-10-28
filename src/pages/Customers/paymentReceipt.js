@@ -8,7 +8,7 @@
 // between two rules, the payment date, customer code + name, a Processed /
 // Inv. No # / Total table (the invoice's FULL total), Total Paid, Invoices Paid,
 // "Unallocated Payment Amount" only when some of the money is unallocated, the
-// method line, then "Account balance: $x as at <print time>".
+// method line, then a centred "Account balance:" / amount / "as at <print time>" block.
 
 // Money guard: coerce to a finite, non-negative amount. Never NaN, never negative.
 export const safeAmount = (value) => {
@@ -85,7 +85,11 @@ export const buildPaymentReceiptHtml = (
           ${methodName ? row(esc(methodName), paid) : ""}
         </tbody>
       </table>
-      <div style="margin-top:12px;">Account balance: ${fmt(balance)} as at ${esc(asAtText)}</div>
+      <div style="margin-top:12px;text-align:center;">
+        <div>Account balance:</div>
+        <div style="font-size:15px;line-height:1.3;">${fmt(balance)}</div>
+        <div>as at ${esc(asAtText)}</div>
+      </div>
     </div>`;
 };
 
@@ -118,7 +122,7 @@ export const demo = () => {
   assert(html.includes("7048277") && html.includes("$1,068.00".replace(",", "")) , "invoice row with full total");
   assert(html.includes("Total Paid") && html.includes("Invoices Paid</td>") && html.includes(">1</td>"), "totals");
   assert(html.includes("Unallocated Payment Amount") && html.includes("$2.00"), "unallocated line when > 0");
-  assert(html.includes("Account balance: -$2.00 as at 27th Oct 2026 11:46:39 pm"), "balance as at print time");
+  assert(/Account balance:<\/div>\s*<div[^>]*>-\$2\.00<\/div>\s*<div>as at 27th Oct 2026 11:46:39 pm<\/div>/.test(html), "centred balance block: label / amount / as at print time");
   const none = buildPaymentReceiptHtml({ business: null, dateText: "", customer: null, invoices: [], totalPaid: 5, methodName: "Cash", unallocated: 0, accountBalance: 0, asAtText: "" }, null);
   assert(!none.includes("Unallocated"), "no unallocated line at 0");
   assert(none.includes("Invoices Paid</td>") && none.includes(">0</td>"), "zero invoices");

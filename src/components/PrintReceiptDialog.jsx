@@ -49,7 +49,9 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
         receiptTemplateService.getTemplates({ for: 'Sale' }),
         settingsService.getRegisterSettings().catch(() => null),
       ]);
-      const templates = response.templates || [];
+      // Reference Reprint dropdown lists the printable (Normal / A4) Sale templates
+      // only; Email Receipt templates belong to the Email Receipt dialog.
+      const templates = (response.templates || []).filter((t) => !/email/i.test(String(t.type || '')));
       setReceiptTemplates(templates);
 
       // Same tiers as the sell screen: "Default Receipt Template" setting (by id,

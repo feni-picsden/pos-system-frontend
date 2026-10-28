@@ -83,6 +83,9 @@ export const COLUMN_LABELS = {
     'after-sale': 'After sale',
   },
   gift_cards: { original: 'Original', used: 'Amount Used', current: 'Current', expiry: 'Expiry' },
+  // Account payment receipt blocks (reference Payment Receipt editor).
+  invoices: { processed: 'Processed', 'invoice-no': 'Inv. No #', total: 'Total' },
+  paymentTotal: { 'total-paid': 'Total Paid', 'invoices-paid': 'Invoices Paid', unallocated: 'Unallocated Payment Amount' },
 };
 // Both spellings of the gift-card key must resolve: storage/reference uses `giftCards`
 // (measured 2026-08-07), the editor panel reads `COLUMN_LABELS.gift_cards`. Without
@@ -97,8 +100,12 @@ COLUMN_LABELS.giftCards = COLUMN_LABELS.gift_cards;
 // ADD are gated; anything already stored on the component survives untouched.
 const FONT_STYLE_TYPES = new Set([
   'heading', 'product', 'tax', 'tax_indicator', 'payment', 'surcharge',
-  'loyalty', 'account', 'total', 'giftCards', 'gift_cards', 'invoice',
+  'loyalty', 'account', 'total', 'giftCards', 'gift_cards', 'invoice', 'invoices',
 ]);
+
+// Is this an account PAYMENT receipt template ("Account Payment Receipt" toggle)?
+export const isPaymentTemplate = (template) =>
+  String(template?.for || '').toLowerCase() === 'payment' || template?.isAccountPayment === true;
 // background: the font-style types plus text / logo / image. `column` is measured as
 // padding+border only, but our Columns panel's background control works and merchants
 // may rely on it — flagged in the panel audit rather than removed.

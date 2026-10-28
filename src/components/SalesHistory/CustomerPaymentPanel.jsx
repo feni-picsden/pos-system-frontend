@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, CircularProgress } from "@mui/material";
-import { CheckCircleOutlined } from "@mui/icons-material";
 import settingsService from "../../services/settingsService";
+import { PaymentStatusGlyph, paymentStatusOf } from "../Customers/PaymentStatus";
 import { formatCurrency } from "../../utils/currency";
 import { SplitPrice, customerName } from "./SaleDetailCard";
 
@@ -47,9 +47,10 @@ const CustomerPaymentPanel = ({ payment, loading, error, actions, formatDate, fo
           </Box>
           {/* Status / outlet / register / user */}
           <Box>
-            <Box sx={{ fontSize: "17.6px", lineHeight: "21px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-              <CheckCircleOutlined sx={{ fontSize: 18 }} /> Completed
+            <Box data-payment-status sx={{ fontSize: "17.6px", lineHeight: "21px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", color: paymentStatusOf(payment).color }}>
+              <PaymentStatusGlyph payment={payment} size={18} /> {paymentStatusOf(payment).label}
             </Box>
+            {payment.cancelledAt && <Box sx={cell}>{when(payment.cancelledAt)}</Box>}
             {payment.outlet?.name && <Box sx={cell}>{payment.outlet.name}</Box>}
             {payment.register?.name && <Box sx={cell}>{payment.register.name}</Box>}
             {payment.user?.name && <Box sx={cell}>{payment.user.name}</Box>}
@@ -58,6 +59,8 @@ const CustomerPaymentPanel = ({ payment, loading, error, actions, formatDate, fo
           <Box component="table" sx={{ ml: "auto", borderCollapse: "collapse", "& td": { ...cell, p: "0 0 2px 0" }, "& td:first-of-type": { textAlign: "right", pr: "8px" }, "& td:last-of-type": { textAlign: "left" } }}>
             <tbody>
               <tr><td>Total</td><td>{formatCurrency(payment.total)}</td></tr>
+              {/* Reference: the unallocated remainder is a separate line, shown only while there is one. */}
+              {payment.unallocated > 0 && <tr data-panel-unallocated><td>Unallocated</td><td>{formatCurrency(payment.unallocated)}</td></tr>}
               <tr><td>Payment Method</td><td>{payment.paymentMethod}</td></tr>
               <tr><td>Invoices Applied To</td><td>{(payment.invoices || []).length}</td></tr>
             </tbody>

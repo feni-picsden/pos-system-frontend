@@ -1474,14 +1474,16 @@ const SaleKeyPage = () => {
       ]);
       const regSettings = regResponse?.settings || null;
       if (regSettings) setRegisterSettings(regSettings);
-      setReceiptTemplates(response.templates || []);
+      // Reference print dropdown lists the printable (Normal / A4) Sale templates
+      // only; Email Receipt templates belong to the Email Receipt dialog.
+      const templates = (response.templates || []).filter(t => !/email/i.test(String(t.type || '')));
+      setReceiptTemplates(templates);
 
       // Template selection, same tiers as the reference (measured 2026-08-05,
       // docs/parity/receipt-template.md §2): the "Default Receipt Template" setting
       // (Setup > General > Registers) wins, then a template belonging to this outlet,
       // then the first. There is no per-register template and no per-template
       // "default" flag — the reference has neither.
-      const templates = response.templates || [];
       const settingTemplateId = regSettings?.defaultReceiptTemplateId;
       const legacySettingName = regSettings?.defaultReceiptTemplate; // pre-id saves
       const outletId = getEffectiveOutletId();
