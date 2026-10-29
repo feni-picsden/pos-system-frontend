@@ -277,6 +277,11 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, directWh
   const [done, setDone] = useState(null); // receive response, shown as the summary
   const [showMatched, setShowMatched] = useState(null); // null = decide automatically
 
+  // The transfer was received somewhere else (bell "Receive Stock", another tab)
+  // while this screen still showed it as Sent: tell the caller to reload, so its
+  // status flips to Received and the Receive button goes, instead of staying stale.
+  const isAlreadyReceived = (err) => /already been received/i.test(err?.response?.data?.error || '');
+
   useEffect(() => {
     if (!open || !transferId) return undefined;
     let alive = true;
@@ -294,7 +299,11 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, directWh
         (data.lines || []).filter((l) => !l.match).forEach((l) => { initial[l.sourceProductId] = suggestedChoice(l); });
         setChoices(initial);
       })
-      .catch((err) => alive && setError(err?.response?.data?.error || 'Failed to load the transfer'))
+      .catch((err) => {
+        if (!alive) return;
+        setError(err?.response?.data?.error || 'Failed to load the transfer');
+        if (isAlreadyReceived(err)) onReceived?.({ alreadyReceived: true });
+      })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [open, transferId]);
@@ -333,6 +342,7 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, directWh
       if (direct) onClose?.(); else setDone(data);
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to receive transfer');
+      if (isAlreadyReceived(err)) onReceived?.({ alreadyReceived: true });
     } finally {
       setSubmitting(false);
     }

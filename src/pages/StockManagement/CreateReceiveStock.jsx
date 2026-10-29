@@ -27,6 +27,7 @@ import supplierService from '../../services/supplierService';
 import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 // Shopfront parity field styling: 42px h, 1px #404040 border, 8px radius
 const fieldSx = {
@@ -235,6 +236,8 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
 const CreateReceiveStock = () => {
   const navigate = useNavigate();
   const { user, getOutletName } = useAuth();
+  // Outlet rule: the receiving outlet is the navbar outlet when one is selected.
+  const { selectedOutletId: navOutletId } = useSelectedOutlet();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -295,7 +298,8 @@ const CreateReceiveStock = () => {
           const all = outletsResp.outlets || [];
           setOutlets(all);
           if (all.length > 0 && !formData.to) {
-            setFormData(prev => ({ ...prev, to: String(all[0].id) }));
+            const nav = navOutletId && all.find((o) => o.id === navOutletId);
+            setFormData(prev => ({ ...prev, to: String((nav || all[0]).id) }));
           }
         } else {
           await loadUserOutlet();

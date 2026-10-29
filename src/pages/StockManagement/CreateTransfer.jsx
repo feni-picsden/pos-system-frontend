@@ -28,6 +28,7 @@ import { outletService } from '../../services/outletService';
 import transfereeService from '../../services/transfereeService';
 import supplierService from '../../services/supplierService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 // Shopfront parity field styling: 42px h, 1px #404040 border, 8px radius
 const fieldSx = {
@@ -228,6 +229,8 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
 const CreateTransfer = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // Outlet rule: a navbar outlet fixes From (only that outlet, locked); All Outlets = pick any.
+  const { selectedOutletId: navOutletId } = useSelectedOutlet();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -276,7 +279,8 @@ const CreateTransfer = () => {
         const all = outletsResp.outlets || [];
         setOutlets(all);
         if (user?.isSuperAdmin && all.length > 0) {
-          setFormData(prev => ({ ...prev, fromOutletId: String(all[0].id) }));
+          const nav = navOutletId && all.find((o) => o.id === navOutletId);
+          setFormData(prev => ({ ...prev, fromOutletId: String((nav || all[0]).id) }));
         } else if (user?.outletId) {
           setFormData(prev => ({ ...prev, fromOutletId: String(user.outletId) }));
         }
@@ -396,6 +400,7 @@ const CreateTransfer = () => {
             <Select
               value={formData.fromOutletId}
               onChange={(e) => handleInputChange('fromOutletId', e.target.value)}
+              disabled={Boolean(navOutletId)}
               IconComponent={ArrowDropDownIcon}
               MenuProps={selectMenuProps}
               sx={{
@@ -406,11 +411,16 @@ const CreateTransfer = () => {
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: '#5f5f5f', borderWidth: '1px' },
                 '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#5f5f5f' },
                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+                // Locked by the navbar outlet: same grey box as Create Order's locked To.
+                '&.Mui-disabled': { backgroundColor: '#d3d3d3', cursor: 'not-allowed' },
+                '&.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+                '& .MuiSelect-select.Mui-disabled': { color: '#000', WebkitTextFillColor: '#000', cursor: 'not-allowed' },
+                '&.Mui-disabled .MuiSvgIcon-root': { color: '#676b72' },
               }}
             >
               {/* Super admins may pick any outlet; outlet-scoped users see only their own (matches reference) */}
               {outlets
-                .filter((outlet) => user?.isSuperAdmin || String(outlet.id) === formData.fromOutletId)
+                .filter((outlet) => (user?.isSuperAdmin && !navOutletId) || String(outlet.id) === formData.fromOutletId)
                 .map((outlet) => (
                   <MenuItem key={outlet.id} value={String(outlet.id)}>
                     {outlet.name}

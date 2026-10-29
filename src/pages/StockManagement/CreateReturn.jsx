@@ -24,6 +24,7 @@ import supplierService from '../../services/supplierService';
 import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 // Shopfront parity field styling: 42px h, 1px #404040 border, 8px radius
 const fieldSx = {
@@ -225,6 +226,8 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
 const CreateReturn = () => {
   const navigate = useNavigate();
   const { user, getOutletName } = useAuth();
+  // Outlet rule: a navbar outlet fixes From (only that outlet, locked); All Outlets = pick any.
+  const { selectedOutletId: navOutletId } = useSelectedOutlet();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -286,7 +289,8 @@ const CreateReturn = () => {
           const all = outletsResp.outlets || [];
           setOutlets(all);
           if (all.length > 0 && !formData.from) {
-            setFormData(prev => ({ ...prev, from: String(all[0].id) }));
+            const nav = navOutletId && all.find((o) => o.id === navOutletId);
+            setFormData(prev => ({ ...prev, from: String((nav || all[0]).id) }));
           }
         } else {
           await loadUserOutlet();
@@ -448,7 +452,7 @@ const CreateReturn = () => {
 
   // Searchable combobox option lists (Shopfront parity)
   const outletOptions = (user?.isSuperAdmin
-    ? outlets
+    ? (navOutletId ? outlets.filter((o) => o.id === navOutletId) : outlets)
     : outlet
       ? [outlet]
       : []
@@ -518,13 +522,24 @@ const CreateReturn = () => {
             onChange={(e, newValue) => {
               if (newValue) handleInputChange('from', newValue.id);
             }}
-            disabled={!user?.isSuperAdmin && !outlet}
+            disabled={(!user?.isSuperAdmin && !outlet) || Boolean(navOutletId)}
             disableClearable
             noOptionsText="No Options"
             componentsProps={{ popper: comboPopperProps }}
             ListboxProps={comboListboxProps}
             renderInput={(params) => (
-              <TextField {...params} placeholder="Select Outlet..." sx={fieldSx} />
+              <TextField
+                {...params}
+                placeholder="Select Outlet..."
+                sx={{
+                  ...fieldSx,
+                  // Locked by the navbar outlet: same grey box as Create Order's locked To.
+                  '& .MuiOutlinedInput-root.Mui-disabled': { backgroundColor: '#d3d3d3', cursor: 'not-allowed' },
+                  '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+                  '& .MuiInputBase-input.Mui-disabled': { color: '#000', WebkitTextFillColor: '#000', cursor: 'not-allowed' },
+                  '& .MuiOutlinedInput-root.Mui-disabled .MuiSvgIcon-root': { color: '#676b72' },
+                }}
+              />
             )}
           />
         </Box>
