@@ -34,6 +34,7 @@ import {
   InputAdornment,
   TableFooter,
   Snackbar,
+  Link,
 } from "@mui/material";
 import {
   ArrowDropDown as ArrowDropDownIcon,
@@ -76,6 +77,7 @@ import { paymentReceiptArgs, paymentTemplateReceiptData } from "./paymentReceipt
 import { loadBusiness } from "../../utils/outletReceiptProfile";
 import { formatSettingsDate, formatSettingsTime } from "../../utils/appDateTime";
 import { formatRevisionValue } from "../../utils/revisionValue";
+import { GRID_TABLE_SX, WIDGET_SHADOW, SECTION_ROOT_SX } from "../../components/StockManagement/productViewStyles";
 import { formatCurrency } from "../../utils/currency";
 
 // Make Payment dialog styling - the same set the Balance page's dialog uses,
@@ -525,7 +527,7 @@ const CustomerView = () => {
         minute: "2-digit",
         second: "2-digit",
         hour12: false,
-      });
+      }).replace(",", ""); // reference: "22/10/2026 11:14:28", no comma
     } catch (_) {
       return "-";
     }
@@ -589,14 +591,33 @@ const CustomerView = () => {
     ["Email", (customer.emails || []).filter(Boolean).join(", ")],
     ["Mobile", customer.mobile],
     ["Customer Group", customer.customerGroup?.name],
-    ["Price List", effectivePriceList?.name],
+    // reference: the price list name links to that list
+    ["Price List", effectivePriceList?.name && (
+      <Link component={RouterLink} to={`/customers/price-lists/${effectivePriceList.id}`} sx={{ color: "#0000ee", textDecorationColor: "#0000ee" }}>
+        {effectivePriceList.name}
+      </Link>
+    )],
     // Loyalty program on + this customer (or their group) earns -> show the balance
     // (as text, so 0 still shows).
     ["Loyalty Points",
       loyaltyInfo?.enabled && (customer.loyaltyEnabled || customer.customerGroup?.loyaltyEnabled)
         ? Number(loyaltyInfo.points || 0).toLocaleString()
         : null],
+    // reference: the strip ends with the balance, $0.00 included
+    ["Current Owing", formatCurrency(currentOwing)],
   ].filter(([, value]) => value);
+
+  // Revision History: money fields read "$71.95" with the cents set small, as the
+  // reference prints them; every other value goes through formatRevisionValue.
+  const MONEY_REVISION_FIELD = /owing|limit|balance/i;
+  const renderRevisionValue = (field, value) => {
+    const n = Number(value);
+    if (!MONEY_REVISION_FIELD.test(String(field || "")) || value === null || value === "" || !Number.isFinite(n)) {
+      return formatRevisionValue(value);
+    }
+    const [dollars, cents] = formatCurrency(n).split(".");
+    return <>{dollars}.<Box component="span" sx={{ fontSize: "11px" }}>{cents}</Box></>;
+  };
 
   const navigationItems = [
     { id: "home", label: "Home", icon: <HomeIcon /> },
@@ -905,32 +926,30 @@ const CustomerView = () => {
                   <CircularProgress />
                 </Box>
               ) : (
-              <TableContainer sx={{ flex: 1 }}>
-                <Table size="small">
+              // Same look as the product's Revision History: #f8f8f8 pane, black
+              // grid, white header row carrying the widget shadow.
+              <TableContainer sx={{ flex: 1, ...SECTION_ROOT_SX }}>
+                {/* fixed widths (reference): auto layout gave From/To most of the row */}
+                <Table sx={{ ...GRID_TABLE_SX, tableLayout: "fixed", "& thead tr": { backgroundColor: "#fff", boxShadow: WIDGET_SHADOW } }}>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 700 }}>Field</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>From</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>To</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>User</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Timestamp</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell colSpan={5} sx={{ bgcolor: "#eeeeee" }}>
-                        <Typography variant="caption">
-                          Please Note: Revisions may take up to five minutes to
-                          appear
-                        </Typography>
-                      </TableCell>
+                      {[["Field", "31%"], ["From", "13.5%"], ["To", "13.5%"], ["User", "14%"], ["Timestamp", "28%"]].map(([h, w]) => (
+                        <TableCell key={h} sx={{ width: w }}>{h}</TableCell>
+                      ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        Please Note: Revisions may take up to five minutes to appear
+                      </TableCell>
+                    </TableRow>
                     {revisions && revisions.length > 0 ? (
                       revisions.map((rev, idx) => (
                         <TableRow key={`rev-${idx}`}>
                           <TableCell>{rev.field}</TableCell>
-                          <TableCell>{formatRevisionValue(rev.from)}</TableCell>
-                          <TableCell>{formatRevisionValue(rev.to)}</TableCell>
+                          <TableCell>{renderRevisionValue(rev.field, rev.from)}</TableCell>
+                          <TableCell>{renderRevisionValue(rev.field, rev.to)}</TableCell>
                           <TableCell>{rev.user || "-"}</TableCell>
                           <TableCell>{formatDateTime(rev.timestamp)}</TableCell>
                         </TableRow>
@@ -986,17 +1005,21 @@ const CustomerView = () => {
                   borderRadius: 0,
                 }}
               >
+                {/* Reference: shading alternates per SALE (all its lines share it),
+                    a rule closes each sale, every line repeats its timestamp and
+                    user, and only the item name is left-aligned. */}
                 <Table
                   sx={{
                     "& td, & th": { border: "none" },
-                    "& tbody tr:nth-of-type(odd)": { bgcolor: "#fff" },
-                    "& tbody tr:nth-of-type(even)": { bgcolor: "#f8f8f8" },
+                    "& td": { fontSize: "16px", color: "#000", padding: "8px 8px 8px 10px", textAlign: "center" },
+                    "& td.cv-item": { textAlign: "left" },
+                    "& tr.cv-last td": { borderBottom: "1px solid #6b6b6b" },
                   }}
                 >
                   <TableHead>
                     <TableRow>
                       {["Timestamp", "User", "Quantity", "Item", "Price"].map(
-                        (h) => (
+                        (h, i, all) => (
                           <TableCell
                             key={h}
                             sx={{
@@ -1006,6 +1029,7 @@ const CustomerView = () => {
                               fontWeight: 700,
                               padding: "8px",
                               textAlign: "center",
+                              ...(i < all.length - 1 && { borderRight: "1px solid #3d8fbd !important" }),
                             }}
                           >
                             {h}
@@ -1016,48 +1040,22 @@ const CustomerView = () => {
                   </TableHead>
                   <TableBody>
                     {sales.length > 0 ? (
-                      sales.map((sale) =>
-                        sale.items.map((item, itemIndex) => (
-                          <TableRow key={`${sale.id}-${itemIndex}`}>
-                            {itemIndex === 0 ? (
-                              <TableCell
-                                rowSpan={sale.items.length}
-                                sx={{ fontSize: "16px", color: "#000", padding: "8px 8px 8px 10px" }}
-                              >
-                                {new Date(sale.saleDate).toLocaleString(
-                                  "en-GB",
-                                  {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    second: "2-digit",
-                                    hour12: false,
-                                  }
-                                )}
-                              </TableCell>
-                            ) : null}
-                            {itemIndex === 0 ? (
-                              <TableCell
-                                rowSpan={sale.items.length}
-                                sx={{ fontSize: "16px", color: "#000", padding: "8px 8px 8px 10px" }}
-                              >
-                                {sale.user?.name || "-"}
-                              </TableCell>
-                            ) : null}
-                            <TableCell sx={{ fontSize: "16px", color: "#000", padding: "8px 8px 8px 10px" }}>
-                              {item.quantity}
-                            </TableCell>
-                            <TableCell sx={{ fontSize: "16px", color: "#000", padding: "8px 8px 8px 10px" }}>
-                              {item.productName}
-                            </TableCell>
-                            <TableCell sx={{ fontSize: "16px", color: "#000", padding: "8px 8px 8px 10px" }}>
-                              ${item.totalPrice?.toFixed(2) || "0.00"}
-                            </TableCell>
+                      sales.map((sale, saleIndex) => {
+                        const when = formatDateTime(sale.saleDate);
+                        return sale.items.map((item, itemIndex) => (
+                          <TableRow
+                            key={`${sale.id}-${itemIndex}`}
+                            className={itemIndex === sale.items.length - 1 ? "cv-last" : undefined}
+                            sx={{ bgcolor: saleIndex % 2 === 0 ? "#e8e8e8" : "#fff" }}
+                          >
+                            <TableCell>{when}</TableCell>
+                            <TableCell>{sale.user?.name || "-"}</TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell className="cv-item">{item.productName}</TableCell>
+                            <TableCell>${item.totalPrice?.toFixed(2) || "0.00"}</TableCell>
                           </TableRow>
-                        ))
-                      )
+                        ));
+                      })
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} align="center" sx={{ fontSize: "16px", color: "#000" }}>
