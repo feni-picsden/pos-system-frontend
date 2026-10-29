@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -14,185 +14,107 @@ import {
   CircularProgress,
   Alert,
   InputAdornment,
-  MenuItem,
+  Autocomplete,
+  Checkbox,
+  Button,
 } from '@mui/material';
 import {
-  CloudUpload as CloudUploadIcon,
-  Description as DescriptionIcon,
+  CloudOutlined as CloudOutlinedIcon,
+  DescriptionOutlined as DescriptionOutlinedIcon,
   Block as BlockIcon,
-  FileUploadOutlined as FileUploadOutlinedIcon,
+  Outbox as OutboxIcon,
+  CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
+  CheckBox as CheckBoxIcon,
+  ArrowDropDown as ArrowDropDownIcon,
 } from '@mui/icons-material';
 import productService from '../../services/productService';
 import shelfTicketService from '../../services/shelfTicketService';
+import { priceSetService } from '../../services/priceSetService';
+import cappedPricingService from '../../services/cappedPricingService';
+import { rowsFromCappedPricingCsv, programNameFromFile } from '../../utils/cappedPricingCsv';
+import { queueEverydayTicket } from '../../utils/priceChangeTicket';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
+// Reference Capped Pricing (help centre art. 360000099231 "Capped Pricing (Core
+// or Maximum Shelf Price)", art. 360029656231 "Importing a Capped Pricing File"):
+//   Provided  - the banner group's program (none here until a feed exists)
+//   Imported  - the store's own CSV (name, supplier code, quantity, price, start
+//               date, end date), kept on the server for every device
+// Current Price saves when the box is left, prints an Everyday shelf ticket, and
+// shows red (but still saves) above the cap. % is the margin at the current price.
 const HELP_URL = 'https://support.onshopfront.com/hc/en-us/articles/360029656231';
+const DEFAULT_SET = 'Default Price Set';
 
-// ponytail: no banner-group endpoint exists, so the capped pricing loaded via CSV IS the
-// provided program (per the help docs: "stores may already have it loaded, otherwise you
-// load it yourself"). Persisted locally so it survives reloads. Swap for the API when one lands.
-const STORE_KEY = 'cappedPricing.provided';
-
-const readStored = () => {
-  try {
-    return JSON.parse(localStorage.getItem(STORE_KEY)) || [];
-  } catch {
-    return [];
-  }
-};
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB') : '-');
 
 const CappedPricing = () => {
+  const { selectedOutletId } = useSelectedOutlet();
   const [activeTab, setActiveTab] = useState('provided');
-  const [loading, setLoading] = useState(false);
-  const [searchTerm] = useState('');
-  const [priceSetFilter, setPriceSetFilter] = useState('all');
-  const [cappedProducts, setCappedProducts] = useState([]);
-  const [importedPricing, setImportedPricing] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState([]);
+  const [priceSets, setPriceSets] = useState([DEFAULT_SET]);
+  const [selectedSets, setSelectedSets] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
+  // the Current Price being typed: { id, value }
+  const [draft, setDraft] = useState(null);
+  // reference: "Price Set" is the placeholder until the box is opened or has a pick
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  useEffect(() => {
-    loadCappedPricing();
-  }, []);
-
-  const loadCappedPricing = async () => {
-    const stored = readStored();
-    if (stored.length === 0) {
-      setCappedProducts([]);
-      return;
-    }
-
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Refresh current prices from the products API so the % column is live.
-      const matchResult = await productService.matchCappedPricing(
-        stored.map(({ name, supplierCode, quantity }) => ({
-          name,
-          supplierCode,
-          quantity: Number(quantity) || 1
-        }))
-      );
-      setCappedProducts(
-        stored.map((item, index) => {
-          const matched = matchResult.matchedProducts?.[index];
-          return {
-            ...item,
-            productId: matched?.productId ?? item.productId ?? null,
-            productName: matched?.productName || item.productName || item.name,
-            priceSet: matched?.priceSet || item.priceSet || 'Default Price Set',
-            currentPrice: matched?.currentPrice ?? item.currentPrice ?? 0,
-          };
-        })
-      );
+      const data = await cappedPricingService.getCappedPricing();
+      setRows(data?.cappedPrices || []);
     } catch (err) {
       console.error('Error loading capped pricing:', err);
-      setCappedProducts(stored);
+      setError(err?.response?.data?.error || 'Failed to load capped pricing');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  const parseDate = (dateStr) => {
-    if (!dateStr) return null;
-    const date = new Date(dateStr);
-    return isNaN(date.getTime()) ? null : date;
-  };
-
-  const parseCSV = (text) => {
-    const lines = text.split('\n').filter(line => line.trim());
-    if (lines.length === 0) {
-      throw new Error('CSV file is empty');
-    }
-
-    let startIndex = 0;
-    const firstLine = lines[0].toLowerCase();
-
-    if (firstLine.includes('name') || firstLine.includes('supplier') || firstLine.includes('price')) {
-      startIndex = 1;
-    }
-
-    const results = [];
-    for (let i = startIndex; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
-
-      if (values.length >= 6) {
-        results.push({
-          id: `import-${Date.now()}-${i}`,
-          name: values[0],
-          supplierCode: values[1],
-          quantity: parseFloat(values[2]) || 1,
-          cappedPrice: parseFloat(values[3]) || 0,
-          startDate: parseDate(values[4]),
-          endDate: parseDate(values[5]),
-          currentPrice: 0,
-        });
-      }
-    }
-
-    return results;
-  };
+  useEffect(() => {
+    load();
+    priceSetService.getPriceSets()
+      .then((r) => setPriceSets([DEFAULT_SET, ...(r?.priceSets || []).map((s) => s.name)]))
+      .catch(() => {});
+    // the navbar outlet changes the scope
+  }, [load, selectedOutletId]);
 
   const processFile = async (file) => {
     if (!file) return;
-
-    if (!file.name.endsWith('.csv')) {
+    if (!/\.csv$/i.test(file.name)) {
       setError('Please upload a CSV file');
       return;
     }
-
-    setLoading(true);
     setError(null);
     setSuccess(null);
-
+    setLoading(true);
     try {
-      const text = await file.text();
-      const parsed = parseCSV(text);
-
+      const { rows: parsed, skipped } = rowsFromCappedPricingCsv(await file.text());
       if (parsed.length === 0) {
-        throw new Error('No valid data found in CSV file');
+        throw new Error(skipped.length
+          ? `No valid rows: ${skipped.slice(0, 3).map((s) => `line ${s.line} - ${s.reason}`).join('; ')}`
+          : 'No valid data found in CSV file');
       }
-
-      const itemsToMatch = parsed.map(item => ({
-        name: item.name,
-        supplierCode: item.supplierCode,
-        // The cap's tier - the backend compares against this quantity's price row
-        quantity: Number(item.quantity) || 1
-      }));
-
-      const matchResult = await productService.matchCappedPricing(itemsToMatch);
-
-      const mergedData = parsed.map((item, index) => {
-        const matched = matchResult.matchedProducts[index];
-        return {
-          ...item,
-          productId: matched?.productId || null,
-          productName: matched?.productName || item.name,
-          priceSet: matched?.priceSet || 'Default Price Set',
-          currentPrice: matched?.currentPrice || 0,
-          itemCost: matched?.itemCost || 0,
-          matched: !!matched?.productId
-        };
+      const result = await cappedPricingService.importCappedPricing({
+        programName: programNameFromFile(file.name),
+        rows: parsed,
       });
-
-      setImportedPricing(mergedData);
-      // The imported program becomes the store's capped pricing (Provided tab).
-      localStorage.setItem(STORE_KEY, JSON.stringify(mergedData));
-      setCappedProducts(mergedData);
-
-      const matchedCount = mergedData.filter(item => item.matched).length;
+      setRows(result?.cappedPrices || []);
+      setActiveTab('imported');
+      const skippedAll = [...skipped, ...(result?.skipped || [])];
       setSuccess(
-        `Successfully imported ${parsed.length} items. ${matchedCount} products matched with database.`
+        `Successfully imported ${result?.imported ?? parsed.length} items. ${result?.matched ?? 0} products matched with database.`
+        + (skippedAll.length ? ` ${skippedAll.length} line${skippedAll.length === 1 ? '' : 's'} skipped (${skippedAll.slice(0, 2).map((s) => `line ${s.line}: ${s.reason}`).join('; ')}${skippedAll.length > 2 ? '; ...' : ''}).` : '')
       );
-
-      setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
-      console.error('Error parsing CSV:', err);
-      setError(err.message || 'Failed to parse CSV file. Please check the format.');
+      console.error('Error importing capped pricing:', err);
+      setError(err?.response?.data?.error || err.message || 'Failed to import the file. Please check the format.');
     } finally {
       setLoading(false);
     }
@@ -202,12 +124,7 @@ const CappedPricing = () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.csv';
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        processFile(file);
-      }
-    };
+    input.onchange = (e) => processFile(e.target.files[0]);
     input.click();
   };
 
@@ -221,72 +138,40 @@ const CappedPricing = () => {
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
   };
 
-  // Live edit: keep the typed string so the % column recalculates on every keystroke.
-  const handlePriceChange = (itemId, value) => {
-    const update = (list) =>
-      list.map(item => (item.id === itemId ? { ...item, currentPrice: value } : item));
-
-    if (activeTab === 'imported') {
-      setImportedPricing(update);
-    } else {
-      setCappedProducts(update);
-    }
-  };
-
-  // Auto-save on blur (no Save button on the reference). Prices above the cap are still saved.
-  const handlePriceBlur = async (item) => {
-    const price = parseFloat(item.currentPrice);
-
-    // A cleared cell must never save $0.00 - the product would ring up free.
+  // Auto-save on leaving the box (no Save button on the reference). A price
+  // above the cap is still saved; a cleared / zero price never is.
+  const savePrice = async (row, raw) => {
+    const price = round2(parseFloat(raw));
     if (!Number.isFinite(price) || price <= 0) {
       setError('Price must be greater than zero - change not saved');
       return;
     }
-
-    handlePriceChange(item.id, price);
-
-    if (!item.productId) return;
-
+    // only an existing tier is modified, never a new one created
+    if (!row.productId || row.currentPrice == null || Math.abs(price - Number(row.currentPrice)) < 0.005) return;
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, currentPrice: price } : r)));
     try {
-      // The cap row's quantity is part of the price identity: a 6-pack cap must
-      // update the 6-pack tier, not the single.
-      await productService.bulkUpdatePrices([{
-        productId: item.productId,
-        quantity: Number(item.quantity) || 1,
-        price
-      }]);
-      // Help docs: applying the price change also queues the product for shelf ticket printing.
-      await shelfTicketService
-        .addShelfTicket({ productId: item.productId, ticketType: 'Everyday', productGrouping: null })
-        .catch((err) => console.error('Error adding shelf ticket:', err));
-
-      const persisted = readStored().map((p) =>
-        p.id === item.id ? { ...p, currentPrice: price } : p
-      );
-      localStorage.setItem(STORE_KEY, JSON.stringify(persisted));
+      // The cap row's quantity is part of the price identity: a 6-pack cap
+      // updates the 6-pack tier, not the single.
+      await productService.bulkUpdatePrices([{ productId: row.productId, quantity: Number(row.quantity) || 1, price }]);
+      // Help docs: the price change adds the product to Shelf Tickets for printing.
+      await queueEverydayTicket(shelfTicketService, row.productId);
       setLastSaved(new Date());
     } catch (err) {
       console.error('Error saving price:', err);
-      setError('Failed to save price change');
+      setError(err?.response?.data?.error || 'Failed to save price change');
+      await load();
     }
   };
 
-  const source = activeTab === 'provided' ? cappedProducts : importedPricing;
-  const priceSets = [...new Set(source.map(p => p.priceSet || 'Default Price Set'))];
-  const filteredProducts = source.filter(p => {
-    const ps = p.priceSet || 'Default Price Set';
-    return (priceSetFilter === 'all' || ps === priceSetFilter)
-      && (p.productName || p.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-  });
-
-  const formatDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB') : '-');
+  const tabRows = useMemo(() => rows.filter((r) => (activeTab === 'provided' ? r.source === 'provided' : r.source === 'imported')), [rows, activeTab]);
+  const shownRows = useMemo(
+    () => (selectedSets.length ? tabRows.filter((r) => selectedSets.includes(r.priceSet || DEFAULT_SET)) : tabRows),
+    [tabRows, selectedSets]
+  );
 
   const statusLabel = lastSaved
     ? `Last saved: ${lastSaved.toLocaleDateString('en-GB')} ${lastSaved.toLocaleTimeString('en-GB')}`
@@ -308,6 +193,7 @@ const CappedPricing = () => {
     },
   };
 
+  // Reference (live app): bold title-case labels on a blue band with rounded ends
   const headCellSx = {
     color: '#ffffff',
     fontWeight: 700,
@@ -316,50 +202,37 @@ const CappedPricing = () => {
     border: 'none',
     py: 0,
     height: 51,
+    whiteSpace: 'nowrap',
+    '&:first-of-type': { borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },
+    '&:last-of-type': { borderTopRightRadius: 8, borderBottomRightRadius: 8 },
   };
 
   const bodyCellSx = {
     fontSize: 16,
     color: '#000000',
     border: 'none',
-    height: 85,
+    borderBottom: '1px solid #e5e7eb',
+    py: 1.5,
+    verticalAlign: 'middle',
   };
 
-  const EmptyState = ({ icon: Icon, title, description }) => (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        py: 8,
-        textAlign: 'center',
-      }}
-    >
-      <Icon sx={{ fontSize: 80, color: '#000', mb: 2 }} />
-      <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
-        {title}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {description}
-      </Typography>
+  const EmptyState = ({ title, description }) => (
+    // Reference: big icon on the left, title + description beside it
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, py: 8 }}>
+      <BlockIcon sx={{ fontSize: 140, color: '#000' }} />
+      <Box>
+        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 3 }}>{title}</Typography>
+        <Typography sx={{ fontSize: 16, color: '#000' }}>{description}</Typography>
+      </Box>
     </Box>
   );
 
-  const FileUploadZone = () => (
+  const uploadZone = (
     <Box>
-      <Typography variant="h6" fontWeight={600} sx={{ mb: 3 }}>
-        Imported
-      </Typography>
-
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>
         Looking for the file format?{' '}
-        <a href={HELP_URL} target="_blank" rel="noreferrer">
-          Click here
-        </a>
-        .
+        <a href={HELP_URL} target="_blank" rel="noreferrer">Click here</a>.
       </Typography>
-
       <Box
         component="button"
         type="button"
@@ -384,12 +257,10 @@ const CappedPricing = () => {
           boxShadow: 'inset 0px 2px 4px rgba(0, 0, 0, 0.05)',
           cursor: 'pointer',
           textAlign: 'center',
-          '&:hover': {
-            bgcolor: 'rgba(64, 64, 64, 0.05)',
-          },
+          '&:hover': { bgcolor: 'rgba(64, 64, 64, 0.05)' },
         }}
       >
-        <FileUploadOutlinedIcon sx={{ fontSize: 48, color: '#a3a3a3' }} />
+        <OutboxIcon sx={{ fontSize: 56, color: '#a3a3a3' }} />
         {dragActive ? (
           <Typography sx={{ fontSize: 14, color: '#525252' }}>Drop file to upload</Typography>
         ) : (
@@ -402,13 +273,199 @@ const CappedPricing = () => {
     </Box>
   );
 
+  // Reference: a multi-select of the store's price sets beside the section
+  // heading - picked sets as grey chips ("1 More..." past two), the list showing
+  // the picked ones first in blue, a rule, then every set.
+  const pickerOptions = [
+    ...selectedSets.map((name) => ({ name, top: true })),
+    ...priceSets.map((name) => ({ name, top: false })),
+  ];
+  const priceSetPicker = (
+    <Autocomplete
+      multiple
+      disableCloseOnSelect
+      disableClearable
+      onOpen={() => setPickerOpen(true)}
+      onClose={() => setPickerOpen(false)}
+      options={pickerOptions}
+      // Reference chips: grey, no delete cross, at most two then "N More..." -
+      // open or closed (MUI's limitTags shows them all while focused).
+      renderTags={(value) => {
+        const chipSx = { display: 'inline-flex', alignItems: 'center', borderRadius: '4px', bgcolor: '#e5e7eb', color: '#000', fontSize: 15, height: 26, px: 1, mr: 1, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+        return [
+          ...value.slice(0, 2).map((o) => <Box key={o.name} component="span" sx={chipSx}>{o.name}</Box>),
+          ...(value.length > 2 ? [<Box key="more" component="span" sx={chipSx}>{value.length - 2} More...</Box>] : []),
+        ];
+      }}
+      value={selectedSets.map((name) => ({ name, top: true }))}
+      onChange={(e, v) => setSelectedSets([...new Set(v.map((o) => o.name))])}
+      getOptionLabel={(o) => o.name}
+      isOptionEqualToValue={(o, v) => o.name === v.name}
+      groupBy={(o) => (o.top ? 'picked' : 'all')}
+      renderGroup={(params) => (
+        <li key={params.key}>
+          {params.group === 'all' && selectedSets.length > 0 && <Box sx={{ borderTop: '1px solid #000', mx: 0 }} />}
+          <ul style={{ padding: 0 }}>{params.children}</ul>
+        </li>
+      )}
+      popupIcon={<ArrowDropDownIcon sx={{ color: '#808080' }} />}
+      renderOption={(props, option, { selected }) => (
+        <li {...props} key={`${option.top ? 'p' : 'a'}-${option.name}`} style={{ fontSize: 16, minHeight: 56, color: selected ? '#29b6f6' : '#000' }}>
+          <Checkbox
+            icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+            checkedIcon={<CheckBoxIcon fontSize="small" />}
+            checked={selected}
+            sx={{ mr: 1, p: 0, color: selected ? '#29b6f6 !important' : '#404040' }}
+          />
+          {option.name}
+        </li>
+      )}
+      slotProps={{
+        paper: {
+          sx: {
+            border: '1px solid #000',
+            borderRadius: '8px',
+            // smooth open: fade + slight drop instead of popping in
+            '@keyframes cpPickerIn': {
+              from: { opacity: 0, transform: 'translateY(-6px)' },
+              to: { opacity: 1, transform: 'translateY(0)' },
+            },
+            animation: 'cpPickerIn 180ms ease-out',
+            '& .MuiAutocomplete-listbox': { padding: 0 },
+            // option rows only - the group wrapper is an <li> too
+            '&& li.MuiAutocomplete-option': { minHeight: 56, padding: '16px', backgroundColor: '#fff' },
+            '&& li.MuiAutocomplete-option.Mui-focused, && li.MuiAutocomplete-option:hover': { backgroundColor: '#7dd3fc', color: '#000' },
+          },
+        },
+      }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          placeholder={selectedSets.length || pickerOpen ? '' : 'Price Set'}
+          inputProps={{ ...params.inputProps, 'aria-label': 'Price Set' }}
+          sx={{
+            minWidth: 420,
+            '& .MuiOutlinedInput-root': {
+              minHeight: 42,
+              // same 42px box as the other selects (MUI's multiple padding made it 56)
+              paddingTop: '0 !important',
+              paddingBottom: '0 !important',
+              borderRadius: '8px',
+              bgcolor: '#fff',
+              fontSize: 16,
+              '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
+              '&:hover fieldset': { borderColor: '#404040' },
+              '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '2px' },
+            },
+            '& input::placeholder': { color: '#808080', opacity: 1, fontSize: 16 },
+            '& .MuiAutocomplete-popupIndicator': { transform: 'none' },
+            '& .MuiAutocomplete-popupIndicatorOpen': { transform: 'none' },
+          }}
+        />
+      )}
+    />
+  );
+
+  const table = (
+    <TableContainer>
+      <Table sx={{ tableLayout: 'fixed' }}>
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ ...headCellSx, width: '25%' }}>Product</TableCell>
+            <TableCell sx={{ ...headCellSx, width: '18%' }}>Capped Pricing</TableCell>
+            <TableCell sx={{ ...headCellSx, width: '10%' }}>Start Date</TableCell>
+            <TableCell sx={{ ...headCellSx, width: '10%' }}>End Date</TableCell>
+            <TableCell sx={{ ...headCellSx, width: '8%' }} align="center">Quantity</TableCell>
+            <TableCell sx={{ ...headCellSx, width: '10%' }} align="center">Capped Price</TableCell>
+            <TableCell sx={{ ...headCellSx, width: '15%' }} align="center">Current Price</TableCell>
+            <TableCell sx={{ ...headCellSx, width: '8%' }} align="center">%</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {shownRows.map((row) => {
+            const matched = !!row.productId;
+            // Reference: "modify the Current Price" - the product's existing price
+            // for the cap's quantity. With no such tier there is nothing to modify;
+            // typing here used to create a brand-new tier on the product.
+            const hasTier = matched && row.currentPrice != null;
+            const editable = hasTier;
+            const typing = draft?.id === row.id;
+            const current = typing ? Number(draft.value) : Number(row.currentPrice);
+            const hasCurrent = Number.isFinite(current) && current > 0;
+            const overCap = hasCurrent && current > Number(row.cappedPrice);
+            // Margin at the current price on the tier's cost (itemCost x quantity),
+            // as the reference's % column reads (14.99 on a $16 cap -> 39.63%).
+            const cost = round2((row.itemCost || 0) * (Number(row.quantity) || 1));
+            const marginPct = hasCurrent ? ((current - cost) / current) * 100 : null;
+            return (
+              <TableRow key={row.id} sx={{ bgcolor: '#ffffff' }}>
+                <TableCell sx={bodyCellSx}>
+                  <Typography sx={{ fontSize: 12, color: '#676b72' }}>{row.priceSet || DEFAULT_SET}</Typography>
+                  <Typography sx={{ fontSize: 16, fontWeight: 600, color: '#000' }}>{row.productName || row.name}</Typography>
+                  {!matched && <Typography sx={{ fontSize: 12, color: '#dc2626' }}>Not matched to a product</Typography>}
+                  {matched && !hasTier && (
+                    <Typography sx={{ fontSize: 12, color: '#dc2626' }}>
+                      No price for quantity {row.quantity || 1} on this product - add it on the product page
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell sx={bodyCellSx}>{row.programName || '-'}</TableCell>
+                <TableCell sx={bodyCellSx}>{fmtDate(row.startDate)}</TableCell>
+                <TableCell sx={bodyCellSx}>{fmtDate(row.endDate)}</TableCell>
+                <TableCell sx={bodyCellSx} align="center">{row.quantity || 1}</TableCell>
+                <TableCell sx={bodyCellSx} align="center">${Number(row.cappedPrice || 0).toFixed(2)}</TableCell>
+                <TableCell sx={bodyCellSx} align="center">
+                  <TextField
+                    type="number"
+                    disabled={!editable}
+                    value={typing ? draft.value : (row.currentPrice == null ? '' : Number(row.currentPrice).toFixed(2))}
+                    onFocus={() => setDraft({ id: row.id, value: row.currentPrice == null ? '' : Number(row.currentPrice).toFixed(2) })}
+                    onChange={(e) => setDraft({ id: row.id, value: e.target.value })}
+                    onBlur={() => { const d = draft; setDraft(null); if (d && d.id === row.id) savePrice(row, d.value); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Box component="span" sx={{ color: '#676b72' }}>$</Box>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      width: 233,
+                      maxWidth: '100%',
+                      '& .MuiOutlinedInput-root': {
+                        height: 53,
+                        borderRadius: '8px',
+                        bgcolor: editable ? '#fff' : '#f3f4f6',
+                        fontSize: 16,
+                        color: overCap ? '#dc2626' : '#000000',
+                        '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
+                        '&:hover fieldset': { borderColor: '#404040' },
+                        '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '2px' },
+                      },
+                    }}
+                  />
+                </TableCell>
+                <TableCell sx={{ ...bodyCellSx, color: overCap ? '#dc2626' : '#000000', fontWeight: 600 }} align="center">
+                  {marginPct == null ? '-' : `${marginPct.toFixed(2)}%`}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+
+  const heading = activeTab === 'provided' ? 'Provided' : 'Imported';
+
   return (
-    <Box sx={{ p: 3, bgcolor: '#e2e8f0', minHeight: '100vh' }}>
+    // Reference: grey band holds the title + tabs; the white content runs full width below
+    <Box sx={{ bgcolor: '#ffffff', minHeight: '100vh' }}>
+      <Box sx={{ bgcolor: '#e2e8f0', px: 3, pt: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>
-          Capped Pricing
-        </Typography>
+        <Typography variant="h5" fontWeight={700}>Capped Pricing</Typography>
         <Box
           sx={{
             display: 'inline-flex',
@@ -430,170 +487,64 @@ const CappedPricing = () => {
       {/* Tabs */}
       <Tabs
         value={activeTab}
-        onChange={handleTabChange}
+        onChange={(e, v) => { setActiveTab(v); setSelectedSets([]); }}
         TabIndicatorProps={{ sx: { display: 'none' } }}
         sx={{ minHeight: 56, mb: 0, '& .MuiTab-root': tabSx }}
       >
-        <Tab
-          icon={<CloudUploadIcon />}
-          iconPosition="start"
-          label="Provided"
-          value="provided"
-        />
-        <Tab
-          icon={<DescriptionIcon />}
-          iconPosition="start"
-          label="Imported"
-          value="imported"
-        />
+        <Tab icon={<CloudOutlinedIcon sx={{ fontSize: 20 }} />} iconPosition="start" label="Provided" value="provided" />
+        <Tab icon={<DescriptionOutlinedIcon sx={{ fontSize: 20 }} />} iconPosition="start" label="Imported" value="imported" />
       </Tabs>
-
-      {/* Error and Success Messages */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
-          {success}
-        </Alert>
-      )}
+      </Box>
 
       {/* Content */}
       <Box sx={{ bgcolor: '#ffffff', p: 3 }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : activeTab === 'imported' && importedPricing.length === 0 ? (
-          <FileUploadZone />
-        ) : source.length === 0 ? (
-          <EmptyState
-            icon={BlockIcon}
-            title="No Capped Pricing"
-            description={
-              activeTab === 'provided'
-                ? 'No product with capped pricing found'
-                : 'No imported capped pricing found'
-            }
-          />
-        ) : (
-          <>
-            {priceSets.length > 1 && (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                <TextField
-                  select
-                  size="small"
-                  label="Filter by Price Set"
-                  value={priceSetFilter}
-                  onChange={(e) => setPriceSetFilter(e.target.value)}
-                  sx={{
-                    minWidth: 240,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '8px',
-                      bgcolor: '#fff',
-                      fontSize: 16,
-                      '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-                      '&:hover fieldset': { borderColor: '#404040' },
-                      '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '2px' },
-                    },
-                  }}
-                >
-                  <MenuItem value="all">All Price Sets</MenuItem>
-                  {priceSets.map((ps) => (
-                    <MenuItem key={ps} value={ps}>{ps}</MenuItem>
-                  ))}
-                </TextField>
-              </Box>
-            )}
-            {filteredProducts.length === 0 ? (
-              <EmptyState
-                icon={BlockIcon}
-                title="No Capped Pricing"
-                description="No products match the selected price set"
-              />
-            ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={headCellSx}>Product</TableCell>
-                  <TableCell sx={headCellSx}>Capped Pricing</TableCell>
-                  <TableCell sx={headCellSx}>Start Date</TableCell>
-                  <TableCell sx={headCellSx}>End Date</TableCell>
-                  <TableCell sx={headCellSx}>Quantity</TableCell>
-                  <TableCell sx={headCellSx}>Capped Price</TableCell>
-                  <TableCell sx={headCellSx}>Current Price</TableCell>
-                  <TableCell sx={headCellSx}>%</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredProducts.map((product) => {
-                  const currentPrice = parseFloat(product.currentPrice) || 0;
-                  const cappedPrice = product.cappedPrice || 0;
-                  const overCap = currentPrice > cappedPrice;
-                  // Reference always shows a positive magnitude (difference from cap), never negative.
-                  const differencePercent = cappedPrice > 0
-                    ? (Math.abs((currentPrice - cappedPrice) / cappedPrice) * 100).toFixed(2)
-                    : '0.00';
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
 
-                  return (
-                    <TableRow key={product.id} sx={{ bgcolor: '#ffffff' }}>
-                      <TableCell sx={bodyCellSx}>
-                        <Typography sx={{ fontSize: 12, color: '#676b72' }}>
-                          {product.priceSet || 'Default Price Set'}
-                        </Typography>
-                        <Typography sx={{ fontSize: 16, fontWeight: 600, color: '#000' }}>
-                          {product.productName || product.name}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={bodyCellSx}>{product.cappedPricingName || '-'}</TableCell>
-                      <TableCell sx={bodyCellSx}>{formatDate(product.startDate)}</TableCell>
-                      <TableCell sx={bodyCellSx}>{formatDate(product.endDate)}</TableCell>
-                      <TableCell sx={bodyCellSx}>{product.quantity || 1}</TableCell>
-                      <TableCell sx={bodyCellSx}>${cappedPrice.toFixed(2)}</TableCell>
-                      <TableCell sx={bodyCellSx}>
-                        <TextField
-                          type="number"
-                          value={product.currentPrice}
-                          onChange={(e) => handlePriceChange(product.id, e.target.value)}
-                          onBlur={() => handlePriceBlur(product)}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Box component="span" sx={{ color: '#676b72' }}>$</Box>
-                              </InputAdornment>
-                            ),
-                          }}
-                          sx={{
-                            width: 233,
-                            '& .MuiOutlinedInput-root': {
-                              height: 53,
-                              borderRadius: '8px',
-                              bgcolor: '#fff',
-                              fontSize: 16,
-                              color: overCap ? '#dc2626' : '#000000',
-                              '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-                              '&:hover fieldset': { borderColor: '#404040' },
-                              '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '2px' },
-                            },
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell
-                        sx={{ ...bodyCellSx, color: overCap ? '#dc2626' : '#000000', fontWeight: 600 }}
-                      >
-                        {differencePercent}%
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-            )}
-          </>
+        {/* Section heading + Price Set picker (reference: on both tabs) */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          <Typography variant="h6" fontWeight={600}>{heading}</Typography>
+          <Box>
+            {/* reference: the small label sits above the box once it is open or filled */}
+            <Typography
+              sx={{
+                fontSize: 12,
+                color: '#000',
+                mb: '4px',
+                // label floats up from the box rather than snapping in
+                opacity: pickerOpen || selectedSets.length ? 1 : 0,
+                transform: pickerOpen || selectedSets.length ? 'translateY(0)' : 'translateY(8px)',
+                transition: 'opacity 180ms ease-out, transform 180ms ease-out',
+              }}
+            >
+              Price Set
+            </Typography>
+            {priceSetPicker}
+          </Box>
+        </Box>
+
+        {/* Reference: "Use Different File" sits under the picker, right-aligned above the table */}
+        {!loading && activeTab === 'imported' && tabRows.length > 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={handleImportCSV}
+              sx={{ height: 42, px: 4, textTransform: 'none', fontSize: 16, fontWeight: 600, borderRadius: '8px', color: '#000', borderColor: '#404040', '&:hover': { borderColor: '#404040' } }}
+            >
+              Use Different File
+            </Button>
+          </Box>
+        )}
+
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+        ) : activeTab === 'imported' && tabRows.length === 0 ? (
+          uploadZone
+        ) : tabRows.length === 0 ? (
+          <EmptyState title="No Capped Pricing" description="No product with capped pricing found" />
+        ) : (
+          // a price-set filter that matches nothing leaves just the header, as the reference does
+          table
         )}
       </Box>
     </Box>
