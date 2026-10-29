@@ -97,8 +97,10 @@ const SaleDetailCard = ({
   // after the sale itself on a customer's invoice.
   const isCustomerPaymentRow = (p) => {
     if (!p?.id || isChangeRow(p) || isOnAccountPayment(p)) return false;
-    if (p.userId != null) return true;
+    // A walk-in sale (no customer) can never carry a customer payment, whoever
+    // took it: the popup behind the link answers "Not a customer payment".
     if (!sale.customerId && !sale.customer) return false;
+    if (p.userId != null) return true;
     const paidAt = new Date(p.createdAt).getTime();
     const soldAt = new Date(sale.saleDate).getTime();
     return Number.isFinite(paidAt) && Number.isFinite(soldAt) && paidAt - soldAt > 60 * 1000;

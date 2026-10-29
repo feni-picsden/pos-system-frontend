@@ -215,10 +215,11 @@ const stocktakeService = {
     }
   },
 
-  // Export stocktake template for external use
-  exportStocktakeTemplate: async (outletId, format = 'csv') => {
+  // Export Stocktake File (product list for the stocktaker)
+  exportStocktakeTemplate: async (outletId, format = 'csv', includeNoBarcode = false) => {
     try {
       const response = await apiClient.get(`/stocktakes/external/template/${outletId}/${format}`, {
+        params: { includeNoBarcode: includeNoBarcode ? 'true' : 'false' },
         responseType: 'blob'
       });
       return response.data;
@@ -228,10 +229,28 @@ const stocktakeService = {
     }
   },
 
-  // Download external stocktake file
+  // Product Matching screen data
+  getExternalStocktake: async (id) => {
+    const response = await apiClient.get(`/stocktakes/external/${id}`);
+    return response.data;
+  },
+
+  // Associate / pick duplicate / create product for one row
+  updateExternalStocktakeRow: async (id, rowId, body) => {
+    const response = await apiClient.put(`/stocktakes/external/${id}/rows/${rowId}`, body);
+    return response.data;
+  },
+
+  // Complete Product Matching -> { stocktakeId }
+  completeExternalStocktake: async (id) => {
+    const response = await apiClient.post(`/stocktakes/external/${id}/complete`);
+    return response.data;
+  },
+
+  // Export (Product Matching screen) CSV
   downloadExternalStocktake: async (id) => {
     try {
-      const response = await apiClient.get(`/stocktakes/external/${id}/download`, {
+      const response = await apiClient.get(`/stocktakes/external/${id}/export`, {
         responseType: 'blob'
       });
       return response.data;

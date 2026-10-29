@@ -40,6 +40,8 @@ import {
   FilterAlt,
   ArrowDropUp,
   ArrowDropDown,
+  PictureAsPdfOutlined,
+  DescriptionOutlined,
 } from '@mui/icons-material';
 import stocktakeService from '../../services/stocktakeService';
 
@@ -189,6 +191,7 @@ export default function StocktakeDetails() {
 
   const [applying, setApplying] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false); // "Stocktake Export" popup (PDF / CSV)
   const [categoryNames, setCategoryNames] = useState({});
   const dialogs = useAppDialogs();
   const navigate = useNavigate();
@@ -206,7 +209,10 @@ export default function StocktakeDetails() {
         applyToAll: Boolean(stocktake?.userStats?.applyToAll),
         categoryIds: Array.isArray(stocktake?.userStats?.categoryIds) ? stocktake.userStats.categoryIds : [],
       };
-  const isFullStocktake = applyScope.applyToAll || applyScope.categoryIds.length === 0;
+  // An External Stocktake has no category scope: it is Full only when it zeroes
+  // other stock (reference: "Applied ignoring other stock ... Partial Stocktake").
+  const isExternal = stocktake?.description === 'External Stocktake';
+  const isFullStocktake = applyScope.applyToAll || (!isExternal && applyScope.categoryIds.length === 0);
   const scopeChips = isFullStocktake ? [] : applyScope.categoryIds.map((cid) => (cid === 0 ? 'Product without category' : (categoryNames[cid] || `Category ${cid}`)));
 
   // Category names for the header chips.
@@ -410,6 +416,37 @@ export default function StocktakeDetails() {
     document.body.removeChild(link);
   };
 
+  // Reference "Stocktake Export" popup: PDF | CSV | Cancel. The PDF carries the
+  // same columns as the on-screen table plus the Total row.
+  const handleExportPDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const items = getFilteredItems();
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.setFontSize(16);
+    doc.text(stocktake.name || 'Stocktake', 14, 14);
+    doc.setFontSize(10);
+    const outletName = stocktake.outlet?.name || '';
+    const when = stocktake.appliedAt || stocktake.completedAt || stocktake.createdAt;
+    doc.text(`${outletName}${outletName ? '  -  ' : ''}${stocktake.status}  ${formatTimestamp(when)}`, 14, 20);
+    const fmtQty = (n) => (Number.isInteger(n) ? String(n) : Number(n).toFixed(2));
+    const body = items.map((item) => {
+      const c = getItemCost(item.product);
+      return [item.product.name, money(c), item.product.caseQuantity || 0, fmtQty(item.expected), money(item.expected * c), fmtQty(item.actual), money(item.actual * c), fmtQty(item.difference), money(item.difference * c)];
+    });
+    body.push(['Total', '', '', fmtQty(stats.expectedQty), money(stats.expectedValue), fmtQty(stats.actualQty), money(stats.actualValue), fmtQty(stats.differenceQty), money(stats.differenceValue)]);
+    autoTable(doc, {
+      head: [['Product', 'Cost', 'Case Quantity', 'Expected', 'Expected Value', 'Actual', 'Actual Value', 'Difference', 'Difference Value']],
+      body,
+      startY: 26,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [94, 187, 235], textColor: [248, 248, 248] },
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' } },
+      didParseCell: (d) => { if (d.row.index === body.length - 1) d.cell.styles.fontStyle = 'bold'; },
+    });
+    doc.save(`stocktake_${stocktake.name}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const users = statistics?.userBreakdown || [];
   const filteredItems = getFilteredItems();
 
@@ -464,7 +501,7 @@ export default function StocktakeDetails() {
           {stocktake.status === 'Completed' && (
             <Button sx={exportBtn} onClick={reopenForEdit}>Edit</Button>
           )}
-          <Button sx={exportBtn} onClick={handleExportCSV} startIcon={<Download />}>Export</Button>
+          <Button sx={exportBtn} onClick={() => setExportOpen(true)} startIcon={<Download />}>Export</Button>
           {/* Reference: "Re-Apply Stocktake" stays available on an applied stocktake
               (it sets the products back to the counted figures). A completed one
               is applied for the first time. */}
@@ -475,6 +512,34 @@ export default function StocktakeDetails() {
           )}
         </Stack>
       </Stack>
+
+      {/* Reference "Stocktake Export" popup: two blue tiles (PDF / CSV) + Cancel */}
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} PaperProps={{ sx: { borderRadius: '8px', width: 300, maxWidth: '95vw', boxShadow: 'none' } }}>
+        <Box sx={{ bgcolor: 'rgb(190,227,248)', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5 }}>
+          <Typography sx={{ color: 'rgb(38,99,143)', fontWeight: 700, fontSize: 18 }}>?</Typography>
+          <Typography sx={{ color: 'rgb(38,99,143)', fontWeight: 700, fontSize: 17 }}>Stocktake Export</Typography>
+        </Box>
+        <Box sx={{ p: 2 }}>
+          <Stack direction="row" spacing={2} justifyContent="center">
+            {[
+              { key: 'pdf', label: 'PDF', icon: <PictureAsPdfOutlined sx={{ fontSize: 40 }} />, run: handleExportPDF },
+              { key: 'csv', label: 'CSV', icon: <DescriptionOutlined sx={{ fontSize: 40 }} />, run: handleExportCSV },
+            ].map((t) => (
+              <Button
+                key={t.key}
+                onClick={async () => { setExportOpen(false); await t.run(); }}
+                sx={{ width: 126, height: 118, borderRadius: '8px', bgcolor: '#1c86f2', color: '#fff', display: 'flex', flexDirection: 'column', gap: 1, fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#1670cc' } }}
+              >
+                {t.icon}
+                {t.label}
+              </Button>
+            ))}
+          </Stack>
+          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.5 }}>
+            <Button onClick={() => setExportOpen(false)} sx={{ ...exportBtn, height: 42, minWidth: 118, borderRadius: '8px', bgcolor: '#dddddd', color: '#000', border: 'none', fontWeight: 700 }}>Cancel</Button>
+          </Stack>
+        </Box>
+      </Dialog>
 
       {/* Reference "Apply Stocktake" popup - opens right after Complete, from the
           Apply button on a completed stocktake, and after the Re-Apply warning. */}
@@ -526,7 +591,7 @@ export default function StocktakeDetails() {
 
       {/* Content - Table or Statistics */}
       {tab === 'statistics' ? (
-        <StatisticsView statistics={statistics} loading={statsLoading} />
+        <StatisticsView statistics={statistics} loading={statsLoading} external={isExternal} />
       ) : (
         <>
           {/* Search + Filter (hidden on Statistics) */}
@@ -630,7 +695,7 @@ export default function StocktakeDetails() {
 }
 
 // Statistics View Component — flat stat tiles, activity feed, per-user blocks
-function StatisticsView({ statistics, loading }) {
+function StatisticsView({ statistics, loading, external = false }) {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
@@ -650,13 +715,21 @@ function StatisticsView({ statistics, loading }) {
   const label = { fontSize: 13, color: '#676b72' };
   const bigNumber = { fontSize: 42, fontWeight: 700, lineHeight: 1.2, color: '#000' };
 
-  const tiles = [
-    { label: 'Number of scans', value: statistics.totalScans?.toLocaleString?.() ?? statistics.totalScans },
-    { label: 'Products counted', value: statistics.productsCounted?.toLocaleString?.() ?? statistics.productsCounted },
-    { label: 'Sales affecting', value: Number(statistics.salesAffecting || 0).toLocaleString() },
-    { label: 'Duration of Stocktake', value: statistics.durationFormatted },
-    { label: 'Completed', value: timeAgo(statistics.completedAt) },
-  ];
+  // Reference External Stocktake statistics (Mayfair 29/10/2026): only
+  // "Products counted" and "Completed" plus the Applied card - no scans,
+  // duration, per-user blocks or activity table (nothing was scanned).
+  const tiles = external
+    ? [
+        { label: 'Products counted', value: statistics.productsCounted?.toLocaleString?.() ?? statistics.productsCounted },
+        { label: 'Completed', value: timeAgo(statistics.completedAt) },
+      ]
+    : [
+        { label: 'Number of scans', value: statistics.totalScans?.toLocaleString?.() ?? statistics.totalScans },
+        { label: 'Products counted', value: statistics.productsCounted?.toLocaleString?.() ?? statistics.productsCounted },
+        { label: 'Sales affecting', value: Number(statistics.salesAffecting || 0).toLocaleString() },
+        { label: 'Duration of Stocktake', value: statistics.durationFormatted },
+        { label: 'Completed', value: timeAgo(statistics.completedAt) },
+      ];
 
   return (
     <Box>
@@ -691,7 +764,7 @@ function StatisticsView({ statistics, loading }) {
       )}
 
       {/* Per-user blocks */}
-      {(statistics.userBreakdown || []).map((user) => (
+      {!external && (statistics.userBreakdown || []).map((user) => (
         <Box key={user.userId} sx={{ py: 3, borderTop: '1px solid #e0e0e0' }}>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
             <Avatar sx={{ width: 36, height: 36, fontSize: 14, bgcolor: '#5ebbeb', color: '#f8f8f8' }}>
@@ -712,7 +785,7 @@ function StatisticsView({ statistics, loading }) {
         </Box>
       ))}
 
-      <ActivityTable activities={statistics.activities || []} />
+      {!external && <ActivityTable activities={statistics.activities || []} />}
     </Box>
   );
 }

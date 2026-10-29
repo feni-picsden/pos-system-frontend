@@ -43,6 +43,8 @@ import {
   EditOutlined as EditOutlinedIcon,
   DeleteOutline as DeleteIcon,
   MoveToInboxOutlined as MoveToInboxIcon,
+  QrCodeScannerOutlined as ExternalStocktakeNotifIcon,
+  HelpOutline as HelpOutlineIcon,
   Refresh as RefreshIcon,
   SyncOutlined as SyncIcon,
   CloudUploadOutlined as CloudUploadIcon,
@@ -630,6 +632,16 @@ const DashboardLayout = ({ children }) => {
   // in referenceId, or in metadata.orderId for review notifications. A
   // notification with no link (low stock, system, ...) stays a plain row.
   const notifTarget = (n) => {
+    // External Stocktake (reference): "File Imported" opens Product Matching,
+    // "Completed" opens the stocktake's Apply screen.
+    if (n?.type === 'EXTERNAL_STOCKTAKE_IMPORTED') {
+      const esId = Number(n.referenceId ?? n.metadata?.externalStocktakeId);
+      return Number.isInteger(esId) && esId > 0 ? `/stock-management/external-stocktake/${esId}` : null;
+    }
+    if (n?.type === 'EXTERNAL_STOCKTAKE_COMPLETED') {
+      const stId = Number(n.referenceId ?? n.metadata?.stocktakeId);
+      return Number.isInteger(stId) && stId > 0 ? `/stock-management/stocktakes/${stId}?apply=1` : null;
+    }
     if (String(n?.referenceType || '').toUpperCase().replace(/_/g, '') !== 'ORDERINVOICE') return null;
     const orderId = Number(n.referenceId ?? n.metadata?.orderId);
     return Number.isInteger(orderId) && orderId > 0 ? `/orders-invoices/${orderId}` : null;
@@ -1268,7 +1280,13 @@ const DashboardLayout = ({ children }) => {
                   }
                 >
                   <ListItemIcon sx={{ minWidth: 40, mt: 0.5 }}>
-                    <MoveToInboxIcon sx={{ color: '#5ebbeb' }} />
+                    {n.type === 'EXTERNAL_STOCKTAKE_IMPORTED' ? (
+                      <ExternalStocktakeNotifIcon sx={{ color: '#5ebbeb' }} />
+                    ) : n.type === 'EXTERNAL_STOCKTAKE_COMPLETED' ? (
+                      <HelpOutlineIcon sx={{ color: '#5ebbeb' }} />
+                    ) : (
+                      <MoveToInboxIcon sx={{ color: '#5ebbeb' }} />
+                    )}
                   </ListItemIcon>
                   <ListItemText
                     // The unread dot and the bin are absolutely positioned by

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -14,30 +15,32 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  Autocomplete,
+  FormControl,
+  Select,
+  MenuItem,
   FormControlLabel,
-  Chip,
   Link,
   Stack,
   Tooltip,
   Alert,
   CircularProgress,
-  IconButton,
 } from '@mui/material';
 import {
   UploadFileOutlined as ImportIcon,
   FileDownloadOutlined as ExportIcon,
   HelpOutline as HelpIcon,
+  VisibilityOutlined as ViewIcon,
   DeleteOutline as DeleteIcon,
 } from '@mui/icons-material';
 import { outletService } from '../../services/outletService';
 import stocktakeService from '../../services/stocktakeService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import ExternalStocktakeHelpDrawer from '../../components/StockManagement/ExternalStocktakeHelpDrawer';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
-const FORMAT_HELP_URL =
-  'https://support.onshopfront.com/hc/en-us/articles/34108517200909#h_01JKF6V9DC3HBSAFDNNWABBFA3';
+// Reference: Menu > Stock Management > More > External Stocktake
+// (support.onshopfront.com article 34108517200909).
 
 const toolbarBtnSx = {
   bgcolor: '#5ebbeb',
@@ -105,69 +108,74 @@ const outletFieldSx = {
     '&:hover fieldset': { borderColor: '#404040' },
     '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '2px' },
   },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
-};
-
-const outletPopperSx = {
-  '& .MuiAutocomplete-paper': {
-    borderRadius: '8px',
-    border: '1px solid #404040',
-    boxShadow: 'none',
-  },
-  // ponytail: && doubles specificity so MUI's default selected/focus tint (rgba(25,118,210,.12)) loses
-  '& .MuiAutocomplete-option': {
-    color: '#5ebbeb',
-    fontSize: 16,
-    backgroundColor: 'transparent',
-    '&&:hover': { backgroundColor: '#f8f8f8' },
-    '&&[aria-selected="true"]': { backgroundColor: '#f8f8f8' },
-    '&&.Mui-focused': { backgroundColor: '#f8f8f8' },
-    '&&[aria-selected="true"].Mui-focused': { backgroundColor: '#f8f8f8' },
-    '&&[aria-selected="true"].Mui-focusVisible': { backgroundColor: '#f8f8f8' },
-  },
+  '& .MuiSelect-select': { fontSize: 16, py: '14px' },
 };
 
 const FieldLabel = ({ children }) => (
   <Typography sx={{ mb: 1, fontSize: 14, color: '#676b72' }}>{children}</Typography>
 );
 
+// Plain dropdown like the other pages' outlet pickers (no free text / clear ✕).
 const OutletCombobox = ({ outlets, value, onChange }) => (
-  <Autocomplete
-    options={outlets}
-    getOptionLabel={(o) => o?.name || ''}
-    isOptionEqualToValue={(o, v) => o.id === v.id}
-    value={outlets.find((o) => o.id === value) || null}
-    onChange={(_e, option) => onChange(option ? option.id : '')}
-    slotProps={{ popper: { sx: outletPopperSx, className: 'sf-combo-popper' } }}
-    renderInput={(params) => (
-      <TextField {...params} placeholder="Select an outlet" sx={outletFieldSx} />
-    )}
-  />
+  <FormControl fullWidth sx={outletFieldSx}>
+    <Select
+      displayEmpty
+      value={outlets.some((o) => o.id === value) ? value : ''}
+      onChange={(e) => onChange(e.target.value)}
+      renderValue={(v) => {
+        const o = outlets.find((x) => x.id === v);
+        return o ? o.name : <span style={{ color: '#808080' }}>Select an outlet</span>;
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            borderRadius: '8px',
+            border: '1px solid #404040',
+            boxShadow: 'none',
+            '& .MuiMenuItem-root': { color: '#5ebbeb', fontSize: 16 },
+            '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected:hover': { backgroundColor: '#f8f8f8' },
+          },
+        },
+      }}
+    >
+      {outlets.map((o) => (
+        <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
+      ))}
+    </Select>
+  </FormControl>
 );
 
+// Standing outlet rule: navbar outlet set -> only that outlet is offered (locked);
+// All Outlets -> every outlet, first one preselected.
 const useOutlets = (open) => {
+  const { selectedOutletId } = useSelectedOutlet();
   const [outlets, setOutlets] = useState([]);
   useEffect(() => {
     if (!open) return;
     outletService
       .getAllOutlets()
-      .then((res) => setOutlets(res.outlets || []))
+      .then((res) => {
+        const all = res.outlets || [];
+        setOutlets(selectedOutletId ? all.filter((o) => o.id === selectedOutletId) : all);
+      })
       .catch((err) => console.error('Error loading outlets:', err));
-  }, [open]);
-  return outlets;
+  }, [open, selectedOutletId]);
+  return { outlets, locked: Boolean(selectedOutletId) };
 };
 
-const ImportStocktakeDialog = ({ open, onClose, onImport }) => {
-  const [formData, setFormData] = useState({
-    file: null,
-    outletId: '',
-    inventoryMethod: 'override',
-    zeroStockNotCounted: false,
-    importCosts: false,
-  });
+export const formatDateTime = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
+const ImportStocktakeDialog = ({ open, onClose, onImport, onOpenHelp }) => {
+  const blank = { file: null, outletId: '', inventoryMethod: 'override', zeroStockNotCounted: false, importCosts: false };
+  const [formData, setFormData] = useState(blank);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const outlets = useOutlets(open);
+  const { outlets, locked } = useOutlets(open);
 
   useEffect(() => {
     if (outlets.length && !formData.outletId) {
@@ -199,13 +207,7 @@ const ImportStocktakeDialog = ({ open, onClose, onImport }) => {
   };
 
   const handleClose = () => {
-    setFormData({
-      file: null,
-      outletId: '',
-      inventoryMethod: 'override',
-      zeroStockNotCounted: false,
-      importCosts: false,
-    });
+    setFormData(blank);
     setError('');
     onClose();
   };
@@ -248,7 +250,7 @@ const ImportStocktakeDialog = ({ open, onClose, onImport }) => {
             >
               <input
                 type="file"
-                accept="text/csv"
+                accept=".csv,text/csv"
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, file: e.target.files[0] || null }))
                 }
@@ -256,15 +258,17 @@ const ImportStocktakeDialog = ({ open, onClose, onImport }) => {
             </Box>
           </Box>
 
-          {/* Outlet */}
-          <Box>
-            <FieldLabel>Outlet</FieldLabel>
-            <OutletCombobox
-              outlets={outlets}
-              value={formData.outletId}
-              onChange={(outletId) => setFormData((prev) => ({ ...prev, outletId }))}
-            />
-          </Box>
+          {/* Outlet: hidden when the navbar already fixes the outlet (standing rule) */}
+          {!locked && (
+            <Box>
+              <FieldLabel>Outlet</FieldLabel>
+              <OutletCombobox
+                outlets={outlets}
+                value={formData.outletId}
+                onChange={(outletId) => setFormData((prev) => ({ ...prev, outletId }))}
+              />
+            </Box>
+          )}
 
           {/* Inventory Insertion Method */}
           <Box>
@@ -310,7 +314,7 @@ const ImportStocktakeDialog = ({ open, onClose, onImport }) => {
             label={
               <Stack direction="row" alignItems="center" spacing={0.5}>
                 <span>Import Costs</span>
-                <Tooltip title="If enabled, this will override the current products cost with the imported costs. This is typically not wanted">
+                <Tooltip title="If enabled, this will override the costs on your products with the provided costs. This is typically not wanted">
                   <HelpIcon sx={{ fontSize: 16, color: '#676b72' }} />
                 </Tooltip>
               </Stack>
@@ -319,9 +323,9 @@ const ImportStocktakeDialog = ({ open, onClose, onImport }) => {
           />
 
           <Link
-            href={FORMAT_HELP_URL}
-            target="_blank"
-            rel="noopener"
+            component="button"
+            type="button"
+            onClick={onOpenHelp}
             sx={{ textAlign: 'center', color: 'rgb(0,0,238)', fontSize: 14 }}
           >
             For information about formatting click here.
@@ -344,16 +348,16 @@ const ImportStocktakeDialog = ({ open, onClose, onImport }) => {
   );
 };
 
-const ExportStocktakeDialog = ({ open, onClose, onExport, defaultOutletId }) => {
+const ExportStocktakeDialog = ({ open, onClose, onExport }) => {
   const [outletId, setOutletId] = useState('');
   const [includeNoBarcode, setIncludeNoBarcode] = useState(false);
   const [loading, setLoading] = useState(false);
-  const outlets = useOutlets(open);
+  const { outlets, locked } = useOutlets(open);
 
   useEffect(() => {
     if (!open) return;
-    setOutletId((prev) => prev || defaultOutletId || outlets[0]?.id || '');
-  }, [open, outlets, defaultOutletId]);
+    setOutletId((prev) => (outlets.some((o) => o.id === prev) ? prev : outlets[0]?.id || ''));
+  }, [open, outlets]);
 
   const handleExport = async () => {
     setLoading(true);
@@ -373,10 +377,12 @@ const ExportStocktakeDialog = ({ open, onClose, onExport, defaultOutletId }) => 
       </DialogTitle>
       <DialogContent sx={{ p: 2 }}>
         <Stack spacing={2.5} sx={{ mt: 1 }}>
-          <Box>
-            <FieldLabel>Outlet</FieldLabel>
-            <OutletCombobox outlets={outlets} value={outletId} onChange={setOutletId} />
-          </Box>
+          {!locked && (
+            <Box>
+              <FieldLabel>Outlet</FieldLabel>
+              <OutletCombobox outlets={outlets} value={outletId} onChange={setOutletId} />
+            </Box>
+          )}
           <FormControlLabel
             control={
               <ShopfrontSwitch
@@ -401,22 +407,48 @@ const ExportStocktakeDialog = ({ open, onClose, onExport, defaultOutletId }) => 
   );
 };
 
+const downloadBlob = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+// Reference row actions: blue "View" / red "Delete" text buttons; a row still
+// Processing shows both as grey disabled boxes.
+const rowBtnSx = (color, disabled) => ({
+  minWidth: 118,
+  height: 42,
+  px: 2,
+  borderRadius: disabled ? '8px' : 0,
+  fontSize: 16,
+  fontWeight: 700,
+  textTransform: 'none',
+  color: disabled ? '#9a9a9a' : color,
+  bgcolor: disabled ? '#e5e5e5' : 'transparent',
+  '&.Mui-disabled': { color: '#9a9a9a', bgcolor: '#e5e5e5' },
+  '&:hover': { bgcolor: disabled ? '#e5e5e5' : 'rgba(0,0,0,0.04)' },
+});
+
 export default function ExternalStocktake() {
+  const navigate = useNavigate();
   const [stocktakeFiles, setStocktakeFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const pollRef = useRef(null);
 
-  useEffect(() => {
-    loadStocktakeFiles();
-  }, []);
-
-  const loadStocktakeFiles = async () => {
+  const loadStocktakeFiles = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await stocktakeService.getExternalStocktakes();
       setStocktakeFiles(response.data || []);
     } catch (err) {
@@ -424,9 +456,24 @@ export default function ExternalStocktake() {
       setError('Failed to load stocktake files');
       setStocktakeFiles([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { loadStocktakeFiles(); }, [loadStocktakeFiles]);
+
+  // Reference processes the import in the background; poll while any row is
+  // still Processing so the row flips to viewable without a refresh.
+  useEffect(() => {
+    const busy = stocktakeFiles.some((f) => f.status === 'Processing');
+    if (busy && !pollRef.current) {
+      pollRef.current = setInterval(() => loadStocktakeFiles(true), 3000);
+    } else if (!busy && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+  }, [stocktakeFiles, loadStocktakeFiles]);
 
   const handleImportFile = async (importData) => {
     try {
@@ -436,48 +483,29 @@ export default function ExternalStocktake() {
       formData.append('inventoryMethod', importData.inventoryMethod);
       formData.append('zeroStockNotCounted', importData.zeroStockNotCounted);
       formData.append('importCosts', importData.importCosts);
-
       await stocktakeService.importExternalStocktake(formData);
-      await loadStocktakeFiles();
+      await loadStocktakeFiles(true);
     } catch (err) {
       console.error('Import error:', err);
-      throw new Error('Failed to import stocktake file');
+      throw new Error(err?.response?.data?.error || 'Failed to import stocktake file');
     }
   };
 
-  // ponytail: includeNoBarcode is passed as a query hint only; the existing template
-  // endpoint takes (outletId, format) — widen the service when the API supports it.
-  const handleExportFile = async ({ outletId }) => {
+  const handleExportFile = async ({ outletId, includeNoBarcode }) => {
     try {
-      const blob = await stocktakeService.exportStocktakeTemplate(outletId, 'csv');
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `stocktake_template_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const blob = await stocktakeService.exportStocktakeTemplate(outletId, 'csv', includeNoBarcode);
+      downloadBlob(blob, `stocktake_export_${new Date().toISOString().split('T')[0]}.csv`);
     } catch (err) {
       console.error('Export error:', err);
       setError('Failed to export stocktake file');
     }
   };
 
-  const handleDownloadRow = async (file) => {
-    try {
-      const blob = await stocktakeService.downloadExternalStocktake(file.id);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `external_stocktake_${file.id}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Download error:', err);
-      setError('Failed to download stocktake file');
+  const handleView = (file) => {
+    if (file.status === 'Completed' && file.stocktakeId) {
+      navigate(`/stock-management/stocktakes/${file.stocktakeId}`);
+    } else {
+      navigate(`/stock-management/external-stocktake/${file.id}`);
     }
   };
 
@@ -487,25 +515,12 @@ export default function ExternalStocktake() {
     try {
       await stocktakeService.deleteExternalStocktake(deleteTarget.id);
       setDeleteTarget(null);
-      await loadStocktakeFiles();
+      await loadStocktakeFiles(true);
     } catch (err) {
       console.error('Delete error:', err);
       setError('Failed to delete stocktake file');
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Completed':
-        return 'success';
-      case 'In Progress':
-        return 'warning';
-      case 'Failed':
-        return 'error';
-      default:
-        return 'default';
     }
   };
 
@@ -521,7 +536,7 @@ export default function ExternalStocktake() {
     border: 'none',
   };
 
-  const bodyCellSx = { fontSize: 16, color: '#000', p: '8px 8px 8px 10px', border: 'none' };
+  const bodyCellSx = { fontSize: 16, color: '#000', p: '8px 8px 8px 10px', border: 'none', height: 74 };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -562,7 +577,7 @@ export default function ExternalStocktake() {
       {/* Table */}
       <Paper sx={{ overflow: 'hidden', borderRadius: 0, boxShadow: 'none' }}>
         <TableContainer>
-          <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+          <Table sx={{ borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
             <TableHead>
               <TableRow
                 sx={{
@@ -570,10 +585,10 @@ export default function ExternalStocktake() {
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
                 }}
               >
-                <TableCell sx={headCellSx}>Date Created</TableCell>
-                <TableCell sx={headCellSx}>Outlet</TableCell>
+                <TableCell sx={{ ...headCellSx, width: '28%' }}>Date Created</TableCell>
+                <TableCell sx={{ ...headCellSx, width: '38%' }}>Outlet</TableCell>
                 <TableCell sx={headCellSx}>Status</TableCell>
-                <TableCell sx={{ ...headCellSx, width: 120 }} align="right" />
+                <TableCell sx={{ ...headCellSx, width: 300 }} align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -594,32 +609,41 @@ export default function ExternalStocktake() {
                   </TableCell>
                 </TableRow>
               ) : (
-                stocktakeFiles.map((file, index) => (
-                  <TableRow
-                    key={file.id}
-                    sx={{ bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8' }}
-                  >
-                    <TableCell sx={bodyCellSx}>
-                      {new Date(file.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell sx={bodyCellSx}>{file.outlet?.name || 'N/A'}</TableCell>
-                    <TableCell sx={bodyCellSx}>
-                      <Chip label={file.status} color={getStatusColor(file.status)} size="small" />
-                    </TableCell>
-                    <TableCell sx={{ ...bodyCellSx, whiteSpace: 'nowrap' }} align="right">
-                      <Tooltip title="Download">
-                        <IconButton size="small" onClick={() => handleDownloadRow(file)}>
-                          <ExportIcon sx={{ fontSize: 20, color: '#5ebbeb' }} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton size="small" onClick={() => setDeleteTarget(file)}>
-                          <DeleteIcon sx={{ fontSize: 20, color: '#e33430' }} />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))
+                stocktakeFiles.map((file) => {
+                  const busy = file.status === 'Processing';
+                  const failed = file.status === 'Failed';
+                  return (
+                    <TableRow key={file.id}>
+                      <TableCell sx={bodyCellSx}>{formatDateTime(file.createdAt)}</TableCell>
+                      <TableCell sx={bodyCellSx}>{file.outlet?.name || 'N/A'}</TableCell>
+                      <TableCell sx={bodyCellSx}>
+                        {failed ? (
+                          <Tooltip title={file.error || ''}><span style={{ color: '#e33430' }}>Failed</span></Tooltip>
+                        ) : file.status === 'Imported' ? 'Completed' : file.status}
+                      </TableCell>
+                      <TableCell sx={{ ...bodyCellSx, whiteSpace: 'nowrap' }} align="right">
+                        <Button
+                          disableRipple
+                          disabled={busy || failed}
+                          startIcon={<ViewIcon sx={{ fontSize: 20 }} />}
+                          onClick={() => handleView(file)}
+                          sx={rowBtnSx('#5ebbeb', busy || failed)}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          disableRipple
+                          disabled={busy}
+                          startIcon={<DeleteIcon sx={{ fontSize: 20 }} />}
+                          onClick={() => setDeleteTarget(file)}
+                          sx={{ ...rowBtnSx('#e33430', busy), ml: 1 }}
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -630,12 +654,14 @@ export default function ExternalStocktake() {
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         onImport={handleImportFile}
+        onOpenHelp={() => setHelpOpen(true)}
       />
       <ExportStocktakeDialog
         open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
         onExport={handleExportFile}
       />
+      <ExternalStocktakeHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
       <ConfirmDeleteDialog
         open={Boolean(deleteTarget)}
         title="Delete Stocktake File"

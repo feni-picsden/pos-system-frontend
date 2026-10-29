@@ -136,6 +136,7 @@ import MoreStockManagement from './pages/StockManagement/MoreStockManagement';
 import StockList from './pages/StockManagement/StockList';
 import ProductBuyingPeriods from './pages/StockManagement/ProductBuyingPeriods';
 import ExternalStocktake from './pages/StockManagement/ExternalStocktake';
+import ExternalStocktakeMatch from './pages/StockManagement/ExternalStocktakeMatch';
 import BulkPriceEdit from './pages/StockManagement/BulkPriceEdit';
 import ImportProducts from './pages/StockManagement/ImportProducts';
 import AdvancedProductImporter from './pages/StockManagement/AdvancedProductImporter';
@@ -853,6 +854,16 @@ function App() {
                               requiredPermissions={["stocktakes.view"]}
                             >
                               <ExternalStocktake />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/stock-management/external-stocktake/:id"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["stocktakes.view"]}
+                            >
+                              <ExternalStocktakeMatch />
                             </PermissionProtectedRoute>
                           }
                         />
