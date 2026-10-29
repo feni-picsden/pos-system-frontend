@@ -7,3 +7,8 @@
 // is always empty and only confuses operators. The column, API and saved
 // values stay; the field is just not drawn.
 export const SHOW_MASTER_DATABASE_REF = false;
+
+// The supplier form's field is drawn regardless: Import Supplier Products only
+// works for a supplier linked to a master supplier, and the super admin can now
+// load master suppliers/products on that page, so the dropdown has data.
+export const SHOW_SUPPLIER_MASTER_DATABASE_REF = true;

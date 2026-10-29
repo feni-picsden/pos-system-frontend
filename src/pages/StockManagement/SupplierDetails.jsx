@@ -41,7 +41,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
-import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
+import { SHOW_SUPPLIER_MASTER_DATABASE_REF } from '../../utils/featureFlags';
 import masterDatabaseService from '../../services/masterDatabaseService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAuth } from '../../contexts/AuthContext';
@@ -241,6 +241,13 @@ const SupplierDetails = () => {
 
   const isEditMode = !!id && id !== 'new';
   const isNewMode = id === 'new';
+
+  // The navbar outlet a super admin is working in (null = All Outlets)
+  const navbarOutletId = (() => {
+    const saved = Number.parseInt(localStorage.getItem('selectedOutletId') || '', 10);
+    return Number.isNaN(saved) ? null : saved;
+  })();
+  const outletLabel = (outletId) => outlets.find((o) => o.id === outletId)?.name || `Outlet ${outletId}`;
 
   // Load outlets for super admin
   useEffect(() => {
@@ -502,7 +509,10 @@ const SupplierDetails = () => {
       };
 
       if (isEditMode) {
-        await supplierService.updateSupplier(id, submitData);
+        // An edit keeps the supplier where it lives: without skipOutletScope the
+        // apiClient stamps the navbar outlet over a global supplier's null and
+        // the save silently moved it into that outlet.
+        await supplierService.updateSupplier(id, submitData, { skipOutletScope: true });
       } else {
         await supplierService.createSupplier(submitData);
       }
@@ -771,7 +781,7 @@ const SupplierDetails = () => {
                   onChange={(e) => handleInputChange('accountNumber', e.target.value)}
                 />
               </Grid>
-              {SHOW_MASTER_DATABASE_REF && (
+              {SHOW_SUPPLIER_MASTER_DATABASE_REF && (
               <Grid item xs={12}>
                 {formData.masterDatabaseRef && <FieldLabel>Master Database Reference</FieldLabel>}
                 <Autocomplete
@@ -813,8 +823,9 @@ const SupplierDetails = () => {
               </Grid>
               )}
 
-              {/* Outlet Selection for Super Admin */}
-              {isTrueSuperAdmin() && (
+              {/* Outlet Selection for Super Admin - All Outlets only; with an
+                  outlet picked in the navbar the form works in that outlet */}
+              {isTrueSuperAdmin() && navbarOutletId == null && (
                 <Grid item xs={12}>
                   <RefSelect
                     label="Outlet"
@@ -849,6 +860,21 @@ const SupplierDetails = () => {
                       ))
                     )}
                   </RefSelect>
+                </Grid>
+              )}
+
+              {/* Navbar outlet picked: say where the supplier lives instead */}
+              {isTrueSuperAdmin() && navbarOutletId != null && (
+                <Grid item xs={12}>
+                  <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
+                    <Typography variant="body2" color="info.contrastText">
+                      {!isEditMode
+                        ? <>This supplier will be created in <strong>{outletLabel(navbarOutletId)}</strong></>
+                        : formData.outletId == null
+                          ? <>This is a <strong>global supplier</strong> — it is shared by All outlet</>
+                          : <>This supplier belongs to <strong>{outletLabel(formData.outletId)}</strong></>}
+                    </Typography>
+                  </Box>
                 </Grid>
               )}
 

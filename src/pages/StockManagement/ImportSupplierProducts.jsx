@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import supplierService from '../../services/supplierService';
 import masterDatabaseService from '../../services/masterDatabaseService';
+import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
@@ -138,6 +139,19 @@ const ImportSupplierProducts = () => {
     user?.isSuperAdmin || (user?.hasAllPermission && (user?.outletId === null || user?.outletId === undefined))
   );
 
+  // All Outlets in the navbar: imported products must still belong to an outlet,
+  // so the page asks which one (it used to refuse at Import with no way to pick).
+  const pickOutletHere = isGlobalSuperAdmin && (selectedOutletId === null || selectedOutletId === undefined || selectedOutletId === '');
+  const [outlets, setOutlets] = useState([]);
+  const [importOutletId, setImportOutletId] = useState('');
+
+  useEffect(() => {
+    if (!pickOutletHere) return;
+    outletService.getAllOutlets()
+      .then((response) => setOutlets(response.outlets || []))
+      .catch((err) => console.error('Error loading outlets:', err));
+  }, [pickOutletHere]);
+
   useEffect(() => {
     const loadSuppliers = async () => {
       try {
@@ -169,6 +183,11 @@ const ImportSupplierProducts = () => {
     () => suppliers.find((supplier) => supplier.id === parseInt(selectedSupplierId, 10)) || null,
     [suppliers, selectedSupplierId]
   );
+
+  // An outlet's own supplier imports into that outlet, so start the picker there
+  useEffect(() => {
+    if (pickOutletHere && selectedSupplier?.outletId) setImportOutletId(selectedSupplier.outletId);
+  }, [pickOutletHere, selectedSupplier]);
 
   useEffect(() => {
     if (!isGlobalSuperAdmin || !selectedSupplier) return;
@@ -212,6 +231,11 @@ const ImportSupplierProducts = () => {
       return;
     }
 
+    if (pickOutletHere && !importOutletId) {
+      setImportError('Please select an outlet');
+      return;
+    }
+
     try {
       setImporting(true);
       // Send the parsed codes only; the raw text would be re-split by line on the
@@ -220,7 +244,9 @@ const ImportSupplierProducts = () => {
         codes: parsedCodes,
       };
 
-      if (isGlobalSuperAdmin && selectedOutletId !== null && selectedOutletId !== undefined) {
+      if (pickOutletHere) {
+        payload.outletId = parseInt(importOutletId, 10);
+      } else if (isGlobalSuperAdmin && selectedOutletId !== null && selectedOutletId !== undefined) {
         payload.outletId = parseInt(selectedOutletId, 10);
       }
 
@@ -337,7 +363,9 @@ const ImportSupplierProducts = () => {
                 fontSize: 16,
                 padding: '16px',
               },
-              '& .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-option[aria-selected="true"], & .MuiAutocomplete-option[aria-selected="true"].Mui-focused':
+              // only the row under the mouse / keyboard is blue (as the Outlet list)
+              '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent' },
+              '& .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-option[aria-selected="true"].Mui-focused':
                 {
                   backgroundColor: '#7dd3fc',
                 },
@@ -367,6 +395,37 @@ const ImportSupplierProducts = () => {
           )}
         />
       </Box>
+
+      {pickOutletHere && (
+        <Box>
+          <Typography sx={fieldLabelSx}>Outlet</Typography>
+          <Autocomplete
+            fullWidth
+            options={outlets}
+            getOptionKey={(option) => option.id}
+            getOptionLabel={(option) => option.name || ''}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            value={outlets.find((o) => o.id === parseInt(importOutletId, 10)) || null}
+            onChange={(event, option) => setImportOutletId(option ? option.id : '')}
+            disabled={importing}
+            noOptionsText="No outlets"
+            componentsProps={{ paper: { sx: { border: '1px solid #000', borderRadius: '8px', boxShadow: 'none', mt: '4px' } } }}
+            ListboxProps={{
+              sx: {
+                py: 0,
+                '& .MuiAutocomplete-option': { minHeight: 56, fontSize: 16, padding: '16px' },
+                // only the row under the mouse / keyboard is blue; the picked row
+                // painting blue too showed two highlighted rows at once
+                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent' },
+                '& .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: '#7dd3fc' },
+              },
+            }}
+            renderInput={(params) => (
+              <TextField {...params} placeholder="Select..." inputProps={{ ...params.inputProps, 'aria-label': 'Outlet' }} sx={{ ...outlinedFieldSx, '& .MuiOutlinedInput-root': { ...outlinedFieldSx['& .MuiOutlinedInput-root'], py: 0 } }} />
+            )}
+          />
+        </Box>
+      )}
 
       <Box>
         <Typography sx={fieldLabelSx}>Product List</Typography>

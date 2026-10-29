@@ -33,8 +33,8 @@ const supplierService = {
     return response.data;
   },
 
-  async updateSupplier(id, supplierData) {
-    const response = await apiClient.put(`/suppliers/${id}`, supplierData);
+  async updateSupplier(id, supplierData, requestOptions = {}) {
+    const response = await apiClient.put(`/suppliers/${id}`, supplierData, requestOptions);
     return response.data;
   },
 
