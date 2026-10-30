@@ -190,7 +190,9 @@ export default function Stocktakes() {
   const handleExpress = () => navigate('/stock-management/stocktakes/express');
   const handleExternal = () => navigate('/stock-management/external-stocktake');
   const handleAdvanced = () => {
-    setNewOutletId(selectedOutletId || outlets[0]?.id || '');
+    // Navbar outlet set → the stocktake belongs to it (no Outlet select);
+    // All Outlets → the user must pick one.
+    setNewOutletId(selectedOutletId || '');
     setNewDialogOpen(true);
   };
 
@@ -211,7 +213,7 @@ export default function Stocktakes() {
     setCreating(true);
     try {
       if (!newName.trim()) return;
-      const outletIdInt = parseInt(newOutletId, 10);
+      const outletIdInt = parseInt(selectedOutletId || newOutletId, 10);
       // Only send a valid outlet id (prevents accidentally persisting `0`)
       const payload = { name: newName.trim(), displayExpected };
       if (outletIdInt && !Number.isNaN(outletIdInt)) payload.outletId = outletIdInt;
@@ -386,7 +388,8 @@ export default function Stocktakes() {
                 '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
               }}
             >
-              {['Name', 'Outlet', 'Created', 'Status', 'Completed', 'Applied', 'Actions'].map((h) => (
+              {/* Outlet column only in All Outlets mode (navbar outlet set → list is already that outlet's) */}
+              {['Name', ...(showOutletFilter ? ['Outlet'] : []), 'Created', 'Status', 'Completed', 'Applied', 'Actions'].map((h) => (
                 <TableCell key={h}>
                   {h}
                 </TableCell>
@@ -403,7 +406,7 @@ export default function Stocktakes() {
             {rows.map((r) => (
               <TableRow key={r.id}>
                 <TableCell>{r.name}</TableCell>
-                <TableCell>{r.outlet?.name || r.outlet || ''}</TableCell>
+                {showOutletFilter && <TableCell>{r.outlet?.name || r.outlet || ''}</TableCell>}
                 <TableCell>{formatDate(r.createdAt)}</TableCell>
                 <TableCell>{statusOf(r)}{r.completedBy?.name ? ` by ${r.completedBy.name}` : ''}</TableCell>
                 <TableCell>{formatDate(r.completedAt)}</TableCell>
@@ -474,6 +477,7 @@ export default function Stocktakes() {
                 }}
               />
             </Box>
+            {!selectedOutletId && (
             <Box>
               <SectionLabel>Outlet</SectionLabel>
               <FormControl fullWidth size="small">
@@ -484,6 +488,10 @@ export default function Stocktakes() {
                   IconComponent={ArrowDropDown}
                   MenuProps={selectMenuProps}
                   sx={selectSx}
+                  displayEmpty
+                  renderValue={(v) => outlets.find((o) => String(o.id) === String(v))?.name || (
+                    <Box component="span" sx={{ color: '#808080' }}>Select outlet...</Box>
+                  )}
                 >
                   {outlets.map((o) => (
                     <MenuItem key={o.id} value={o.id} sx={menuItemSx}>{o.name}</MenuItem>
@@ -491,6 +499,7 @@ export default function Stocktakes() {
                 </Select>
               </FormControl>
             </Box>
+            )}
             <Stack direction="row" alignItems="center" spacing={1}>
               <ShopfrontSwitch checked={displayExpected} onChange={(e) => setDisplayExpected(e.target.checked)} />
               <Typography variant="body2" sx={{ fontSize: 16 }}>Display expected</Typography>
@@ -517,7 +526,7 @@ export default function Stocktakes() {
           </Button>
           <Button
             onClick={createAndOpenAdvanced}
-            disabled={creating}
+            disabled={creating || !newName.trim() || !(selectedOutletId || newOutletId)}
             sx={{
               bgcolor: '#5ebbeb',
               color: '#fff',

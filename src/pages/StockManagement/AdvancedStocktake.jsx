@@ -221,6 +221,12 @@ export default function AdvancedStocktake() {
   // names). Debounced so a code typed by hand is not looked up per keystroke.
   const looksLikeBarcode = (term) => /^[A-Za-z0-9-]{6,}$/.test(term);
 
+  // Search the STOCKTAKE's outlet (its own + global products), not the navbar
+  // one: in All Outlets mode the search listed every outlet's products and a
+  // foreign pick was rejected by the backend on Count.
+  const stocktakeOutletId = stocktake?.outletId ?? stocktake?.outlet?.id ?? null;
+  const stocktakeScope = stocktakeOutletId ? { outletId: stocktakeOutletId } : {};
+
   useEffect(() => {
     let isMounted = true;
     const term = searchTerm.trim();
@@ -230,7 +236,7 @@ export default function AdvancedStocktake() {
       try {
         if (looksLikeBarcode(term)) {
           try {
-            const found = await productService.getProductByBarcode(term);
+            const found = await productService.getProductByBarcode(term, stocktakeOutletId);
             const hit = found?.product;
             if (!isMounted) return;
             if (hit) {
@@ -247,7 +253,7 @@ export default function AdvancedStocktake() {
             // not a known barcode — fall through to the name search
           }
         }
-        const { products } = await productService.getProducts({ search: term, limit: 20 });
+        const { products } = await productService.getProducts({ search: term, limit: 20, ...stocktakeScope });
         if (!isMounted) return;
         setResults((products || []).map((p) => mapProduct(p)));
         setShowResults(true);
@@ -260,7 +266,7 @@ export default function AdvancedStocktake() {
     const handle = setTimeout(run, looksLikeBarcode(term) ? 150 : 0);
     return () => { isMounted = false; clearTimeout(handle); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, selectedProduct, quickScan]);
+  }, [searchTerm, selectedProduct, quickScan, stocktakeOutletId]);
 
   // Events sidebar product autocomplete (same PRODUCTS dropdown, sidebar width)
   useEffect(() => {
@@ -269,7 +275,7 @@ export default function AdvancedStocktake() {
       if (eventProduct) { setShowEventResults(false); setEventResults([]); return; }
       if (eventSearch.length < 3) { setShowEventResults(false); setEventResults([]); return; }
       try {
-        const { products } = await productService.getProducts({ search: eventSearch, limit: 20 });
+        const { products } = await productService.getProducts({ search: eventSearch, limit: 20, ...stocktakeScope });
         if (!isMounted) return;
         setEventResults((products || []).map(p => ({ id: p.id, name: p.name })));
         setShowEventResults(true);
@@ -280,7 +286,7 @@ export default function AdvancedStocktake() {
     }
     run();
     return () => { isMounted = false; };
-  }, [eventSearch, eventProduct]);
+  }, [eventSearch, eventProduct, stocktakeOutletId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectProduct = (product) => {
     if (quickScan) {
@@ -1022,9 +1028,14 @@ function FinishDialog({ open, onClose, title, icon, children, width = 420, heade
 function ProductsDropdown({ term, results, onSelect }) {
   return (
     <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #d9d9d9', maxHeight: 320, overflow: 'auto' }}>
-      <Typography sx={{ px: 1.5, pt: 1, pb: 0.5, fontSize: 12, fontWeight: 700, color: '#676b72', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        Products
-      </Typography>
+      {results.length > 0 && (
+        <Typography sx={{ px: 1.5, pt: 1, pb: 0.5, fontSize: 12, fontWeight: 700, color: '#676b72', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Products
+        </Typography>
+      )}
+      {results.length === 0 && (
+        <Typography sx={{ px: 1.5, py: 1, fontSize: 14, color: '#676b72' }}>No products found</Typography>
+      )}
       {results.map((r) => {
         const i = r.name.toLowerCase().indexOf(term.toLowerCase());
         return (
