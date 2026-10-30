@@ -619,12 +619,18 @@ const DashboardLayout = ({ children }) => {
   };
   const handleNotifClose = () => setNotifOpen(false);
 
+  // Notification whose delete is in flight: its button is disabled with a spinner.
+  const [deletingNotifId, setDeletingNotifId] = useState(null);
   const handleDeleteNotif = async (id) => {
+    if (deletingNotifId != null) return;
+    setDeletingNotifId(id);
     try {
       await notificationService.deleteNotification(id);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       fetchNotifCount();
-    } catch { /* ignore */ }
+    } catch { /* ignore */ } finally {
+      setDeletingNotifId(null);
+    }
   };
 
   // Reference: "Selecting a notification will take you to that particular
@@ -1273,8 +1279,16 @@ const DashboardLayout = ({ children }) => {
                       {!n.readAt && (
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#5ebbeb' }} />
                       )}
-                      <IconButton edge="end" size="small" disableRipple onClick={(e) => { e.stopPropagation(); handleDeleteNotif(n.id); }} aria-label="delete notification">
-                        <DeleteIcon fontSize="small" />
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        disableRipple
+                        disabled={deletingNotifId != null}
+                        title={deletingNotifId === n.id ? 'Deleting...' : undefined}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteNotif(n.id); }}
+                        aria-label="delete notification"
+                      >
+                        {deletingNotifId === n.id ? <CircularProgress size={16} /> : <DeleteIcon fontSize="small" />}
                       </IconButton>
                     </Box>
                   }

@@ -1433,6 +1433,7 @@ const Promotions = () => {
         title="Make Inactive"
         message={`Are you sure you want to make ${selectedIds.length} promotion${selectedIds.length === 1 ? '' : 's'} inactive?`}
         confirmText="Continue"
+        loadingText="Updating..."
         onCancel={() => setBulkInactiveOpen(false)}
         onConfirm={confirmBulkInactive}
       />

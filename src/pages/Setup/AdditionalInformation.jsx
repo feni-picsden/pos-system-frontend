@@ -200,14 +200,19 @@ const AdditionalInformation = () => {
       { title: 'Delete field', confirmText: 'Delete field', severity: 'warning' }
     );
     if (!ok) return;
+    setDeletingId(field.id);
     try {
       await additionalFieldService.deleteField(field.id);
       notify('Field deleted');
       await loadFields();
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to delete the field', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
+  // Row whose delete request is running: its Delete is disabled and reads "Deleting...".
+  const [deletingId, setDeletingId] = useState(null);
 
   // The default-value input mirrors the field type, like the product edit screen will.
   const renderDefaultInput = () => {
@@ -355,8 +360,9 @@ const AdditionalInformation = () => {
                             Edit
                           </Button>
                           <Button disableRipple size="small" startIcon={<DeleteIcon />} onClick={() => handleDelete(field)}
-                            sx={{ color: '#e33430', textTransform: 'none', fontWeight: 600 }}>
-                            Delete
+                            disabled={deletingId != null}
+                            sx={{ color: '#e33430', textTransform: 'none', fontWeight: 600, '&.Mui-disabled': { color: '#e33430', opacity: 0.6 } }}>
+                            {deletingId === field.id ? 'Deleting...' : 'Delete'}
                           </Button>
                         </Box>
                       )}

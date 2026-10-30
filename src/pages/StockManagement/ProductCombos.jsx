@@ -278,14 +278,19 @@ const ProductCombos = () => {
       { title: 'Delete product combo', confirmText: 'Delete' }
     );
     if (!ok) return;
+    setDeletingId(combo.id);
     try {
       await productService.deleteProduct(combo.id);
       await load();
     } catch (err) {
       console.error('Error deleting product combo:', err);
       setError(err.response?.data?.error || 'Failed to delete that combo.');
+    } finally {
+      setDeletingId(null);
     }
   };
+  // Row whose delete request is running: its Delete is disabled and reads "Deleting...".
+  const [deletingId, setDeletingId] = useState(null);
 
   return (
     <Box sx={{ p: 2, bgcolor: '#f5f5f5', minHeight: '100%' }}>
@@ -397,9 +402,10 @@ const ProductCombos = () => {
                         size="small"
                         startIcon={<DeleteIcon />}
                         onClick={() => remove(combo)}
-                        sx={{ color: '#d32f2f', textTransform: 'none', fontSize: 16, ml: 2 }}
+                        disabled={deletingId != null}
+                        sx={{ color: '#d32f2f', textTransform: 'none', fontSize: 16, ml: 2, '&.Mui-disabled': { color: '#d32f2f', opacity: 0.6 } }}
                       >
-                        Delete
+                        {deletingId === combo.id ? 'Deleting...' : 'Delete'}
                       </Button>
                     </TableCell>
                   </TableRow>

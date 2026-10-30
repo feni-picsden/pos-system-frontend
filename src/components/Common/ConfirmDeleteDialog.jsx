@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogActions, Button, Box, Typography } from '@mui/material';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 
@@ -21,10 +21,35 @@ const ConfirmDeleteDialog = ({
   onCancel,
   onConfirm,
 }) => {
+  // Most callers never passed `loading`, so a second click on Delete sent a
+  // second request. When onConfirm returns a promise the dialog tracks it
+  // itself: Delete is disabled and reads "Deleting..." until it settles.
+  const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
+  useEffect(() => { if (!open) setBusy(false); }, [open]);
+  const working = loading || busy;
+
+  const handleConfirm = async () => {
+    if (working) return;
+    const result = onConfirm?.();
+    if (result && typeof result.then === 'function') {
+      setBusy(true);
+      try {
+        await result;
+      } catch {
+        /* the caller shows its own error */
+      } finally {
+        if (mounted.current) setBusy(false);
+      }
+    }
+  };
+  const handleCancel = () => { if (!working) onCancel?.(); };
+
   return (
     <Dialog
       open={open}
-      onClose={onCancel}
+      onClose={handleCancel}
       PaperProps={{
         elevation: 0,
         // reference #dialog chrome: flat light surface, hairline black border, no MUI elevation
@@ -62,7 +87,8 @@ const ConfirmDeleteDialog = ({
 
       <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1.25 }}>
         <Button
-          onClick={onCancel}
+          onClick={handleCancel}
+          disabled={working}
           disableElevation
           sx={{
             bgcolor: '#8a8d91',
@@ -77,8 +103,8 @@ const ConfirmDeleteDialog = ({
           {cancelText}
         </Button>
         <Button
-          onClick={onConfirm}
-          disabled={loading}
+          onClick={handleConfirm}
+          disabled={working}
           disableElevation
           sx={{
             bgcolor: '#e33430',
@@ -88,9 +114,11 @@ const ConfirmDeleteDialog = ({
             fontWeight: 600,
             px: 3,
             '&:hover': { bgcolor: '#cc2f2a' },
+            // Keep the red (faded) while working so "Deleting..." stays readable.
+            '&.Mui-disabled': { bgcolor: '#e33430', color: '#fff', opacity: 0.7 },
           }}
         >
-          {loading ? loadingText : confirmText}
+          {working ? loadingText : confirmText}
         </Button>
       </DialogActions>
     </Dialog>

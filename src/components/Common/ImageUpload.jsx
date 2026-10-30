@@ -41,6 +41,8 @@ const ImageUpload = ({
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert, confirm } = useAppDialogs();
   const [uploading, setUploading] = useState(false);
+  // Image whose delete request is running: its button is disabled with a spinner.
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [previewDialog, setPreviewDialog] = useState({ open: false, image: null });
@@ -118,12 +120,15 @@ const ImageUpload = ({
 
   const handleImageDelete = async (imageId) => {
     if (await confirm('Delete this image?', { title: 'Delete image', confirmText: 'Delete image' })) {
+      setDeletingId(imageId);
       try {
         await onImageDelete(productId, imageId);
         setSuccess('Image deleted successfully');
         setTimeout(() => setSuccess(''), 3000);
       } catch (error) {
         setError(error.response?.data?.error || 'Failed to delete image');
+      } finally {
+        setDeletingId(null);
       }
     }
   };
@@ -311,15 +316,15 @@ const ImageUpload = ({
                           </IconButton>
                         </span>
                       </Tooltip>
-                      <Tooltip title="Delete">
+                      <Tooltip title={deletingId === image.id ? 'Deleting...' : 'Delete'}>
                         <span>
                           <IconButton
                             size="small"
                             onClick={() => handleImageDelete(image.id)}
-                            disabled={disabled}
+                            disabled={disabled || deletingId != null}
                             color="error"
                           >
-                            <DeleteIcon />
+                            {deletingId === image.id ? <CircularProgress size={20} color="error" /> : <DeleteIcon />}
                           </IconButton>
                         </span>
                       </Tooltip>

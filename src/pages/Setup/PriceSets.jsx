@@ -124,14 +124,19 @@ const PriceSets = () => {
       severity: 'warning',
     });
     if (!ok) return;
+    setDeletingId(ps.id);
     try {
       await priceSetService.deletePriceSet(ps.id);
       notify('Price set deleted');
       await loadPriceSets();
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to delete the price set', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
+  // Row whose delete request is running: its Delete is disabled and reads "Deleting...".
+  const [deletingId, setDeletingId] = useState(null);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -199,8 +204,9 @@ const PriceSets = () => {
                               Edit
                             </Button>
                             <Button disableRipple size="small" startIcon={<DeleteIcon />} onClick={() => handleDelete(ps)}
-                              sx={{ color: '#e33430', textTransform: 'none', fontWeight: 600 }}>
-                              Delete
+                              disabled={deletingId != null}
+                              sx={{ color: '#e33430', textTransform: 'none', fontWeight: 600, '&.Mui-disabled': { color: '#e33430', opacity: 0.6 } }}>
+                              {deletingId === ps.id ? 'Deleting...' : 'Delete'}
                             </Button>
                           </>
                         )}

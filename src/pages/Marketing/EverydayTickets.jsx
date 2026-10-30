@@ -648,6 +648,8 @@ const EverydayTickets = () => {
   };
 
   const handleRemoveTicket = async (id) => {
+    if (removingId != null || removingSelected) return;
+    setRemovingId(id);
     try {
       setLoading(true);
       await shelfTicketService.removeShelfTicket(id);
@@ -659,8 +661,12 @@ const EverydayTickets = () => {
       showSnackbar('Failed to remove ticket', 'error');
     } finally {
       setLoading(false);
+      setRemovingId(null);
     }
   };
+  // Remove requests in flight: the row's ✕ / "Remove Selected" are disabled meanwhile.
+  const [removingId, setRemovingId] = useState(null);
+  const [removingSelected, setRemovingSelected] = useState(false);
 
   const toggleTicket = (id) =>
     setSelectedTickets((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
@@ -718,6 +724,8 @@ const EverydayTickets = () => {
       showSnackbar('No tickets selected', 'warning');
       return;
     }
+    if (removingSelected || removingId != null) return;
+    setRemovingSelected(true);
     try {
       setLoading(true);
       const response = await shelfTicketService.removeBulkShelfTickets(selectedTickets);
@@ -729,6 +737,7 @@ const EverydayTickets = () => {
       showSnackbar('Failed to remove selected tickets', 'error');
     } finally {
       setLoading(false);
+      setRemovingSelected(false);
     }
   };
 
@@ -814,8 +823,11 @@ const EverydayTickets = () => {
                 component="button"
                 type="button"
                 aria-label={`Remove ${ticket.name}`}
+                title={removingId === ticket.id ? 'Removing...' : undefined}
+                disabled={removingId != null || removingSelected}
                 onClick={() => handleRemoveTicket(ticket.id)}
                 sx={{
+                  '&:disabled': { opacity: 0.4, cursor: 'default' },
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1103,7 +1115,9 @@ const EverydayTickets = () => {
             disableRipple
             disableElevation
             onClick={handleRemoveSelected}
+            disabled={removingSelected || removingId != null}
             sx={{
+              '&.Mui-disabled': { bgcolor: '#fb2c36', color: '#fff', opacity: 0.7 },
               ...BAR_BUTTON_SX,
               minWidth: 197,
               bgcolor: '#fb2c36',
@@ -1112,7 +1126,7 @@ const EverydayTickets = () => {
               '&:hover': { bgcolor: '#ff6467', border: '1px solid #fb2c36', boxShadow: 'none' },
             }}
           >
-            Remove Selected
+            {removingSelected ? 'Removing...' : 'Remove Selected'}
           </Button>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ShopfrontSwitch
