@@ -33,6 +33,7 @@ import giftCardService from '../../services/giftCardService';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import ReportTable from '../../components/Reports/ReportTable';
+import GiftCardsHelpDrawer from '../../components/Customers/GiftCardsHelpDrawer';
 
 const FORMAT_HELP_URL =
   'https://support.onshopfront.com/hc/en-us/articles/115003889472#h_01J1XSTXFWP56RWPDKP6WTDZ87';
@@ -134,6 +135,7 @@ const ImportGiftCards = () => {
   const navigate = useNavigate();
   const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [formatDialogOpen, setFormatDialogOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -354,17 +356,19 @@ const ImportGiftCards = () => {
         {!previewData ? (
           <>
             {/* File Format Link */}
+            {/* Reference: "Click here." opens the help article in an in-app drawer */}
             <Typography component="p" sx={{ fontSize: 16, color: '#000', m: '0 0 16px' }}>
               Looking for the file format?{' '}
               <Link
-                href={FORMAT_HELP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+                component="button"
+                type="button"
+                onClick={() => setHelpOpen(true)}
                 sx={{
                   fontSize: 16,
                   color: 'rgb(0,0,238)',
                   textDecoration: 'underline',
                   transition: 'none',
+                  verticalAlign: 'baseline',
                   '&:hover': { color: 'rgb(0,0,238)' },
                 }}
               >
@@ -498,6 +502,8 @@ const ImportGiftCards = () => {
           </>
         )}
       </Box>
+
+      <GiftCardsHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="importing" />
 
       {/* Format Dialog */}
       <Dialog

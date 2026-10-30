@@ -303,7 +303,9 @@ const SalesHistory = () => {
   useEffect(() => {
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
-      loadSales();
+      // Arriving from Gift Cards "Find in Sales History": the gift-card effect
+      // below does the (filtered) first load, so skip the unfiltered one here.
+      if (!location.state?.giftCardFilter) loadSales();
       loadDropdownData();
       loadReplyToEmail();
     }
@@ -328,15 +330,16 @@ const SalesHistory = () => {
     if (!locationStateProcessed.current && location.state?.giftCardFilter) {
       console.log('Setting gift card filter:', location.state.giftCardFilter);
       locationStateProcessed.current = true;
-      setFilters(prev => ({
-        ...prev,
-        giftCardCode: location.state.giftCardFilter
-      }));
-      setShowAdvancedFilters(true);
+      const giftCardCode = location.state.giftCardFilter;
+      setFilters(prev => ({ ...prev, giftCardCode }));
+      // Reference: the list arrives already filtered to the card's sale(s), the
+      // advanced panel stays collapsed. setFilters is async, so pass the code in.
+      loadSales({ giftCardCode });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
-  const loadSales = async () => {
+  const loadSales = async (overrides = {}) => {
     setLoading(true);
     setError(null);
 
@@ -345,6 +348,7 @@ const SalesHistory = () => {
         page: pagination.page,
         limit: pagination.limit,
         ...filters,
+        ...overrides,
       };
 
       // Hidden in-page filters follow the header: outlet comes from apiClient's

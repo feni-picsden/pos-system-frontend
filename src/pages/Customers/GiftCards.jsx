@@ -11,21 +11,20 @@ import {
   TableHead,
   TableRow,
   InputAdornment,
-  Chip,
   IconButton,
   MenuItem,
-  CircularProgress,
   Select,
   FormControl,
+  Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   Search as SearchIcon,
+  Check as CheckIcon,
   UploadFileOutlined as ImportIcon,
   FileOpenOutlined as ExportIcon,
-  ArrowDropDown as ArrowDropDownIcon,
-  KeyboardArrowDown as ChevronDownIcon,
-  KeyboardArrowUp as ChevronUpIcon,
-  Code as CodeIcon,
+  FindInPageOutlined as FindIcon,
+  KeyboardArrowDown as ArrowDropDownIcon,
   CloseOutlined as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +33,54 @@ import usePageCache from '../../hooks/usePageCache';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+
+// Reference (live Shopfront, 30/10/2026): "Gift Cards" title with Import (blue)
+// and Export (outlined) beside it, Search box, Outlet + Status filters on one
+// row, rounded blue table with a blue totals footer, "No results found" state.
+
+const STATUS_OPTIONS = ['Current', 'Expired', 'Redeemed'];
+
+const fieldSx = {
+  bgcolor: '#fff',
+  fontSize: 16,
+  '& .MuiOutlinedInput-root, &.MuiOutlinedInput-root': { height: 42, borderRadius: '8px', fontSize: 16 },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline, & .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  '& .MuiSelect-icon': { color: '#404040' },
+};
+
+// Reference dropdown: white rounded panel, hovered row blue, selected row blue text.
+const menuProps = {
+  PaperProps: {
+    sx: {
+      mt: 0.5,
+      borderRadius: '8px',
+      border: '1px solid #000',
+      boxShadow: 'none',
+      '& .MuiMenuItem-root': { fontSize: 16, color: '#000', py: 1.75, gap: 1.5, '&:hover': { bgcolor: '#5ebbeb' } },
+      '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#1c9cf0' },
+      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#5ebbeb', color: '#000' },
+    },
+  },
+};
+
+const labelSx = { fontSize: 16, color: '#000', mb: 0.5, display: 'block' };
+
+const headerButtonSx = {
+  height: 42,
+  px: 3,
+  borderRadius: '8px',
+  fontSize: 16,
+  fontWeight: 700,
+  textTransform: 'none',
+  boxShadow: 'none',
+  whiteSpace: 'nowrap',
+  transition: 'background 0.2s ease, color 0.2s ease',
+};
+
+const money = (v) => `$${(Number(v) || 0).toFixed(2)}`;
+const pad = (n) => String(n).padStart(2, '0');
 
 const GiftCards = () => {
   const navigate = useNavigate();
@@ -54,31 +101,30 @@ const GiftCards = () => {
     )
   );
   const [searchTerm, setSearchTerm] = useState('');
-  // Reference (live, SS 751): a Status multi-select with Current / Expired /
-  // Redeemed chips, Current pre-selected - not an either/or toggle.
-  const [statusFilter, setStatusFilter] = useState(['Current']);
-  const showRedeemedExpired = !statusFilter.includes('Current'); // export param
+  // Reference: Status multi-select, all three chips selected by default
+  // (shown in the order Redeemed, Expired, Current).
+  const [statusFilter, setStatusFilter] = useState(['Redeemed', 'Expired', 'Current']);
   const [selectedOutlet, setSelectedOutlet] = useState('');
-  const [functionsOpen, setFunctionsOpen] = useState(false);
   const [outlets, setOutlets] = useState([]);
   const [loadingOutlets, setLoadingOutlets] = useState(false);
+  // Reference: green-tab toast "Successfully exported gift cards" at the top.
+  const [toast, setToast] = useState('');
 
-  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
+  // Outlet rule: in-page Outlet filter only on All Outlets (hidden when the
+  // header carries an outlet - the list is already that outlet's).
   const { showOutletFilter } = useHeaderScope();
+  const outletFilterVisible = isTrueSuperAdmin() && showOutletFilter;
   useEffect(() => {
     if (!showOutletFilter && selectedOutlet) setSelectedOutlet('');
   }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load outlets if super admin
   useEffect(() => {
     const loadOutlets = async () => {
       if (isTrueSuperAdmin()) {
         setLoadingOutlets(true);
         try {
           const response = await outletService.getAllOutlets();
-          const fetchedOutlets = response.outlets || [];
-          setOutlets(fetchedOutlets);
-          // Set '' as default for "All Outlets"
+          setOutlets(response.outlets || []);
           setSelectedOutlet('');
         } catch (error) {
           console.error('Error loading outlets:', error);
@@ -87,56 +133,17 @@ const GiftCards = () => {
           setLoadingOutlets(false);
         }
       } else {
-        // Regular user - set their outlet
         const outletId = getOutletId();
-        if (outletId) {
-          setSelectedOutlet(outletId.toString());
-        }
+        if (outletId) setSelectedOutlet(outletId.toString());
       }
     };
-
     loadOutlets();
   }, [isTrueSuperAdmin, getOutletId]);
 
-  // Functions tray is an inline disclosure: Esc closes it (the tab itself toggles).
-  useEffect(() => {
-    if (!functionsOpen) return undefined;
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') setFunctionsOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [functionsOpen]);
+  const handleImport = () => navigate('/customers/gift-cards/import');
 
-  const handleImport = () => {
-    setFunctionsOpen(false);
-    navigate('/customers/gift-cards/import');
-  };
-
-  const handleExport = async () => {
-    setFunctionsOpen(false);
-    try {
-      const blob = await giftCardService.exportGiftCards({
-        showRedeemedExpired,
-        outletId: selectedOutlet
-      });
-      
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `gift_cards_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error exporting gift cards:', error);
-    }
-  };
-
-  // Reference react-select lists the real outlet (e.g. 'Top Drops Rossmore') as a
-  // selectable option. Guarantee the active outlet is always offered even when the
-  // getAllOutlets() fetch returns an empty/partial list.
+  // Guarantee the active outlet is always offered even when getAllOutlets()
+  // returns an empty/partial list.
   const outletOptions = useMemo(() => {
     const list = [...outlets];
     const activeId = getOutletId();
@@ -147,10 +154,33 @@ const GiftCards = () => {
     return list;
   }, [outlets, getOutletId, getOutletName]);
 
-  // Status / outlet / search all filter locally off the cached list — the API is
-  // only hit by the background sync, never per keystroke or toggle.
-  // What the Status chips mean for a card: Redeemed (drained), Expired (by date or
-  // status), otherwise Current.
+  // Reference file name: "<store code>-YYYY-MM-DD_HH_mm_ss-gift_cards.csv"
+  // (e.g. pmk-2026-10-30_16_32_00-gift_cards.csv).
+  const handleExport = async () => {
+    try {
+      const blob = await giftCardService.exportGiftCards({
+        showRedeemedExpired: !statusFilter.includes('Current'),
+        outletId: selectedOutlet,
+      });
+      const d = new Date();
+      const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}_${pad(d.getMinutes())}_${pad(d.getSeconds())}`;
+      const current = outletOptions.find((o) => String(o.id) === String(selectedOutlet || getOutletId() || ''));
+      const prefix = (current?.code || outletOptions[0]?.code || 'pos').toString().toLowerCase().replace(/[^a-z0-9]+/g, '');
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${prefix}-${stamp}-gift_cards.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setToast('Successfully exported gift cards');
+    } catch (error) {
+      console.error('Error exporting gift cards:', error);
+    }
+  };
+
+  // Status / outlet / search all filter locally off the cached list.
   const cardStatus = (card) => {
     if (card.status === 'Redeemed' || (card.status === 'Active' && (card.balance ?? 0) <= 0)) return 'Redeemed';
     const expired = !!card.expiryDate && new Date(card.expiryDate) < new Date();
@@ -162,435 +192,260 @@ const GiftCards = () => {
     if (selectedOutlet && String(card.outletId) !== String(selectedOutlet)) return false;
     const q = searchTerm.toLowerCase();
     if (!q) return true;
-    return (
-      card.code?.toLowerCase().includes(q) ||
-      card.customerName?.toLowerCase().includes(q)
-    );
+    return card.code?.toLowerCase().includes(q) || card.customerName?.toLowerCase().includes(q);
   });
 
-  // Shopfront reference: flat bordered tray buttons, no hover state at all.
-  const trayButtonSx = {
-    height: 47,
-    px: 1,
-    py: 0.5,
-    bgcolor: '#e5e7eb',
-    color: '#000',
-    border: '1px solid #000',
-    borderRadius: 0,
-    fontSize: 24,
-    fontWeight: 400,
-    textTransform: 'none',
-    whiteSpace: 'nowrap',
-    boxShadow: 'none',
-    transition: 'background 0.2s ease, color 0.2s ease',
-    '&:hover': { bgcolor: '#e5e7eb', boxShadow: 'none' },
+  const totalOriginal = filteredGiftCards.reduce((sum, card) => sum + (Number(card.originalAmount) || 0), 0);
+  const totalCurrent = filteredGiftCards.reduce((sum, card) => sum + (Number(card.balance) || 0), 0);
+
+  const goToSale = (card) =>
+    navigate('/register/history', { state: { giftCardFilter: card.code } });
+
+  const formatExpiry = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
   };
 
-  const EmptyState = () => (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        py: 12,
-        textAlign: 'center',
-      }}
-    >
-      {/* Outlined sad face with eyebrows + a teardrop, matching the Shopfront empty-state icon */}
-      <Box
-        component="svg"
-        viewBox="0 0 64 64"
-        sx={{ width: 120, height: 120, mb: 3, color: '#000' }}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="32" cy="32" r="24" />
-        {/* eyebrows */}
-        <path d="M20 22 l6 3" />
-        <path d="M44 22 l-6 3" />
-        {/* eyes */}
-        <circle cx="24" cy="30" r="1.6" fill="currentColor" stroke="none" />
-        <circle cx="40" cy="30" r="1.6" fill="currentColor" stroke="none" />
-        {/* frown mouth */}
-        <path d="M24 44 q8 -8 16 0" />
-        {/* teardrop */}
-        <path d="M24 34 q-3 5 0 7 q3 -2 0 -7 z" fill="currentColor" stroke="none" />
-      </Box>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>
-        No Results Found
-      </Typography>
-      <Typography variant="body1" color="text.secondary">
-        It&apos;s always in the last place you look
-      </Typography>
-    </Box>
-  );
-
   return (
-    <Box sx={{ px: 2, py: 2, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
-      {/* Results count (left) + Functions tab (right) - no page heading on the reference */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 0, py: 1 }}>
-        <Box>
-          <Typography sx={{ fontSize: '19.2px', fontWeight: 400, color: '#000', lineHeight: 1.2 }}>
-            {filteredGiftCards.length}
+    <Box sx={{ p: 2, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
+      {/* Title + Import / Export on one row, Results on the right (reference) */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: 0, lineHeight: 1.2, mr: 2 }}>
+            Gift Cards
           </Typography>
-          <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000' }}>
-            Results
-          </Typography>
-        </Box>
-        <Button
-          disableRipple
-          onClick={() => setFunctionsOpen((open) => !open)}
-          aria-expanded={functionsOpen}
-          startIcon={functionsOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-          sx={{
-            width: 188,
-            height: 46,
-            px: 1,
-            bgcolor: '#f8f8f8',
-            color: '#000',
-            borderRadius: 0,
-            boxShadow: '0 4px 8px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)',
-            fontSize: 24,
-            fontWeight: 400,
-            textTransform: 'none',
-            whiteSpace: 'nowrap',
-            '&:hover': {
-              bgcolor: '#f8f8f8',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)',
-            },
-          }}
-        >
-          <CodeIcon sx={{ mr: 0.5 }} />
-          Functions
-        </Button>
-      </Box>
-
-      {/* Functions tray - slides down from behind the row above */}
-      <Box sx={{ overflow: 'hidden', height: functionsOpen ? 80 : 0, transition: 'height 0.2s ease' }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            height: 80,
-            p: 2,
-            bgcolor: '#f8f8f8',
-            transform: functionsOpen ? 'translateY(0)' : 'translateY(-80px)',
-            transition: 'transform 0.2s ease, box-shadow 0.4s ease',
-            boxShadow: functionsOpen ? '0 4px 8px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)' : 'none',
-          }}
-        >
-          <Button disableRipple onClick={handleImport} startIcon={<ImportIcon />} sx={{ ...trayButtonSx, mr: 2 }}>
+          <Button
+            disableRipple
+            onClick={handleImport}
+            startIcon={<ImportIcon sx={{ fontSize: 18 }} />}
+            sx={{ ...headerButtonSx, bgcolor: '#5ebbeb', color: '#fff', border: '1px solid #5ebbeb', '&:hover': { bgcolor: '#fff', color: '#5ebbeb' } }}
+          >
             Import Gift Cards
           </Button>
-          <Button disableRipple onClick={handleExport} startIcon={<ExportIcon />} sx={trayButtonSx}>
+          <Button
+            disableRipple
+            onClick={handleExport}
+            startIcon={<ExportIcon sx={{ fontSize: 18 }} />}
+            sx={{ ...headerButtonSx, bgcolor: '#fff', color: '#404040', border: '1px solid #9e9e9e', '&:hover': { bgcolor: '#f0f0f0' } }}
+          >
             Export Gift Cards
           </Button>
         </Box>
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography sx={{ fontSize: '19.2px', fontWeight: 400, color: '#000', lineHeight: 1.2 }}>
+            {filteredGiftCards.length}
+          </Typography>
+          <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000' }}>Results</Typography>
+        </Box>
       </Box>
 
-      {/* Search + Redeemed/Expired toggle: one joined bar */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+      {/* Search */}
+      <Box sx={{ mb: 2 }}>
+        <Typography component="label" htmlFor="gift-card-search" sx={labelSx}>Search</Typography>
         <TextField
           fullWidth
-          placeholder="Search of Gift Card Codes"
+          id="gift-card-search"
+          placeholder="Search Gift Card codes..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
             endAdornment: searchTerm ? (
               <InputAdornment position="end">
-                <IconButton
-                  aria-label="Clear search"
-                  onClick={() => setSearchTerm('')}
-                  sx={{
-                    width: 25,
-                    height: 24,
-                    p: 0,
-                    color: '#404040',
-                    borderRadius: '8px',
-                    '&:hover': { bgcolor: 'transparent' },
-                  }}
-                >
+                <IconButton aria-label="Clear search" onClick={() => setSearchTerm('')} sx={{ width: 25, height: 24, p: 0, color: '#404040', borderRadius: 0, '&:hover': { bgcolor: 'transparent' } }}>
                   <CloseIcon sx={{ fontSize: 20 }} />
                 </IconButton>
               </InputAdornment>
             ) : null,
           }}
           sx={{
-            '& .MuiOutlinedInput-root': {
-              height: 42,
-              pl: 2,
-              pr: 1,
-              bgcolor: 'white',
-              borderRadius: '8px',
-              fontSize: 16,
-              // Match Shopfront: dark-gray border, turns solid black on focus/click
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
-            },
-            '& .MuiOutlinedInput-input': { p: 0 },
+            ...fieldSx,
+            '& .MuiOutlinedInput-input': { p: '8px 16px', '&::placeholder': { color: '#757575', opacity: 1 } },
           }}
         />
       </Box>
 
-      {/* Status - reference: multi-select with Current / Expired / Redeemed chips */}
-      <Box sx={{ mb: 2 }}>
-        <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Status</Typography>
-        <FormControl fullWidth>
-          <Select
-            multiple
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
-            displayEmpty
-            IconComponent={ArrowDropDownIcon}
-            renderValue={(selected) =>
-              selected.length === 0
-                ? <span style={{ color: '#808080' }}>Select...</span>
-                : (
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'nowrap', overflow: 'hidden' }}>
-                    {selected.map((s) => (
-                      <Box key={s} component="span" sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', px: 1, fontSize: 14, lineHeight: '24px', color: '#000', whiteSpace: 'nowrap' }}>
-                        {s}
-                      </Box>
-                    ))}
-                  </Box>
-                )
-            }
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  mt: 0,
-                  borderRadius: '8px',
-                  border: '1px solid #000',
-                  boxShadow: 'none',
-                  '& .MuiMenuItem-root': { fontSize: 16, color: '#000', gap: 1.5, '&:hover': { bgcolor: '#7dd3fc' } },
-                  '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#38bdf8' },
-                  '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#7dd3fc', color: '#000' },
-                },
-              },
-            }}
-            sx={{
-              bgcolor: 'white',
-              fontSize: 16,
-              height: 42,
-              '&.MuiOutlinedInput-root': { borderRadius: '8px' },
-              '& .MuiSelect-select': { py: '8px', display: 'flex', alignItems: 'center' },
-              '& .MuiSelect-icon': { color: '#404040' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-            }}
-          >
-            {['Current', 'Expired', 'Redeemed'].map((s) => {
-              const on = statusFilter.includes(s);
-              return (
-                <MenuItem key={s} value={s}>
-                  <Box sx={{ width: 16, height: 16, flex: '0 0 16px', border: on ? '1px solid #38bdf8' : '1px solid #767676', bgcolor: on ? '#38bdf8' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {on && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="#fff" />
-                      </svg>
-                    )}
-                  </Box>
-                  {s}
-                </MenuItem>
-              );
-            })}
-          </Select>
-        </FormControl>
+      {/* Outlet + Status on one row (Outlet only on All Outlets) */}
+      <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
+        {outletFilterVisible && (
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography component="label" sx={labelSx}>Outlet</Typography>
+            <FormControl fullWidth>
+              <Select
+                value={selectedOutlet}
+                onChange={(e) => setSelectedOutlet(e.target.value)}
+                disabled={loadingOutlets}
+                displayEmpty
+                IconComponent={ArrowDropDownIcon}
+                renderValue={(value) =>
+                  value
+                    ? outletOptions.find((o) => o.id.toString() === value)?.name || ''
+                    : <span style={{ color: '#808080' }}>Select...</span>
+                }
+                MenuProps={menuProps}
+                sx={fieldSx}
+                inputProps={{ 'aria-label': 'Outlet' }}
+              >
+                {selectedOutlet && <MenuItem value="">All Outlets</MenuItem>}
+                {outletOptions.map((outlet) => (
+                  <MenuItem key={outlet.id} value={outlet.id.toString()}>{outlet.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        )}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography component="label" sx={labelSx}>Status</Typography>
+          <FormControl fullWidth>
+            <Select
+              multiple
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+              displayEmpty
+              IconComponent={ArrowDropDownIcon}
+              renderValue={(selected) =>
+                selected.length === 0
+                  ? <span style={{ color: '#808080' }}>Select...</span>
+                  : (
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'nowrap', overflow: 'hidden' }}>
+                      {selected.map((s) => (
+                        <Box key={s} component="span" sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', px: 1, fontSize: 16, lineHeight: '26px', color: '#000', whiteSpace: 'nowrap' }}>
+                          {s}
+                        </Box>
+                      ))}
+                    </Box>
+                  )
+              }
+              MenuProps={menuProps}
+              sx={{ ...fieldSx, '& .MuiSelect-select': { py: '8px', display: 'flex', alignItems: 'center' } }}
+              inputProps={{ 'aria-label': 'Status' }}
+            >
+              {STATUS_OPTIONS.map((s) => {
+                const on = statusFilter.includes(s);
+                return (
+                  <MenuItem key={s} value={s}>
+                    <Box sx={{ width: 16, height: 16, flex: '0 0 16px', border: on ? '1px solid #1c9cf0' : '1px solid #000', bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {on && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="#1c9cf0" />
+                        </svg>
+                      )}
+                    </Box>
+                    {s}
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+        </Box>
       </Box>
 
-      {/* Outlet Filter - Only show for super admin. Flat (radius 0), placeholder 'Outlet' like the reference react-select */}
-      {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
-      {isTrueSuperAdmin() && showOutletFilter && (
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <Select
-            value={selectedOutlet}
-            onChange={(e) => setSelectedOutlet(e.target.value)}
-            disabled={loadingOutlets}
-            displayEmpty
-            IconComponent={ArrowDropDownIcon}
-            renderValue={(value) =>
-              value
-                ? outletOptions.find((o) => o.id.toString() === value)?.name || 'Outlet'
-                : <span style={{ color: '#808080' }}>Outlet</span>
-            }
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  mt: 0,
-                  borderRadius: 0,
-                  bgcolor: '#f8f8f8',
-                  border: '1px solid #e0e0e0',
-                  boxShadow: 'none',
-                  '& .MuiMenuItem-root': {
-                    fontSize: 16,
-                    color: '#000',
-                    '&:hover': { bgcolor: '#5ebbeb' },
-                    '&.Mui-selected': { bgcolor: 'transparent' },
-                    '&.Mui-selected:hover': { bgcolor: '#5ebbeb' }
-                  }
-                }
-              }
-            }}
-            sx={{
-              bgcolor: 'white',
-              fontSize: 16,
-              // Doubled-class specificity so the flat radius beats MUI's own
-              // .MuiOutlinedInput-root rule (emotion insertion-order can shadow a
-              // bare `borderRadius: 0`, leaving the closed control at 4px).
-              '&.MuiOutlinedInput-root': { borderRadius: 0 },
-              '& .MuiSelect-select': {
-                py: 1.5,
-              },
-              '& .MuiSelect-icon': { color: '#404040' },
-              // Match Shopfront: dark-gray border, turns solid black on focus/click
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px', borderRadius: 0 },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px', borderRadius: 0 },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px', borderRadius: 0 },
-            }}
-          >
-            <MenuItem value="">All Outlets</MenuItem>
-            {outletOptions.map((outlet) => (
-              <MenuItem key={outlet.id} value={outlet.id.toString()}>
-                {outlet.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-
-      {/* Content - flat on the page (no bordered card), matching the reference */}
-      <Box sx={{ minHeight: 400 }}>
-        {loading ? null : filteredGiftCards.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <TableContainer>
-            <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-              <TableHead>
-                <TableRow
-                  sx={{
-                    '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
-                    '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
-                    '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' }
-                  }}
-                >
-                  <TableCell>CODE</TableCell>
-                  <TableCell>STATUS</TableCell>
-                  <TableCell>ORIGINAL AMOUNT</TableCell>
-                  <TableCell>CURRENT AMOUNT</TableCell>
-                  <TableCell>EXPIRY</TableCell>
-                  <TableCell>CREATION SOURCE</TableCell>
-                  <TableCell>ACTIONS</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody
+      {loading ? null : filteredGiftCards.length === 0 ? (
+        // reference: no table, just the centred search icon + message
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 6, color: '#6b7280', fontSize: 20 }}>
+          <SearchIcon sx={{ fontSize: 26 }} />
+          No results found. Try changing the search filters
+        </Box>
+      ) : (
+        <TableContainer>
+          <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+            <TableHead>
+              <TableRow
                 sx={{
-                  '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                  '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-                  '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 }
+                  '& th': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
+                  '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
                 }}
               >
-                {filteredGiftCards.map((card) => (
-                  <TableRow key={card.id}>
-                    <TableCell sx={{ fontWeight: 600 }}>{card.code}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={card.status}
-                        color={
-                          card.status === 'Active'
-                            ? 'success'
-                            : card.status === 'Redeemed'
-                            ? 'default'
-                            : 'error'
-                        }
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>${card.originalAmount?.toFixed(2) || '0.00'}</TableCell>
-                    <TableCell>${card.balance?.toFixed(2) || '0.00'}</TableCell>
-                    <TableCell>
-                      {card.expiryDate ? new Date(card.expiryDate).toLocaleDateString() : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Typography 
-                        variant="body2" 
-                        sx={{
-                          fontSize: 16,
-                          color: card.saleId ? '#32b643' : 'text.secondary',
-                          cursor: card.saleId ? 'pointer' : 'default',
-                          textDecoration: card.saleId ? 'underline' : 'none',
-                          '&:hover': {
-                            color: card.saleId ? '#32b643' : 'text.secondary'
-                          }
-                        }}
-                        onClick={() => {
-                          if (card.saleId) {
-                            // ponytail: no per-sale route exists; filter sales history by this card
-                            navigate('/register/history', {
-                              state: { giftCardFilter: card.code }
-                            });
-                          }
-                        }}
+                <TableCell>Code</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Original Amount</TableCell>
+                <TableCell>Current Amount</TableCell>
+                <TableCell>Expiry</TableCell>
+                <TableCell>Creation Source</TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody
+              sx={{
+                '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
+                '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
+                '& td': { border: 0, fontSize: 16, color: '#000', py: '20px' },
+              }}
+            >
+              {filteredGiftCards.map((card) => (
+                <TableRow key={card.id}>
+                  <TableCell>{card.code}</TableCell>
+                  <TableCell>{cardStatus(card)}</TableCell>
+                  <TableCell>{money(card.originalAmount)}</TableCell>
+                  <TableCell>{money(card.balance)}</TableCell>
+                  <TableCell>{formatExpiry(card.expiryDate)}</TableCell>
+                  <TableCell>
+                    {card.saleId ? (
+                      <Typography
+                        component="span"
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => goToSale(card)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') goToSale(card); }}
+                        sx={{ fontSize: 16, color: '#000', textDecoration: 'underline', cursor: 'pointer' }}
                       >
-                        {card.creationSource || 'Manual'}
+                        {card.creationSource}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="small"
-                        startIcon={<SearchIcon />}
-                        onClick={() => {
-                          // Navigate to sales history with gift card filter
-                          navigate('/register/history', { 
-                            state: { 
-                              giftCardFilter: card.code 
-                            } 
-                          });
-                        }}
-                        sx={{
-                          color: '#0284c7',
-                          textTransform: 'none',
-                          fontWeight: 700,
-                          fontSize: 16,
-                          minWidth: 0,
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        Find in Sales History
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              {/* Summary Row */}
-              {filteredGiftCards.length > 0 && (
-                <TableBody sx={{ '& td': { border: 0, fontSize: 16, color: '#000' } }}>
-                  <TableRow sx={{ bgcolor: '#e3f2fd' }}>
-                    <TableCell colSpan={2} sx={{ fontWeight: 600, border: 'none' }}>
-                      Total
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, border: 'none' }}>
-                      ${filteredGiftCards.reduce((sum, card) => sum + (card.originalAmount || 0), 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, border: 'none' }}>
-                      ${filteredGiftCards.reduce((sum, card) => sum + (card.balance || 0), 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell colSpan={3} sx={{ border: 'none' }}></TableCell>
-                  </TableRow>
-                </TableBody>
-              )}
-            </Table>
-          </TableContainer>
-        )}
-      </Box>
+                    ) : 'Unknown'}
+                  </TableCell>
+                  <TableCell align="center">
+                    <Button
+                      disableRipple
+                      startIcon={<FindIcon />}
+                      onClick={() => goToSale(card)}
+                      sx={{ color: '#1c86f2', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0, whiteSpace: 'nowrap', '&:hover': { bgcolor: 'transparent' } }}
+                    >
+                      Find in Sales History
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            {/* Reference footer: blue rounded row with the two amount totals */}
+            <TableBody>
+              <TableRow
+                sx={{
+                  '& td': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& td:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
+                  '& td:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
+                }}
+              >
+                <TableCell />
+                <TableCell />
+                <TableCell>{money(totalOriginal)}</TableCell>
+                <TableCell>{money(totalCurrent)}</TableCell>
+                <TableCell />
+                <TableCell />
+                <TableCell />
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {/* Reference toast: white card, green check tab on the left, spinner on the right */}
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={4000}
+        onClose={() => setToast('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#fff', borderRadius: '4px', boxShadow: '0 4px 14px rgba(0,0,0,0.25)', overflow: 'hidden', height: 52 }}>
+          <Box sx={{ width: 52, height: '100%', bgcolor: '#86efac', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CheckIcon sx={{ color: '#15803d', fontSize: 22 }} />
+          </Box>
+          <Typography sx={{ fontSize: 16, color: '#000', px: 2 }}>{toast}</Typography>
+          <CircularProgress size={22} thickness={3} sx={{ color: '#9ca3af', mr: 2 }} />
+        </Box>
+      </Snackbar>
     </Box>
   );
 };
 
 export default GiftCards;
-
