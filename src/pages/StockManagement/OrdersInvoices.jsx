@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
 import { formatDate as formatAppDate, appTimeZone } from '../../utils/appDateTime';
 import { inOrderInvoiceDateRange } from '../../utils/orderInvoiceDateRange.js';
@@ -205,7 +205,9 @@ const OrdersInvoices = () => {
   const [pools, setPools] = useState({});
   const poolPromises = useRef({});
   const navigate = useNavigate();
-  const { selectedOutlet } = useSelectedOutlet();
+  const { selectedOutlet, outlets } = useSelectedOutlet();
+  // Outlet filter options: the outlet names (the filter matches by name, incl. transfer ends).
+  const outletOptions = useMemo(() => (outlets || []).map((o) => o.name).filter(Boolean), [outlets]);
   const { user, isTrueSuperAdmin } = useAuth();
   // Header rule: the in-page Outlet filter is hidden while a header outlet is selected.
   const { showOutletFilter } = useHeaderScope();
@@ -428,7 +430,8 @@ const OrdersInvoices = () => {
     <Labeled label={label}>
       <Autocomplete
         options={options}
-        value={filters[field]}
+        // Empty → null so MUI does not count '' as a value (it showed ✕ on hover).
+        value={filters[field] || null}
         onChange={(e, value) => setFilter(field)(value ?? '')}
         disableClearable={!extra.clearable}
         autoHighlight
@@ -440,8 +443,9 @@ const OrdersInvoices = () => {
         ListboxProps={{ sx: comboListboxSx }}
         sx={{
           ...fieldSx,
-          // Reference shows a persistent X clear button beside the chevron.
-          ...(extra.clearable && {
+          // X clear button only once a value is picked; an empty box shows just the
+          // chevron like the other filters (user 30/10/2026).
+          ...(extra.clearable && filters[field] && {
             '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' },
           }),
         }}
@@ -620,8 +624,9 @@ const OrdersInvoices = () => {
           </Labeled>
           {renderAsyncCombo('Supplier', 'supplier')}
           {renderAsyncCombo('Transferee', 'transferee')}
-          {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
-          {showOutletFilter && renderCombo('Outlet', 'outlet', [], { clearable: true })}
+          {/* Advanced Filters, with the outlet list (user 30/10/2026). All Outlets
+              only: hidden while a header outlet is selected. */}
+          {showOutletFilter && renderCombo('Outlet', 'outlet', outletOptions, { clearable: true })}
           {renderAsyncCombo('Vendor Connection', 'vendorConnection')}
           {renderAsyncCombo('Product', 'product')}
           {renderAsyncCombo('Created By', 'createdBy')}
