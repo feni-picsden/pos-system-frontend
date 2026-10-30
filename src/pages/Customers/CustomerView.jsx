@@ -582,10 +582,12 @@ const CustomerView = () => {
 
   // Reference strip: Email, Mobile, Customer Group, Price List (the list the
   // customer is sold at - their own under "override group", else the group's).
+  // Same rule as the sell screen: own list under "override group" or when in no
+  // group; a group member otherwise takes the group's list (even when none).
+  const inGroup = customer.customerGroupId != null || Boolean(customer.customerGroup);
   const effectivePriceList =
-    (customer.overrideCustomerGroup && customer.priceList) ||
-    customer.customerGroup?.priceList ||
-    customer.priceList ||
+    ((customer.overrideCustomerGroup || !inGroup) && customer.priceList) ||
+    (inGroup ? customer.customerGroup?.priceList : null) ||
     null;
   const detailPairs = [
     ["Email", (customer.emails || []).filter(Boolean).join(", ")],

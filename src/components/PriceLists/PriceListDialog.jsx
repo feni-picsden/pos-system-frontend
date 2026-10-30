@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
+  DialogContent,
+  DialogActions,
   Button,
   TextField,
   Box,
@@ -13,9 +15,10 @@ import priceListService from '../../services/priceListService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
-// Shopfront's "Create Price List" prompt asks for a name only, then opens the new
-// list's configuration page. Description / discount / markup / active / default are
-// edited afterwards on the price list details page (PriceListDetails.jsx).
+// Shopfront's "Create New Price List" prompt (reference): light-blue title bar
+// with a "?" icon, one question + one text box, grey Cancel / blue Create. The
+// new list then opens on its edit page. Description / discount / markup are not
+// asked here.
 const PriceListDialog = ({ open, onClose, onSave }) => {
   const { isTrueSuperAdmin } = useAuth();
   const { selectedOutletId } = useSelectedOutlet();
@@ -32,8 +35,8 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
   }, [open]);
 
   const handleSubmit = async () => {
-    // The New button stays enabled on an empty input (reference behaviour), so the
-    // required-name check lives here rather than in `disabled`.
+    // The Create button stays enabled on an empty input (reference behaviour), so
+    // the required-name check lives here rather than in `disabled`.
     if (!name.trim()) {
       setError('Price list name is required');
       return;
@@ -67,17 +70,16 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
     }
   };
 
-  const actionSx = {
-    flex: '0 0 120px',
-    width: 120,
-    minWidth: 120,
-    height: 48,
-    p: 0,
-    borderRadius: 0,
-    fontSize: 32,
-    lineHeight: 1,
-    fontWeight: 400,
+  // Reference dialog buttons ("Receive transfer"): grey Cancel, blue action,
+  // 4px corners, bold white text.
+  const buttonSx = {
     textTransform: 'none',
+    borderRadius: '4px',
+    fontWeight: 700,
+    fontSize: 16,
+    px: 3,
+    height: 40,
+    minWidth: 96,
     boxShadow: 'none',
     transition: 'background 0.2s ease, color 0.2s ease',
   };
@@ -87,64 +89,43 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
       open={open}
       onClose={handleClose}
       transitionDuration={200}
-      BackdropProps={{
-        sx: {
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          transition: 'opacity 200ms ease-in-out !important',
-        },
-      }}
+      BackdropProps={{ sx: { backgroundColor: 'rgba(0, 0, 0, 0.7)' } }}
       PaperProps={{
+        elevation: 0,
         sx: {
-          width: 287,
-          maxWidth: 287,
-          m: 0,
-          mt: '60px',
-          p: '16px',
-          borderRadius: 0,
-          overflow: 'visible',
-          backgroundColor: '#fff',
-          boxShadow: '0 0 30px rgba(0,0,0,0.25), 0 15px 30px rgba(0,0,0,0.19)',
+          width: 300,
+          maxWidth: '92vw',
+          overflow: 'hidden',
+          bgcolor: '#fff',
+          borderRadius: '12px',
+          boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)',
         },
       }}
     >
-      {/* Circular glyph overhanging the top edge of the dialog */}
-      <Box
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          top: -60,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 120,
-          height: 120,
-          borderRadius: '100%',
-          backgroundColor: '#1c86f2',
-          color: '#f8f8f8',
-          fontSize: 72,
-          lineHeight: '120px',
-          textAlign: 'center',
-        }}
-      >
-        ?
+      {/* Light-blue title bar with the "?" glyph (reference) */}
+      <Box sx={{ bgcolor: '#bfe6fb', px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography component="span" aria-hidden sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
+        <Typography component="h3" sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 18, m: 0 }}>
+          Create New Price List
+        </Typography>
       </Box>
 
-      <Typography component="h3" sx={{ mt: '60px', textAlign: 'center', fontSize: '18.72px', fontWeight: 700 }}>
-        Create Price List
-      </Typography>
-      <Typography component="p" sx={{ my: '16px', textAlign: 'center', fontSize: 16 }}>
-        What should the price list be called?
-      </Typography>
+      <DialogContent sx={{ px: 2, pt: 3, pb: 1 }}>
+        <Typography component="p" sx={{ m: '0 0 12px', fontSize: 16, color: '#000' }}>
+          What should the price list be called?
+        </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
         <TextField
           autoFocus
+          fullWidth
           value={name}
+          inputProps={{ 'aria-label': 'Price list name' }}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -152,47 +133,33 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
             }
           }}
           sx={{
-            width: 255,
-            '& .MuiOutlinedInput-root': { height: 53, borderRadius: 0, fontSize: 16 },
-            '& .MuiOutlinedInput-input': { p: '16px' },
+            '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px', fontSize: 16, bgcolor: '#fff' },
+            '& .MuiOutlinedInput-input': { p: '8px 16px' },
             '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-            '& .Mui-focused .MuiOutlinedInput-notchedOutline, & .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#000',
-              borderWidth: '1px',
-            },
+            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
           }}
         />
-      </Box>
+      </DialogContent>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: '16px' }}>
+      <DialogActions sx={{ px: 2, pb: 2, pt: 1.5, gap: 1.5, justifyContent: 'space-between' }}>
         <Button
           onClick={handleClose}
           disabled={loading}
-          sx={{
-            ...actionSx,
-            backgroundColor: '#f8f8f8',
-            color: '#676b72',
-            border: '1px solid #676b72',
-            '&:hover': { backgroundColor: '#313439', color: '#bdbdbd', boxShadow: 'none' },
-          }}
+          disableElevation
+          sx={{ ...buttonSx, flex: 1, borderRadius: '8px', bgcolor: '#d5d5d5', color: '#000', '&:hover': { bgcolor: '#c4c4c4' } }}
         >
           Cancel
         </Button>
         <Button
           onClick={handleSubmit}
           disabled={loading}
-          sx={{
-            ...actionSx,
-            backgroundColor: '#32b643',
-            color: '#f8f8f8',
-            border: '1px solid #32b643',
-            '&:hover': { backgroundColor: '#f8f8f8', color: '#32b643', boxShadow: 'none' },
-          }}
+          disableElevation
+          sx={{ ...buttonSx, flex: 1, borderRadius: '8px', bgcolor: '#1c9cf0', color: '#fff', '&:hover': { bgcolor: '#1686d1' }, '&.Mui-disabled': { bgcolor: '#8fcdf7', color: '#fff' } }}
         >
-          {loading ? <CircularProgress size={24} sx={{ color: 'inherit' }} /> : 'New'}
+          {loading ? <CircularProgress size={20} sx={{ color: 'inherit' }} /> : 'Create'}
         </Button>
-      </Box>
+      </DialogActions>
     </Dialog>
   );
 };

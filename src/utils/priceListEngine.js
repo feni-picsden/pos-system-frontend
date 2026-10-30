@@ -76,54 +76,80 @@ function priceFromRule(rule, ctx) {
   return priceFromMethod(rule.pricingMethod, rule.pricingValue ?? rule.value, ctx);
 }
 
-// Match a rule to a line. Product rules match by entityId; classification/brand/tag rules
-// match when the line carries a matching id in classificationIds (best-effort — only applied
-// when that data is present on the cart line).
+// Sale-time priority when several rules match one product: the most specific
+// wins (product, then its family, category, brand, tag); the fallback rule only
+// applies when nothing matched at all.
+const TYPE_PRIORITY = { product: 0, '': 0, family: 1, category: 2, brand: 3, tag: 4 };
+
+const idEq = (a, b) => a != null && b != null && Number(a) === Number(b);
+
+// Match a rule to a line. Product rules match by entityId; family / category /
+// brand rules by the product's own classification ids; tag rules by any of the
+// product's tag ids. `classificationIds` is kept as a catch-all for callers that
+// already flattened the ids.
 function ruleMatchesLine(rule, line) {
   if (!rule) return false;
   const et = (rule.entityType || '').toLowerCase();
   if (et === 'product' || et === '') {
-    return rule.entityId != null && (rule.entityId === line.productId || rule.entityId === line.id);
+    return rule.entityId != null && (idEq(rule.entityId, line.productId) || idEq(rule.entityId, line.id));
   }
-  // classification / brand / tag / family
+  if (et === 'family' && idEq(rule.entityId, line.familyId)) return true;
+  if (et === 'category' && idEq(rule.entityId, line.categoryId)) return true;
+  if (et === 'brand' && idEq(rule.entityId, line.brandId)) return true;
+  if (et === 'tag' && Array.isArray(line.tagIds) && line.tagIds.some((t) => idEq(t, rule.entityId))) return true;
   const ids = line.classificationIds;
-  if (Array.isArray(ids) && ids.length) return ids.includes(rule.entityId);
+  if (Array.isArray(ids) && ids.length) return ids.some((c) => idEq(c, rule.entityId));
   return false;
 }
 
+export function findMatchingRule(rules, line) {
+  let best = null;
+  let bestRank = Infinity;
+  (Array.isArray(rules) ? rules : []).forEach((r) => {
+    if (!ruleMatchesLine(r, line)) return;
+    const rank = TYPE_PRIORITY[(r.entityType || '').toLowerCase()] ?? 9;
+    if (rank < bestRank) { best = r; bestRank = rank; }
+  });
+  return best;
+}
+
 /**
- * Resolve the effective unit price for a line under a price list.
- * @param {object} line   { everyday, price?, productId, id?, cost?, lastCost?, classificationIds? }
- * @param {object} config PriceList.configuration ({ allowHigherPrice, rules, fallbackRule })
- * @returns {number} the effective unit price (never NaN/negative). Falls back to everyday.
+ * Resolve a line under a price list.
+ * @returns {{ price:number, applied:boolean, rule:object|null }}
+ *   `applied` is true when a rule or the fallback actually priced the line (the
+ *   sale uses it for Allow Discounting Promotions); excluded / unmatched lines
+ *   come back at the everyday price with applied=false.
  */
-export function applyPriceListToLine(line, config) {
+export function resolvePriceListLine(line, config) {
   const everyday = num(line?.everyday ?? line?.price);
-  if (everyday == null) return num(line?.price) ?? 0;
-  if (!config || (!Array.isArray(config.rules) && !config.fallbackRule)) return everyday;
+  if (everyday == null) return { price: num(line?.price) ?? 0, applied: false, rule: null };
+  if (!config || (!Array.isArray(config.rules) && !config.fallbackRule)) return { price: everyday, applied: false, rule: null };
 
   const ctx = { everyday, cost: num(line.cost), lastCost: num(line.lastCost), quantity: num(line.quantity) };
 
-  const rule = (Array.isArray(config.rules) ? config.rules : []).find((r) => ruleMatchesLine(r, line));
+  const rule = findMatchingRule(config.rules, line);
 
   let listPrice = null;
   let minMethod = null;
   let minValue = null;
+  let used = null;
 
   if (rule) {
-    if (rule.excludeFromPriceList) return everyday; // explicitly excluded
+    if (rule.excludeFromPriceList) return { price: everyday, applied: false, rule }; // explicitly excluded
     listPrice = priceFromRule(rule, ctx);
     minMethod = rule.minimumPriceMethod;
     minValue = rule.minimumPriceValue;
+    used = rule;
   } else if (config.fallbackRule) {
     listPrice = priceFromRule(config.fallbackRule, ctx);
     minMethod = config.fallbackRule.minimumPriceMethod;
     minValue = config.fallbackRule.minimumPriceValue;
+    used = config.fallbackRule;
   } else {
-    return everyday; // no rule, no fallback
+    return { price: everyday, applied: false, rule: null }; // no rule, no fallback
   }
 
-  if (listPrice == null) return everyday; // method not computable → everyday
+  if (listPrice == null) return { price: everyday, applied: false, rule: used }; // method not computable → everyday
 
   // Minimum price floor.
   const floor = priceFromMethod(minMethod, minValue, ctx);
@@ -132,8 +158,19 @@ export function applyPriceListToLine(line, config) {
   // Allow Higher Price: OFF => never exceed everyday (cheaper wins).
   if (!config.allowHigherPrice && listPrice > everyday) listPrice = everyday;
 
-  if (!Number.isFinite(listPrice) || listPrice < 0) return everyday; // guard
-  return listPrice;
+  if (!Number.isFinite(listPrice) || listPrice < 0) return { price: everyday, applied: false, rule: used }; // guard
+  return { price: listPrice, applied: true, rule: used };
+}
+
+/**
+ * Resolve the effective unit price for a line under a price list.
+ * @param {object} line   { everyday, price?, productId, id?, cost?, lastCost?, quantity?,
+ *                          categoryId?, brandId?, familyId?, tagIds?, classificationIds? }
+ * @param {object} config PriceList.configuration ({ allowHigherPrice, rules, fallbackRule })
+ * @returns {number} the effective unit price (never NaN/negative). Falls back to everyday.
+ */
+export function applyPriceListToLine(line, config) {
+  return resolvePriceListLine(line, config).price;
 }
 
 // --- self-check (runs once at import; silent unless a rule breaks) ---
@@ -190,6 +227,39 @@ export function applyPriceListToLine(line, config) {
     applyPriceListToLine(line({ productId: 99 }), cfg({ fallbackRule: { pricingMethod: 'discount_by_percent', pricingValue: '10' } })) === 9,
     'priceList: fallback rule applies to unmatched product'
   );
+  // category / brand / family / tag rules match the product's own ids
+  const catRule = { entityType: 'category', entityId: 7, pricingMethod: 'discount_by_percent', pricingValue: '20' };
+  console.assert(
+    applyPriceListToLine(line({ productId: 5, categoryId: 7 }), cfg({ rules: [catRule] })) === 8,
+    'priceList: category rule matches by categoryId'
+  );
+  console.assert(
+    applyPriceListToLine(line({ productId: 5, tagIds: [3, 9] }), cfg({ rules: [{ entityType: 'tag', entityId: 9, pricingMethod: 'discount_by_percent', pricingValue: '10' }] })) === 9,
+    'priceList: tag rule matches any tag id'
+  );
+  // priority: product beats family beats category beats brand beats tag, list order irrelevant
+  console.assert(
+    applyPriceListToLine(
+      line({ productId: 1, categoryId: 7, familyId: 4, brandId: 2 }),
+      cfg({ rules: [
+        catRule,
+        { entityType: 'brand', entityId: 2, pricingMethod: 'discount_by_percent', pricingValue: '30' },
+        { entityType: 'family', entityId: 4, pricingMethod: 'discount_by_percent', pricingValue: '40' },
+        { entityType: 'product', entityId: 1, pricingMethod: 'discount_by_percent', pricingValue: '50' },
+      ] })
+    ) === 5,
+    'priceList: product rule wins over family/category/brand'
+  );
+  console.assert(
+    applyPriceListToLine(
+      line({ productId: 99, categoryId: 7, familyId: 4 }),
+      cfg({ rules: [catRule, { entityType: 'family', entityId: 4, pricingMethod: 'discount_by_percent', pricingValue: '40' }] })
+    ) === 6,
+    'priceList: family rule wins over category'
+  );
+  // applied flag: matched rule => true, excluded / unmatched => false
+  console.assert(resolvePriceListLine(line({ productId: 5, categoryId: 7 }), cfg({ rules: [catRule] })).applied === true, 'priceList: applied on match');
+  console.assert(resolvePriceListLine(line({ productId: 5 }), cfg({ rules: [catRule] })).applied === false, 'priceList: not applied when unmatched');
   // no config => everyday untouched, never NaN
   console.assert(applyPriceListToLine(line(), null) === 10, 'priceList: null config is a no-op');
   // cost method with missing cost => everyday (not NaN)

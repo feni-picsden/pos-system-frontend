@@ -45,6 +45,18 @@ const priceListService = {
     const response = await apiClient.put(`/price-lists/${id}/configuration`, configuration);
     return response.data;
   },
+
+  // View page > Customers tab: customers sold at this list (own or via group).
+  getPriceListCustomers: async (id) => {
+    const response = await apiClient.get(`/price-lists/${id}/customers`, { noCache: true });
+    return response.data;
+  },
+
+  // View page > Revisions tab.
+  getPriceListRevisions: async (id) => {
+    const response = await apiClient.get(`/price-lists/${id}/revisions`, { noCache: true });
+    return response.data;
+  },
 };
 
 export default priceListService;

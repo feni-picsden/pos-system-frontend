@@ -19,16 +19,16 @@ import {
   Add as AddIcon,
   EditOutlined as EditIcon,
   DeleteOutline as DeleteIcon,
-  ToggleOn as ToggleOnIcon,
-  ToggleOff as ToggleOffIcon,
   CloseOutlined as ClearIcon,
   VisibilityOutlined as ViewIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import PriceListDialog from '../../components/PriceLists/PriceListDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import priceListService from '../../services/priceListService';
 import usePageCache from '../../hooks/usePageCache';
+import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 
 // Row-action link style — matches the proven Promotions.jsx list-page pattern
 const rowActionSx = (color) => ({
@@ -40,9 +40,9 @@ const rowActionSx = (color) => ({
   borderRadius: '12px',
   minWidth: 0,
   px: 1.5,
-  // Reference shows underline-on-hover (no bg tint, no transition — Shopfront has none).
+  // Reference: no hover effect at all (no underline, no bg tint).
   transition: 'all 0s ease',
-  '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' }
+  '&:hover': { bgcolor: 'transparent', textDecoration: 'none' }
 });
 
 const PriceLists = () => {
@@ -61,14 +61,22 @@ const PriceLists = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [listToDelete, setListToDelete] = useState(null);
   const searchInputRef = useRef(null);
+  // Outlet rule: with a navbar outlet the list is already that outlet's (+ global)
+  // and nothing extra shows; on All Outlets an Outlet filter + Outlet column appear.
+  const { globalMode, outletNameOf } = useGlobalOutlet();
+  const [outletFilter, setOutletFilter] = useState(null);
+  useEffect(() => { if (!globalMode) setOutletFilter(null); }, [globalMode]);
 
   useEffect(() => {
-    const filtered = priceLists.filter(list =>
-      list.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (list.description && list.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const term = searchTerm.toLowerCase();
+    const filtered = priceLists.filter((list) => {
+      const matchesSearch = list.name.toLowerCase().includes(term) ||
+        (list.description && list.description.toLowerCase().includes(term));
+      const matchesOutlet = !outletFilter || list.outletId === outletFilter.id;
+      return matchesSearch && matchesOutlet;
+    });
     setFilteredLists(filtered);
-  }, [priceLists, searchTerm]);
+  }, [priceLists, searchTerm, outletFilter]);
 
   const handleAddList = () => {
     setOpenDialog(true);
@@ -98,16 +106,6 @@ const PriceLists = () => {
     }
   };
 
-  const handleToggleStatus = async (listId) => {
-    try {
-      await priceListService.togglePriceListStatus(listId);
-      await loadPriceLists(); // Reload the list
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to toggle price list status');
-      console.error('Error toggling price list status:', err);
-    }
-  };
-
   const handleListSaved = () => {
     setOpenDialog(false);
     loadPriceLists(); // Reload the list
@@ -124,9 +122,12 @@ const PriceLists = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
+      {/* Header (reference: "Price Lists" title + Add Price List on one row, N Results right) */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: 0, lineHeight: 1.2 }}>
+            Price Lists
+          </Typography>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -159,12 +160,17 @@ const PriceLists = () => {
         </Box>
       </Box>
 
-      {/* Search */}
-      <Box sx={{ mb: 3 }}>
+      {/* Search (reference: "Search" label above the box); Outlet filter only on All Outlets */}
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'flex-end' }}>
+        <Box sx={{ width: globalMode ? 420 : '100%' }}>
+        <Typography component="label" htmlFor="price-list-search" sx={{ display: 'block', fontSize: 16, fontWeight: 700, color: '#000', mb: 0.5 }}>
+          Search
+        </Typography>
         <TextField
           fullWidth
+          id="price-list-search"
           inputRef={searchInputRef}
-          placeholder="Search for Price List"
+          placeholder="Search Price Lists..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
@@ -197,6 +203,8 @@ const PriceLists = () => {
             },
           }}
         />
+        </Box>
+        <GlobalOutletFilter value={outletFilter} onChange={setOutletFilter} sx={{ width: 260, flexShrink: 0 }} labelSx={{ fontWeight: 700 }} />
       </Box>
 
       {error && (
@@ -205,6 +213,13 @@ const PriceLists = () => {
         </Alert>
       )}
 
+      {/* reference: no rows = no table at all, just the centred message */}
+      {filteredLists.length === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 6, color: '#6b7280', fontSize: 20 }}>
+          <SearchIcon sx={{ fontSize: 26 }} />
+          {searchTerm ? 'No results found. Try changing the search filters' : 'No price lists found'}
+        </Box>
+      ) : (
       <TableContainer sx={{ mt: 1 }}>
         <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
           <TableHead>
@@ -215,9 +230,10 @@ const PriceLists = () => {
                 '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' }
               }}
             >
-              <TableCell sx={{ width: '46%' }}>Name</TableCell>
-              <TableCell sx={{ width: '48%' }}>Customer Count</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell sx={{ width: '20%' }}>Name</TableCell>
+              {globalMode && <TableCell sx={{ width: '20%' }}>Outlet</TableCell>}
+              <TableCell sx={{ width: globalMode ? '40%' : '60%' }}>Customer Count</TableCell>
+              <TableCell align="center" sx={{ width: '20%', pl: '48px', pr: '20px' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody
@@ -234,13 +250,18 @@ const PriceLists = () => {
                     {list.name}
                   </Typography>
                 </TableCell>
+                {globalMode && (
+                  <TableCell>
+                    <Typography sx={{ fontSize: 16, color: '#000' }}>{outletNameOf(list.outletId)}</Typography>
+                  </TableCell>
+                )}
                 <TableCell>
                   <Typography sx={{ fontSize: 16, color: '#000' }}>
-                    {list.customerCount}
+                    {Number(list.customerCount) || 0}
                   </Typography>
                 </TableCell>
-                <TableCell align="right" sx={{ pr: '20px' }}>
-                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+                <TableCell sx={{ pl: '48px', pr: '20px' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Button
                       disableRipple
                       startIcon={<ViewIcon />}
@@ -265,30 +286,14 @@ const PriceLists = () => {
                     >
                       Delete
                     </Button>
-                    <IconButton
-                      onClick={() => handleToggleStatus(list.id)}
-                      sx={{ color: list.isActive ? '#ff9800' : '#4caf50' }}
-                      size="small"
-                      title={list.isActive ? 'Deactivate' : 'Activate'}
-                    >
-                      {list.isActive ? <ToggleOffIcon /> : <ToggleOnIcon />}
-                    </IconButton>
                   </Box>
                 </TableCell>
               </TableRow>
             ))}
-            {filteredLists.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
-                    {searchTerm ? 'No price lists found matching your search' : 'No price lists found'}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </TableContainer>
+      )}
 
       {/* Price List Dialog */}
       <PriceListDialog

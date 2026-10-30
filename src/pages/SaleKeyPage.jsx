@@ -99,7 +99,7 @@ import { claimTakeoverUI } from '../services/registerControl';
 import giftCardService from '../services/giftCardService';
 import priceListService from '../services/priceListService';
 import { priceSetService } from '../services/priceSetService';
-import { applyPriceListToLine } from '../utils/priceListEngine';
+import { resolvePriceListLine } from '../utils/priceListEngine';
 import { lineSavings, itemsPerCase } from '../utils/saleTotals';
 import { allocateCriteriaSets, allocateSpendPromotion, mergeCriteriaGroups, RECEIVE_TYPES as SPEND_RECEIVE_TYPES } from '../utils/criteriaPromotion';
 import { allocateCrossPromotions } from '../utils/crossPromotion';
@@ -170,14 +170,17 @@ import { loadOutletProfile, mergeOutletProfile } from '../utils/outletReceiptPro
 // is an OR: a member earns if either the customer OR their group has it on.
 const getEffectiveCustomerSettings = (customer) => {
   const group = customer?.customerGroup || {};
-  const override = Boolean(customer?.overrideCustomerGroup);
+  const inGroup = customer?.customerGroupId != null || Boolean(customer?.customerGroup);
+  // A customer in no group has nothing to inherit: their own values apply
+  // (help: price lists apply "to individual customers who aren't in a group").
+  const override = Boolean(customer?.overrideCustomerGroup) || !inGroup;
   // own value wins only under override AND only when actually set (undefined/''/null => inherit)
   const pick = (own, grp) => (override && own != null && own !== '' ? own : grp);
   return {
     disablePromotions: Boolean(pick(customer?.disablePromotions, group.disablePromotions)),
     requireOrderReference: Boolean(pick(customer?.requireOrderReference, group.requireOrderReference)),
     loyaltyEnabled: Boolean(customer?.loyaltyEnabled || group.loyaltyEnabled),
-    // effective price list: customer's own under override, else the group's
+    // effective price list: customer's own under override (or with no group), else the group's
     priceListId: pick(customer?.priceListId, group.priceListId) || null,
   };
 };
@@ -1134,16 +1137,56 @@ const SaleKeyPage = () => {
       return;
     }
     let cancelled = false;
-    priceListService.getPriceListConfiguration(plId)
-      .then((res) => { if (!cancelled) setPriceListConfig(res?.configuration || res || null); })
-      .catch(() => { if (!cancelled) setPriceListConfig(null); });
     // The customer band shows the list's NAME under the customer (reference: "COST").
+    // An inactive list is not applied at all (its rules are only loaded when active).
     priceListService.getPriceList(plId)
-      .then((res) => { if (!cancelled) setPriceListName(res?.priceList?.name || ''); })
-      .catch(() => { if (!cancelled) setPriceListName(''); });
+      .then((res) => {
+        if (cancelled) return null;
+        const list = res?.priceList;
+        setPriceListName(list?.name || '');
+        if (list && list.isActive === false) { setPriceListConfig(null); return null; }
+        return priceListService.getPriceListConfiguration(plId);
+      })
+      .then((res) => { if (!cancelled && res) setPriceListConfig(res?.configuration || res || null); })
+      .catch(() => { if (!cancelled) { setPriceListConfig(null); setPriceListName(''); } });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomer?.id]);
+
+  // Reference: the whole sale re-prices when the customer's price list arrives or
+  // goes away (attach a customer after scanning, or remove them with the "x" -
+  // measured live 30/10/2026: 2 x $112 list price became 2 x $150 on removal).
+  // Runs only when the list configuration changes, and rewrites only lines whose
+  // price actually differs, so it cannot loop with the family / promotion passes.
+  // Lines that carry their own price are left alone: manual price or discount,
+  // locked / requested price, combos, gift cards, returns, and lines priced by a
+  // criteria promotion or family deal (those passes re-run on the new cart).
+  useEffect(() => {
+    if (isTransactionComplete || !Array.isArray(cart) || cart.length === 0) return;
+    let changed = false;
+    const next = cart.map((item) => {
+      if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.priceLocked
+        || item.isPromotionItem || item.criteriaPromo != null || item.familyPriced) return item;
+      const q = parseFloat(item.quantity) || 0;
+      if (q <= 0) return item;
+      const product = resolveProductLocal(item.productId, item.name);
+      if (!product || product.requestPrice) return item;
+      const price = calculatePriceForQuantity(product, q);
+      const normalPrice = calculateNormalPriceForQuantity(product, q);
+      if (Math.abs((parseFloat(item.price) || 0) - price) < 0.005
+        && Math.abs((parseFloat(item.normalPrice ?? item.price) || 0) - normalPrice) < 0.005) return item;
+      changed = true;
+      return { ...item, price, normalPrice };
+    });
+    if (!changed) return;
+    setCart((prev) => (prev === cart ? next : prev));
+    setSelectedCartItem((prev) => {
+      if (!prev) return prev;
+      const match = next.find((i) => i.id === prev.id && i.timestamp === prev.timestamp);
+      return match || prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceListConfig]);
 
   // Auto-complete when paid in full on the sales screen (same as $100 / pay-exact sale keys)
   useEffect(() => {
@@ -5655,6 +5698,22 @@ const SaleKeyPage = () => {
     setShowQuantityKeypad(true);
   };
 
+  // Price shown in the product-detail header (and used for the Show Costs strip).
+  // Reference: opened from a cart line it is that line's unit price — so a
+  // price-list / promotion / price-set line reads $112.00 while the Prices table
+  // below still lists the everyday $150.00. A combo component is $0.00
+  // (productDetailPriceOverride); opened from a key it is the retail price.
+  const productDetailHeaderPrice = () => {
+    if (productDetailPriceOverride != null) return Number(productDetailPriceOverride) || 0;
+    const line = productDetailCartItem;
+    if (line && !line.isCombo && line.price != null) {
+      const qty = Math.abs(parseFloat(line.quantity)) || 1;
+      const unit = Math.abs(parseFloat(line.price) || 0) / qty;
+      if (Number.isFinite(unit)) return unit;
+    }
+    return Number(selectedProductDetail?.retailPrice || selectedProductDetail?.prices?.[0]?.price || 0);
+  };
+
   const handleOpenProductDetail = async (item, e) => {
     e.stopPropagation();
     if (!item.productId) return;
@@ -7168,21 +7227,36 @@ const SaleKeyPage = () => {
   // ponytail: effective price list — run the everyday line total through the customer's
   // price-list rules (per-unit engine, x qty). No config / no customer => returns baseTotal
   // unchanged (true no-op). Guards against NaN/negative.
-  const computePriceListTotal = (product, qty, baseTotal, configOverride = null) => {
+  // Returns { total, applied }: `applied` is true when a list rule (or the
+  // fallback) priced the line - the promotion step needs it for Allow
+  // Discounting Promotions.
+  const resolvePriceListTotal = (product, qty, baseTotal, configOverride = null) => {
     const activeConfig = configOverride || priceListConfig;
-    if (!activeConfig || !(qty > 0)) return baseTotal;
-    const unit = applyPriceListToLine({
-      everyday: baseTotal / qty,
+    if (!activeConfig || !(qty > 0)) return { total: baseTotal, applied: false };
+    const everyday = baseTotal / qty;
+    const { price: unit, applied } = resolvePriceListLine({
+      everyday,
       productId: product.productId || product.id,
       id: product.id,
-      cost: product.itemCost ?? product.cost ?? product.replacementCost,
-      lastCost: product.lastCost ?? product.replacementCost,
+      // "Cost" follows the company's Cost Calculation Method; "Last Cost" is
+      // always the most recent invoice cost (itemCost).
+      cost: product.itemCost != null || product.averageItemCost != null
+        ? getUnitCost(product, everyday)
+        : (product.cost ?? product.replacementCost),
+      lastCost: product.itemCost ?? product.lastCost ?? product.replacementCost,
       quantity: qty,
+      categoryId: product.categoryId ?? product.category?.id,
+      brandId: product.brandId ?? product.brand?.id,
+      familyId: product.familyId ?? product.family?.id,
+      tagIds: Array.isArray(product.tags) ? product.tags.map((t) => t?.tagId ?? t?.tag?.id ?? t?.id ?? t).filter((t) => t != null) : undefined,
       classificationIds: product.classificationId ? [product.classificationId] : (product.classificationIds || undefined),
     }, activeConfig);
     const total = unit * qty;
-    return Number.isFinite(total) && total >= 0 ? total : baseTotal;
+    return Number.isFinite(total) && total >= 0 ? { total, applied } : { total: baseTotal, applied: false };
   };
+
+  const computePriceListTotal = (product, qty, baseTotal, configOverride = null) =>
+    resolvePriceListTotal(product, qty, baseTotal, configOverride).total;
 
   const calculatePriceForQuantity = (product, quantity) => {
     if (!product) return 0;
@@ -7195,14 +7269,17 @@ const SaleKeyPage = () => {
 
     // Everyday total, then the customer's price-list price (replaces everyday).
     const basePrice = calculateBasePriceForQuantity(product, qty);
-    const listTotal = computePriceListTotal(product, qty, basePrice);
+    const { total: listTotal, applied: listApplied } = resolvePriceListTotal(product, qty, basePrice);
 
     // Then check for active promotions.
     // ponytail: enforces effective disablePromotions — when the sale's customer (or
     // their group) has promotions disabled, no promotion is applicable, so the price
     // list / base price stands. FinalizeSaleDialog reads the cart line price this sets,
     // so the displayed price and the charged price stay identical.
-    const applicablePromotions = getEffectiveCustomerSettings(selectedCustomer).disablePromotions
+    // Price list "Allow Discounting Promotions" OFF: a line priced by the list is
+    // final - promotions do not undercut it. ON: the cheaper of the two wins.
+    const promotionsBlockedByList = listApplied && priceListConfig && !priceListConfig.allowDiscountingPromotions;
+    const applicablePromotions = getEffectiveCustomerSettings(selectedCustomer).disablePromotions || promotionsBlockedByList
       ? []
       : findApplicablePromotions(product);
     if (applicablePromotions.length > 0) {
@@ -9716,7 +9793,7 @@ const SaleKeyPage = () => {
                       {selectedProductDetail.name}
                     </Typography>
                     <Typography sx={{ fontSize: '22.4px', fontWeight: 400, color: '#000', lineHeight: '27px', letterSpacing: 'normal' }}>
-                      ${Number(productDetailPriceOverride ?? (selectedProductDetail.retailPrice || selectedProductDetail.prices?.[0]?.price || 0)).toFixed(2)}
+                      ${productDetailHeaderPrice().toFixed(2)}
                     </Typography>
                   </Box>
 
@@ -9744,7 +9821,7 @@ const SaleKeyPage = () => {
                   {(() => {
                     // A combo component is priced $0.00 here (reference), so its
                     // profit strip reads $0.00 / 0.00% rather than the product's own.
-                    const sellPrice = Number(productDetailPriceOverride ?? (selectedProductDetail.retailPrice || selectedProductDetail.prices?.[0]?.price || 0));
+                    const sellPrice = productDetailHeaderPrice();
                     const unitCost = Number(selectedProductDetail.itemCost || 0);
                     const profit = productDetailPriceOverride != null ? 0 : sellPrice - unitCost;
                     const pct = sellPrice > 0 ? (profit / sellPrice) * 100 : 0;
