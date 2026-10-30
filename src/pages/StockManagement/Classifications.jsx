@@ -34,6 +34,10 @@ import PerformanceGraph from '../../components/Classifications/PerformanceGraph'
 import classificationService from '../../services/classificationService';
 import usePageCache from '../../hooks/usePageCache';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
+
+const ADD_CLASSIFICATION_ACTION = 'classifications.add';
 
 const CLASSIFICATION_TYPE_OPTIONS = [
   { value: 'BRAND', label: 'Brand' },
@@ -84,10 +88,15 @@ const Classifications = () => {
   const typeSelectAnchorRef = useRef(null);
   const [typeMenuWidth, setTypeMenuWidth] = useState(undefined);
   const navigate = useNavigate();
+  // Outlet rule: navbar outlet set → the API already scopes the list; All
+  // Outlets → in-page Outlet filter + Outlet column ("Global" for null).
+  const { globalMode, outletNameOf } = useGlobalOutlet();
+  const [outletFilter, setOutletFilter] = useState(null);
+  useEffect(() => { if (!globalMode) setOutletFilter(null); }, [globalMode]);
 
   useEffect(() => {
     filterClassifications();
-  }, [classifications, searchTerm, categoryFilter]);
+  }, [classifications, searchTerm, categoryFilter, outletFilter]);
 
   const filterClassifications = () => {
     let filtered = classifications.filter(classification => {
@@ -100,17 +109,34 @@ const Classifications = () => {
       // Classifications multi-select filter (none selected = show all)
       const matchesCategory = categoryFilter.length === 0 || categoryFilter.includes(classification.type);
 
-      return matchesSearch && matchesCategory;
+      const matchesOutlet = !outletFilter || classification.outletId === outletFilter.id;
+
+      return matchesSearch && matchesCategory && matchesOutlet;
     });
 
     setFilteredClassifications(filtered);
   };
 
-  const handleAddClassification = () => {
+  const openCreateDialog = () => {
     setEditingClassification(null);
     setSaveError('');
     setOpenDialog(true);
   };
+  // No global classifications from All Outlets (user 30/10/2026, option A): Add
+  // first opens the Outlet Selector (outlet rows only); once the navbar has
+  // switched, the re-mounted page picks the pending action up and opens create.
+  const { openOutletPicker, pendingOutletAction, clearPendingOutletAction } = useSelectedRegister();
+  const handleAddClassification = () => {
+    if (globalMode) openOutletPicker(ADD_CLASSIFICATION_ACTION);
+    else openCreateDialog();
+  };
+  useEffect(() => {
+    if (pendingOutletAction === ADD_CLASSIFICATION_ACTION && !globalMode) {
+      clearPendingOutletAction();
+      openCreateDialog();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOutletAction, globalMode]);
 
   // Parity: ref Edit opens the edit form directly. Open the Modify dialog in place
   // (no extra hop through the detail view page).
@@ -217,7 +243,8 @@ const Classifications = () => {
         </Box>
       </Box>
 
-      {/* Search */}
+      {/* Search: full width row */}
+      <Box sx={{ mb: 2 }}>
       <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' }}>
         Search
       </Typography>
@@ -226,7 +253,6 @@ const Classifications = () => {
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         sx={{
-          mb: 2,
           backgroundColor: 'white',
           '& .MuiOutlinedInput-root': {
             borderRadius: '8px',
@@ -239,12 +265,15 @@ const Classifications = () => {
           },
         }}
       />
+      </Box>
 
-      {/* Classifications type filter: labeled multi-select with chips + overlay listbox */}
+      {/* Classifications type filter + (All Outlets only) Outlet filter, one row */}
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', mb: 2 }}>
+      <Box sx={{ flex: 2, minWidth: 0 }}>
       <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' }}>
         Classifications
       </Typography>
-      <FormControl fullWidth sx={{ mb: 2 }} ref={typeSelectAnchorRef}>
+      <FormControl fullWidth ref={typeSelectAnchorRef}>
         <Select
           multiple
           displayEmpty
@@ -340,6 +369,28 @@ const Classifications = () => {
           })}
         </Select>
       </FormControl>
+      </Box>
+      <GlobalOutletFilter
+        value={outletFilter}
+        onChange={setOutletFilter}
+        sx={{ flex: 1, minWidth: 0 }}
+        // Same chrome as the Classifications select beside it: white, 42px, 8px
+        // radius, #404040 border that does not change on hover/focus.
+        inputSx={{
+          '& .MuiOutlinedInput-root': {
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            fontSize: 16,
+            minHeight: 42,
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+          },
+          '& .MuiAutocomplete-popupIndicator': { color: '#404040' },
+          '& .MuiInputBase-input::placeholder': { color: '#000', opacity: 1 },
+        }}
+      />
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
@@ -358,6 +409,8 @@ const Classifications = () => {
                 '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' }
               }}
             >
+              {/* Fixed narrow width so Outlet does not push Name far right */}
+              {globalMode && <TableCell sx={{ width: 180 }}>Outlet</TableCell>}
               <TableCell>
                 Name
               </TableCell>
@@ -388,6 +441,13 @@ const Classifications = () => {
           >
             {filteredClassifications.map((classification) => (
               <TableRow key={classification.id}>
+                {globalMode && (
+                  <TableCell sx={{ width: 180, whiteSpace: 'nowrap' }}>
+                    <Typography sx={{ fontSize: 16, color: '#000' }}>
+                      {outletNameOf(classification.outletId)}
+                    </Typography>
+                  </TableCell>
+                )}
                 <TableCell>
                   <Typography
                     component="a"
@@ -483,7 +543,7 @@ const Classifications = () => {
             ))}
             {filteredClassifications.length === 0 && !loading && (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={globalMode ? 6 : 5} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     {searchTerm || categoryFilter.length > 0
                       ? 'No classifications found matching your filters'
