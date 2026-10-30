@@ -733,7 +733,7 @@ const Suppliers = () => {
               >
                 {globalMode && <TableCell sx={{ width: 180 }}>Outlet</TableCell>}
                 <TableCell>Name</TableCell>
-                <TableCell sx={{ width: 160 }}>Product Count</TableCell>
+                <TableCell align="center" sx={{ width: 160 }}>Product Count</TableCell>
                 <TableCell align="center" sx={{ width: 240 }}>Performance</TableCell>
                 <TableCell align="center" sx={{ width: 560 }}>Actions</TableCell>
               </TableRow>
@@ -757,7 +757,7 @@ const Suppliers = () => {
                       {supplier.name}
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell align="center">
                     <Typography sx={{ fontSize: 16, color: '#000' }}>
                       {supplier.productCount || 0}
                     </Typography>

@@ -938,7 +938,8 @@ const Products = () => {
                 <TableCell sx={{ pl: 1 }}>Product</TableCell>
                 {/* Status | Product | Outlet order (user 19/10/2026). */}
                 {globalMode && <TableCell sx={{ width: 160 }}>Outlet</TableCell>}
-                <TableCell>Category</TableCell>
+                {/* Centred in a fixed column so it sits midway between Product and Cost (user 30/10/2026). */}
+                <TableCell align="center" sx={{ width: 220 }}>Category</TableCell>
                 {/* Equal widths so the gaps Cost|Inventory|Price are the same (user 14/10/2026). */}
                 <TableCell sx={{ width: 120 }}>Cost</TableCell>
                 <TableCell sx={{ width: 120 }}>Inventory</TableCell>
@@ -1006,7 +1007,7 @@ const Products = () => {
                         <Typography variant="body2" sx={{ fontSize: 16 }}>{outletNameOf(product.outletId)}</Typography>
                       </TableCell>
                     )}
-                    <TableCell>
+                    <TableCell align="center" sx={{ width: 220 }}>
                       <Typography variant="body2" sx={{ fontSize: 16 }}>{product.category}</Typography>
                     </TableCell>
                     <TableCell>
@@ -1029,15 +1030,27 @@ const Products = () => {
                           negative stock verbatim. Singular only for exactly 1. */}
                       {/* Case Quantity 1 (a case IS an item): the reference prints only
                           the Items line ("$3 clearance" -> "0 Items", 14/10/2026). */}
-                      <Box>
+                      {/* Two-column grid: numbers right-aligned (tabular digits) so "-2" / "-1"
+                          line up, and the Cases / Items words start at the same x (user 30/10/2026). */}
+                      <Box
+                        sx={{
+                          display: "inline-grid",
+                          gridTemplateColumns: "minmax(3ch, max-content) max-content",
+                          columnGap: "0.4em",
+                          fontSize: 16,
+                          lineHeight: 1.43,
+                          fontVariantNumeric: "tabular-nums",
+                          "& > .num": { textAlign: "right" },
+                        }}
+                      >
                         {Number(product.costFields?.caseQuantity) !== 1 && (
-                          <Typography variant="body2" sx={{ fontSize: 16 }}>
-                            {product.inventory.cases} {product.inventory.cases === 1 ? "Case" : "Cases"}
-                          </Typography>
+                          <>
+                            <span className="num">{product.inventory.cases}</span>
+                            <span>{product.inventory.cases === 1 ? "Case" : "Cases"}</span>
+                          </>
                         )}
-                        <Typography variant="body2" sx={{ fontSize: 16 }}>
-                          {product.inventory.items} {product.inventory.items === 1 ? "Item" : "Items"}
-                        </Typography>
+                        <span className="num">{product.inventory.items}</span>
+                        <span>{product.inventory.items === 1 ? "Item" : "Items"}</span>
                       </Box>
                     </TableCell>
                     <TableCell>
