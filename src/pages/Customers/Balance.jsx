@@ -32,11 +32,10 @@ import {
   Avatar,
   Snackbar,
 } from "@mui/material";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { DateCalendar } from "@mui/x-date-pickers/DateCalendar";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { addMonths, endOfMonth, format, isSameMonth, startOfMonth, subMonths } from "date-fns";
+import { addMonths, endOfMonth, format, isSameMonth, isValid, parse, startOfMonth, subMonths } from "date-fns";
 // enAU => day-first dd/MM/yyyy in every picker on this page (the adapter defaults to en-US).
 import { enAU } from "date-fns/locale";
 import {
@@ -164,28 +163,53 @@ const searchFieldSx = {
 
 const filterLabelSx = { mb: 0.5, fontWeight: 400, fontSize: 16, color: "#000" };
 
-// Reference option panel: white, square, 1px black border, no shadow, 56px rows.
+// Option panel: same dropdown style as the rest of the app (price list edit
+// page) — rounded, light shadow, hovered row light blue, selected row blue text.
 const referencePanelSx = {
-  borderRadius: 0,
-  border: "1px solid #000",
-  boxShadow: "none",
+  mt: 0.5,
+  borderRadius: "8px",
+  border: "1px solid #404040",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
   "& .MuiAutocomplete-option": {
     minHeight: 56,
     padding: "16px",
     fontSize: 16,
     color: "#000",
   },
+  "& .MuiAutocomplete-option.Mui-focused": { bgcolor: "#7dd3fc", color: "#000" },
+  '& .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: "transparent", color: "#1c9cf0" },
+  '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { bgcolor: "#7dd3fc", color: "#000" },
 };
 
 // "Balances as of": empty by default (placeholder "Today"), dd/MM/yyyy, click anywhere in
 // the field to open a two-month popover with a "Current Day" shortcut.
+// Reference calendar (live 30/10/2026): month title centred, one chevron at each
+// outer edge of the two-month pair, weekday letters grey, days bold blue, days of
+// the neighbouring month grey, today outlined blue.
 const calendarSx = {
   width: 300,
   m: 0,
+  "& .MuiPickersCalendarHeader-root": { pl: 1, pr: 1, mt: 0 },
+  // month title centred, the one visible arrow sits at the outer edge
+  "& .MuiPickersCalendarHeader-labelContainer": { flex: 1, justifyContent: "center", m: 0 },
+  "& .MuiPickersCalendarHeader-label": { fontSize: 18, fontWeight: 500, color: "#333", m: 0 },
   "& .MuiPickersCalendarHeader-switchViewButton": { display: "none" },
-  "& .MuiPickersDay-today": { borderColor: "#0284c7" },
-  "& .MuiPickersDay-root.Mui-selected": { bgcolor: "#5ebbeb" },
+  "& .MuiPickersArrowSwitcher-button": { color: "#1c86f2" },
+  "& .MuiDayCalendar-weekDayLabel": { color: "#9e9e9e", fontSize: 14 },
+  "& .MuiPickersDay-root": { color: "#1c86f2", fontWeight: 700, fontSize: 15, borderRadius: "8px" },
+  "& .MuiPickersDay-root.MuiPickersDay-dayOutsideMonth": { color: "#9e9e9e", fontWeight: 400 },
+  // today outlined only in its own month (the grey copy in the next month is plain)
+  "& .MuiPickersDay-today:not(.Mui-selected):not(.MuiPickersDay-dayOutsideMonth)": { border: "1px solid #1c86f2" },
+  "& .MuiPickersDay-today.MuiPickersDay-dayOutsideMonth": { border: "none" },
+  "& .MuiPickersDay-root.Mui-selected": { bgcolor: "#1c86f2", color: "#fff" },
 };
+// Left month hides its "next" arrow, right month its "previous" one (reference).
+const leftCalendarSx = {
+  ...calendarSx,
+  "& .MuiPickersCalendarHeader-root": { ...calendarSx["& .MuiPickersCalendarHeader-root"], flexDirection: "row-reverse" },
+  "& .MuiPickersArrowSwitcher-root > button:last-of-type": { display: "none" },
+};
+const rightCalendarSx = { ...calendarSx, "& .MuiPickersArrowSwitcher-root > button:first-of-type": { display: "none" } };
 
 const BalancesAsOfField = ({ value, onChange }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -211,7 +235,7 @@ const BalancesAsOfField = ({ value, onChange }) => {
       <TextField
         fullWidth
         size="small"
-        placeholder="Today"
+        placeholder="DD/MM/YYYY"
         value={text}
         onClick={handleOpen}
         InputProps={{
@@ -239,47 +263,60 @@ const BalancesAsOfField = ({ value, onChange }) => {
         transformOrigin={{ vertical: "top", horizontal: "left" }}
         transitionDuration={0}
         slotProps={{
-          paper: { sx: { p: 2, bgcolor: "#f8f8f8", borderRadius: 0, border: "1px solid #000", boxShadow: "none" } },
+          // Reference: light-grey rounded panel with a soft shadow (no border)
+          paper: { sx: { p: 2, bgcolor: "#f5f5f5", borderRadius: "12px", border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.18)" } },
         }}
       >
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 1 }}>
-          <TextField
-            size="small"
-            value={text}
-            placeholder="dd/mm/yyyy"
-            InputProps={{
-              readOnly: true,
-              endAdornment: (
-                <InputAdornment position="end">
-                  <CalendarIcon fontSize="small" sx={{ color: "#676b72" }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ width: 200, bgcolor: "#fff", ...textFieldSx }}
-          />
-          <Button
-            size="small"
+        {/* Reference: small "dd-mm-yyyy" box on its own row, then a calendar icon
+            at the left and a bold "Current Day" shortcut at the right. */}
+        {/* Reference: native segmented date box (dd / mm / yyyy, each part
+            highlighted as you type); a complete date applies straight away. */}
+        <TextField
+          size="small"
+          type="date"
+          autoFocus
+          value={value ? format(value, "yyyy-MM-dd") : ""}
+          onChange={(e) => {
+            const v = e.target.value; // yyyy-MM-dd when all three parts are typed
+            if (!v) return;
+            const d = parse(v, "yyyy-MM-dd", new Date());
+            if (isValid(d) && d.getFullYear() > 1900) pick(d);
+          }}
+          inputProps={{ "aria-label": "Balances as of date", style: { fontFamily: "monospace", fontSize: 14, padding: "6px 12px" } }}
+          sx={{
+            width: 150, bgcolor: "#fff", mb: 2,
+            "& .MuiOutlinedInput-root": { fontSize: 14, ...outlinedFieldSx, borderRadius: "8px", "& .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" } },
+            // the popover already is the calendar: hide the browser's own picker icon
+            "& input::-webkit-calendar-picker-indicator": { display: "none" },
+          }}
+        />
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1, px: 1 }}>
+          <CalendarIcon sx={{ fontSize: 20, color: "#1c86f2" }} />
+          <Typography
+            role="button"
             onClick={() => pick(new Date())}
-            sx={{ textTransform: "none", fontSize: 14, fontWeight: 400, color: "#0284c7" }}
+            sx={{ fontSize: 16, fontWeight: 700, color: "#444", cursor: "pointer", userSelect: "none" }}
           >
             Current Day
-          </Button>
+          </Typography>
         </Box>
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enAU}>
           <Box sx={{ display: "flex", gap: 2 }}>
             <DateCalendar
               value={value && isSameMonth(value, leftMonth) ? value : null}
               referenceDate={leftMonth}
-              onMonthChange={setLeftMonth}
+              onMonthChange={(m) => { setLeftMonth(m); setRightMonth(addMonths(m, 1)); }}
               onChange={pick}
-              sx={calendarSx}
+              showDaysOutsideCurrentMonth
+              sx={leftCalendarSx}
             />
             <DateCalendar
               value={value && isSameMonth(value, rightMonth) ? value : null}
               referenceDate={rightMonth}
-              onMonthChange={setRightMonth}
+              onMonthChange={(m) => { setRightMonth(m); setLeftMonth(addMonths(m, -1)); }}
               onChange={pick}
-              sx={calendarSx}
+              showDaysOutsideCurrentMonth
+              sx={rightCalendarSx}
             />
           </Box>
         </LocalizationProvider>
@@ -1070,21 +1107,23 @@ const Balance = () => {
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
           <Button
             variant="contained"
+            startIcon={<StatementIcon sx={{ fontSize: 18 }} />}
             onClick={handleViewAllStatements}
-            sx={{ ...actionButtonSx, width: 205 }}
+            sx={{ ...actionButtonSx, whiteSpace: "nowrap", "& .MuiButton-startIcon": { mr: 1 } }}
           >
             View All Statements
           </Button>
-          
+
           <Button
             variant="contained"
+            startIcon={<PrintIcon sx={{ fontSize: 18 }} />}
             onClick={handlePrintBalances}
-            sx={{ ...actionButtonSx, width: 165 }}
+            sx={{ ...actionButtonSx, whiteSpace: "nowrap", "& .MuiButton-startIcon": { mr: 1 } }}
           >
             Print Balances
           </Button>
         </Box>
-        <Box sx={{ textAlign: "right" }}>
+        <Box sx={{ textAlign: "center" }}>
           <Typography variant="h4" fontWeight="bold" lineHeight={1}>
             {filteredCustomers.length}
           </Typography>
@@ -1227,8 +1266,8 @@ const Balance = () => {
                 },
               }}
             >
-              <TableCell sx={{ width: "40%" }}>Customer</TableCell>
-              <TableCell sx={{ width: "20%" }}>
+              <TableCell sx={{ width: "40%" }} align="center">Customer</TableCell>
+              <TableCell sx={{ width: "20%" }} align="center">
                 Total Balance{appliedAsOf ? ` as of ${appliedAsOf.date.toLocaleDateString("en-AU")}` : ""}
               </TableCell>
               <TableCell sx={{ width: "40%" }} align="center">
@@ -1255,41 +1294,38 @@ const Balance = () => {
                     )}
                   </Box>
                 </TableCell>
-                <TableCell>{formatCurrency(balanceOf(customer))}</TableCell>
+                <TableCell align="center">{formatCurrency(balanceOf(customer))}</TableCell>
                 <TableCell align="center">
-                  <Box
-                    sx={{
-                      display: "flex",
-                      gap: 3,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <Button
-                      size="small"
-                      startIcon={<ViewIcon />}
-                      onClick={() => handleViewCustomer(customer)}
-                      sx={{ color: "#0284c7", textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, whiteSpace: "nowrap" }}
-                    >
-                      View Customer
-                    </Button>
-                    <Button
-                      size="small"
-                      startIcon={<StatementIcon />}
-                      onClick={() => handleViewStatement(customer)}
-                      sx={{ color: "#dc2626", textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, whiteSpace: "nowrap" }}
-                    >
-                      View Statement
-                    </Button>
-                    <Button
-                      size="small"
-                      startIcon={<PaymentIcon />}
-                      onClick={() => handleMakePayment(customer)}
-                      sx={{ color: "#16a34a", textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, whiteSpace: "nowrap" }}
-                    >
-                      Make Payment
-                    </Button>
+                  {/* Reference: three equal columns, icon stacked above regular-weight text */}
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    {[
+                      { label: "View Customer", icon: <ViewIcon sx={{ fontSize: 20 }} />, color: "#0284c7", onClick: () => handleViewCustomer(customer) },
+                      { label: "View Statement", icon: <StatementIcon sx={{ fontSize: 20 }} />, color: "#f0583a", onClick: () => handleViewStatement(customer) },
+                      { label: "Make Payment", icon: <PaymentIcon sx={{ fontSize: 20 }} />, color: "#16a34a", onClick: () => handleMakePayment(customer) },
+                    ].map((a) => (
+                      <Button
+                        key={a.label}
+                        disableRipple
+                        onClick={a.onClick}
+                        sx={{
+                          flex: 1,
+                          flexDirection: "column",
+                          gap: "2px",
+                          color: a.color,
+                          textTransform: "none",
+                          fontWeight: 400,
+                          fontSize: 16,
+                          lineHeight: 1.2,
+                          minWidth: 0,
+                          p: "4px 0",
+                          whiteSpace: "nowrap",
+                          "&:hover": { bgcolor: "transparent" },
+                        }}
+                      >
+                        {a.icon}
+                        {a.label}
+                      </Button>
+                    ))}
                   </Box>
                 </TableCell>
               </TableRow>
