@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box,
@@ -144,12 +144,20 @@ export default function ExpressStocktake() {
   // come from its inventory log, not from this session's scans.
   const [pricePoints, setPricePoints] = useState([]);
   const [recentStocktakes, setRecentStocktakes] = useState([]);
+  // Stock from the live product row (the search results come from the local
+  // catalog, which can be minutes old).
+  const [liveStock, setLiveStock] = useState(null);
   useEffect(() => {
+    setLiveStock(null);
     if (!selectedProduct?.id) { setPricePoints([]); setRecentStocktakes([]); return undefined; }
     let alive = true;
     productService.getProduct(selectedProduct.id)
       .then((r) => {
         if (!alive) return;
+        const live = r?.product || r;
+        if (live && live.id === selectedProduct.id) {
+          setLiveStock({ cases: Number(live.currentStockCases) || 0, items: Number(live.currentStockItems) || 0 });
+        }
         const rows = (r?.product?.prices || r?.prices || [])
           .filter((pr) => pr.priceSetId == null)
           .map((pr) => ({ quantity: Number(pr.quantity) || 1, price: Number(pr.price) || 0 }))
@@ -167,7 +175,18 @@ export default function ExpressStocktake() {
     return () => { alive = false; };
   }, [selectedProduct?.id]);
 
-  const handleOverride = async () => {
+  // One save at a time: a second click (or Enter) while the first request was
+  // still on its way posted the override twice and logged the change twice.
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const runSave = async (fn) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try { await fn(); } finally { savingRef.current = false; setSaving(false); }
+  };
+
+  const handleOverride = () => runSave(async () => {
     if (!selectedProduct) return;
     const totalItems = calculateTotal();
     const caseQty = selectedProduct.caseQuantity || 1;
@@ -196,9 +215,9 @@ export default function ExpressStocktake() {
       console.error('Failed to override inventory:', error);
       alert('Failed to override inventory');
     }
-  };
+  });
 
-  const handleAdd = async () => {
+  const handleAdd = () => runSave(async () => {
     if (!selectedProduct) return;
     const totalItems = calculateTotal();
     if (!totalItems) { handleCancel(); return; } // nothing counted, nothing to add
@@ -216,7 +235,7 @@ export default function ExpressStocktake() {
       console.error('Failed to add inventory:', error);
       alert('Failed to add inventory');
     }
-  };
+  });
 
   const handleCancel = () => {
     setSelectedProduct(null);
@@ -228,8 +247,17 @@ export default function ExpressStocktake() {
     if (e.key === 'Escape') handleCancel();
   };
 
-  const expectedItems = selectedProduct ? (selectedProduct.currentStockItems || 0) : 0;
-  const expectedCases = selectedProduct ? (selectedProduct.currentStockCases || 0) : 0;
+  // Expected is the product's whole on-hand: stock kept in the cases bucket of a
+  // case-quantity-1 product (no CASES column) read as 0. Split for display the
+  // way Override saves it - whole cases, remainder as items.
+  const expectedCaseQty = selectedProduct ? (selectedProduct.caseQuantity || 1) : 1;
+  const expectedStock = liveStock || {
+    cases: selectedProduct?.currentStockCases || 0,
+    items: selectedProduct?.currentStockItems || 0,
+  };
+  const expectedUnits = selectedProduct ? expectedStock.cases * expectedCaseQty + expectedStock.items : 0;
+  const expectedCases = hasCases ? Math.trunc(expectedUnits / expectedCaseQty) : 0;
+  const expectedItems = expectedUnits - expectedCases * expectedCaseQty;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#fff' }}>
@@ -276,8 +304,9 @@ export default function ExpressStocktake() {
               width: '100%',
               height: 53,
               boxSizing: 'border-box',
-              border: '1px solid #000',
-              borderRadius: 0,
+              // Reference: 2px black outline, slightly rounded
+              border: '2px solid #000',
+              borderRadius: '4px',
               bgcolor: selectedProduct ? '#d4d4d4' : '#fff',
               fontSize: 16,
               px: 2,
@@ -322,8 +351,8 @@ export default function ExpressStocktake() {
                 sx={{
                   px: 2,
                   py: 1,
-                  fontSize: 13,
-                  color: '#676b72',
+                  fontSize: 16,
+                  color: '#bdbdbd',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                 }}
@@ -334,7 +363,7 @@ export default function ExpressStocktake() {
                 <Typography sx={{ px: 2, py: 1, fontSize: '19.2px', color: '#676b72' }}>
                   Start typing to search...
                 </Typography>
-              ) : results.map((r, idx) => (
+              ) : results.map((r) => (
                 <Stack
                   key={r.id}
                   direction="row"
@@ -349,8 +378,7 @@ export default function ExpressStocktake() {
                     cursor: 'pointer',
                     fontSize: '19.2px',
                     color: '#676b72',
-                    // The first row is pre-selected: Enter takes it.
-                    ...(idx === 0 ? { bgcolor: 'rgb(139,206,241)', color: 'rgb(248,248,248)', '& span': { color: 'rgb(248,248,248)' } } : {}),
+                    // Reference shows no row pre-highlighted (Enter still takes the first).
                     '&:hover': {
                       bgcolor: 'rgb(139,206,241)',
                       color: 'rgb(248,248,248)',
@@ -450,24 +478,28 @@ export default function ExpressStocktake() {
                   variant="contained"
                   disableRipple
                   onClick={handleOverride}
+                  disabled={saving}
                   sx={{
                     ...actionButtonSx,
                     bgcolor: 'rgb(94,187,235)',
                     color: '#fff',
                     '&:hover': { bgcolor: 'rgb(14,165,233)', boxShadow: 'none' },
+                    '&.Mui-disabled': { bgcolor: 'rgb(163,213,239)', color: '#fff' },
                   }}
                 >
-                  Override
+                  {saving ? 'Saving...' : 'Override'}
                 </Button>
                 <Button
                   variant="contained"
                   disableRipple
                   onClick={handleAdd}
+                  disabled={saving}
                   sx={{
                     ...actionButtonSx,
                     bgcolor: 'rgb(94,187,235)',
                     color: '#fff',
                     '&:hover': { bgcolor: 'rgb(14,165,233)', boxShadow: 'none' },
+                    '&.Mui-disabled': { bgcolor: 'rgb(163,213,239)', color: '#fff' },
                   }}
                 >
                   Add
@@ -476,6 +508,7 @@ export default function ExpressStocktake() {
                   variant="contained"
                   disableRipple
                   onClick={handleCancel}
+                  disabled={saving}
                   sx={{
                     ...actionButtonSx,
                     bgcolor: '#d9d9d9',

@@ -54,6 +54,8 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { orderGates } from '../../utils/orderPermissions';
 import ProductDetailView from '../../components/OrdersInvoices/ProductDetailView';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import stocktakeService from '../../services/stocktakeService';
 
 // Shopfront reference button: #5ebbeb, square, h53, fs16 fw400, hover inverts colors over 0.2s
 const sfBtn = {
@@ -164,6 +166,7 @@ const highlightMatch = (text, query) => {
 
 const EditOrder = () => {
   const navigate = useNavigate();
+  const { confirm: confirmDialog } = useAppDialogs();
   const { id } = useParams();
   const { user, getOutletName } = useAuth();
   // Buttons follow the backend permission keys (display only)
@@ -1604,6 +1607,22 @@ const EditOrder = () => {
       setSuccess('');
       setError('Nothing to receive: enter the cases or items received for at least one product.');
       return;
+    }
+    // Reference (help: Advanced Stocktake): receiving while a stocktake is In
+    // Progress warns first - the received units are not in the counts, so those
+    // products may need adjusting after the stocktake is completed.
+    try {
+      const outletId = order?.outletId;
+      const { stocktakes = [] } = await stocktakeService.getStocktakes({ status: 'In Progress', limit: 1, ...(outletId ? { outletId } : {}) });
+      if (stocktakes.length > 0) {
+        const go = await confirmDialog(
+          `The stocktake "${stocktakes[0].name}" is In Progress. If the products in this order are part of the stocktake, you may need to update their inventory after completing the stocktake. Do you wish to continue receiving?`,
+          { title: 'In Progress Stocktake', severity: 'warning', confirmText: 'Continue', cancelText: 'Cancel' }
+        );
+        if (!go) return;
+      }
+    } catch {
+      // No stocktake access / offline: receive as before.
     }
     try {
       setSaving(true);

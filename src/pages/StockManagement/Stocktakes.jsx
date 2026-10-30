@@ -29,8 +29,9 @@ import {
   VisibilityOutlined,
   Close,
   ArrowDropDown,
+  Search,
 } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { format, formatDistanceToNowStrict } from 'date-fns';
 import stocktakeService from '../../services/stocktakeService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import usePageCache from '../../hooks/usePageCache';
@@ -128,6 +129,28 @@ const statusOf = (row) => {
   if (key === 'applied') return 'Applied';
   if (key === 'cancelled' || key === 'canceled') return 'Cancelled';
   return row?.status || '';
+};
+
+// "3 months ago" / "a year ago" (reference second line under the status)
+const ago = (value) => {
+  if (!value) return '';
+  const text = formatDistanceToNowStrict(new Date(value), { addSuffix: true });
+  return text.replace(/^1 (\w+) ago$/, (_, unit) => `${unit === 'hour' ? 'an' : 'a'} ${unit} ago`);
+};
+
+// Reference Status cell: "Completed by Vipul" over "3 months ago" - an applied
+// stocktake still reads "Completed by ..." (the apply time has its own column).
+const StatusCell = ({ row }) => {
+  const st = statusOf(row);
+  if (st === 'Completed' || st === 'Applied') {
+    return (
+      <>
+        <Box>Completed{row.completedBy?.name ? ` by ${row.completedBy.name}` : ''}</Box>
+        {row.completedAt && <Box>{ago(row.completedAt)}</Box>}
+      </>
+    );
+  }
+  return st;
 };
 
 export default function Stocktakes() {
@@ -377,7 +400,13 @@ export default function Stocktakes() {
         )}
       </Grid>
 
-      {/* Table */}
+      {/* Table - reference hides it entirely when the filters match nothing */}
+      {rows.length === 0 ? (
+        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ py: 6, color: '#676b72' }}>
+          <Search />
+          <Typography sx={{ fontSize: 19, color: '#676b72' }}>No results found. Try changing the search filters</Typography>
+        </Stack>
+      ) : (
       <TableContainer>
         <Table size="medium" sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
           <TableHead>
@@ -389,7 +418,7 @@ export default function Stocktakes() {
               }}
             >
               {/* Outlet column only in All Outlets mode (navbar outlet set → list is already that outlet's) */}
-              {['Name', ...(showOutletFilter ? ['Outlet'] : []), 'Created', 'Status', 'Completed', 'Applied', 'Actions'].map((h) => (
+              {['Name', ...(showOutletFilter ? ['Outlet'] : []), 'Created', 'Status', 'Applied', 'Actions'].map((h) => (
                 <TableCell key={h}>
                   {h}
                 </TableCell>
@@ -405,11 +434,11 @@ export default function Stocktakes() {
           >
             {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell>{r.name}</TableCell>
+                {/* Reference: a nameless stocktake reads "Not named" in grey */}
+                <TableCell sx={r.name ? undefined : { color: '#808080 !important' }}>{r.name || 'Not named'}</TableCell>
                 {showOutletFilter && <TableCell>{r.outlet?.name || r.outlet || ''}</TableCell>}
                 <TableCell>{formatDate(r.createdAt)}</TableCell>
-                <TableCell>{statusOf(r)}{r.completedBy?.name ? ` by ${r.completedBy.name}` : ''}</TableCell>
-                <TableCell>{formatDate(r.completedAt)}</TableCell>
+                <TableCell><StatusCell row={r} /></TableCell>
                 <TableCell>{formatDate(r.appliedAt)}</TableCell>
                 <TableCell>
                   {['Completed', 'Applied'].includes(statusOf(r)) && (
@@ -434,6 +463,7 @@ export default function Stocktakes() {
           </TableBody>
         </Table>
       </TableContainer>
+      )}
 
       {/* New Stocktake Dialog — reference: 316px, radius 8, light-blue header bar */}
       <Dialog

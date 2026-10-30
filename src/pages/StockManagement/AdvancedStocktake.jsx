@@ -301,10 +301,26 @@ export default function AdvancedStocktake() {
     }
   };
 
-  const deleteItem = (itemId) => {
-    setItems(prev => prev.map(item => 
+  const deleteItem = async (itemId) => {
+    const target = items.find((item) => item.id === itemId && !item.cancelled);
+    setItems(prev => prev.map(item =>
       item.id === itemId ? { ...item, cancelled: true } : item
     ));
+    // The reversal is stored as a negative count (reference: "Scan -48"), so the
+    // Events list, Statistics and the Potential Variances check still see it
+    // after a refresh or on another device - a browser-only flag was lost.
+    const units = Number(target?.scanned) || 0;
+    if (!stocktakeId || !target || units === 0) return;
+    try {
+      await stocktakeService.recordScan(stocktakeId, {
+        productId: target.productId,
+        count: -units,
+        eventType: 'Count',
+      });
+      refreshActivities();
+    } catch (e) {
+      console.error('Failed to record the reversed count:', e);
+    }
   };
 
   const scanProduct = async (product, isQuickScan = null) => {
@@ -459,7 +475,10 @@ export default function AdvancedStocktake() {
   const finaliseComplete = async () => {
     try {
       setFinishing(true);
-      await stocktakeService.completeStocktake(stocktakeId, collapseItemsForSave(items));
+      await stocktakeService.completeStocktake(stocktakeId, collapseItemsForSave(items), {
+        applyToAll,
+        categoryIds: applyToAll ? [] : finaliseCategories.map((c) => c.id),
+      });
       const scope = new URLSearchParams({
         apply: '1',
         applyToAll: applyToAll ? '1' : '0',
@@ -469,6 +488,65 @@ export default function AdvancedStocktake() {
     } catch (e) {
       console.error('Failed to complete stocktake:', e);
       alert('Failed to complete stocktake. Please try again.', 'error');
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  // Reference "Potential Variances" (help: Advanced Stocktake): before completing,
+  // list the products whose count may be off - a count reversed with the trash
+  // icon (or a negative count), or a product counted 2+ times with a sale of it
+  // in between (the sold unit may have come from a spot not yet counted).
+  const [variances, setVariances] = useState([]);
+  const [varianceEventsFor, setVarianceEventsFor] = useState(null);
+  const [varianceEvents, setVarianceEvents] = useState([]);
+  const checkVariancesThenComplete = async () => {
+    try {
+      setFinishing(true);
+      let events = activities;
+      try {
+        const { activities: rows } = await stocktakeService.getActivities(stocktakeId);
+        events = (rows || []).map(mapActivity);
+      } catch { /* fall back to the events already on screen */ }
+      const isCount = (a) => a.type === 'scan' || a.type === 'count';
+      const byProduct = new Map();
+      events.forEach((a) => {
+        if (a.productId == null) return;
+        if (!byProduct.has(a.productId)) byProduct.set(a.productId, []);
+        byProduct.get(a.productId).push(a);
+      });
+      const reversedIds = new Set(items.filter((i) => i.cancelled).map((i) => i.productId));
+      const flagged = new Set(reversedIds);
+      byProduct.forEach((list, pid) => {
+        if (list.some((a) => isCount(a) && Number(a.quantity) < 0)) { flagged.add(pid); return; }
+        const counts = list.filter(isCount).map((a) => +a.timestamp).sort((x, y) => x - y);
+        if (counts.length < 2) return;
+        const first = counts[0];
+        const last = counts[counts.length - 1];
+        if (list.some((a) => a.type === 'sale' && +a.timestamp > first && +a.timestamp < last)) flagged.add(pid);
+      });
+      if (flagged.size === 0) {
+        await finaliseComplete();
+        return;
+      }
+      const rows = Array.from(flagged).map((pid) => {
+        const list = byProduct.get(pid) || [];
+        const live = items.filter((i) => i.productId === pid && !i.cancelled);
+        const any = items.find((i) => i.productId === pid);
+        const counted = list.filter(isCount).reduce((s, a) => s + (Number(a.quantity) || 0), 0);
+        const sold = list.filter((a) => a.type === 'sale').reduce((s, a) => s + (Number(a.quantity) || 0), 0);
+        return {
+          productId: pid,
+          name: any?.product?.name || list[0]?.product || 'Product',
+          expected: Number(any?.product?.currentStock) || 0,
+          // Every count event added up, less the sales made during the stocktake.
+          calculated: counted - sold,
+          actual: live.reduce((s, i) => s + (Number(i.scanned) || 0), 0),
+          events: [...list].sort((x, y) => y.timestamp - x.timestamp),
+        };
+      });
+      setVariances(rows);
+      setCompleteStep('variances');
     } finally {
       setFinishing(false);
     }
@@ -974,7 +1052,69 @@ export default function AdvancedStocktake() {
           <Typography sx={{ fontSize: 15, color: '#000', mb: 2.5 }}>Note, you'll be able to decide whether to zero or ignore stock not scanned on the next screen.</Typography>
           <Stack direction="row" spacing={2}>
             <Button fullWidth disabled={finishing} onClick={() => setCompleteStep('finalise')} sx={{ ...FINISH_OPTION_SX, borderRadius: 0, border: '1px solid #000', fontSize: 24, fontWeight: 400, bgcolor: '#f3f3f3' }}>No</Button>
-            <Button fullWidth disabled={finishing} onClick={finaliseComplete} sx={{ ...FINISH_PRIMARY_SX, borderRadius: 0, fontSize: 24, fontWeight: 400 }}>{finishing ? 'Completing...' : 'Yes'}</Button>
+            <Button fullWidth disabled={finishing} onClick={checkVariancesThenComplete} sx={{ ...FINISH_PRIMARY_SX, borderRadius: 0, fontSize: 24, fontWeight: 400 }}>{finishing ? 'Completing...' : 'Yes'}</Button>
+          </Stack>
+        </Box>
+      </Dialog>
+
+      {/* Potential Variances (reference): affected products with Expected /
+          Calculated / Actual and their Events; Complete Stocktake goes on. */}
+      <Dialog open={completeStep === 'variances'} onClose={() => {}} PaperProps={{ sx: { borderRadius: '8px', width: 760, maxWidth: '95vw' } }}>
+        <Box sx={{ bgcolor: '#fde68a', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5 }}>
+          <Typography sx={{ color: '#b45309', fontWeight: 700, fontSize: 20 }}>!</Typography>
+          <Typography sx={{ color: '#92400e', fontWeight: 700, fontSize: 17 }}>Potential Variances</Typography>
+        </Box>
+        <Box sx={{ p: 2 }}>
+          <Typography sx={{ fontSize: 15, color: '#313439', mb: 2 }}>
+            These products were counted and then had a count reversed, or were counted more than once with a sale in between. Please confirm their counts are correct before completing the stocktake.
+          </Typography>
+          <Box sx={{ maxHeight: 380, overflowY: 'auto' }}>
+            <Table size="small" sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+              <TableHead>
+                <TableRow sx={{ '& th': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 15, borderBottom: 'none', position: 'sticky', top: 0, zIndex: 1 } }}>
+                  <TableCell>Product</TableCell>
+                  <TableCell align="right">Expected</TableCell>
+                  <TableCell align="right">Calculated</TableCell>
+                  <TableCell align="right">Actual</TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {variances.map((v) => (
+                  <React.Fragment key={v.productId}>
+                    <TableRow sx={{ '& td': { fontSize: 15, borderBottom: '1px solid #eee' } }}>
+                      <TableCell>{v.name}</TableCell>
+                      <TableCell align="right">{v.expected}</TableCell>
+                      <TableCell align="right">{v.calculated}</TableCell>
+                      <TableCell align="right">{v.actual}</TableCell>
+                      <TableCell align="right">
+                        <Button size="small" onClick={() => { setVarianceEventsFor(varianceEventsFor === v.productId ? null : v.productId); setVarianceEvents(v.events); }} sx={{ textTransform: 'none', fontWeight: 700, color: '#0284c7' }}>
+                          Events
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {varianceEventsFor === v.productId && (
+                      <TableRow>
+                        <TableCell colSpan={5} sx={{ bgcolor: '#f8f8f8' }}>
+                          {varianceEvents.length === 0 && <Typography sx={{ fontSize: 14, color: '#676b72' }}>No events recorded.</Typography>}
+                          {varianceEvents.map((e) => (
+                            <Typography key={e.id} sx={{ fontSize: 14, color: '#313439' }}>
+                              {e.user} {e.type === 'sale' ? 'sold' : 'scanned'} {e.quantity} · {formatTimeAgo(e.timestamp)}
+                            </Typography>
+                          ))}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+          <Stack direction="row" justifyContent="flex-end" spacing={1.5} sx={{ mt: 2 }}>
+            <Button disabled={finishing} onClick={() => setCompleteStep(null)} sx={{ bgcolor: '#d9d9d9', color: '#000', textTransform: 'none', fontWeight: 700, borderRadius: '8px', px: 3, '&:hover': { bgcolor: '#c9c9c9' } }}>Cancel</Button>
+            <Button disabled={finishing} onClick={finaliseComplete} sx={{ bgcolor: '#5ebbeb', color: '#fff', textTransform: 'none', fontWeight: 700, borderRadius: '8px', px: 3, '&:hover': { bgcolor: '#4aa9dd' } }}>
+              {finishing ? 'Completing...' : 'Complete Stocktake'}
+            </Button>
           </Stack>
         </Box>
       </Dialog>
@@ -1002,7 +1142,7 @@ function QuestionDialog({ open, title, options, disabled }) {
         <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 2 }}>{title}</Typography>
         <Stack spacing={1.25}>
           {options.map((o) => (
-            <Button key={o.label} fullWidth disabled={disabled} onClick={o.onClick} sx={{ ...FINISH_PRIMARY_SX, borderRadius: 0, fontSize: 16, height: 48 }}>{o.label}</Button>
+            <Button key={o.label} fullWidth disabled={disabled} onClick={o.onClick} sx={{ ...FINISH_PRIMARY_SX, borderRadius: 0, fontSize: 16, minHeight: 48, py: 1.25, lineHeight: 1.3 }}>{o.label}</Button>
           ))}
         </Stack>
       </Box>

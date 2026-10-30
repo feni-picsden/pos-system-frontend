@@ -3,20 +3,18 @@ import PageLoader from '../../components/Common/PageLoader';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import productService from '../../services/productService';
+import { userService } from '../../services/userService';
 import { searchProducts } from '../../utils/productSearch.js';
 import {
+  Autocomplete,
   Box,
   Button,
   Chip,
   Dialog,
-  Paper,
   Stack,
-  Tab,
-  Tabs,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -26,22 +24,21 @@ import {
   AvatarGroup,
   Tooltip,
   InputAdornment,
-  Select,
-  MenuItem,
+  Popover,
 } from '@mui/material';
 import {
-  Download,
-  Refresh,
-  BarChart,
-  VisibilityOutlined,
-  Cancel,
-  Assessment,
   Close,
-  FilterAlt,
-  ArrowDropUp,
-  ArrowDropDown,
+  FilterAltOutlined,
+  UnfoldMore,
   PictureAsPdfOutlined,
   DescriptionOutlined,
+  OutputOutlined,
+  AssignmentTurnedInOutlined,
+  ChecklistOutlined,
+  HighlightOffOutlined,
+  AllInboxOutlined,
+  BarChartOutlined,
+  EditOutlined,
 } from '@mui/icons-material';
 import stocktakeService from '../../services/stocktakeService';
 
@@ -60,7 +57,8 @@ function timeAgo(dateString) {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`;
   const years = Math.floor(months / 12);
-  return `${years} year${years !== 1 ? 's' : ''} ago`;
+  // Reference: "a year ago", "7 years ago"
+  return years === 1 ? 'a year ago' : `${years} years ago`;
 }
 
 // " zeroing other stock" / " ignoring other stock" (reference header wording)
@@ -76,6 +74,19 @@ function money(value) {
   return `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)}`;
 }
 
+// Reference Cost column: the figure as stored, no padded zeros ("93", "107.34").
+function plainNumber(value) {
+  return String(Number((Number(value) || 0).toFixed(2)));
+}
+
+// Reference colours: green above zero, red below, black at zero - the $ cell
+// follows its OWN value ($0.00 stays black beside a green quantity).
+function signColor(value) {
+  const n = Math.round((Number(value) || 0) * 100);
+  if (n === 0) return '#000';
+  return n > 0 ? '#22c55e' : '#ef4444';
+}
+
 function formatTimestamp(value) {
   if (!value) return '';
   const d = new Date(value);
@@ -83,67 +94,56 @@ function formatTimestamp(value) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function initials(name) {
-  return (name || '?')
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
+// Reference: grey default person avatars (no initials), white ring.
+const avatarSx = (size) => ({ width: size, height: size, bgcolor: '#bdbdbd', color: '#fff', border: '2px solid #fff' });
 
-// Shopfront-style button tokens
-const exportBtn = {
-  height: 53,
-  minWidth: 108,
-  borderRadius: 0,
-  bgcolor: '#f8f8f8',
-  color: '#676b72',
-  border: '1px solid #676b72',
-  fontSize: 16,
-  fontWeight: 400,
-  textTransform: 'none',
-  boxShadow: 'none',
-  transition: 'background-color 0.2s ease, color 0.2s ease',
-  '&:hover': { bgcolor: '#313439', color: '#bdbdbd', boxShadow: 'none' },
-};
-
-const primaryBtn = {
-  height: 53,
-  borderRadius: 0,
-  bgcolor: '#5ebbeb',
-  color: '#f8f8f8',
-  border: '1px solid #f8f8f8',
-  fontSize: 16,
-  fontWeight: 400,
-  textTransform: 'none',
-  boxShadow: 'none',
-  transition: 'background-color 0.2s ease, color 0.2s ease',
-  '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
-};
-
-const tabSx = {
-  minHeight: 55,
-  height: 55,
-  textTransform: 'none',
+// Reference header buttons: rounded 8px, bold.
+const headerBtn = {
+  height: 42,
+  px: 3,
+  borderRadius: '8px',
   fontSize: 16,
   fontWeight: 700,
-  color: '#676b72',
-  transition: 'padding 0.2s ease-in-out',
-  '&.Mui-selected': { color: '#1c86f2' },
+  textTransform: 'none',
+  boxShadow: 'none',
+  whiteSpace: 'nowrap',
 };
+const exportBtn = {
+  ...headerBtn,
+  bgcolor: '#dedede',
+  color: '#555',
+  border: '1px solid transparent',
+  '&:hover': { bgcolor: '#d0d0d0', boxShadow: 'none' },
+  // Statistics tab: outlined and inactive (reference)
+  // pointerEvents back on so the hover shows the not-allowed cursor (the
+  // native disabled attribute still blocks the click).
+  '&.Mui-disabled': { bgcolor: '#e9e9e9', color: '#8a8a8a', border: '1px solid #676b72', pointerEvents: 'auto', cursor: 'not-allowed' },
+};
+const primaryBtn = {
+  ...headerBtn,
+  bgcolor: '#5ebbeb',
+  color: '#fff',
+  '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+};
+
+const HEADER_BAND = '#e2e8f0';
+const APP_BAR = 50; // fixed top bar - the sticky table header sits under it
 
 const th = {
   backgroundColor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: '#fff',
   fontWeight: 700,
   fontSize: 16,
-  // Reference headers are Title Case ("Product", "Case Quantity"), not uppercase.
   textTransform: 'none',
-  padding: '8px',
-  height: 48,
+  padding: '8px 16px',
+  height: 51,
   borderBottom: 'none',
+  whiteSpace: 'nowrap',
+};
+
+const pillHead = {
+  '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
+  '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
 };
 
 export default function StocktakeDetails() {
@@ -153,10 +153,14 @@ export default function StocktakeDetails() {
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(false);
   const [error, setError] = useState('');
+  // Reference: typing does not filter - the table follows the search only when
+  // Filter (or Enter) is pressed. searchInput = the box, searchTerm = applied.
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [tab, setTab] = useState('scanned');
   const [sortBy, setSortBy] = useState('product');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [productCard, setProductCard] = useState(null); // { product, anchor }
 
   useEffect(() => {
     let isMounted = true;
@@ -186,8 +190,6 @@ export default function StocktakeDetails() {
     load();
     return () => { isMounted = false; };
   }, [id]);
-
-  const handleTabChange = (_, newTab) => setTab(newTab);
 
   const [applying, setApplying] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
@@ -273,10 +275,12 @@ export default function StocktakeDetails() {
     }
   };
 
-  const getFilteredItems = () => {
+  // withSearch=false: the tab's rows ignoring the search - the reference Total
+  // stays the tab's total while a search narrows the table.
+  const getFilteredItems = (withSearch = true) => {
     let filtered = stocktake?.items || [];
 
-    if (searchTerm) {
+    if (withSearch && searchTerm) {
       filtered = searchProducts(filtered.map((item) => ({ ...item.product, stocktakeItem: item })), searchTerm)
         .map((product) => product.stocktakeItem);
     }
@@ -291,7 +295,7 @@ export default function StocktakeDetails() {
     // While a search term is in play the default (name) order would undo the
     // best-match-first ranking searchProducts just applied; only an explicit
     // column sort re-orders then. Same behaviour as the sell screen's search.
-    const keepRank = Boolean(searchTerm) && !['expected', 'actual', 'difference'].includes(sortBy);
+    const keepRank = withSearch && Boolean(searchTerm) && !['expected', 'actual', 'difference'].includes(sortBy);
     if (keepRank) {
       if (sortOrder === 'desc') filtered = [...filtered].reverse();
     } else filtered.sort((a, b) => {
@@ -310,7 +314,10 @@ export default function StocktakeDetails() {
 
     return filtered.map(i => ({
       id: i.id,
-      product: i.product || { name: i.productName || 'Unknown', cost: i.product?.cost ?? 0, caseQuantity: i.product?.caseQuantity ?? 0 },
+      productId: i.productId,
+      // stocktakeCost: the unit cost frozen when the product entered the stocktake
+      // (null on stocktakes made before it was recorded -> today's cost).
+      product: { ...(i.product || { name: i.productName || 'Unknown', cost: 0, caseQuantity: 0 }), stocktakeCost: i.itemCost },
       expected: i.expectedQuantity ?? i.expected ?? 0,
       actual: i.actualQuantity ?? i.actual ?? 0,
       difference: (i.actualQuantity ?? i.actual ?? 0) - (i.expectedQuantity ?? i.expected ?? 0),
@@ -319,6 +326,10 @@ export default function StocktakeDetails() {
   };
 
   const getItemCost = (product) => {
+    // Reference: the review table uses the cost at stocktake time.
+    if (product.stocktakeCost !== null && product.stocktakeCost !== undefined) {
+      return Number(product.stocktakeCost);
+    }
     // Use itemCost if available (this should always be present from backend)
     if (product.itemCost !== null && product.itemCost !== undefined) {
       return product.itemCost;
@@ -331,7 +342,7 @@ export default function StocktakeDetails() {
     return 0;
   };
 
-  const stats = getFilteredItems().reduce((t, i) => {
+  const stats = getFilteredItems(false).reduce((t, i) => {
     const itemCost = getItemCost(i.product);
     return {
       expectedQty: t.expectedQty + i.expected,
@@ -352,15 +363,14 @@ export default function StocktakeDetails() {
     else { setSortBy(col); setSortOrder('asc'); }
   };
 
-  const SortHeader = ({ label, col }) => (
-    <TableCell sx={{ ...th, cursor: 'pointer' }} onClick={() => clickSort(col)}>
-      <Stack direction="row" alignItems="center" spacing={0.5}>
-        <span>{label}</span>
-        <Stack sx={{ lineHeight: 0 }}>
-          <ArrowDropUp sx={{ fontSize: 18, m: '-5px 0', opacity: sortBy === col && sortOrder === 'asc' ? 1 : 0.4 }} />
-          <ArrowDropDown sx={{ fontSize: 18, m: '-5px 0', opacity: sortBy === col && sortOrder === 'desc' ? 1 : 0.4 }} />
-        </Stack>
-      </Stack>
+  // Reference: the label with a ⇕ icon; Expected / Actual / Difference span
+  // both their quantity and $ columns.
+  const SortHeader = ({ label, col, colSpan, align = 'left' }) => (
+    <TableCell sx={{ ...th, cursor: 'pointer', textAlign: align }} colSpan={colSpan} onClick={() => clickSort(col)}>
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+        {label}
+        <UnfoldMore sx={{ fontSize: 18, opacity: sortBy === col ? 1 : 0.85 }} />
+      </Box>
     </TableCell>
   );
 
@@ -449,69 +459,118 @@ export default function StocktakeDetails() {
 
   const users = statistics?.userBreakdown || [];
   const filteredItems = getFilteredItems();
+  const fmtQty = (n) => (Number.isInteger(n) ? n : Number(n).toFixed(2));
+
+  // Reference tabs: icon + label, plain black text; the active tab is a white
+  // "folder" tab rising out of the grey-blue header band.
+  const TABS = [
+    { value: 'scanned', label: 'Scanned', icon: <ChecklistOutlined sx={{ fontSize: 18 }} /> },
+    { value: 'not-scanned', label: 'Not Scanned', icon: <HighlightOffOutlined sx={{ fontSize: 16 }} /> },
+    { value: 'all', label: 'All', icon: <AllInboxOutlined sx={{ fontSize: 18 }} /> },
+    { value: 'statistics', label: 'Statistics', icon: <BarChartOutlined sx={{ fontSize: 18 }} /> },
+  ];
+
+  const qtyCell = { textAlign: 'right', pr: '16px !important' };
+  const valueCell = { textAlign: 'left', pl: '16px !important' };
 
   return (
-    <Box sx={{ p: 3, bgcolor: 'white', minHeight: '100vh' }}>
-      {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Box>
-          <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000' }}>
-            {stocktake.name}
-            <Box component="span" sx={{ color: '#676b72', fontWeight: 400 }}>
-              {' — '}{stocktake.outlet?.name || stocktake.outlet || ''}
-            </Box>
-          </Typography>
-          {(() => {
-            const when = stocktake.appliedAt || stocktake.completedAt || stocktake.createdAt;
-            // Reference: "Applied zeroing other stock 2 months ago by Vipul";
-            // after a re-apply: "Applied multiple times, most recently 6 years ago by Admin"
-            const label = stocktake.appliedAt
-              ? (applyHistory.length > 1 ? 'Applied multiple times, most recently' : `Applied${applyModeText(stocktake.userStats?.applyMode)}`)
-              : stocktake.completedAt ? 'Completed' : 'Created';
-            const by = stocktake.appliedAt
-              ? (stocktake.appliedBy?.name || stocktake.completedBy?.name || '-')
-              : stocktake.completedAt
-                ? (stocktake.completedBy?.name || stocktake.completedBy || '-')
-                : (stocktake.createdBy?.name || stocktake.createdBy || '-');
-            return (
-              <Typography sx={{ fontSize: 14, color: '#676b72' }}>{label} {timeAgo(when)} by {by}</Typography>
-            );
-          })()}
-          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
-            <Typography sx={{ fontSize: 14, color: '#000' }}>
-              {isFullStocktake ? 'Full Stocktake' : 'Partial Stocktake'}
+    <Box sx={{ bgcolor: 'white', minHeight: '100vh' }}>
+      {/* Header band (reference: grey-blue, tabs sit on its bottom edge) */}
+      <Box sx={{ bgcolor: HEADER_BAND, px: { xs: 2, md: 8 }, pt: { xs: 3, md: 7 }, borderBottom: '3px solid #d5dde8' }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} spacing={2}>
+          <Box>
+            <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+              {/* Reference: a nameless stocktake is titled "Unnamed Stocktake" in grey */}
+              {stocktake.name || <Box component="span" sx={{ color: '#808080' }}>Unnamed Stocktake</Box>}
+              <Box component="span" sx={{ color: '#676b72', fontWeight: 400, fontSize: 16 }}>
+                {' - '}{stocktake.outlet?.name || stocktake.outlet || ''}
+              </Box>
             </Typography>
-            {/* Reference: the finalise categories as grey chips beside the label */}
-            {scopeChips.map((name) => (
-              <Chip key={name} label={name} size="small" sx={{ borderRadius: '4px', bgcolor: '#e5e5e5', color: '#313439', fontSize: 13, height: 24 }} />
-            ))}
-          </Stack>
-        </Box>
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          {users.length > 0 && (
-            <AvatarGroup max={6} sx={{ '& .MuiAvatar-root': { width: 36, height: 36, fontSize: 14, bgcolor: '#5ebbeb', color: '#f8f8f8' } }}>
-              {users.map((u) => (
-                <Tooltip key={u.userId} title={u.userName || ''}>
-                  <Avatar>{initials(u.userName)}</Avatar>
-                </Tooltip>
+            {(() => {
+              const when = stocktake.appliedAt || stocktake.completedAt || stocktake.createdAt;
+              // Reference: "Applied zeroing other stock 2 months ago by Vipul";
+              // after a re-apply: "Applied multiple times, most recently 6 years ago by Admin"
+              const label = stocktake.appliedAt
+                ? (applyHistory.length > 1 ? 'Applied multiple times, most recently' : `Applied${applyModeText(stocktake.userStats?.applyMode)}`)
+                : stocktake.completedAt ? 'Completed' : 'Created';
+              const byName = stocktake.appliedAt
+                ? (stocktake.appliedBy?.name || stocktake.completedBy?.name)
+                : stocktake.completedAt
+                  ? stocktake.completedBy?.name
+                  : stocktake.createdBy?.name;
+              // Reference: no user -> "Completed 7 years ago" (no "by -")
+              return (
+                <Typography sx={{ fontSize: 16, color: '#000' }}>{label} {timeAgo(when)}{byName ? ` by ${byName}` : ''}</Typography>
+              );
+            })()}
+            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+              <Typography sx={{ fontSize: 14, color: '#000' }}>
+                {isFullStocktake ? 'Full Stocktake' : 'Partial Stocktake'}
+              </Typography>
+              {/* Reference: the finalise categories as grey chips beside the label */}
+              {scopeChips.map((name) => (
+                <Chip key={name} label={name} size="small" sx={{ borderRadius: '4px', bgcolor: '#cfd6df', color: '#313439', fontSize: 13, height: 24 }} />
               ))}
-            </AvatarGroup>
-          )}
-          {/* Reference: a completed (not yet applied) stocktake can be reopened with Edit */}
-          {stocktake.status === 'Completed' && (
-            <Button sx={exportBtn} onClick={reopenForEdit}>Edit</Button>
-          )}
-          <Button sx={exportBtn} onClick={() => setExportOpen(true)} startIcon={<Download />}>Export</Button>
-          {/* Reference: "Re-Apply Stocktake" stays available on an applied stocktake
-              (it sets the products back to the counted figures). A completed one
-              is applied for the first time. */}
-          {(stocktake.status === 'Completed' || stocktake.status === 'Applied') && (
-            <Button sx={primaryBtn} startIcon={<Refresh />} disabled={applying} onClick={openApply}>
-              {stocktake.status === 'Applied' ? 'Re-Apply Stocktake' : 'Apply Stocktake'}
-            </Button>
-          )}
+            </Stack>
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            {users.length > 0 && (
+              <AvatarGroup max={6} sx={{ mr: 0.5, '& .MuiAvatar-root': avatarSx(48) }}>
+                {users.map((u) => (
+                  <Tooltip key={u.userId} title={u.userName || ''} arrow
+                    componentsProps={{ tooltip: { sx: { bgcolor: '#fff', color: '#000', fontSize: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', px: 2, py: 1 } }, arrow: { sx: { color: '#fff' } } }}>
+                    <Avatar />
+                  </Tooltip>
+                ))}
+              </AvatarGroup>
+            )}
+            {/* Reference: a completed (not yet applied) stocktake can be reopened with Edit */}
+            {stocktake.status === 'Completed' && (
+              <Button sx={exportBtn} onClick={reopenForEdit} startIcon={<EditOutlined />}>Edit</Button>
+            )}
+            <Button sx={exportBtn} disabled={tab === 'statistics'} onClick={() => setExportOpen(true)} startIcon={<OutputOutlined />}>Export</Button>
+            {/* Reference: "Re-Apply Stocktake" stays available on an applied stocktake
+                (it sets the products back to the counted figures). A completed one
+                is applied for the first time. */}
+            {(stocktake.status === 'Completed' || stocktake.status === 'Applied') && (
+              <Button sx={primaryBtn} startIcon={<AssignmentTurnedInOutlined />} disabled={applying} onClick={openApply}>
+                {stocktake.status === 'Applied' ? 'Re-Apply Stocktake' : 'Apply Stocktake'}
+              </Button>
+            )}
+          </Stack>
         </Stack>
-      </Stack>
+
+        {/* Tabs */}
+        {/* No overflow here: with the tabs' -3px margin it raised a stray scrollbar */}
+        <Stack direction="row" flexWrap="wrap" sx={{ mt: 6 }}>
+          {TABS.map((t) => {
+            const active = tab === t.value;
+            return (
+              <Box
+                key={t.value}
+                role="tab"
+                aria-selected={active}
+                tabIndex={0}
+                onClick={() => setTab(t.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setTab(t.value); }}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 1,
+                  px: 3, height: 55, cursor: 'pointer', whiteSpace: 'nowrap',
+                  fontSize: 14, color: '#000',
+                  borderRadius: '8px 8px 0 0',
+                  bgcolor: active ? '#fff' : 'transparent',
+                  mb: '-3px', // sit on (and cover) the band's bottom rule
+                  '&:hover': { bgcolor: active ? '#fff' : 'rgba(255,255,255,0.45)' },
+                  outline: 'none',
+                }}
+              >
+                {t.icon}
+                <span>{t.label}</span>
+              </Box>
+            );
+          })}
+        </Stack>
+      </Box>
 
       {/* Reference "Stocktake Export" popup: two blue tiles (PDF / CSV) + Cancel */}
       <Dialog open={exportOpen} onClose={() => setExportOpen(false)} PaperProps={{ sx: { borderRadius: '8px', width: 300, maxWidth: '95vw', boxShadow: 'none' } }}>
@@ -536,7 +595,7 @@ export default function StocktakeDetails() {
             ))}
           </Stack>
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.5 }}>
-            <Button onClick={() => setExportOpen(false)} sx={{ ...exportBtn, height: 42, minWidth: 118, borderRadius: '8px', bgcolor: '#dddddd', color: '#000', border: 'none', fontWeight: 700 }}>Cancel</Button>
+            <Button onClick={() => setExportOpen(false)} sx={{ ...exportBtn, minWidth: 118, bgcolor: '#dddddd', color: '#000' }}>Cancel</Button>
           </Stack>
         </Box>
       </Dialog>
@@ -576,125 +635,203 @@ export default function StocktakeDetails() {
         </Box>
       </Dialog>
 
-      {/* Tabs (above the search row) */}
-      <Tabs
-        value={tab}
-        onChange={handleTabChange}
-        variant="fullWidth"
-        sx={{ mb: 2, minHeight: 55, '& .MuiTabs-indicator': { bgcolor: '#1c86f2', height: 3 } }}
-      >
-        <Tab disableRipple value="scanned" sx={tabSx} label={<TabLabel icon={<VisibilityOutlined fontSize="small" />} text="Scanned" />} />
-        <Tab disableRipple value="not-scanned" sx={tabSx} label={<TabLabel icon={<Cancel fontSize="small" />} text="Not Scanned" />} />
-        <Tab disableRipple value="all" sx={tabSx} label={<TabLabel icon={<BarChart fontSize="small" />} text="All" />} />
-        <Tab disableRipple value="statistics" sx={tabSx} label={<TabLabel icon={<Assessment fontSize="small" />} text="Statistics" />} />
-      </Tabs>
-
       {/* Content - Table or Statistics */}
+      <Box sx={{ px: 2, pt: 2, pb: 0 }}>
       {tab === 'statistics' ? (
         <StatisticsView statistics={statistics} loading={statsLoading} external={isExternal} />
       ) : (
         <>
           {/* Search + Filter (hidden on Statistics) */}
-          <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
             <TextField
               fullWidth
               placeholder="Search for a product..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') setSearchTerm(searchInput.trim()); }}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  height: 53,
-                  borderRadius: 0,
+                  height: 42,
+                  borderRadius: '4px',
                   fontSize: 16,
-                  '& fieldset': { border: '1px solid #000' },
-                  '&:hover fieldset': { border: '1px solid #000' },
+                  '& fieldset': { border: '1px solid #676b72' },
+                  '&:hover fieldset': { border: '1px solid #676b72' },
                   '&.Mui-focused fieldset': { border: '2px solid #000' },
                 },
                 '& input::placeholder': { color: '#808080', opacity: 1 },
               }}
               InputProps={{
-                endAdornment: searchTerm ? (
+                endAdornment: searchInput ? (
                   <InputAdornment position="end">
-                    <Close sx={{ fontSize: 24, color: '#313439', cursor: 'pointer' }} onClick={() => setSearchTerm('')} />
+                    {/* ✕ empties the box only; the table follows on Filter */}
+                    <Close sx={{ fontSize: 20, color: '#313439', cursor: 'pointer' }} onClick={() => setSearchInput('')} />
                   </InputAdornment>
                 ) : null,
               }}
             />
-            <Button sx={{ ...primaryBtn, minWidth: 98 }} startIcon={<FilterAlt />}>Filter</Button>
+            <Button sx={{ ...primaryBtn, minWidth: 130 }} startIcon={<FilterAltOutlined />} onClick={() => setSearchTerm(searchInput.trim())}>Filter</Button>
           </Stack>
 
-          {/* Table */}
-          <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <SortHeader label="Product" col="product" />
-                  <TableCell sx={th}>Cost</TableCell>
-                  <TableCell sx={th}>Case Quantity</TableCell>
-                  {/* Reference: the $ value sits in its own column beside the quantity */}
-                  <SortHeader label="Expected" col="expected" />
-                  <TableCell sx={th} />
-                  <SortHeader label="Actual" col="actual" />
-                  <TableCell sx={th} />
-                  <SortHeader label="Difference" col="difference" />
-                  <TableCell sx={th} />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredItems.map((item, index) => (
-                  <TableRow
-                    key={item.id}
-                    sx={{
-                      bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
-                      '& td': { color: '#000', fontSize: 16, padding: '8px 8px 8px 10px', borderBottom: 'none' },
-                    }}
-                  >
-                    <TableCell>{item.product.name}</TableCell>
+          {/* Table - header sticks under the top bar, Total sticks to the bottom
+              of the window (reference). No overflow wrapper: it would break sticky. */}
+          <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+            <TableHead>
+              <TableRow sx={{ ...pillHead, '& th': { position: 'sticky', top: APP_BAR, zIndex: 2 } }}>
+                <SortHeader label="Product" col="product" />
+                <TableCell sx={{ ...th, textAlign: 'center' }}>Cost</TableCell>
+                <TableCell sx={{ ...th, textAlign: 'center' }}>Case Quantity</TableCell>
+                <SortHeader label="Expected" col="expected" colSpan={2} align="center" />
+                <SortHeader label="Actual" col="actual" colSpan={2} align="center" />
+                <SortHeader label="Difference" col="difference" colSpan={2} align="center" />
+              </TableRow>
+            </TableHead>
+            <TableBody sx={{ '& td': { color: '#000', fontSize: 16, padding: '12px 16px', borderBottom: 'none', bgcolor: '#fff' } }}>
+              {filteredItems.map((item) => {
+                const c = getItemCost(item.product);
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell sx={{ maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {/* Reference: the name opens the product card on click */}
+                      <Box
+                        component="span"
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => setProductCard({ product: item.product, anchor: e.currentTarget })}
+                        onKeyDown={(e) => { if (e.key === 'Enter') setProductCard({ product: item.product, anchor: e.currentTarget }); }}
+                        sx={{ cursor: 'pointer', textDecoration: productCard?.product?.id === item.product.id ? 'underline' : 'none', '&:hover': { textDecoration: 'underline' } }}
+                      >
+                        {item.product.name}
+                      </Box>
+                      {item.product.isActive === false && (
+                        <Box component="span" sx={{ color: '#808080' }}> - Inactive</Box>
+                      )}
+                    </TableCell>
                     {/* Reference "Cost" is the CASE cost as a plain number (93.74 for a
                         case of 6); the $ values beside the quantities use the unit cost. */}
-                    <TableCell>{(getItemCost(item.product) * (item.product.caseQuantity || 1)).toFixed(2)}</TableCell>
-                    <TableCell>{item.product.caseQuantity ?? '-'}</TableCell>
-                    <TableCell>{item.expected}</TableCell>
-                    <TableCell>{money(item.expected * getItemCost(item.product))}</TableCell>
-                    <TableCell>{item.actual}</TableCell>
-                    <TableCell>{money(item.actual * getItemCost(item.product))}</TableCell>
-                    <TableCell sx={{ color: `${item.difference === 0 ? '#000' : item.difference > 0 ? '#16a34a' : '#dc2626'} !important` }}>
-                      {item.difference}
-                    </TableCell>
-                    <TableCell sx={{ color: `${item.difference === 0 ? '#000' : item.difference > 0 ? '#16a34a' : '#dc2626'} !important` }}>
-                      {money(item.difference * getItemCost(item.product))}
-                    </TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>{plainNumber(c * (item.product.caseQuantity || 1))}</TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>{item.product.caseQuantity ?? '-'}</TableCell>
+                    <TableCell sx={qtyCell}>{item.expected}</TableCell>
+                    <TableCell sx={valueCell}>{money(item.expected * c)}</TableCell>
+                    <TableCell sx={qtyCell}>{item.actual}</TableCell>
+                    <TableCell sx={valueCell}>{money(item.actual * c)}</TableCell>
+                    <TableCell sx={{ ...qtyCell, color: `${signColor(item.difference)} !important` }}>{item.difference}</TableCell>
+                    <TableCell sx={{ ...valueCell, color: `${signColor(item.difference * c)} !important` }}>{money(item.difference * c)}</TableCell>
                   </TableRow>
-                ))}
-                {/* TOTAL footer row */}
-                {/* Reference Total row: the label side is blue, the figures sit in a
-                    white cell in bold black (difference keeps its red/green). */}
-                <TableRow sx={{ '& td': { color: '#000', fontWeight: 700, fontSize: 16, height: 36, padding: '8px 8px 8px 10px', borderBottom: 'none', borderTop: '1px solid #5ebbeb' } }}>
-                  <TableCell sx={{ bgcolor: '#5ebbeb', color: '#f8f8f8 !important' }}>Total</TableCell>
-                  <TableCell sx={{ bgcolor: '#5ebbeb' }} />
-                  <TableCell sx={{ bgcolor: '#5ebbeb' }} />
-                  {/* Reference totals are whole units ("6"), not "6.00". */}
-                  <TableCell>{Number.isInteger(stats.expectedQty) ? stats.expectedQty : stats.expectedQty.toFixed(2)}</TableCell>
-                  <TableCell>{money(stats.expectedValue)}</TableCell>
-                  <TableCell>{Number.isInteger(stats.actualQty) ? stats.actualQty : stats.actualQty.toFixed(2)}</TableCell>
-                  <TableCell>{money(stats.actualValue)}</TableCell>
-                  <TableCell sx={{ color: `${stats.differenceQty === 0 ? '#000' : stats.differenceQty > 0 ? '#16a34a' : '#dc2626'} !important` }}>
-                    {Number.isInteger(stats.differenceQty) ? stats.differenceQty : stats.differenceQty.toFixed(2)}
-                  </TableCell>
-                  <TableCell sx={{ color: `${stats.differenceValue === 0 ? '#000' : stats.differenceValue > 0 ? '#16a34a' : '#dc2626'} !important` }}>
-                    {money(stats.differenceValue)}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
+                );
+              })}
+            </TableBody>
+            {/* Reference Total row: blue label block on the left, figures in a
+                white block with a blue outline, stuck to the bottom of the window. */}
+            <TableBody>
+              <TableRow sx={{
+                '& td': { position: 'sticky', bottom: 0, zIndex: 2, fontWeight: 700, fontSize: 16, color: '#000', height: 51, padding: '8px 16px', bgcolor: '#fff', borderTop: '1px solid #5ebbeb', borderBottom: '1px solid #5ebbeb' },
+                '& td:last-of-type': { borderRight: '1px solid #5ebbeb', borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
+              }}>
+                <TableCell colSpan={3} sx={{ bgcolor: '#5ebbeb !important', color: '#fff !important', borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' }}>Total</TableCell>
+                {/* Reference totals are whole units ("6"), not "6.00". */}
+                <TableCell sx={qtyCell}>{fmtQty(stats.expectedQty)}</TableCell>
+                <TableCell sx={valueCell}>{money(stats.expectedValue)}</TableCell>
+                <TableCell sx={qtyCell}>{fmtQty(stats.actualQty)}</TableCell>
+                <TableCell sx={valueCell}>{money(stats.actualValue)}</TableCell>
+                <TableCell sx={{ ...qtyCell, color: `${signColor(stats.differenceQty)} !important` }}>{fmtQty(stats.differenceQty)}</TableCell>
+                <TableCell sx={{ ...valueCell, color: `${signColor(stats.differenceValue)} !important` }}>{money(stats.differenceValue)}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <ProductCard
+            product={productCard?.product || null}
+            anchorEl={productCard?.anchor || null}
+            onClose={() => setProductCard(null)}
+          />
         </>
       )}
+      </Box>
     </Box>
   );
 }
 
-// Statistics View Component — flat stat tiles, activity feed, per-user blocks
+// Reference: clicking a product name opens a card - type, name, today's cost
+// (cents small), then Supplier / Category, Family and Tags; empty parts hidden.
+// The product arrives with the stocktake (type, cost, category, family, tags,
+// suppliers), so the card opens instantly - no extra request.
+function ProductCard({ product, anchorEl, onClose }) {
+  const label = { fontSize: 14, color: '#555' };
+  const value = { fontSize: 16, color: '#000' };
+  // Today's cost (the table keeps the stocktake-time cost).
+  const caseCost = (() => {
+    if (!product) return null;
+    if (product.caseCost != null && Number(product.caseCost) > 0) return Number(product.caseCost);
+    if (product.itemCost != null) return Number(product.itemCost) * (Number(product.caseQuantity) || 1);
+    return 0;
+  })();
+  const [dollars, cents] = Math.abs(caseCost || 0).toFixed(2).split('.');
+  const suppliers = (product?.suppliers || []).map((s) => s.supplier?.name).filter(Boolean);
+  const tags = (product?.tags || []).map((t) => t.tag?.name || t.name).filter(Boolean);
+  const type = String(product?.type || 'Normal Product').replace(/ Product$/i, '');
+
+  return (
+    <Popover
+      open={Boolean(anchorEl)}
+      anchorEl={anchorEl}
+      onClose={onClose}
+      anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
+      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      PaperProps={{ sx: { ml: 1.5, mt: -4, width: 420, maxWidth: '90vw', bgcolor: '#f8f8f8', border: '1px solid #ddd', borderRadius: '12px', boxShadow: '0 4px 14px rgba(0,0,0,0.12)', p: 3 } }}
+    >
+      {product && (
+        <>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ pb: 2, borderBottom: '1px solid #ddd' }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={label}>{type}</Typography>
+              <Typography sx={value}>{product.name}</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+              <Typography sx={label}>Cost</Typography>
+              <Typography sx={{ fontSize: 18, color: '#000' }}>
+                {caseCost < 0 ? '-' : ''}${dollars}.<Box component="span" sx={{ fontSize: 13 }}>{cents}</Box>
+              </Typography>
+            </Box>
+          </Stack>
+          <Grid container rowSpacing={2} columnSpacing={2} sx={{ pt: 2 }}>
+            {suppliers.length > 0 && (
+              <Grid item xs={6}>
+                <Typography sx={label}>Supplier</Typography>
+                <Typography sx={value}>{suppliers.join(', ')}</Typography>
+              </Grid>
+            )}
+            {product.category?.name && (
+              <Grid item xs={6}>
+                <Typography sx={label}>Category</Typography>
+                <Typography sx={value}>{product.category.name}</Typography>
+              </Grid>
+            )}
+            {product.family?.name && (
+              <Grid item xs={12}>
+                <Typography sx={label}>Family</Typography>
+                <Typography sx={value}>{product.family.name}</Typography>
+              </Grid>
+            )}
+            {tags.length > 0 && (
+              <Grid item xs={12}>
+                <Typography sx={{ ...label, mb: 0.5 }}>Tags</Typography>
+                <Stack direction="row" flexWrap="wrap" gap={1} useFlexGap>
+                  {tags.map((t) => (
+                    <Box key={t} sx={{ border: '1px solid #ccc', borderRadius: '6px', px: 1, py: 0.25, fontSize: 15, bgcolor: '#fff' }}>{t}</Box>
+                  ))}
+                </Stack>
+              </Grid>
+            )}
+          </Grid>
+        </>
+      )}
+    </Popover>
+  );
+}
+
+// Reference statistics cards: light grey, hairline border, 4px radius.
+const cardSx = { width: 450, maxWidth: '100%', boxSizing: 'border-box', bgcolor: '#f8f8f8', border: '1px solid #e6e6e6', borderRadius: '4px', p: 2 };
+
+// Statistics View Component — stat tiles, apply cards, per-user cards, events
 function StatisticsView({ statistics, loading, external = false }) {
   if (loading) {
     return (
@@ -712,8 +849,8 @@ function StatisticsView({ statistics, loading, external = false }) {
     );
   }
 
-  const label = { fontSize: 13, color: '#676b72' };
-  const bigNumber = { fontSize: 42, fontWeight: 700, lineHeight: 1.2, color: '#000' };
+  const label = { fontSize: 14, color: '#000' };
+  const bigNumber = { fontSize: 36, fontWeight: 700, lineHeight: 1.2, color: '#000' };
 
   // Reference External Stocktake statistics (Mayfair 29/10/2026): only
   // "Products counted" and "Completed" plus the Applied card - no scans,
@@ -732,130 +869,175 @@ function StatisticsView({ statistics, loading, external = false }) {
       ];
 
   return (
-    <Box>
-      {/* Flat stat tiles — one grid, no card borders */}
-      <Grid container spacing={4} sx={{ mb: 4 }}>
+    <Box sx={{ px: 2, pt: 3, pb: 4 }}>
+      {/* Reference: four tiles per row, "Completed" wraps to the second row */}
+      <Grid container rowSpacing={8} columnSpacing={4} sx={{ mb: 8 }}>
         {tiles.map((t) => (
-          <Grid item xs={12} sm={6} md={2.4} key={t.label}>
+          <Grid item xs={12} sm={6} md={3} key={t.label}>
             <Typography sx={label}>{t.label}</Typography>
             <Typography sx={bigNumber}>{t.value}</Typography>
           </Grid>
         ))}
       </Grid>
 
-      {/* Applied by - one card per apply (reference: "Applied this stocktake 2 months
-          ago, zeroing other stock"; a re-applied stocktake shows a card per apply). */}
+      {/* Applied cards - one per apply, stacked (reference: "Applied this stocktake
+          2 months ago, zeroing other stock"). */}
       {(statistics.applyHistory || []).length > 0 && (
-        <Stack direction="row" flexWrap="wrap" gap={2} useFlexGap sx={{ py: 3, borderTop: '1px solid #e0e0e0' }}>
+        <Stack spacing={6} sx={{ mb: 6 }}>
           {statistics.applyHistory.map((h, i) => (
-            <Box key={i} sx={{ minWidth: 300, border: '1px solid #e0e0e0', bgcolor: '#f8f8f8', p: 2 }}>
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-                <Avatar sx={{ width: 36, height: 36, fontSize: 14, bgcolor: '#5ebbeb', color: '#f8f8f8' }}>
-                  {initials(h.userName)}
-                </Avatar>
-                <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>{h.userName || '-'}</Typography>
+            <Box key={i} sx={cardSx}>
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+                <Avatar sx={avatarSx(44)} />
+                <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000' }}>{h.userName || '-'}</Typography>
               </Stack>
-              <Typography sx={{ fontSize: 15, color: '#000' }}>
-                Applied this stocktake <b>{timeAgo(h.at)}</b>, <b>{h.mode === 'zero' ? 'zeroing' : 'ignoring'}</b> other stock
+              <Typography sx={{ fontSize: 16, color: '#000', pl: 2 }}>
+                Applied this stocktake {timeAgo(h.at)}, <b>{h.mode === 'zero' ? 'zeroing' : 'ignoring'}</b> other stock
               </Typography>
             </Box>
           ))}
         </Stack>
       )}
 
-      {/* Per-user blocks */}
-      {!external && (statistics.userBreakdown || []).map((user) => (
-        <Box key={user.userId} sx={{ py: 3, borderTop: '1px solid #e0e0e0' }}>
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
-            <Avatar sx={{ width: 36, height: 36, fontSize: 14, bgcolor: '#5ebbeb', color: '#f8f8f8' }}>
-              {initials(user.userName)}
-            </Avatar>
-            <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>{user.userName}</Typography>
-          </Stack>
-          <Stack direction="row" spacing={8}>
-            <Box>
-              <Typography sx={label}>Number of scans</Typography>
-              <Typography sx={bigNumber}>{Number(user.totalScans || 0).toLocaleString()}</Typography>
+      {/* Per-user cards, side by side */}
+      {!external && (statistics.userBreakdown || []).length > 0 && (
+        <Stack direction="row" flexWrap="wrap" gap={2} useFlexGap sx={{ mb: 6 }}>
+          {statistics.userBreakdown.map((user) => (
+            <Box key={user.userId} sx={cardSx}>
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+                <Avatar sx={avatarSx(44)} />
+                <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000' }}>{user.userName}</Typography>
+              </Stack>
+              <Stack direction="row" spacing={9}>
+                <Box>
+                  <Typography sx={label}>Number of scans</Typography>
+                  <Typography sx={bigNumber}>{Number(user.totalScans || 0).toLocaleString()}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={label}>Products counted</Typography>
+                  <Typography sx={bigNumber}>{Number(user.productsCounted || 0).toLocaleString()}</Typography>
+                </Box>
+              </Stack>
             </Box>
-            <Box>
-              <Typography sx={label}>Products counted</Typography>
-              <Typography sx={bigNumber}>{Number(user.productsCounted || 0).toLocaleString()}</Typography>
-            </Box>
-          </Stack>
-        </Box>
-      ))}
+          ))}
+        </Stack>
+      )}
 
       {!external && <ActivityTable activities={statistics.activities || []} />}
     </Box>
   );
 }
 
-// Reference: activity table under the statistics - Filter by Users / Filter by
-// Products, columns Product | Event | Count | User | Timestamp (Sale rows too).
-function ActivityTable({ activities }) {
-  const [userFilter, setUserFilter] = useState('');
-  const [productFilter, setProductFilter] = useState('');
-  const users = [...new Set(activities.map((a) => a.user).filter(Boolean))].sort();
-  const products = [...new Set(activities.map((a) => a.productName).filter(Boolean))].sort();
-  const rows = activities.filter((a) => (!userFilter || a.user === userFilter) && (!productFilter || a.productName === productFilter));
+// Reference event names: a typed count is a "Scan", a changed count an "Edit".
+const EVENT_LABEL = { Count: 'Scan', Update: 'Edit' };
 
-  const selectSx = {
-    height: 44,
-    borderRadius: 0,
-    fontSize: 15,
-    '& fieldset': { border: '1px solid #000' },
-    '&:hover fieldset': { border: '1px solid #000' },
-    '&.Mui-focused fieldset': { border: '2px solid #000' },
+// Reference: events table under the statistics. "Filter by Users" (every user)
+// and "Filter by Products" (a product search) only take effect on Filter.
+function ActivityTable({ activities }) {
+  const [userOptions, setUserOptions] = useState([]);
+  const [productOptions, setProductOptions] = useState([]);
+  const [productInput, setProductInput] = useState('');
+  const [userPick, setUserPick] = useState(null);
+  const [productPick, setProductPick] = useState(null);
+  const [applied, setApplied] = useState({ user: null, product: null });
+
+  useEffect(() => {
+    userService.getUsers()
+      .then((r) => {
+        const list = Array.isArray(r) ? r : (r?.users || r?.data || []);
+        setUserOptions(list.map((u) => ({ id: u.id, name: u.name || u.username || '' })).filter((u) => u.name).sort((a, b) => a.name.localeCompare(b.name)));
+      })
+      .catch(() => setUserOptions([]));
+  }, []);
+
+  useEffect(() => {
+    const term = productInput.trim();
+    if (term.length < 2 || (productPick && productPick.name === productInput)) { setProductOptions([]); return undefined; }
+    let alive = true;
+    const t = setTimeout(() => {
+      productService.getProducts({ search: term, limit: 20 })
+        .then(({ products }) => { if (alive) setProductOptions((products || []).map((p) => ({ id: p.id, name: p.name }))); })
+        .catch(() => { if (alive) setProductOptions([]); });
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [productInput, productPick]);
+
+  const rows = activities.filter((a) =>
+    (!applied.user || (a.userId != null ? a.userId === applied.user.id : a.user === applied.user.name)) &&
+    (!applied.product || (a.productId != null ? a.productId === applied.product.id : a.productName === applied.product.name)));
+
+  const inputSx = {
+    '& .MuiOutlinedInput-root': {
+      height: 42,
+      borderRadius: '4px',
+      fontSize: 16,
+      py: '0 !important',
+      '& fieldset': { border: '1px solid #676b72' },
+      '&:hover fieldset': { border: '1px solid #676b72' },
+      '&.Mui-focused fieldset': { border: '2px solid #000' },
+    },
+    '& input::placeholder': { color: '#808080', opacity: 1 },
+  };
+  const listboxSx = {
+    '& .MuiAutocomplete-option': { minHeight: 56, fontSize: 16, color: '#000' },
+    '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#74d0fb !important' },
   };
 
   return (
-    <Box sx={{ pt: 3, borderTop: '1px solid #e0e0e0' }}>
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-        <Select fullWidth displayEmpty value={userFilter} onChange={(e) => setUserFilter(e.target.value)} sx={selectSx}>
-          <MenuItem value=""><span style={{ color: '#808080' }}>Filter by Users</span></MenuItem>
-          {users.map((u) => <MenuItem key={u} value={u}>{u}</MenuItem>)}
-        </Select>
-        <Select fullWidth displayEmpty value={productFilter} onChange={(e) => setProductFilter(e.target.value)} sx={selectSx}>
-          <MenuItem value=""><span style={{ color: '#808080' }}>Filter by Products</span></MenuItem>
-          {products.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-        </Select>
-        <Button sx={{ ...primaryBtn, height: 44, minWidth: 98 }} startIcon={<FilterAlt />} onClick={() => { setUserFilter(''); setProductFilter(''); }}>Filter</Button>
+    <Box>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mb: 4 }}>
+        <Autocomplete
+          fullWidth
+          options={userOptions}
+          value={userPick}
+          onChange={(_, v) => setUserPick(v)}
+          getOptionLabel={(o) => o?.name || ''}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          ListboxProps={{ sx: listboxSx }}
+          renderInput={(params) => <TextField {...params} placeholder="Filter by Users" sx={inputSx} />}
+        />
+        <Autocomplete
+          fullWidth
+          options={productOptions}
+          value={productPick}
+          inputValue={productInput}
+          onInputChange={(_, v) => setProductInput(v)}
+          onChange={(_, v) => setProductPick(v)}
+          filterOptions={(o) => o}
+          getOptionLabel={(o) => o?.name || ''}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          noOptionsText="Keep Typing to Search..."
+          ListboxProps={{ sx: listboxSx }}
+          renderInput={(params) => <TextField {...params} placeholder="Filter by Products" sx={inputSx} />}
+        />
+        <Button sx={{ ...primaryBtn, minWidth: 130 }} startIcon={<FilterAltOutlined />} onClick={() => setApplied({ user: userPick, product: productPick })}>
+          Filter
+        </Button>
       </Stack>
-      <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>
-        <Table>
+
+      {rows.length === 0 ? (
+        <Typography sx={{ textAlign: 'center', color: '#676b72', fontSize: 16, py: 3 }}>No stocktake events found</Typography>
+      ) : (
+        <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
           <TableHead>
-            <TableRow>
+            <TableRow sx={pillHead}>
               {['Product', 'Event', 'Count', 'User', 'Timestamp'].map((h) => (
-                <TableCell key={h} sx={{ ...th, textTransform: 'none' }}>{h}</TableCell>
+                <TableCell key={h} sx={th}>{h}</TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.length === 0 && (
-              <TableRow><TableCell colSpan={5} sx={{ color: '#676b72' }}>No activity recorded.</TableCell></TableRow>
-            )}
             {rows.map((a, index) => (
-              <TableRow key={a.id} sx={{ bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8', '& td': { color: '#000', fontSize: 16, padding: '10px 8px 10px 10px', borderBottom: 'none' } }}>
+              <TableRow key={a.id} sx={{ bgcolor: index % 2 === 0 ? '#fff' : '#f4f4f4', '& td': { color: '#000', fontSize: 16, padding: '13px 16px', borderBottom: 'none' } }}>
                 <TableCell>{a.productName || '-'}</TableCell>
-                {/* Reference lists a typed count as a "Scan" event too. */}
-                <TableCell>{a.eventType === 'Count' ? 'Scan' : a.eventType}</TableCell>
-                <TableCell sx={{ color: '#1c86f2 !important' }}>{a.count}</TableCell>
+                <TableCell>{EVENT_LABEL[a.eventType] || a.eventType}</TableCell>
+                <TableCell>{a.count}</TableCell>
                 <TableCell>{a.user}</TableCell>
                 <TableCell>{formatTimestamp(a.timestamp)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
-      </TableContainer>
+      )}
     </Box>
-  );
-}
-
-function TabLabel({ icon, text }) {
-  return (
-    <Stack direction="row" alignItems="center" spacing={1}>
-      {icon}
-      <span>{text}</span>
-    </Stack>
   );
 }

@@ -48,10 +48,10 @@ const stocktakeService = {
   },
 
   // Complete stocktake
-  completeStocktake: async (id, items = []) => {
+  completeStocktake: async (id, items = [], scope = null) => {
     try {
       apiClient.bustCache('/stocktakes');
-      const response = await apiClient.post(`/stocktakes/${id}/complete`, { items });
+      const response = await apiClient.post(`/stocktakes/${id}/complete`, { items, ...(scope || {}) });
       return response.data;
     } catch (error) {
       console.error('Error completing stocktake:', error);
