@@ -64,6 +64,10 @@ assert.equal(isoDurationDays('P1M'), 30);
 assert.equal(isoDurationDays('P0D'), 0);
 assert.equal(isoDurationDays('30'), null);
 assert.equal(isoDurationDays('P'), null);
+assert.equal(isoDurationDays('P1DT12H'), 1.5);
+assert.equal(isoDurationDays('PT36H'), 1.5);
+assert.equal(isoDurationDays('PT'), null);
+assert.equal(isoDurationDays('P1DT'), null);
 
 // Credit Terms box: what is owed at the end, by the longest term its age reached.
 const end = new Date('2012-05-11T12:00:00');

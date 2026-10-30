@@ -56,13 +56,15 @@ export const applyStatementVariables = (html, customer, business) => {
     .replace(/(?:Ph|ABN):\s*(?=<br\s*\/?>|<\/)/g, '');
 };
 
-// Customer group credit terms are ISO 8601 durations (P15D, P30D, P2W, P1M).
-// Returns whole days, or null when the text is not one.
+// Customer group credit terms are ISO 8601 durations (P15D, P30D, P2W, P1M,
+// and with time parts per the reference article: P1DT12H, PT36H).
+// Returns days (fractional when time parts are used), or null when invalid.
 export const isoDurationDays = (value) => {
-  const m = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/i.exec(String(value || '').trim());
+  const m = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?=\d)(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/i
+    .exec(String(value || '').trim());
   if (!m || !m.slice(1).some(Boolean)) return null;
-  const [y, mo, w, d] = m.slice(1).map((n) => parseInt(n || 0, 10));
-  return y * 365 + mo * 30 + w * 7 + d;
+  const [y, mo, w, d, h, mi, s] = m.slice(1).map((n) => parseInt(n || 0, 10));
+  return y * 365 + mo * 30 + w * 7 + d + h / 24 + mi / 1440 + s / 86400;
 };
 
 // Credit Terms box (reference: one cell per group credit term — "0 days",
@@ -81,7 +83,9 @@ export const buildCreditTermBuckets = (creditTerms, activities = [], rangeEnd) =
   for (const row of activities || []) {
     const balance = parseFloat(row?.balance) || 0;
     if (!balance) continue;
-    const age = Math.floor((end - new Date(row.date).getTime()) / 86400000);
+    // Exact age (not floored) so an hour-based term like P1DT12H compares correctly;
+    // for whole-day terms the result is the same as before.
+    const age = (end - new Date(row.date).getTime()) / 86400000;
     const term = [...terms].reverse().find((t) => age >= t.days) || terms[0];
     term.amount += balance;
   }

@@ -16,7 +16,6 @@ import {
   Divider,
   ClickAwayListener,
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   CircularProgress,
@@ -39,6 +38,7 @@ import { useSearchParams, useLocation, Link as RouterLink } from 'react-router-d
 import customerService from '../../services/customerService';
 import customerGroupService from '../../services/customerGroupService';
 import priceListService from '../../services/priceListService';
+import CustomersHelpDrawer from '../../components/Customers/CustomersHelpDrawer';
 import PerformanceGraph from '../../components/Customers/PerformanceGraph';
 import posLocalDb from '../../services/posLocalDb';
 import PageLoader from '../../components/Common/PageLoader';
@@ -336,6 +336,8 @@ const Customers = () => {
   const [exportOpen, setExportOpen] = useState(false);
   // Reference preselects "Simple".
   const [exportScope, setExportScope] = useState('Simple');
+  // Import dialog "Click here." opens the Customer Management article in a drawer.
+  const [helpOpen, setHelpOpen] = useState(false);
   const [deleteToast, setDeleteToast] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
@@ -386,17 +388,31 @@ const Customers = () => {
       const matchesGroup =
         selectedGroups.length === 0 ||
         selectedGroups.includes(customer.customerGroupId ? String(customer.customerGroupId) : '__none__');
+      // Effective price list (same rule as the price list view page's Customers
+      // tab and the sell screen): the customer's own list when they override
+      // their group or have no group, otherwise the group's list.
+      const inGroup = customer.customerGroupId != null || customer.customerGroup?.id != null;
+      const effectivePriceListId =
+        (customer.overrideCustomerGroup || !inGroup) && customer.priceListId != null
+          ? customer.priceListId
+          : (inGroup ? customer.customerGroup?.priceListId : null) ?? null;
       const matchesPriceList =
         selectedPriceLists.length === 0 ||
-        (customer.priceListId != null && selectedPriceLists.includes(String(customer.priceListId)));
-      const matchesOutlet = !outletFilter || customer.outletId === outletFilter.id;
+        (effectivePriceListId != null && selectedPriceLists.includes(String(effectivePriceListId)));
+      // Outlet rule: a navbar outlet narrows the list to that outlet's customers;
+      // on All Outlets the in-page Outlet filter (if any) applies. The cached
+      // roster stays complete because the sell screen's customer search shares it.
+      const headerOutlet = selectedOutletId != null && selectedOutletId !== '' ? Number(selectedOutletId) : null;
+      const matchesOutlet = outletFilter
+        ? customer.outletId === outletFilter.id
+        : (headerOutlet == null || Number(customer.outletId) === headerOutlet);
       return matchesSearch && matchesGroup && matchesPriceList && matchesOutlet;
     });
     // Single funnel point for display order: the IndexedDB cache returns id order and the API
     // returns firstName/lastName order, so always sort name A-Z (case-insensitive) here.
     filtered.sort((a, b) => fullNameOf(a).localeCompare(fullNameOf(b), undefined, { sensitivity: 'base' }));
     setFilteredCustomers(filtered);
-  }, [customers, searchTerm, selectedGroups, selectedPriceLists, outletFilter]);
+  }, [customers, searchTerm, selectedGroups, selectedPriceLists, outletFilter, selectedOutletId]);
 
   const loadCustomers = async () => {
     await posLocalDb.init();
@@ -757,12 +773,15 @@ const Customers = () => {
         onConfirm={confirmDeleteCustomer}
       />
 
-      {/* Export scope dialog */}
-      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Export Customers</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mb: 1.5, fontSize: 14, color: '#676b72' }}>
-            What level of detail would you like to export? *
+      {/* Export scope dialog - reference: light-blue "?" header, question, select, both column sets as bullets */}
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} PaperProps={{ elevation: 0, sx: { width: 350, maxWidth: '92vw', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)' } }}>
+        <Box sx={{ bgcolor: '#bfe6fb', px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography component="span" aria-hidden sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
+          <Typography component="h3" sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 18, m: 0 }}>Export Customers</Typography>
+        </Box>
+        <DialogContent sx={{ px: 2, pt: 3, pb: 1 }}>
+          <Typography sx={{ mb: 1.5, fontSize: 16, color: '#000' }}>
+            What level of detail would you like to export?
           </Typography>
           <Autocomplete
             options={['Simple', 'Full']}
@@ -790,27 +809,26 @@ const Customers = () => {
             )}
           />
           {/* Reference: both column sets always listed as bullets under the select. */}
-          <Box sx={{ mt: 1.5, fontSize: 14, color: 'text.secondary' }}>
-            <Typography variant="body2" sx={{ fontWeight: 700 }}>Simple</Typography>
-            <Box component="ul" sx={{ mt: 0.5, mb: 1, pl: 3 }}>
-              {['Name', 'Company', 'Code', 'Birthday', 'Email Addresses', 'Phone Numbers', 'Subscribed to Marketing Emails'].map((c) => (
+          <Box sx={{ mt: 2, fontSize: 16, color: '#000' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 16 }}>Simple</Typography>
+            <Box component="ul" sx={{ mt: 0.5, mb: 1.5, pl: 3, '& li': { fontSize: 16, lineHeight: 1.2 } }}>
+              {['Name', 'Company', 'Code', 'Birthday', 'Email Addresses', 'Phone Number', 'Subscribed to Marketing Emails'].map((c) => (
                 <li key={c}>{c}</li>
               ))}
             </Box>
-            <Typography variant="body2" sx={{ fontWeight: 700 }}>Full</Typography>
-            <Box component="ul" sx={{ mt: 0.5, mb: 1, pl: 3 }}>
-              <li>All customer details, including current loyalty points and owing</li>
+            <Typography sx={{ fontWeight: 700, fontSize: 16 }}>Full</Typography>
+            <Box component="ul" sx={{ mt: 0.5, mb: 1, pl: 3, '& li': { fontSize: 16, lineHeight: 1.2 } }}>
+              <li>All Customer Details</li>
             </Box>
-            <Typography variant="body2">The current filters and search are applied.</Typography>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button onClick={() => setExportOpen(false)} sx={grayFilledBtnSx}>Cancel</Button>
+        <DialogActions sx={{ px: 2, pb: 2, pt: 1.5, gap: 1.5, justifyContent: 'flex-end' }}>
+          <Button onClick={() => setExportOpen(false)} sx={{ ...grayFilledBtnSx, borderRadius: '8px', minWidth: 118 }}>Cancel</Button>
           <Button
             onClick={() => exportCustomers(exportScope.toLowerCase())}
             disabled={!exportScope}
             variant="contained"
-            sx={skyFilledBtnSx}
+            sx={{ ...skyFilledBtnSx, borderRadius: '8px', minWidth: 118 }}
           >
             Export
           </Button>
@@ -821,48 +839,50 @@ const Customers = () => {
       <Dialog
         open={importOpen}
         onClose={() => { setImportOpen(false); setImportFile(null); setImportResult(null); }}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '8px' } }}
+        PaperProps={{ elevation: 0, sx: { width: 375, maxWidth: '92vw', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)' } }}
       >
-        <DialogTitle sx={{ bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 18, display: 'flex', alignItems: 'center', gap: 1, py: 1.5 }}>
-          <HelpIcon sx={{ color: '#fff' }} />
-          Import Customers
-        </DialogTitle>
-        <DialogContent sx={{ pt: '20px !important' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Box sx={{ bgcolor: '#bfe6fb', px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography component="span" aria-hidden sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
+          <Typography component="h3" sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 18, m: 0 }}>Import Customers</Typography>
+        </Box>
+        <DialogContent sx={{ px: 2, pt: 3, pb: 1 }}>
+          {/* Reference: "Click here." opens the Customer Management article in a drawer */}
+          <Typography sx={{ fontSize: 16, color: '#000', mb: 1.5 }}>
             Looking for the file format?{' '}
             <Box
-              component="a"
-              href="https://support.onshopfront.com/hc/en-us/articles/115003820631-Customer-Management"
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ color: '#0284c7', textDecoration: 'underline', cursor: 'pointer' }}
+              component="button"
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              sx={{ font: 'inherit', p: 0, border: 0, bgcolor: 'transparent', color: 'rgb(0,0,238)', textDecoration: 'underline', cursor: 'pointer' }}
             >
-              Click here.
-            </Box>
+              Click here
+            </Box>.
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Required columns: first_name and last_name. Please select the file to import:
+          <Typography sx={{ fontSize: 16, color: '#000', mb: 1 }}>
+            Please select the file to import:
           </Typography>
-          <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
+          <Box sx={{ border: '1px solid #404040', borderRadius: '8px', p: '10px 12px', bgcolor: '#fff' }}>
+            <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={(e) => setImportFile(e.target.files?.[0] || null)} style={{ fontSize: 16, width: '100%' }} />
+          </Box>
           {importResult && (
             <Alert severity={importResult.severity} sx={{ mt: 2, whiteSpace: 'pre-line' }}>{importResult.text}</Alert>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button onClick={() => { setImportOpen(false); setImportFile(null); setImportResult(null); }} sx={grayFilledBtnSx}>Cancel</Button>
+        <DialogActions sx={{ px: 2, pb: 2, pt: 2, gap: 1.5, justifyContent: 'flex-end' }}>
+          <Button onClick={() => { setImportOpen(false); setImportFile(null); setImportResult(null); }} sx={{ ...grayFilledBtnSx, borderRadius: '8px', minWidth: 118 }}>Cancel</Button>
           <Button
             onClick={runImport}
             disabled={!importFile || importBusy}
             variant="contained"
             startIcon={importBusy ? <CircularProgress size={16} color="inherit" /> : null}
-            sx={skyFilledBtnSx}
+            sx={{ ...skyFilledBtnSx, borderRadius: '8px', minWidth: 118 }}
           >
             Import
           </Button>
         </DialogActions>
       </Dialog>
+
+      <CustomersHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="importing" />
 
       <Snackbar
         open={deleteToast}

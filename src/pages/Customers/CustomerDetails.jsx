@@ -51,6 +51,7 @@ import customerGroupService from "../../services/customerGroupService";
 import priceListService from "../../services/priceListService";
 import outletService from "../../services/outletService";
 import { useAuth } from "../../contexts/AuthContext";
+import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 import ShopfrontSwitch from "../../components/Common/ShopfrontSwitch";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import CreatableAutocomplete from "../../components/Common/CreatableAutocomplete";
@@ -241,6 +242,10 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const { isTrueSuperAdmin, getOutletId } = useAuth();
+  // Outlet rule: with a navbar outlet the customer is stored there and the
+  // Outlet field stays hidden; on All Outlets the super admin picks the outlet.
+  const { selectedOutletId: headerOutletId } = useSelectedOutlet();
+  const headerOutlet = headerOutletId != null && headerOutletId !== '' ? Number(headerOutletId) : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
@@ -347,6 +352,14 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
   // Customer-level overrides are only on offer when the customer is not in a group, or the
   // group is explicitly overridden (Shopfront: "Override Customer Group").
   const showGroupOverrides = !formData.customerGroupId || !!formData.overrideCustomerGroup;
+
+  // New customer + navbar outlet: store it there without asking.
+  useEffect(() => {
+    if (isNewMode && headerOutlet != null && !formData.outletId) {
+      setFormData((prev) => ({ ...prev, outletId: headerOutlet }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNewMode, headerOutlet]);
 
   const navigationItems = useMemo(
     () =>
@@ -1321,7 +1334,8 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                   }}
                 />
               </Grid>
-              {isTrueSuperAdmin() && (
+              {/* Outlet picker only on All Outlets; a navbar outlet is applied silently */}
+              {isTrueSuperAdmin() && headerOutlet == null && (
                 <Grid item xs={12}>
                   <FormControl fullWidth sx={fieldSx} error={!!fieldErrors.outletId}>
                     <InputLabel>Outlet</InputLabel>

@@ -15,7 +15,9 @@ import {
   Tabs,
   Tab,
   Autocomplete,
+  Link,
 } from "@mui/material";
+import IsoPeriodHelpDrawer from '../../components/Customers/IsoPeriodHelpDrawer';
 import {
   PersonOutlined as PersonIcon,
   ReceiptOutlined as ReceiptIcon,
@@ -26,6 +28,9 @@ import {
   SaveOutlined as SaveIcon,
   AddOutlined as AddIcon,
   DeleteOutline as DeleteIcon,
+  InfoOutlined as InfoIcon,
+  ReceiptLongOutlined as ReceiptTabIcon,
+  BalanceOutlined as BalanceIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import customerGroupService from "../../services/customerGroupService";
@@ -34,10 +39,14 @@ import outletService from "../../services/outletService";
 import receiptTemplateService from "../../services/receiptTemplateService";
 import statementTemplateService from "../../services/statementTemplateService";
 import { useAuth } from "../../contexts/AuthContext";
+import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 import PageSaveBar from '../../components/Common/PageSaveBar';
 
 // ---- Shopfront reference styling ------------------------------------------
 const FORM_WIDTH = 764;
+const PAGE_PX = 3;
+// Title, tabs and form share one centered column of FORM_WIDTH.
+const COLUMN_SX = { maxWidth: FORM_WIDTH, mx: 'auto', width: '100%' };
 
 const FIELD_SX = {
   width: '100%',
@@ -86,31 +95,30 @@ const SWITCH_SX = {
   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track, &:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#5ebbeb' },
 };
 
-const btnSx = (bg, hover) => ({
-  bgcolor: bg,
-  color: '#fff',
-  height: 42,
-  px: 3,
-  borderRadius: '12px',
-  fontWeight: 700,
-  fontSize: 16,
-  textTransform: 'none',
-  boxShadow: 'none',
-  '&:hover': { bgcolor: hover, boxShadow: 'none' },
-});
-
 // Module scope on purpose: nesting these in the page would remount (and unfocus) inputs on every keystroke.
+// Reference: the section icon hangs in the gutter LEFT of the column, so the
+// heading text lines up with the page title and tabs; fields sit a little in.
 const Section = ({ icon, title, first, children }) => (
   <Box sx={{ mt: first ? 0 : 4, pt: first ? 0 : 4, borderTop: first ? 'none' : '1px solid #e2e8f0' }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-      {React.cloneElement(icon, { sx: { color: '#5ebbeb' } })}
-      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, fontSize: 20, color: '#313439' }}>
+    <Box sx={{ position: 'relative', mb: 3 }}>
+      {React.cloneElement(icon, { sx: { color: '#9e9e9e', fontSize: 22, position: 'absolute', left: -32, top: '50%', transform: 'translateY(-50%)' } })}
+      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000' }}>
         {title}
       </Typography>
     </Box>
-    {children}
+    <Box sx={{ pl: '4px' }}>{children}</Box>
   </Box>
 );
+
+// ISO 8601 period (P30D, P2W, P1M, P1Y2M3DT4H) → "30 days" etc.; null if invalid.
+const ISO_PERIOD_RE = /^P(?!$)(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?=\d)(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/i;
+const PERIOD_UNITS = ['year', 'month', 'week', 'day', 'hour', 'minute', 'second'];
+const describePeriod = (value) => {
+  const m = ISO_PERIOD_RE.exec(String(value || '').trim());
+  if (!m) return null;
+  const parts = m.slice(1).map((n, i) => (n == null ? null : `${parseInt(n, 10)} ${PERIOD_UNITS[i]}${parseInt(n, 10) === 1 ? '' : 's'}`)).filter(Boolean);
+  return parts.length ? parts.join(', ') : null;
+};
 
 const Field = ({ label, help, children }) => (
   <Box sx={{ mb: 3 }}>
@@ -150,6 +158,10 @@ const CustomerGroupDetails = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isTrueSuperAdmin, getOutletId } = useAuth();
+  // Outlet rule: navbar outlet set → the group is stored there and the Outlet
+  // picker is hidden; All Outlets → the picker is shown and required.
+  const { selectedOutletId: headerOutletId } = useSelectedOutlet();
+  const headerOutlet = headerOutletId != null && headerOutletId !== '' ? Number(headerOutletId) : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
@@ -158,6 +170,7 @@ const CustomerGroupDetails = () => {
   const [receiptTemplates, setReceiptTemplates] = useState([]);
   const [statementTemplates, setStatementTemplates] = useState([]);
   const [creditTerms, setCreditTerms] = useState([]);
+  const [isoHelpOpen, setIsoHelpOpen] = useState(false);
   const [tab, setTab] = useState(0);
 
   const [formData, setFormData] = useState({
@@ -223,12 +236,15 @@ const CustomerGroupDetails = () => {
       } else if (!isTrueSuperAdmin()) {
         // For regular users, use their assigned outlet
         finalOutletId = getOutletId();
+      } else if (headerOutlet != null) {
+        // Super admin working in a navbar outlet: the group lands there.
+        finalOutletId = headerOutlet;
       }
-      // For super admin with no outletId in URL, keep it as null (they can select in the form)
+      // For super admin on All Outlets, keep it null (they pick in the form)
 
       setFormData((prev) => ({ ...prev, outletId: finalOutletId }));
     }
-  }, [id, isEditMode, isNewMode, searchParams, isTrueSuperAdmin, getOutletId]);
+  }, [id, isEditMode, isNewMode, searchParams, isTrueSuperAdmin, getOutletId, headerOutlet]);
 
   useEffect(() => {
     if (formData.outletId !== undefined) {
@@ -359,7 +375,13 @@ const CustomerGroupDetails = () => {
     }
 
     // Validate outlet selection for super admin
-    if (isTrueSuperAdmin() && !formData.outletId) {
+    if (creditTerms.some((t) => t.duration && !describePeriod(t.duration))) {
+      setTab(2);
+      setError("Credit Terms: every period must be a valid ISO 8601 duration (e.g. P30D)");
+      return;
+    }
+
+    if (isNewMode && isTrueSuperAdmin() && headerOutlet == null && !formData.outletId) {
       setError("Please select an outlet for this customer group");
       return;
     }
@@ -382,9 +404,12 @@ const CustomerGroupDetails = () => {
       statementTemplate: formData.statementTemplate === '' ? null : formData.statementTemplate,
       priceListId: formData.priceListId === '' ? null : formData.priceListId,
       // Include credit terms
-      creditTerms: creditTerms,
+      // Empty rows are dropped; label is the readable period ("30 days") the statement prints.
+      creditTerms: creditTerms
+        .filter((t) => describePeriod(t.duration))
+        .map((t) => ({ duration: t.duration, label: describePeriod(t.duration) })),
       // Ensure outletId is properly set
-      outletId: formData.outletId || null,
+      outletId: formData.outletId || headerOutlet || null,
     };
 
     try {
@@ -435,9 +460,12 @@ const CustomerGroupDetails = () => {
     minHeight: 56,
     height: 56,
     textTransform: 'none',
-    fontSize: 16,
-    fontWeight: 700,
-    color: '#676b72',
+    fontSize: 15,
+    fontWeight: 400,
+    gap: 1,
+    px: 3,
+    color: '#313439',
+    '& .MuiTab-iconWrapper': { mr: 0 },
     borderRadius: '8px 8px 0 0',
     transition: 'color 150ms cubic-bezier(.4,0,.2,1), background-color 150ms cubic-bezier(.4,0,.2,1)',
     '&.Mui-selected': { color: '#313439', bgcolor: '#fff', boxShadow: '0 -2px 6px rgba(0,0,0,0.08)' },
@@ -450,15 +478,11 @@ const CustomerGroupDetails = () => {
         <Box
           sx={{
             bgcolor: '#e2e8f0',
-            px: 3,
-            pt: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 2,
+            px: PAGE_PX,
+            pt: '48px',
           }}
         >
+          <Box sx={{ ...COLUMN_SX, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
           <Typography sx={{ fontSize: 20, color: '#313439' }}>
             {isEditMode ? 'Editing ' : 'Creating '}
             <b>{formData.name || 'Customer Group'}</b>
@@ -467,7 +491,9 @@ const CustomerGroupDetails = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {/* Outlet lives outside the form surface — the reference form has no Outlet field,
                 but a super admin still has to pick one for the group to be saved. */}
-            {isTrueSuperAdmin() && (
+            {/* Create only: the update route ignores outletId, so on Edit the picker
+                changed nothing — the list's Outlet column shows the group's outlet. */}
+            {isNewMode && isTrueSuperAdmin() && headerOutlet == null && (
               <FormControl sx={{ minWidth: 220, ...FIELD_SX }}>
                 <Select
                   value={formData.outletId || ''}
@@ -485,6 +511,7 @@ const CustomerGroupDetails = () => {
               </FormControl>
             )}
           </Box>
+          </Box>
         </Box>
 
         {/* Cancel and Save were in the header row above, which scrolls away on the
@@ -495,22 +522,24 @@ const CustomerGroupDetails = () => {
           onCancel={handleCancel}
         />
 
-        <Box sx={{ bgcolor: '#e2e8f0', px: 3 }}>
+        <Box sx={{ bgcolor: '#e2e8f0', px: PAGE_PX, pt: '40px' }}>
+          <Box sx={COLUMN_SX}>
           <Tabs
             value={tab}
             onChange={(e, v) => setTab(v)}
             TabIndicatorProps={{ sx: { display: 'none' } }}
             sx={{ minHeight: 56, '& .MuiTab-root': tabSx }}
           >
-            <Tab label="General" disableRipple />
-            <Tab label="Receipts" disableRipple />
-            <Tab label="Account Sales" disableRipple />
+            <Tab label="General" icon={<InfoIcon sx={{ fontSize: 18 }} />} iconPosition="start" disableRipple />
+            <Tab label="Receipts" icon={<ReceiptTabIcon sx={{ fontSize: 18 }} />} iconPosition="start" disableRipple />
+            <Tab label="Account Sales" icon={<BalanceIcon sx={{ fontSize: 18 }} />} iconPosition="start" disableRipple />
           </Tabs>
+          </Box>
         </Box>
       </Box>
 
-      <Box sx={{ px: 3, py: 4 }}>
-        <Box sx={{ maxWidth: FORM_WIDTH, mx: 'auto' }}>
+      <Box sx={{ px: PAGE_PX, pt: '64px', pb: 4 }}>
+        <Box sx={COLUMN_SX}>
           {error && (
             <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError("")}>
               {error}
@@ -667,61 +696,81 @@ const CustomerGroupDetails = () => {
                     offText="No reference is requested when the customer is added to a sale"
                   />
 
+                  {/* Reference: one ISO 8601 period per row (placeholder "Invalid Period"),
+                      red outlined delete, full-width green "+ Add Credit Term". */}
                   <Box sx={{ mb: 3 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#313439' }}>
-                        Credit Terms
-                      </Typography>
-                      <Button
-                        startIcon={<AddIcon />}
-                        onClick={() => setCreditTerms([...creditTerms, { label: '', duration: '' }])}
-                        sx={btnSx('#5ebbeb', '#4aa9dd')}
+                    <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#000' }}>
+                      Credit Terms
+                    </Typography>
+                    <Typography sx={{ fontSize: 14, color: '#313439', mb: 2 }}>
+                      Specifies the time periods displayed with the amount of money owing during each period (e.g. 7 days, 30 days).{' '}
+                      <Link
+                        component="button"
+                        type="button"
+                        onClick={() => setIsoHelpOpen(true)}
+                        sx={{ fontSize: 14, color: 'rgb(0,0,238)', textDecorationColor: 'rgb(0,0,238)', verticalAlign: 'baseline', textAlign: 'left' }}
                       >
-                        Add
-                      </Button>
-                    </Box>
-                    <Typography sx={{ fontSize: 14, color: '#676b72', mb: 2 }}>
-                      It must be formatted as an ISO 8601 duration (e.g., P15D for 15 days, P30D for 30 days)
+                        It must be formatted as an ISO 8601 duration.
+                      </Link>
                     </Typography>
 
-                    {creditTerms.map((term, index) => (
-                      <Box key={index} sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
-                        <TextField
-                          value={term.label || ''}
-                          onChange={(e) => {
-                            const updated = [...creditTerms];
-                            updated[index] = { ...updated[index], label: e.target.value };
-                            setCreditTerms(updated);
-                          }}
-                          placeholder="e.g., 15 days"
-                          sx={{ ...FIELD_SX, flex: 1 }}
-                        />
-                        <TextField
-                          value={term.duration || ''}
-                          onChange={(e) => {
-                            const updated = [...creditTerms];
-                            updated[index] = { ...updated[index], duration: e.target.value };
-                            setCreditTerms(updated);
-                          }}
-                          placeholder="P15D"
-                          sx={{ ...FIELD_SX, flex: 1 }}
-                        />
-                        <IconButton
-                          onClick={() => setCreditTerms(creditTerms.filter((_, i) => i !== index))}
-                          sx={{ color: '#dc2626' }}
-                          title="Remove credit term"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Box>
-                    ))}
+                    {creditTerms.map((term, index) => {
+                      const human = describePeriod(term.duration);
+                      const invalid = !!term.duration && !human;
+                      return (
+                        <Box key={index} sx={{ display: 'flex', gap: 0.5, mb: 1, alignItems: 'center' }}>
+                          <TextField
+                            value={term.duration || ''}
+                            onChange={(e) => {
+                              const duration = e.target.value.toUpperCase();
+                              const updated = [...creditTerms];
+                              updated[index] = { ...updated[index], duration, label: describePeriod(duration) || '' };
+                              setCreditTerms(updated);
+                            }}
+                            placeholder="Invalid Period"
+                            error={invalid}
+                            InputProps={{
+                              endAdornment: term.duration ? (
+                                <Typography sx={{ fontSize: 14, color: invalid ? '#e33430' : '#676b72', whiteSpace: 'nowrap', pl: 1 }}>
+                                  {human || 'Invalid Period'}
+                                </Typography>
+                              ) : null,
+                            }}
+                            sx={{ ...FIELD_SX, flex: 1, '& .MuiOutlinedInput-root': { ...FIELD_SX['& .MuiOutlinedInput-root'], pr: '14px' } }}
+                          />
+                          <IconButton
+                            onClick={() => setCreditTerms(creditTerms.filter((_, i) => i !== index))}
+                            title="Remove credit term"
+                            disableRipple
+                            sx={{ width: 48, height: 42, borderRadius: '8px', border: '1px solid #e33430', color: '#e33430', '&:hover': { bgcolor: 'rgba(227,52,48,0.06)' } }}
+                          >
+                            <DeleteIcon sx={{ fontSize: 22 }} />
+                          </IconButton>
+                        </Box>
+                      );
+                    })}
 
-                    {creditTerms.length === 0 && (
-                      <Typography sx={{ fontSize: 14, color: '#676b72', fontStyle: 'italic' }}>
-                        No credit terms configured
-                      </Typography>
-                    )}
+                    <Button
+                      fullWidth
+                      disableRipple
+                      startIcon={<AddIcon />}
+                      onClick={() => setCreditTerms([...creditTerms, { label: '', duration: '' }])}
+                      sx={{
+                        height: 42,
+                        borderRadius: '8px',
+                        border: '1px solid #16a34a',
+                        color: '#16a34a',
+                        fontWeight: 700,
+                        fontSize: 16,
+                        textTransform: 'none',
+                        '&:hover': { bgcolor: 'rgba(22,163,74,0.05)', borderColor: '#16a34a' },
+                        '&:focus-visible': { border: '2px solid #000' },
+                      }}
+                    >
+                      Add Credit Term
+                    </Button>
                   </Box>
+                  <IsoPeriodHelpDrawer open={isoHelpOpen} onClose={() => setIsoHelpOpen(false)} />
                 </>
               )}
             </Section>
