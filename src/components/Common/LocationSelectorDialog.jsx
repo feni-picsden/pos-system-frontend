@@ -51,7 +51,14 @@ const LocationSelectorDialog = () => {
     chooseAnotherLocation,
     registerError,
     setRegisterError,
+    outletOnlyAction,
+    setPendingOutletAction,
   } = useSelectedRegister();
+  // Outlet-only run (a page needs an outlet before it can create): no Global
+  // row, and picking an outlet closes the selector instead of going on to the
+  // register step.
+  const outletOnly = !!outletOnlyAction;
+  const showGlobalRow = canGoGlobal && !outletOnly;
 
   // Picking an outlet or a register is a round trip (switch-outlet + catalog
   // wipe, or /lock) that used to run with no feedback: the dialog just sat
@@ -166,7 +173,7 @@ const LocationSelectorDialog = () => {
               // is hidden, so the paper keeps its measured 32px bottom padding.
               // Keyed to the same test that shows that row, or the two drift
               // apart and the global row ends up flush against the last outlet.
-              const isLast = !canGoGlobal && i === outlets.length - 1;
+              const isLast = !showGlobalRow && i === outlets.length - 1;
               return (
                 <Box
                   key={outlet.id}
@@ -179,6 +186,12 @@ const LocationSelectorDialog = () => {
                       } catch (err) {
                         setOutletError(err?.response?.data?.error || 'Could not switch outlet. Please try again.');
                         return; // stay on the outlet step; do NOT advance
+                      }
+                      if (outletOnly) {
+                        // Hand the waiting action back to the (re-mounted) page.
+                        setPendingOutletAction(outletOnlyAction);
+                        setShowLocationSelector(false);
+                        return;
                       }
                       // The dialog now outlives the outlet switch (it is mounted in
                       // the layout, not the page), so the register list has to be
@@ -213,7 +226,7 @@ const LocationSelectorDialog = () => {
                 they are currently pinned to an outlet — picking it un-pins the
                 session server-side. Everyone else has an outlet session that
                 cannot be switched to "none". */}
-            {canGoGlobal && (
+            {showGlobalRow && (
               <Box
                 onClick={() =>
                   runBusy('outlet-global', async () => {

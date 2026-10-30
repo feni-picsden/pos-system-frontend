@@ -23,6 +23,9 @@ import CustomerGroupDialog from '../../components/CustomerGroups/CustomerGroupDi
 import customerGroupService from '../../services/customerGroupService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
+
+const ADD_GROUP_ACTION = 'customerGroups.add';
 
 // Shopfront row actions: flat, fixed-width, instant grey hover, no ripple
 const rowActionSx = (color, width) => ({
@@ -84,9 +87,20 @@ const CustomerGroups = () => {
   }, [customerGroups, searchTerm, outletFilter]);
 
 
+  // No global customer groups: on All Outlets, Add first opens the Outlet
+  // Selector; once the navbar switches to the picked outlet the create dialog
+  // opens (the outlet switch re-mounts this page, hence the context hand-off).
+  const { openOutletPicker, pendingOutletAction, clearPendingOutletAction } = useSelectedRegister();
   const handleAddGroup = () => {
-    setOpenDialog(true);
+    if (globalMode) openOutletPicker(ADD_GROUP_ACTION);
+    else setOpenDialog(true);
   };
+  useEffect(() => {
+    if (pendingOutletAction === ADD_GROUP_ACTION && !globalMode) {
+      clearPendingOutletAction();
+      setOpenDialog(true);
+    }
+  }, [pendingOutletAction, globalMode, clearPendingOutletAction]);
 
   const handleDeleteGroup = (groupId) => {
     const group = customerGroups.find(g => g.id === groupId);

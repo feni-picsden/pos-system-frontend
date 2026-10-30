@@ -54,6 +54,22 @@ export const SelectedRegisterProvider = ({ children }) => {
   const [showLocationSelector, setShowLocationSelector] = useState(false);
   // Reference runs the selector in two steps: outlet first, then register.
   const [locationStep, setLocationStep] = useState('register');
+  // "Outlet only" run of the selector: a page that cannot create records in
+  // Global Mode (e.g. Add Customer Group) asks for an outlet first. The selector
+  // then shows only the outlet step (no Global row, no register step) and, once
+  // the navbar has switched, posts `actionKey` here. The page is re-mounted by
+  // that switch, so the key lives in this layout-level context, not the page.
+  const [outletOnlyAction, setOutletOnlyAction] = useState(null);
+  const [pendingOutletAction, setPendingOutletAction] = useState(null);
+  const openOutletPicker = (actionKey) => {
+    setOutletOnlyAction(actionKey);
+    setLocationStep('outlet');
+    setShowLocationSelector(true);
+  };
+  const clearPendingOutletAction = () => setPendingOutletAction(null);
+  useEffect(() => {
+    if (!showLocationSelector) setOutletOnlyAction(null);
+  }, [showLocationSelector]);
   // Register open/close overlay (STATE 3) feedback + in-flight guard
   const [registerError, setRegisterError] = useState('');
   const [openingRegister, setOpeningRegister] = useState(false);
@@ -322,6 +338,11 @@ export const SelectedRegisterProvider = ({ children }) => {
         setRegisterError,
         openingRegister,
         openLocationSelector,
+        outletOnlyAction,
+        openOutletPicker,
+        pendingOutletAction,
+        setPendingOutletAction,
+        clearPendingOutletAction,
         refreshRegisters,
         selectRegister,
         takeControl,
