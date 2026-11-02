@@ -16,6 +16,7 @@ import CashActionDialog from '../components/CashDrawer/CashActionDialog';
 import NiceError from '../components/Common/NiceError';
 import { useHasPermission, useHasAnyPermission } from '../hooks/usePermissions';
 import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
+import { formatAppPattern } from '../utils/appDateTime';
 
 const ACTION_BTN_SX = {
   backgroundColor: '#5ebbeb',
@@ -71,14 +72,8 @@ const splitCurrency = (amount) => {
     : [formatted.slice(0, dotIndex), formatted.slice(dotIndex)];
 };
 
-const formatDateTime = (dateString) =>
-  new Date(dateString).toLocaleString('en-AU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+// "dd/mm/yyyy, hh:mm am" (as before) on the store's clock (Setup > General > Timezone).
+const formatDateTime = (dateString) => formatAppPattern(dateString, 'DD/MM/YYYY, hh:mm a');
 
 const getRegisterId = () => {
   const id = localStorage.getItem('selectedRegisterId');

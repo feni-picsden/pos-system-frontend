@@ -31,6 +31,7 @@ import {
 import { taxRateService } from '../../services/taxRateService';
 import classificationService from '../../services/classificationService';
 import { useAppDialogs } from '../Common/AppDialogProvider';
+import { endTimeToSeconds, isValidWindow, normaliseTime, timeToSeconds } from '../../utils/surchargeSchedule';
 
 const DAYS_OF_WEEK = [
   'Monday',
@@ -52,7 +53,7 @@ const SURCHARGE_TYPES = [
 const MIN_SEARCH_CHARS = 2;
 
 const isAllDay = (startTime, endTime) =>
-  startTime === '00:00' && (endTime === '23:59' || endTime === '24:00');
+  timeToSeconds(startTime) === 0 && endTimeToSeconds(endTime) === 24 * 60 * 60;
 
 // Reference dialog fields: thin grey border, 8px radius, 42px tall.
 const fieldSx = {
@@ -247,7 +248,8 @@ const AddScheduleDialog = ({
       return;
     }
 
-    if (!formData.applyAllDay && (formData.startTime === '--:--' || formData.endTime === '--:--')) {
+    // Start must be before End on the same day (an overnight window never runs).
+    if (!formData.applyAllDay && !isValidWindow(formData.startTime, formData.endTime)) {
       toastError('The start and end times are not valid');
       return;
     }
@@ -266,8 +268,8 @@ const AddScheduleDialog = ({
       appliesTo: appliesTo,
       surchargeAmount: parseFloat(formData.surchargeAmount),
       // Apply all day = full-day window
-      startTime: formData.applyAllDay ? '00:00' : formData.startTime,
-      endTime: formData.applyAllDay ? '23:59' : formData.endTime,
+      startTime: formData.applyAllDay ? '00:00' : normaliseTime(formData.startTime),
+      endTime: formData.applyAllDay ? '23:59' : normaliseTime(formData.endTime),
       categoryIds: formData.selectedCategories,
       tagIds: formData.selectedTags
     };
@@ -548,7 +550,8 @@ const AddScheduleDialog = ({
                   value={formData.startTime === '--:--' ? '' : formData.startTime}
                   onChange={(e) => handleInputChange('startTime', e.target.value || '--:--')}
                   InputLabelProps={{ shrink: true }}
-                  inputProps={{ step: 300 }}
+                  // Reference: hh:mm:ss picker, any minute
+                  inputProps={{ step: 1 }}
                   sx={fieldSx}
                 />
               </Box>
@@ -560,7 +563,7 @@ const AddScheduleDialog = ({
                   value={formData.endTime === '--:--' ? '' : formData.endTime}
                   onChange={(e) => handleInputChange('endTime', e.target.value || '--:--')}
                   InputLabelProps={{ shrink: true }}
-                  inputProps={{ step: 300 }}
+                  inputProps={{ step: 1 }}
                   sx={fieldSx}
                 />
               </Box>

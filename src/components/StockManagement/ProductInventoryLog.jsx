@@ -17,6 +17,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
 import outletService from '../../services/outletService';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import {
   SECTION_ROOT_SX,
   OUTLET_SELECT_SX,
@@ -79,6 +80,8 @@ const ProductInventoryLog = ({ productId }) => {
       const resp = await productService.getProductInventoryLog(productId, {
         page,
         limit: 25,
+        // Reference (checked 30/10/2026): the times typed in the filter are the
+        // BROWSER's clock, while the rows show the store's zone.
         startDate: startDate ? new Date(startDate).toISOString() : undefined,
         endDate: endDate ? new Date(endDate).toISOString() : undefined,
         outletId: selectedOutlet?.id || undefined,
@@ -100,19 +103,9 @@ const ProductInventoryLog = ({ productId }) => {
       Number(v) || 0
     );
 
-  // Reference format: "13/06/2026 21:00:34" (no comma between date and time).
-  const formatDateTime = (d) => {
-    const date = new Date(d);
-    return `${date.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })} ${date.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })}`;
-  };
+  // Reference format: "13/06/2026 21:00:34" (no comma between date and time),
+  // in the store's zone - the reference shows Setup > General > Timezone time.
+  const formatDateTime = formatAppDateTime;
 
   // Reference shows "Sale" / "Stocktake" / "Manual Change", not raw enum values.
   const eventLabel = (value) =>

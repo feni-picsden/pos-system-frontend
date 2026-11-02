@@ -32,6 +32,7 @@ import {
   Search,
 } from '@mui/icons-material';
 import { format, formatDistanceToNowStrict } from 'date-fns';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import stocktakeService from '../../services/stocktakeService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import usePageCache from '../../hooks/usePageCache';
@@ -195,6 +196,8 @@ export default function Stocktakes() {
     const within = (value, range) => {
       if (!range.startDate && !range.endDate) return true;
       if (!value) return false;
+      // The browser's calendar day, like the reference's date filters
+      // (checked 30/10/2026); only the shown times use the store's zone.
       const day = format(new Date(value), 'yyyy-MM-dd');
       if (range.startDate && day < format(range.startDate, 'yyyy-MM-dd')) return false;
       if (range.endDate && day > format(range.endDate, 'yyyy-MM-dd')) return false;
@@ -219,10 +222,11 @@ export default function Stocktakes() {
     setNewDialogOpen(true);
   };
 
+  // Same "dd/mm/yyyy, HH:mm:ss" as before, in the store's zone (Setup >
+  // General > Timezone) instead of the browser's.
   const formatDate = (value) => {
-    if (!value) return '';
-    const date = new Date(value);
-    return date.toLocaleString('en-GB');
+    const text = formatAppDateTime(value);
+    return text ? text.replace(' ', ', ') : '';
   };
 
   // One request per click: a double-click (or Enter + click) on Continue used

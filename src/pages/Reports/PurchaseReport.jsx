@@ -53,6 +53,7 @@ import {
 } from '@mui/icons-material';
 import { format as formatDate } from 'date-fns';
 import { printReportTable, reportPrintTitle, reportPrintRange, optionLabel } from '../../utils/reportPrint';
+import { formatDateTime as formatAppDateTime, toAppZonedDate } from '../../utils/appDateTime';
 import { chipsToParam, chipsFromParams } from '../../utils/reportChips';
 import FavouriteRevisionsButton from '../../components/Reports/FavouriteRevisionsButton';
 import { useAuth } from '../../contexts/AuthContext';
@@ -423,7 +424,12 @@ const PRECISION_GROUPS = [
   { label: 'Aggregate', items: PRECISION_OPTIONS.aggregate },
 ];
 
-const stamp = (d) => (d ? formatDate(new Date(d), 'yyyy-MM-dd HH:mm:ss') : '');
+// Query bar dates (reference): STORE wall time, so a range picked in the browser
+// (Hawaii 26/10 00:00) reads "2026-10-26 21:00:00" for a Melbourne store.
+const stamp = (d) => {
+  const x = d ? toAppZonedDate(d) : null;
+  return x && !Number.isNaN(x.getTime()) ? formatDate(x, 'yyyy-MM-dd HH:mm:ss') : '';
+};
 
 const PurchaseReport = () => {
   const [searchParams] = useSearchParams();
@@ -490,6 +496,7 @@ const PurchaseReport = () => {
   const [exportOrientation, setExportOrientation] = useState('portrait');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [customQuery, setCustomQuery] = useState('');
+  const [appliedRange, setAppliedRange] = useState(null);
 
   // Search-bar suggestions + Included chips (same as the Sales / Inventory reports).
   const [suggestions, setSuggestions] = useState([]);
@@ -567,6 +574,7 @@ const PurchaseReport = () => {
           setReportData(response.data || []);
         }
         setApiTotals(response.totals || {});
+        setAppliedRange(response.filters?.startDate ? { preset: dateRange.preset, startDate: response.filters.startDate, endDate: response.filters.endDate } : null);
         setCollapsed({});
       } else {
         setReportData([]);
@@ -596,19 +604,23 @@ const PurchaseReport = () => {
 
   // Reference query bar: the visible columns, BY <report type>, ON <group>,
   // START/END for a custom window, CONSOLIDATED | UNCONSOLIDATED.
+  // A preset's window is the server's (the store's whole day / week…); the page's
+  // own dateRange for "Today" is just "now". A custom pick is the page's range.
+  const queryRange = () => (dateRange.preset !== 'custom' && appliedRange && appliedRange.preset === dateRange.preset ? appliedRange : dateRange);
   const generateSQLQuery = () => {
+    const range = queryRange();
     if (isPrecisionMode) {
       const isAgg = precision.startsWith('aggregate_');
       const unit = (isAgg ? precision.slice('aggregate_'.length) : precision).replace(/([A-Z])/g, '_$1').toLowerCase();
       const on = groupBy && groupBy !== 'none' ? ` ON ${groupBy}` : '';
-      return `SELECT ${metricColumn.sql} FROM orders ${isAgg ? 'AGGREGATE' : 'RANGE'} ${unit} BY ${reportType}${on} START "${stamp(dateRange.startDate)}" END "${stamp(dateRange.endDate)}" CONSOLIDATED`;
+      return `SELECT ${metricColumn.sql} FROM orders ${isAgg ? 'AGGREGATE' : 'RANGE'} ${unit} BY ${reportType}${on} START "${stamp(range.startDate)}" END "${stamp(range.endDate)}" CONSOLIDATED`;
     }
     const projections = ['BY_NAME AS "Name"', ...shownColumns.map((c) => c.sql)];
     let query = `SELECT\n${projections.map((p) => `  ${p}`).join(',\n')}\n`;
     query += 'FROM orders\n';
     query += `BY ${reportType}\n`;
     if (groupBy && groupBy !== 'none') query += `ON ${groupBy}\n`;
-    if (dateRange.preset !== 'today' && dateRange.startDate && dateRange.endDate) query += `START "${stamp(dateRange.startDate)}" END "${stamp(dateRange.endDate)}"\n`;
+    if (dateRange.preset !== 'today' && range.startDate && range.endDate) query += `START "${stamp(range.startDate)}" END "${stamp(range.endDate)}"\n`;
     if (searchTerm) query += `WHERE BY_NAME LIKE '%${searchTerm.replace(/'/g, "''")}%'\n`;
     query += 'ORDER "Name" asc\n';
     query += consolidate === 'consolidated' ? 'CONSOLIDATED' : 'UNCONSOLIDATED';
@@ -617,7 +629,7 @@ const PurchaseReport = () => {
   useEffect(() => {
     setCustomQuery(generateSQLQuery());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType, groupBy, consolidate, precision, metric, dateRange, searchTerm, visibleColumns]);
+  }, [reportType, groupBy, consolidate, precision, metric, dateRange, searchTerm, visibleColumns, appliedRange]);
 
   const toggleGroup = (name) => setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }));
   const toggleAllGroups = () => {
@@ -703,7 +715,7 @@ const PurchaseReport = () => {
     doc.setFontSize(10);
     doc.text(`Report Type: ${REPORT_TYPE_LABEL[reportType] || reportType}`, 14, 25);
     doc.text(`Group By: ${groupBy}`, 14, 30);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 35);
+    doc.text(`Generated: ${formatAppDateTime(new Date())}`, 14, 35);
     const body = exportBody();
     autoTable(doc, {
       head: [exportHeaders()],
@@ -814,6 +826,7 @@ const PurchaseReport = () => {
             size="small"
             fullWidth
             enableTime
+            storeTimeLabel
             hideIcon
             inputSx={FILTER_DATE_SX}
           />

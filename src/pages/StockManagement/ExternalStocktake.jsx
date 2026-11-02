@@ -38,6 +38,7 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import ExternalStocktakeHelpDrawer from '../../components/StockManagement/ExternalStocktakeHelpDrawer';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 // Reference: Menu > Stock Management > More > External Stocktake
 // (support.onshopfront.com article 34108517200909).
@@ -163,12 +164,8 @@ const useOutlets = (open) => {
   return { outlets, locked: Boolean(selectedOutletId) };
 };
 
-export const formatDateTime = (value) => {
-  if (!value) return '';
-  const d = new Date(value);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-};
+// dd/mm/yyyy HH:mm:ss on the store's clock (Setup > General > Timezone).
+export const formatDateTime = formatAppDateTime;
 
 const ImportStocktakeDialog = ({ open, onClose, onImport, onOpenHelp }) => {
   const blank = { file: null, outletId: '', inventoryMethod: 'override', zeroStockNotCounted: false, importCosts: false };

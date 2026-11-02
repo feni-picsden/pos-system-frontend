@@ -10,6 +10,7 @@ import ReportingKPI from '../components/Charts/ReportingKPI';
 import ReportTable from '../components/Reports/ReportTable';
 import salesService from '../services/salesService';
 import useHeaderScope from '../hooks/useHeaderScope';
+import { appTimeZone } from '../utils/appDateTime';
 import { activeTimeline, createRequestGate, money, outletColor, tableWithTotal } from '../utils/reportingDashboard';
 
 const formatCurrency = money;
@@ -97,6 +98,13 @@ const COMPARES = {
   year: ['none'],
 };
 const COMPARE_LABELS = { none: 'None', last_week: 'Last Week', last_month: 'Last Month', last_year: 'Last Year' };
+// Reference captions over Top 20 Products / Users (the tables cover the period so far).
+const WEEK_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const sinceText = ({ period, weekStartsOn }) => ({
+  week: `Since ${WEEK_DAYS[weekStartsOn ?? 1] || 'Monday'} this week`,
+  month: 'Since the first day of this month',
+  year: 'Since the first day of January this year',
+}[period] || 'Since the start of the day');
 
 const ReportsDashboard = () => {
   const { showOutletFilter, headerOutletId, headerRegisterId } = useHeaderScope();
@@ -110,7 +118,9 @@ const ReportsDashboard = () => {
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const gate = useRef(createRequestGate());
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Store clock (Setup > General > Timezone): reference Day chart reads 09:00–17:00
+  // store time whatever the browser's zone is.
+  const timeZone = appTimeZone();
 
   useEffect(() => {
     const request = gate.current.next();
@@ -204,7 +214,7 @@ const ReportsDashboard = () => {
         {[['Top 20 Products', summary.topProducts, productColumns, 'products'], ['Users', summary.topUsers, userColumns, 'users']].map(([title, rows, columns, kind]) => (
           <Box key={title} sx={{ mt: 4, px: 1 }}>
             <Typography sx={{ fontSize: 24, textTransform: 'uppercase', lineHeight: '29px', mb: 1 }}>{title}</Typography>
-            <Typography title={date(summary.todayRange.start)} sx={{ fontSize: 16, color: '#b7b7b7', textTransform: 'uppercase', lineHeight: '19px', mb: 1 }}>Since the start of the day</Typography>
+            <Typography title={date((summary.tablesRange || summary.todayRange).start)} sx={{ fontSize: 16, color: '#b7b7b7', textTransform: 'uppercase', lineHeight: '19px', mb: 1 }}>{sinceText(summary)}</Typography>
             <ReportTable columns={columns} data={tableWithTotal(rows, kind)} hideFooter maxHeight="none" referenceSizing />
           </Box>
         ))}

@@ -18,6 +18,7 @@ import {
   ReportProblemOutlined as WarningIcon,
 } from '@mui/icons-material';
 import { format, addMonths, startOfMonth, endOfMonth, isSameDay, isSameMonth } from 'date-fns';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 import { useNavigate } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
 import supplierService from '../../services/supplierService';
@@ -476,7 +477,7 @@ const CreateReturn = () => {
 
   const invoiceOptions = receivedInvoices.map((oi) => ({
     id: String(oi.id),
-    name: `${oi.orderNumber} — ${oi.orderDate ? format(new Date(oi.orderDate), 'dd/MM/yyyy') : ''}`,
+    name: `${oi.orderNumber} — ${formatAppDate(oi.orderDate)}`,
   }));
   const selectedInvoice = invoiceOptions.find((o) => o.id === String(formData.linkedInvoiceId)) || null;
 

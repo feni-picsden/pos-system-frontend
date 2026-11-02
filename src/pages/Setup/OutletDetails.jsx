@@ -45,6 +45,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import outletService from '../../services/outletService';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 // import userService from '../../services/userService';
 // import roleService from '../../services/roleService';
 
@@ -165,9 +166,8 @@ const OutletDetails = () => {
     setActiveTab(newValue);
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // dd/mm/yyyy on the store's clock (Setup > General > Timezone).
+  const formatDate = formatAppDate;
 
   if (loading) {
     return <PageLoader />;

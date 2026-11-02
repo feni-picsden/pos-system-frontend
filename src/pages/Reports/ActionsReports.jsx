@@ -52,6 +52,7 @@ import {
 } from '@mui/icons-material';
 import { format as formatDate } from 'date-fns';
 import { printReportTable, reportPrintTitle, reportPrintRange } from '../../utils/reportPrint';
+import { formatDateTime as formatAppDateTime, toAppZonedDate } from '../../utils/appDateTime';
 import { chipsToParam, chipsFromParams } from '../../utils/reportChips';
 import FavouriteRevisionsButton from '../../components/Reports/FavouriteRevisionsButton';
 import { useAuth } from '../../contexts/AuthContext';
@@ -392,7 +393,12 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, basis = 
   );
 };
 
-const stamp = (d) => (d ? formatDate(new Date(d), 'yyyy-MM-dd HH:mm:ss') : '');
+// Query bar dates (reference): STORE wall time, so a range picked in the browser
+// (Hawaii 26/10 00:00) reads "2026-10-26 21:00:00" for a Melbourne store.
+const stamp = (d) => {
+  const x = d ? toAppZonedDate(d) : null;
+  return x && !Number.isNaN(x.getTime()) ? formatDate(x, 'yyyy-MM-dd HH:mm:ss') : '';
+};
 
 const ActionsReports = () => {
   const [searchParams] = useSearchParams();
@@ -440,6 +446,7 @@ const ActionsReports = () => {
   const [exportOrientation, setExportOrientation] = useState('portrait');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [customQuery, setCustomQuery] = useState('');
+  const [appliedRange, setAppliedRange] = useState(null);
 
   // Search-bar suggestions + Included chips (same as the Sales / Transfers reports).
   const [suggestions, setSuggestions] = useState([]);
@@ -495,6 +502,7 @@ const ActionsReports = () => {
       if (response.success) {
         setReportData(response.data || []);
         setApiTotals(response.totals || {});
+        setAppliedRange(response.filters?.startDate ? { preset: dateRange.preset, startDate: response.filters.startDate, endDate: response.filters.endDate } : null);
       } else {
         setReportData([]);
         setLoadError('We encountered an error with that report type, check your filters and report type to make sure they aren\'t contradictory.');
@@ -523,7 +531,11 @@ const ActionsReports = () => {
 
   // Reference query bar: the visible columns, FROM <source>, BY <x>, WHERE for
   // the sale-based types, START/END for a custom window, ORDER, UNCONSOLIDATED.
+  // A preset's window is the server's (the store's whole week…); the page's own
+  // dateRange for a preset is just "now". A custom pick is the page's range.
+  const queryRange = () => (dateRange.preset !== 'custom' && appliedRange && appliedRange.preset === dateRange.preset ? appliedRange : dateRange);
   const generateSQLQuery = () => {
+    const range = queryRange();
     const def = REPORT_TYPES.find((t) => t.value === reportType) || REPORT_TYPES[0];
     const projections = ['BY_NAME AS "Name"', ...shownColumns.map((c) => c.sql)];
     let query = `SELECT\n${projections.map((p) => `  ${p}`).join(',\n')}\n`;
@@ -531,7 +543,7 @@ const ActionsReports = () => {
     query += `BY ${def.by}\n`;
     const where = [def.where, searchTerm ? `BY_NAME LIKE '%${searchTerm.replace(/'/g, "''")}%'` : null].filter(Boolean);
     if (where.length) query += `WHERE\n${where.map((w) => `  ${w}`).join('\n  AND ')}\n`;
-    if (dateRange.preset !== 'today' && dateRange.startDate && dateRange.endDate) query += `START "${stamp(dateRange.startDate)}"\nEND "${stamp(dateRange.endDate)}"\n`;
+    if (dateRange.preset !== 'today' && range.startDate && range.endDate) query += `START "${stamp(range.startDate)}"\nEND "${stamp(range.endDate)}"\n`;
     query += 'ORDER "Timestamp" desc, "Time Cancelled" desc\n';
     query += 'UNCONSOLIDATED';
     return query;
@@ -539,7 +551,7 @@ const ActionsReports = () => {
   useEffect(() => {
     setCustomQuery(generateSQLQuery());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType, dateRange, searchTerm, visibleColumns]);
+  }, [reportType, dateRange, searchTerm, visibleColumns, appliedRange]);
 
   const handleSort = (key) => {
     setSortConfig((prev) => (prev && prev.key === key ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' }));
@@ -591,7 +603,7 @@ const ActionsReports = () => {
     doc.text('Actions Report', 14, 15);
     doc.setFontSize(10);
     doc.text(`Report Type: ${REPORT_TYPE_LABEL[reportType] || reportType}`, 14, 25);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Generated: ${formatAppDateTime(new Date())}`, 14, 30);
     const body = exportBody();
     autoTable(doc, {
       head: [exportHeaders()],
@@ -677,6 +689,7 @@ const ActionsReports = () => {
             size="small"
             fullWidth
             enableTime
+            storeTimeLabel
             hideIcon
             inputSx={FILTER_DATE_SX}
           />

@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { VisibilityOutlined as EyeIcon } from '@mui/icons-material';
 import productService from '../../services/productService';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 import { useNavigate } from 'react-router-dom';
 import {
   EVENT_ROOT_SX,
@@ -79,14 +80,8 @@ const ProductPurchaseHistory = ({ productId }) => {
       Number(value) || 0
     );
 
-  const formatDate = (dateString) =>
-    dateString
-      ? new Date(dateString).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        })
-      : '';
+  // dd/mm/yyyy in the store's zone (Setup > General > Timezone).
+  const formatDate = formatAppDate;
 
   if (loading) {
     return <PageLoader />;

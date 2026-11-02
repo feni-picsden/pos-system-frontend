@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 import {
   Box,
   Typography,
@@ -84,7 +85,8 @@ const formatDate = (value) => {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value); // already a display string
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  // The store's calendar day (Setup > General > Timezone).
+  return formatAppDate(d);
 };
 
 // Normalise activities into groups of transactions so the Actions table can

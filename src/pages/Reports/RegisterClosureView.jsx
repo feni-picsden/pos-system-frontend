@@ -8,7 +8,9 @@ import PrintDisabledOutlinedIcon from '@mui/icons-material/PrintDisabledOutlined
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
 import { useParams, useNavigate } from 'react-router-dom';
-import { format, formatDistanceToNowStrict } from 'date-fns';
+import { formatDistanceToNowStrict } from 'date-fns';
+import { formatDateTime as formatAppDateTime, appTimeZone } from '../../utils/appDateTime';
+import { zonedParts, zonedInstant } from '../../utils/dateFormat';
 import registerClosureService from '../../services/registerClosureService';
 import settingsService from '../../services/settingsService';
 import { resolveAssetUrl } from '../../services/apiClient';
@@ -84,7 +86,8 @@ const HOURLY_TABS = [
   { key: 'averageSale', label: 'Average Sale', color: '#6fd3d6', fill: '#eefafa', money: true },
 ];
 const moneyLong = money;
-const when = (v) => (v ? format(new Date(v), 'dd/MM/yyyy HH:mm:ss') : '');
+// "dd/mm/yyyy HH:mm:ss" on the store's clock (Setup > General > Timezone).
+const when = formatAppDateTime;
 const ago = (v) => (v ? `${formatDistanceToNowStrict(new Date(v))} ago` : '');
 // Reference "Sale" column: the invoice number when the sale has one, else the sale number.
 const saleLabel = (r) => (r.invoiceNumber != null ? String(r.invoiceNumber) : (r.saleNumber || r.saleId || ''));
@@ -220,20 +223,23 @@ const RegisterClosureView = () => {
   const hourlyChartData = useMemo(() => {
     if (!closure) return [];
     const hourMs = 60 * 60 * 1000;
+    // Store hours (reference Hourly labels 09:00, 10:00 … in store time; an
+    // India browser used to label a Melbourne closure on :30).
+    const zone = appTimeZone();
+    const storeHour = (d) => { const p = zonedParts(new Date(d), zone); return zonedInstant(zone, p.year, p.month - 1, p.day, p.hour); };
     const startActual = new Date(closure.openedAt);
     const endActual = new Date(closure.closedAt);
-    const start = new Date(startActual);
-    start.setMinutes(0, 0, 0);
+    const start = storeHour(startActual);
     // Reference: one point per hour from the opening hour to the closing hour.
     const end = new Date(Math.max(endActual.getTime(), start.getTime() + hourMs));
-    const hourKey = (d) => { const k = new Date(d); k.setMinutes(0, 0, 0); return k.toISOString(); };
+    const hourKey = (d) => storeHour(d).toISOString();
     const map = new Map((hourlyRows || []).map(r => [hourKey(new Date(r.time)), r]));
     const result = [];
     for (let t = start.getTime(); t <= end.getTime(); t += hourMs) {
       const d = new Date(t);
       const row = map.get(hourKey(d));
       const value = Number(row ? row[hourlyTab] : 0);
-      const label = format(d, 'dd/MM/yyyy HH:mm:ss');
+      const label = formatAppDateTime(d);
       result.push({ time: label, value });
     }
     return result;

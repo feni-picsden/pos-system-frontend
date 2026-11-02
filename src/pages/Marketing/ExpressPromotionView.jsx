@@ -23,6 +23,7 @@ import productService from "../../services/productService";
 import { getBaseTier } from "../../utils/baseTier";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { format } from "date-fns";
+import { formatAppPattern } from "../../utils/appDateTime";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import {
   WIDGET_SHADOW,
@@ -170,21 +171,8 @@ const ExpressPromotionView = () => {
     }
   };
 
-  const formatDateTime = (isoDate) => {
-    try {
-      return new Date(isoDate).toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
-    } catch {
-      return "-";
-    }
-  };
+  // Revision times on the store's clock (Setup > General > Timezone).
+  const formatDateTime = (isoDate) => formatAppPattern(isoDate, "DD/MM/YYYY, HH:mm:ss") || "-";
 
   // Reference ".promotion-home-header" label: 16px all-small-caps, grey.
   const HEADER_LABEL_SX = {

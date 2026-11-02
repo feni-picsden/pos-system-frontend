@@ -30,6 +30,7 @@ import DateRangePicker from '../../components/Common/DateRangePicker';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { format } from 'date-fns';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 const EMPTY_RANGE = { startDate: null, endDate: null };
 const RANGE_PLACEHOLDER = 'DD/MM/YYYY HH:MM:SS';
@@ -238,10 +239,11 @@ const Barcodes = () => {
     }
   };
 
+  // Created / last sold / last stocktaked on the store's clock (Setup > General > Timezone).
   const formatDateTime = (date) => {
     if (!date) return 'N/A';
     try {
-      return format(new Date(date), 'dd/MM/yyyy HH:mm:ss');
+      return formatAppDateTime(date) || 'N/A';
     } catch {
       return 'N/A';
     }

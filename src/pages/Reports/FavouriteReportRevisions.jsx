@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { ArrowBack as BackIcon } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import favouriteReportService from '../../services/favouriteReportService';
 
 // Reference "Report Revision History" (Favourite Reports > View > Revisions):
@@ -116,7 +116,7 @@ const FavouriteReportRevisions = () => {
                   <td style={{ padding: row.field === 'emailSettings' ? 8 : undefined }}>{cell(row, true)}</td>
                   <td style={{ padding: row.field === 'emailSettings' ? 8 : undefined }}>{cell(row, false)}</td>
                   <td>{row.user}</td>
-                  <td>{row.timestamp ? format(new Date(row.timestamp), 'dd/MM/yyyy HH:mm:ss') : ''}</td>
+                  <td>{formatAppDateTime(row.timestamp)}</td>
                 </tr>
               ))}
             </tbody>

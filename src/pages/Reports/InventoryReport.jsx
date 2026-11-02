@@ -53,6 +53,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { printReportTable, reportPrintTitle, reportPrintRange, optionLabel } from '../../utils/reportPrint';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import { chipsToParam, chipsFromParams } from '../../utils/reportChips';
 import FavouriteRevisionsButton from '../../components/Reports/FavouriteRevisionsButton';
 import inventoryReportService from '../../services/inventoryReportService';
@@ -643,7 +644,7 @@ const InventoryReport = () => {
     doc.setFontSize(10);
     doc.text(`Report Type: ${reportType}`, 14, 25);
     doc.text(`Group By: ${groupBy}`, 14, 30);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 35);
+    doc.text(`Generated: ${formatAppDateTime(new Date())}`, 14, 35);
 
     const headers = ['Name', ...shownColumns.map(col => col.headerLabel)];
     const flatData = flattenReportData();

@@ -89,7 +89,8 @@ import { taxRateService } from '../services/taxRateService';
 import customerService from '../services/customerService';
 import receiptTemplateService from '../services/receiptTemplateService';
 import settingsService from '../services/settingsService';
-import { appTimeZone, formatDateTime as formatAppDateTime } from '../utils/appDateTime';
+import { appTimeZone, formatDateTime as formatAppDateTime, formatDate as formatAppDate, formatAppPattern } from '../utils/appDateTime';
+import { isSurchargeActiveAt, storeWallClock } from '../utils/surchargeSchedule';
 import salesService from '../services/salesService';
 import { emailSaleReceipt } from '../services/receiptEmailSender';
 import registerService from '../services/registerService';
@@ -7928,29 +7929,6 @@ const SaleKeyPage = () => {
     setCart(prev => prev.map(i => (i.redemptionDiscount ? { ...i, redemptionDiscount: 0 } : i)));
   };
 
-  const isSurchargeScheduleActiveNow = (schedule) => {
-    if (!schedule) return false;
-
-    const now = new Date();
-    const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-    const currentDay = dayNames[now.getDay()];
-
-    if (schedule.dayOfWeek && schedule.dayOfWeek.toUpperCase() !== currentDay) {
-      return false;
-    }
-
-    const [startHour = 0, startMin = 0] = (schedule.startTime || '00:00').split(':').map(Number);
-    const [endHour = 23, endMin = 59] = (schedule.endTime || '23:59').split(':').map(Number);
-
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const startMinutes = startHour * 60 + (startMin || 0);
-    const endMinutes = endHour * 60 + (endMin || 0);
-
-    if (endMinutes <= startMinutes) return false;
-
-    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
-  };
-
   const doesSurchargeApplyToProduct = (schedule, product) => {
     if (!product || !schedule) return false;
 
@@ -7994,11 +7972,13 @@ const SaleKeyPage = () => {
       return [];
     }
 
+    // Schedules are store wall-clock times (Setup > General > Timezone), not the till's.
+    const clock = storeWallClock(new Date(), appTimeZone());
     return surchargeSchedules.filter(schedule => {
       if (schedule.registerId && schedule.registerId !== selectedRegister.id) {
         return false;
       }
-      if (!isSurchargeScheduleActiveNow(schedule)) {
+      if (!isSurchargeActiveAt(schedule, clock)) {
         return false;
       }
       return doesSurchargeApplyToProduct(schedule, product);
@@ -9108,18 +9088,10 @@ const SaleKeyPage = () => {
               ) : (
                 <Box sx={{ p: 0 }}>
                   {parkedSales.map((sale, index) => {
-                    const saleDate = new Date(sale.createdAt || sale.saleDate);
-                    const formattedDate = saleDate.toLocaleDateString('en-GB', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    });
-                    const formattedTime = saleDate.toLocaleTimeString('en-GB', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                      hour12: false
-                    });
+                    // Parked time on the store's clock (Setup > General > Timezone).
+                    const saleDate = sale.createdAt || sale.saleDate;
+                    const formattedDate = formatAppDate(saleDate);
+                    const formattedTime = formatAppPattern(saleDate, 'HH:mm:ss');
                     const customerName = sale.customer
                       ? `${sale.customer.firstName || ''} ${sale.customer.lastName || ''}`.trim().toUpperCase()
                       : null;
@@ -9149,8 +9121,8 @@ const SaleKeyPage = () => {
                         <Box key={sale.id} sx={{ bgcolor: '#f8f8f8' }}>
                           <SaleDetailCard
                             sale={sale}
-                            formatDate={(d) => new Date(d).toLocaleDateString('en-GB')}
-                            formatTime={(d) => new Date(d).toLocaleTimeString('en-GB', { hour12: false })}
+                            formatDate={(d) => formatAppDate(d)}
+                            formatTime={(d) => formatAppPattern(d, 'HH:mm:ss')}
                             outletName={sale.outlet?.name || ''}
                             actionsWidth={260}
                             actions={
@@ -9960,7 +9932,7 @@ const SaleKeyPage = () => {
                           </Grid>
                           <Grid item xs={4}>
                             <Typography variant="body2">
-                              {p.orderDate ? new Date(p.orderDate).toLocaleDateString('en-GB') : '-'}
+                              {formatAppDate(p.orderDate) || '-'}
                             </Typography>
                           </Grid>
                         </Grid>

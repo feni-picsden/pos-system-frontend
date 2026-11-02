@@ -29,6 +29,7 @@ import productService from '../../services/productService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import masterDatabaseService from '../../services/masterDatabaseService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { toAppZonedDate } from '../../utils/appDateTime';
 
 const TYPE_LABELS = {
   BRAND: 'Brand',
@@ -302,8 +303,9 @@ const ClassificationDetails = () => {
   };
 
   const renderSalesChart = () => {
-    // Generate all 12 months (last 12 months) regardless of data availability
-    const now = new Date();
+    // Generate all 12 months (last 12 months) regardless of data availability.
+    // Store months (Setup > General > Timezone), as the API buckets them.
+    const now = toAppZonedDate(new Date());
     const allMonths = [];
     const salesMap = {};
 

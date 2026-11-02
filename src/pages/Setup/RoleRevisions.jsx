@@ -16,6 +16,7 @@ import { useParams, Link as RouterLink } from 'react-router-dom';
 import PageLoader from '../../components/Common/PageLoader';
 import { roleService } from '../../services/roleService';
 import { formatRevisionValue } from '../../utils/revisionValue';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -103,7 +104,7 @@ const RoleRevisions = () => {
                   <TableCell>{formatRevisionValue(rev.to)}</TableCell>
                   <TableCell>{rev.user || '-'}</TableCell>
                   <TableCell>
-                    {rev.timestamp ? new Date(rev.timestamp).toLocaleString() : '-'}
+                    {formatAppDateTime(rev.timestamp) || '-'}
                   </TableCell>
                 </TableRow>
               ))

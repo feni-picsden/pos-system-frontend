@@ -18,6 +18,7 @@ import {
 import productService from '../../services/productService';
 import outletService from '../../services/outletService';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { toAppZonedDate } from '../../utils/appDateTime';
 import {
   SECTION_ROOT_SX,
   WIDGET_H2_SX,
@@ -197,7 +198,8 @@ const ProductSalesSummary = ({ productId }) => {
       (summary.last52Weeks?.length || 0) >
     0;
 
-  const now = new Date();
+  // The store's calendar "now" (the API buckets by store year / month / week).
+  const now = toAppZonedDate(new Date());
 
   return (
     <Box sx={SECTION_ROOT_SX}>

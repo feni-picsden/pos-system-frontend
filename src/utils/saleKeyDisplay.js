@@ -1,4 +1,4 @@
-import { formatWithTokens } from './dateFormat.js';
+import { formatWithTokens, toZonedDate, zoneOffsetMinutes } from './dateFormat.js';
 
 // Some sale keys exist only to tell the operator something - the time, the
 // latest birth date that is old enough to buy alcohol, a line of text. The
@@ -49,14 +49,23 @@ export const subtractIsoPeriod = (date, iso) => {
 
 // The text a key shows under its name in place of an action, or null for a key
 // that acts when pressed.
-export const getSaleKeyLiveText = (saleKey, now = new Date()) => {
+// `timeZone` (Setup > General > Timezone): the time and the legal-age date are
+// read on the STORE's clock, like the reference's live Example - a till in
+// another zone must not show tomorrow's ID-check date. Omitted = the till's clock.
+export const getSaleKeyLiveText = (saleKey, now = new Date(), timeZone = null) => {
+  const clock = () => (timeZone && toZonedDate(now, timeZone)) || now;
+  // A second zone lookup - only the ZZ / Z tokens need it.
+  const offset = () => (timeZone && /Z/.test(saleKey.dateFormat || '')
+    ? zoneOffsetMinutes(now, timeZone)
+    : -now.getTimezoneOffset());
   switch (saleKey?.action) {
     case 'view-current-time':
-      return formatWithTokens(now, saleKey.dateFormat || DEFAULT_TIME_FORMAT);
+      return formatWithTokens(clock(), saleKey.dateFormat || DEFAULT_TIME_FORMAT, offset());
     case 'view-previous-date':
       return formatWithTokens(
-        subtractIsoPeriod(now, saleKey.durationAgo || 'P0D'),
+        subtractIsoPeriod(clock(), saleKey.durationAgo || 'P0D'),
         saleKey.dateFormat || DEFAULT_PREVIOUS_DATE_FORMAT,
+        offset(),
       );
     case 'info':
       return saleKey.infoText || '';

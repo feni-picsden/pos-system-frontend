@@ -39,6 +39,7 @@ import {
   isSameMonth
 } from 'date-fns';
 import apiClient from '../../services/apiClient';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import outletService from '../../services/outletService';
 import registerService from '../../services/registerService';
 import useHeaderScope from '../../hooks/useHeaderScope';
@@ -55,7 +56,8 @@ const MODES = [
 ];
 
 const fmtDate = (d) => (d ? format(d, FMT) : '');
-const fmtDateTime = (v) => (v ? format(new Date(v), FMT) : '');
+// Opened / Closed times on the store's clock (Setup > General > Timezone).
+const fmtDateTime = formatAppDateTime;
 const parseMask = (text) => {
   const d = parse(text, FMT, new Date());
   return isValid(d) ? d : null;

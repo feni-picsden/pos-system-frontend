@@ -3,6 +3,7 @@ import { Box, CircularProgress } from '@mui/material';
 import classificationService from '../../services/classificationService';
 import supplierService from '../../services/supplierService';
 import SalesSparkline from '../Common/SalesSparkline';
+import { toAppZonedDate } from '../../utils/appDateTime';
 
 const PerformanceGraph = ({ classificationId, supplierId, productCount, type = 'classification', width = 120, height = 30 }) => {
   const [salesData, setSalesData] = useState([]);
@@ -26,8 +27,9 @@ const PerformanceGraph = ({ classificationId, supplierId, productCount, type = '
       const response = await service[method](id, '12months');
       
       if (response?.performanceData?.monthlySales) {
-        // Generate all 12 months (last 12 months) and map sales data
-        const now = new Date();
+        // Generate all 12 months (last 12 months) and map sales data - store
+        // months (Setup > General > Timezone), as the API buckets them.
+        const now = toAppZonedDate(new Date());
         const salesMap = {};
         
         response.performanceData.monthlySales.forEach((item) => {

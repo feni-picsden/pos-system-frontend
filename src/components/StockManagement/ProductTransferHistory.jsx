@@ -15,6 +15,7 @@ import { SwapHoriz as SwapHorizIcon } from '@mui/icons-material';
 import PageLoader from '../Common/PageLoader';
 import { Link as RouterLink } from 'react-router-dom';
 import productService from '../../services/productService';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 import {
   EVENT_ROOT_SX,
   ORDERS_TABLE_SX,
@@ -78,14 +79,8 @@ const ProductTransferHistory = ({ productId }) => {
       Number(value) || 0
     );
 
-  const formatDate = (value) =>
-    value
-      ? new Date(value).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        })
-      : '';
+  // dd/mm/yyyy in the store's zone (Setup > General > Timezone).
+  const formatDate = formatAppDate;
 
   if (loading) return <PageLoader />;
 

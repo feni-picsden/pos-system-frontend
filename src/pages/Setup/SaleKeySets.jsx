@@ -36,6 +36,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import posLocalDb from '../../services/posLocalDb';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 
 const SaleKeySets = () => {
   const { getOutletId } = useAuth();
@@ -214,9 +215,8 @@ const SaleKeySets = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // dd/mm/yyyy on the store's clock (Setup > General > Timezone).
+  const formatDate = formatAppDate;
 
   // New is always available: in global mode the dialog asks for the outlet.
   const createDisabled = false;

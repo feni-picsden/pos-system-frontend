@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material';
 import linklyService from '../../services/linklyService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 // Admin screen to pair a Linkly PIN pad and run a Logon test.
 // Pairing is one-time per PIN pad; the secret is stored encrypted server-side.
@@ -336,7 +337,7 @@ const LinklySettings = () => {
               <Box component="tbody">
                 {journal.map((t) => (
                   <Box component="tr" key={t.txnRef} sx={{ '& td': { p: 1, borderTop: '1px solid #eee', whiteSpace: 'nowrap' } }}>
-                    <td>{new Date(t.createdAt).toLocaleString()}</td>
+                    <td>{formatAppDateTime(t.createdAt)}</td>
                     <td>{t.type}</td>
                     <td>${(((t.approvedAmountCents ?? t.amountCents) || 0) / 100).toFixed(2)}</td>
                     <td>

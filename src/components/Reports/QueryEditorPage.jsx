@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams, useLocation, Link as RouterLink } from 'react-router-dom';
+import { formatDate as formatAppDate, formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import {
   Box,
   Typography,
@@ -379,13 +380,11 @@ const fmtNumber = (value, decimals) =>
   Number(value || 0).toLocaleString('en-AU', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 // Reference: timestamps as 22/10/2026 13:01:09, date fields (order_date) as 28/01/2020.
+// Both on the store's clock (Setup > General > Timezone); the API sends UTC.
 const fmtDate = (value, dateOnly = false) => {
   if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  const p = (n) => String(n).padStart(2, '0');
-  const day = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-  return dateOnly ? day : `${day} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  if (Number.isNaN(new Date(value).getTime())) return String(value);
+  return dateOnly ? formatAppDate(value) : formatAppDateTime(value);
 };
 
 const formatCell = (value, col) => {
@@ -593,8 +592,11 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
     </svg>
   );
 
-  const cellAlign = (col) => (col.text ? 'left' : 'center');
-  const tableRows = () => sortedData.map((row) => columns.map((col, i) => (i === 0 ? (row._group ? row.name : row._groupTotal ? 'Totals' : formatCell(row[col.key], col)) : row._group ? '' : formatCell(row[col.key], col))));
+  // Reference: the first column reads left even when it is a value (a lone
+  // transaction_count column - header, rows, "Totals 2" and the grand total).
+  const cellAlign = (col, i) => (col.text || i === 0 ? 'left' : 'center');
+  const groupTotalLabel = (row) => (columns[0]?.text ? 'Totals' : `Totals ${formatCell(row[columns[0]?.key], columns[0])}`);
+  const tableRows = () => sortedData.map((row) => columns.map((col, i) => (i === 0 ? (row._group ? row.name : row._groupTotal ? groupTotalLabel(row) : formatCell(row[col.key], col)) : row._group ? '' : formatCell(row[col.key], col))));
   const totalRowCells = () => columns.map((col) => (col.text ? '' : formatCell(totals[col.key], col)));
 
   // Export -------------------------------------------------------------------
@@ -615,7 +617,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
       if (exportType === 'pdf') {
         const doc = new jsPDF({ orientation: exportOrientation === 'portrait' ? 'p' : 'l', unit: 'mm', format: 'a4' });
         doc.setFontSize(16); doc.setFont(undefined, 'bold'); doc.text(title, 14, 15);
-        doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+        doc.setFontSize(9); doc.setFont(undefined, 'normal'); doc.text(`Generated: ${formatAppDateTime(new Date())}`, 14, 22);
         autoTable(doc, {
           startY: 27,
           head: [head],
@@ -860,11 +862,15 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
           <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'auto', '& .MuiTableCell-stickyHeader': { backgroundColor: '#5ebbeb' }, '& th, & td': { px: '14px' }, '& th': { fontSize: 15 } }}>
             <TableHead>
               <TableRow sx={TABLE_HEAD_SX}>
-                {columns.map((col) => (
-                  <TableCell key={col.key} align={cellAlign(col)} onClick={() => handleSort(col.key)}>
-                    {col.label}{showSortIcons && <SortIcon active={sortConfig?.key === col.key ? sortConfig.direction : null} />}
-                  </TableCell>
-                ))}
+                {columns.map((col, ci) => {
+                  // A first value column (no name column) has no sort (reference).
+                  const sortable = col.text || ci > 0;
+                  return (
+                    <TableCell key={col.key} align={cellAlign(col, ci)} onClick={sortable ? () => handleSort(col.key) : undefined}>
+                      {col.label}{showSortIcons && sortable && <SortIcon active={sortConfig?.key === col.key ? sortConfig.direction : null} />}
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -888,7 +894,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
                   return (
                     <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: '#e8e8e8' }}>
                       {columns.map((col, ci) => (
-                        <TableCell key={col.key} align={cellAlign(col)} sx={ci === 0 ? { fontSize: '13px !important', pl: '10px !important' } : undefined}>{ci === 0 ? 'Totals' : formatCell(row[col.key], col)}</TableCell>
+                        <TableCell key={col.key} align={cellAlign(col, ci)} sx={ci === 0 ? { fontSize: '13px !important', pl: '10px !important' } : undefined}>{ci === 0 ? groupTotalLabel(row) : formatCell(row[col.key], col)}</TableCell>
                       ))}
                     </TableRow>
                   );
@@ -911,7 +917,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
                       // Reference tree line: a child row's name hangs off a "├─" guide.
                       if (ci === 0 && row._child) {
                         return (
-                          <TableCell key={col.key} align={cellAlign(col)} sx={{ pl: '14px !important' }}>
+                          <TableCell key={col.key} align={cellAlign(col, ci)} sx={{ pl: '14px !important' }}>
                             <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 24 }}>
                               <Box sx={{ width: 14, flexShrink: 0, borderLeft: '2px solid #000', position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: '2px solid #000' } }} />
                               <Box sx={{ pl: '12px', display: 'flex', alignItems: 'center' }}>{content}</Box>
@@ -919,14 +925,14 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
                           </TableCell>
                         );
                       }
-                      return <TableCell key={col.key} align={cellAlign(col)}>{content}</TableCell>;
+                      return <TableCell key={col.key} align={cellAlign(col, ci)}>{content}</TableCell>;
                     })}
                   </TableRow>
                 );
               }); })()}
               <TableRow sx={TABLE_TOTAL_SX}>
-                {columns.map((col) => (
-                  <TableCell key={col.key} align={cellAlign(col)}>{col.text ? '' : formatCell(totals[col.key], col)}</TableCell>
+                {columns.map((col, ci) => (
+                  <TableCell key={col.key} align={cellAlign(col, ci)}>{col.text ? '' : formatCell(totals[col.key], col)}</TableCell>
                 ))}
               </TableRow>
             </TableBody>

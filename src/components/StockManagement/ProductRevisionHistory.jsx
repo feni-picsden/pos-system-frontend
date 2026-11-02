@@ -10,6 +10,7 @@ import {
   Alert,
 } from '@mui/material';
 import productService from '../../services/productService';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import {
   SECTION_ROOT_SX,
   GRID_TABLE_SX,
@@ -63,20 +64,8 @@ const ProductRevisionHistory = ({ productId }) => {
     }
   };
 
-  const formatDateTime = (dateString) => {
-    if (!dateString) return '';
-    const d = new Date(dateString);
-    // Reference format: "21/11/2025 20:32:35" (no comma).
-    return `${d.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })} ${d.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })}`;
-  };
+  // Reference format: "21/11/2025 20:32:35" (no comma), in the store's zone.
+  const formatDateTime = formatAppDateTime;
 
   const formatCurrency = (value) => {
     if (value === null || value === undefined) return '';

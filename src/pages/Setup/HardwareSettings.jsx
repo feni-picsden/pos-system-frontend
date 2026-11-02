@@ -20,6 +20,7 @@ import drawerService from '../../services/drawerService';
 import tyroService from '../../services/tyroService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import PageSaveBar from '../../components/Common/PageSaveBar';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 
 const BRANDS = ['Epson', 'Star', 'Generic ESC/POS'];
 
@@ -201,7 +202,7 @@ const HardwareSettings = () => {
             <Typography variant="body2" sx={{ mb: 0.5 }}>
               Terminal paired on this device — Merchant ID <b>{tyroPairing.merchantId}</b>,
               Terminal ID <b>{tyroPairing.terminalId}</b>
-              {tyroPairing.pairedAt ? ` (since ${new Date(tyroPairing.pairedAt).toLocaleDateString()})` : ''}.
+              {tyroPairing.pairedAt ? ` (since ${formatAppDate(tyroPairing.pairedAt)})` : ''}.
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Replacing the terminal? Clear the pairing on the old terminal's menu first

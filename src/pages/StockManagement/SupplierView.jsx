@@ -30,6 +30,8 @@ import {
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { formatDate as formatAppDate, appTimeZone } from '../../utils/appDateTime';
+import { zonedParts } from '../../utils/dateFormat';
 
 // Shopfront card chrome (reference: .show-frame / #dialog)
 const CARD_SHADOW = '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)';
@@ -152,7 +154,9 @@ const SupplierView = () => {
   };
 
   const renderSalesChart = () => {
-    const now = new Date();
+    // The store's current month (Setup > General > Timezone), as the backend buckets.
+    const storeNow = zonedParts(new Date(), appTimeZone());
+    const now = new Date(storeNow.year, storeNow.month - 1, 1);
     const allMonths = [];
     const salesMap = {};
     
@@ -407,7 +411,7 @@ const SupplierView = () => {
                 {monthLabels[hoverIndex]?.label || ''}
               </Box>
               <Box>
-                <strong>Sales:</strong> {formatCurrency(parseFloat(chartData[hoverIndex]?.sales) || 0)}
+                <strong>Purchases:</strong> {formatCurrency(parseFloat(chartData[hoverIndex]?.sales) || 0)}
               </Box>
             </Paper>
         )}
@@ -436,11 +440,8 @@ const SupplierView = () => {
     }
   ];
 
-  const formatOrderDate = (dateStr) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
+  // dd/mm/yyyy on the store's clock (Setup > General > Timezone).
+  const formatOrderDate = formatAppDate;
 
   const getStatusColor = (status) => {
     switch (status) {

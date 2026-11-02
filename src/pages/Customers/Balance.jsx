@@ -71,6 +71,7 @@ import { buildReceiptPrintHtml } from "../../utils/receiptPrintHtml";
 import { printHtmlDocument } from "../../utils/printHtmlDocument";
 import { buildDefaultStatementConfig } from "../../utils/statementDefaults";
 import { formatCurrency } from "../../utils/currency";
+import { formatDate as formatAppDate, formatAppPattern } from "../../utils/appDateTime";
 import {
   shouldAutoPrintPaymentReceipt,
   paymentReceiptTemplateOf,
@@ -1591,11 +1592,7 @@ const Balance = () => {
                     {(generatedStatement.data.activities || []).map((activity, index) => (
                       <TableRow key={index}>
                         <TableCell>
-                          {new Date(activity.date).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
-                          })}
+                          {formatAppDate(activity.date)}
                         </TableCell>
                         <TableCell>{activity.activity}</TableCell>
                         <TableCell>{[activity.number, activity.reference].filter(Boolean).join(' ')}</TableCell>
@@ -1824,14 +1821,7 @@ const Balance = () => {
                             return (
                               <TableRow key={invoice.id} sx={{ bgcolor: '#fff' }}>
                                 <TableCell>
-                                  {new Date(invoice.createdAt).toLocaleString('en-AU', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit'
-                                  })}
+                                  {formatAppPattern(invoice.createdAt, 'DD/MM/YYYY, hh:mm:ss a')}
                                 </TableCell>
                                 {/* The padded invoice number (same as the customer page); a long
                                     raw sale number wraps inside its own column instead of

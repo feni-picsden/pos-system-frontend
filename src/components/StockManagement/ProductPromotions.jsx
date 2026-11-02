@@ -115,6 +115,8 @@ const ProductPromotions = ({ productId }) => {
     return true;
   };
 
+  // Promotion start/end are the dates the user typed (stored without a zone)
+  // and drive when the promotion runs - shown as entered, never re-zoned.
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {

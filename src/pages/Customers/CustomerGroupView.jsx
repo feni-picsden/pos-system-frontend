@@ -36,6 +36,7 @@ import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import CustomerSalesHistory from "../../components/Customers/CustomerSalesHistory";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { formatCurrency } from "../../utils/currency";
+import { formatAppPattern } from "../../utils/appDateTime";
 
 const CustomerGroupView = () => {
   const { id } = useParams();
@@ -181,15 +182,8 @@ const CustomerGroupView = () => {
 
   const formatDateTime = (dateString) => {
     if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+    // "dd/mm/yyyy, HH:mm:ss" on the store's clock (Setup > General > Timezone).
+    return formatAppPattern(dateString, "DD/MM/YYYY, HH:mm:ss") || "-";
   };
 
   const customerName = (customer) => {

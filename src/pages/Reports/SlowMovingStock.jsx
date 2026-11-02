@@ -29,6 +29,7 @@ import apiClient from '../../services/apiClient';
 import inventoryReportService from '../../services/inventoryReportService';
 import productService from '../../services/productService';
 import { format } from 'date-fns';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 
 // Reference (26/10/2026 screenshots): 42px fields, 8px radius, #404040 rail, the
 // field name as small text ABOVE the box and a grey placeholder inside when empty.
@@ -319,7 +320,8 @@ const SlowMovingStock = () => {
   const formatDate = (date) => {
     if (!date) return '';
     try {
-      return format(new Date(date), 'dd/MM/yyyy');
+      // dd/mm/yyyy on the store's clock (Setup > General > Timezone).
+      return formatAppDate(date);
     } catch {
       return '';
     }

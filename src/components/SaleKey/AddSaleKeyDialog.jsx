@@ -30,6 +30,7 @@ import {
 import { productOptionLabel, productOptionDetail } from '../../utils/productOptionLabel';
 import { formatMoney } from '../../utils/currency';
 import { DEFAULT_PREVIOUS_DATE_FORMAT, DEFAULT_TIME_FORMAT, getSaleKeyLiveText } from '../../utils/saleKeyDisplay';
+import { appTimeZone } from '../../utils/appDateTime';
 
 const AddSaleKeyDialog = ({
   open,
@@ -44,7 +45,7 @@ const AddSaleKeyDialog = ({
   onImageUpload,
   onAddSaleKey,
 }) => {
-  const previewLiveText = getSaleKeyLiveText(newSaleKey);
+  const previewLiveText = getSaleKeyLiveText(newSaleKey, new Date(), appTimeZone());
 
   return (
     <Dialog 

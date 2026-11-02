@@ -53,7 +53,8 @@ import SettingsSlideOver from '../../components/Settings/SettingsSlideOver';
 import EditReasonsSlideOver from '../../components/Settings/EditReasonsSlideOver';
 import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS, COMPANY_CONSTRAINTS, validateCompanyNumbers } from './generalSettingsFields';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
-import { formatWithTokens, toZonedDate } from '../../utils/dateFormat';
+import { formatDateValueInZone } from '../../utils/dateFormat';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import saleKeyService from '../../services/saleKeyService';
 import settingsService, { GENERAL_DEFAULTS } from '../../services/settingsService';
 import outletService from '../../services/outletService';
@@ -547,14 +548,9 @@ const GeneralSettings = () => {
     return values;
   };
 
-  const formatStamp = (iso) => {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    const p = (n) => String(n).padStart(2, '0');
-    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ` +
-      `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-  };
+  // "Last updated" on the store's clock (reference: Melbourne time on a
+  // Melbourne store, whatever the browser's zone).
+  const formatStamp = (iso) => formatAppDateTime(iso) || null;
 
   // Per-key stamp, falling back to the row-level updatedAt, else an em dash -
   // never a hardcoded date.
@@ -1355,10 +1351,7 @@ const GeneralSettings = () => {
             </Box>
             <Typography sx={{ px: 2, fontSize: '14px', color: '#404040' }}>
               {/* the live clock shows the zone picked above, even before Save */}
-              {formatWithTokens(
-                toZonedDate(currentDateTime, companySettings.timezone || 'Australia/Sydney') || currentDateTime,
-                value,
-              )}
+              {formatDateValueInZone(currentDateTime, value, companySettings.timezone || 'Australia/Sydney')}
             </Typography>
           </Box>
         </Box>

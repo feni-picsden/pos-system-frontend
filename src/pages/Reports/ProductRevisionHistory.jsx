@@ -42,6 +42,7 @@ import {
 } from 'date-fns';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import productService from '../../services/productService';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import { userService } from '../../services/userService';
 import { matchesProductSearch } from '../../utils/productSearch';
 import { rankProducts } from '../../utils/searchRank';
@@ -700,10 +701,11 @@ const ProductRevisionHistory = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRunFor, selectedProducts]);
 
+  // Revision times on the store's clock (Setup > General > Timezone).
   const formatTimestamp = (date) => {
     if (!date) return '';
     try {
-      return format(new Date(date), 'dd/MM/yyyy HH:mm:ss');
+      return formatAppDateTime(date);
     } catch {
       return '';
     }

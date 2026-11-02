@@ -34,6 +34,7 @@ import cappedPricingService from '../../services/cappedPricingService';
 import { rowsFromCappedPricingCsv, programNameFromFile } from '../../utils/cappedPricingCsv';
 import { queueEverydayTicket } from '../../utils/priceChangeTicket';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 // Reference Capped Pricing (help centre art. 360000099231 "Capped Pricing (Core
 // or Maximum Shelf Price)", art. 360029656231 "Importing a Capped Pricing File"):
@@ -174,7 +175,7 @@ const CappedPricing = () => {
   );
 
   const statusLabel = lastSaved
-    ? `Last saved: ${lastSaved.toLocaleDateString('en-GB')} ${lastSaved.toLocaleTimeString('en-GB')}`
+    ? `Last saved: ${formatAppDateTime(lastSaved)}`
     : 'No changes made';
 
   const tabSx = {

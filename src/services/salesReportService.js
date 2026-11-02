@@ -31,7 +31,8 @@ const salesReportService = {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.outletId) params.append('outletId', filters.outletId);
       if (filters.registerId) params.append('registerId', filters.registerId);
-      // Presets (Today, This Week…) are the browser's days, not the server's (UTC on Vercel).
+      // Informational only: presets (Today, This Week…) run on the STORE calendar
+      // server-side (reference); a custom range is already sent as instants.
       params.append('timeZone', browserTimeZone());
       // Precision columns (hour / day / week…) read Setup > General > Timezone, like
       // every other time the app shows (reference: "all times should be shown in").

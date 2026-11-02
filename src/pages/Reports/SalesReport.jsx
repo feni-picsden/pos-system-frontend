@@ -62,6 +62,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import salesReportService from '../../services/salesReportService';
 import { totalProfitPercentage } from '../../utils/reportTotals';
+import { formatDateTime as formatAppDateTime, toAppZonedDate } from '../../utils/appDateTime';
 import { createRequestGate } from '../../utils/reportingDashboard';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
@@ -84,14 +85,8 @@ const formatCurrency = (value) => {
   return num < 0 ? `-$${abs}` : `$${abs}`;
 };
 const formatCount = (value) => (Number(value) || 0).toLocaleString('en-AU', { maximumFractionDigits: 2 });
-// Reference: 06/01/2025 09:01:09
-const formatSaleDate = (value) => {
-  if (!value) return '';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return '';
-  const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-};
+// Reference: 06/01/2025 09:01:09, in the store's zone (Setup > General > Timezone).
+const formatSaleDate = formatAppDateTime;
 
 // Reference table: NAME column stays fixed on the left while the rest scrolls.
 const STICKY_NAME_SX = { position: 'sticky', left: 0, zIndex: 1, whiteSpace: 'nowrap' };
@@ -793,6 +788,7 @@ const SalesReport = () => {
   const [exportOrientation, setExportOrientation] = useState('portrait');
   const [isExporting, setIsExporting] = useState(false);
   const [customQuery, setCustomQuery] = useState('');
+  const [appliedRange, setAppliedRange] = useState(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   // Column header click sorts asc, clicking the same header again flips to desc.
   const [sort, setSort] = useState({ key: null, dir: 'asc' });
@@ -893,6 +889,8 @@ const SalesReport = () => {
       
       if (response.success) {
         setReportData(response.data || []);
+        // The window the server actually used (a preset is the store's day / week…).
+        setAppliedRange(response.filters?.startDate ? { preset: filters.dateTime, startDate: response.filters.startDate, endDate: response.filters.endDate } : null);
       } else {
         console.error('Failed to load report data');
         setReportData([]);
@@ -949,26 +947,33 @@ const SalesReport = () => {
     };
   }, [searchTerm]);
 
+  // Query bar dates (reference): STORE wall time - a range picked in the browser
+  // shows as store time (Hawaii 26/10 00:00 reads "2026-10-26 21:00:00" for a
+  // Melbourne store), and the editor reads START / END on the store clock too.
+  const storeStamp = (d) => {
+    const x = d ? toAppZonedDate(d) : null;
+    if (!x) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())} ${p(x.getHours())}:${p(x.getMinutes())}:${p(x.getSeconds())}`;
+  };
+  // A preset's window is the server's (the store's whole day / week…); the page's
+  // own dateRange for "Today" is just "now". A custom pick is the page's range.
+  const queryRange = () => (dateRange.preset !== 'custom' && appliedRange && appliedRange.preset === dateRange.preset ? appliedRange : dateRange);
+
   const generateSQLQuery = () => {
     // Precision: reference query bar reads
     // SELECT revenue AS "Revenue" FROM sales AGGREGATE day BY outlet START "…" END "…" CONSOLIDATED
     if (precision && precision !== 'none') {
       const isAgg = precision.startsWith('aggregate_');
       const unit = (isAgg ? precision.slice('aggregate_'.length) : precision).replace(/([A-Z])/g, '_$1').toLowerCase();
-      const fmt = (d) => {
-        if (!d) return '';
-        const x = new Date(d);
-        const p = (n) => String(n).padStart(2, '0');
-        return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())} ${p(x.getHours())}:${p(x.getMinutes())}:${p(x.getSeconds())}`;
-      };
-      return `SELECT revenue AS "Revenue" FROM sales ${isAgg ? 'AGGREGATE' : 'RANGE'} ${unit} BY ${reportType} START "${fmt(dateRange.startDate)}" END "${fmt(dateRange.endDate)}" CONSOLIDATED`;
+      const range = queryRange();
+      return `SELECT revenue AS "Revenue" FROM sales ${isAgg ? 'AGGREGATE' : 'RANGE'} ${unit} BY ${reportType} START "${storeStamp(range.startDate)}" END "${storeStamp(range.endDate)}" CONSOLIDATED`;
     }
     // Payments types (reference): FROM sales_payments BY payment_method | payment_type |
     // payment_subtype; a custom range adds START / END, a preset does not.
     if (PAYMENT_TYPES.includes(reportType)) {
       const by = { paymentMethod: 'payment_method', paymentMethodType: 'payment_type', paymentMethodSubtype: 'payment_subtype' }[reportType];
-      const p = (n) => String(n).padStart(2, '0');
-      const fmt = (d) => { const x = new Date(d); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())} ${p(x.getHours())}:${p(x.getMinutes())}:${p(x.getSeconds())}`; };
+      const fmt = storeStamp;
       let q = 'SELECT\n';
       q += '  BY_NAME AS "Name",\n';
       q += '  amount AS "Payment Amount",\n';
@@ -1036,7 +1041,7 @@ const SalesReport = () => {
   useEffect(() => {
     setCustomQuery(generateSQLQuery());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType, groupBy, dateRange, consolidate, precision, searchTerm]);
+  }, [reportType, groupBy, dateRange, consolidate, precision, searchTerm, appliedRange]);
 
   const handleExport = () => {
     setExportDialogOpen(true);
@@ -1119,7 +1124,7 @@ const SalesReport = () => {
       ? `${dateRange.startDate?.toLocaleDateString()} - ${dateRange.endDate?.toLocaleDateString()}` 
       : dateRange.preset.charAt(0).toUpperCase() + dateRange.preset.slice(1);
     doc.text(`Date Range: ${dateRangeText}`, 14, 35);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
+    doc.text(`Generated: ${formatAppDateTime(new Date())}`, 14, 40);
 
     // Prepare table data
     const allColumns = activeColumnDefs;
@@ -1185,7 +1190,7 @@ const SalesReport = () => {
       [`Report Type: ${reportType}`],
       [`Group By: ${groupBy}`],
       [`Date Range: ${dateRange.preset === 'custom' ? `${dateRange.startDate?.toLocaleDateString()} - ${dateRange.endDate?.toLocaleDateString()}` : dateRange.preset}`],
-      [`Generated: ${new Date().toLocaleString()}`],
+      [`Generated: ${formatAppDateTime(new Date())}`],
       [], // Empty row
     ];
     
@@ -1242,7 +1247,7 @@ const SalesReport = () => {
       `# Report Type: ${reportType}`,
       `# Group By: ${groupBy}`,
       `# Date Range: ${dateRange.preset === 'custom' ? `${dateRange.startDate?.toLocaleDateString()} - ${dateRange.endDate?.toLocaleDateString()}` : dateRange.preset}`,
-      `# Generated: ${new Date().toLocaleString()}`,
+      `# Generated: ${formatAppDateTime(new Date())}`,
       ''
     ];
     
@@ -1462,7 +1467,8 @@ const SalesReport = () => {
   const formatTimePeriodLabel = (key) => {
     if (precision === 'hour') {
       // Format: "2025-12-04 00:00" from key like "2025-12-04T00:00:00.000Z"
-      const date = new Date(key);
+      // The hour on the store's clock (an India browser read UTC hours as ":30").
+      const date = toAppZonedDate(key) || new Date(NaN);
       if (!isNaN(date.getTime())) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -1611,6 +1617,7 @@ const SalesReport = () => {
               size="small"
               fullWidth
               enableTime
+              storeTimeLabel
               inputSx={FILTER_DATE_SX}
             />
           </Box>

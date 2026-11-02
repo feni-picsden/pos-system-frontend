@@ -39,9 +39,10 @@ import {
   CheckBoxOutlined as SquareCheckedIcon,
 } from '@mui/icons-material';
 import favouriteReportService from '../../services/favouriteReportService';
+import { formatDate as formatAppDate, formatDateTime as formatAppDateTime, appTimeZone, appWeekStartsOn } from '../../utils/appDateTime';
+import { zonedParts, zonedInstant } from '../../utils/dateFormat';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
-import { format } from 'date-fns';
 import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
@@ -421,46 +422,28 @@ const FavouriteReports = () => {
     }
   };
 
+  // Reference: the email is due the moment the reported period ENDS, at the
+  // STORE's 00:00:00 (Setup > General > Timezone / Start of the Week) - a Daily
+  // set on Mon 02/11 is due 03/11 00:00:00, a Weekly one 09/11 00:00:00. Same
+  // rule as the backend scheduler (jobs/reportEmailScheduler.js).
   const calculateNextEmailDate = (period, currentDate = null) => {
     const now = currentDate || new Date();
-    let calculatedDate = null;
-
+    if (period === 'Every 5 minutes') return new Date(new Date(now).getTime() + 5 * 60 * 1000);
+    // Anchor date drives Custom — keep whatever the user picked.
+    if (period === 'Custom') return new Date(now);
+    const zone = appTimeZone();
+    const t = zonedParts(new Date(now), zone);
+    const startOf = (y, m, d) => zonedInstant(zone, y, m, d);
+    const month = t.month - 1;
+    const dow = new Date(Date.UTC(t.year, month, t.day)).getUTCDay();
+    const nextWeek = t.day - ((dow - appWeekStartsOn() + 7) % 7) + 7; // the next week's first day
     switch (period) {
-      case 'Every 5 minutes':
-        calculatedDate = new Date(now);
-        calculatedDate.setMinutes(calculatedDate.getMinutes() + 5);
-        break;
-      case 'Daily':
-        calculatedDate = new Date(now);
-        calculatedDate.setDate(calculatedDate.getDate() + 1);
-        calculatedDate.setHours(23, 59, 59, 999);
-        break;
-      case 'Weekly':
-        calculatedDate = new Date(now);
-        calculatedDate.setDate(calculatedDate.getDate() + 7);
-        calculatedDate.setHours(23, 59, 59, 999);
-        break;
-      case 'Fortnightly':
-        calculatedDate = new Date(now);
-        calculatedDate.setDate(calculatedDate.getDate() + 14);
-        calculatedDate.setHours(23, 59, 59, 999);
-        break;
-      case 'Monthly':
-        calculatedDate = new Date(now);
-        calculatedDate.setMonth(calculatedDate.getMonth() + 1);
-        calculatedDate.setDate(1);
-        calculatedDate.setHours(23, 59, 59, 999);
-        break;
-      case 'Custom':
-        // Anchor date drives Custom — keep whatever the user picked.
-        calculatedDate = currentDate ? new Date(currentDate) : new Date(now);
-        break;
-      default:
-        calculatedDate = new Date(now);
-        calculatedDate.setHours(23, 59, 59, 999);
+      case 'Daily': return startOf(t.year, month, t.day + 1);
+      case 'Weekly': return startOf(t.year, month, nextWeek);
+      case 'Fortnightly': return startOf(t.year, month, nextWeek + 7);
+      case 'Monthly': return startOf(t.year, month + 1, 1);
+      default: return startOf(t.year, month, t.day + 1);
     }
-
-    return calculatedDate;
   };
 
   const handleSettings = (report) => {
@@ -567,10 +550,11 @@ const FavouriteReports = () => {
     }
   };
 
+  // dd/mm/yyyy on the store's clock (Setup > General > Timezone).
   const formatDate = (date) => {
     if (!date) return '';
     try {
-      return format(new Date(date), 'dd/MM/yyyy');
+      return formatAppDate(date);
     } catch {
       return '';
     }
@@ -758,7 +742,8 @@ const FavouriteReports = () => {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      {report.nextEmailDate ? formatDate(report.nextEmailDate) : ''}
+                      {/* The day the report covers (reference: due 03/11 00:00:00 lists as 02/11) */}
+                      {report.nextEmailDate ? formatDate(new Date(new Date(report.nextEmailDate).getTime() - 1)) : ''}
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', justifyContent: 'center' }}>
@@ -871,12 +856,12 @@ const FavouriteReports = () => {
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>
                       Next Email Date
                     </Typography>
+                    {/* Store wall time (reference: "03/11/2026 00:00:00" on a Hawaii browser) */}
                     <Typography variant="body2" sx={{ color: '#4b5563' }}>
-                      {format(
+                      {formatAppDateTime(
                         timePeriod === 'Custom'
                           ? nextCustomDate(nextEmailDate, customPeriod) || nextEmailDate
-                          : nextEmailDate,
-                        'dd/MM/yyyy HH:mm:ss'
+                          : nextEmailDate
                       )}
                     </Typography>
                   </Box>

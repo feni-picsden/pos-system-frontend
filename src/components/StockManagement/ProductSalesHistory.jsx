@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import productService from '../../services/productService';
 import salesService from '../../services/salesService';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import DateRangeField from '../Common/DateRangeField';
 import { saleOutstanding, isOnAccountPayment, INCOMPLETE_PURPLE } from '../../utils/saleOutstanding';
 import {
@@ -84,7 +85,8 @@ const ProductSalesHistory = ({ productId }) => {
       const response = await productService.getProductSalesHistory(productId, {
         page: 1,
         limit: 10000,
-        // Whole days: from 00:00 of the first day to 23:59:59 of the last.
+        // Whole days: from 00:00 of the first day to 23:59:59 of the last, on
+        // the browser's clock like the reference's filters (checked 30/10/2026).
         startDate: rangeStart ? rangeStart.toISOString() : undefined,
         endDate: rangeEnd ? rangeEnd.toISOString() : undefined,
       });
@@ -116,20 +118,10 @@ const ProductSalesHistory = ({ productId }) => {
   // Sale numbers already carry a leading '#' from the API - don't double it.
   const receiptNumber = (value) => String(value ?? '').replace(/^#+/, '');
 
+  // Date and time of the sale in the store's zone (Setup > General > Timezone).
   const formatDateTime = (dateString) => {
-    const date = new Date(dateString);
-    return {
-      date: date.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }),
-      time: date.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }),
-    };
+    const [date = '', time = ''] = formatAppDateTime(dateString).split(' ');
+    return { date, time };
   };
 
   const handleSaleSelect = async (sale) => {

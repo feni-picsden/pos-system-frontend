@@ -127,6 +127,7 @@ const previewColumns = [
     field: 'expiry',
     headerName: 'Expiry',
     width: 160,
+    // An expiry is a date the user set, shown as entered (not re-zoned).
     format: (value) => (value ? new Date(value).toLocaleDateString('en-GB') : ''),
   },
 ];

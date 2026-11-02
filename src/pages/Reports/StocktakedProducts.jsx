@@ -30,6 +30,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import apiClient from '../../services/apiClient';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 import inventoryReportService from '../../services/inventoryReportService';
 import productService from '../../services/productService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
@@ -492,7 +493,8 @@ const StocktakedProducts = () => {
   const formatDate = (date) => {
     if (!date) return 'Never';
     try {
-      return format(new Date(date), DATE_FORMAT);
+      // dd/mm/yyyy on the store's clock (Setup > General > Timezone).
+      return formatAppDate(date) || 'Never';
     } catch {
       return 'Never';
     }

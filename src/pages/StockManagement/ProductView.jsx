@@ -41,6 +41,7 @@ import ProductRevisionHistory from "../../components/StockManagement/ProductRevi
 import ProductInventoryLog from "../../components/StockManagement/ProductInventoryLog";
 import ProductPromotions from "../../components/StockManagement/ProductPromotions";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
+import { toAppZonedDate } from "../../utils/appDateTime";
 import { useAuth } from "../../contexts/AuthContext";
 
 import {
@@ -286,8 +287,9 @@ const ProductView = () => {
       const monthlyPurchases = new Array(13).fill(0);
       const monthLabels = [];
 
-      // Generate the last 12 months in proper order
-      const now = new Date();
+      // Generate the last 12 months in proper order - store months (Setup >
+      // General > Timezone), as the sales summary API buckets them.
+      const now = toAppZonedDate(new Date());
       const salesMap = {};
       const purchasesMap = {};
 
@@ -340,8 +342,8 @@ const ProductView = () => {
           // Use orderDate from OrderInvoice table
           const dateStr = purchase.orderDate || purchase.date || purchase.purchaseDate || purchase.createdAt;
           if (dateStr) {
-            const date = new Date(dateStr);
-            if (!isNaN(date.getTime())) {
+            const date = toAppZonedDate(dateStr);
+            if (date && !isNaN(date.getTime())) {
               const year = date.getFullYear();
               const month = date.getMonth() + 1;
               const key = `${year}-${String(month).padStart(2, "0")}`;
@@ -388,7 +390,7 @@ const ProductView = () => {
       // Keep whatever series were already drawn - blanking them to zero on a
       // transient failure is what produced the "flat $0 chart" after remount.
       const defaultLabels = [];
-      const now = new Date();
+      const now = toAppZonedDate(new Date());
       for (let i = 12; i >= 0; i--) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
         defaultLabels.push({

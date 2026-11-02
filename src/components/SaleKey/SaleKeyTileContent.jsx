@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { formatMoney } from '../../utils/currency';
 import { CLOCK_ACTIONS, getSaleKeyLiveText } from '../../utils/saleKeyDisplay';
+import { appTimeZone } from '../../utils/appDateTime';
 
 // Re-renders a clock key as time passes: every second for the current time,
 // every minute for a previous date (enough to roll over at midnight). Other
@@ -52,7 +53,7 @@ const SaleKeyTileContent = ({ saleKey }) => {
   // keys carry no amount at all) must not label the tile "$0.00".
   const amount = parseFloat(saleKey.amount) > 0 ? formatMoney(saleKey.amount) : null;
   const now = useNow(saleKey.action);
-  const liveText = getSaleKeyLiveText(saleKey, now);
+  const liveText = getSaleKeyLiveText(saleKey, now, appTimeZone());
 
   // "Fill Key with Image" makes the artwork the key's background: it covers the
   // tile corner to corner and the label sits on top of it. As an ordinary flex

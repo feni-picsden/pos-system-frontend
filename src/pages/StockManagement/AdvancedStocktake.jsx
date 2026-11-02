@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import { Search, BarChart, Close, Person, Assessment, Delete, QrCodeScanner, ImageOutlined, ShoppingCartOutlined, HelpOutline, WarningAmberOutlined } from '@mui/icons-material';
 import stocktakeService from '../../services/stocktakeService';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import productService from '../../services/productService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
@@ -1276,7 +1277,7 @@ function StatisticsView({ statistics, loading }) {
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" fontWeight={600} gutterBottom>Completed</Typography>
         <Typography color="text.secondary">
-          {statistics.completedAt ? new Date(statistics.completedAt).toLocaleString() : 'Not completed yet'}
+          {statistics.completedAt ? formatAppDateTime(statistics.completedAt) : 'Not completed yet'}
         </Typography>
       </Paper>
 
@@ -1344,14 +1345,8 @@ function StatisticsView({ statistics, loading }) {
                     <TableCell>{activity.count}</TableCell>
                     <TableCell>{activity.user}</TableCell>
                     <TableCell>
-                      {new Date(activity.timestamp).toLocaleString('en-AU', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false
-                      })}
+                      {/* "dd/mm/yyyy, HH:mm" as before, in the store's zone */}
+                      {formatAppDateTime(activity.timestamp).slice(0, 16).replace(' ', ', ')}
                     </TableCell>
                   </TableRow>
                 ))}

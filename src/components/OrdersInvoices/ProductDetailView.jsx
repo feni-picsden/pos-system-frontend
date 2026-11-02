@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatDate as formatAppDate } from '../../utils/appDateTime';
 
 // Reference (Editing Order, expanded line - 15/10/2026):
 //   left   : 9-week Purchased / Sold chart ("8 weeks ago" .. "this week"),
@@ -47,7 +48,7 @@ const ProductDetailView = ({ product, preloadedDetails, newCost = null, costInfo
   // Reference renders dates as dd/mm/yyyy; "Never Sent" when there is none
   const formatDate = (dateString, never) => {
     if (!dateString) return never;
-    return new Date(dateString).toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    return formatAppDate(dateString) || never; // store's clock (Setup > General > Timezone)
   };
 
   // ── Chart ────────────────────────────────────────────────────────────────

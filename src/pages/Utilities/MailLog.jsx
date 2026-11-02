@@ -15,6 +15,7 @@ import {
   CloseOutlined as CloseIcon,
 } from '@mui/icons-material';
 import emailLogService from '../../services/emailLogService';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 // Reference column proportions at 1889px table width
 const COLUMNS = [
@@ -84,17 +85,8 @@ const MailLog = () => {
     }
   };
 
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    const d = new Date(date);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-  };
+  // Sent time on the store's clock (Setup > General > Timezone).
+  const formatDate = (date) => (date ? formatAppDateTime(date) || 'N/A' : 'N/A');
 
   const getStatusDisplay = (status) => {
     return (status || '').toUpperCase();

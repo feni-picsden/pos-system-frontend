@@ -17,6 +17,7 @@ import {
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, addMonths, startOfMonth, endOfMonth, startOfDay, endOfDay, isSameMonth, isWithinInterval, parse, isValid } from 'date-fns';
+import { toAppZonedDate } from '../../utils/appDateTime';
 
 // Reference popover accepts typed dates, with or without slashes (25/12/2025 or 25122025).
 const parseTypedDate = (raw) => {
@@ -50,6 +51,11 @@ const DateRangePicker = ({
   // Opt-in reference popover chrome: calendar icon top-left, and an X at the end
   // of each typed date box (end X clears the end only; start X clears both).
   popoverIcons = false,
+  // Opt-in (Sales / Purchase / Transfer / Actions reports): the closed field reads the
+  // range in STORE wall time, as the reference does (a Hawaii pick of 26/10 00:00 -
+  // 01/11 23:59:59 shows "26/10/2026 21:00:00 - 02/11/2026 20:59:59"); the popover
+  // inputs stay in the browser's time like the reference.
+  storeTimeLabel = false,
 }) => {
   const emptyDefault = allowEmpty ? null : new Date();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -237,7 +243,8 @@ const DateRangePicker = ({
     // Reference shows a relative label instead of an explicit same-day range
     if (enableTime && selectedPreset === 'today') return 'Today';
     const formatStr = enableTime ? 'dd/MM/yyyy HH:mm:ss' : 'dd/MM/yyyy';
-    return `${format(startDate, formatStr)} ${separator} ${format(endDate, formatStr)}`;
+    const shown = (d) => (storeTimeLabel ? toAppZonedDate(d) || d : d);
+    return `${format(shown(startDate), formatStr)} ${separator} ${format(shown(endDate), formatStr)}`;
   };
 
   // Apply a time-of-day (HH:mm:ss) onto the committed start/end date

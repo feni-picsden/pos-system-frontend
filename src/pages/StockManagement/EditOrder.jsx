@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { formatDate as formatAppDate, formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import {
   Box,
   Paper,
@@ -1707,28 +1708,10 @@ const EditOrder = () => {
     }).format(amount || 0);
   };
 
-  // Reference renders dates as dd/mm/yyyy
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  };
-
-  const formatDateTime = (dateString) => {
-    if (!dateString) return '';
-    // Reference format has no comma: '06/07/2026 19:57:23'
-    return new Date(dateString).toLocaleString('en-GB', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).replace(',', '');
-  };
+  // Reference renders dates as dd/mm/yyyy and times as '06/07/2026 19:57:23',
+  // both in the store's zone (Setup > General > Timezone), not the browser's.
+  const formatDate = formatAppDate;
+  const formatDateTime = formatAppDateTime;
 
   const handlePrint = () => {
     if (!order) return;
@@ -3107,7 +3090,7 @@ const EditOrder = () => {
                   <Box key={entry.key} sx={{ py: 1, borderBottom: '1px solid #e0e0e0' }}>
                     <Typography sx={{ fontSize: 14, fontWeight: 700 }}>{entry.title}</Typography>
                     <Typography sx={{ fontSize: 12, color: '#676b72' }}>
-                      {new Date(entry.at).toLocaleString('en-GB')}
+                      {formatAppDateTime(entry.at)}
                     </Typography>
                     {entry.text && (
                       <Typography sx={{ fontSize: 14, mt: 0.5 }}>{entry.text}</Typography>

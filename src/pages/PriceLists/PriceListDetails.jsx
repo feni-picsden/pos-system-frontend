@@ -30,6 +30,7 @@ import productService from '../../services/productService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { GRID_TABLE_SX, WIDGET_SHADOW, SECTION_ROOT_SX } from '../../components/StockManagement/productViewStyles';
 import { formatRuleLabel, formatMinimumRule, entityTypeLabel, overrideTiers, money } from './ruleLabels';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 // Shopfront's price list VIEW page (reference, 29/10/2026 screenshots):
 //   left panel  - "View <name>", Home / Customers / Revisions, Edit + Delete
@@ -88,18 +89,8 @@ const outlineButtonSx = (color) => ({
   '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: `1px solid ${color}`, boxShadow: 'none' },
 });
 
-const formatDateTime = (isoDate) => {
-  try {
-    return new Date(isoDate)
-      .toLocaleString('en-GB', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-      })
-      .replace(',', '');
-  } catch {
-    return '-';
-  }
-};
+// dd/mm/yyyy HH:mm:ss on the store's clock (Setup > General > Timezone).
+const formatDateTime = (isoDate) => formatAppDateTime(isoDate) || '-';
 
 // Revision cells: the "Items" / "Fallback Rule" rows carry a rule snapshot
 // ([{ name, type, lines[] }]) - each rule prints as a bold name over its lines,

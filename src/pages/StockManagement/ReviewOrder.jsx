@@ -24,6 +24,7 @@ import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import ReviewerSelectDialog from '../../components/StockManagement/ReviewerSelectDialog';
+import { formatDate as formatAppDate, formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 // Shopfront reference styles (same tokens as OrderDetails)
 const metaLabelSx = {
@@ -65,24 +66,9 @@ const formatCurrency = (amount) =>
     maximumFractionDigits: 2,
   }).format(amount || 0);
 
-const formatDate = (dateString) =>
-  dateString
-    ? new Date(dateString).toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' })
-    : '';
-
-const formatDateTime = (dateString) =>
-  dateString
-    ? new Date(dateString)
-        .toLocaleString('en-GB', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        })
-        .replace(',', '')
-    : '';
+// dd/mm/yyyy and dd/mm/yyyy HH:mm:ss on the store's clock (Setup > General > Timezone).
+const formatDate = formatAppDate;
+const formatDateTime = formatAppDateTime;
 
 const initialOf = (name) => (name || '?').charAt(0).toUpperCase();
 

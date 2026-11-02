@@ -18,6 +18,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import apiClient from '../../services/apiClient';
+import { appTimeZone } from '../../utils/appDateTime';
+import { zonedParts } from '../../utils/dateFormat';
 import { THEME_MODES } from '../../contexts/themeMode';
 
 // Slate label colour, lightened in dark mode
@@ -30,21 +32,18 @@ const HEADER_HEIGHT = 50;
 // Format currency compactly on the Y-axis
 const fmtCurrency = (v) => `$${Number(v).toFixed(2)}`;
 
-// Local calendar date as YYYY-MM-DD. toISOString() is UTC, which in an AEST
-// morning is still "yesterday" and made the chart's days miss the server's.
-const localDateStr = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-// Build an array of {label, date} for the last N days
+// STORE calendar dates (Setup > General > Timezone) as YYYY-MM-DD - the same
+// days /sales/summary buckets by, whatever the browser's zone is.
+// Build an array of {label, date} for the last N store days.
 function lastNDays(n) {
   const days = [];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const t = zonedParts(new Date(), appTimeZone());
   for (let i = n - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+    const d = new Date(Date.UTC(t.year, t.month - 1, t.day - i));
     days.push({
-      label: dayNames[d.getDay()],
-      dateStr: localDateStr(d),
+      label: dayNames[d.getUTCDay()],
+      dateStr: d.toISOString().slice(0, 10),
       revenue: 0,
       count: 0,
     });
@@ -57,13 +56,13 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
 
   const loadChartData = useCallback(async () => {
     try {
-      const endDate = localDateStr(new Date());
-      const startDate = localDateStr(new Date(Date.now() - 6 * 86400000));
+      const base = lastNDays(7);
+      const startDate = base[0].dateStr;
+      const endDate = base[base.length - 1].dateStr;
       const resp = await apiClient.get('/sales/summary', {
         params: { startDate, endDate, groupBy: 'day' },
       });
       const rows = resp.data?.data || resp.data?.summary || [];
-      const base = lastNDays(7);
       rows.forEach((row) => {
         const dateStr = (row.date || row.saleDate || '').slice(0, 10);
         const idx = base.findIndex((d) => d.dateStr === dateStr);

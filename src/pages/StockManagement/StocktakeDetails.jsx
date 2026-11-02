@@ -5,6 +5,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import productService from '../../services/productService';
 import { userService } from '../../services/userService';
 import { searchProducts } from '../../utils/productSearch.js';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import {
   Autocomplete,
   Box,
@@ -87,12 +88,8 @@ function signColor(value) {
   return n > 0 ? '#22c55e' : '#ef4444';
 }
 
-function formatTimestamp(value) {
-  if (!value) return '';
-  const d = new Date(value);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
+// "dd/mm/yyyy HH:mm:ss" in the store's zone (Setup > General > Timezone).
+const formatTimestamp = formatAppDateTime;
 
 // Reference: grey default person avatars (no initials), white ring.
 const avatarSx = (size) => ({ width: size, height: size, bgcolor: '#bdbdbd', color: '#fff', border: '2px solid #fff' });

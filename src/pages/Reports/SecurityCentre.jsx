@@ -42,6 +42,7 @@ import {
   Close,
 } from '@mui/icons-material';
 import { format, parse, isValid, addMonths, startOfMonth, endOfMonth, isSameMonth, isSameDay } from 'date-fns';
+import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import securityReportService from '../../services/securityReportService';
 
 // Reference chart uses the Chart.js default palette, assigned by slice order
@@ -726,10 +727,8 @@ const SecurityCentre = () => {
     }
   };
 
-  const formatDateTime = (dateTime) => {
-    if (!dateTime) return 'N/A';
-    return format(new Date(dateTime), 'dd/MM/yyyy HH:mm:ss');
-  };
+  // Event times on the store's clock (Setup > General > Timezone).
+  const formatDateTime = (dateTime) => (dateTime ? formatAppDateTime(dateTime) : 'N/A');
 
   const formatDateRange = (start, end) => {
     if (!start || !end) return 'N/A';

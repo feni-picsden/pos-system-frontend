@@ -75,7 +75,7 @@ import outletService from "../../services/outletService";
 import { buildPaymentReceiptHtml } from "./paymentReceipt";
 import { paymentReceiptArgs, paymentTemplateReceiptData } from "./paymentReceiptData";
 import { loadBusiness } from "../../utils/outletReceiptProfile";
-import { formatSettingsDate, formatSettingsTime } from "../../utils/appDateTime";
+import { formatSettingsDate, formatSettingsTime, formatDateTime as formatAppDateTime, formatAppPattern } from "../../utils/appDateTime";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { GRID_TABLE_SX, WIDGET_SHADOW, SECTION_ROOT_SX } from "../../components/StockManagement/productViewStyles";
 import { formatCurrency } from "../../utils/currency";
@@ -519,15 +519,8 @@ const CustomerView = () => {
 
   const formatDateTime = (isoDate) => {
     try {
-      return new Date(isoDate).toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }).replace(",", ""); // reference: "22/10/2026 11:14:28", no comma
+      // reference: "22/10/2026 11:14:28", no comma, on the store's clock
+      return formatAppDateTime(isoDate) || "-";
     } catch (_) {
       return "-";
     }
@@ -802,15 +795,7 @@ const CustomerView = () => {
                       {outstandingSales.map((sale) => (
                         <TableRow key={`outstanding-${sale.id}`}>
                           <TableCell>
-                            {new Date(sale.saleDate).toLocaleString("en-GB", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              second: "2-digit",
-                              hour12: false,
-                            })}
+                            {formatAppPattern(sale.saleDate, "DD/MM/YYYY, HH:mm:ss")}
                           </TableCell>
                           <TableCell>{customerInvoiceNumber(sale)}</TableCell>
                           <TableCell>{sale.user?.name || "-"}</TableCell>
