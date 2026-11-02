@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, useDeferredValue, memo } from "react";
 import PageLoader from '../../components/Common/PageLoader';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import {
@@ -17,12 +17,14 @@ import {
   FormControlLabel,
   Box,
   InputAdornment,
-  TableSortLabel,
+  CircularProgress,
 } from "@mui/material";
 import {
   IosShareOutlined as ExportIcon,
   LocalOfferOutlined as CategoryIcon,
   ImageOutlined as ProductIcon,
+  HomeOutlined as FamilyIcon,
+  SellOutlined as PriceSetIcon,
   ArrowDropDown as ArrowDropDownIcon,
 } from "@mui/icons-material";
 import productService from "../../services/productService";
@@ -44,9 +46,105 @@ const editInputSx = (width, height = 42) => ({
   },
 });
 
+// Dropdown groups in the reference's order; under 2 typed characters the
+// reference only shows a "Keep Typing to Search..." hint.
+const GROUP_ORDER = ["Categories", "Families", "Products", "Price Sets"];
+const GROUP_ICONS = { Categories: CategoryIcon, Families: FamilyIcon, Products: ProductIcon, "Price Sets": PriceSetIcon };
+const HINT_OPTION = { type: "hint", label: "Keep Typing to Search..." };
+const ALL_PRODUCTS_LIMIT = 100000;
+
+// Report-style sort mark: hollow up+down triangles after the label; `active`
+// ('asc' | 'desc') fills the triangle of the current direction.
+const SortIcon = ({ active }) => (
+  <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: "middle", display: "inline-block" }} aria-hidden="true">
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill={active === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'asc' ? 1.6 : 1.1} strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
+  </svg>
+);
+
+// Cases on Hand is blank for a single-unit product (case quantity 1), as in the reference.
+const casesOnHandText = (product) =>
+  Number(product.caseQuantity) === 1 ? "" : product.currentStockCases || 0;
+
+// Rows are drawn in steps as the grid scrolls (every row is four inputs; drawing a
+// whole catalogue at once froze the page). The search box filters the grid once
+// typing pauses.
+const ROWS_STEP = 30;
+const SEARCH_DELAY_MS = 300;
+
+const formatPrice = (v) => (v === "" || v == null || Number.isNaN(Number(v)) ? v : Number(v).toFixed(2));
+
+// Real inline-editable grid input; saves automatically on blur / Enter.
+// `format` applies only while the input is not being typed in.
+const EditCell = ({ productId, priceIndex, field, value, editing, onEdit, onChange, onSave, width = 150, height = 42, type = "number", prefix, suffix, format, color }) => {
+  const shown = format && !editing ? format(value) : value;
+  return (
+    <TextField
+      value={shown ?? ""}
+      type={type}
+      onFocus={() => onEdit(productId, priceIndex, field)}
+      onChange={(e) => onChange(productId, field, e.target.value, priceIndex)}
+      onBlur={(e) => {
+        onEdit(null);
+        onSave(productId, field, e.target.value, priceIndex);
+      }}
+      onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+      variant="outlined"
+      InputProps={{
+        startAdornment: prefix ? <InputAdornment position="start">{prefix}</InputAdornment> : undefined,
+        endAdornment: suffix ? <InputAdornment position="end">{suffix}</InputAdornment> : undefined,
+      }}
+      sx={{ ...editInputSx(width, height), ...(color && { "& input": { color } }) }}
+    />
+  );
+};
+
+// One grid row (one price point). Memoised: typing in a cell re-draws only the
+// rows of that product, not the whole grid.
+const StockRow = memo(function StockRow({ product, pricePoint, priceIndex, editingField, onEdit, onChange, onSave }) {
+  const cell = (field, value, opts) => (
+    <EditCell
+      productId={product.id} priceIndex={priceIndex} field={field} value={value}
+      editing={editingField === field} onEdit={onEdit} onChange={onChange} onSave={onSave}
+      {...opts}
+    />
+  );
+  // Use the edited/saved profit when present, otherwise derive it from price vs cost
+  let profitPercent = pricePoint.profitPercentage;
+  if (profitPercent === undefined || profitPercent === null || profitPercent === "") {
+    const totalCost = (product.itemCost || 0) * (Number(pricePoint.quantity) || 1);
+    const totalPrice = Number(pricePoint.price) || 0;
+    profitPercent = totalPrice > 0 ? ((totalPrice - totalCost) / totalPrice * 100).toFixed(2) : "0.00";
+  } else if (typeof profitPercent === "number") {
+    profitPercent = profitPercent.toFixed(2);
+  }
+  return (
+    <TableRow>
+      <TableCell>{cell("name", product.name, { width: 460, type: "text" })}</TableCell>
+      <TableCell>{product.category?.name || ""}</TableCell>
+      {/* Price sets are blank unless the price point is a named set */}
+      <TableCell align="center">{pricePoint.priceSetName || ""}</TableCell>
+      <TableCell align="center">{product.caseQuantity || 0}</TableCell>
+      <TableCell align="center">{casesOnHandText(product)}</TableCell>
+      {/* Negative stock stays black, as in the reference */}
+      <TableCell align="center">{product.currentStockItems || 0}</TableCell>
+      <TableCell>{cell("quantity", pricePoint.quantity ?? 1, { width: 150 })}</TableCell>
+      <TableCell align="center">
+        ${((product.itemCost || 0) * (Number(pricePoint.quantity) || 1)).toFixed(2)}
+      </TableCell>
+      <TableCell>{cell("price", pricePoint.price ?? 0, { width: 200, height: 40, prefix: "$", format: formatPrice })}</TableCell>
+      <TableCell>
+        {cell("profitPercentage", profitPercent, {
+          width: 150, height: 40, suffix: "%",
+          color: Number(profitPercent) < 0 ? "red" : undefined,
+        })}
+      </TableCell>
+    </TableRow>
+  );
+});
+
 const StockList = () => {
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOption, setSelectedOption] = useState(null);
@@ -54,64 +152,114 @@ const StockList = () => {
   // Column sort (an addition — the reference Stock List has none). null = the
   // server's order. One click sorts ascending, a second flips it.
   const [sort, setSort] = useState({ key: null, dir: "asc" });
+  // The grid input being edited ({ productId, priceIndex, field }): shown raw while typing.
+  const [editingCell, setEditingCell] = useState(null);
+  // What the grid is filtered by: the search box text once typing pauses.
+  const [gridSearch, setGridSearch] = useState("");
+  const moreRowsRef = useRef(null);
+  const searchBoxRef = useRef(null);
+  const searchPopperRef = useRef(null);
+  const [searchBoxWidth, setSearchBoxWidth] = useState(null);
+  // The grid follows these in the background, so the switch, search box and
+  // headers answer at once while the rows catch up (a spinner shows meanwhile).
+  const gridOption = useDeferredValue(selectedOption);
+  const gridStockOnly = useDeferredValue(onlyWithStock);
+  const gridSearchShown = useDeferredValue(gridSearch);
+  const gridSort = useDeferredValue(sort);
+  const updating =
+    gridOption !== selectedOption || gridStockOnly !== onlyWithStock ||
+    gridSearchShown !== gridSearch || gridSort !== sort ||
+    (!selectedOption && searchTerm !== gridSearch);
+  // Saves read the latest products without re-creating the row callbacks.
+  const productsRef = useRef(products);
+  productsRef.current = products;
 
   // Fetch products on component mount
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  // Filter products when search term or stock filter changes
+  // Track the search box width (it changes when the page scrollbar comes or goes)
   useEffect(() => {
-    // Ensure products is an array
+    const el = searchBoxRef.current;
+    if (!el) return undefined;
+    const observer = new ResizeObserver(() => setSearchBoxWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loading]);
+
+  // ...and move the open list to match
+  useEffect(() => {
+    searchPopperRef.current?.update?.();
+  }, [searchBoxWidth]);
+
+  useEffect(() => {
+    if (!searchTerm) { setGridSearch(""); return undefined; }
+    const timer = setTimeout(() => setGridSearch(searchTerm), SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Products the grid shows for the current search / selection / stock filter
+  const filteredProducts = useMemo(() => {
     let filtered = Array.isArray(products) ? products : [];
 
     // A selected classification (category) filters the grid to that classification
-    if (selectedOption?.type === "Categories") {
+    if (gridOption?.type === "Categories") {
       filtered = filtered.filter(
-        (product) => product.category?.name === selectedOption.label
+        (product) => product.category?.name === gridOption.label
       );
-    } else if (selectedOption?.type === "Products") {
-      filtered = filtered.filter((product) => product.name === selectedOption.label);
-    } else if (searchTerm) {
+    } else if (gridOption?.type === "Families") {
+      filtered = filtered.filter((product) => product.family?.name === gridOption.label);
+    } else if (gridOption?.type === "Price Sets") {
+      // Products with a row in that set; sortedRows keeps only those rows
+      filtered = filtered.filter((product) =>
+        (product.prices || []).some((row) => row.priceSetId === gridOption.id)
+      );
+    } else if (gridOption?.type === "Products") {
+      filtered = filtered.filter((product) => product.name === gridOption.label);
+    } else if (gridSearchShown) {
+      const lower = gridSearchShown.toLowerCase();
       filtered = filtered.filter(
         (product) =>
-          matchesProductSearch(product, searchTerm) ||
-          product.category?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.brand?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.family?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+          matchesProductSearch(product, gridSearchShown) ||
+          product.category?.name?.toLowerCase().includes(lower) ||
+          product.brand?.name?.toLowerCase().includes(lower) ||
+          product.family?.name?.toLowerCase().includes(lower)
       );
     }
 
     // Filter by stock availability
-    if (onlyWithStock) {
-      filtered = filtered.filter((product) => 
+    if (gridStockOnly) {
+      filtered = filtered.filter((product) =>
         (product.currentStockCases || 0) > 0 || (product.currentStockItems || 0) > 0
       );
     }
 
-    setFilteredProducts(rankProducts(filtered, searchTerm));
-  }, [products, searchTerm, selectedOption, onlyWithStock]);
+    return rankProducts(filtered, gridSearchShown);
+  }, [products, gridSearchShown, gridOption, gridStockOnly]);
 
   // Grouped autocomplete options: Categories first, then Products
   // The grid is one row per PRICE POINT. Flatten once, with the same per-row
   // figures the cells show, so sorting and the CSV export share one list.
   const SORT_COLUMNS = [
-    { key: "name", label: "Product" },
+    { key: "name", label: "Product", center: true },
     { key: "category", label: "Category" },
-    { key: "priceSet", label: "Price Set" },
-    { key: "caseQuantity", label: "Case Quantity", numeric: true },
-    { key: "casesOnHand", label: "Cases on Hand", numeric: true },
-    { key: "itemsOnHand", label: "Items on Hand", numeric: true },
+    { key: "priceSet", label: "Price Set", center: true },
+    { key: "caseQuantity", label: "Case Quantity", numeric: true, center: true },
+    { key: "casesOnHand", label: "Cases on Hand", numeric: true, center: true },
+    { key: "itemsOnHand", label: "Items on Hand", numeric: true, center: true },
     { key: "quantity", label: "Quantity", numeric: true },
-    { key: "cost", label: "Cost", numeric: true },
+    { key: "cost", label: "Cost", numeric: true, center: true },
     { key: "price", label: "Price", numeric: true },
     { key: "profit", label: "Profit %", numeric: true },
   ];
   const sortedRows = useMemo(() => {
     const list = Array.isArray(filteredProducts) ? filteredProducts : [];
+    const onlySet = gridOption?.type === "Price Sets" ? gridOption.id : null;
     const rows = list.flatMap((product) => {
       const prices = product.prices?.length ? product.prices : [{ price: 0, quantity: 1, profitPercentage: 0 }];
-      return prices.map((pricePoint, priceIndex) => {
+      return prices.flatMap((pricePoint, priceIndex) => {
+        if (onlySet != null && pricePoint.priceSetId !== onlySet) return [];
         const quantity = Number(pricePoint.quantity) || 1;
         const cost = (product.itemCost || 0) * quantity;
         const price = Number(pricePoint.price) || 0;
@@ -119,49 +267,84 @@ const StockList = () => {
         const profit = saved !== undefined && saved !== null && saved !== ""
           ? Number(saved)
           : (price > 0 ? ((price - cost) / price) * 100 : 0);
-        return {
+        return [{
           product, pricePoint, priceIndex,
           values: {
             name: product.name || "",
             category: product.category?.name || "",
-            priceSet: pricePoint.priceSet?.name || pricePoint.priceSetName || "",
+            priceSet: pricePoint.priceSetName || "",
             caseQuantity: product.caseQuantity || 0,
             casesOnHand: product.currentStockCases || 0,
             itemsOnHand: product.currentStockItems || 0,
             quantity, cost, price, profit,
           },
-        };
+        }];
       });
     });
-    if (!sort.key) return rows;
-    const numeric = SORT_COLUMNS.find((c) => c.key === sort.key)?.numeric;
-    const dir = sort.dir === "asc" ? 1 : -1;
+    if (!gridSort.key) return rows;
+    const numeric = SORT_COLUMNS.find((c) => c.key === gridSort.key)?.numeric;
+    const dir = gridSort.dir === "asc" ? 1 : -1;
     // stable: equal keys keep the server's order
     return rows
       .map((row, i) => ({ row, i }))
       .sort((a, b) => {
-        const x = a.row.values[sort.key], y = b.row.values[sort.key];
+        const x = a.row.values[gridSort.key], y = b.row.values[gridSort.key];
         const c = numeric ? (Number(x) || 0) - (Number(y) || 0) : String(x).localeCompare(String(y), undefined, { sensitivity: "base" });
         return (c || a.i - b.i) * (c ? dir : 1);
       })
       .map(({ row }) => row);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredProducts, sort]);
+  }, [filteredProducts, gridSort, gridOption]);
   const toggleSort = (key) =>
     setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+
+  // How many rows are drawn; a new filter or sort starts again from the first
+  // rows (editing a cell changes `products`, not this key, so it keeps its place).
+  const viewKey = useMemo(
+    () => [gridSearchShown, gridOption, gridStockOnly, gridSort],
+    [gridSearchShown, gridOption, gridStockOnly, gridSort]
+  );
+  const [paging, setPaging] = useState({ key: null, rows: ROWS_STEP });
+  const visibleRows = paging.key === viewKey ? paging.rows : ROWS_STEP;
+
+  // Draw the next rows when the end of the drawn ones comes near the screen.
+  useEffect(() => {
+    const el = moreRowsRef.current;
+    if (!el) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPaging((p) => ({ key: viewKey, rows: (p.key === viewKey ? p.rows : ROWS_STEP) + ROWS_STEP }));
+        }
+      },
+      { rootMargin: "800px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visibleRows, sortedRows.length, loading, viewKey]);
 
   const searchOptions = useMemo(() => {
     const list = Array.isArray(products) ? products : [];
     const categories = [...new Set(list.map((p) => p.category?.name).filter(Boolean))]
       .sort((a, b) => a.localeCompare(b))
       .map((name) => ({ type: "Categories", label: name }));
+    const families = [...new Set(list.map((p) => p.family?.name).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => ({ type: "Families", label: name }));
+    const sets = new Map();
+    list.forEach((p) => (p.prices || []).forEach((row) => {
+      if (row.priceSetId != null && row.priceSetName) sets.set(row.priceSetId, row.priceSetName);
+    }));
+    const priceSets = [...sets]
+      .map(([id, name]) => ({ type: "Price Sets", label: name, id }))
+      .sort((a, b) => a.label.localeCompare(b.label));
     const productOptions = list
       .filter((p) => p.name)
       // name / description / barcodes ride along so the dropdown can match
       // and rank them the way the sell screen search does.
       .map((p) => ({ type: "Products", label: p.name, id: p.id, name: p.name, description: p.description, barcodes: p.barcodes }));
     // A Combo Product is an ordinary product row, so it is already in productOptions.
-    return [...categories, ...productOptions];
+    return [...categories, ...families, ...productOptions, ...priceSets];
   }, [products]);
 
   const calculateProfitPercentage = (cost, price) => {
@@ -174,17 +357,22 @@ const StockList = () => {
       setLoading(true);
       const response = await productService.getProducts({
         status: 'Active,Inactive,Not Selling,Not Purchasing',
-        includeAllStatuses: true
+        includeAllStatuses: true,
+        withPriceSets: 1,
+        // The whole catalogue: GET /products pages at 50 by default, which left the
+        // count, search, filters and CSV covering only the first 50 products (S1).
+        limit: ALL_PRODUCTS_LIMIT
       });
       let productsArray = response?.products || response || [];
-      
+
       // Profit % is on the ROW's cost: itemCost x the row's quantity, the same
       // basis as the grid's Cost cell and the product page. Using the single
       // item cost against a pack price showed a 12-pack costing $24 and selling
       // for $20 as 90% profit instead of -20% (QA N01).
+      // Grid rows are the server's stockRows: default rows plus named price-set rows.
       productsArray = productsArray.map(product => ({
         ...product,
-        prices: product.prices?.map(price => ({
+        prices: (product.stockRows || product.prices)?.map(price => ({
           ...price,
           profitPercentage: calculateProfitPercentage(
             (product.itemCost || 0) * (Number(price.quantity) || 1),
@@ -261,7 +449,7 @@ const StockList = () => {
   };
 
   // Live (uncommitted) edit of an inline grid input
-  const handleCellChange = (productId, field, value, priceIndex = 0) => {
+  const handleCellChange = useCallback((productId, field, value, priceIndex = 0) => {
     setProducts((prev) => prev.map((p) => {
       if (p.id !== productId) return p;
       if (field === 'name') return { ...p, name: value };
@@ -271,11 +459,16 @@ const StockList = () => {
         prices: prices.map((pp, i) => (i === priceIndex ? { ...pp, [field]: value } : pp)),
       };
     }));
-  };
+  }, []);
 
-  const handleCellSave = async (productId, field, newValue, priceIndex = 0) => {
+  const handleCellEdit = useCallback((productId, priceIndex, field) => {
+    setEditingCell(productId == null ? null : { productId, priceIndex, field });
+  }, []);
+
+  const handleCellSave = useCallback(async (productId, field, newValue, priceIndex = 0) => {
+    const before = productsRef.current;
     try {
-      let updatedProduct = { ...products.find(p => p.id === productId) };
+      let updatedProduct = { ...before.find(p => p.id === productId) };
 
       if (field === 'name') {
         updatedProduct.name = newValue;
@@ -321,7 +514,7 @@ const StockList = () => {
       }
 
       // Update local state
-      setProducts(products.map(p => p.id === productId ? updatedProduct : p));
+      setProducts((prev) => prev.map(p => p.id === productId ? updatedProduct : p));
 
       // Make API call to save changes (prices save automatically, no Save button)
       try {
@@ -331,13 +524,25 @@ const StockList = () => {
           // Update product prices - API expects prices array with quantity, price, cost, percentage
           // Each row's cost is itemCost x its quantity - sending the single-item
           // cost for every row corrupted every untouched tier's stored margin.
-          const pricesData = updatedProduct.prices?.map(price => ({
-            quantity: price.quantity || 1,
-            price: price.price || 0,
-            cost: (updatedProduct.itemCost || 0) * (Number(price.quantity) || 1),
-            percentage: 0 // API expects percentage field
-          })) || [];
-          
+          // The PUT rebuilds every price row, so each row keeps its priceSetId and
+          // the set rows this outlet doesn't list go back unchanged.
+          const pricesData = [
+            ...(updatedProduct.prices || []).map(price => ({
+              quantity: price.quantity || 1,
+              price: price.price || 0,
+              cost: (updatedProduct.itemCost || 0) * (Number(price.quantity) || 1),
+              percentage: 0, // API expects percentage field
+              priceSetId: price.priceSetId ?? null,
+            })),
+            ...(updatedProduct.otherSetRows || []).map(price => ({
+              quantity: price.quantity || 1,
+              price: price.price || 0,
+              cost: price.cost || 0,
+              percentage: price.percentage || 0,
+              priceSetId: price.priceSetId,
+            })),
+          ];
+
           await productService.updateProduct(productId, {
             prices: pricesData
           });
@@ -358,86 +563,60 @@ const StockList = () => {
       } catch (apiError) {
         console.error("Error updating product via API:", apiError);
         // Revert local changes if API call fails
-        setProducts(products);
+        setProducts(before);
       }
-      
+
     } catch (error) {
       console.error("Error updating product:", error);
     }
-  };
+  }, []);
 
   const exportToCSV = () => {
+    // The reference export: every value quoted, ID first, cost unpadded
+    // ("40.5"), price and profit to 2 decimals, Cases on hand blank at case qty 1.
     const headers = [
-      "Product",
-      "Category", 
+      "ID",
+      "Name",
+      "Category",
       "Price Set",
       "Case Quantity",
-      "Cases on Hand",
-      "Items on Hand",
+      "Cases on hand",
+      "Items on hand",
       "Quantity",
       "Cost",
       "Price",
-      "Profit %"
+      "Profit"
     ];
+    const quote = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     // Mirror the grid: one row per PRICE POINT, with the same per-row
-    // quantity/cost/profit expressions the table body renders. The old export
-    // emitted one row per product with fields that don't exist there (Profit %
-    // was always 0.00, Quantity repeated Items on Hand, multi-buy tiers
-    // silently vanished).
+    // quantity/cost/profit figures the table body renders.
     const csvContent = [
-      headers.join(","),
-      ...sortedRows.map(({ product, pricePoint }) => {
-          const quantity = Number(pricePoint.quantity) || 1;
-          const totalCost = (product.itemCost || 0) * quantity;
-          const totalPrice = Number(pricePoint.price) || 0;
-          const profitPercent = (pricePoint.profitPercentage !== undefined && pricePoint.profitPercentage !== null && pricePoint.profitPercentage !== "")
-            ? Number(pricePoint.profitPercentage)
-            : (totalPrice > 0 ? ((totalPrice - totalCost) / totalPrice) * 100 : 0);
-          return [
-            `"${product.name}"`,
-            `"${product.category?.name || ''}"`,
-            `"${pricePoint.priceSet?.name || pricePoint.priceSetName || ''}"`,
-            product.caseQuantity || 0,
-            product.currentStockCases || 0,
-            product.currentStockItems || 0,
-            quantity,
-            totalCost.toFixed(2),
-            totalPrice.toFixed(2),
-            profitPercent.toFixed(2)
-          ].join(",");
-      })
+      headers.map(quote).join(","),
+      ...sortedRows.map(({ product, values }) => [
+        product.id,
+        values.name,
+        values.category,
+        values.priceSet,
+        product.caseQuantity || 0,
+        casesOnHandText(product),
+        values.itemsOnHand,
+        values.quantity,
+        String(Math.round(values.cost * 100) / 100),
+        values.price.toFixed(2),
+        (Number(values.profit) || 0).toFixed(2),
+      ].map(quote).join(","))
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "stock_list.csv");
+    link.setAttribute("download", "stocklist.csv");
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  // Real inline-editable grid input; saves automatically on blur / Enter
-  const renderEditableCell = (product, field, value, priceIndex = 0, opts = {}) => {
-    const { width = 150, height = 42, type = "number", prefix, suffix } = opts;
-    return (
-      <TextField
-        value={value ?? ""}
-        type={type}
-        onChange={(e) => handleCellChange(product.id, field, e.target.value, priceIndex)}
-        onBlur={(e) => handleCellSave(product.id, field, e.target.value, priceIndex)}
-        onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-        variant="outlined"
-        InputProps={{
-          startAdornment: prefix ? <InputAdornment position="start">{prefix}</InputAdornment> : undefined,
-          endAdornment: suffix ? <InputAdornment position="end">{suffix}</InputAdornment> : undefined,
-        }}
-        sx={editInputSx(width, height)}
-      />
-    );
   };
 
   if (loading) {
@@ -445,7 +624,8 @@ const StockList = () => {
   }
 
   return (
-    <Container maxWidth="xxl" sx={{ py: 4 }}>
+    // Full page width with an 8px side gap, as the reference Stock List
+    <Container maxWidth={false} disableGutters sx={{ py: 4, px: "8px" }}>
       {/* Header: title + Export (left), count at the far right */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -478,17 +658,20 @@ const StockList = () => {
             Export to CSV
           </Button>
         </Box>
-        <Typography sx={{ fontSize: 16, color: "#525252" }}>
-          {Array.isArray(filteredProducts) ? filteredProducts.length : 0} Products
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {updating && <CircularProgress size={18} thickness={5} aria-label="Updating list" sx={{ color: "#5ebbeb" }} />}
+          <Typography sx={{ fontSize: 16, color: "#525252" }}>
+            {Array.isArray(filteredProducts) ? filteredProducts.length : 0} Products
+          </Typography>
+        </Box>
       </Box>
 
       {/* Search and Filter */}
       <Box sx={{ mb: 3 }}>
         <Autocomplete
+          ref={searchBoxRef}
           fullWidth
           freeSolo
-          openOnFocus
           forcePopupIcon
           popupIcon={<ArrowDropDownIcon sx={{ color: "#808080" }} />}
           value={selectedOption}
@@ -506,19 +689,39 @@ const StockList = () => {
             }
           }}
           options={searchOptions}
-          // Categories keep a plain contains match; products use the sell-screen
+          autoHighlight
+          // Under 2 characters only the hint shows. Categories, families and
+          // price sets match anywhere in the name; products use the sell-screen
           // rules (every typed word, any order; best match first).
           filterOptions={(opts, { inputValue }) => {
             const q = String(inputValue || "").trim();
-            if (!q) return opts;
-            const cats = opts.filter((o) => o.type === "Categories" && o.label.toLowerCase().includes(q.toLowerCase()));
+            if (q.length < 2) return [HINT_OPTION];
+            const lower = q.toLowerCase();
+            const named = (type) => opts.filter((o) => o.type === type && o.label.toLowerCase().includes(lower));
             const prods = rankProducts(opts.filter((o) => o.type === "Products" && matchesProductSearch(o, q)), q);
-            return [...cats, ...prods];
+            return GROUP_ORDER.flatMap((type) => (type === "Products" ? prods : named(type)));
           }}
-          groupBy={(option) => option.type}
+          groupBy={(option) => (option.type === "hint" ? "" : option.type)}
+          renderGroup={(params) =>
+            params.group ? (
+              <li key={params.key}>
+                <div className="MuiAutocomplete-groupLabel">{params.group}</div>
+                <ul style={{ padding: 0 }}>{params.children}</ul>
+              </li>
+            ) : (
+              <React.Fragment key={params.key}>{params.children}</React.Fragment>
+            )
+          }
+          getOptionDisabled={(option) => option.type === "hint"}
           getOptionLabel={(option) => (typeof option === "string" ? option : option.label)}
           isOptionEqualToValue={(o, v) => o.type === v.type && o.label === v.label}
           slotProps={{
+            // The open list keeps the search box's width when the page scrollbar
+            // comes or goes (MUI sizes it only once, when it opens).
+            popper: {
+              popperRef: searchPopperRef,
+              ...(searchBoxWidth && { style: { width: searchBoxWidth } }),
+            },
             paper: {
               sx: {
                 border: "1px solid #000",
@@ -545,18 +748,21 @@ const StockList = () => {
                     {
                       backgroundColor: "#7dd3fc",
                     },
+                  // the "Keep Typing to Search..." hint: plain text, not a choice
+                  '&[aria-disabled="true"]': { opacity: 1, cursor: "default", backgroundColor: "#fff" },
                 },
               },
             },
           }}
-          renderOption={(props, option) => (
-            <Box component="li" {...props} key={`${option.type}-${option.label}`}>
-              {option.type === "Categories"
-                ? <CategoryIcon sx={{ fontSize: 20, color: "#404040" }} />
-                : <ProductIcon sx={{ fontSize: 20, color: "#404040" }} />}
-              {option.label}
-            </Box>
-          )}
+          renderOption={(props, option) => {
+            const Icon = GROUP_ICONS[option.type];
+            return (
+              <Box component="li" {...props} key={`${option.type}-${option.id ?? option.label}`}>
+                {Icon && <Icon sx={{ fontSize: 20, color: "#404040" }} />}
+                {option.label}
+              </Box>
+            );
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -598,7 +804,9 @@ const StockList = () => {
       </Box>
 
       {/* Table */}
-      <TableContainer component={Paper} sx={{ boxShadow: "none", borderRadius: "12px" }}>
+      {/* Cells stay on one line with 24px column gaps; when that outgrows the page
+          the table scrolls sideways inside this rounded box (corners stay round). */}
+      <TableContainer component={Paper} sx={{ boxShadow: "none", borderRadius: "12px", overflowX: "auto" }}>
         <Table>
           <TableHead>
             <TableRow
@@ -614,6 +822,8 @@ const StockList = () => {
                   borderBottom: "none",
                   cursor: "pointer",
                   userSelect: "none",
+                  whiteSpace: "nowrap", // one-line labels, as in the reports
+                  px: "24px",
                 },
                 "& th:first-of-type": { borderTopLeftRadius: "12px" },
                 "& th:last-of-type": { borderTopRightRadius: "12px" },
@@ -622,64 +832,45 @@ const StockList = () => {
               {SORT_COLUMNS.map((col) => (
                 <TableCell
                   key={col.key}
+                  align={col.center ? "center" : "left"}
                   onClick={() => toggleSort(col.key)}
                   sortDirection={sort.key === col.key ? sort.dir : false}
                 >
-                  <TableSortLabel
-                    active={sort.key === col.key}
-                    direction={sort.key === col.key ? sort.dir : "asc"}
-                    sx={{ color: "inherit !important", "& .MuiTableSortLabel-icon": { color: "inherit !important", opacity: sort.key === col.key ? 1 : 0.35 } }}
-                  >
-                    {col.label}
-                  </TableSortLabel>
+                  {col.label}
+                  {sortedRows.length > 1 && <SortIcon active={sort.key === col.key ? sort.dir : null} />}
                 </TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody
-            sx={{ "& td": { fontSize: 16, color: "#000", borderBottom: "none" } }}
+            aria-busy={updating}
+            sx={{
+              "& td": { fontSize: 16, color: "#000", borderBottom: "none", whiteSpace: "nowrap", px: "24px" },
+              // rows still showing the previous filter while the new one draws
+              opacity: updating ? 0.5 : 1,
+              transition: "opacity 120ms",
+            }}
           >
-            {sortedRows.map(({ product, pricePoint, priceIndex }) => (
-                <TableRow key={`${product.id}-${priceIndex}`}>
-                  <TableCell>
-                    {renderEditableCell(product, "name", product.name, priceIndex, { width: 480, type: "text" })}
-                  </TableCell>
-                  <TableCell>{product.category?.name || ""}</TableCell>
-                  {/* Price sets are blank unless the price point is a named set */}
-                  <TableCell>{pricePoint.priceSet?.name || pricePoint.priceSetName || ""}</TableCell>
-                  <TableCell>{product.caseQuantity || 0}</TableCell>
-                  <TableCell>{product.currentStockCases || 0}</TableCell>
-                  <TableCell sx={{ color: (product.currentStockItems || 0) < 0 ? "red" : "inherit" }}>
-                    {product.currentStockItems || 0}
-                  </TableCell>
-                  <TableCell>
-                    {renderEditableCell(product, "quantity", pricePoint.quantity ?? 1, priceIndex, { width: 150 })}
-                  </TableCell>
-                  <TableCell>
-                    ${((product.itemCost || 0) * (Number(pricePoint.quantity) || 1)).toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    {renderEditableCell(product, "price", pricePoint.price ?? 0, priceIndex, { width: 200, height: 40, prefix: "$" })}
-                  </TableCell>
-                  <TableCell>
-                    {(() => {
-                      // Use the edited/saved profit when present, otherwise derive it from price vs cost
-                      let profitPercent = pricePoint.profitPercentage;
-                      if (profitPercent === undefined || profitPercent === null || profitPercent === "") {
-                        const quantity = Number(pricePoint.quantity) || 1;
-                        const totalCost = (product.itemCost || 0) * quantity;
-                        const totalPrice = Number(pricePoint.price) || 0;
-                        profitPercent = totalPrice > 0
-                          ? ((totalPrice - totalCost) / totalPrice * 100).toFixed(2)
-                          : "0.00";
-                      } else if (typeof profitPercent === "number") {
-                        profitPercent = profitPercent.toFixed(2);
-                      }
-                      return renderEditableCell(product, "profitPercentage", profitPercent, priceIndex, { width: 150, height: 40, suffix: "%" });
-                    })()}
-                  </TableCell>
-                </TableRow>
+            {sortedRows.slice(0, visibleRows).map(({ product, pricePoint, priceIndex }) => (
+              <StockRow
+                key={`${product.id}-${priceIndex}`}
+                product={product}
+                pricePoint={pricePoint}
+                priceIndex={priceIndex}
+                editingField={editingCell && editingCell.productId === product.id && editingCell.priceIndex === priceIndex ? editingCell.field : null}
+                onEdit={handleCellEdit}
+                onChange={handleCellChange}
+                onSave={handleCellSave}
+              />
             ))}
+            {/* Marker after the drawn rows: coming into view draws the next ones */}
+            {visibleRows < sortedRows.length && (
+              <TableRow ref={moreRowsRef}>
+                <TableCell colSpan={SORT_COLUMNS.length} align="center" sx={{ py: 2 }}>
+                  <CircularProgress size={22} thickness={5} aria-label="Loading more rows" sx={{ color: "#5ebbeb" }} />
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>

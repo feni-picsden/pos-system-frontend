@@ -584,6 +584,8 @@ const ProductEdit = () => {
   // A family the user picked but has not confirmed yet: { family, members }. Joining a
   // family replaces this product's prices, so it is asked first — see requestFamilyPick.
   const [familyPick, setFamilyPick] = useState(null);
+  // Price row being typed in: shown raw; every other row shows 2 decimals (reference).
+  const [editingPriceRow, setEditingPriceRow] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -2798,7 +2800,13 @@ const ProductEdit = () => {
                           <TableCell>
                             <TextField
                               type="number"
-                              value={price.price}
+                              value={
+                                editingPriceRow !== index && price.price !== '' && price.price != null && !Number.isNaN(Number(price.price))
+                                  ? Number(price.price).toFixed(2)
+                                  : price.price
+                              }
+                              onFocus={() => setEditingPriceRow(index)}
+                              onBlur={() => setEditingPriceRow(null)}
                               onChange={(e) => {
                                 const newPrices = [...formData.prices];
                                 // Raw text, not the rounded value: rounding every
