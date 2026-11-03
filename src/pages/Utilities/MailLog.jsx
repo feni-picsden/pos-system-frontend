@@ -17,14 +17,20 @@ import {
 import emailLogService from '../../services/emailLogService';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
-// Reference column proportions at 1889px table width
+// Reference table is auto-layout: across three captures the Subject column starts
+// at 609 / 589 / 537px and Sent At at 1365 / 1344 / 1293px, i.e. widths follow
+// the rows' content. Fixed percentages matched only one capture.
 const COLUMNS = [
-  { key: 'status', label: 'Status', width: '6.0%' },
-  { key: 'recipient', label: 'Recipient', width: '25.0%' },
-  { key: 'subject', label: 'Subject', width: '40.0%' },
-  { key: 'sentAt', label: 'Sent At', width: '21.2%' },
-  { key: 'hasAttachment', label: 'Has Attachment', width: '7.8%' },
+  { key: 'status', label: 'Status' },
+  { key: 'recipient', label: 'Recipient' },
+  { key: 'subject', label: 'Subject' },
+  { key: 'sentAt', label: 'Sent At' },
+  { key: 'hasAttachment', label: 'Has Attachment' },
 ];
+
+// One request per page; the Mail Log shows every mail of the last 3 months
+// (reference: Total Count 606, all listed), not the first 1000.
+const PAGE_SIZE = 1000;
 
 const cellSx = {
   p: '16px',
@@ -39,12 +45,10 @@ const cellSx = {
   textOverflow: 'clip',
 };
 
-// Reference Subject cell has Tailwind 'truncate': only this column clips long text.
+// Reference Subject cell stays on one line (Tailwind 'truncate').
 const subjectCellSx = {
   ...cellSx,
   whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
 };
 
 const MailLog = () => {
@@ -66,17 +70,21 @@ const MailLog = () => {
       const threeMonthsAgo = new Date();
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-      const filters = {
-        startDate: threeMonthsAgo.toISOString(),
-        limit: 1000, // Get all emails from last 3 months
-      };
-
-      const response = await emailLogService.getEmailLogs(filters);
-
-      if (response && response.emailLogs) {
-        setEmailLogs(response.emailLogs);
-        setTotalCount(response.pagination?.total || response.emailLogs.length);
+      const startDate = threeMonthsAgo.toISOString();
+      let page = 1;
+      let rows = [];
+      let total = 0;
+      // Page through until every mail of the window is loaded.
+      for (;;) {
+        const response = await emailLogService.getEmailLogs({ startDate, limit: PAGE_SIZE, page });
+        const batch = response?.emailLogs || [];
+        rows = rows.concat(batch);
+        total = response?.pagination?.total ?? rows.length;
+        if (batch.length < PAGE_SIZE || rows.length >= total) break;
+        page += 1;
       }
+      setEmailLogs(rows);
+      setTotalCount(total);
     } catch (err) {
       console.error('Error fetching email logs:', err);
       setError(err.response?.data?.error || 'Failed to fetch email logs');
@@ -152,14 +160,13 @@ const MailLog = () => {
       {/* overflow:visible (not MUI's default overflow-x:auto) so the PAGE, not this
           unbounded container, is the header's sticky scrollport — otherwise it never pins. */}
       <TableContainer sx={{ boxShadow: 'none', bgcolor: 'transparent', overflow: 'visible' }}>
-        <Table sx={{ tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0 }}>
+        <Table sx={{ tableLayout: 'auto', borderCollapse: 'separate', borderSpacing: 0 }}>
           <TableHead>
             <TableRow sx={{ height: 51 }}>
               {COLUMNS.map((col, i) => (
                 <TableCell
                   key={col.key}
                   sx={{
-                    width: col.width,
                     bgcolor: '#5ebbeb',
                     color: '#ffffff',
                     fontSize: 16,
@@ -171,6 +178,10 @@ const MailLog = () => {
                     top: 0,
                     zIndex: 10,
                     whiteSpace: 'nowrap',
+                    // Reference: the last column is only as wide as its header, so
+                    // "Has Attachment" ends at the table's right edge and the icons
+                    // sit centred under it.
+                    ...(col.key === 'hasAttachment' ? { width: '1%', textAlign: 'center' } : {}),
                     borderTopLeftRadius: i === 0 ? 12 : 0,
                     borderBottomLeftRadius: i === 0 ? 12 : 0,
                     borderTopRightRadius: i === COLUMNS.length - 1 ? 12 : 0,
@@ -209,12 +220,12 @@ const MailLog = () => {
                   <TableCell sx={subjectCellSx}>{log.subject}</TableCell>
                   <TableCell sx={cellSx}>{formatDate(log.sentAt)}</TableCell>
                   <TableCell sx={{ ...cellSx, textAlign: 'center' }}>
+                    {/* Reference glyphs are ~14px wide (green check, red cross); MUI's
+                        outlined icons fill ~70% of their box, hence 20px. */}
                     {log.hasAttachment ? (
-                      <CheckIcon sx={{ color: '#15803d', fontSize: 16, display: 'block', mx: 'auto' }} />
+                      <CheckIcon sx={{ color: '#15803d', fontSize: 20, display: 'block', mx: 'auto', my: '-0.5px' }} />
                     ) : (
-                      // ponytail: FALSE branch is unverified against the reference (no FALSE rows there);
-                      // left as the existing local rendering, only centring changed.
-                      <CloseIcon sx={{ color: '#b91c1c', fontSize: 16, display: 'block', mx: 'auto' }} />
+                      <CloseIcon sx={{ color: '#b91c1c', fontSize: 20, display: 'block', mx: 'auto', my: '-0.5px' }} />
                     )}
                   </TableCell>
                 </TableRow>
