@@ -212,6 +212,10 @@ const StockList = () => {
   }, [searchTerm]);
 
   const renamingId = editingCell?.field === "name" ? editingCell.productId : null;
+  // Products renamed under the current typed search: { search, ids }
+  const [keptProducts, setKeptProducts] = useState({ search: null, ids: [] });
+  const searchShownRef = useRef(gridSearchShown);
+  searchShownRef.current = gridSearchShown;
 
   // Products the grid shows for the current search / selection / stock filter
   const filteredProducts = useMemo(() => {
@@ -237,8 +241,10 @@ const StockList = () => {
       const lower = gridSearchShown.toLowerCase();
       filtered = filtered.filter(
         (product) =>
-          // the product being renamed stays while its name is typed
+          // the product being renamed stays while its name is typed, and after
+          // (until the search changes)
           product.id === renamingId ||
+          (keptProducts.search === gridSearchShown && keptProducts.ids.includes(product.id)) ||
           matchesProductSearch(product, gridSearchShown) ||
           product.category?.name?.toLowerCase().includes(lower) ||
           product.brand?.name?.toLowerCase().includes(lower) ||
@@ -254,7 +260,7 @@ const StockList = () => {
     }
 
     return rankProducts(filtered, gridSearchShown);
-  }, [products, gridSearchShown, gridOption, gridStockOnly, renamingId]);
+  }, [products, gridSearchShown, gridOption, gridStockOnly, renamingId, keptProducts]);
 
   // Grouped autocomplete options: Categories first, then Products
   // The grid is one row per PRICE POINT. Flatten once, with the same per-row
@@ -412,6 +418,7 @@ const StockList = () => {
       // Grid rows are the server's stockRows: default rows plus named price-set rows.
       productsArray = productsArray.map(product => ({
         ...product,
+        savedName: product.name, // the server's name (typing changes `name` live)
         prices: (product.stockRows || product.prices)?.map(price => ({
           ...price,
           // What the server holds: typing changes price/quantity live, a save
@@ -590,8 +597,28 @@ const StockList = () => {
       }
 
       if (field === 'name') {
-        updatedProduct.name = newValue;
-      } else if (field === 'currentStockItems') {
+        // The name as the server holds it (typing changes `name` live)
+        const savedName = updatedProduct.savedName ?? updatedProduct.name;
+        const putName = (values) => setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, ...values } : p)));
+        const name = String(newValue ?? '').trim();
+        // An empty name is not saved; nothing changed is not sent
+        if (!name || name === savedName) return putName({ name: savedName });
+        putName({ name, savedName: name });
+        // Typed search: the renamed product stays in the grid until the search
+        // changes (its new name may no longer match what was typed)
+        setKeptProducts((k) => ({ search: searchShownRef.current, ids: [...(k.search === searchShownRef.current ? k.ids : []), productId] }));
+        try {
+          // skipOutletScope: an admin working in an outlet would otherwise get that
+          // outlet stamped on the product, taking a global product out of every other outlet
+          await productService.updateProduct(productId, { name }, { skipOutletScope: true });
+        } catch (apiError) {
+          console.error("Error updating product via API:", apiError);
+          putName({ name: savedName, savedName });
+        }
+        return;
+      }
+
+      if (field === 'currentStockItems') {
         // Only allow editing of stock quantity
         updatedProduct[field] = parseInt(newValue);
       }
@@ -603,9 +630,7 @@ const StockList = () => {
       try {
         // skipOutletScope: an admin working in an outlet would otherwise get that
         // outlet stamped on the product, taking a global product out of every other outlet
-        if (field === 'name') {
-          await productService.updateProduct(productId, { name: updatedProduct.name }, { skipOutletScope: true });
-        } else if (field === 'currentStockItems') {
+        if (field === 'currentStockItems') {
           // Update stock quantity
           console.log('Updating stock quantity:', { productId, currentStockItems: updatedProduct.currentStockItems });
           await productService.updateProduct(productId, {
