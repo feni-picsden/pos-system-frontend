@@ -134,7 +134,9 @@ const productService = {
       throw error;
     }
   },
-  updateProduct: async (id, productData) => {
+  // options: axios config, e.g. { skipOutletScope: true } for a partial edit of an
+  // existing product (the interceptor would otherwise move it to the navbar outlet)
+  updateProduct: async (id, productData, options = {}) => {
     try {
       apiClient.bustCache(`/products/${id}`);
       apiClient.bustCache('/products');
@@ -173,7 +175,7 @@ const productService = {
       if (productData.loyaltyRows !== undefined) transformedData.loyaltyRows = productData.loyaltyRows || [];
       if (productData.images !== undefined) transformedData.images = productData.images || [];
 
-      const response = await apiClient.put(`/products/${id}`, transformedData);
+      const response = await apiClient.put(`/products/${id}`, transformedData, options);
       return response.data;
     } catch (error) {
       console.error('Error updating product:', error);

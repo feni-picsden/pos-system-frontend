@@ -50,6 +50,14 @@ const editInputSx = (width, height = 42) => ({
 // reference only shows a "Keep Typing to Search..." hint.
 const GROUP_ORDER = ["Categories", "Families", "Products", "Price Sets"];
 const GROUP_ICONS = { Categories: CategoryIcon, Families: FamilyIcon, Products: ProductIcon, "Price Sets": PriceSetIcon };
+
+// Reference "No Products" panel: a crossed circle beside the message
+const EmptyIcon = () => (
+  <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
+    <circle cx="70" cy="70" r="55" fill="none" stroke="#000" strokeWidth="10" />
+    <line x1="132" y1="8" x2="8" y2="132" stroke="#000" strokeWidth="10" strokeLinecap="round" />
+  </svg>
+);
 const HINT_OPTION = { type: "hint", label: "Keep Typing to Search..." };
 const ALL_PRODUCTS_LIMIT = 100000;
 
@@ -157,6 +165,8 @@ const StockList = () => {
   // What the grid is filtered by: the search box text once typing pauses.
   const [gridSearch, setGridSearch] = useState("");
   const moreRowsRef = useRef(null);
+  const gridRef = useRef(null);
+  const [gridHeight, setGridHeight] = useState(null);
   const searchBoxRef = useRef(null);
   const searchPopperRef = useRef(null);
   const [searchBoxWidth, setSearchBoxWidth] = useState(null);
@@ -173,6 +183,8 @@ const StockList = () => {
   // Saves read the latest products without re-creating the row callbacks.
   const productsRef = useRef(products);
   productsRef.current = products;
+  // Pending price save per product (saves of one product are sent in order)
+  const saveQueue = useRef(new Map());
 
   // Fetch products on component mount
   useEffect(() => {
@@ -199,6 +211,8 @@ const StockList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  const renamingId = editingCell?.field === "name" ? editingCell.productId : null;
+
   // Products the grid shows for the current search / selection / stock filter
   const filteredProducts = useMemo(() => {
     let filtered = Array.isArray(products) ? products : [];
@@ -216,11 +230,15 @@ const StockList = () => {
         (product.prices || []).some((row) => row.priceSetId === gridOption.id)
       );
     } else if (gridOption?.type === "Products") {
-      filtered = filtered.filter((product) => product.name === gridOption.label);
+      // By id: matching the name dropped the row on the first key of a rename
+      // (and picked up every other product of the same name)
+      filtered = filtered.filter((product) => product.id === gridOption.id);
     } else if (gridSearchShown) {
       const lower = gridSearchShown.toLowerCase();
       filtered = filtered.filter(
         (product) =>
+          // the product being renamed stays while its name is typed
+          product.id === renamingId ||
           matchesProductSearch(product, gridSearchShown) ||
           product.category?.name?.toLowerCase().includes(lower) ||
           product.brand?.name?.toLowerCase().includes(lower) ||
@@ -236,7 +254,7 @@ const StockList = () => {
     }
 
     return rankProducts(filtered, gridSearchShown);
-  }, [products, gridSearchShown, gridOption, gridStockOnly]);
+  }, [products, gridSearchShown, gridOption, gridStockOnly, renamingId]);
 
   // Grouped autocomplete options: Categories first, then Products
   // The grid is one row per PRICE POINT. Flatten once, with the same per-row
@@ -317,11 +335,33 @@ const StockList = () => {
           setPaging((p) => ({ key: viewKey, rows: (p.key === viewKey ? p.rows : ROWS_STEP) + ROWS_STEP }));
         }
       },
-      { rootMargin: "800px 0px" }
+      // the grid is its own scroll box: watch the marker within it
+      { root: gridRef.current, rootMargin: "800px 0px" }
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, [visibleRows, sortedRows.length, loading, viewKey]);
+
+  // Grid height: from its top on the page to the window's bottom, less the
+  // page's bottom padding, so the sideways scrollbar is always in view and the
+  // header stays on top (re-measured when the window resizes)
+  // A new search / selection / filter / sort starts at the top of the grid
+  useEffect(() => {
+    gridRef.current?.scrollTo?.({ top: 0 });
+  }, [viewKey]);
+
+  const hasRows = sortedRows.length > 0;
+  useEffect(() => {
+    const measure = () => {
+      const el = gridRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      setGridHeight(Math.max(240, Math.floor(window.innerHeight - top - 32)));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [loading, hasRows]);
 
   const searchOptions = useMemo(() => {
     const list = Array.isArray(products) ? products : [];
@@ -374,6 +414,10 @@ const StockList = () => {
         ...product,
         prices: (product.stockRows || product.prices)?.map(price => ({
           ...price,
+          // What the server holds: typing changes price/quantity live, a save
+          // compares against these (and skips when nothing changed)
+          savedPrice: price.price,
+          savedQuantity: price.quantity,
           profitPercentage: calculateProfitPercentage(
             (product.itemCost || 0) * (Number(price.quantity) || 1),
             price.price || 0
@@ -470,44 +514,83 @@ const StockList = () => {
     try {
       let updatedProduct = { ...before.find(p => p.id === productId) };
 
+      if (field === 'price' || field === 'profitPercentage' || field === 'quantity') {
+        // One price row changes, saved on the very row the grid shows (an outlet's
+        // own price stays that outlet's): the old full-product PUT rebuilt every
+        // row without its outlet, so one outlet's edit re-priced every outlet.
+        const row = updatedProduct.prices?.[priceIndex] || { quantity: 1 };
+        const itemCost = updatedProduct.itemCost || 0;
+        const savedQty = Number(row.savedQuantity ?? row.quantity) || 1;
+        const savedPrice = row.savedPrice != null ? Number(row.savedPrice) : null;
+        const toCents = (v) => Math.round(v * 100) / 100;
+        const margin = (price, cost) => (price > 0 ? ((price - cost) / price) * 100 : 0);
+        const putRow = (values) => setProducts((prev) => prev.map((p) => (p.id !== productId ? p : {
+          ...p,
+          prices: (p.prices?.length ? p.prices : [row]).map((pp, i) => (i === priceIndex ? { ...pp, ...values } : pp)),
+        })));
+        // Back to what the server holds (nothing changed, invalid, failed or deferred)
+        const restore = () => putRow({
+          price: savedPrice ?? row.price, quantity: savedQty,
+          savedPrice: row.savedPrice, savedQuantity: row.savedQuantity,
+          profitPercentage: margin(Number(savedPrice ?? row.price) || 0, itemCost * savedQty),
+        });
+
+        let quantity = savedQty;
+        let price = savedPrice ?? 0;
+        if (field === 'quantity') {
+          quantity = parseInt(newValue, 10);
+          // a tier move keeps its price; a $0 row has no price to keep
+          if (!(quantity > 0) || quantity === savedQty || !(price > 0)) return restore();
+        } else if (field === 'price') {
+          const typed = parseFloat(newValue);
+          if (!(typed > 0) || typed === savedPrice) return restore();
+          price = toCents(typed);
+        } else {
+          // Price from the target margin on the ROW's cost (itemCost x quantity),
+          // to the cent: an unrounded result stored values like 11.99953980671882.
+          const pct = parseFloat(newValue);
+          if (!(pct < 100)) return restore(); // 100%+ has no finite price
+          price = toCents((itemCost * savedQty) / (1 - pct / 100));
+          if (!(price > 0) || (savedPrice != null && price === toCents(savedPrice))) return restore();
+        }
+        const cost = itemCost * quantity;
+        // Saved values move at once, so a next edit sent before this answer
+        // starts from them (a stale quantity sent a second move to the wrong row)
+        putRow({ price, quantity, profitPercentage: margin(price, cost), savedPrice: price, savedQuantity: quantity });
+        try {
+          // One product's saves go one after another: sent together, a quantity
+          // move could land first and the price save then found its row "changed"
+          const send = () => productService.bulkUpdatePrices([{
+            productId,
+            prices: [{
+              quantity, fromQuantity: savedQty, price, cost,
+              percentage: cost > 0 ? toCents(margin(price, cost)) : 0,
+              priceSetId: row.priceSetId ?? null,
+              priceId: row.id,
+            }],
+          }]);
+          const queued = (saveQueue.current.get(productId) || Promise.resolve()).then(send);
+          saveQueue.current.set(productId, queued.catch(() => {}));
+          const res = await queued;
+          const result = res?.results?.find((r) => Number(r.productId) === Number(productId));
+          if (result && result.success === false) throw new Error(result.error || 'Save failed');
+          // Price Activation Time queued it as a Future Price: the live price stays
+          if (result?.deferredPrices?.length) restore();
+          // A retail price change queues the product for shelf ticket printing (same as Capped Pricing).
+          if (field !== 'quantity') {
+            await shelfTicketService
+              .addShelfTicket({ productId, ticketType: 'Everyday', productGrouping: null })
+              .catch((err) => console.error('Error adding shelf ticket:', err));
+          }
+        } catch (apiError) {
+          console.error("Error updating price via API:", apiError);
+          restore();
+        }
+        return;
+      }
+
       if (field === 'name') {
         updatedProduct.name = newValue;
-      } else if (field === 'price') {
-        // When price changes, calculate profit percentage.
-        // Cost basis is the ROW's cost: itemCost x row quantity (a qty-10 row
-        // costs 10 singles), same basis as the grid's own Cost cell.
-        const rowQty = Number(updatedProduct.prices?.[priceIndex]?.quantity) || 1;
-        const cost = (updatedProduct.itemCost || 0) * rowQty;
-        const price = parseFloat(newValue);
-        const profitPercentage = price > 0 ? ((price - cost) / price * 100) : 0;
-
-        // Update specific price point
-        updatedProduct.prices = updatedProduct.prices?.map((priceObj, index) =>
-          index === priceIndex ? { ...priceObj, price: price, profitPercentage: profitPercentage } : priceObj
-        ) || [{ price: price, quantity: 1, profitPercentage: profitPercentage }];
-
-      } else if (field === 'profitPercentage') {
-        // When profit percentage changes, calculate price from the ROW's cost
-        // (itemCost x row quantity). 100%+ has no finite price - keep the old one.
-        const rowQty = Number(updatedProduct.prices?.[priceIndex]?.quantity) || 1;
-        const cost = (updatedProduct.itemCost || 0) * rowQty;
-        const profitPercentage = parseFloat(newValue);
-        if (!(profitPercentage < 100)) {
-          return; // invalid target margin - do not write price 0
-        }
-        const price = cost / (1 - profitPercentage / 100);
-
-        // Update specific price point
-        updatedProduct.prices = updatedProduct.prices?.map((priceObj, index) =>
-          index === priceIndex ? { ...priceObj, price: price, profitPercentage: profitPercentage } : priceObj
-        ) || [{ price: price, quantity: 1, profitPercentage: profitPercentage }];
-
-      } else if (field === 'quantity') {
-        // Update quantity for specific price point
-        updatedProduct.prices = updatedProduct.prices?.map((priceObj, index) => 
-          index === priceIndex ? { ...priceObj, quantity: parseInt(newValue) } : priceObj
-        ) || [{ price: 0, quantity: parseInt(newValue) }];
-        
       } else if (field === 'currentStockItems') {
         // Only allow editing of stock quantity
         updatedProduct[field] = parseInt(newValue);
@@ -518,47 +601,16 @@ const StockList = () => {
 
       // Make API call to save changes (prices save automatically, no Save button)
       try {
+        // skipOutletScope: an admin working in an outlet would otherwise get that
+        // outlet stamped on the product, taking a global product out of every other outlet
         if (field === 'name') {
-          await productService.updateProduct(productId, { name: updatedProduct.name });
-        } else if (field === 'price' || field === 'profitPercentage' || field === 'quantity') {
-          // Update product prices - API expects prices array with quantity, price, cost, percentage
-          // Each row's cost is itemCost x its quantity - sending the single-item
-          // cost for every row corrupted every untouched tier's stored margin.
-          // The PUT rebuilds every price row, so each row keeps its priceSetId and
-          // the set rows this outlet doesn't list go back unchanged.
-          const pricesData = [
-            ...(updatedProduct.prices || []).map(price => ({
-              quantity: price.quantity || 1,
-              price: price.price || 0,
-              cost: (updatedProduct.itemCost || 0) * (Number(price.quantity) || 1),
-              percentage: 0, // API expects percentage field
-              priceSetId: price.priceSetId ?? null,
-            })),
-            ...(updatedProduct.otherSetRows || []).map(price => ({
-              quantity: price.quantity || 1,
-              price: price.price || 0,
-              cost: price.cost || 0,
-              percentage: price.percentage || 0,
-              priceSetId: price.priceSetId,
-            })),
-          ];
-
-          await productService.updateProduct(productId, {
-            prices: pricesData
-          });
-
-          // A retail price change queues the product for shelf ticket printing (same as Capped Pricing).
-          if (field === 'price' || field === 'profitPercentage') {
-            await shelfTicketService
-              .addShelfTicket({ productId, ticketType: 'Everyday', productGrouping: null })
-              .catch((err) => console.error('Error adding shelf ticket:', err));
-          }
+          await productService.updateProduct(productId, { name: updatedProduct.name }, { skipOutletScope: true });
         } else if (field === 'currentStockItems') {
           // Update stock quantity
           console.log('Updating stock quantity:', { productId, currentStockItems: updatedProduct.currentStockItems });
           await productService.updateProduct(productId, {
             currentStockItems: updatedProduct.currentStockItems
-          });
+          }, { skipOutletScope: true });
         }
       } catch (apiError) {
         console.error("Error updating product via API:", apiError);
@@ -727,6 +779,8 @@ const StockList = () => {
                 border: "1px solid #000",
                 borderRadius: "8px",
                 boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
+                // freeSolo opens an empty list when nothing matches; hide it (no stray line)
+                "&:empty": { display: "none" },
                 "& .MuiAutocomplete-listbox": { maxHeight: 288, padding: 0 },
                 "& .MuiAutocomplete-groupLabel": {
                   fontSize: 16,
@@ -806,13 +860,32 @@ const StockList = () => {
       {/* Table */}
       {/* Cells stay on one line with 24px column gaps; when that outgrows the page
           the table scrolls sideways inside this rounded box (corners stay round). */}
-      <TableContainer component={Paper} sx={{ boxShadow: "none", borderRadius: "12px", overflowX: "auto" }}>
-        <Table>
+      {sortedRows.length === 0 ? (
+        // Reference: nothing in scope shows a crossed circle and a message
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, py: 6, opacity: updating ? 0.5 : 1 }}>
+          <EmptyIcon />
+          <Box>
+            <Typography sx={{ fontSize: 24, fontWeight: 700, color: "#000", mb: 3 }}>No Products</Typography>
+            <Typography sx={{ fontSize: 16, color: "#000" }}>Search did not yield any results.</Typography>
+          </Box>
+        </Box>
+      ) : (
+      <TableContainer
+        ref={gridRef}
+        component={Paper}
+        // until measured, a safe height (unbounded let the first draw load extra rows)
+        sx={{ boxShadow: "none", borderRadius: "12px", overflow: "auto", maxHeight: gridHeight ?? "60vh" }}
+      >
+        <Table stickyHeader>
           <TableHead>
             <TableRow
               sx={{
                 backgroundColor: "#5ebbeb",
                 "& th": {
+                  backgroundColor: "#5ebbeb", // a sticky header cell paints its own background
+                  // ...and at 125% / 150% scaling a hairline seam showed between
+                  // cells; 1px of the same blue to the right covers it
+                  boxShadow: "1px 0 0 #5ebbeb",
                   color: "#fff",
                   fontWeight: 700,
                   fontSize: 16,
@@ -874,6 +947,7 @@ const StockList = () => {
           </TableBody>
         </Table>
       </TableContainer>
+      )}
     </Container>
   );
 };
