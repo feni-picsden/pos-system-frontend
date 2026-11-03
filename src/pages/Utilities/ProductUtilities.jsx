@@ -12,30 +12,28 @@ import {
   Checkbox,
   TextField,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   Autocomplete,
   Chip,
+  IconButton,
   Grid,
   Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from '@mui/material';
 import {
   VisibilityOutlined as VisibilityIcon,
   CheckBoxOutlineBlankOutlined as SquareIcon,
   CheckBoxOutlined as CheckSquareIcon,
   IndeterminateCheckBoxOutlined as IndeterminateSquareIcon,
+  FindInPageOutlined as NoResultsIcon,
+  Close as CloseIcon,
+  QuestionMarkRounded as QuestionIcon,
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { Link as RouterLink } from 'react-router-dom';
 import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
-import inventoryReportService from '../../services/inventoryReportService';
-import barcodeService from '../../services/barcodeService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 
@@ -48,6 +46,16 @@ const checkboxGlyphs = {
   icon: <SquareIcon />,
   checkedIcon: <CheckSquareIcon />,
   indeterminateIcon: <IndeterminateSquareIcon />,
+};
+
+// Reference multi-select tag: flat light-grey 4px-radius tag, black 16px text, no cross.
+const tagChipSx = {
+  height: 26,
+  borderRadius: '4px',
+  bgcolor: '#e5e5e5',
+  color: '#000',
+  fontSize: 16,
+  '& .MuiChip-label': { px: 1 },
 };
 
 // Reference tokens: static label above every control, no floating MUI labels.
@@ -66,6 +74,44 @@ const fieldSx = {
   },
   '& input::placeholder': { color: '#808080', opacity: 1 },
 };
+
+// Every open list (Select and Autocomplete): 10px under the field, 1px dark
+// border, 8px radius, 56px rows (five visible), picked row in blue, and the
+// hovered / keyboard row marked by a faint grey fill (no rule lines).
+const activeRowSx = { bgcolor: 'rgba(0, 0, 0, 0.04)' };
+const selectMenuProps = {
+  anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+  transformOrigin: { vertical: 'top', horizontal: 'left' },
+  PaperProps: {
+    sx: {
+      mt: '10px',
+      maxHeight: 289,
+      border: '1px solid #000',
+      borderRadius: '8px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      '& .MuiMenu-list': { py: '2px' },
+      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+      '& .MuiMenuItem-root.Mui-selected': { color: '#00a6f4', bgcolor: 'transparent' },
+      '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': activeRowSx,
+    },
+  },
+};
+
+// Reference: a field with a value always shows a small black × before its arrow
+// (MUI only shows the Autocomplete one on hover/focus, and Select has none).
+const clearIconSx = { fontSize: 18, color: '#000' };
+const clearAdornment = (show, onClear) =>
+  show ? (
+    <IconButton
+      size="small"
+      aria-label="Clear"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); onClear(); }}
+      sx={{ p: '2px', mr: '20px' }}
+    >
+      <CloseIcon sx={clearIconSx} />
+    </IconButton>
+  ) : null;
 
 // A missing date must read as "unknown", never as 1970: new Date(null) is the epoch,
 // which silently dropped every product out of any realistic range.
@@ -93,44 +139,15 @@ const inRange = (value, start, end) => {
   return true;
 };
 
-// The product list payload carries no sold/purchased/stocktaked dates, so those filters
-// could never match anything. Hydrate them from the existing report endpoints, and only
-// when one of those filters is actually set.
-// ponytail: last-stocktaked comes from /barcodes, so it only covers barcoded products;
-// widen it when a per-product stocktake endpoint exists.
-const loadActivityDates = async (needSales, needStocktake) => {
-  const byId = new Map();
-  const put = (id, patch) => byId.set(id, { ...byId.get(id), ...patch });
-  const jobs = [];
-
-  if (needSales) {
-    jobs.push(
-      inventoryReportService.getSlowMovingStock({}).then((res) => {
-        (res?.data || []).forEach((row) =>
-          put(row.id, { lastSold: row.lastSold, lastPurchased: row.lastReceived || row.lastOrdered })
-        );
-      })
-    );
-  }
-
-  if (needStocktake) {
-    jobs.push(
-      barcodeService.getBarcodes({}).then((res) => {
-        (res?.data || []).forEach((row) => {
-          const prev = byId.get(row.productId)?.lastStocktaked;
-          if (row.lastStocktakedAt && (!prev || new Date(row.lastStocktakedAt) > new Date(prev))) {
-            put(row.productId, { lastStocktaked: row.lastStocktakedAt });
-          }
-        });
-      })
-    );
-  }
-
-  // A missing report permission must not break the page — those products just stay undated.
-  await Promise.all(
-    jobs.map((job) => job.catch((err) => console.error('Error loading product activity dates:', err)))
-  );
-  return byId;
+// The product list payload carries no sold/purchased/stocktaked dates. They come
+// from /products/activity-dates (every product, outlet-wise), fetched only when one
+// of those filters is set. It used to borrow them from the Slow Moving Stock report
+// (which leaves out fast sellers, zero stock and combos) and /barcodes (barcoded
+// products only), so those filters silently dropped products. A failure is an
+// error, not "no dates": treating it as undated would empty the list.
+const loadActivityDates = async () => {
+  const res = await productService.getActivityDates();
+  return new Map(Object.entries(res?.dates || {}).map(([id, d]) => [Number(id), d]));
 };
 
 const barButtonSx = (enabledBg, width) => ({
@@ -154,6 +171,42 @@ const barButtonSx = (enabledBg, width) => ({
     pointerEvents: 'auto',
   },
 });
+
+// Reference bulk dialogs: width hugs the prompt line, 8px radius, pale-blue
+// 60px title bar with a "?" glyph, 16px body padding, two equal-width buttons
+// (grey Cancel + sky-blue action) right-aligned.
+const bulkDialogPaperSx = { borderRadius: '8px', m: 2, maxWidth: 'calc(100% - 32px)' };
+const BulkDialogTitle = ({ children }) => (
+  <Box sx={{ height: 60, px: 2, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#bae6fd' }}>
+    <QuestionIcon sx={{ fontSize: 24, color: '#5ebbeb' }} />
+    <Typography component="h2" sx={{ fontSize: 18, fontWeight: 700, color: '#075985' }}>
+      {children}
+    </Typography>
+  </Box>
+);
+const dialogButtonSx = (bg, color) => ({
+  height: 42,
+  px: '32px',
+  borderRadius: '12px',
+  fontSize: 16,
+  fontWeight: 700,
+  textTransform: 'none',
+  boxShadow: 'none',
+  bgcolor: bg,
+  color,
+  border: `1px solid ${bg}`,
+  '&:hover': { bgcolor: bg, boxShadow: 'none', filter: 'brightness(0.94)' },
+  '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373', border: '1px solid #737373', cursor: 'not-allowed', pointerEvents: 'auto' },
+});
+const BulkDialogActions = ({ onCancel, onConfirm, confirmLabel, disabled }) => (
+  // grid columns of 1fr make both buttons as wide as the longer label
+  <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 2, pb: 2, pt: 3 }}>
+    <Box sx={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: '1fr', gap: 2 }}>
+      <Button onClick={onCancel} sx={dialogButtonSx('#d4d4d4', '#000')}>Cancel</Button>
+      <Button onClick={onConfirm} disabled={disabled} sx={dialogButtonSx('#00a6f4', '#fff')}>{confirmLabel}</Button>
+    </Box>
+  </Box>
+);
 
 const ProductUtilities = () => {
   const [products, setProducts] = useState([]);
@@ -307,7 +360,12 @@ const ProductUtilities = () => {
       // Filter by stock level
       if (stockLevel !== 'Any Stock Level') {
         filteredProducts = filteredProducts.filter(p => {
-          const stockItems = p.currentStockItems !== undefined ? p.currentStockItems : (p.inventory || 0);
+          // Total units on hand. currentStockItems alone is only the loose items: a
+          // product held as 9 cases + 0 items read as Zero Stock. `inventory` is the
+          // stored cases x caseQuantity + items; rebuild it if a payload lacks it.
+          const stockItems = p.inventory !== undefined && p.inventory !== null
+            ? Number(p.inventory)
+            : (Number(p.currentStockCases) || 0) * (Number(p.caseQuantity) || 1) + (Number(p.currentStockItems) || 0);
 
           switch (stockLevel) {
             case 'Positive Stock':
@@ -322,7 +380,8 @@ const ProductUtilities = () => {
 
               const matches = (value) => {
                 if (stockOperation === 'More than (>)') return value > threshold;
-                if (stockOperation === 'Equals to (=)') return value === threshold;
+                // stock is held to 2 decimals; compare at that precision
+                if (stockOperation === 'Equals to (=)') return Math.abs(value - threshold) < 0.005;
                 return value < threshold;
               };
 
@@ -330,7 +389,7 @@ const ProductUtilities = () => {
               // the list endpoint returns the rolled-up figure, so a single-value
               // fallback makes Any/All/Sum agree — which is correct for one location.
               const perLocation = Array.isArray(p.product_outlets) && p.product_outlets.length > 0
-                ? p.product_outlets.map(po => po.currentStockItems || 0)
+                ? p.product_outlets.map(po => (Number(po.currentStockCases) || 0) * (Number(p.caseQuantity) || 1) + (Number(po.currentStockItems) || 0))
                 : [stockItems];
 
               if (stockLocation === 'All Locations') return perLocation.every(matches);
@@ -360,7 +419,7 @@ const ProductUtilities = () => {
       const needSales = Boolean(lastSoldStart || lastSoldEnd || lastPurchasedStart || lastPurchasedEnd);
       const needStocktake = Boolean(lastStocktakedStart || lastStocktakedEnd);
       const activityDates = needSales || needStocktake
-        ? await loadActivityDates(needSales, needStocktake)
+        ? await loadActivityDates()
         : new Map();
 
       // Filter by last sold date
@@ -558,43 +617,83 @@ const ProductUtilities = () => {
     </Grid>
   );
 
-  const multiSelect = (label, placeholder, options, value, onChange) => (
-    <Grid item xs={12} md={6} lg={3}>
-      <FieldLabel>{label}</FieldLabel>
-      <Autocomplete
-        multiple
-        disableCloseOnSelect
-        options={options}
-        getOptionLabel={(option) => option.name || option}
-        isOptionEqualToValue={(o, v) => (o.id ?? o) === (v.id ?? v)}
-        value={value}
-        onChange={(e, newValue) => onChange(newValue)}
-        size="small"
-        sx={fieldSx}
-        slotProps={{ paper: { sx: { borderRadius: '8px' } } }}
-        renderOption={(props, option, { selected }) => {
-          const { key, ...optionProps } = props;
-          return (
-            <li key={key} {...optionProps}>
-              <Checkbox
-                {...checkboxGlyphs}
-                checked={selected}
-                sx={{ p: 0.5, mr: 1, color: '#000', '&.Mui-checked': { color: '#000' } }}
-              />
-              {option.name || option}
-            </li>
-          );
-        }}
-        renderInput={(params) => <TextField {...params} placeholder={placeholder} />}
-        renderTags={(vals, getTagProps) =>
-          vals.map((option, index) => {
-            const { key, ...tagProps } = getTagProps({ index });
-            return <Chip key={key} label={option.name || option} size="small" {...tagProps} />;
-          })
-        }
-      />
-    </Grid>
-  );
+  // Reference multi-select (Category / Brands / Families / Tags):
+  //  - the field shows the first two picks, then a "N More..." chip;
+  //  - chips are flat grey tags without a remove cross (the field's X clears all);
+  //  - the open list keeps its own order (picks are not moved to the top);
+  //    picked rows read blue with a blue tick.
+  const optionKey = (o) => o?.id ?? o?.name ?? o;
+  const multiSelect = (label, placeholder, options, value, onChange) => {
+    return (
+      <Grid item xs={12} md={6} lg={3}>
+        <FieldLabel>{label}</FieldLabel>
+        <Autocomplete
+          multiple
+          disableCloseOnSelect
+          options={options}
+          getOptionLabel={(option) => option.name || option}
+          isOptionEqualToValue={(o, v) => optionKey(o) === optionKey(v)}
+          value={value}
+          onChange={(_e, newValue) => onChange(newValue)}
+          size="small"
+          sx={{
+            ...fieldSx,
+            '& .MuiAutocomplete-clearIndicator': { visibility: value.length ? 'visible' : 'hidden', p: '2px' },
+            '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': clearIconSx,
+          }}
+          // Reference list: 1px dark border, 8px radius, ~10px below the field,
+          // 56px rows (five visible), small square tick 16px from the left edge.
+          // MUI 5 Autocomplete has no listbox slot, so the list rows are styled
+          // from the paper (an ancestor), one class deeper than MUI's own rules.
+          slotProps={{
+            paper: {
+              sx: {
+                mt: '10px',
+                border: '1px solid #000',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
+                '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+                '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent' },
+                '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': activeRowSx,
+              },
+            },
+          }}
+          renderOption={(props, option, { selected }) => {
+            const { key: _key, ...optionProps } = props;
+            return (
+              <li
+                key={optionKey(option)}
+                {...optionProps}
+                style={{ ...optionProps.style, color: selected ? '#00a6f4' : undefined }}
+              >
+                <Checkbox
+                  {...checkboxGlyphs}
+                  checked={selected}
+                  sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                />
+                {option.name || option}
+              </li>
+            );
+          }}
+          renderInput={(params) => <TextField {...params} placeholder={value.length ? '' : placeholder} />}
+          // Two tags, then "N More..." - also while the list is open (MUI's
+          // limitTags only applies when the field is not focused).
+          renderTags={(vals, getTagProps) => {
+            const shown = vals.slice(0, 2).map((option, index) => {
+              // eslint-disable-next-line no-unused-vars
+              const { key, onDelete, ...tagProps } = getTagProps({ index });
+              return <Chip key={key} label={option.name || option} size="small" sx={tagChipSx} {...tagProps} />;
+            });
+            if (vals.length > 2) {
+              shown.push(<Chip key="more" label={`${vals.length - 2} More...`} size="small" sx={tagChipSx} />);
+            }
+            return shown;
+          }}
+        />
+      </Grid>
+    );
+  };
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -631,12 +730,29 @@ const ProductUtilities = () => {
                 displayEmpty
                 value={selectedStatuses}
                 onChange={(e) => setSelectedStatuses(e.target.value)}
+                MenuProps={selectMenuProps}
+                endAdornment={clearAdornment(selectedStatuses.length > 0, () => setSelectedStatuses([]))}
+                // Same tags as the Category field: two chips, then "N More..."
                 renderValue={(selected) =>
-                  selected.length ? selected.join(', ') : <span style={{ color: '#808080' }}>Select Statuses...</span>
+                  selected.length ? (
+                    <Box sx={{ display: 'flex', gap: '4px', overflow: 'hidden' }}>
+                      {selected.slice(0, 2).map((s) => <Chip key={s} label={s} size="small" sx={tagChipSx} />)}
+                      {selected.length > 2 && <Chip label={`${selected.length - 2} More...`} size="small" sx={tagChipSx} />}
+                    </Box>
+                  ) : (
+                    <span style={{ color: '#808080' }}>Select Statuses...</span>
+                  )
                 }
+                // 7 + 26 (chip) + 7 = 40px like every other field, with or without chips
+                sx={{ '& .MuiSelect-select.MuiSelect-select': { py: '7px', height: '26px', minHeight: '26px', display: 'flex', alignItems: 'center' } }}
               >
                 {statuses.map((status) => (
                   <MenuItem key={status} value={status}>
+                    <Checkbox
+                      {...checkboxGlyphs}
+                      checked={selectedStatuses.includes(status)}
+                      sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                    />
                     {status}
                   </MenuItem>
                 ))}
@@ -651,8 +767,8 @@ const ProductUtilities = () => {
                 displayEmpty
                 value={selectedHostDeletions}
                 onChange={(e) => setSelectedHostDeletions(e.target.value)}
-                // Reference option rows are 49px tall (2 options -> 114px paper)
-                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 49 } } } }}
+                MenuProps={selectMenuProps}
+                endAdornment={clearAdornment(Boolean(selectedHostDeletions), () => setSelectedHostDeletions(''))}
                 renderValue={(selected) =>
                   selected || <span style={{ color: '#808080' }}>Select Host Deletions...</span>
                 }
@@ -669,7 +785,7 @@ const ProductUtilities = () => {
           <Grid item xs={12} md={6} lg={3}>
             <FieldLabel>Stock Level</FieldLabel>
             <FormControl fullWidth size="small" sx={fieldSx}>
-              <Select value={stockLevel} onChange={(e) => setStockLevel(e.target.value)}>
+              <Select value={stockLevel} onChange={(e) => setStockLevel(e.target.value)} MenuProps={selectMenuProps}>
                 {stockLevels.map((level) => (
                   <MenuItem key={level} value={level}>
                     {level}
@@ -684,7 +800,7 @@ const ProductUtilities = () => {
               <Grid item xs={12} md={6} lg={3}>
                 <FieldLabel>Stock Level Operation</FieldLabel>
                 <FormControl fullWidth size="small" sx={fieldSx}>
-                  <Select value={stockOperation} onChange={(e) => setStockOperation(e.target.value)}>
+                  <Select value={stockOperation} onChange={(e) => setStockOperation(e.target.value)} MenuProps={selectMenuProps}>
                     {stockOperations.map((op) => (
                       <MenuItem key={op} value={op}>
                         {op}
@@ -710,6 +826,7 @@ const ProductUtilities = () => {
                   <Select
                     value={stockLocation}
                     onChange={(e) => setStockLocation(e.target.value)}
+                    MenuProps={selectMenuProps}
                     renderValue={(selected) => selected}
                   >
                     {stockLocationOptions.map((option) => (
@@ -758,7 +875,16 @@ const ProductUtilities = () => {
           </Button>
         </Box>
 
-        {/* Products Table */}
+        {/* Products Table - reference drops the whole table for an empty result
+            and shows a centred icon + hint instead */}
+        {!loading && products.length === 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 5, gap: 1.5 }}>
+            <NoResultsIcon sx={{ fontSize: 60, color: '#000' }} />
+            <Typography sx={{ fontSize: 16, color: '#000' }}>
+              No results found. Change search filters and try again.
+            </Typography>
+          </Box>
+        ) : (
         <TableContainer>
           <Table>
             <TableHead>
@@ -782,7 +908,8 @@ const ProductUtilities = () => {
                     Name
                   </Box>
                 </TableCell>
-                <TableCell align="right" sx={{ width: 161 }}>Actions</TableCell>
+                {/* 16px cell + 16px = the View button's inner padding, so both end on one line */}
+                <TableCell align="right" sx={{ width: 161, pr: '32px' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody
@@ -796,12 +923,6 @@ const ProductUtilities = () => {
                 <TableRow>
                   <TableCell colSpan={2} align="center" sx={{ py: 4, color: '#676b72' }}>
                     Loading products...
-                  </TableCell>
-                </TableRow>
-              ) : products.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={2} align="center" sx={{ py: 4, color: '#676b72' }}>
-                    No products found
                   </TableCell>
                 </TableRow>
               ) : (
@@ -830,7 +951,9 @@ const ProductUtilities = () => {
                           fontSize: 16,
                           textTransform: 'none',
                           borderRadius: '12px',
-                          px: 4,
+                          // 16px side padding: "View" sits a little in from the right, not flush
+                          px: 2,
+                          minWidth: 0,
                           py: 1,
                           textDecoration: 'none',
                           // Reference View link has NO hover change
@@ -846,6 +969,7 @@ const ProductUtilities = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        )}
 
         {error && (
           <Typography sx={{ color: '#dc2626', mt: 2 }}>{error}</Typography>
@@ -908,71 +1032,64 @@ const ProductUtilities = () => {
         <Dialog
           open={changeCaseDialogOpen}
           onClose={handleCloseCaseDialog}
-          maxWidth="sm"
-          fullWidth
+          maxWidth={false}
+          PaperProps={{ sx: bulkDialogPaperSx }}
         >
-          <DialogTitle sx={{ bgcolor: '#5ebbeb', color: '#f8f8f8', py: 1.5, fontWeight: 700 }}>
-            Bulk Change Case
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            <Typography sx={{ mb: 3, mt: 1 }}>
+          <BulkDialogTitle>Bulk Change Case</BulkDialogTitle>
+          <Box sx={{ px: 2, pt: '20px' }}>
+            <Typography sx={{ fontSize: 16, color: '#000', mb: '18px' }}>
               Which case would you like the product names to be?
             </Typography>
-            <FormControl fullWidth>
-              <InputLabel>Casing</InputLabel>
+            <Typography component="label" sx={{ display: 'block', fontSize: 12, color: '#000', mb: '4px' }}>
+              Casing
+            </Typography>
+            <FormControl fullWidth size="small" sx={fieldSx}>
               <Select
+                displayEmpty
                 value={selectedCase}
                 onChange={(e) => setSelectedCase(e.target.value)}
-                label="Casing"
+                MenuProps={selectMenuProps}
+                renderValue={(v) =>
+                  v ? caseOptions.find((o) => o.value === v)?.label : <span style={{ color: '#808080' }}>Select...</span>
+                }
               >
                 {caseOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
+                  // label + example underneath: taller 72px reference rows
+                  <MenuItem key={option.value} value={option.value} sx={{ minHeight: '72px !important' }}>
                     <Box>
-                      <Typography variant="body1">{option.label}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Example: {option.example}
-                      </Typography>
+                      <Typography sx={{ fontSize: 16, color: 'inherit', lineHeight: 1.4 }}>{option.label}</Typography>
+                      <Typography sx={{ fontSize: 12, color: '#676b72' }}>{option.example}</Typography>
                     </Box>
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button onClick={handleCloseCaseDialog} sx={{ textTransform: 'none', color: '#676b72', fontWeight: 700 }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleApplyCaseChange}
-              variant="contained"
-              disabled={!selectedCase}
-              sx={barButtonSx('#5ebbeb')}
-            >
-              Apply
-            </Button>
-          </DialogActions>
+          </Box>
+          <BulkDialogActions
+            onCancel={handleCloseCaseDialog}
+            onConfirm={handleApplyCaseChange}
+            confirmLabel="Continue"
+            disabled={!selectedCase}
+          />
         </Dialog>
 
         {/* Bulk Change Status Dialog */}
         <Dialog
           open={changeStatusDialogOpen}
           onClose={handleCloseStatusDialog}
-          maxWidth="sm"
-          fullWidth
+          maxWidth={false}
+          PaperProps={{ sx: bulkDialogPaperSx }}
         >
-          <DialogTitle sx={{ bgcolor: '#5ebbeb', color: '#f8f8f8', py: 1.5, fontWeight: 700 }}>
-            Bulk Change Status
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            <Typography sx={{ mb: 3, mt: 1 }}>
+          <BulkDialogTitle>Bulk Change Status</BulkDialogTitle>
+          <Box sx={{ px: 2, pt: '20px' }}>
+            <Typography sx={{ fontSize: 16, color: '#000', mb: '8px' }}>
               Select the status to apply to all the selected products.
             </Typography>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
+            <FormControl fullWidth size="small" sx={fieldSx}>
               <Select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                label="Status"
+                MenuProps={selectMenuProps}
               >
                 {statusOptions.map((status) => (
                   <MenuItem key={status} value={status}>
@@ -981,20 +1098,13 @@ const ProductUtilities = () => {
                 ))}
               </Select>
             </FormControl>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button onClick={handleCloseStatusDialog} sx={{ textTransform: 'none', color: '#676b72', fontWeight: 700 }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleApplyStatusChange}
-              variant="contained"
-              disabled={!selectedStatus}
-              sx={barButtonSx('#5ebbeb')}
-            >
-              Apply
-            </Button>
-          </DialogActions>
+          </Box>
+          <BulkDialogActions
+            onCancel={handleCloseStatusDialog}
+            onConfirm={handleApplyStatusChange}
+            confirmLabel="Change"
+            disabled={!selectedStatus}
+          />
         </Dialog>
       </Box>
     </LocalizationProvider>

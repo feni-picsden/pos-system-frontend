@@ -402,7 +402,8 @@ const DateRangePicker = ({
               // (~5px) plus 4px padding and two 6px gaps sit between them.
               gap: 0.75,
               height: 40,
-              px: '2px',
+              // 14px = the text inset of the outlined fields beside it on the page
+              px: '14px',
               bgcolor: '#fff',
               border: '1px solid #404040',
               borderRadius: '8px',
@@ -425,6 +426,8 @@ const DateRangePicker = ({
                       border: 0,
                       bgcolor: 'transparent',
                       font: 'inherit',
+                      // reference date buttons use a monospaced face (Roboto Mono, loaded in index.html)
+                      fontFamily: "'Roboto Mono', monospace",
                       fontSize: 16,
                       textAlign: 'left',
                       cursor: 'pointer',
@@ -437,8 +440,9 @@ const DateRangePicker = ({
               );
             })}
             {allowEmpty && (startDate || endDate) ? (
-              <IconButton size="small" onMouseDown={(e) => e.stopPropagation()} onClick={handleClear}>
-                <Close fontSize="small" />
+              // same small black × as the page's other fields
+              <IconButton size="small" onMouseDown={(e) => e.stopPropagation()} onClick={handleClear} sx={{ p: '2px' }}>
+                <Close sx={{ fontSize: 18, color: '#000' }} />
               </IconButton>
             ) : null}
           </Box>

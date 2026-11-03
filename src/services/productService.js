@@ -235,6 +235,13 @@ const productService = {
     }
   },
 
+  // Product Utilities: { dates: { [productId]: { lastSold, lastPurchased, lastStocktaked } } },
+  // outlet-wise (the navbar outlet travels as ?outletId= for a global admin).
+  getActivityDates: async () => {
+    const response = await apiClient.get('/products/activity-dates', { noCache: true });
+    return response.data;
+  },
+
   // Metcash MSC codes the tenant has mapped onto its classifications (Category/Family/Tag)
   getMscMappings: async (outletId = null) => {
     try {
