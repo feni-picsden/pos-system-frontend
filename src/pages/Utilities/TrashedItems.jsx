@@ -61,7 +61,6 @@ import trashedItemsService from '../../services/trashedItemsService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 
 const FILTER_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' };
-const FIELD_WIDTH = 608;
 
 // Reference checkbox is a 28x32 / radius-4 light square, not MUI's default 42x42 hit area.
 const CHECKBOX_SX = {
@@ -480,9 +479,21 @@ const TrashedItems = () => {
         </Box>
       </Box>
 
-      {/* All three filters on one line, equal widths (they wrap only on narrow screens). */}
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: { xs: 'wrap', md: 'nowrap' }, mb: 3 }}>
-        <Box sx={{ flex: 1, minWidth: 220, maxWidth: FIELD_WIDTH }}>
+      {/* The filter row spans exactly the grid's box (same -16px outdent), so both
+          edges line up with the grid; the three filters share it in equal widths.
+          Narrow screens just wrap. */}
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 2,
+          alignItems: 'flex-start',
+          flexWrap: { xs: 'wrap', md: 'nowrap' },
+          mb: 3,
+          ml: '-16px',
+          width: 'calc(100% + 16px)',
+        }}
+      >
+        <Box sx={{ flex: '1 1 0', minWidth: 220 }}>
           <Typography sx={FILTER_LABEL_SX}>Type</Typography>
           <Select
             value={selectedType}
@@ -533,7 +544,7 @@ const TrashedItems = () => {
           </Select>
         </Box>
 
-        <Box sx={{ flex: 1, minWidth: 220, maxWidth: FIELD_WIDTH }}>
+        <Box sx={{ flex: '1 1 0', minWidth: 220 }}>
           <Typography sx={FILTER_LABEL_SX}>Search by item name</Typography>
           <TextField
             value={searchTerm}
@@ -543,7 +554,7 @@ const TrashedItems = () => {
           />
         </Box>
 
-        <Box sx={{ flex: 1, minWidth: 220, maxWidth: FIELD_WIDTH }}>
+        <Box sx={{ flex: '1 1 0', minWidth: 220 }}>
           <Typography sx={FILTER_LABEL_SX}>Deleted At (Within last 100 days)</Typography>
           <Box
             onClick={(e) => {
