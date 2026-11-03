@@ -169,7 +169,6 @@ const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfir
           outline: 'none',
         }}
       />
-      {/* ponytail: Create/Rename stay enabled on an empty field — matches the reference */}
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5, mt: 2 }}>
         <Button
           onClick={onCancel}
@@ -185,6 +184,11 @@ const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfir
             fontSize: 16,
             boxShadow: 'none',
             '&:hover': { bgcolor: '#f8f8f8', boxShadow: 'none' },
+            '&.Mui-disabled': {
+              bgcolor: '#f8f8f8',
+              color: '#b3b3b3',
+              border: '1px solid #676b72',
+            },
           }}
         >
           Cancel
@@ -203,9 +207,14 @@ const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfir
             fontSize: 16,
             boxShadow: 'none',
             '&:hover': { bgcolor: '#32b643', boxShadow: 'none' },
+            '&.Mui-disabled': {
+              bgcolor: '#e0e0e0',
+              color: '#a6a6a6',
+              boxShadow: 'none',
+            },
           }}
         >
-          {confirmText}
+          {busy ? `${confirmText}...` : confirmText}
         </Button>
       </Box>
     </Box>
@@ -482,9 +491,15 @@ const Media = () => {
     setRenameDialogOpen(true);
   };
 
+  const trimmedRenameValue = renameValue.trim();
+  const finalRenameName = trimmedRenameValue && originalExtension && !getFileExtension(trimmedRenameValue)
+    ? `${trimmedRenameValue}${originalExtension}`
+    : trimmedRenameValue;
+  const renameDisabled = !renameTarget || !finalRenameName || finalRenameName === renameTarget.name;
+
   // Handle rename
   const handleRename = async () => {
-    if (!renameValue.trim() || !renameTarget || savingRef.current) return;
+    if (renameDisabled || savingRef.current) return;
     const oldPath = renameTarget.path;
 
     savingRef.current = true;
@@ -492,44 +507,32 @@ const Media = () => {
     setLoading(true);
     setError('');
     try {
-      // Preserve extension if user didn't include it
-      let finalName = renameValue.trim();
-      const hasExtension = getFileExtension(finalName) !== '';
-
-      // If no extension in new name and we have an original extension, add it
-      if (!hasExtension && originalExtension) {
-        finalName = finalName + originalExtension;
-      }
-
       const response = await apiClient.put('/media/rename', {
         oldPath,
-        newName: finalName,
+        newName: finalRenameName,
         ...scope,
       });
 
       const { newPath, newName, newUrl, size, extension, type } = response.data;
+      const updateRenamedItem = (item) => item.path === oldPath
+        ? {
+            ...item,
+            name: newName,
+            path: newPath,
+            url: item.type === 'folder' ? undefined : (newUrl || item.url),
+            size: size ?? item.size,
+            extension: extension ?? item.extension,
+            type: type || item.type,
+          }
+        : item;
+
+      // Update the tile and its selected details together before refreshing.
+      setFiles((prev) => prev.map(updateRenamedItem));
+      setSelectedItems((prev) => prev.map(updateRenamedItem));
 
       setSuccess('Renamed successfully');
       fetchFolders();
       fetchFiles(currentPath);
-
-      // Keep the renamed item selected
-      setSelectedItems((prev) =>
-        prev.map((s) =>
-          s.path === oldPath
-            ? {
-                ...s,
-                name: newName,
-                path: newPath,
-                // getMediaUrl normalises the leading slash / base URL join
-                url: newUrl || `/uploads/media/${newPath}`,
-                size: size ?? s.size,
-                extension: extension || s.extension,
-                type: type || s.type,
-              }
-            : s
-        )
-      );
 
       setRenameDialogOpen(false);
       setRenameValue('');
@@ -1153,6 +1156,8 @@ const Media = () => {
                       <Box
                         component="button"
                         type="button"
+                        aria-label={`Select ${item.name}`}
+                        aria-pressed={selected}
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleSelect(item);
@@ -1205,7 +1210,7 @@ const Media = () => {
             overflow: 'auto',
           }}
         >
-          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
             <Button
               disabled={!canRename}
               onClick={() => openRename(selectedFile)}
@@ -1372,6 +1377,7 @@ const Media = () => {
         }}
         onConfirm={handleRename}
         confirmText="Rename"
+        confirmDisabled={renameDisabled}
         busy={saving}
       />
 
