@@ -1684,8 +1684,10 @@ function App() {
                         <Route
                           path="/marketing/media"
                           element={
+                            // Media's own permission (user 03/11/2026): staff who
+                            // manage pictures need not see promotions
                             <PermissionProtectedRoute
-                              requiredPermissions={["promotions.view"]}
+                              requiredPermissions={["see_media_centre"]}
                             >
                               <Media />
                             </PermissionProtectedRoute>

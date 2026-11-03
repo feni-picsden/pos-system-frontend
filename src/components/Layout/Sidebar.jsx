@@ -268,7 +268,8 @@ const menuItems = [
         title: "Media Center",
         icon: <TvOutlined />,
         path: "/marketing/media",
-        permissions: ["promotions.view"],
+        // Media's own permission, not promotions (user 03/11/2026)
+        permissions: ["see_media_centre"],
       },
     ],
   },

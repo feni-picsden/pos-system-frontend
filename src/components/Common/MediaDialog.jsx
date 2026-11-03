@@ -39,8 +39,10 @@ import {
   Videocam as VideoIcon,
 } from '@mui/icons-material';
 import apiClient from '../../services/apiClient';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*' }) => {
+  const { selectedOutletId } = useSelectedOutlet();
   const [folders, setFolders] = useState([]);
   const [files, setFiles] = useState([]);
   const [currentPath, setCurrentPath] = useState('');
@@ -177,7 +179,10 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*' }) => {
 
     try {
       setLoading(true);
-      const response = await apiClient.post(`/media/upload?folderPath=${encodeURIComponent(currentPath || '')}`, formData, {
+      // Same library the dialog lists: the navbar outlet's (GETs carry it
+      // automatically, a FormData upload does not), or the common one
+      const outletQuery = selectedOutletId ? `&outletId=${encodeURIComponent(selectedOutletId)}` : '';
+      const response = await apiClient.post(`/media/upload?folderPath=${encodeURIComponent(currentPath || '')}${outletQuery}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setSuccess('File uploaded successfully');
@@ -185,7 +190,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*' }) => {
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Error uploading file:', error);
-      setError('Failed to upload file');
+      setError(error?.response?.data?.error || 'Failed to upload file');
     } finally {
       setLoading(false);
       setIsDragging(false);

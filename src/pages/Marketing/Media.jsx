@@ -19,6 +19,7 @@ import {
   Select,
   MenuItem,
   SvgIcon,
+  Tooltip,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
@@ -45,10 +46,15 @@ import {
   StorageOutlined as StorageIcon,
   DescriptionOutlined as DescriptionIcon,
   HelpOutline as HelpIcon,
+  AttachFile as AttachIcon,
 } from '@mui/icons-material';
+import { Link as RouterLink } from 'react-router-dom';
 import { formatDistanceToNowStrict } from 'date-fns';
 import apiClient from '../../services/apiClient';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+
+const USED_FILE_MSG = "Cannot delete a file that is being used somewhere in Crinit's Shop";
 
 const SORT_OPTIONS = ['Created At', 'Last Modified', 'Name', 'File Type'];
 
@@ -103,10 +109,12 @@ const SortAmountIcon = ({ up, ...props }) => (
  * circular question badge overhanging the top edge.
  * Declared at module scope so the input keeps focus between keystrokes.
  */
-const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfirm, confirmText, confirmDisabled = false }) => (
+// busy: the request is on its way - both buttons and Enter are off, so a
+// double click cannot send it twice
+const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfirm, confirmText, confirmDisabled = false, busy = false }) => (
   <Dialog
     open={open}
-    onClose={onCancel}
+    onClose={busy ? undefined : onCancel}
     transitionDuration={0}
     PaperProps={{
       sx: {
@@ -143,9 +151,10 @@ const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfir
         component="input"
         autoFocus
         value={value}
+        disabled={busy}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && !confirmDisabled) onConfirm();
+          if (e.key === 'Enter' && !confirmDisabled && !busy) onConfirm();
         }}
         sx={{
           width: 257,
@@ -164,6 +173,7 @@ const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfir
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5, mt: 2 }}>
         <Button
           onClick={onCancel}
+          disabled={busy}
           sx={{
             width: 121,
             height: 48,
@@ -181,7 +191,7 @@ const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfir
         </Button>
         <Button
           onClick={onConfirm}
-          disabled={confirmDisabled}
+          disabled={confirmDisabled || busy}
           variant="contained"
           sx={{
             width: 121,
@@ -206,7 +216,18 @@ const Media = () => {
   const theme = useTheme();
   const isTabletOrBelow = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [folders, setFolders] = useState([]);
+  // Outlet rule: a navbar outlet (or a user's own outlet) = that outlet's library.
+  // All Outlets = the common library, with a picker to open one outlet's library.
+  const { outlets, selectedOutletId, isAllOutlets } = useSelectedOutlet();
+  const [libraryOutlet, setLibraryOutlet] = useState('');
+  const scopeOutletId = isAllOutlets ? libraryOutlet : selectedOutletId;
+  const scope = scopeOutletId ? { outletId: scopeOutletId } : {};
+  const scopeQuery = scopeOutletId ? `&outletId=${encodeURIComponent(scopeOutletId)}` : '';
+
+  // Folder tree, loaded a level at a time: childrenOf[path] is the list of
+  // sub-folders once that folder has been opened ('' = Home).
+  const [childrenOf, setChildrenOf] = useState({});
+  const [treeLoading, setTreeLoading] = useState({});
   const [files, setFiles] = useState([]);
   const [currentPath, setCurrentPath] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
@@ -227,42 +248,78 @@ const Media = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemsToDelete, setItemsToDelete] = useState([]);
   const fileInputRef = useRef(null);
+  // A create / rename request is on its way (its dialog's buttons are off).
+  // The ref stops a second click that lands before the re-render.
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  // Answers that arrive after the library or folder changed are dropped
+  const libraryRef = useRef(scopeOutletId);
+  libraryRef.current = scopeOutletId;
+  const filesReqRef = useRef(0);
 
-  // Fetch folder structure
-  const fetchFolders = async () => {
+  // Load one folder's sub-folders into the tree
+  const loadChildren = async (folderPath) => {
+    const library = scopeOutletId;
+    setTreeLoading((prev) => ({ ...prev, [folderPath]: true }));
     try {
-      const response = await apiClient.get('/media/folders');
-      setFolders(response.data.folders);
+      const response = await apiClient.get('/media/folders', {
+        params: { shallow: 1, folderPath, ...scope },
+        noCache: true,
+      });
+      if (libraryRef.current !== library) return;
+      setChildrenOf((prev) => ({ ...prev, [folderPath]: response.data.folders || [] }));
     } catch (error) {
       console.error('Error fetching folders:', error);
       setError('Failed to load folder structure');
+    } finally {
+      setTreeLoading((prev) => ({ ...prev, [folderPath]: false }));
     }
+  };
+
+  // After a create / rename / delete: reload every folder the tree has open
+  const fetchFolders = () => {
+    Object.keys(childrenOf).forEach((p) => loadChildren(p));
+    if (!('' in childrenOf)) loadChildren('');
   };
 
   // Fetch files in current folder
   const fetchFiles = async (path = '') => {
+    const req = ++filesReqRef.current;
     setLoading(true);
     setError('');
     try {
       const response = await apiClient.get('/media/files', {
-        params: { folderPath: path }
+        params: { folderPath: path, ...scope },
+        noCache: true,
       });
-      setFiles([...response.data.folders, ...response.data.files]);
+      if (req !== filesReqRef.current) return;
+      const list = [...response.data.folders, ...response.data.files];
+      setFiles(list);
+      // Keep the selection's details (e.g. "Used by") in step with the server
+      setSelectedItems((prev) => prev.map((s) => list.find((i) => i.path === s.path) || s));
     } catch (error) {
+      if (req !== filesReqRef.current) return;
       console.error('Error fetching files:', error);
-      setError('Failed to load files');
+      setError(error.response?.data?.error || 'Failed to load files');
     } finally {
-      setLoading(false);
+      if (req === filesReqRef.current) setLoading(false);
     }
   };
 
+  // A new library (outlet picker): start again at its Home
   useEffect(() => {
-    fetchFolders();
-  }, []);
+    setChildrenOf({});
+    setExpandedFolders({});
+    setSelectedItems([]);
+    setCurrentPath('');
+    loadChildren('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeOutletId]);
 
   useEffect(() => {
     fetchFiles(currentPath);
-  }, [currentPath]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPath, scopeOutletId]);
 
   // Navigate into a directory
   const handleFolderClick = (folderPath) => {
@@ -289,23 +346,32 @@ const Media = () => {
     setLoading(true);
     setError('');
     try {
+      // One bad file (too big, a huge GIF) must not stop the rest
+      const failed = [];
       for (const file of list) {
         const formData = new FormData();
         formData.append('file', file);
         // Note: folderPath is sent as query parameter since multer's destination callback
         // doesn't have access to req.body for multipart/form-data
-        await apiClient.post(`/media/upload?folderPath=${encodeURIComponent(currentPath)}`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
+        try {
+          await apiClient.post(`/media/upload?folderPath=${encodeURIComponent(currentPath)}${scopeQuery}`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          failed.push(`${file.name}: ${error.response?.data?.error || 'Failed to upload file'}`);
+        }
       }
-      setSuccess(list.length > 1 ? `${list.length} files uploaded successfully` : 'File uploaded successfully');
+      const done = list.length - failed.length;
+      if (done) {
+        setSuccess(done > 1 ? `${done} files uploaded successfully` : 'File uploaded successfully');
+        setTimeout(() => setSuccess(''), 3000);
+      }
+      // fetchFiles clears the error first, so it goes before the error is set
       fetchFiles(currentPath);
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      setError(error.response?.data?.error || 'Failed to upload file');
+      if (failed.length) setError(failed.join(' | '));
     } finally {
       setLoading(false);
       if (fileInputRef.current) {
@@ -321,14 +387,17 @@ const Media = () => {
 
   // Handle create folder
   const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return;
+    if (!newFolderName.trim() || savingRef.current) return;
 
+    savingRef.current = true;
+    setSaving(true);
     setLoading(true);
     setError('');
     try {
       await apiClient.post('/media/folder', {
         folderPath: currentPath,
-        folderName: newFolderName.trim()
+        folderName: newFolderName.trim(),
+        ...scope,
       });
       setSuccess('Folder created successfully');
       fetchFolders();
@@ -340,6 +409,8 @@ const Media = () => {
       console.error('Error creating folder:', error);
       setError(error.response?.data?.error || 'Failed to create folder');
     } finally {
+      savingRef.current = false;
+      setSaving(false);
       setLoading(false);
     }
   };
@@ -361,26 +432,35 @@ const Media = () => {
     setLoading(true);
     setError('');
     try {
+      // A used file / a folder holding one is refused by the server; the rest go
+      const deleted = [];
+      const failed = [];
       for (const item of items) {
         const type = item.type === 'folder' ? 'folder' : 'file';
-        await apiClient.delete(`/media/${type}`, {
-          params: { path: item.path }
-        });
+        try {
+          await apiClient.delete(`/media/${type}`, {
+            params: { path: item.path, ...scope }
+          });
+          deleted.push(item);
+        } catch (error) {
+          console.error('Error deleting:', error);
+          failed.push(`${item.name}: ${error.response?.data?.error || 'Failed to delete'}`);
+        }
       }
-      setSuccess(
-        items.length > 1
-          ? `${items.length} items deleted successfully`
-          : `${items[0].type === 'folder' ? 'Folder' : 'File'} deleted successfully`
-      );
-      if (items.some((i) => i.type === 'folder')) {
+      if (deleted.length) {
+        setSuccess(
+          deleted.length > 1
+            ? `${deleted.length} items deleted successfully`
+            : `${deleted[0].type === 'folder' ? 'Folder' : 'File'} deleted successfully`
+        );
+        setTimeout(() => setSuccess(''), 3000);
+      }
+      if (deleted.some((i) => i.type === 'folder')) {
         fetchFolders();
       }
       fetchFiles(currentPath);
-      setSelectedItems((prev) => prev.filter((s) => !items.some((i) => i.path === s.path)));
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
-      console.error('Error deleting:', error);
-      setError(error.response?.data?.error || 'Failed to delete');
+      if (failed.length) setError(failed.join(' | '));
+      setSelectedItems((prev) => prev.filter((s) => !deleted.some((i) => i.path === s.path)));
     } finally {
       setLoading(false);
       setDeleteDialogOpen(false);
@@ -404,9 +484,11 @@ const Media = () => {
 
   // Handle rename
   const handleRename = async () => {
-    if (!renameValue.trim() || !renameTarget) return;
+    if (!renameValue.trim() || !renameTarget || savingRef.current) return;
     const oldPath = renameTarget.path;
 
+    savingRef.current = true;
+    setSaving(true);
     setLoading(true);
     setError('');
     try {
@@ -421,7 +503,8 @@ const Media = () => {
 
       const response = await apiClient.put('/media/rename', {
         oldPath,
-        newName: finalName
+        newName: finalName,
+        ...scope,
       });
 
       const { newPath, newName, newUrl, size, extension, type } = response.data;
@@ -457,15 +540,20 @@ const Media = () => {
       console.error('Error renaming:', error);
       setError(error.response?.data?.error || 'Failed to rename');
     } finally {
+      savingRef.current = false;
+      setSaving(false);
       setLoading(false);
     }
   };
 
+  // The chevron opens / closes a folder; its sub-folders load the first time
   const toggleFolder = (folderPath) => {
+    const opening = !expandedFolders[folderPath];
     setExpandedFolders((prev) => ({
       ...prev,
-      [folderPath]: !prev[folderPath],
+      [folderPath]: opening,
     }));
+    if (opening && !childrenOf[folderPath]) loadChildren(folderPath);
   };
 
   // Reference `.folder-header`: 2rem tall, 1.25rem text, 2rem line-height.
@@ -498,7 +586,9 @@ const Media = () => {
     return folderList.map((folder) => {
       const isExpanded = expandedFolders[folder.path];
       const isCurrent = currentPath === folder.path;
-      const hasChildren = folder.children && folder.children.length > 0;
+      const loaded = childrenOf[folder.path];
+      // Reference: every folder shows a chevron until it is known to be empty
+      const hasChildren = !loaded || loaded.length > 0;
 
       return (
         <React.Fragment key={folder.path}>
@@ -506,10 +596,7 @@ const Media = () => {
             <ListItemButton
               onClick={(e) => {
                 e.stopPropagation();
-                // Single click navigates AND auto-expands (never collapses)
-                if (hasChildren) {
-                  setExpandedFolders((prev) => ({ ...prev, [folder.path]: true }));
-                }
+                // Reference: the name only navigates; the chevron opens / closes
                 handleFolderClick(folder.path);
               }}
               sx={treeRowSx(isCurrent)}
@@ -554,17 +641,29 @@ const Media = () => {
               </Box>
             </ListItemButton>
           </ListItem>
-          {isExpanded && hasChildren && (
-            <Box>{renderFolderTree(folder.children, level + 1)}</Box>
-          )}
+          {isExpanded && hasChildren && renderTreeLevel(folder.path, level + 1)}
         </React.Fragment>
       );
     });
   };
 
+  // One folder's sub-folders, or "Loading..." while they are fetched
+  const renderTreeLevel = (folderPath, level) => {
+    const list = childrenOf[folderPath];
+    if (!list) {
+      return treeLoading[folderPath] ? (
+        <ListItem disablePadding sx={{ pl: level * 2 + 3.5, height: 32, fontSize: 16, color: '#676b72' }}>
+          Loading...
+        </ListItem>
+      ) : null;
+    }
+    return <Box>{renderFolderTree(list, level)}</Box>;
+  };
+
+  // Reference: "/ Home" at the root, "/ MDB / Sales Keys" inside a folder
   const getBreadcrumbs = () => {
-    const breadcrumbs = [{ name: 'Home', path: '' }];
-    if (!currentPath) return breadcrumbs;
+    if (!currentPath) return [{ name: 'Home', path: '' }];
+    const breadcrumbs = [];
     let pathSoFar = '';
     currentPath.split('/').filter(Boolean).forEach((part) => {
       pathSoFar = pathSoFar ? `${pathSoFar}/${part}` : part;
@@ -594,13 +693,13 @@ const Media = () => {
     return <FileIcon sx={sx} />;
   };
 
-  // Format file size
+  // Format file size – reference style: 1000-based, "15.05 kB"
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    const n = Number(bytes) || 0;
+    if (n < 1000) return `${n} bytes`;
+    const sizes = ['kB', 'MB', 'GB'];
+    const i = Math.min(Math.floor(Math.log10(n) / 3), sizes.length);
+    return `${(n / 1000 ** i).toFixed(2)} ${sizes[i - 1]}`;
   };
 
   // Helper function to construct proper media URL
@@ -625,7 +724,9 @@ const Media = () => {
     cursor: 'pointer',
     userSelect: 'none',
     transition: 'background-color 200ms ease-in-out',
+    // Reference: hovering greys the tile and lifts the dark overlay off the picture
     '&:hover': { bgcolor: '#bdbdbd' },
+    '&:hover .media-overlay': { opacity: 0 },
   });
 
   const captionSx = {
@@ -672,7 +773,9 @@ const Media = () => {
 
   const selectedFile = selectedItems.length === 1 ? selectedItems[0] : null;
   const canRename = selectedItems.length === 1;
-  const canDelete = selectedItems.length > 0;
+  // Reference: a file used somewhere can be renamed but not deleted
+  const selectionUsed = selectedItems.some((i) => i.usedBy?.length > 0);
+  const canDelete = selectedItems.length > 0 && !selectionUsed;
 
   return (
     <Box
@@ -753,7 +856,7 @@ const Media = () => {
                 </Box>
               </ListItemButton>
             </ListItem>
-            {renderFolderTree(folders, 1)}
+            {renderTreeLevel('', 1)}
           </List>
         </Box>
       </Paper>
@@ -876,6 +979,33 @@ const Media = () => {
                   <MenuItem key={option} value={option}>{option}</MenuItem>
                 ))}
               </Select>
+              {/* All Outlets only: which library to open - the common one or an outlet's */}
+              {isAllOutlets && outlets.length > 0 && (
+                <Select
+                  value={libraryOutlet}
+                  displayEmpty
+                  onChange={(e) => setLibraryOutlet(e.target.value)}
+                  IconComponent={ArrowDropDown}
+                  title="Library"
+                  sx={{
+                    width: 170,
+                    height: 34,
+                    bgcolor: '#f8f8f8',
+                    borderRadius: '6px',
+                    fontSize: 14,
+                    '& .MuiSelect-select': { padding: '0 8px 0 10px !important', minHeight: 'unset', height: 34, lineHeight: '34px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' },
+                    '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                    '& .MuiSelect-icon': { color: '#676b72' },
+                    '&:hover': { bgcolor: '#d9d9d9' },
+                  }}
+                  MenuProps={{ transitionDuration: 0, PaperProps: { sx: { borderRadius: 0, '& .MuiMenuItem-root': { minHeight: 48, fontSize: 16, color: '#313439' }, '& .MuiMenuItem-root.Mui-selected': { color: '#38bdf8', bgcolor: 'transparent' } } } }}
+                >
+                  <MenuItem value="">Common</MenuItem>
+                  {outlets.map((o) => (
+                    <MenuItem key={o.id} value={String(o.id)}>{o.name}</MenuItem>
+                  ))}
+                </Select>
+              )}
             </Box>
           </Box>
 
@@ -975,7 +1105,11 @@ const Media = () => {
                   >
                     <Box sx={{ position: 'relative', width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                       {item.type === 'folder' ? (
-                        <FolderIcon sx={{ fontSize: 92, color: '#313439' }} />
+                        // Reference: a folder with a small file glyph inside it
+                        <Box sx={{ position: 'relative', width: 92, height: 92 }}>
+                          <FolderIcon sx={{ fontSize: 92, color: '#313439' }} />
+                          <FileIcon sx={{ position: 'absolute', left: '50%', top: '56%', transform: 'translate(-50%, -50%)', fontSize: 26, color: '#313439' }} />
+                        </Box>
                       ) : (
                         <>
                           {item.url && isImageFile(item) && (
@@ -996,8 +1130,9 @@ const Media = () => {
                               onError={(e) => { e.target.style.visibility = 'hidden'; }}
                             />
                           )}
-                          {/* Dark file-type overlay – fades out when the tile is selected */}
+                          {/* Dark file-type overlay – fades out when the tile is selected or hovered */}
                           <Box
+                            className="media-overlay"
                             sx={{
                               position: 'absolute',
                               inset: 0,
@@ -1045,7 +1180,12 @@ const Media = () => {
                           : <UncheckedIcon sx={{ fontSize: 16, color: '#ffffff' }} />}
                       </Box>
                     </Box>
-                    <Typography sx={captionSx}>{item.name}</Typography>
+                    <Typography sx={captionSx} title={item.name}>
+                      {item.usedBy?.length > 0 && (
+                        <AttachIcon titleAccess="Used in Crinit's Shop" sx={{ fontSize: 16, verticalAlign: 'text-bottom', mr: 0.25, transform: 'rotate(45deg)' }} />
+                      )}
+                      {item.name}
+                    </Typography>
                   </Paper>
                 );
               })}
@@ -1074,14 +1214,29 @@ const Media = () => {
             >
               Rename
             </Button>
-            <Button
-              disabled={!canDelete}
-              onClick={() => handleDelete(selectedItems)}
-              startIcon={<DeleteIcon sx={{ color: canDelete ? '#e33430' : '#bdbdbd' }} />}
-              sx={{ ...railBtnSx(!canDelete), width: 105 }}
+            {/* span: a disabled button fires no hover events, so the tooltip hangs on its wrapper */}
+            <Tooltip
+              title={selectionUsed ? USED_FILE_MSG : ''}
+              placement="bottom"
+              arrow
+              enterDelay={0}
+              TransitionProps={{ timeout: 0 }}
+              componentsProps={{
+                tooltip: { sx: { bgcolor: '#313439', color: '#f8f8f8', fontSize: 14, fontWeight: 400, maxWidth: 260, p: '8px 12px', borderRadius: '6px', textAlign: 'center' } },
+                arrow: { sx: { color: '#313439' } },
+              }}
             >
-              Delete
-            </Button>
+            <Box component="span" data-testid="delete-wrap" sx={{ display: 'inline-flex' }}>
+              <Button
+                disabled={!canDelete}
+                onClick={() => handleDelete(selectedItems)}
+                startIcon={<DeleteIcon sx={{ color: canDelete ? '#e33430' : '#bdbdbd' }} />}
+                sx={{ ...railBtnSx(!canDelete), width: 105 }}
+              >
+                Delete
+              </Button>
+            </Box>
+            </Tooltip>
           </Box>
 
           {selectedItems.length > 1 ? (
@@ -1119,16 +1274,16 @@ const Media = () => {
                   )}
                 </Box>
               )}
-              <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000000', wordBreak: 'break-word' }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000000', wordBreak: 'break-word', textAlign: 'center' }}>
                 {selectedFile.name}
               </Typography>
               {relativeCreated(selectedFile.created) && (
-                <Typography sx={{ fontSize: 12, color: '#676b72', mt: 0.5 }}>
+                <Typography sx={{ fontSize: 12, color: '#676b72', mt: 0.5, textAlign: 'center' }}>
                   {relativeCreated(selectedFile.created)}
                 </Typography>
               )}
               {selectedFile.size != null && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 1 }}>
                   <StorageIcon sx={{ fontSize: 18, color: '#676b72' }} />
                   <Typography sx={{ fontSize: 14, color: '#313439' }}>
                     {formatFileSize(selectedFile.size)}
@@ -1136,11 +1291,33 @@ const Media = () => {
                 </Box>
               )}
               {selectedFile.extension && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 1 }}>
                   <DescriptionIcon sx={{ fontSize: 18, color: '#676b72' }} />
                   <Typography sx={{ fontSize: 14, color: '#313439' }}>
-                    {selectedFile.extension.replace('.', '')}
+                    {selectedFile.extension.replace('.', '').toUpperCase()}
                   </Typography>
+                </Box>
+              )}
+              {selectedFile.usedBy?.length > 0 && (
+                <Box sx={{ mt: 2, textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439', mb: 0.5 }}>Used by</Typography>
+                  {Object.entries(
+                    selectedFile.usedBy.reduce((acc, u) => ({ ...acc, [u.group]: [...(acc[u.group] || []), u] }), {})
+                  ).map(([group, uses]) => (
+                    <Box key={group} sx={{ mb: 1 }}>
+                      <Typography sx={{ fontSize: 14, color: '#676b72' }}>{group}</Typography>
+                      {/* centred list: bullets would float left of the text, so none */}
+                      <Box component="ul" sx={{ listStyleType: 'none', p: 0, m: 0 }}>
+                        {uses.map((u) => (
+                          <Box component="li" key={u.link} sx={{ fontSize: 14 }}>
+                            <Box component={RouterLink} to={u.link} sx={{ color: '#1c86f2', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                              {u.name}
+                            </Box>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                  ))}
                 </Box>
               )}
             </Box>
@@ -1177,6 +1354,7 @@ const Media = () => {
         onConfirm={handleCreateFolder}
         confirmText="Create"
         confirmDisabled={!newFolderName.trim()}
+        busy={saving}
       />
 
       {/* Rename Dialog */}
@@ -1194,6 +1372,7 @@ const Media = () => {
         }}
         onConfirm={handleRename}
         confirmText="Rename"
+        busy={saving}
       />
 
       {/* Delete Confirmation Dialog */}
