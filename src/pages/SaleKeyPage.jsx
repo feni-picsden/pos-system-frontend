@@ -7064,22 +7064,28 @@ const SaleKeyPage = () => {
           return totalPrice;
         }
         return null;
-      } else if (isDiscountPercentage) {
-        if (discountPercentage > 0) {
-          const discountDecimal = discountPercentage / 100;
-          const discountedPrice = basePrice * (1 - discountDecimal);
-          return discountedPrice > 0 ? discountedPrice : null;
+      } else if (isDiscountPercentage || isDiscountAmount) {
+        // Express "Purchase N to receive a % discount / a discount of $X" is the
+        // same rule as the Advanced criterion (reference 04/11/2026: 3 units on
+        // "purchase 2 -> 1.5% off" = $5.94): the reward applies per COMPLETE set of
+        // N units, leftover units sell at their normal unit price. Same maths as the
+        // Express editor simulator (ExpressPromotion.simLine).
+        const setQty = Math.max(1, parseInt(requiredQty, 10) || 1);
+        const sets = Math.floor(quantity / setQty);
+        const unitBase = quantity > 0 ? basePrice / quantity : 0;
+        const covered = sets * setQty;
+        const leftover = (quantity - covered) * unitBase;
+        let coveredPrice = unitBase * covered;
+        if (isDiscountPercentage) {
+          if (!(discountPercentage > 0)) return null;
+          coveredPrice = coveredPrice * (1 - discountPercentage / 100);
+        } else {
+          const discountAmount = parseFloat(promotionItem.discountAmount) || parseFloat(promotionItem.rebate) || 0;
+          if (!(discountAmount > 0)) return null;
+          coveredPrice = Math.max(0, coveredPrice - discountAmount * sets);
         }
-        return null;
-      } else if (isDiscountAmount) {
-        const discountAmount = parseFloat(promotionItem.discountAmount) || parseFloat(promotionItem.rebate) || 0;
-        if (discountAmount > 0) {
-          const discountPerUnit = discountAmount / requiredQty;
-          const totalDiscount = discountPerUnit * quantity;
-          const discountedPrice = basePrice - totalDiscount;
-          return discountedPrice > 0 ? discountedPrice : null;
-        }
-        return null;
+        const totalPrice = Math.round((coveredPrice + leftover) * 100) / 100;
+        return totalPrice < basePrice - 0.004 ? totalPrice : null;
       }
 
       return null;

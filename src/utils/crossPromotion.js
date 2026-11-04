@@ -88,9 +88,13 @@ export const allocateCrossPromotions = (lines, promos, { crossCount = true, roun
     order.forEach((promo) => {
       const covered = cover(promo, exclusive ? free : units.map((_, i) => i));
       if (!covered.length) return;
-      appliedKeys.add(promo.key);
       covered.forEach((u) => {
         const p = unitUnderPromo(promo, units[u].normal);
+        // "Applied" = the reward is cheaper than the NORMAL price on at least one
+        // covered unit (ON: another promotion may still beat it - reference 6A case).
+        // A reward at or above the sell price never applies (reference: "each item
+        // for" at the product's own sell rate -> No Promotion).
+        if (p < units[u].normal - 1e-9) appliedKeys.add(promo.key);
         if (p < price[u] - 1e-9) { price[u] = p; owner[u] = promo.key; }
       });
       if (exclusive) free = free.filter((u) => !covered.includes(u));
