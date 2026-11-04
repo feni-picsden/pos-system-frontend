@@ -1706,7 +1706,7 @@ const PromotionDetails = () => {
                               size="small"
                                     value={item.rebateAmount}
                                     onChange={(e) => handleUpdateItem(criterion.id, item.id, 'rebateAmount', e.target.value)}
-                                    placeholder="$ 0"
+                                    placeholder="0"
                                     InputProps={{
                                       startAdornment: <Typography sx={{ mr: 0.5 }}>$</Typography>
                                     }}

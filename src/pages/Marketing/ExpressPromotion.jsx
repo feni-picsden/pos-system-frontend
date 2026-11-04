@@ -514,7 +514,12 @@ const ExpressPromotion = () => {
             productId: product.id,
             productName: product.name,
             quantity: 1,
-            price: getBaseTier(product.prices)?.price || 0
+            price: getBaseTier(product.prices)?.price || 0,
+            // classification ids so a category / brand / family / tag row can price this line
+            categoryId: product.categoryId ?? product.category?.id ?? null,
+            brandId: product.brandId ?? product.brand?.id ?? null,
+            familyId: product.familyId ?? product.family?.id ?? null,
+            tagIds: Array.isArray(product.tags) ? product.tags.map((t) => t?.tagId ?? t?.tag?.id ?? t?.id ?? t) : (product.tagIds || [])
           });
         }
       });
@@ -527,11 +532,23 @@ const ExpressPromotion = () => {
   // Reference Express simulator (live 04/11/2026, Price Override 2 for $3 on a
   // $2.00 product): 1 unit -> $2.00 "No Promotion Active"; 3 units -> $5.00
   // (one complete set at $3 + 1 leftover at $2.00), "Current Promotion Active".
-  // Each basket line carries its own status. A line prices by its product row;
-  // a classification row (category / brand / family / tag) is not simulated here.
+  // Each basket line carries its own status. A line prices by its product row, or
+  // by the classification row (category / brand / family / tag) it belongs to -
+  // the same matching the sell screen does (SaleKeyPage.expressItemFor).
+  const classificationRowFor = (row) => formData.items.find((i) => {
+    if (!i.classificationId) return false;
+    const type = String(i.classificationType || '').toUpperCase();
+    const id = Number(i.classificationId);
+    if ((i.members || []).some((m) => Number(m.productId) === Number(row.productId))) return true;
+    if (type === 'CATEGORY') return row.categoryId != null && Number(row.categoryId) === id;
+    if (type === 'BRAND') return row.brandId != null && Number(row.brandId) === id;
+    if (type === 'FAMILY') return row.familyId != null && Number(row.familyId) === id;
+    if (type === 'TAG') return (row.tagIds || []).some((t) => Number(t) === id);
+    return false;
+  });
   const simLine = (row) => {
     const normal = roundCents(row.price * row.quantity);
-    const promoItem = formData.items.find((i) => !i.classificationId && i.productId === row.productId);
+    const promoItem = formData.items.find((i) => !i.classificationId && i.productId === row.productId) || classificationRowFor(row);
     if (!promoItem) return { total: normal, active: false };
     const setQty = Math.max(1, parseInt(promoItem.quantity, 10) || 1);
     const sets = Math.floor(row.quantity / setQty);
@@ -960,9 +977,22 @@ const ExpressPromotion = () => {
 
         {/* Reference table header: sky band, white bold uppercase letter-spaced labels. */}
         <TableContainer sx={{ mt: 2 }}>
-          <Table sx={{ '& td, & th': { border: 0 } }}>
+          {/* Fixed column widths: a long product / member name wraps inside ITEM and
+              never pushes the figure columns around (member rows line up under the header). */}
+          <Table sx={{ tableLayout: 'fixed', '& td, & th': { border: 0 }, '& td': { textAlign: 'center' }, '& td:first-of-type': { textAlign: 'left' } }}>
+            <colgroup>
+              <col />
+              <col style={{ width: 170 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 130 }} />
+              {!isPriceOverride && <col style={{ width: 180 }} />}
+              <col style={{ width: 180 }} />
+              <col style={{ width: 180 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 48 }} />
+            </colgroup>
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#5ebbeb', '& th': { color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', py: 1 } }}>
+              <TableRow sx={{ backgroundColor: '#5ebbeb', '& th': { color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', py: 1, whiteSpace: 'nowrap', px: 1 } }}>
                 <TableCell sx={{ textAlign: 'left !important' }}>ITEM</TableCell>
                 <TableCell>QUANTITY</TableCell>
                 <TableCell>COST</TableCell>
@@ -1042,7 +1072,7 @@ const ExpressPromotion = () => {
                       {formData.promotionType === 'Discount Amount' && (
                         <TableCell>
                           <NumberField
-                            value={item.discountAmount === '' || item.discountAmount == null ? '' : roundCents(item.discountAmount)}
+                            value={item.discountAmount === '' || item.discountAmount == null ? '' : roundCents(item.discountAmount).toFixed(2)}
                             fallback=""
                             onCommit={(n) => handleUpdateItem(index, 'discountAmount', n)}
                             size="small"
@@ -1055,7 +1085,7 @@ const ExpressPromotion = () => {
                       <TableCell>
                         {isPriceOverride ? (
                           <NumberField
-                            value={item.promoPrice === '' ? '' : roundCents(item.promoPrice)}
+                            value={item.promoPrice === '' || item.promoPrice == null ? '' : roundCents(item.promoPrice).toFixed(2)}
                             fallback=""
                             onCommit={(totalPromoPrice) => handleUpdateItem(index, 'promoPrice', totalPromoPrice)}
                             size="small"
@@ -1067,7 +1097,7 @@ const ExpressPromotion = () => {
                       </TableCell>
                       <TableCell>
                         <NumberField
-                          value={item.rebate === '' ? '' : roundCents(item.rebate)}
+                          value={item.rebate === '' || item.rebate == null ? '' : roundCents(item.rebate).toFixed(2)}
                           fallback={0}
                           onCommit={(n) => handleUpdateItem(index, 'rebate', n)}
                           size="small"

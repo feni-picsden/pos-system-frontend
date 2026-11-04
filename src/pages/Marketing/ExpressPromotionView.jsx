@@ -122,7 +122,8 @@ const ExpressPromotionView = () => {
             productId: item.productId,
             productName: item.productName || item.product?.name,
             quantity: item.quantity || 1,
-            cost: cost,
+            // line figures are totals for the quantity (editor: cost x qty)
+            cost: cost * (item.quantity || 1),
             normalPrice: item.normalPrice || 0,
             promoPrice: item.promoPrice || 0,
             rebate: item.rebate || 0,
@@ -140,7 +141,8 @@ const ExpressPromotionView = () => {
         return nums.length ? nums.reduce((s, n) => s + n, 0) / nums.length : 0;
       };
       const classificationRows = (promo.conditions?.classificationItems || []).map((c) => {
-        const unitNormal = avg(c.members, 'unitNormal');
+        const qty = Math.max(1, parseInt(c.quantity, 10) || 1);
+        const unitNormal = avg(c.members, 'unitNormal') * qty; // line total for the quantity
         const discountPercentage = Number(c.discountPercentage) || 0;
         const discountAmount = Number(c.discountAmount) || 0;
         let promoPrice = Number(c.promoPrice) || 0;
@@ -152,8 +154,8 @@ const ExpressPromotionView = () => {
           classificationId: c.classificationId,
           classificationType: c.classificationType,
           productName: c.name,
-          quantity: c.quantity || 1,
-          cost: avg(c.members, 'unitCost'),
+          quantity: qty,
+          cost: avg(c.members, 'unitCost') * qty,
           normalPrice: unitNormal,
           promoPrice,
           rebate: Number(c.rebate) || 0,
@@ -243,11 +245,11 @@ const ExpressPromotionView = () => {
 
   const calculateProfit = (item) => {
     const promoPrice = parseFloat(item.promoPrice) || 0;
-    const cost = parseFloat(item.cost) || 0;
-    
-    if (promoPrice === 0) return 0;
-    if (cost <= 0) return -100;
-    
+    // Same "%" as the express editor: profit on (cost less the supplier rebate).
+    const cost = (parseFloat(item.cost) || 0) - (parseFloat(item.rebate) || 0);
+
+    if (promoPrice === 0) return -100;
+
     const profit = ((promoPrice - cost) / promoPrice) * 100;
     
     if (isNaN(profit) || !isFinite(profit)) return 0;

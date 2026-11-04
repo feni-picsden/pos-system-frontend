@@ -173,7 +173,7 @@ const PromotionSimulatorPanel = ({ open, search, lines, onQuantity, onRemove }) 
                 component="button"
                 type="button"
                 onClick={(e) => setKeypad({ anchorEl: e.currentTarget, key: line.key, quantity: line.quantity })}
-                sx={{ border: 0, bgcolor: 'transparent', fontFamily: 'inherit', fontSize: 16, color: '#000', cursor: 'pointer', textAlign: 'left', p: 0, m: 0, lineHeight: '23px', height: 23 }}
+                sx={{ border: 0, outline: 'none', bgcolor: 'transparent', fontFamily: 'inherit', fontSize: 16, color: '#000', cursor: 'pointer', textAlign: 'left', p: 0, m: 0, lineHeight: '23px', height: 23, '&:focus, &:focus-visible': { outline: 'none' } }}
               >
                 {line.quantity}
               </Box>
