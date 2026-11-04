@@ -27,7 +27,12 @@ import {
   ArrowDropDown as ArrowDropDownIcon,
   CheckBoxOutlineBlankOutlined as SquareIcon,
   CheckBoxOutlined as SquareCheckedIcon,
+  CategoryOutlined as CategoryIcon,
+  StorefrontOutlined as BrandIcon,
+  HomeOutlined as FamilyIcon,
+  LocalOfferOutlined as TagIcon,
 } from '@mui/icons-material';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
 import shelfTicketService from '../../services/shelfTicketService';
 import { formatDateTime } from '../../utils/appDateTime';
@@ -43,7 +48,6 @@ import {
   BAR_CLEARANCE,
   downloadCsv,
 } from '../../components/ShelfTickets/ticketChrome';
-import PrintTicketsDialog from '../../components/ShelfTickets/PrintTicketsDialog';
 
 // Reference grouping options, in reference order.
 const GROUPINGS = ['No Grouping', 'Price Points', 'Brand', 'Category', 'Family'];
@@ -110,7 +114,10 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
   const anchorRef = useRef(null);
 
   const selected = useMemo(() => (multiple ? value || [] : []), [multiple, value]);
-  const displayValue = multiple ? selected.join(', ') : value;
+  // Reference multi-select: the field shows a grey chip - the name when one is
+  // picked, "N Selected..." for more - never the joined names.
+  const chip = multiple && selected.length > 0 ? (selected.length === 1 ? selected[0] : `${selected.length} Selected...`) : '';
+  const displayValue = multiple ? '' : value;
   const showClear = (multiple || clearable) && (multiple ? selected.length > 0 : Boolean(value));
 
   const filtered = useMemo(() => {
@@ -151,15 +158,17 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
           height: 56,
           p: '16px',
           border: 0,
-          borderBottom: pinned ? '1px solid #000' : 0,
-          bgcolor: pinned ? '#7dd3fc' : 'transparent',
+          // Reference: pinned (selected) rows sit on white with sky text and a rule
+          // beneath; the hover band is sky.
+          borderBottom: pinned ? '1px solid #e5e5e5' : 0,
+          bgcolor: 'transparent',
           cursor: 'pointer',
           textAlign: 'left',
           fontFamily: 'inherit',
           fontSize: 16,
-          color: !pinned && checked ? '#38bdf8' : '#252525',
+          color: checked ? '#38bdf8' : '#252525',
           transition: INSTANT,
-          '&:hover': { bgcolor: pinned ? '#7dd3fc' : '#74d4ff' },
+          '&:hover': { bgcolor: '#74d4ff' },
         }}
       >
         {multiple &&
@@ -194,11 +203,28 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
             cursor: 'text',
           }}
         >
+          {chip && query == null && (
+            <Box
+              sx={{
+                flexShrink: 0,
+                mr: 1,
+                px: '8px',
+                py: '2px',
+                borderRadius: '4px',
+                bgcolor: '#e5e5e5',
+                fontSize: 16,
+                color: '#000',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {chip}
+            </Box>
+          )}
           <Box
             component="input"
             type="text"
             value={query ?? displayValue}
-            placeholder={placeholder}
+            placeholder={chip ? '' : placeholder}
             onChange={(e) => {
               setQuery(e.target.value);
               setOpen(true);
@@ -322,48 +348,67 @@ const GROUP_HEADER_SX = {
   color: '#bdbdbd',
 };
 
+// Reference result glyphs: a product shows its image (or the image placeholder),
+// a classification its kind - category box, brand shop, family house, tag label.
+const SECTION_ICONS = { Categories: CategoryIcon, Brands: BrandIcon, Families: FamilyIcon, Tags: TagIcon };
+
 /** One typeahead result line. */
-const ResultRow = ({ imageUrl, name, query, onClick, active = false }) => (
-  <Box
-    component="button"
-    type="button"
-    onClick={onClick}
-    sx={{
-      ...(active ? { bgcolor: '#8bcef1 !important', color: '#f8f8f8 !important' } : {}),
-      display: 'flex',
-      alignItems: 'center',
-      gap: 1,
-      width: '100%',
-      height: 41,
-      padding: '8px 16px',
-      border: 0,
-      bgcolor: 'transparent',
-      cursor: 'pointer',
-      textAlign: 'left',
-      fontFamily: 'inherit',
-      fontSize: '19.2px',
-      color: '#676b72',
-      transition: INSTANT,
-      '&:hover': { bgcolor: '#8bcef1', color: '#f8f8f8' },
-    }}
-  >
-    {imageUrl ? (
-      <Box component="img" src={imageUrl} alt="" sx={{ width: 25, height: 25, objectFit: 'cover', flexShrink: 0 }} />
-    ) : (
-      <ImageIcon sx={{ width: 25, height: 25, color: '#bdbdbd', flexShrink: 0 }} />
-    )}
-    <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-      {highlightMatch(name, query)}
+const ResultRow = ({ imageUrl, icon, name, query, onClick, active = false }) => {
+  const Glyph = icon || ImageIcon;
+  return (
+    <Box
+      component="button"
+      type="button"
+      onClick={onClick}
+      sx={{
+        ...(active ? { bgcolor: '#8bcef1 !important', color: '#f8f8f8 !important' } : {}),
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        width: '100%',
+        height: 41,
+        padding: '8px 16px',
+        border: 0,
+        bgcolor: 'transparent',
+        cursor: 'pointer',
+        textAlign: 'left',
+        fontFamily: 'inherit',
+        fontSize: '19.2px',
+        color: '#676b72',
+        transition: INSTANT,
+        '&:hover': { bgcolor: '#8bcef1', color: '#f8f8f8' },
+      }}
+    >
+      {imageUrl ? (
+        <Box component="img" src={imageUrl} alt="" sx={{ width: 25, height: 25, objectFit: 'cover', flexShrink: 0 }} />
+      ) : (
+        <Glyph sx={{ width: 25, height: 25, color: '#bdbdbd', flexShrink: 0 }} />
+      )}
+      <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {highlightMatch(name, query)}
+      </Box>
     </Box>
-  </Box>
-);
+  );
+};
 
 const EverydayTickets = () => {
+  // Outlet-wise: the reference table has no Outlet column. Under a navbar outlet the
+  // list is that outlet's already, so the column only appears under All Outlets,
+  // where tickets from every outlet (and global ones) are mixed.
+  const { isAllOutlets } = useSelectedOutlet();
+  const columnCount = isAllOutlets ? 7 : 6;
+  // Reference: the data columns share the width equally (4 x 25%; 5 x 20% with Outlet).
+  // The 44px check column and 48px x column come off the top first, otherwise the
+  // percentages alone overflow the table and push the x off the right edge.
+  const dataColumnWidth = `calc((100% - 92px) / ${columnCount - 2})`;
   const [searchTerm, setSearchTerm] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [classificationResults, setClassificationResults] = useState([]);
-  const [grouping, setGrouping] = useState('No Grouping');
+  const [searchLoading, setSearchLoading] = useState(false);
+  // '' = untouched (field shows the 'Not Grouped' placeholder); picking 'No Grouping'
+  // shows it as a value, as the reference does. Both mean no grouping.
+  const [grouping, setGrouping] = useState('');
   const [priceSet, setPriceSet] = useState('');
   const [priceSets, setPriceSets] = useState([]);
   const [addedByFilter, setAddedByFilter] = useState([]);
@@ -374,8 +419,6 @@ const EverydayTickets = () => {
   const [loading, setLoading] = useState(false);
   const [viewPrices, setViewPrices] = useState(false);
   const [addAllOpen, setAddAllOpen] = useState(false);
-  const [printOpen, setPrintOpen] = useState(false);
-  const [printTickets, setPrintTickets] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const searchRef = useRef(null);
 
@@ -490,12 +533,12 @@ const EverydayTickets = () => {
   );
 
   // Reference: the top result is highlighted; Up/Down move, Enter adds it. The rows
-  // are keyed in the order they render - products first, then each classification group.
+  // are keyed in the order they render - each classification group first, then products.
   const resultKeys = useResultKeys();
   const flatResults = useMemo(
     () => [
-      ...productResults.map((product) => ({ kind: 'product', row: product })),
       ...classificationSections.flatMap(([, items]) => items.map((item) => ({ kind: 'classification', row: item }))),
+      ...productResults.map((product) => ({ kind: 'product', row: product })),
     ],
     [productResults, classificationSections]
   );
@@ -515,9 +558,11 @@ const EverydayTickets = () => {
   // 'Choose a grouping option to rearrange how products are listed' — grouping is a
   // display concern, so it groups the loaded rows rather than filtering the request.
   const groups = useMemo(() => {
-    if (grouping === 'No Grouping') return [{ label: null, rows: visibleTickets }];
+    if (!grouping || grouping === 'No Grouping') return [{ label: null, rows: visibleTickets }];
+    // Reference: 'Price Points' groups by HOW MANY price points a product has
+    // ("0 Price Points", "1 Price Points"...), and the "No ..." bucket leads the list.
     const labelFor = (ticket) => {
-      if (grouping === 'Price Points') return `$${(Number(ticket.price) || 0).toFixed(2)}`;
+      if (grouping === 'Price Points') return `${getTicketPriceBreaks(ticket).length} Price Points`;
       if (grouping === 'Brand') return ticket.brand || 'No Brand';
       if (grouping === 'Category') return ticket.category || 'No Category';
       return familyByProduct.get(ticket.productId) || 'No Family';
@@ -528,30 +573,28 @@ const EverydayTickets = () => {
       if (!map.has(label)) map.set(label, []);
       map.get(label).push(ticket);
     });
+    const leads = (label) => label.startsWith('No ');
     return [...map.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+      .sort((a, b) => (leads(b[0]) - leads(a[0])) || a[0].localeCompare(b[0], undefined, { numeric: true }))
       .map(([label, rows]) => ({ label, rows }));
   }, [grouping, visibleTickets, familyByProduct]);
 
-  const allSelected = visibleTickets.length > 0 && selectedTickets.length === visibleTickets.length;
+  // Reference header square: ticked as soon as ANY row is selected; clicking it then
+  // clears the selection, otherwise it selects every visible row.
+  const anySelected = selectedTickets.length > 0;
 
-  const handleSearch = async (value) => {
-    setSearchTerm(value);
-    setSearchOpen(true);
-    resultKeys.reset('search');
+  // Typing fires one search per pause, not per keystroke (250ms debounce), and a
+  // slower older response can never overwrite a newer one (sequence guard).
+  const searchTimer = useRef(null);
+  const searchSeq = useRef(0);
 
-    if (value.trim().length < 2) {
-      setSearchResults([]);
-      setClassificationResults([]);
-      return;
-    }
-
+  const runSearch = async (term) => {
+    const seq = ++searchSeq.current;
     // 'Search to add additional products individually or by classification' — so the panel
     // offers products and every classification the term matches.
-    // Trim: the API matches the raw string, so a trailing space found nothing.
-    const term = value.trim();
     const [productResponse, classificationResponse] = await Promise.all([
-      productService.getProducts({ search: term, limit: 10 }, ALL_OUTLETS).catch((error) => {
+      // lite: id/name/image only - the full product select cost 2-5s per keystroke.
+      productService.getProducts({ search: term, limit: 10, lite: 1 }, ALL_OUTLETS).catch((error) => {
         console.error('Error searching products:', error);
         return null;
       }),
@@ -560,14 +603,40 @@ const EverydayTickets = () => {
         return null;
       }),
     ]);
+    if (seq !== searchSeq.current) return; // stale
     setSearchResults(productResponse?.products || productResponse?.data || []);
     setClassificationResults(classificationResponse?.classifications || []);
+    setSearchLoading(false);
   };
 
+  const handleSearch = (value) => {
+    setSearchTerm(value);
+    setSearchOpen(true);
+    resultKeys.reset('search');
+    clearTimeout(searchTimer.current);
+
+    // Trim: the API matches the raw string, so a trailing space found nothing.
+    const term = value.trim();
+    if (term.length < 2) {
+      searchSeq.current += 1;
+      setSearchResults([]);
+      setClassificationResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    searchTimer.current = setTimeout(() => runSearch(term), 250);
+  };
+
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+
   const clearSearch = () => {
+    clearTimeout(searchTimer.current);
+    searchSeq.current += 1; // drop any response still in flight
     setSearchTerm('');
     setSearchResults([]);
     setClassificationResults([]);
+    setSearchLoading(false);
     setSearchOpen(false);
   };
 
@@ -577,7 +646,7 @@ const EverydayTickets = () => {
       const response = await shelfTicketService.addShelfTicket({
         productId: product.id,
         ticketType: 'Everyday',
-        productGrouping: grouping !== 'No Grouping' ? grouping : null,
+        productGrouping: grouping && grouping !== 'No Grouping' ? grouping : null,
         priceSet: priceSet || null,
       });
 
@@ -617,7 +686,7 @@ const EverydayTickets = () => {
       const response = await shelfTicketService.addBulkShelfTickets({
         productIds: fresh,
         ticketType: 'Everyday',
-        productGrouping: grouping !== 'No Grouping' ? grouping : null,
+        productGrouping: grouping && grouping !== 'No Grouping' ? grouping : null,
         priceSet: priceSet || null,
       });
       showSnackbar(`Added ${response.added} products from ${sourceName}`, 'success');
@@ -671,7 +740,7 @@ const EverydayTickets = () => {
   const toggleTicket = (id) =>
     setSelectedTickets((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
 
-  const toggleAll = () => setSelectedTickets(allSelected ? [] : visibleTickets.map((t) => t.id));
+  const toggleAll = () => setSelectedTickets(anySelected ? [] : visibleTickets.map((t) => t.id));
 
   // Each group header carries its own select-all, scoped to that group's rows.
   const groupSelected = (rows) => rows.length > 0 && rows.every((row) => selectedTickets.includes(row.id));
@@ -706,7 +775,7 @@ const EverydayTickets = () => {
       const response = await shelfTicketService.addBulkShelfTickets({
         productIds,
         ticketType: 'Everyday',
-        productGrouping: grouping !== 'No Grouping' ? grouping : null,
+        productGrouping: grouping && grouping !== 'No Grouping' ? grouping : null,
         priceSet: priceSet || null,
       });
       showSnackbar(`Added ${response.added} products to shelf tickets`, 'success');
@@ -739,36 +808,6 @@ const EverydayTickets = () => {
       setLoading(false);
       setRemovingSelected(false);
     }
-  };
-
-  // Print selected shelf tickets: hand the chosen ticket rows to the Print Shelf
-  // Tickets dialog, which renders them from the selected template into a print window.
-  const handlePrint = () => {
-    // Only what is on screen: `tickets` now spans every price set, so a selection left over
-    // from another price set must not print.
-    const rows = visibleTickets.filter((t) => selectedTickets.includes(t.id));
-    if (rows.length === 0) {
-      showSnackbar('No tickets selected to print', 'warning');
-      return;
-    }
-    // Everyday tickets have no separate sale price; keep salePrice equal to price so
-    // the template never renders a fake discount from the preview placeholder.
-    setPrintTickets(
-      rows.map((ticket) => ({
-        name: ticket.name,
-        price: ticket.price,
-        salePrice: ticket.price,
-        // Multi-buy price points for the template's {qty2}/{price2}/{casePrice}/{multiBuy}.
-        priceBreaks: ticket.priceBreaks || [],
-        caseQuantity: ticket.caseQuantity,
-        barcode: ticket.barcode || '',
-        sku: ticket.sku || ticket.productId,
-        category: ticket.category || '',
-        brand: ticket.brand || '',
-        description: ticket.description || ticket.name,
-      }))
-    );
-    setPrintOpen(true);
   };
 
   // Reference 'Export': hands the selected products to DesignPro as a data file. In the
@@ -813,7 +852,7 @@ const EverydayTickets = () => {
               />
             </TableCell>
             <TableCell>{ticket.name}</TableCell>
-            <TableCell>{ticket.outlet || ''}</TableCell>
+            {isAllOutlets && <TableCell>{ticket.outlet || 'Global'}</TableCell>}
             <TableCell>{ticket.category || ''}</TableCell>
             <TableCell>{ticket.addedBy || ''}</TableCell>
             {/* Added At follows Setup > General > Timezone like every other page */}
@@ -826,6 +865,7 @@ const EverydayTickets = () => {
                 title={removingId === ticket.id ? 'Removing...' : undefined}
                 disabled={removingId != null || removingSelected}
                 onClick={() => handleRemoveTicket(ticket.id)}
+                // Reference: a bare x glyph, no box around it.
                 sx={{
                   '&:disabled': { opacity: 0.4, cursor: 'default' },
                   display: 'inline-flex',
@@ -834,29 +874,29 @@ const EverydayTickets = () => {
                   width: 28,
                   height: 27,
                   p: '4px',
-                  border: '1px solid currentColor',
-                  borderRadius: '6px',
+                  border: 0,
                   bgcolor: 'transparent',
                   color: '#000',
                   cursor: 'pointer',
-                  transition: 'background 0.2s ease, color 0.2s ease',
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.1)', color: '#000' },
+                  transition: INSTANT,
+                  '&:hover': { color: '#404040' },
                 }}
               >
-                <CloseIcon sx={{ fontSize: 16 }} />
+                <CloseIcon sx={{ fontSize: 18 }} />
               </Box>
             </TableCell>
           </TableRow>
           {/* Prices expand into their own full-width row, indented under the Name column. */}
           {viewPrices && (
             <TableRow className="everyday-ticket-prices">
-              <TableCell colSpan={7}>
+              <TableCell colSpan={columnCount}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', pl: '78px' }}>
                   {breaks.length === 0 ? (
                     <Box sx={{ fontSize: '12.8px', color: '#000' }}>No Prices</Box>
                   ) : (
                     breaks.map((priceBreak, index) => (
-                      <Box key={`${ticket.id}-price-${index}`} sx={{ width: 50, flexShrink: 0 }}>
+                      // Reference: one 130px slot per price point (1 / 6 / 7 / 24 sit ~130px apart).
+                      <Box key={`${ticket.id}-price-${index}`} sx={{ width: 130, flexShrink: 0 }}>
                         <Box sx={{ fontSize: '12.8px', color: '#676b72', lineHeight: 1.3 }}>
                           {priceBreak.quantity}
                         </Box>
@@ -939,11 +979,29 @@ const EverydayTickets = () => {
           <Box sx={PANEL_SX}>
             {searchTerm.trim().length < 2 ? (
               <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>Start typing to search...</Box>
+            ) : searchLoading && productResults.length === 0 && classificationSections.length === 0 ? (
+              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>Searching...</Box>
             ) : productResults.length === 0 && classificationSections.length === 0 ? (
-              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>No results</Box>
+              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>No search results found.</Box>
             ) : (
               <>
-                {/* Results are grouped by entity type: products, then classifications. */}
+                {/* Reference order: classifications (Categories, Brands, Families, Tags) first,
+                    then Products. */}
+                {classificationSections.map(([heading, items]) => (
+                  <React.Fragment key={heading}>
+                    <Box sx={GROUP_HEADER_SX}>{heading}</Box>
+                    {items.map((item) => (
+                      <ResultRow
+                        key={`${heading}-${item.id}`}
+                        icon={SECTION_ICONS[heading]}
+                        name={item.name}
+                        query={searchTerm}
+                        onClick={() => handleAddClassification(item)}
+                        active={resultKeys.isActive('search', flatIndexOf('classification', item))}
+                      />
+                    ))}
+                  </React.Fragment>
+                ))}
                 {productResults.length > 0 && (
                   <>
                     <Box sx={GROUP_HEADER_SX}>Products</Box>
@@ -959,20 +1017,6 @@ const EverydayTickets = () => {
                     ))}
                   </>
                 )}
-                {classificationSections.map(([heading, items]) => (
-                  <React.Fragment key={heading}>
-                    <Box sx={GROUP_HEADER_SX}>{heading}</Box>
-                    {items.map((item) => (
-                      <ResultRow
-                        key={`${heading}-${item.id}`}
-                        name={item.name}
-                        query={searchTerm}
-                        onClick={() => handleAddClassification(item)}
-                        active={resultKeys.isActive('search', flatIndexOf('classification', item))}
-                      />
-                    ))}
-                  </React.Fragment>
-                ))}
               </>
             )}
           </Box>
@@ -984,9 +1028,9 @@ const EverydayTickets = () => {
         <TicketSelect
           label="Product Grouping"
           placeholder="Not Grouped"
-          value={grouping === 'No Grouping' ? '' : grouping}
+          value={grouping}
           options={GROUPINGS}
-          onChange={(value) => setGrouping(value || 'No Grouping')}
+          onChange={(value) => setGrouping(value || '')}
         />
         <TicketSelect
           label="Price Set"
@@ -1008,7 +1052,7 @@ const EverydayTickets = () => {
 
       {/* overflow: visible keeps the sticky header pinned to the page scroll, not to the container. */}
       <TableContainer sx={{ mb: 2, overflow: 'visible' }}>
-        <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+        <Table sx={{ borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', width: '100%' }}>
           <TableHead>
             <TableRow
               sx={{
@@ -1031,14 +1075,14 @@ const EverydayTickets = () => {
             >
               {/* Reference: the 16px square sits ~14px in from the table edge, centred in its cell. */}
               <TableCell sx={CHECK_CELL_SX}>
-                <SquareCheckButton checked={allSelected} onClick={toggleAll} light label="Select all tickets" />
+                <SquareCheckButton checked={anySelected} onClick={toggleAll} light label="Select all tickets" />
               </TableCell>
-              {/* Reference columns: Name, Outlet, Category, Added By, Added At. */}
-              <TableCell sx={{ width: '20%' }}>Name</TableCell>
-              <TableCell sx={{ width: '20%' }}>Outlet</TableCell>
-              <TableCell sx={{ width: '20%' }}>Category</TableCell>
-              <TableCell sx={{ width: '20%' }}>Added By</TableCell>
-              <TableCell sx={{ width: '20%' }}>Added At</TableCell>
+              {/* Reference columns: Name, Category, Added By, Added At (Outlet only under All Outlets). */}
+              <TableCell sx={{ width: dataColumnWidth }}>Name</TableCell>
+              {isAllOutlets && <TableCell sx={{ width: dataColumnWidth }}>Outlet</TableCell>}
+              <TableCell sx={{ width: dataColumnWidth }}>Category</TableCell>
+              <TableCell sx={{ width: dataColumnWidth }}>Added By</TableCell>
+              <TableCell sx={{ width: dataColumnWidth }}>Added At</TableCell>
               <TableCell sx={{ width: 48, px: 0 }} />
             </TableRow>
           </TableHead>
@@ -1052,7 +1096,13 @@ const EverydayTickets = () => {
                 borderBottom: '1px solid #f8f8f8',
               },
               // These beat the '& td' rule above (class + type), which would otherwise win.
-              '& .everyday-ticket-prices td': { padding: '8px', textAlign: 'left' },
+              // Reference: the expanded price band is faintly shaded under the row.
+              '& .everyday-ticket-prices td': {
+                padding: '8px',
+                textAlign: 'left',
+                bgcolor: '#fafafa',
+                boxShadow: 'inset 0 -3px 4px -3px rgba(0,0,0,0.18)',
+              },
               // A row with its prices expanded hands the separator to the prices row below it.
               '& .everyday-ticket-open td': { borderBottom: 'none' },
               '& .everyday-ticket-group td': {
@@ -1078,7 +1128,7 @@ const EverydayTickets = () => {
                         label={`Select all in ${group.label}`}
                       />
                     </TableCell>
-                    <TableCell colSpan={6}>{group.label}</TableCell>
+                    <TableCell colSpan={columnCount - 1}>{group.label}</TableCell>
                   </TableRow>
                 )}
                 {renderRows(group.rows)}
@@ -1153,7 +1203,14 @@ const EverydayTickets = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TicketCounter count={selectedTickets.length} />
           {/* Reference bar: Export only - printing is done from the exported file. */}
-          <Button disableRipple disableElevation onClick={handleExport} sx={EXPORT_BUTTON_SX}>
+          {/* Nothing selected = nothing to export: the button is disabled rather than warning. */}
+          <Button
+            disableRipple
+            disableElevation
+            onClick={handleExport}
+            disabled={selectedTickets.length === 0}
+            sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#fff', borderColor: '#d4d4d4', opacity: 1 } }}
+          >
             Export
           </Button>
         </Box>
@@ -1162,68 +1219,50 @@ const EverydayTickets = () => {
       <Dialog
         open={addAllOpen}
         onClose={() => setAddAllOpen(false)}
-        PaperProps={{ sx: { borderRadius: '8px', width: 520, maxWidth: '92vw' } }}
+        PaperProps={{ sx: { borderRadius: '8px', width: 785, maxWidth: '92vw' } }}
       >
-        <Box sx={{ px: 3, pt: 2.5 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#313439' }}>Add All Products</Typography>
+        {/* Reference: sky title bar with a bold "?" and title, a one-line question, then
+            three equal grey buttons - Cancel | Only Positive Inventory | All Products. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, height: 60, bgcolor: '#bae6fd' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 20, color: '#0369a1' }}>?</Typography>
+          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#0369a1' }}>Add all products</Typography>
         </Box>
-        <DialogContent sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: 16, color: '#313439' }}>
-            Add products with a current stock of at least one item, or every product in your file?
-          </Typography>
+        <DialogContent sx={{ px: 2, pt: 2.5, pb: 2 }}>
+          <Typography sx={{ fontSize: 16, color: '#000' }}>Which products would you like to add?</Typography>
         </DialogContent>
-        {/* Two equal-width, single-line buttons: the bar button's 32px side padding
-            made "Only Positive Inventory" wrap and spill out of its 42px height. */}
-        <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1.25 }}>
-          <Button
-            disableRipple
-            disableElevation
-            onClick={() => handleAddAllProducts(true)}
-            sx={{
-              ...BAR_BUTTON_SX,
-              flex: 1,
-              minWidth: 0,
-              px: 3,
-              whiteSpace: 'nowrap',
-              bgcolor: '#d4d4d4',
-              color: '#000',
-              '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' },
-            }}
-          >
-            Only Positive Inventory
-          </Button>
-          <Button
-            disableRipple
-            disableElevation
-            onClick={() => handleAddAllProducts(false)}
-            sx={{
-              ...BAR_BUTTON_SX,
-              flex: 1,
-              minWidth: 0,
-              px: 3,
-              whiteSpace: 'nowrap',
-              bgcolor: '#5ebbeb',
-              color: '#fff',
-              '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' },
-            }}
-          >
-            All Products
-          </Button>
+        <DialogActions sx={{ px: 2, pb: 2, pt: 0, gap: 2 }}>
+          {[
+            ['Cancel', () => setAddAllOpen(false)],
+            ['Only Positive Inventory', () => handleAddAllProducts(true)],
+            ['All Products', () => handleAddAllProducts(false)],
+          ].map(([label, onClick]) => (
+            <Button
+              key={label}
+              disableRipple
+              disableElevation
+              onClick={onClick}
+              sx={{
+                ...BAR_BUTTON_SX,
+                flex: 1,
+                minWidth: 0,
+                px: 2,
+                whiteSpace: 'nowrap',
+                bgcolor: '#d4d4d4',
+                color: '#000',
+                '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' },
+              }}
+            >
+              {label}
+            </Button>
+          ))}
         </DialogActions>
       </Dialog>
-
-      <PrintTicketsDialog
-        open={printOpen}
-        onClose={() => setPrintOpen(false)}
-        tickets={printTickets}
-        ticketType="Everyday"
-      />
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
