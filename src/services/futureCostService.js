@@ -1,18 +1,22 @@
 import apiClient from './apiClient';
 
+const joinIds = (v) => (Array.isArray(v) ? v.filter((x) => x !== '' && x != null).join(',') : v ?? '');
+
 const futureCostService = {
   // Get all future costs with optional filters
   getFutureCosts: async (filters = {}) => {
     const params = new URLSearchParams();
-    
-    if (filters.category) params.append('category', filters.category);
+
+    if (filters.category) params.append('category', joinIds(filters.category));
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
     if (filters.isApplied !== undefined) params.append('isApplied', filters.isApplied);
     if (filters.productId) params.append('productId', filters.productId);
-    if (filters.outletId) params.append('outletId', filters.outletId);
+    // Outlet filter: outlet id(s), or 'global' for the Global Cost rows only.
+    // Absent under a navbar outlet, apiClient injects that outlet itself.
+    if (filters.outletId) params.append('outletId', joinIds(filters.outletId));
 
-    const response = await apiClient.get(`/future-costs?${params.toString()}`);
+    const response = await apiClient.get(`/future-costs?${params.toString()}`, { noCache: true });
     return response.data;
   },
 
@@ -66,4 +70,3 @@ const futureCostService = {
 };
 
 export default futureCostService;
-

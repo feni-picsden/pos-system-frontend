@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   Button,
   Table,
@@ -10,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Pagination,
   Checkbox,
   TextField,
   Dialog,
@@ -17,172 +17,100 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  Chip,
-  FormControl,
-  Select,
-  MenuItem,
   InputAdornment,
   Autocomplete,
   Grid,
+  CircularProgress,
 } from '@mui/material';
 import {
   AddOutlined as AddIcon,
   DeleteOutline as DeleteIcon,
   CheckCircleOutline as CheckCircleIcon,
   SearchOutlined as SearchIcon,
-  HelpOutline as HelpIcon,
   BlockOutlined as BlockIcon,
 } from '@mui/icons-material';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
-import { enGB } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
-import useHeaderScope from '../../hooks/useHeaderScope';
 import productService from '../../services/productService';
 import futureCostService from '../../services/futureCostService';
-import apiClient from '../../services/apiClient';
 import classificationService from '../../services/classificationService';
 import FutureConfirmDialog from '../../components/Utilities/FutureConfirmDialog';
-import DateRangePicker from '../../components/Common/DateRangePicker';
+import DateTimeField from '../../components/Common/DateTimeField';
+import {
+  FIELD_SX,
+  LIST_PAPER_SX,
+  singleAutocompleteSx,
+  AUTOCOMPLETE_INPUT_SX,
+  NEW_BUTTON_SX,
+  BULK_DANGER_SX,
+  BULK_PRIMARY_SX,
+  FILTER_BUTTON_SX,
+  rowActionSx,
+  CHECKBOX_GLYPHS,
+  CHECKBOX_SX,
+  TABLE_HEAD_ROW_SX,
+  TABLE_BODY_SX,
+  DIALOG_INPUT_SX,
+  DIALOG_FIELD_SX,
+  DIALOG_CANCEL_SX,
+  DIALOG_ADD_SX,
+} from '../../components/Utilities/futureStyles.jsx';
 
 const GLOBAL_OUTLET = 'global';
 
-// The reference dialog has no Cost Type picker — its single cost field is labelled "Case Cost",
-// so every cost scheduled from here is a case cost.
+// The reference dialog has no Cost Type picker: its single field is "Case Cost".
 const COST_TYPE = 'Case Cost';
 
-// Reference filter fields: 40px tall, 8px radius, 1px #404040 rail, no card wrapper.
-const fieldSx = {
-  bgcolor: '#fff',
-  '& .MuiOutlinedInput-root': { height: 40, borderRadius: '8px' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-    borderColor: '#000',
-    borderWidth: '2px',
-  },
-  '& .MuiInputBase-input::placeholder': { color: '#808080', opacity: 1 },
+// Same sort glyph as the report pages, shown on the sorted column only.
+const SortGlyph = ({ active }) => (
+  <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-block' }} aria-hidden="true">
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill={active === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'asc' ? 1.6 : 1.1} strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
+  </svg>
+);
+
+// Reference dialog field names: 12px black, a fixed 16px line above the field
+// (kept as blank space while hidden so rows never jump).
+const DialogLabel = ({ show, children }) => (
+  <Typography sx={{ fontSize: 12, lineHeight: '16px', color: '#000', mb: '4px', visibility: show ? 'visible' : 'hidden' }}>
+    {children}
+  </Typography>
+);
+
+const COLUMNS = [
+  { id: 'itemName', label: 'Product' },
+  { id: 'outletName', label: 'Outlet' },
+  { id: 'createdBy', label: 'Created By' },
+  { id: 'cost', label: 'Case Cost', numeric: true },
+  { id: 'effectiveAt', label: 'Effective At', date: true },
+];
+
+const ROWS_PER_PAGE = 10;
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 };
 
-// Four equal fields across the row: minWidth 0 stops the inputs' intrinsic width
-// from out-competing the selects (which otherwise collapse to 0px).
-const fieldFlexSx = { flex: '1 1 0', minWidth: 0 };
-
-const selectSx = {
-  height: 40,
-  borderRadius: '8px',
-  bgcolor: '#fff',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-};
-
-// Reference dialog fields are flat filled #d4d4d4 (oklch 0.87 0 0), 40px, 8px radius,
-// 1px #5e5e5e rail (oklch 0.371 0 0) — not white outlined like the page filters.
-const dialogFieldSx = {
-  ...fieldSx,
-  bgcolor: '#d4d4d4',
-  '& .MuiOutlinedInput-root': { height: 40, borderRadius: '8px', bgcolor: '#d4d4d4' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#5e5e5e', borderWidth: '1px' },
-  '& .MuiInputBase-input::placeholder': { color: '#808080', opacity: 1 },
-};
-
-const dialogSelectSx = {
-  ...selectSx,
-  bgcolor: '#d4d4d4',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#5e5e5e', borderWidth: '1px' },
-};
-
-// Both dialog buttons are 118x42 / 12px / 16px-700 on the reference.
-const dialogBtnSx = {
-  width: 118,
-  height: 42,
-  borderRadius: '12px',
-  fontSize: 16,
-  fontWeight: 700,
-  textTransform: 'none',
-  boxShadow: 'none',
-};
-
-const popupPaperSx = { borderRadius: 0, boxShadow: 'none', border: '1px solid #404040' };
-
-const menuProps = {
-  PaperProps: { sx: popupPaperSx },
-};
-
-// ponytail: 'Current Day' is the only reference shortcut; add more when the reference grows them.
-const pickerShortcuts = [{ label: 'Current Day', getValue: () => new Date() }];
-
-// Measured off the reference toolbar: every bulk button is 42px tall, 12px radius, 16px/700,
-// outlined (transparent fill) — and greys to these exact tones when disabled.
-const bulkBtnSx = {
-  height: 42,
-  borderRadius: '12px',
-  fontSize: 16,
-  fontWeight: 700,
-  textTransform: 'none',
-  boxShadow: 'none',
-  backgroundColor: 'transparent',
-  '&.Mui-disabled': {
-    backgroundColor: '#e5e5e5',
-    color: '#8a8a8a',
-    borderColor: '#b3b3b3',
-  },
-};
-
-const filterBtnSx = {
-  ...bulkBtnSx,
-  width: 106,
-  backgroundColor: '#5ebbeb',
-  border: '1px solid #5ebbeb',
-  color: '#fff',
-  transition: 'all 0s ease',
-  // Reference Filter hover darkens to Tailwind sky-500.
-  '&:hover': { backgroundColor: '#0ea5e9', borderColor: '#0ea5e9', boxShadow: 'none' },
-};
-
-const dangerBtnSx = {
-  ...bulkBtnSx,
-  color: '#dc2626',
-  borderColor: '#ef4444',
-  '&:hover': { backgroundColor: 'rgba(220, 38, 38, 0.04)', borderColor: '#dc2626' },
-};
-
-const primaryOutlineBtnSx = {
-  ...bulkBtnSx,
-  color: '#5ebbeb',
-  borderColor: '#5ebbeb',
-  '&:hover': { backgroundColor: 'rgba(94, 187, 235, 0.06)', borderColor: '#4aa9dd' },
-};
-
-const rowActionSx = (color) => ({
-  color,
-  height: 42,
-  borderRadius: '12px',
-  fontSize: 16,
-  fontWeight: 700,
-  textTransform: 'none',
-});
-
-const transformCost = (fc) => ({
-  id: fc.id,
-  itemName: fc.productName || fc.product?.name || 'Unknown',
-  itemType: fc.itemType || 'Product',
-  costType: fc.costType || 'Item Cost',
-  createdBy: fc.createdBy?.name || 'Unknown',
-  cost: fc.cost || 0,
-  effectiveAt: fc.effectiveAt,
-  isApplied: fc.isApplied || false,
-  appliedAt: fc.appliedAt,
-  outletId: fc.outletId ?? null,
-  product: fc.product,
-});
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
 const FutureCosts = () => {
   const { getOutletId, getOutletName } = useAuth();
-  // getOutletName() is the user's HOME outlet, not the row's — resolve each row against the
-  // outlet list so a cost booked on another outlet names that outlet. selectedOutletId is the
-  // top-bar outlet (super admins), used to prefill the dialog's Outlet select.
-  const { outlets, selectedOutletId } = useSelectedOutlet();
+  // Outlet-wise: a navbar outlet already scopes every request (apiClient adds
+  // ?outletId=). Under All Outlets the page's own Outlet filter narrows the
+  // mixed list: one outlet (+ global rows) or "Global Cost" only.
+  const { outlets, selectedOutletId, isAllOutlets } = useSelectedOutlet();
+  const homeOutletId = getOutletId();
+  const homeOutletName = getOutletName();
+
   const [futureCosts, setFutureCosts] = useState([]);
   const [selectedCosts, setSelectedCosts] = useState([]);
   const [applyConfirm, setApplyConfirm] = useState(null);
@@ -191,149 +119,175 @@ const FutureCosts = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedOutlet, setSelectedOutlet] = useState('');
+  // Reference: the fields are drafts; the Filter button applies them.
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedOutlet, setSelectedOutlet] = useState(null);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  // Reference applies filters only on the Filter button — the fields above are drafts.
-  const [appliedOutlet, setAppliedOutlet] = useState('');
-  const appliedFiltersRef = useRef({});
+  const [appliedFilters, setAppliedFilters] = useState({});
+  const [filtering, setFiltering] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [categories, setCategories] = useState([]);
 
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [itemSearchResults, setItemSearchResults] = useState([]);
   const [itemSearchLoading, setItemSearchLoading] = useState(false);
+  const [itemSearchText, setItemSearchText] = useState('');
   const [scheduledTime, setScheduledTime] = useState(null);
   const [cost, setCost] = useState('');
-  const [dialogOutlet, setDialogOutlet] = useState('');
-  const [categories, setCategories] = useState([]);
-  const [loadingData, setLoadingData] = useState(true);
+  const [costFocused, setCostFocused] = useState(false);
+  const [dialogOutlet, setDialogOutlet] = useState(null);
   const [dateError, setDateError] = useState('');
 
-  // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
-  const { showOutletFilter } = useHeaderScope();
-  useEffect(() => {
-    if (!showOutletFilter) {
-      if (selectedOutlet) setSelectedOutlet('');
-      if (appliedOutlet) setAppliedOutlet('');
-    }
-  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [orderBy, setOrderBy] = useState('effectiveAt');
+  const [order, setOrder] = useState('asc');
+  const [page, setPage] = useState(0);
 
-  const outletId = getOutletId();
-  const outletName = getOutletName();
+  const outletNameOf = useCallback(
+    (id) => {
+      if (id == null) return 'Global Cost';
+      const hit = outlets.find((o) => String(o.id) === String(id));
+      if (hit) return hit.name;
+      return String(id) === String(homeOutletId) ? homeOutletName || 'My Outlet' : `Outlet ${id}`;
+    },
+    [outlets, homeOutletId, homeOutletName]
+  );
 
-  const loadCosts = async () => {
-    setLoadingData(true);
+  // Filter options: Global Cost + every outlet the admin can see.
+  const outletOptions = useMemo(
+    () => [{ id: GLOBAL_OUTLET, name: 'Global Cost' }, ...outlets.map((o) => ({ id: o.id, name: o.name }))],
+    [outlets]
+  );
+  // Dialog options: the outlets a cost may be booked on (no Global row - clearing
+  // the field is "Global Cost"). Under a navbar outlet, only that one.
+  const dialogOutletOptions = useMemo(() => {
+    if (isAllOutlets) return outlets.map((o) => ({ id: o.id, name: o.name }));
+    const id = selectedOutletId ?? homeOutletId;
+    return id != null ? [{ id, name: outletNameOf(id) }] : [];
+  }, [isAllOutlets, outlets, selectedOutletId, homeOutletId, outletNameOf]);
+  const currentOutletId = selectedOutletId ?? homeOutletId ?? null;
+
+  const loadCosts = useCallback(async (filters) => {
     try {
-      const filters = appliedFiltersRef.current;
-      const params = {};
+      // Reference article: the index "lists all future costs that have been
+      // created and not applied yet".
+      const params = { isApplied: false };
       if (filters.category) params.category = filters.category;
       if (filters.startDate) params.startDate = filters.startDate.toISOString();
       if (filters.endDate) params.endDate = filters.endDate.toISOString();
-
-      // Direct apiClient call (same endpoint as futureCostService.getFutureCosts) so we can
-      // pass skipOutletScope: the super-admin GET interceptor otherwise injects a (possibly
-      // stale) localStorage outletId and silently hides rows; outlet scoping on this page is
-      // the explicit Select Outlet filter, applied client-side. noCache keeps Filter fresh.
-      const response = await apiClient.get('/future-costs', {
-        params,
-        skipOutletScope: true,
-        noCache: true,
-      });
-      if (response.data && response.data.futureCosts) {
-        setFutureCosts(response.data.futureCosts.map(transformCost));
-      }
+      if (filters.outletId) params.outletId = filters.outletId;
+      const response = await futureCostService.getFutureCosts(params);
+      setFutureCosts(
+        (response?.futureCosts || []).map((fc) => ({
+          id: fc.id,
+          itemName: fc.productName || fc.product?.name || 'Unknown',
+          itemType: fc.itemType || 'Product',
+          createdBy: fc.createdBy?.name || 'Unknown',
+          cost: fc.cost || 0,
+          effectiveAt: fc.effectiveAt,
+          isApplied: fc.isApplied || false,
+          outletId: fc.outletId ?? null,
+          outletName: fc.outletId == null ? 'Global Cost' : null,
+          product: fc.product,
+        }))
+      );
     } catch (err) {
       console.error('Error fetching future costs:', err);
       setError(err.response?.data?.error || 'Failed to fetch future costs');
     } finally {
-      setLoadingData(false);
+      setLoadedOnce(true);
     }
-  };
-
-  // Reference model: fetch once on mount; afterwards only the Filter button refetches.
-  useEffect(() => {
-    loadCosts();
   }, []);
 
-  const applyFilters = () => {
-    appliedFiltersRef.current = { category: selectedCategory, startDate, endDate };
-    setAppliedOutlet(selectedOutlet);
-    loadCosts();
-  };
+  useEffect(() => {
+    loadCosts(appliedFilters);
+  }, [appliedFilters, loadCosts]);
+
+  // A navbar outlet change re-scopes the list (apiClient sends it).
+  useEffect(() => {
+    if (!isAllOutlets) setSelectedOutlet(null);
+    setAppliedFilters((prev) => ({ ...prev, _outlet: selectedOutletId ?? null, outletId: isAllOutlets ? prev.outletId : undefined }));
+  }, [selectedOutletId, isAllOutlets]);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await classificationService.getClassifications({ type: 'Category' });
-        if (response && response.classifications) {
-          setCategories(response.classifications);
-        }
-      } catch (err) {
-        console.error('Error fetching categories:', err);
-      }
+    let alive = true;
+    classificationService
+      .getClassifications({ type: 'Category' })
+      .then((r) => { if (alive) setCategories(r?.classifications || []); })
+      .catch((err) => console.error('Error fetching categories:', err));
+    return () => { alive = false; };
+  }, [selectedOutletId]);
+
+  const applyFilters = async () => {
+    setFiltering(true);
+    const next = {
+      category: selectedCategory?.id || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      outletId: isAllOutlets && selectedOutlet ? String(selectedOutlet.id) : undefined,
+      _outlet: selectedOutletId ?? null,
+      _at: Date.now(),
     };
-    fetchCategories();
-  }, []);
+    setAppliedFilters(next);
+    await loadCosts(next);
+    setFiltering(false);
+  };
+  const filtersActive = !!(appliedFilters.category || appliedFilters.startDate || appliedFilters.endDate || appliedFilters.outletId);
 
-  // Reference prefills the dialog's Outlet with the CURRENT outlet (top-bar selection for
-  // super admins, home outlet otherwise); empty = Global Cost.
-  const currentOutletId = selectedOutletId ?? outletId;
-
-  useEffect(() => {
-    if (scheduleDialogOpen) setDialogOutlet(currentOutletId != null ? String(currentOutletId) : '');
-  }, [scheduleDialogOpen, currentOutletId]);
-
-  // ponytail: outlet scoping is client-side — GET /future-costs only honours outletId for
-  // superadmins and cannot express "global only" at all. Move server-side if the list ever pages.
-  const visibleCosts = useMemo(() => {
-    if (!appliedOutlet) return futureCosts;
-    if (appliedOutlet === GLOBAL_OUTLET) return futureCosts.filter((c) => c.outletId == null);
-    return futureCosts.filter((c) => String(c.outletId) === appliedOutlet);
-  }, [futureCosts, appliedOutlet]);
-
-  const visibleIds = useMemo(() => visibleCosts.map((c) => c.id), [visibleCosts]);
-  const selectedVisible = useMemo(
-    () => selectedCosts.filter((id) => visibleIds.includes(id)),
-    [selectedCosts, visibleIds]
+  const rows = useMemo(
+    () => futureCosts.map((c) => ({ ...c, outletName: c.outletName || outletNameOf(c.outletId) })),
+    [futureCosts, outletNameOf]
   );
 
-  const handleSelectAll = (event) => {
-    setSelectedCosts(event.target.checked ? visibleIds : []);
+  const sortedRows = useMemo(() => {
+    const col = COLUMNS.find((c) => c.id === orderBy);
+    const dir = order === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = a[orderBy];
+      const bv = b[orderBy];
+      if (col?.numeric) return (Number(av) - Number(bv)) * dir;
+      if (col?.date) return (new Date(av || 0) - new Date(bv || 0)) * dir;
+      return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
+    });
+  }, [rows, orderBy, order]);
+
+  const safePage = page * ROWS_PER_PAGE >= sortedRows.length ? 0 : page;
+  useEffect(() => {
+    if (safePage !== page) setPage(safePage);
+  }, [safePage, page]);
+  const pagedRows = useMemo(
+    () => sortedRows.slice(safePage * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE + ROWS_PER_PAGE),
+    [sortedRows, safePage]
+  );
+
+  const handleSort = (id) => {
+    setOrder(orderBy === id && order === 'asc' ? 'desc' : 'asc');
+    setOrderBy(id);
   };
 
-  const handleSelectCost = (costId) => {
-    setSelectedCosts((prev) =>
-      prev.includes(costId) ? prev.filter((id) => id !== costId) : [...prev, costId]
-    );
+  const allIds = useMemo(() => rows.map((c) => c.id), [rows]);
+  const handleSelectAll = (event) => setSelectedCosts(event.target.checked ? allIds : []);
+  const handleSelectCost = (id) =>
+    setSelectedCosts((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const flash = (msg) => {
+    setSuccess(msg);
+    setTimeout(() => setSuccess(''), 3000);
   };
 
   const doApply = async (ids) => {
     try {
       setLoading(true);
       setError('');
-
       const response =
         ids.length === 1
           ? await futureCostService.applyFutureCost(ids[0])
           : await futureCostService.applyMultipleFutureCosts(ids);
-
-      // Refresh the rows in place so the 'Applied' chip appears without a reload.
-      const appliedAt = new Date().toISOString();
-      setFutureCosts((prev) =>
-        prev.map((c) => (ids.includes(c.id) ? { ...c, isApplied: true, appliedAt } : c))
-      );
       setSelectedCosts((prev) => prev.filter((id) => !ids.includes(id)));
       setApplyConfirm(null);
-      setSuccess(
-        response?.message ||
-          (ids.length === 1
-            ? 'Future cost applied successfully and updated product cost!'
-            : `${ids.length} future cost(s) applied successfully and updated product costs!`)
-      );
-      setTimeout(() => setSuccess(''), 3000);
-
-      await loadCosts();
+      flash(response?.message || `${ids.length} future cost(s) applied successfully!`);
+      await loadCosts(appliedFilters);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to apply future cost');
     } finally {
@@ -345,22 +299,12 @@ const FutureCosts = () => {
     try {
       setLoading(true);
       setError('');
-
-      if (ids.length === 1) {
-        await futureCostService.deleteFutureCost(ids[0]);
-      } else {
-        await futureCostService.deleteMultipleFutureCosts(ids);
-      }
-
+      if (ids.length === 1) await futureCostService.deleteFutureCost(ids[0]);
+      else await futureCostService.deleteMultipleFutureCosts(ids);
       setFutureCosts((prev) => prev.filter((c) => !ids.includes(c.id)));
       setSelectedCosts((prev) => prev.filter((id) => !ids.includes(id)));
       setDeleteConfirm(null);
-      setSuccess(
-        ids.length === 1
-          ? 'Future cost deleted successfully!'
-          : `${ids.length} future cost(s) deleted successfully!`
-      );
-      setTimeout(() => setSuccess(''), 3000);
+      flash(`${ids.length} future cost(s) deleted successfully!`);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete future costs');
     } finally {
@@ -368,71 +312,39 @@ const FutureCosts = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount || 0);
-  };
-
-  // Row table inside the confirm dialogs — reference mirrors the list columns exactly.
+  // Row table inside the confirm dialogs mirrors the list columns.
   const COST_COLUMNS = [
     { label: 'Product', get: (r) => r.itemName },
-    { label: 'Outlet', get: (r) => outletLabel(r.outletId) },
+    { label: 'Outlet', get: (r) => r.outletName || outletNameOf(r.outletId) },
     { label: 'Created By', get: (r) => r.createdBy },
     { label: 'Case Cost', get: (r) => formatCurrency(r.cost) },
     { label: 'Effective At', get: (r) => formatDate(r.effectiveAt) },
   ];
 
-  const resetScheduleForm = () => {
+  const openDialog = () => {
     setSelectedItem(null);
     setItemSearchResults([]);
+    setItemSearchText('');
     setScheduledTime(null);
     setCost('');
-    setDialogOutlet(currentOutletId != null ? String(currentOutletId) : '');
     setDateError('');
+    // Reference prefills Outlet with the current outlet; x clears it to Global Cost.
+    setDialogOutlet(dialogOutletOptions.find((o) => String(o.id) === String(currentOutletId)) || null);
+    setScheduleDialogOpen(true);
   };
+  const closeDialog = () => setScheduleDialogOpen(false);
+
+  const canAdd = !!selectedItem && !!scheduledTime && parseFloat(cost) > 0 && !dateError && !loading;
 
   const handleAddFutureCost = async () => {
-    if (!selectedItem || !scheduledTime || !cost) {
-      setError('Please fill in all required fields');
-      return;
-    }
-
-    // The field starts blank (caught above); a typed 0 still creates a future
-    // cost the server can never apply - require a real value.
-    if (!(parseFloat(cost) > 0)) {
-      setError('Cost must be greater than zero');
-      return;
-    }
-
+    if (!canAdd) return;
     if (scheduledTime <= new Date()) {
       setDateError('Please select a time that is in the future');
-      setError('Please select a time that is in the future');
       return;
     }
-
     try {
       setLoading(true);
       setError('');
-      setDateError('');
-
-      // Save exactly what the Outlet field shows: a chosen outlet, or Global Cost when empty.
-      // (No silent fallback to the product's own outlet — the row must match the field.)
-      const resolvedOutletId = dialogOutlet ? Number(dialogOutlet) : null;
       await futureCostService.createFutureCost({
         productId: selectedItem.id,
         productName: selectedItem.name,
@@ -441,15 +353,16 @@ const FutureCosts = () => {
         quantity: 1,
         cost: parseFloat(cost),
         effectiveAt: scheduledTime.toISOString(),
-        ...(resolvedOutletId != null ? { outletId: resolvedOutletId } : {}),
+        // All Outlets: the field decides (null = Global Cost). Navbar outlet: the
+        // header decides, the dialog has no Outlet field. Send it always so the
+        // apiClient never stamps anything else.
+        outletId: isAllOutlets
+          ? (dialogOutlet ? Number(dialogOutlet.id) : null)
+          : (currentOutletId != null ? Number(currentOutletId) : null),
       });
-
-      setSuccess('Future cost scheduled successfully!');
-      setScheduleDialogOpen(false);
-      resetScheduleForm();
-      setTimeout(() => setSuccess(''), 3000);
-
-      await loadCosts();
+      flash('Future cost scheduled successfully!');
+      closeDialog();
+      await loadCosts(appliedFilters);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to schedule future cost');
     } finally {
@@ -457,192 +370,74 @@ const FutureCosts = () => {
     }
   };
 
-  const outletLabel = (id) => {
-    if (id == null) return 'Global Cost';
-    const hit = outlets.find((o) => String(o.id) === String(id));
-    if (hit) return hit.name;
-    return String(id) === String(outletId) ? outletName || 'My Outlet' : 'My Outlet';
-  };
-
-  // Global Cost + every outlet this user can see (super admins get the full outlet list from
-  // SelectedOutletContext, regular users their assigned outlet(s)) so rows on ANY outlet are
-  // filterable and the dialog's Outlet menu is never empty.
-  const outletOptions = [
-    { value: GLOBAL_OUTLET, label: 'Global Cost' },
-    ...outlets.map((o) => ({ value: String(o.id), label: o.name })),
-    ...(outletId != null && !outlets.some((o) => String(o.id) === String(outletId))
-      ? [{ value: String(outletId), label: outletName || 'My Outlet' }]
-      : []),
-  ];
-
-  const placeholder = (text) => <Box component="span" sx={{ color: '#808080' }}>{text}</Box>;
-
   return (
-    <Box sx={{ p: 3, backgroundColor: '#f5f5f5', minHeight: 'calc(100vh - 50px)' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        {/* Reference title: 32px / 700 / pure black. */}
+    <Box sx={{ px: 1, pt: '27px', pb: 1, backgroundColor: '#fff', minHeight: 'calc(100vh - 50px)' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: '3px', mb: '20px' }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 700, fontSize: 32, color: '#000' }}>
           Future Costs
         </Typography>
-        <Button
-          variant="contained"
-          disableElevation
-          startIcon={<AddIcon />}
-          onClick={() => setScheduleDialogOpen(true)}
-          sx={{
-            width: 119,
-            height: 42,
-            borderRadius: '12px',
-            fontSize: 16,
-            fontWeight: 700,
-            textTransform: 'none',
-            backgroundColor: '#00c951',
-            border: '1px solid #00c951',
-            boxShadow: 'none',
-            transition: 'all 0s ease',
-            // Reference hover lightens to Tailwind v4 green-400.
-            '&:hover': { backgroundColor: '#05df72', borderColor: '#05df72', boxShadow: 'none' },
-          }}
-        >
+        <Button variant="contained" disableElevation startIcon={<AddIcon />} onClick={openDialog} sx={NEW_BUTTON_SX}>
           New
         </Button>
       </Box>
 
-      <Box>
-        {/* Reference filter row sits 8px from the page edge (not the page's 24px pad), which is
-            what makes each of the four fields 464px wide at 1920. */}
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2, mx: '-16px' }}>
-          {/* Reference filters are searchable comboboxes (type-to-filter), applied via Filter. */}
+      {/* Reference: Select Category | Select Outlet | Select Start Date | Select End Date,
+          then a Filter button that applies them. Our rule: the Outlet filter only
+          under All Outlets (a navbar outlet already scopes the page). */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', '& > *': { flexBasis: 0, minWidth: 220 } }}>
+        <Autocomplete
+          sx={singleAutocompleteSx(!!selectedCategory)}
+          options={categories}
+          getOptionLabel={(o) => o?.name || ''}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          value={selectedCategory}
+          onChange={(_e, v) => setSelectedCategory(v)}
+          noOptionsText="No Options"
+          slotProps={{ paper: { sx: LIST_PAPER_SX } }}
+          renderInput={(params) => <TextField {...params} placeholder="Select Category..." sx={AUTOCOMPLETE_INPUT_SX} />}
+        />
+        {isAllOutlets && (
           <Autocomplete
-            sx={fieldFlexSx}
-            size="small"
-            options={categories}
-            getOptionLabel={(o) => o.name || ''}
-            isOptionEqualToValue={(o, v) => String(o.id) === String(v.id)}
-            value={categories.find((c) => String(c.id) === String(selectedCategory)) || null}
-            onChange={(e, v) => setSelectedCategory(v ? v.id : '')}
-            componentsProps={{ paper: { sx: popupPaperSx } }}
-            renderInput={(params) => (
-              <TextField {...params} placeholder="Select Category..." sx={fieldSx} />
-            )}
-          />
-
-          {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
-          {showOutletFilter && (
-          <Autocomplete
-            sx={fieldFlexSx}
-            size="small"
+            sx={singleAutocompleteSx(!!selectedOutlet)}
             options={outletOptions}
-            getOptionLabel={(o) => o.label || ''}
-            isOptionEqualToValue={(o, v) => o.value === v.value}
-            value={outletOptions.find((o) => o.value === selectedOutlet) || null}
-            onChange={(e, v) => setSelectedOutlet(v ? v.value : '')}
-            componentsProps={{ paper: { sx: popupPaperSx } }}
-            renderInput={(params) => (
-              <TextField {...params} placeholder="Select Outlet..." sx={fieldSx} />
-            )}
+            getOptionLabel={(o) => o?.name || ''}
+            isOptionEqualToValue={(o, v) => String(o.id) === String(v.id)}
+            value={selectedOutlet}
+            onChange={(_e, v) => setSelectedOutlet(v)}
+            noOptionsText="No Options"
+            slotProps={{ paper: { sx: LIST_PAPER_SX } }}
+            renderInput={(params) => <TextField {...params} placeholder="Select Outlet..." sx={AUTOCOMPLETE_INPUT_SX} />}
           />
-          )}
-
-          <Box sx={fieldFlexSx}>
-            <DateRangePicker
-              single
-              allowEmpty
-              enableTime
-              hideIcon
-              label=""
-              placeholder="Select Start Date..."
-              inputSx={fieldSx}
-              value={{ startDate, endDate: startDate }}
-              onChange={({ startDate: d }) => setStartDate(d)}
-            />
-          </Box>
-
-          <Box sx={fieldFlexSx}>
-            <DateRangePicker
-              single
-              allowEmpty
-              enableTime
-              hideIcon
-              label=""
-              placeholder="Select End Date..."
-              inputSx={fieldSx}
-              value={{ startDate: endDate, endDate }}
-              onChange={({ startDate: d }) => setEndDate(d)}
-            />
-          </Box>
-        </Box>
-
+        )}
+        <DateTimeField value={startDate} onChange={setStartDate} placeholder="Select Start Date..." showLabel={false} />
+        <DateTimeField value={endDate} onChange={setEndDate} placeholder="Select End Date..." showLabel={false} />
       </Box>
 
-      {/* Reference keeps Filter, the selected-count and all four bulk actions on ONE row:
-          Filter hard-left, count pushed right by the spacer, buttons right-aligned. */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Button variant="contained" disableElevation onClick={applyFilters} sx={filterBtnSx}>
-          Filter
+      {/* Filter hard-left; count + bulk actions right (only when there are rows). */}
+      <Box sx={{ display: 'flex', gap: 2, mb: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <Button variant="contained" disableElevation onClick={applyFilters} disabled={filtering} sx={FILTER_BUTTON_SX}>
+          {filtering ? <CircularProgress size={18} sx={{ color: '#737373' }} /> : 'Filter'}
         </Button>
         <Box sx={{ flexGrow: 1 }} />
-        {/* Reference empty page shows only New + filters + Filter — no count, no bulk actions. */}
-        {visibleCosts.length > 0 && (
-        <>
-        <Typography variant="body2" sx={{ color: '#000', fontSize: 16, mr: 1 }}>
-          {selectedVisible.length} Selected Costs
-        </Typography>
-        <Button
-          variant="outlined"
-          onClick={() =>
-            setDeleteConfirm({
-              title: 'Delete Selected Costs',
-              message: `Are you sure you want to delete ${selectedVisible.length} selected cost(s)?`,
-              ids: selectedVisible,
-            })
-          }
-          disabled={selectedVisible.length === 0}
-          sx={dangerBtnSx}
-        >
-          Delete Selected Costs
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={() =>
-            setDeleteConfirm({
-              title: 'Delete All Costs',
-              message: `Are you sure you want to delete all ${visibleCosts.length} future cost(s)?`,
-              ids: visibleIds,
-            })
-          }
-          disabled={visibleCosts.length === 0}
-          sx={dangerBtnSx}
-        >
-          Delete All Costs
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={() =>
-            setApplyConfirm({
-              message: `Are you sure you want to apply ${selectedVisible.length} selected cost(s) immediately?`,
-              ids: selectedVisible,
-            })
-          }
-          disabled={selectedVisible.length === 0}
-          sx={primaryOutlineBtnSx}
-        >
-          Apply Selected Costs
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={() =>
-            setApplyConfirm({
-              message: `Are you sure you want to apply all ${visibleCosts.length} future cost(s) immediately?`,
-              ids: visibleIds,
-            })
-          }
-          disabled={visibleCosts.length === 0}
-          sx={primaryOutlineBtnSx}
-        >
-          Apply All Costs
-        </Button>
-        </>
+        {rows.length > 0 && (
+          <>
+            <Typography component="span" sx={{ display: 'inline-block', fontSize: 16, lineHeight: '19px', color: '#000', padding: '0 8px 0 0' }}>
+              {selectedCosts.length} Selected Costs
+            </Typography>
+            <Button variant="outlined" onClick={() => setDeleteConfirm({ ids: selectedCosts })} disabled={selectedCosts.length === 0} sx={BULK_DANGER_SX}>
+              Delete Selected Costs
+            </Button>
+            <Button variant="outlined" onClick={() => setDeleteConfirm({ ids: allIds })} sx={BULK_DANGER_SX}>
+              Delete All Costs
+            </Button>
+            <Button variant="outlined" onClick={() => setApplyConfirm({ ids: selectedCosts })} disabled={selectedCosts.length === 0} sx={BULK_PRIMARY_SX}>
+              Apply Selected Costs
+            </Button>
+            {/* Article: "Immediately apply all future costs currently on the filtered list." */}
+            <Button variant="outlined" onClick={() => setApplyConfirm({ ids: allIds })} sx={BULK_PRIMARY_SX}>
+              Apply All Costs
+            </Button>
+          </>
         )}
       </Box>
 
@@ -651,120 +446,96 @@ const FutureCosts = () => {
           {error}
         </Alert>
       )}
-
       {success && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
           {success}
         </Alert>
       )}
 
-      {loadingData ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <Typography>Loading...</Typography>
-        </Box>
-      ) : visibleCosts.length === 0 ? (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 4,
-            py: 8,
-          }}
-        >
-          {/* Reference empty state is all black: circle-slash icon, 24px/700 heading, plain body. */}
-          <BlockIcon sx={{ fontSize: 118, color: '#000' }} />
+      {!loadedOnce ? null : rows.length === 0 && !filtersActive ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, py: 8 }}>
+          <BlockIcon sx={{ width: 200, height: 160, color: '#000' }} />
           <Box>
-            <Typography component="h3" sx={{ fontWeight: 700, fontSize: 24, color: '#000', mb: 1 }}>
+            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000', mb: 1 }}>
               No Future Costs
             </Typography>
-            <Typography sx={{ color: '#000', fontSize: 16 }}>
-              There are no costs set to be activated in the future.
-            </Typography>
+            <Typography sx={{ color: '#000', fontSize: 16 }}>There are no costs set to be activated in the future.</Typography>
           </Box>
         </Box>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer sx={{ bgcolor: 'transparent', boxShadow: 'none' }}>
+          <Table sx={{ tableLayout: 'fixed' }}>
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#5ebbeb', '& th': { color: '#fff', fontSize: 16, fontWeight: 700, borderBottom: 'none' } }}>
-                <TableCell padding="checkbox">
+              <TableRow sx={TABLE_HEAD_ROW_SX}>
+                <TableCell padding="checkbox" sx={{ pl: '20px', width: 48, boxSizing: 'border-box' }}>
                   <Checkbox
-                    indeterminate={
-                      selectedVisible.length > 0 && selectedVisible.length < visibleCosts.length
-                    }
-                    checked={visibleCosts.length > 0 && selectedVisible.length === visibleCosts.length}
+                    {...CHECKBOX_GLYPHS}
+                    indeterminate={selectedCosts.length > 0 && selectedCosts.length < rows.length}
+                    checked={rows.length > 0 && selectedCosts.length === rows.length}
                     onChange={handleSelectAll}
-                    sx={{ color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                    sx={{ ...CHECKBOX_SX, color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
                   />
                 </TableCell>
-                <TableCell>Product</TableCell>
-                <TableCell>Outlet</TableCell>
-                <TableCell>Created By</TableCell>
-                <TableCell>Case Cost</TableCell>
-                <TableCell>Effective At</TableCell>
-                {/* Reference leaves the row-action column header blank. */}
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visibleCosts.map((row) => (
-                <TableRow key={row.id} hover>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={selectedCosts.includes(row.id)}
-                      onChange={() => handleSelectCost(row.id)}
-                    />
-                  </TableCell>
-                  <TableCell>{row.itemName}</TableCell>
-                  <TableCell>{outletLabel(row.outletId)}</TableCell>
-                  <TableCell>{row.createdBy}</TableCell>
-                  <TableCell>{formatCurrency(row.cost)}</TableCell>
-                  <TableCell>
-                    {formatDate(row.effectiveAt)}
-                    {row.isApplied && (
-                      <Chip label="Applied" size="small" color="success" sx={{ ml: 1 }} />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {/* Reference row actions are borderless text links, not filled buttons. */}
-                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                      <Button
-                        variant="text"
-                        startIcon={<DeleteIcon />}
-                        onClick={() =>
-                          setDeleteConfirm({
-                            title: 'Delete Future Cost',
-                            ids: [row.id],
-                            cost: row,
-                          })
-                        }
-                        sx={rowActionSx('#dc2626')}
-                      >
-                        Delete
-                      </Button>
-                      {!row.isApplied && (
-                        <Button
-                          variant="text"
-                          startIcon={<CheckCircleIcon />}
-                          onClick={() =>
-                            setApplyConfirm({
-                              message: 'Are you sure you want to apply the future cost?',
-                              ids: [row.id],
-                              cost: row,
-                            })
-                          }
-                          sx={rowActionSx('#16a34a')}
-                        >
-                          Apply
-                        </Button>
-                      )}
+                {COLUMNS.map((col) => (
+                  <TableCell key={col.id} sx={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', '&&': { p: 0 } }} onClick={() => handleSort(col.id)}>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', height: 51, px: '8px' }}>
+                      {col.label}
+                      {orderBy === col.id && <SortGlyph active={order} />}
                     </Box>
                   </TableCell>
+                ))}
+                <TableCell sx={{ width: 236 }} />
+              </TableRow>
+            </TableHead>
+            <TableBody sx={TABLE_BODY_SX}>
+              {pagedRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={COLUMNS.length + 2} align="center" sx={{ py: 4, color: '#000', fontSize: 16 }}>
+                    No results found. Change search filters and try again.
+                  </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                pagedRows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell padding="checkbox" sx={{ pl: '20px' }}>
+                      <Checkbox {...CHECKBOX_GLYPHS} checked={selectedCosts.includes(row.id)} onChange={() => handleSelectCost(row.id)} sx={CHECKBOX_SX} />
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: 12, color: '#404040', lineHeight: '16px' }}>{row.itemType}</Typography>
+                      <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '20px' }}>{row.itemName}</Typography>
+                    </TableCell>
+                    <TableCell>{row.outletName}</TableCell>
+                    <TableCell>{row.createdBy}</TableCell>
+                    <TableCell>{formatCurrency(row.cost)}</TableCell>
+                    <TableCell>{formatDate(row.effectiveAt)}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', pr: '8px' }}>
+                        <Button variant="outlined" startIcon={<DeleteIcon />} onClick={() => setDeleteConfirm({ ids: [row.id], cost: row })} sx={rowActionSx('#e7000b', '#fb2c36')}>
+                          Delete
+                        </Button>
+                        <Button variant="outlined" startIcon={<CheckCircleIcon />} onClick={() => setApplyConfirm({ ids: [row.id], cost: row })} sx={rowActionSx('#00a63e', '#00c950')}>
+                          Apply
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
+          {sortedRows.length > ROWS_PER_PAGE && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
+              <Pagination
+                count={Math.ceil(sortedRows.length / ROWS_PER_PAGE)}
+                page={safePage + 1}
+                onChange={(_e, p) => setPage(p - 1)}
+                color="primary"
+                size="large"
+                showFirstButton
+                showLastButton
+              />
+            </Box>
+          )}
         </TableContainer>
       )}
 
@@ -776,7 +547,6 @@ const FutureCosts = () => {
         row={deleteConfirm?.cost}
         count={deleteConfirm?.ids?.length || 0}
         columns={COST_COLUMNS}
-        message={deleteConfirm?.message}
         loading={loading}
         onCancel={() => setDeleteConfirm(null)}
         onConfirm={() => doDelete(deleteConfirm.ids)}
@@ -790,92 +560,63 @@ const FutureCosts = () => {
         row={applyConfirm?.cost}
         count={applyConfirm?.ids?.length || 0}
         columns={COST_COLUMNS}
-        message={applyConfirm?.cost ? undefined : applyConfirm?.message}
         loading={loading}
         onCancel={() => setApplyConfirm(null)}
         onConfirm={() => doApply(applyConfirm.ids)}
       />
 
-      <Dialog
-        open={scheduleDialogOpen}
-        onClose={() => {
-          setScheduleDialogOpen(false);
-          resetScheduleForm();
-        }}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: '8px',
-            width: 448,
-            // Tailwind shadow-xl
-            boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            height: 60,
-            p: 2,
-            backgroundColor: '#bae6fd',
-            borderRadius: '8px 8px 0 0',
-          }}
-        >
-          <HelpIcon sx={{ fontSize: 22, color: '#075985' }} />
-          <Typography component="span" sx={{ fontSize: 18, fontWeight: 400, color: '#075985' }}>
-            Schedule Cost Change
-          </Typography>
+      <Dialog open={scheduleDialogOpen} onClose={closeDialog} maxWidth={false} PaperProps={{ sx: { width: 448, maxWidth: '100%', borderRadius: '8px' } }}>
+        {/* Reference: sky-200 header band, bold "?" glyph and bold sky-800 title. */}
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, backgroundColor: '#b8e6fe', px: 3, py: 2 }}>
+          <Typography component="span" sx={{ fontSize: 22, fontWeight: 700, color: '#0369a1', lineHeight: 1 }}>?</Typography>
+          <Typography component="span" sx={{ fontSize: 18, fontWeight: 700, color: '#0369a1' }}>Schedule Cost Change</Typography>
         </DialogTitle>
 
-        {/* Measured: title 60 + content + actions 67 must total the reference's 419px paper.
-            Content body is 283px (Grid 299 less its -16 spacing margin), so 2px top + 9px
-            bottom => 294 content => 60 + 292 + 67 = 419. */}
-        <DialogContent sx={{ pt: '2px', pb: '9px' }}>
-          {dateError && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDateError('')}>
-              {dateError}
-            </Alert>
-          )}
-          <Grid container spacing={2}>
+        <DialogContent sx={{ pt: 3 }}>
+          <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12}>
               <Autocomplete
                 autoHighlight
                 options={itemSearchResults}
                 filterOptions={(options) => options}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option;
-                  return option.name || '';
-                }}
-                isOptionEqualToValue={(option, value) => {
-                  if (!option || !value) return false;
-                  return option.id === value.id;
-                }}
+                getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
+                isOptionEqualToValue={(option, value) => !!option && !!value && option.id === value.id}
                 value={selectedItem}
                 loading={itemSearchLoading}
-                // Reference: hint until 3 typed chars, then results grouped under a bold
-                // 'Products' header (never a bare 'Loading...' line).
-                noOptionsText="Keep Typing to Search..."
-                loadingText="Keep Typing to Search..."
                 groupBy={() => 'Products'}
-                renderGroup={(params) => (
-                  <li key={params.key}>
-                    <Box sx={{ px: 2, py: 0.5, fontWeight: 700, fontSize: 14 }}>{params.group}</Box>
-                    <ul style={{ padding: 0, margin: 0, listStyle: 'none' }}>{params.children}</ul>
-                  </li>
-                )}
-                onInputChange={async (event, newValue) => {
-                  if (newValue && newValue.trim().length >= 3) {
+                noOptionsText={itemSearchText.trim().length < 2 ? 'Keep Typing to Search...' : 'No Results Found'}
+                slotProps={{
+                  paper: {
+                    sx: {
+                      mt: '4px',
+                      border: '1px solid #000',
+                      borderRadius: '8px',
+                      '& .MuiAutocomplete-groupLabel': { fontWeight: 700, fontSize: 16, color: '#000', lineHeight: '56px', px: '14px', borderBottom: '1px solid #e5e5e5' },
+                      '& .MuiAutocomplete-listbox': { maxHeight: 289, py: 0 },
+                      '& .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+                      '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#7dd3fc !important' },
+                    },
+                  },
+                }}
+                renderOption={(props, option) => {
+                  const { key: _key, ...optionProps } = props;
+                  // All Outlets mixes every outlet's products, and outlet-specific
+                  // products may share a name: tag each with its outlet (or Global).
+                  const where = isAllOutlets ? (option.outletId == null ? 'Global' : outletNameOf(option.outletId)) : '';
+                  const sub = [option.family?.name || option.brand?.name || '', where].filter(Boolean).join(' · ');
+                  return (
+                    <li key={option.id} {...optionProps} style={{ ...optionProps.style, display: 'block' }}>
+                      <Box sx={{ lineHeight: '20px' }}>{option.name}</Box>
+                      {sub && <Box sx={{ fontSize: 13, color: '#737373', lineHeight: '16px' }}>{sub}</Box>}
+                    </li>
+                  );
+                }}
+                onInputChange={async (_event, newValue) => {
+                  setItemSearchText(newValue || '');
+                  if (newValue && newValue.trim().length >= 2) {
                     setItemSearchLoading(true);
                     try {
-                      // skipOutletScope: the super-admin GET interceptor otherwise pins the
-                      // top-bar outlet onto the search and every term returns 0 products.
-                      const response = await productService.getProducts(
-                        { search: newValue, limit: 10, status: 'Active' },
-                        { skipOutletScope: true }
-                      );
+                      const response = await productService.getProducts({ search: newValue, limit: 10, status: 'Active' });
                       setItemSearchResults(response.products || []);
                     } catch (err) {
                       console.error('Error searching products:', err);
@@ -887,17 +628,21 @@ const FutureCosts = () => {
                     setItemSearchResults([]);
                   }
                 }}
-                onChange={(event, newValue) => {
-                  setSelectedItem(newValue && typeof newValue !== 'string' ? newValue : null);
+                onChange={(_event, newValue) => {
+                  const item = newValue && typeof newValue !== 'string' ? newValue : null;
+                  setSelectedItem(item);
                   setCost('');
+                  // An outlet-specific product belongs to one outlet: book its cost
+                  // there (All Outlets). Global products keep whatever was picked.
+                  if (isAllOutlets && item?.outletId != null) {
+                    setDialogOutlet(dialogOutletOptions.find((o) => String(o.id) === String(item.outletId)) || null);
+                  }
                 }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     placeholder="Search items..."
-                    size="small"
-                    // Reference search input is white/active, unlike the grey fields below.
-                    sx={fieldSx}
+                    sx={{ '& .MuiOutlinedInput-root': DIALOG_INPUT_SX }}
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -912,122 +657,80 @@ const FutureCosts = () => {
               />
             </Grid>
 
+            {/* Reference: "select the outlet you would like the cost to apply to",
+                x = Global Cost; unlocks with the item. Outlet-wise: the field only
+                exists under All Outlets - with a navbar outlet (or a pinned user)
+                the header already answers it, so the cost lands on that outlet. */}
+            {isAllOutlets && (
             <Grid item xs={12}>
-              <Typography sx={{ color: '#676b72', fontSize: 14, mb: 0.5 }}>Outlet</Typography>
-              {/* Reference: Outlet is read-only at all times (prefilled with the current outlet);
-                  Scheduled Time and Case Cost unlock once an item is chosen. */}
-              <FormControl fullWidth size="small">
-                <Select
-                  displayEmpty
-                  disabled
-                  value={dialogOutlet}
-                  onChange={(e) => setDialogOutlet(e.target.value)}
-                  sx={dialogSelectSx}
-                  MenuProps={menuProps}
-                  renderValue={(value) =>
-                    value
-                      ? outletOptions.find((o) => o.value === value)?.label || ''
-                      : placeholder('Global Cost')
-                  }
-                >
-                  {outletOptions
-                    .filter((o) => o.value !== GLOBAL_OUTLET)
-                    .map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                </Select>
-              </FormControl>
+              <DialogLabel show>Outlet</DialogLabel>
+              <Autocomplete
+                options={dialogOutletOptions}
+                getOptionLabel={(o) => o?.name || ''}
+                isOptionEqualToValue={(o, v) => String(o.id) === String(v.id)}
+                value={dialogOutlet}
+                onChange={(_e, v) => setDialogOutlet(v)}
+                // An outlet-specific product is fixed to its own outlet; only a
+                // global product may be booked on any outlet or as Global Cost.
+                disabled={!selectedItem || selectedItem.outletId != null}
+                noOptionsText="No Options"
+                slotProps={{ paper: { sx: LIST_PAPER_SX } }}
+                sx={{
+                  '& .MuiAutocomplete-clearIndicator': { visibility: dialogOutlet ? 'visible' : 'hidden', p: '2px' },
+                  '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: '#000' },
+                  '& .MuiAutocomplete-inputRoot': { pl: '14px', py: '0 !important', height: 42 },
+                  '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': { pl: 0, py: 0, fontSize: 16 },
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Global Cost"
+                    sx={{ '& .MuiOutlinedInput-root': DIALOG_INPUT_SX, '& input::placeholder': { color: '#808080', opacity: 1 } }}
+                  />
+                )}
+              />
+            </Grid>
+            )}
+
+            <Grid item xs={12}>
+              <DialogLabel show={!!scheduledTime}>Scheduled Time</DialogLabel>
+              <DateTimeField
+                value={scheduledTime}
+                onChange={(d) => { setScheduledTime(d); setDateError(''); }}
+                placeholder="Scheduled Time"
+                showLabel={false}
+                disabled={!selectedItem}
+                disablePast
+                error={!!dateError}
+              />
+              {dateError && <Typography sx={{ color: '#e33430', fontSize: 12, mt: 0.5 }}>{dateError}</Typography>}
             </Grid>
 
             <Grid item xs={12}>
-              <Typography sx={{ color: '#676b72', fontSize: 14, mb: 0.5 }}>Scheduled Time</Typography>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
-                <DateTimePicker
-                  disabled={!selectedItem}
-                  value={scheduledTime}
-                  onChange={(newValue) => {
-                    setScheduledTime(newValue);
-                    setDateError(
-                      newValue && newValue <= new Date()
-                        ? 'Please select a time that is in the future'
-                        : ''
-                    );
-                  }}
-                  format="dd/MM/yyyy HH:mm:ss"
-                  ampm={false}
-                  views={['year', 'month', 'day', 'hours', 'minutes', 'seconds']}
-                  minDateTime={new Date()}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      size: 'small',
-                      // Reference has no trailing calendar icon on this field.
-                      sx: { ...dialogFieldSx, '& .MuiInputAdornment-root': { display: 'none' } },
-                      error: !!dateError,
-                      helperText: dateError,
-                    },
-                    shortcuts: { items: pickerShortcuts },
-                  }}
-                />
-              </LocalizationProvider>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography sx={{ color: '#676b72', fontSize: 14, mb: 0.5 }}>Case Cost</Typography>
+              <DialogLabel show>Case Cost</DialogLabel>
               <TextField
                 fullWidth
-                size="small"
                 type="number"
+                placeholder={costFocused ? '' : '0'}
                 disabled={!selectedItem}
                 value={cost}
-                onFocus={(e) => e.target.select()}
+                sx={DIALOG_FIELD_SX}
+                onFocus={(e) => { setCostFocused(true); e.target.select(); }}
+                onBlur={() => setCostFocused(false)}
                 onChange={(e) => setCost(e.target.value)}
-                sx={dialogFieldSx}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
+                InputProps={{ startAdornment: <InputAdornment position="start" sx={{ mr: '6px', '& p': { color: '#404040', fontSize: 16 } }}>$</InputAdornment> }}
                 inputProps={{ min: 0, step: 0.01 }}
               />
             </Grid>
           </Grid>
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, pt: 1, borderTop: '1px solid #e0e0e0' }}>
-          <Button
-            onClick={() => {
-              setScheduleDialogOpen(false);
-              resetScheduleForm();
-            }}
-            sx={{
-              ...dialogBtnSx,
-              color: '#000',
-              backgroundColor: '#d4d4d4',
-              '&:hover': { backgroundColor: '#c4c4c4' },
-            }}
-          >
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={closeDialog} sx={DIALOG_CANCEL_SX}>
             Cancel
           </Button>
-          <Button
-            onClick={handleAddFutureCost}
-            variant="contained"
-            disableElevation
-            disabled={!selectedItem || !scheduledTime || !cost || !!dateError}
-            sx={{
-              ...dialogBtnSx,
-              backgroundColor: '#5ebbeb',
-              border: '1px solid #5ebbeb',
-              '&:hover': { backgroundColor: '#4aa9dd', borderColor: '#4aa9dd', boxShadow: 'none' },
-              // Reference disabled Add: #ebebeb fill, #8e8e8e label, rail matches the fill.
-              '&.Mui-disabled': {
-                backgroundColor: '#ebebeb',
-                border: '1px solid #ebebeb',
-                color: '#8e8e8e',
-              },
-            }}
-          >
-            Add
+          <Button onClick={handleAddFutureCost} variant="contained" disableElevation disabled={!canAdd} sx={DIALOG_ADD_SX}>
+            {loading ? 'Add...' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -23,18 +23,12 @@ import {
   InputAdornment,
   Autocomplete,
   Grid,
-  Popper,
-  ClickAwayListener,
   FormControl,
 } from '@mui/material';
 import {
   DeleteOutline as DeleteIcon,
   CheckCircleOutline as CheckCircleIcon,
   SearchOutlined as SearchIcon,
-  CalendarTodayOutlined as CalendarIcon,
-  AccessTimeOutlined as ClockIcon,
-  ChevronLeftOutlined as ChevronLeftIcon,
-  ChevronRightOutlined as ChevronRightIcon,
   AddOutlined as AddIcon,
   BlockOutlined as BlockIcon,
   PriorityHighOutlined as PriorityHighIcon,
@@ -53,23 +47,7 @@ const SortGlyph = ({ active }) => (
     <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
   </svg>
 );
-import {
-  format,
-  parse,
-  isValid,
-  addMonths,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  isToday,
-} from 'date-fns';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
+import DateTimeField, { FloatLabel } from '../../components/Common/DateTimeField';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
@@ -332,17 +310,6 @@ const LIST_PAPER_SX = {
   '& .MuiAutocomplete-noOptions': { fontSize: 16, color: '#000', px: '14px', py: '18px' },
 };
 
-// Reference: the field's name floats above it (12px, black) only while it is
-// focused / open or holds a value; otherwise the name is the placeholder.
-const FloatLabel = ({ show, children }) =>
-  show ? (
-    <Typography
-      component="span"
-      sx={{ position: 'absolute', top: -18, left: 0, fontSize: 12, lineHeight: '16px', color: '#000', whiteSpace: 'nowrap' }}
-    >
-      {children}
-    </Typography>
-  ) : null;
 const SELECT_MENU_PROPS = {
   anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
   transformOrigin: { vertical: 'top', horizontal: 'left' },
@@ -478,469 +445,6 @@ const DialogLabel = ({ show, children }) => (
   </Typography>
 );
 
-const DT_FORMAT = 'dd/MM/yyyy HH:mm:ss';
-const DT_MASK = 'DD/MM/YYYY HH:MM:SS';
-const ACCEPTED_FORMATS = [DT_FORMAT, 'dd/MM/yyyy HH:mm', 'dd/MM/yyyy'];
-
-// Accepts a fully or partially timed DD/MM/YYYY string; null when unparseable.
-const parseDateTimeText = (text) => {
-  const t = (text || '').trim();
-  if (!t) return null;
-  for (const f of ACCEPTED_FORMATS) {
-    const d = parse(t, f, new Date());
-    // Reject part-typed years (01/01/2 -> year 2) so auto-applying filters never
-    // fires a fetch against a half-entered date.
-    if (isValid(d) && d.getFullYear() >= 1000) return d;
-  }
-  return null;
-};
-
-const WEEKDAYS = [
-  { key: 'mon', label: 'M', weekend: false },
-  { key: 'tue', label: 'T', weekend: false },
-  { key: 'wed', label: 'W', weekend: false },
-  { key: 'thu', label: 'T', weekend: false },
-  { key: 'fri', label: 'F', weekend: false },
-  { key: 'sat', label: 'S', weekend: true },
-  { key: 'sun', label: 'S', weekend: true },
-];
-
-const MonthGrid = ({ month, selected, onPick, onTitleClick }) => {
-  const days = eachDayOfInterval({
-    start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
-    end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
-  });
-
-  return (
-    <Box sx={{ width: 286 }}>
-      <Box
-        component="button"
-        type="button"
-        onClick={onTitleClick}
-        sx={{
-          display: 'block',
-          width: '100%',
-          border: 0,
-          bgcolor: 'transparent',
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-          fontSize: 18,
-          fontWeight: 700,
-          color: '#525252',
-          mb: 1,
-          borderRadius: '12px',
-          transition: INSTANT,
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
-        }}
-      >
-        {format(month, 'MMMM yyyy')}
-      </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 38px)', justifyContent: 'center' }}>
-        {WEEKDAYS.map((d) => (
-          <Box
-            key={d.key}
-            sx={{
-              height: 28,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
-              color: d.weekend ? '#737373' : '#262626',
-            }}
-          >
-            {d.label}
-          </Box>
-        ))}
-        {days.map((day) => {
-          const outside = !isSameMonth(day, month);
-          const isSelected = selected && isSameDay(day, selected);
-          return (
-            <Box
-              key={day.toISOString()}
-              component="button"
-              type="button"
-              onClick={() => onPick(day)}
-              sx={{
-                width: 38,
-                height: 38,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                p: 0,
-                border: isToday(day) ? '1px solid #00a6f4' : '1px solid transparent',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontWeight: 700,
-                fontSize: 16,
-                transition: INSTANT,
-                // Reference: the picked day is a solid sky-500 square with white text.
-                bgcolor: isSelected ? '#00a6f4' : 'transparent',
-                color: isSelected ? '#fff' : outside ? '#a1a1a1' : '#0084d1',
-                '&:hover': { bgcolor: isSelected ? '#00a6f4' : 'rgba(0,0,0,0.05)' },
-              }}
-            >
-              {format(day, 'd')}
-            </Box>
-          );
-        })}
-      </Box>
-    </Box>
-  );
-};
-
-const timeInputSx = {
-  width: 64,
-  height: 36,
-  bgcolor: '#fff',
-  border: '1px solid #e5e5e5',
-  borderRadius: '8px',
-  px: 1,
-  fontFamily: 'inherit',
-  fontSize: 14,
-  color: '#404040',
-  outline: 'none',
-};
-
-/**
- * Reference filter date field: a bare text input (placeholder swaps to the
- * DD/MM/YYYY HH:mm:ss mask on focus) that opens a dual-month calendar popover
- * with calendar/clock tabs and a Current Day shortcut. Typing commits directly.
- */
-const DateTimeFilterField = ({ value, onChange, placeholder, label = placeholder }) => {
-  const [focused, setFocused] = useState(false);
-  const [invalid, setInvalid] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState('calendar');
-  const [viewMonth, setViewMonth] = useState(startOfMonth(value || new Date()));
-  // ponytail: the popover's masked strip keeps its own text and commits on
-  // blur/Enter only — committing per keystroke would round-trip through value
-  // and clobber the entry mid-type (same trap the main input avoids below).
-  const [stripText, setStripText] = useState('');
-  const anchorRef = useRef(null);
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    setStripText(value ? format(value, DT_FORMAT) : '');
-  }, [value]);
-
-  const commitStrip = () => {
-    if (stripText.trim() === '') {
-      onChange(null);
-      return;
-    }
-    const parsed = parseDateTimeText(stripText);
-    if (parsed) {
-      onChange(parsed);
-      setViewMonth(startOfMonth(parsed));
-    }
-  };
-
-  // ponytail: the text lives in the DOM, not in state. A controlled input here
-  // is what broke typing — React restores the DOM value from props on every
-  // input event that does not move the committed value, so partial entries
-  // ("01/01/20…") were wiped keystroke by keystroke. Uncontrolled + imperative
-  // re-sync keeps partial text alive and still lets the picker write the field.
-  const writeText = useCallback((t) => {
-    if (inputRef.current) inputRef.current.value = t;
-    setInvalid(t.trim() !== '' && !parseDateTimeText(t));
-  }, []);
-
-  // Re-sync only when the committed value diverges from what is typed, so that
-  // typing is never clobbered mid-entry.
-  useEffect(() => {
-    const current = inputRef.current ? inputRef.current.value : '';
-    const parsed = parseDateTimeText(current);
-    if (value && parsed && parsed.getTime() === value.getTime()) return;
-    if (!value && !parsed) return;
-    writeText(value ? format(value, DT_FORMAT) : '');
-  }, [value, writeText]);
-
-  const handleText = (e) => {
-    const next = e.target.value;
-    setInvalid(next.trim() !== '' && !parseDateTimeText(next));
-    if (next.trim() === '') {
-      onChange(null);
-      return;
-    }
-    const parsed = parseDateTimeText(next);
-    if (parsed) onChange(parsed);
-  };
-
-  const pick = (day) => {
-    const base = value || new Date(new Date().setHours(0, 0, 0, 0));
-    const next = new Date(day);
-    next.setHours(base.getHours(), base.getMinutes(), base.getSeconds(), 0);
-    onChange(next);
-    setViewMonth(startOfMonth(next));
-  };
-
-  const setTimePart = (part, raw) => {
-    const n = Number(raw);
-    if (Number.isNaN(n)) return;
-    const next = new Date(value || new Date(new Date().setHours(0, 0, 0, 0)));
-    if (part === 'h') next.setHours(Math.min(23, Math.max(0, n)));
-    if (part === 'm') next.setMinutes(Math.min(59, Math.max(0, n)));
-    if (part === 's') next.setSeconds(Math.min(59, Math.max(0, n)));
-    onChange(next);
-  };
-
-  const currentDay = () => {
-    const today = new Date();
-    setViewMonth(startOfMonth(today));
-    onChange(today);
-  };
-
-  return (
-    <ClickAwayListener onClickAway={() => setOpen(false)}>
-      <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
-        <FloatLabel show={focused || open || !!value}>{label}</FloatLabel>
-        <Box
-          ref={anchorRef}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            height: 42,
-            border: invalid ? '1px solid #e33430' : focused || open ? '2px solid #000' : '1px solid #404040',
-            borderRadius: '8px',
-            bgcolor: '#fff',
-            px: focused || open ? '13px' : '14px',
-          }}
-        >
-          {/* Reference: the mask (and a typed date) read in a monospace face. */}
-          <Box
-            component="input"
-            ref={inputRef}
-            defaultValue={value ? format(value, DT_FORMAT) : ''}
-            onChange={handleText}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onClick={() => setOpen(true)}
-            placeholder={focused || open ? DT_MASK : placeholder}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              height: '100%',
-              border: 0,
-              outline: 'none',
-              bgcolor: 'transparent',
-              fontFamily: focused || open || value ? '"Roboto Mono", "Courier New", monospace' : 'inherit',
-              fontSize: 16,
-              color: '#000',
-              '&::placeholder': { color: '#808080', opacity: 1 },
-            }}
-          />
-        </Box>
-
-        <Popper
-          open={open}
-          anchorEl={anchorRef.current}
-          placement="bottom-start"
-          modifiers={[{ name: 'offset', options: { offset: [0, 10] } }]}
-          style={{ zIndex: 1300 }}
-        >
-          <Box
-            sx={{
-              width: 622,
-              bgcolor: '#f5f5f5',
-              border: '1px solid #e5e5e5',
-              borderRadius: '12px',
-              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-              p: 2,
-              transition: INSTANT,
-            }}
-          >
-            {/* Reference shows a masked segment input strip at the top of the popover
-                (monospace, 1px black border, × to clear once a date is set). */}
-            <Box
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                width: 248,
-                height: 38,
-                border: '1px solid #000',
-                borderRadius: '8px',
-                px: 1.5,
-                mb: 2,
-                bgcolor: '#fff',
-              }}
-            >
-              <Box
-                component="input"
-                value={stripText}
-                onChange={(e) => setStripText(e.target.value)}
-                onBlur={commitStrip}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitStrip();
-                }}
-                placeholder="dd/mm/yyyy, hh:mm:ss"
-                aria-label="Date and time"
-                sx={{
-                  flex: 1,
-                  minWidth: 0,
-                  border: 0,
-                  bgcolor: 'transparent',
-                  fontFamily: '"Roboto Mono", "Courier New", monospace',
-                  fontSize: 14,
-                  color: '#000',
-                  outline: 'none',
-                  '&::placeholder': { color: '#404040', opacity: 1 },
-                }}
-              />
-              {value && (
-                <Box
-                  component="button"
-                  type="button"
-                  aria-label="Clear date"
-                  onClick={() => { onChange(null); setStripText(''); }}
-                  sx={{ border: 0, bgcolor: 'transparent', p: 0, ml: 1, cursor: 'pointer', display: 'flex' }}
-                >
-                  <CloseIcon sx={{ fontSize: 16, color: '#000' }} />
-                </Box>
-              )}
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              {[
-                { key: 'calendar', icon: <CalendarIcon sx={{ fontSize: 18 }} />, label: 'Calendar' },
-                { key: 'clock', icon: <ClockIcon sx={{ fontSize: 18 }} />, label: 'Time' },
-              ].map(({ key, icon, label }) => (
-                <Box
-                  key={key}
-                  component="button"
-                  type="button"
-                  aria-label={label}
-                  aria-pressed={tab === key}
-                  onClick={() => setTab(key)}
-                  sx={{
-                    width: 38,
-                    height: 38,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: 0,
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    transition: INSTANT,
-                    bgcolor: tab === key ? '#5ebbeb' : 'transparent',
-                    color: tab === key ? '#f8f8f8' : '#0084d1',
-                    '&:hover': { bgcolor: tab === key ? '#5ebbeb' : 'rgba(0,0,0,0.05)' },
-                  }}
-                >
-                  {icon}
-                </Box>
-              ))}
-              <Box sx={{ flex: 1 }} />
-              <Box
-                component="button"
-                type="button"
-                onClick={currentDay}
-                sx={{
-                  width: 107,
-                  height: 42,
-                  border: 0,
-                  borderRadius: '12px',
-                  bgcolor: 'transparent',
-                  color: '#525252',
-                  fontFamily: 'inherit',
-                  fontSize: 16,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: INSTANT,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
-                }}
-              >
-                Current Day
-              </Box>
-            </Box>
-
-            {tab === 'calendar' ? (
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <Box
-                  component="button"
-                  type="button"
-                  aria-label="Previous month"
-                  onClick={() => setViewMonth((m) => subMonths(m, 1))}
-                  sx={{
-                    width: 38,
-                    height: 38,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: 0,
-                    borderRadius: '12px',
-                    bgcolor: 'transparent',
-                    color: '#0084d1',
-                    cursor: 'pointer',
-                    transition: INSTANT,
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
-                  }}
-                >
-                  <ChevronLeftIcon />
-                </Box>
-                <MonthGrid
-                  month={viewMonth}
-                  selected={value}
-                  onPick={pick}
-                  onTitleClick={() => setViewMonth(startOfMonth(new Date()))}
-                />
-                <MonthGrid
-                  month={addMonths(viewMonth, 1)}
-                  selected={value}
-                  onPick={pick}
-                  onTitleClick={() => setViewMonth(startOfMonth(new Date()))}
-                />
-                <Box
-                  component="button"
-                  type="button"
-                  aria-label="Next month"
-                  onClick={() => setViewMonth((m) => addMonths(m, 1))}
-                  sx={{
-                    width: 38,
-                    height: 38,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: 0,
-                    borderRadius: '12px',
-                    bgcolor: 'transparent',
-                    color: '#0084d1',
-                    cursor: 'pointer',
-                    transition: INSTANT,
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
-                  }}
-                >
-                  <ChevronRightIcon />
-                </Box>
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {[
-                  { part: 'h', label: 'Hours', v: value ? value.getHours() : 0, max: 23 },
-                  { part: 'm', label: 'Minutes', v: value ? value.getMinutes() : 0, max: 59 },
-                  { part: 's', label: 'Seconds', v: value ? value.getSeconds() : 0, max: 59 },
-                ].map(({ part, label, v, max }) => (
-                  <Box key={part}>
-                    <Typography sx={{ fontSize: 12, color: '#525252', mb: 0.5 }}>{label}</Typography>
-                    <Box
-                      component="input"
-                      type="number"
-                      min={0}
-                      max={max}
-                      aria-label={label}
-                      value={String(v)}
-                      onChange={(e) => setTimePart(part, e.target.value)}
-                      sx={timeInputSx}
-                    />
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Box>
-        </Popper>
-      </Box>
-    </ClickAwayListener>
-  );
-};
 
 // Our rule: under All Outlets an Outlet column says which outlet each row belongs to.
 const columnsFor = (showOutlet) => [
@@ -1031,8 +535,6 @@ const FuturePrices = () => {
   const [itemSearchLoading, setItemSearchLoading] = useState(false);
   const [itemSearchText, setItemSearchText] = useState('');
   const [scheduledTime, setScheduledTime] = useState(null);
-  const [timePickerOpen, setTimePickerOpen] = useState(false);
-  const schedAnchorRef = useRef(null);
   // Dialog Price Set pick: 0 = Default Price Set, else a PriceSet id in reach of
   // the chosen product's outlet (its own outlet's sets + the global ones).
   const [priceSetId, setPriceSetId] = useState(0);
@@ -1258,7 +760,6 @@ const FuturePrices = () => {
     setItemSearchResults([]);
     setItemSearchText('');
     setScheduledTime(null);
-    setTimePickerOpen(false);
     setPriceSetId(0);
     setQuantity('');
     setPrice('');
@@ -1381,8 +882,8 @@ const FuturePrices = () => {
           />
         </Box>
 
-        <DateTimeFilterField value={startDate} onChange={setStartDate} placeholder="Start Date" />
-        <DateTimeFilterField value={endDate} onChange={setEndDate} placeholder="End Date" />
+        <DateTimeField value={startDate} onChange={setStartDate} placeholder="Start Date" />
+        <DateTimeField value={endDate} onChange={setEndDate} placeholder="End Date" />
 
         <MultiFilter label="Created By" options={filterOptions.createdBy} value={selectedCreators} onChange={setSelectedCreators} />
         <MultiFilter label="Price Set" options={filterOptions.priceSets} value={selectedPriceSets} onChange={setSelectedPriceSets} />
@@ -1778,83 +1279,22 @@ const FuturePrices = () => {
             <Grid item xs={6}>
               {/* Reference Scheduled Time: "Scheduled Time" placeholder with a '...' opener,
                   its name above once open / set; disabled (bg #d4d4d4) until an item is
-                  chosen. The MUI picker popover stays as the opener, its own field hidden. */}
-              <DialogLabel show={timePickerOpen || !!scheduledTime}>Scheduled Time</DialogLabel>
-              <Box
-                ref={schedAnchorRef}
-                component="button"
-                type="button"
+                  chosen. Same popover as the page filters. Past days are inert
+                  (user decision 04/11/2026) rather than refused afterwards. */}
+              <DialogLabel show={!!scheduledTime}>Scheduled Time</DialogLabel>
+              <DateTimeField
+                value={scheduledTime}
+                onChange={(d) => { setScheduledTime(d); setDateError(''); }}
+                placeholder="Scheduled Time"
+                showLabel={false}
                 disabled={!selectedItem}
-                onClick={() => setTimePickerOpen(true)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  width: '100%',
-                  height: 42,
-                  border: dateError ? '1px solid #e33430' : timePickerOpen ? '2px solid #000' : '1px solid #404040',
-                  borderRadius: '8px',
-                  bgcolor: '#fff',
-                  px: timePickerOpen ? '13px' : '14px',
-                  textAlign: 'left',
-                  // Only the mask is monospace; a chosen date reads in the normal face (ref).
-                  fontFamily: !scheduledTime && timePickerOpen ? '"Roboto Mono", "Courier New", monospace' : 'inherit',
-                  fontSize: 16,
-                  color: scheduledTime ? '#000' : '#808080',
-                  cursor: 'pointer',
-                  '&:disabled': { bgcolor: '#d4d4d4', color: '#737373', cursor: 'not-allowed' },
-                }}
-              >
-                <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {scheduledTime ? format(scheduledTime, DT_FORMAT) : timePickerOpen ? DT_MASK : 'Scheduled Time'}
-                </Box>
-                {!scheduledTime && <Box component="span" sx={{ fontWeight: 700, color: selectedItem ? '#000' : '#737373', ml: 1 }}>...</Box>}
-              </Box>
+                disablePast
+                error={!!dateError}
+                suffix="..."
+              />
               {dateError && (
                 <Typography sx={{ color: '#e33430', fontSize: 12, mt: 0.5 }}>{dateError}</Typography>
               )}
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DateTimePicker
-                  open={timePickerOpen}
-                  onOpen={() => setTimePickerOpen(true)}
-                  onClose={() => setTimePickerOpen(false)}
-                  value={scheduledTime}
-                  format="dd/MM/yyyy HH:mm:ss"
-                  ampm={false}
-                  // User decision 04/11/2026: past days / times are greyed out in the
-                  // picker rather than refused with an error after the fact.
-                  minDateTime={new Date()}
-                  disablePast
-                  views={['year', 'month', 'day', 'hours', 'minutes', 'seconds']}
-                  onChange={(newValue) => {
-                    setScheduledTime(newValue);
-                    setDateError(newValue && Number.isNaN(newValue.getTime()) ? 'Invalid date' : '');
-                  }}
-                  slotProps={{
-                    // The picker's own field is hidden: the masked button row above is the field.
-                    textField: {
-                      tabIndex: -1,
-                      sx: {
-                        position: 'absolute',
-                        width: 0,
-                        height: 0,
-                        overflow: 'hidden',
-                        m: 0,
-                        p: 0,
-                        '& fieldset': { border: 0 },
-                      },
-                    },
-                    actionBar: { actions: ['today', 'clear', 'accept'] },
-                    // Escape inside the picker must dismiss ONLY the popover — letting it
-                    // bubble reached the Dialog and threw away the whole part-filled form.
-                    popper: {
-                      anchorEl: () => schedAnchorRef.current,
-                      onKeyDown: (e) => {
-                        if (e.key === 'Escape') e.stopPropagation();
-                      },
-                    },
-                  }}
-                />
-              </LocalizationProvider>
             </Grid>
 
             <Grid item xs={6}>
