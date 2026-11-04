@@ -4,6 +4,10 @@ const OPTIONS_TTL_MS = 60_000;
 let _optionsCache = null;
 let _optionsCacheTs = 0;
 let _optionsPending = null;
+// The options are outlet-scoped on the server (apiClient adds the navbar pick);
+// remember which pick filled the cache so another outlet never sees its tags.
+let _optionsOutlet = null;
+const _navbarOutlet = () => localStorage.getItem('selectedOutletId') || '';
 
 function _bustOptionsCache() {
   _optionsCache = null;
@@ -13,12 +17,14 @@ function _bustOptionsCache() {
 }
 
 async function _fetchOptions(outletId = null) {
-  if (_optionsCache && Date.now() - _optionsCacheTs < OPTIONS_TTL_MS) {
+  const scope = `${outletId || ''}|${_navbarOutlet()}`;
+  if (_optionsCache && _optionsOutlet === scope && Date.now() - _optionsCacheTs < OPTIONS_TTL_MS) {
     return _optionsCache;
   }
-  if (_optionsPending) return _optionsPending;
+  if (_optionsPending && _optionsOutlet === scope) return _optionsPending;
 
   const params = outletId ? { outletId } : {};
+  _optionsOutlet = scope;
   _optionsPending = apiClient.get('/products/filters/options', { params })
     .then((res) => {
       _optionsCache = res.data;
@@ -237,8 +243,10 @@ const productService = {
 
   // Product Utilities: { dates: { [productId]: { lastSold, lastPurchased, lastStocktaked } } },
   // outlet-wise (the navbar outlet travels as ?outletId= for a global admin).
-  getActivityDates: async () => {
-    const response = await apiClient.get('/products/activity-dates', { noCache: true });
+  // outletId: a global admin's explicit pick (Product Utilities' Outlet filter)
+  getActivityDates: async (outletId = null) => {
+    const params = outletId ? { outletId } : {};
+    const response = await apiClient.get('/products/activity-dates', { params, noCache: true });
     return response.data;
   },
 

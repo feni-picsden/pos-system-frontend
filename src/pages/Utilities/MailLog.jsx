@@ -15,16 +15,20 @@ import {
   CloseOutlined as CloseIcon,
 } from '@mui/icons-material';
 import emailLogService from '../../services/emailLogService';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 // Reference table is auto-layout: across three captures the Subject column starts
 // at 609 / 589 / 537px and Sent At at 1365 / 1344 / 1293px, i.e. widths follow
 // the rows' content. Fixed percentages matched only one capture.
-const COLUMNS = [
+// Our addition: an Outlet column, only under "All Outlets" (every outlet's mail is
+// listed together); with one outlet picked every row would repeat the same name.
+const columnsFor = (showOutlet) => [
   { key: 'status', label: 'Status' },
   { key: 'recipient', label: 'Recipient' },
   { key: 'subject', label: 'Subject' },
   { key: 'sentAt', label: 'Sent At' },
+  ...(showOutlet ? [{ key: 'outlet', label: 'Outlet' }] : []),
   { key: 'hasAttachment', label: 'Has Attachment' },
 ];
 
@@ -56,6 +60,8 @@ const MailLog = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [totalCount, setTotalCount] = useState(0);
+  const { isAllOutlets } = useSelectedOutlet();
+  const COLUMNS = columnsFor(isAllOutlets);
 
   useEffect(() => {
     fetchEmailLogs();
@@ -196,14 +202,14 @@ const MailLog = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4, border: 'none' }}>
+                <TableCell colSpan={COLUMNS.length} align="center" sx={{ py: 4, border: 'none' }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : emailLogs.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={COLUMNS.length}
                   align="center"
                   sx={{ py: 4, border: 'none', fontSize: 16, color: '#676b72' }}
                 >
@@ -219,6 +225,9 @@ const MailLog = () => {
                   <TableCell sx={cellSx}>{getRecipient(log.receiverEmails)}</TableCell>
                   <TableCell sx={subjectCellSx}>{log.subject}</TableCell>
                   <TableCell sx={cellSx}>{formatDate(log.sentAt)}</TableCell>
+                  {isAllOutlets && (
+                    <TableCell sx={{ ...cellSx, whiteSpace: 'nowrap' }}>{log.outlet?.name || 'Global'}</TableCell>
+                  )}
                   <TableCell sx={{ ...cellSx, textAlign: 'center' }}>
                     {/* Reference glyphs are ~14px wide (green check, red cross); MUI's
                         outlined icons fill ~70% of their box, hence 20px. */}

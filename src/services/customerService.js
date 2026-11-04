@@ -44,6 +44,13 @@ const customerService = {
     });
   },
 
+  // Customer Utilities > Last Sale At: { dates: { [customerId]: ISO } }, outlet-wise
+  getLastSaleDates: async (outletId = null) => {
+    const params = outletId ? { outletId } : {};
+    const response = await apiClient.get('/customers/last-sale-dates', { params, noCache: true });
+    return response.data;
+  },
+
   deleteCustomer: async (id) => {
     const response = await apiClient.delete(`/customers/${id}`);
     return response.data;

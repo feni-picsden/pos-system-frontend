@@ -650,6 +650,27 @@ const posLocalDb = {
     await txDone(tx);
   },
 
+  // Small key/value notes beside the stores (cachedList keeps the outlet a list
+  // was fetched for here). Missing key or closed db -> undefined.
+  async getMeta(key) {
+    const db = await openDatabase();
+    if (!db) return undefined;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORES.meta, 'readonly');
+      const req = tx.objectStore(STORES.meta).get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.value : undefined);
+      req.onerror = () => resolve(undefined);
+    });
+  },
+
+  async setMeta(key, value) {
+    const db = await openDatabase();
+    if (!db) return;
+    const tx = db.transaction(STORES.meta, 'readwrite');
+    tx.objectStore(STORES.meta).put({ key, value });
+    await txDone(tx);
+  },
+
   /**
    * Returns true when the store has never been populated or was last written
    * more than maxAgeMs milliseconds ago.

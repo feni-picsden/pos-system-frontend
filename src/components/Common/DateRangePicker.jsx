@@ -48,6 +48,8 @@ const DateRangePicker = ({
   // ponytail: opt-in reference trigger — one bordered field holding two separately
   // clickable DD/MM/YYYY date buttons split by a dash (instead of one readonly input).
   splitTrigger = false,
+  // split trigger height, to match the page's other fields
+  triggerHeight = 40,
   // Opt-in reference popover chrome: calendar icon top-left, and an X at the end
   // of each typed date box (end X clears the end only; start X clears both).
   popoverIcons = false,
@@ -401,7 +403,7 @@ const DateRangePicker = ({
               // Reference date buttons are 219px inside a 460px field: only the dash
               // (~5px) plus 4px padding and two 6px gaps sit between them.
               gap: 0.75,
-              height: 40,
+              height: triggerHeight,
               // 14px = the text inset of the outlined fields beside it on the page
               px: '14px',
               bgcolor: '#fff',

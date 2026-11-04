@@ -17,20 +17,23 @@ import {
   Grid,
   Autocomplete,
   TextField,
+  Chip,
 } from '@mui/material';
 import {
   VisibilityOutlined as VisibilityIcon,
   CheckBoxOutlineBlankOutlined as SquareIcon,
   CheckBoxOutlined as CheckSquareIcon,
   CheckBox as CheckSquareSolidIcon,
+  IndeterminateCheckBox as IndeterminateSolidIcon,
+  FindInPageOutlined as NoResultsIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { startOfDay, endOfDay } from 'date-fns';
 import customerService from '../../services/customerService';
 import customerGroupService from '../../services/customerGroupService';
-import salesService from '../../services/salesService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import DateRangePicker from '../../components/Common/DateRangePicker';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 const NO_GROUP = '__none__';
 
@@ -51,33 +54,47 @@ const inputSx = {
   '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
 };
 
-// Reference open menu: 8px radius, selected option = light sky oklch(0.685 0.169 237.323) on white
+// Reference open list (same as Product Utilities): 10px under the field, 1px dark
+// border, 8px radius, 56px rows (five visible), picked row in blue, faint grey hover.
+const activeRowSx = { bgcolor: 'rgba(0, 0, 0, 0.04)' };
+const listPaperSx = {
+  mt: '10px',
+  border: '1px solid #000',
+  borderRadius: '8px',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+};
 const menuProps = {
+  anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+  transformOrigin: { vertical: 'top', horizontal: 'left' },
   PaperProps: {
     sx: {
-      borderRadius: '8px',
-      // .Mui-focusVisible is auto-applied to the selected item on open and would
-      // otherwise paint MUI's default rgba(25,118,210,0.2) over the transparent bg.
-      '& .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': {
-        bgcolor: 'transparent',
-        color: '#3aa6f0',
-        '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
-      },
+      ...listPaperSx,
+      maxHeight: 289,
+      '& .MuiMenu-list': { py: '2px' },
+      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+      // .Mui-focusVisible is auto-applied to the selected item on open
+      '& .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { bgcolor: 'transparent', color: '#00a6f4' },
+      '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover': activeRowSx,
     },
   },
 };
+// MUI 5 Autocomplete has no listbox slot: style the rows from the paper
+const autocompletePaperSx = {
+  ...listPaperSx,
+  '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, fontWeight: 400, color: '#000' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent', color: '#00a6f4' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': activeRowSx,
+};
 
-// Reference date-range trigger: single bordered box h=41 that opens the range-calendar popover
-const dateRangeSx = {
-  maxWidth: 460,
-  '& .MuiOutlinedInput-root': {
-    borderRadius: '8px',
-    height: 41,
-    bgcolor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
-  },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+// Multi-select tag (same as Product Utilities): flat grey 4px tag, black 16px text, no cross.
+const tagChipSx = {
+  height: 26,
+  borderRadius: '4px',
+  bgcolor: '#e5e5e5',
+  color: '#000',
+  fontSize: 16,
+  '& .MuiChip-label': { px: 1 },
 };
 
 // Reference checkboxes: 28x32 icon button r4, thin-line square glyphs, flat black/10 hover
@@ -96,6 +113,14 @@ const CustomerUtilities = () => {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [error, setError] = useState('');
+
+  // Our addition: under "All Outlets" an Outlet filter narrows the mixed list to
+  // one outlet (server ?outletId). Hidden once the navbar pins an outlet.
+  const { isAllOutlets, outlets } = useSelectedOutlet();
+  const [selectedOutlets, setSelectedOutlets] = useState([]); // multi-select
+  // "1,2" for the server, '' when nothing is picked
+  const filterOutletId = isAllOutlets && selectedOutlets.length ? selectedOutlets.map((o) => o.id).join(',') : '';
 
   const [selectedCustomerGroup, setSelectedCustomerGroup] = useState('');
   const [createdAt, setCreatedAt] = useState({ startDate: null, endDate: null });
@@ -114,7 +139,8 @@ const CustomerUtilities = () => {
     try {
       setLoading(true);
 
-      const response = await customerService.getCustomers();
+      const pickedOutlet = isAllOutlets && filterOutletId ? filterOutletId : null;
+      const response = await customerService.getCustomers(pickedOutlet ? { outletId: pickedOutlet } : {});
 
       let filteredCustomers = response.customers || [];
 
@@ -157,15 +183,13 @@ const CustomerUtilities = () => {
       const lastSaleStart = lastSaleAt.startDate ? startOfDay(lastSaleAt.startDate) : null;
       const lastSaleEnd = lastSaleAt.endDate ? endOfDay(lastSaleAt.endDate) : null;
       if (lastSaleStart || lastSaleEnd) {
-        // ponytail: /customers returns no last-sale info — derive it from one desc-sorted
-        // /sales fetch (first hit per customer = latest). Ceiling ~10k sales; move server-side then.
-        const salesResponse = await salesService.getSales({ limit: 10000 });
-        const lastSaleByCustomer = new Map();
-        (salesResponse.sales || []).forEach((s) => {
-          if (s.customerId != null && !lastSaleByCustomer.has(s.customerId)) {
-            lastSaleByCustomer.set(s.customerId, new Date(s.saleDate));
-          }
-        });
+        // Latest COMPLETED sale per customer, computed in the DB and outlet-wise
+        // (/customers/last-sale-dates). It replaced a 10,000-sale browser pull that
+        // also counted parked and cancelled sales.
+        const res = await customerService.getLastSaleDates(pickedOutlet);
+        const lastSaleByCustomer = new Map(
+          Object.entries(res?.dates || {}).map(([id, d]) => [Number(id), new Date(d)])
+        );
         filteredCustomers = filteredCustomers.filter((c) => {
           const lastSaleDate = lastSaleByCustomer.get(c.id);
           if (!lastSaleDate) return false;
@@ -186,18 +210,21 @@ const CustomerUtilities = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedCustomerGroup, createdAt, loyaltyPoints, accountBalance, lastSaleAt]);
+  }, [selectedCustomerGroup, createdAt, loyaltyPoints, accountBalance, lastSaleAt, isAllOutlets, filterOutletId]);
 
+  // Groups follow the Outlet filter (pick one outlet -> only its groups)
   useEffect(() => {
     (async () => {
       try {
-        const response = await customerGroupService.getCustomerGroups();
+        const picked = isAllOutlets && filterOutletId ? filterOutletId : null;
+        const response = await customerGroupService.getCustomerGroups(picked);
         setCustomerGroups(response?.customerGroups || []);
       } catch (err) {
         console.error('Error loading customer groups:', err);
       }
     })();
-  }, []);
+    setSelectedCustomerGroup('');
+  }, [isAllOutlets, filterOutletId]);
 
   useEffect(() => {
     loadCustomers();
@@ -215,19 +242,25 @@ const CustomerUtilities = () => {
     );
   };
 
+  // Each delete stands alone: one refusal (e.g. a customer who still owes money)
+  // must not hide what happened to the rest, and the user is told which failed.
   const handleDeleteCustomers = async () => {
-    try {
-      setLoading(true);
-      await Promise.all(selectedCustomers.map((id) => customerService.deleteCustomer(id)));
-      setSelectedCustomers([]);
-      setDeleteOpen(false);
-      loadCustomers();
-    } catch (err) {
-      console.error('Error deleting customers:', err);
-      setDeleteOpen(false);
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    setError('');
+    const results = await Promise.allSettled(selectedCustomers.map((id) => customerService.deleteCustomer(id)));
+    const failed = results
+      .map((r, i) => ({ r, customer: customers.find((c) => c.id === selectedCustomers[i]) }))
+      .filter(({ r }) => r.status === 'rejected');
+    if (failed.length) {
+      setError(
+        `${failed.length} customer${failed.length === 1 ? '' : 's'} could not be deleted: ` +
+        failed.map(({ r, customer }) => `${customer ? getCustomerName(customer) : 'Customer'} (${r.reason?.response?.data?.error || 'failed'})`).join('; ')
+      );
     }
+    setSelectedCustomers([]);
+    setDeleteOpen(false);
+    setLoading(false);
+    loadCustomers();
   };
 
   const getCustomerName = (customer) => {
@@ -239,7 +272,8 @@ const CustomerUtilities = () => {
 
   return (
     // pt 29px: reference title sits at y=79 (21px lower than an 8px top pad)
-    <Box sx={{ px: 1, pt: '29px', pb: '58px', bgcolor: '#f5f5f5' }}>
+    // pb 74px: the last row clears the fixed 58px footer bar (same as Product Utilities)
+    <Box sx={{ px: 1, pt: '29px', pb: '74px', bgcolor: '#fff', minHeight: 'calc(100vh - 50px)' }}>
         <Typography
           variant="h1"
           sx={{ color: '#000', fontSize: 32, fontWeight: 700, mb: 2 }}
@@ -250,6 +284,64 @@ const CustomerUtilities = () => {
         {/* Filters — reference has no card/paper here */}
         <Box sx={{ mb: 2 }}>
           <Grid container spacing={2}>
+            {/* Our addition (All Outlets only): narrow the mixed list to one or more
+                outlets - same multi-select look as Product Utilities' Category */}
+            {isAllOutlets && (
+              <Grid item xs={12} md={6} lg={3}>
+                <Typography sx={labelSx}>Outlets</Typography>
+                <Autocomplete
+                  multiple
+                  disableCloseOnSelect
+                  fullWidth
+                  options={outlets}
+                  getOptionLabel={(o) => o.name || ''}
+                  isOptionEqualToValue={(o, v) => o.id === v.id}
+                  value={selectedOutlets}
+                  onChange={(_e, value) => setSelectedOutlets(value)}
+                  sx={{
+                    '& .MuiAutocomplete-clearIndicator': { visibility: selectedOutlets.length ? 'visible' : 'hidden', p: '2px' },
+                    '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: '#000' },
+                    // multi-select input root pads 6px; line the placeholder up with the
+                    // 14px text inset of the other fields (chips sit at the same edge)
+                    '& .MuiAutocomplete-inputRoot': { pl: '14px', py: 0 },
+                    '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': { pl: 0 },
+                    '& .MuiChip-root': { ml: 0, mr: '4px' },
+                  }}
+                  slotProps={{ paper: { sx: autocompletePaperSx } }}
+                  renderOption={(props, option, { selected }) => {
+                    const { key: _key, ...optionProps } = props;
+                    return (
+                      <li key={option.id} {...optionProps} style={{ ...optionProps.style, color: selected ? '#00a6f4' : undefined }}>
+                        <Checkbox
+                          checked={selected}
+                          icon={<SquareIcon />}
+                          checkedIcon={<CheckSquareIcon />}
+                          sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                        />
+                        {option.name}
+                      </li>
+                    );
+                  }}
+                  renderTags={(vals, getTagProps) => {
+                    const shown = vals.slice(0, 2).map((o, index) => {
+                      // eslint-disable-next-line no-unused-vars
+                      const { key, onDelete, ...tagProps } = getTagProps({ index });
+                      return <Chip key={key} label={o.name} size="small" sx={tagChipSx} {...tagProps} />;
+                    });
+                    if (vals.length > 2) shown.push(<Chip key="more" label={`${vals.length - 2} More...`} size="small" sx={tagChipSx} />);
+                    return shown;
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={selectedOutlets.length ? '' : 'Select Outlets...'}
+                      sx={[inputSx, { '& .MuiOutlinedInput-root': { py: 0 } }]}
+                    />
+                  )}
+                />
+              </Grid>
+            )}
+
             <Grid item xs={12} md={6} lg={3}>
               <Typography sx={labelSx}>Customer Group</Typography>
               {/* Reference: typeahead input that live-filters options, caret + x clear button */}
@@ -259,18 +351,15 @@ const CustomerUtilities = () => {
                 getOptionLabel={(option) => option.name || ''}
                 isOptionEqualToValue={(option, value) => option.id === value.id}
                 value={selectedGroupOption}
-                onChange={(e, value) => setSelectedCustomerGroup(value ? value.id : '')}
-                sx={{ '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' } }}
-                componentsProps={{
-                  paper: {
-                    sx: {
-                      borderRadius: '8px',
-                      '& .MuiAutocomplete-option': { fontSize: 16, fontWeight: 400 },
-                      '& .MuiAutocomplete-option[aria-selected="true"], & .MuiAutocomplete-option[aria-selected="true"].Mui-focused':
-                        { color: '#3aa6f0', bgcolor: 'transparent' },
-                    },
-                  },
+                onChange={(_e, value) => setSelectedCustomerGroup(value ? value.id : '')}
+                sx={{
+                  '& .MuiAutocomplete-clearIndicator': { visibility: 'visible', p: '2px' },
+                  '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: '#000' },
+                  // same 14px text inset as the Select / date fields beside it
+                  '& .MuiAutocomplete-inputRoot': { pl: '14px', py: 0 },
+                  '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': { pl: 0 },
                 }}
+                slotProps={{ paper: { sx: autocompletePaperSx } }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -283,16 +372,8 @@ const CustomerUtilities = () => {
 
             <Grid item xs={12} md={6} lg={3}>
               <Typography sx={labelSx}>Created At</Typography>
-              <DateRangePicker
-                value={createdAt}
-                onChange={setCreatedAt}
-                label=""
-                allowEmpty
-                hideIcon
-                separator="–"
-                placeholder="DD/MM/YYYY – DD/MM/YYYY"
-                inputSx={dateRangeSx}
-              />
+              {/* Reference: one box holding two DD/MM/YYYY buttons and a dash */}
+              <DateRangePicker value={createdAt} onChange={setCreatedAt} label="" allowEmpty splitTrigger triggerHeight={42} />
             </Grid>
 
             <Grid item xs={12} md={6} lg={3}>
@@ -333,16 +414,7 @@ const CustomerUtilities = () => {
 
             <Grid item xs={12} md={6} lg={3}>
               <Typography sx={labelSx}>Last Sale At</Typography>
-              <DateRangePicker
-                value={lastSaleAt}
-                onChange={setLastSaleAt}
-                label=""
-                allowEmpty
-                hideIcon
-                separator="–"
-                placeholder="DD/MM/YYYY – DD/MM/YYYY"
-                inputSx={dateRangeSx}
-              />
+              <DateRangePicker value={lastSaleAt} onChange={setLastSaleAt} label="" allowEmpty splitTrigger triggerHeight={42} />
             </Grid>
 
             {/* Apply Filter: own row, right-aligned (reference) */}
@@ -371,11 +443,22 @@ const CustomerUtilities = () => {
           </Grid>
         </Box>
 
-        {/* Customers Table */}
+        {error && <Typography sx={{ color: '#dc2626', mb: 2 }}>{error}</Typography>}
+
+        {/* Customers Table - an empty result drops the table for the reference
+            centred icon + hint (same as Product Utilities) */}
+        {!loading && customers.length === 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 5, gap: 1.5 }}>
+            <NoResultsIcon sx={{ fontSize: 60, color: '#000' }} />
+            <Typography sx={{ fontSize: 16, color: '#000' }}>
+              No results found. Change search filters and try again.
+            </Typography>
+          </Box>
+        ) : (
         <Paper elevation={0} sx={{ bgcolor: 'transparent', boxShadow: 'none' }}>
-          {/* mr 15px: reference reserves a wider right gutter (header right edge x1897 @1920) */}
-          <TableContainer sx={{ maxHeight: 'calc(100vh - 460px)', mr: '15px', width: 'auto' }}>
-            <Table stickyHeader>
+          {/* No fixed height: the page scrolls, not a box inside it (same as Product Utilities) */}
+          <TableContainer>
+            <Table>
               <TableHead>
                 <TableRow
                   sx={{
@@ -398,19 +481,26 @@ const CustomerUtilities = () => {
                     },
                   }}
                 >
-                  <TableCell padding="checkbox" sx={{ pl: '20px', width: 44 }}>
-                    {/* Reference: thin-line square, solid check-square when all selected (no indeterminate) */}
-                    <Checkbox
-                      checked={allSelected}
-                      onChange={handleSelectAll}
-                      disableRipple
-                      icon={<SquareIcon />}
-                      checkedIcon={<CheckSquareSolidIcon />}
-                      sx={{ ...rowCheckSx, color: '#fff', '&.Mui-checked': { color: '#fff' } }}
-                    />
+                  {/* Same layout as Product Utilities: checkbox + Name share the first cell */}
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {/* Reference: thin-line square; solid minus-square when some are picked, solid check-square when all */}
+                      <Checkbox
+                        checked={allSelected}
+                        indeterminate={selectedCustomers.length > 0 && !allSelected}
+                        indeterminateIcon={<IndeterminateSolidIcon />}
+                        onChange={handleSelectAll}
+                        disableRipple
+                        icon={<SquareIcon />}
+                        checkedIcon={<CheckSquareSolidIcon />}
+                        inputProps={{ 'aria-label': 'Select all customers' }}
+                        sx={{ ...rowCheckSx, color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                      />
+                      Name
+                    </Box>
                   </TableCell>
-                  <TableCell sx={{ width: 'auto' }}>Name</TableCell>
-                  <TableCell align="right" sx={{ pr: '20px', width: 161 }}>
+                  {/* 16px cell + 16px = the View button's inner padding, so both end on one line */}
+                  <TableCell align="right" sx={{ width: 161, pr: '32px' }}>
                     Actions
                   </TableCell>
                 </TableRow>
@@ -418,14 +508,8 @@ const CustomerUtilities = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={3} align="center" sx={{ py: 4, border: 0 }}>
+                    <TableCell colSpan={2} align="center" sx={{ py: 4, border: 0 }}>
                       <Typography sx={{ color: '#676b72' }}>Loading customers...</Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : customers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} align="center" sx={{ py: 4, border: 0 }}>
-                      <Typography sx={{ color: '#676b72' }}>No customers found</Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -434,20 +518,21 @@ const CustomerUtilities = () => {
                       key={customer.id}
                       sx={{ bgcolor: '#fff', height: 74, '& td': { border: 0, py: 0 } }}
                     >
-                      <TableCell padding="checkbox" sx={{ pl: '20px', width: 44 }}>
-                        <Checkbox
-                          checked={selectedCustomers.includes(customer.id)}
-                          onChange={() => handleSelectCustomer(customer.id)}
-                          disableRipple
-                          icon={<SquareIcon />}
-                          checkedIcon={<CheckSquareIcon />}
-                          sx={rowCheckSx}
-                        />
-                      </TableCell>
                       <TableCell sx={{ color: '#000', fontSize: 16 }}>
-                        {getCustomerName(customer)}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Checkbox
+                            checked={selectedCustomers.includes(customer.id)}
+                            onChange={() => handleSelectCustomer(customer.id)}
+                            disableRipple
+                            icon={<SquareIcon />}
+                            checkedIcon={<CheckSquareIcon />}
+                            inputProps={{ 'aria-label': `Select ${getCustomerName(customer)}` }}
+                            sx={rowCheckSx}
+                          />
+                          {getCustomerName(customer)}
+                        </Box>
                       </TableCell>
-                      <TableCell align="right" sx={{ pr: '20px', width: 161 }}>
+                      <TableCell align="right">
                         {/* Reference: real <a href> — middle-click/copy-link must work */}
                         <Button
                           component={RouterLink}
@@ -455,15 +540,17 @@ const CustomerUtilities = () => {
                           startIcon={<VisibilityIcon />}
                           disableRipple
                           sx={{
-                            width: 129,
-                            height: 42,
+                            // same as Product Utilities: 16px side padding, no hover change
+                            px: 2,
+                            py: 1,
+                            minWidth: 0,
                             borderRadius: '12px',
                             color: '#0284c7',
                             fontSize: 16,
                             fontWeight: 700,
                             textTransform: 'none',
                             transition: 'none',
-                            '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                            '&:hover': { bgcolor: 'transparent' },
                           }}
                         >
                           View
@@ -476,6 +563,7 @@ const CustomerUtilities = () => {
             </Table>
           </TableContainer>
         </Paper>
+        )}
 
         {/* Footer Action Bar */}
         {/* Reference: full-bleed rail pinned to the viewport bottom, h=58 */}
@@ -503,8 +591,9 @@ const CustomerUtilities = () => {
             disabled={selectedCustomers.length === 0}
             disableElevation
             sx={{
-              bgcolor: '#5ebbeb',
-              color: '#f8f8f8',
+              // Reference: a destructive red button once something is picked
+              bgcolor: '#fb2c36',
+              color: '#fff',
               borderRadius: '12px',
               width: 201,
               height: 42,
@@ -512,7 +601,7 @@ const CustomerUtilities = () => {
               fontSize: 16,
               textTransform: 'none',
               boxShadow: 'none',
-              '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+              '&:hover': { bgcolor: '#e7000b', boxShadow: 'none' },
               '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#8e8e8e', cursor: 'not-allowed', pointerEvents: 'auto' },
             }}
           >

@@ -1,17 +1,27 @@
 import apiClient from './apiClient';
 import cachedList from './cachedList';
+import posLocalDb from './posLocalDb';
+
+// Any write drops the cached list, or a new / renamed / removed category stays
+// missing from every dropdown for up to five minutes.
+const forget = () => posLocalDb.invalidateStore('classifications').catch(() => {});
 
 const classificationService = {
   getClassifications: async (filters = {}) => {
     // The whole set is cached in IndexedDB and narrowed by type locally — that
     // covers every caller except free-text search, which still goes to the API.
-    if (!filters.search && !filters.categoryFilter) {
+    // An explicit outletId (a global admin narrowing to one outlet) bypasses the
+    // cache, which holds the navbar scope's list.
+    if (!filters.search && !filters.categoryFilter && !filters.outletId) {
       const all = await cachedList('classifications', async () => {
         const response = await apiClient.get('/classifications');
         return response.data?.classifications || [];
       });
+      // The server stores types upper-case (BRAND); callers pass 'Brand', 'family',
+      // 'TAG'... - an exact compare left Brands / Families empty on Product Utilities.
+      const wanted = filters.type ? String(filters.type).toUpperCase() : null;
       return {
-        classifications: filters.type ? all.filter((c) => c.type === filters.type) : all,
+        classifications: wanted ? all.filter((c) => String(c.type).toUpperCase() === wanted) : all,
       };
     }
 
@@ -19,6 +29,7 @@ const classificationService = {
     if (filters.search) params.append('search', filters.search);
     if (filters.type) params.append('type', filters.type);
     if (filters.categoryFilter) params.append('categoryFilter', filters.categoryFilter);
+    if (filters.outletId) params.append('outletId', filters.outletId);
 
     const response = await apiClient.get(`/classifications?${params.toString()}`);
     return response.data;
@@ -31,22 +42,25 @@ const classificationService = {
 
   createClassification: async (classificationData) => {
     const response = await apiClient.post('/classifications', classificationData);
+    await forget();
     return response.data;
   },
 
   updateClassification: async (id, classificationData) => {
     const response = await apiClient.put(`/classifications/${id}`, classificationData);
+    await forget();
     return response.data;
   },
 
   deleteClassification: async (id) => {
     const response = await apiClient.delete(`/classifications/${id}`);
+    await forget();
     return response.data;
   },
 
-
   toggleClassificationStatus: async (id) => {
     const response = await apiClient.patch(`/classifications/${id}/toggle`);
+    await forget();
     return response.data;
   },
 

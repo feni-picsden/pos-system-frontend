@@ -36,6 +36,7 @@ import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import DateRangePicker from '../../components/Common/DateRangePicker';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 // Reference checkboxes are thin-outline square / check-square glyphs; the
 // checked state stays an outline glyph (no filled blue).
@@ -145,8 +146,8 @@ const inRange = (value, start, end) => {
 // (which leaves out fast sellers, zero stock and combos) and /barcodes (barcoded
 // products only), so those filters silently dropped products. A failure is an
 // error, not "no dates": treating it as undated would empty the list.
-const loadActivityDates = async () => {
-  const res = await productService.getActivityDates();
+const loadActivityDates = async (outletId = null) => {
+  const res = await productService.getActivityDates(outletId);
   return new Map(Object.entries(res?.dates || {}).map(([id, d]) => [Number(id), d]));
 };
 
@@ -220,6 +221,14 @@ const ProductUtilities = () => {
   const [selectedStatus, setSelectedStatus] = useState('Active');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // Our addition: under "All Outlets" the list mixes every outlet, so an Outlet
+  // filter narrows it to one (the server's ?outletId). Hidden once the navbar
+  // already pins an outlet - the server scopes the list then anyway.
+  const { isAllOutlets, outlets } = useSelectedOutlet();
+  const [selectedOutlets, setSelectedOutlets] = useState([]); // multi-select, like Category
+  // "1,2" for the server, '' when nothing is picked
+  const filterOutletId = isAllOutlets && selectedOutlets.length ? selectedOutlets.map((o) => o.id).join(',') : '';
+
   const [nameFilter, setNameFilter] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedBrands, setSelectedBrands] = useState([]);
@@ -267,38 +276,31 @@ const ProductUtilities = () => {
 
   // Load dropdown options
   useEffect(() => {
+    // The option lists follow the Outlet filter: pick one outlet and only its
+    // (plus global) categories / brands / families / tags are offered.
+    const pickedOutlet = isAllOutlets && filterOutletId ? filterOutletId : null;
+    const scoped = pickedOutlet ? { outletId: pickedOutlet } : {};
     const loadDropdownData = async () => {
       try {
-        // Load categories
-        const categoriesRes = await classificationService.getClassifications({ type: 'Category' });
-        if (categoriesRes?.classifications) {
-          setCategories(categoriesRes.classifications);
-        }
-
-        // Load brands
-        const brandsRes = await classificationService.getClassifications({ type: 'Brand' });
-        if (brandsRes?.classifications) {
-          setBrands(brandsRes.classifications);
-        }
-
-        // Load families
-        const familiesRes = await classificationService.getClassifications({ type: 'Family' });
-        if (familiesRes?.classifications) {
-          setFamilies(familiesRes.classifications);
-        }
-
-        // Load tags
-        const tagsRes = await productService.getTags();
-        if (Array.isArray(tagsRes)) {
-          setTags(tagsRes);
-        }
+        const [categoriesRes, brandsRes, familiesRes, tagsRes] = await Promise.all([
+          classificationService.getClassifications({ type: 'Category', ...scoped }),
+          classificationService.getClassifications({ type: 'Brand', ...scoped }),
+          classificationService.getClassifications({ type: 'Family', ...scoped }),
+          productService.getTags(pickedOutlet),
+        ]);
+        if (categoriesRes?.classifications) setCategories(categoriesRes.classifications);
+        if (brandsRes?.classifications) setBrands(brandsRes.classifications);
+        if (familiesRes?.classifications) setFamilies(familiesRes.classifications);
+        if (Array.isArray(tagsRes)) setTags(tagsRes);
       } catch (err) {
         console.error('Error loading dropdown data:', err);
       }
     };
 
     loadDropdownData();
-  }, []);
+    // picks from another outlet's list would be stale once the outlet changes
+    setSelectedCategories([]); setSelectedBrands([]); setSelectedFamilies([]); setSelectedTags([]);
+  }, [isAllOutlets, filterOutletId]);
 
   // Categories actually attached to products are not always returned by
   // /classifications?type=Category — merge them in so every category the data
@@ -323,6 +325,7 @@ const ProductUtilities = () => {
         limit: 1000, // Load all for utilities
       };
 
+      if (isAllOutlets && filterOutletId) filters.outletId = filterOutletId;
       if (nameFilter) filters.search = nameFilter;
       if (selectedCategories.length > 0) {
         filters.category = selectedCategories.map(c => c.id || c).join(',');
@@ -419,7 +422,7 @@ const ProductUtilities = () => {
       const needSales = Boolean(lastSoldStart || lastSoldEnd || lastPurchasedStart || lastPurchasedEnd);
       const needStocktake = Boolean(lastStocktakedStart || lastStocktakedEnd);
       const activityDates = needSales || needStocktake
-        ? await loadActivityDates()
+        ? await loadActivityDates(isAllOutlets && filterOutletId ? filterOutletId : null)
         : new Map();
 
       // Filter by last sold date
@@ -717,6 +720,8 @@ const ProductUtilities = () => {
             />
           </Grid>
 
+          {/* Our addition (All Outlets only), right after Name: narrow the mixed list to one or more outlets */}
+          {isAllOutlets && multiSelect('Outlets', 'Select Outlets...', outlets, selectedOutlets, setSelectedOutlets)}
           {multiSelect('Category', 'Select Categories...', categoryOptions, selectedCategories, setSelectedCategories)}
           {multiSelect('Brands', 'Select Brands...', brands, selectedBrands, setSelectedBrands)}
           {multiSelect('Families', 'Select Families...', families, selectedFamilies, setSelectedFamilies)}
@@ -849,6 +854,7 @@ const ProductUtilities = () => {
           {dateRange('Last Sold Date', lastSoldStart, setLastSoldStart, lastSoldEnd, setLastSoldEnd)}
           {dateRange('Last Purchased Date', lastPurchasedStart, setLastPurchasedStart, lastPurchasedEnd, setLastPurchasedEnd)}
           {dateRange('Last Stocktaked Date', lastStocktakedStart, setLastStocktakedStart, lastStocktakedEnd, setLastStocktakedEnd)}
+
         </Grid>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, mb: 2 }}>
