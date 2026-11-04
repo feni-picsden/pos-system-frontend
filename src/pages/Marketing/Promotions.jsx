@@ -63,6 +63,7 @@ import productService from '../../services/productService';
 import outletService from '../../services/outletService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import DateTimeField from '../../components/Common/DateTimeField';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -97,6 +98,7 @@ const rowActionSx = (color) => ({
   '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
 });
 
+// Bulk-bar pill (reference): white bold text on a coloured pill, colour per button.
 const BULK_BUTTON_SX = {
   textTransform: 'none',
   fontWeight: 700,
@@ -104,10 +106,8 @@ const BULK_BUTTON_SX = {
   height: 42,
   borderRadius: '12px',
   px: 3,
-  color: '#404040',
-  borderColor: '#404040',
-  transition: INSTANT,
-  '&:hover': { borderColor: '#404040', bgcolor: 'rgba(0,0,0,0.05)' }
+  color: '#fff',
+  transition: INSTANT
 };
 
 const FILTER_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' };
@@ -813,7 +813,9 @@ const Promotions = () => {
   const { data: classifications } = usePageCache('classifications', () =>
     classificationService.getClassifications().then((r) => r?.classifications || [])
   );
-  const byType = (type) => classifications.filter((c) => c.type === type);
+  // Classification types are stored upper-case (BRAND / CATEGORY / FAMILY / TAG);
+  // an exact 'Brand' match left every one of these filters at "No Options".
+  const byType = (type) => classifications.filter((c) => String(c.type || '').toUpperCase() === type.toUpperCase());
   const brands = byType('Brand');
   const categoriesStock = byType('Category');
   const families = byType('Family');
@@ -825,8 +827,9 @@ const Promotions = () => {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkInactiveOpen, setBulkInactiveOpen] = useState(false);
   const [bulkDatesOpen, setBulkDatesOpen] = useState(false);
-  const [bulkStart, setBulkStart] = useState('');
-  const [bulkEnd, setBulkEnd] = useState('');
+  // Date | null, edited with the shared DateTimeField (reference: "DD/MM/YYYY HH:mm:ss")
+  const [bulkStart, setBulkStart] = useState(null);
+  const [bulkEnd, setBulkEnd] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const showSnackbar = (message, severity) => setSnackbar({ open: true, message, severity });
@@ -1014,12 +1017,22 @@ const Promotions = () => {
     );
   };
 
+  // "Clone Promotions": one "<name> (copy)" per ticked row, in the same outlet.
+  const bulkClone = async () => {
+    await runBulk(
+      (id) => promotionService.clonePromotion(id),
+      'Promotions cloned',
+      'Failed to clone promotions'
+    );
+    setSelectedIds([]);
+  };
+
   const confirmBulkDates = async () => {
     setBulkDatesOpen(false);
     // Only send the fields that were filled in — an empty box must not wipe an existing date.
     const payload = {};
-    if (bulkStart) payload.startDate = bulkStart;
-    if (bulkEnd) payload.endDate = bulkEnd;
+    if (bulkStart) payload.startDate = bulkStart.toISOString();
+    if (bulkEnd) payload.endDate = bulkEnd.toISOString();
     if (Object.keys(payload).length === 0) return;
 
     await runBulk(
@@ -1027,24 +1040,12 @@ const Promotions = () => {
       'Promotion dates updated',
       'Failed to update promotion dates'
     );
-    setBulkStart('');
-    setBulkEnd('');
+    setBulkStart(null);
+    setBulkEnd(null);
   };
 
   const formatDate = (dateString) => (dateString ? format(new Date(dateString), 'dd/MM/yyyy') : '');
 
-  const bulkDateInputSx = {
-    width: '100%',
-    height: 42,
-    border: '1px solid #404040',
-    borderRadius: '8px',
-    px: 1.5,
-    fontFamily: 'inherit',
-    fontSize: 16,
-    color: '#000',
-    bgcolor: '#fff',
-    outline: 'none'
-  };
 
   return (
     <Box sx={{ p: 3, pb: selectedIds.length > 0 ? 12 : 3 }}>
@@ -1117,16 +1118,8 @@ const Promotions = () => {
                 onChange={(e) => setShowInactive(e.target.checked)}
                 sx={{
                   mr: 1.5,
-                  // The reference switch flips instantly and turns the cyan primary when on.
-                  '& .MuiSwitch-switchBase': {
-                    margin: '2.4px',
-                    transitionDuration: '0s',
-                    '&.Mui-focusVisible .MuiSwitch-thumb': { outline: '2px solid #38bdf8', outlineOffset: '2px' },
-                    '&.Mui-checked + .MuiSwitch-track': { backgroundColor: '#5ebbeb' }
-                  },
-                  '& .MuiSwitch-thumb': { width: 19, height: 19, transition: INSTANT },
-                  '& .MuiSwitch-track': { borderRadius: '24px', transition: INSTANT },
-                  '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#5ebbeb' }
+                  // Smooth 150ms slide + track colour fade come from ShopfrontSwitch itself.
+                  '& .MuiSwitch-switchBase.Mui-focusVisible .MuiSwitch-thumb': { outline: '2px solid #38bdf8', outlineOffset: '2px' }
                 }}
               />
               <Typography sx={{ fontSize: 14, color: '#404040' }}>
@@ -1386,22 +1379,24 @@ const Promotions = () => {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 2,
-            px: 3,
+            px: 2,
             py: 1.5,
-            bgcolor: '#fff',
-            borderTop: '1px solid #e5e5e5',
-            boxShadow: '0 -2px 8px rgba(0,0,0,0.1)'
+            // Reference (04/11/2026): dark bar, "N selected" left, four pills right.
+            bgcolor: '#3d3d3d'
           }}
         >
-          <Button disableRipple startIcon={<DeleteIcon />} onClick={() => setBulkDeleteOpen(true)} sx={rowActionSx('#e7000b')}>
-            Delete
-          </Button>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography sx={{ fontSize: 14, color: '#676b72' }}>{selectedIds.length} selected</Typography>
-            <Button variant="outlined" disableRipple onClick={() => setBulkInactiveOpen(true)} sx={BULK_BUTTON_SX}>
+          <Typography sx={{ fontSize: 16, color: '#fff' }}>{selectedIds.length} selected</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Button disableRipple disableElevation onClick={() => setBulkDeleteOpen(true)} sx={{ ...BULK_BUTTON_SX, bgcolor: '#ff2d3a', '&:hover': { bgcolor: '#e33430' } }}>
+              Delete Promotions
+            </Button>
+            <Button disableRipple disableElevation onClick={bulkClone} sx={{ ...BULK_BUTTON_SX, bgcolor: '#00a6f4', '&:hover': { bgcolor: '#0084d1' } }}>
+              Clone Promotions
+            </Button>
+            <Button disableRipple disableElevation onClick={() => setBulkInactiveOpen(true)} sx={{ ...BULK_BUTTON_SX, bgcolor: '#00c950', '&:hover': { bgcolor: '#16a34a' } }}>
               Make Inactive
             </Button>
-            <Button variant="outlined" disableRipple onClick={() => setBulkDatesOpen(true)} sx={BULK_BUTTON_SX}>
+            <Button disableRipple disableElevation onClick={() => setBulkDatesOpen(true)} sx={{ ...BULK_BUTTON_SX, bgcolor: '#00c950', '&:hover': { bgcolor: '#16a34a' } }}>
               Change Dates
             </Button>
           </Box>
@@ -1422,7 +1417,7 @@ const Promotions = () => {
       <ConfirmDeleteDialog
         open={bulkDeleteOpen}
         title="Delete Promotions"
-        message={`Are you sure you want to delete ${selectedIds.length} promotion${selectedIds.length === 1 ? '' : 's'}?`}
+        message={`Are you sure you wish to delete ${selectedIds.length} promotion${selectedIds.length === 1 ? '' : 's'}`}
         confirmText="Continue"
         onCancel={() => setBulkDeleteOpen(false)}
         onConfirm={confirmBulkDelete}
@@ -1430,8 +1425,8 @@ const Promotions = () => {
 
       <ConfirmDeleteDialog
         open={bulkInactiveOpen}
-        title="Make Inactive"
-        message={`Are you sure you want to make ${selectedIds.length} promotion${selectedIds.length === 1 ? '' : 's'} inactive?`}
+        title="Deactivate Promotions"
+        message={`Are you sure you wish to make ${selectedIds.length} promotion${selectedIds.length === 1 ? '' : 's'} inactive`}
         confirmText="Continue"
         loadingText="Updating..."
         onCancel={() => setBulkInactiveOpen(false)}
@@ -1441,41 +1436,30 @@ const Promotions = () => {
       <Dialog
         open={bulkDatesOpen}
         onClose={() => setBulkDatesOpen(false)}
-        PaperProps={{ sx: { borderRadius: '8px', width: 440, maxWidth: '92vw' } }}
+        PaperProps={{ sx: { borderRadius: '8px', width: 300, maxWidth: '92vw', overflow: 'visible' } }}
       >
-        <Box sx={{ px: 3, pt: 2.5 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#313439' }}>Bulk Change Date</Typography>
+        {/* Reference (04/11/2026): light-blue header with a "?" and a bold title,
+            two DD/MM/YYYY HH:mm:ss date-time fields, grey Cancel / sky Confirm pills. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, py: 1.75, bgcolor: '#bfe3f7', borderRadius: '8px 8px 0 0' }}>
+          <Typography sx={{ color: '#2f8fe0', fontWeight: 700, fontSize: 20, lineHeight: 1 }}>?</Typography>
+          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#1d5f8c' }}>Bulk Change Date</Typography>
         </Box>
-        <DialogContent sx={{ px: 3, py: 2.5 }}>
+        <DialogContent sx={{ px: 2, pt: 2.5, pb: 1, overflow: 'visible' }}>
           <Typography variant="body2" sx={FILTER_LABEL_SX}>
             Start Date
           </Typography>
-          <Box
-            component="input"
-            type="date"
-            value={bulkStart}
-            onChange={(e) => setBulkStart(e.target.value)}
-            sx={{ ...bulkDateInputSx, mb: 2 }}
-          />
+          <DateTimeField value={bulkStart} onChange={setBulkStart} placeholder="DD/MM/YYYY HH:mm:ss" showLabel={false} sx={{ mb: 2 }} />
           <Typography variant="body2" sx={FILTER_LABEL_SX}>
             End Date
           </Typography>
-          <Box component="input" type="date" value={bulkEnd} onChange={(e) => setBulkEnd(e.target.value)} sx={bulkDateInputSx} />
+          <DateTimeField value={bulkEnd} onChange={setBulkEnd} placeholder="DD/MM/YYYY HH:mm:ss" showLabel={false} />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1.25 }}>
+        <DialogActions sx={{ px: 2, pb: 2.5, pt: 1.5, gap: 1.5, justifyContent: 'center' }}>
           <Button
             disableRipple
             disableElevation
             onClick={() => setBulkDatesOpen(false)}
-            sx={{
-              bgcolor: '#8a8d91',
-              color: '#fff',
-              textTransform: 'none',
-              borderRadius: '6px',
-              fontWeight: 600,
-              px: 3,
-              '&:hover': { bgcolor: '#76797d' }
-            }}
+            sx={{ ...BULK_BUTTON_SX, bgcolor: '#d4d4d4', color: '#000', '&:hover': { bgcolor: '#c4c4c4' } }}
           >
             Cancel
           </Button>
@@ -1483,15 +1467,7 @@ const Promotions = () => {
             disableRipple
             disableElevation
             onClick={confirmBulkDates}
-            sx={{
-              bgcolor: '#5ebbeb',
-              color: '#fff',
-              textTransform: 'none',
-              borderRadius: '6px',
-              fontWeight: 600,
-              px: 3,
-              '&:hover': { bgcolor: '#0ea5e9' }
-            }}
+            sx={{ ...BULK_BUTTON_SX, bgcolor: '#00a6f4', '&:hover': { bgcolor: '#0084d1' } }}
           >
             Confirm
           </Button>

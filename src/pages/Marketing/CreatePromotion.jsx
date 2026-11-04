@@ -1447,11 +1447,11 @@ const CreatePromotion = () => {
       <Dialog
         open={skipDialogOpen}
         onClose={() => setSkipDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2, textAlign: 'center', py: 3, userSelect: 'none' } }}
+        maxWidth={false}
+        PaperProps={{ sx: { width: 520, maxWidth: 'calc(100% - 64px)', borderRadius: '8px', textAlign: 'center', py: 0, userSelect: 'none' } }}
       >
-        <DialogContent sx={{ pb: 2 }}>
+        {/* spacing measured from the reference dialog (600px wide) */}
+        <DialogContent sx={{ pt: '43px', pb: 0, px: 3 }}>
           <Box
             sx={{
               width: 80,
@@ -1461,7 +1461,7 @@ const CreatePromotion = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              margin: '0 auto 24px auto',
+              margin: '0 auto 30px auto',
               position: 'relative',
               top: 0
             }}
@@ -1469,24 +1469,24 @@ const CreatePromotion = () => {
             <Typography sx={{ color: NEAR_WHITE, fontWeight: 700, fontSize: '2.5rem' }}>?</Typography>
           </Box>
 
-          <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2, color: '#313439' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 24, lineHeight: '28px', mb: '20px', color: '#313439' }}>
             Promotion Type
           </Typography>
-          <Typography sx={{ color: '#676b72' }}>
+          <Typography sx={{ color: '#676b72', fontSize: 16, lineHeight: '22px' }}>
             What type of promotion would you like to create?
           </Typography>
         </DialogContent>
 
-        <DialogActions sx={{ justifyContent: 'center', gap: 2, px: 3, pb: 3 }}>
+        <DialogActions sx={{ justifyContent: 'center', gap: '24px', px: 3, pt: '26px', pb: '48px', '& > :not(:first-of-type)': { ml: 0 } }}>
           <Button
             variant="outlined"
             onClick={() => setSkipDialogOpen(false)}
             sx={{
-              minWidth: 100,
-              height: 42,
-              borderRadius: '12px',
+              minWidth: 124,
+              height: 50,
+              borderRadius: '6px',
               fontWeight: 700,
-              fontSize: 16,
+              fontSize: 17,
               textTransform: 'none',
               borderColor: '#404040',
               color: '#313439'
@@ -1500,11 +1500,11 @@ const CreatePromotion = () => {
             onClick={() => openEditorWithDraft('express')}
             disabled={loading}
             sx={{
-              minWidth: 100,
-              height: 42,
-              borderRadius: '12px',
+              minWidth: 124,
+              height: 50,
+              borderRadius: '6px',
               fontWeight: 700,
-              fontSize: 16,
+              fontSize: 17,
               textTransform: 'none',
               backgroundColor: '#5ebbeb',
               '&:hover': { backgroundColor: '#4aa9dd' }
@@ -1518,11 +1518,11 @@ const CreatePromotion = () => {
             onClick={() => openEditorWithDraft('advanced')}
             disabled={loading}
             sx={{
-              minWidth: 100,
-              height: 42,
-              borderRadius: '12px',
+              minWidth: 124,
+              height: 50,
+              borderRadius: '6px',
               fontWeight: 700,
-              fontSize: 16,
+              fontSize: 17,
               textTransform: 'none',
               backgroundColor: '#5ebbeb',
               '&:hover': { backgroundColor: '#4aa9dd' }

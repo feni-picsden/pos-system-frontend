@@ -6941,15 +6941,7 @@ const SaleKeyPage = () => {
           return false;
         }
         
-        const hasProduct = promotion.items.some(item => {
-          const itemProductId = item.productId;
-          const itemProductIdNum = itemProductId ? Number(itemProductId) : null;
-          const match = itemProductIdNum === productIdNum || String(itemProductId) === String(productId);
-          if (match) {
-            console.log(`Found matching item in express promotion ${promotion.name || promotion.id}:`, item);
-          }
-          return match;
-        });
+        const hasProduct = !!expressItemFor(promotion, product);
         
         if (hasProduct) {
           console.log(`Express promotion ${promotion.name || promotion.id} is applicable`);
@@ -6982,6 +6974,29 @@ const SaleKeyPage = () => {
       }
     });
   };
+  // Express promotion row for a product: its own product row, or a classification
+  // row (conditions.classificationItems - category / brand / family / tag) that the
+  // product belongs to. A classification row is shaped like a product row.
+  const expressItemFor = (promotion, product) => {
+    const productId = product?.id ?? product?.productId;
+    const idNum = Number(productId);
+    const own = (promotion.items || []).find((item) => Number(item.productId) === idNum || String(item.productId) === String(productId));
+    if (own) return own;
+    const rows = promotion.conditions?.classificationItems;
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    const tagIds = Array.isArray(product?.tags) ? product.tags.map((x) => x?.tagId ?? x?.tag?.id ?? x?.id ?? x) : (product?.tagIds || []);
+    const idOf = {
+      CATEGORY: product?.categoryId ?? product?.category?.id,
+      BRAND: product?.brandId ?? product?.brand?.id,
+      FAMILY: product?.familyId ?? product?.family?.id,
+    };
+    return rows.find((r) => {
+      const type = String(r.classificationType || '').toUpperCase();
+      if (type === 'TAG') return tagIds.some((x) => Number(x) === Number(r.classificationId));
+      return idOf[type] != null && Number(idOf[type]) === Number(r.classificationId);
+    }) || null;
+  };
+
   const calculatePromotionPrice = (product, quantity, promotion) => {
     if (!promotion) {
       console.log('calculatePromotionPrice: No promotion provided');
@@ -7008,11 +7023,7 @@ const SaleKeyPage = () => {
         console.log('calculatePromotionPrice: Express promotion has no items');
         return null;
       }
-      const promotionItem = promotion.items.find(item => {
-        const itemProductId = item.productId;
-        const itemProductIdNum = itemProductId ? Number(itemProductId) : null;
-        return itemProductIdNum === productIdNum || String(itemProductId) === String(productId);
-      });
+      const promotionItem = expressItemFor(promotion, product);
       if (!promotionItem) {
         console.log('calculatePromotionPrice: Product not found in express promotion items');
         return null;

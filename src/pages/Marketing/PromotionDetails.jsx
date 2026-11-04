@@ -7,6 +7,7 @@ import {
   TextField,
   Typography,
   Grid,
+  Collapse,
   Switch,
   FormControlLabel,
   FormControl,
@@ -35,7 +36,9 @@ import {
   CalendarMonthOutlined as CalendarMonthOutlinedIcon,
   AccessTimeOutlined as AccessTimeOutlinedIcon,
   ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  CheckCircleOutline as CheckCircleOutlineIcon,
+  HighlightOffOutlined as HighlightOffOutlinedIcon
 } from '@mui/icons-material';
 import { useLocation, useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,24 +55,12 @@ import { criteriaFromItems, hydrateCriteria, unitCostOf } from '../../utils/prom
 import { allocateCriteriaSets, allocateSpendPromotion, mergeCriteriaGroups, RECEIVE_TYPES as SPEND_RECEIVE_TYPES } from '../../utils/criteriaPromotion';
 import { bestRateTier } from '../../utils/familyOverride';
 import settingsService from '../../services/settingsService';
+import EditScheduleDialog from '../../components/Marketing/EditScheduleDialog';
+import PromotionSimulatorPanel, { SIMULATOR_WIDTH } from '../../components/Marketing/PromotionSimulatorPanel';
 
-// --- Recurring schedule helpers -------------------------------------------
-// The reference stores every schedule part as a raw ISO 8601 string
-// (anchor = date/time, period + duration = ISO durations e.g. P1W / PT2H).
-const emptySchedule = () => ({
-  anchorDate: '',
-  repeatingPeriod: '',
-  timeToStart: '',
-  enabledDuration: ''
-});
+// Recurring schedule editing lives in components/Marketing/EditScheduleDialog.
 
-const ordinal = (n) => {
-  const rem100 = n % 100;
-  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
-  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
-};
-
-// Monday-first grid of the given month, padded with nulls
+// Monday-first grid of the given month, padded with nulls (in-page date picker)
 const monthGrid = (date) => {
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -79,17 +70,6 @@ const monthGrid = (date) => {
   const cells = Array(lead).fill(null);
   for (let d = 1; d <= days; d += 1) cells.push(new Date(year, month, d));
   return cells;
-};
-
-// Monday-first week containing the given date
-const weekGrid = (date) => {
-  const start = new Date(date);
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d;
-  });
 };
 
 const isSameDay = (a, b) => !!a && !!b
@@ -347,6 +327,8 @@ const PromotionDetails = () => {
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [showSimulator, setShowSimulator] = useState(false);
+  // The simulator slides open below the criteria; once it has grown, the page
+  // scrolls so the new section is in view instead of hiding under the bar.
 
   const [formData, setFormData] = useState({
     name: '',
@@ -365,9 +347,6 @@ const PromotionDetails = () => {
 
   // Edit Schedule modal (shown instead of Start/End Date when Recurring is on)
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [schedulePreview, setSchedulePreview] = useState('Month');
-  const [scheduleDraft, setScheduleDraft] = useState(emptySchedule());
-  const [scheduleMonth, setScheduleMonth] = useState(() => new Date());
 
   // Promotion simulator basket
   const [simBasket, setSimBasket] = useState([]);
@@ -430,7 +409,6 @@ const PromotionDetails = () => {
         isActive: promotion.isActive ?? true,
         schedule: promotion.schedule ?? null
       });
-      if (promotion.schedule) setScheduleDraft({ ...emptySchedule(), ...promotion.schedule });
       
       const isCombo = promotion.promotionType === 'Combo Deal';
       setIsComboDeal(isCombo);
@@ -556,18 +534,6 @@ const PromotionDetails = () => {
     }));
   };
 
-  const openScheduleDialog = () => {
-    setScheduleDraft({ ...emptySchedule(), ...(formData.schedule || {}) });
-    const anchor = formData.schedule?.anchorDate ? new Date(formData.schedule.anchorDate) : new Date();
-    setScheduleMonth(isNaN(anchor.getTime()) ? new Date() : anchor);
-    setScheduleOpen(true);
-  };
-
-  const handleScheduleContinue = () => {
-    handleInputChange('schedule', { ...scheduleDraft });
-    setScheduleOpen(false);
-  };
-
   // The criteria search matches products and classifications. A classification is
   // shorthand for its member products: picking one
   // expands into individual PRODUCT items (see handleAddItemToCriterion) so the
@@ -576,7 +542,8 @@ const PromotionDetails = () => {
   const handleSearch = async (criterionId, searchValue) => {
     setSearchTerms(prev => ({ ...prev, [criterionId]: searchValue }));
     resultKeys.reset(criterionId);
-    if (searchValue.length <= 2) {
+    // Reference searches from the first character ("t" already lists products).
+    if (searchValue.trim().length < 1) {
       setSearchResults(prev => ({ ...prev, [criterionId]: [] }));
       return;
     }
@@ -1113,8 +1080,9 @@ const PromotionDetails = () => {
     const normalTotal = simBasket.reduce((s, i) => s + simLineTotal(i), 0);
     const live = criteria.filter((c) => c && (parseFloat(c.purchaseValue) || 0) > 0
       && (c.purchaseType === 'spend' || (c.items || []).some((i) => !i.excluded && i.productId != null)));
+    const normalPrices = new Map(simBasket.map((i, index) => [index, simLineTotal(i)]));
     if (simBasket.length === 0 || live.length === 0) {
-      return { active: false, normalTotal, expected: normalTotal };
+      return { active: false, normalTotal, expected: normalTotal, prices: normalPrices };
     }
     const linesFor = (c) => {
       const ids = new Set((c.items || []).filter((i) => !i.excluded && i.productId != null).map((i) => String(i.productId)));
@@ -1132,9 +1100,14 @@ const PromotionDetails = () => {
       let groups = live.map((c) => ({ lines: linesFor(c), setQty: Math.floor(parseFloat(c.purchaseValue)), setPrice: parseFloat(c.receiveValue) }));
       if (formData.mixCriteria) groups = mergeCriteriaGroups(groups);
       const plan = allocateCriteriaSets(groups, { maxSets: parseInt(formData.maxApplicationsPerSale, 10) });
-      return { active: plan.sets > 0, normalTotal, expected: total(plan.prices) };
+      return { active: plan.sets > 0, normalTotal, expected: total(plan.prices), prices: new Map([...normalPrices, ...plan.prices]) };
     }
-    if (live.some((c) => c.purchaseType === 'spend') && live.every((c) => SPEND_RECEIVE_TYPES.includes(c.receiveType || 'quantity_only'))) {
+    // Measured on the live reference (04/11/2026, "Purchase 2 to receive ...", Test
+    // $2.00 x 3): each item for $1.50 -> $5.00; a discount off the total worth
+    // $1.50 -> $4.50; a percentage discount of 1.5% -> $5.94. So every "to receive"
+    // applies per COMPLETE set (2 of the 3 units) and the leftover sells at normal -
+    // the same per-set engine the Spend & Get path uses.
+    if (live.every((c) => SPEND_RECEIVE_TYPES.includes(c.receiveType || 'quantity_only'))) {
       const plan = allocateSpendPromotion(live.map((c) => ({
         kind: c.purchaseType === 'spend' ? 'spend' : 'purchase',
         threshold: parseFloat(c.purchaseValue) || 0,
@@ -1143,7 +1116,7 @@ const PromotionDetails = () => {
         receiveValue: parseFloat(c.receiveValue) || 0,
         lines: linesFor(c),
       })), { maxSets: parseInt(formData.maxApplicationsPerSale, 10) });
-      return { active: plan.applied, normalTotal, expected: total(plan.prices) };
+      return { active: plan.applied, normalTotal, expected: total(plan.prices), prices: new Map([...normalPrices, ...plan.prices]) };
     }
 
     // Other receive types (each item for, % off, same sell rate...): per-criterion
@@ -1169,7 +1142,10 @@ const PromotionDetails = () => {
       discount += Math.max(0, Math.min(d, subtotal));
     });
     const active = anyMet && allRequiredMet && discount > 0;
-    return { active, normalTotal, expected: active ? normalTotal - discount : normalTotal };
+    // Spread the saving over the lines by value so each line can show its price.
+    const factor = active && normalTotal > 0 ? (normalTotal - discount) / normalTotal : 1;
+    const prices = new Map([...normalPrices].map(([k, v]) => [k, Math.round(v * factor * 100) / 100]));
+    return { active, normalTotal, expected: active ? normalTotal - discount : normalTotal, prices };
   };
 
   const showSnackbar = (message, severity) => {
@@ -1191,7 +1167,8 @@ const PromotionDetails = () => {
       display: 'flex',
       flexDirection: 'column'
     }}>
-      <Box sx={{ flex: 1, p: 3 }}>
+      {/* The simulator panel sits down the right edge (reference), so the page keeps clear of it. */}
+      <Box sx={{ flex: 1, p: 3, pr: showSimulator ? `${SIMULATOR_WIDTH + 24}px` : 3, transition: 'padding-right 300ms' }}>
         <Paper sx={{ p: 3, mb: 2, backgroundColor: 'white',
           '& .MuiOutlinedInput-root': { borderRadius: '8px' },
           '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
@@ -1227,7 +1204,7 @@ const PromotionDetails = () => {
                 <Button
                   fullWidth
                   startIcon={<EditOutlinedIcon />}
-                  onClick={openScheduleDialog}
+                  onClick={() => setScheduleOpen(true)}
                   sx={{
                     bgcolor: 'rgb(56,161,105)',
                     color: '#f8f8f8',
@@ -1285,8 +1262,8 @@ const PromotionDetails = () => {
                   )}
                   slotProps={{
                     paper: {
+                      // Width follows the field (no fixed 400px, which left it narrower).
                       sx: {
-                        width: 400,
                         borderRadius: 0,
                         boxShadow: 'none',
                         border: '1px solid #d9d9d9'
@@ -1298,7 +1275,7 @@ const PromotionDetails = () => {
                     }
                   }}
                   renderInput={(params) => (
-                    <TextField {...params} sx={headerFieldSx} />
+                    <TextField {...params} placeholder="Select..." sx={headerFieldSx} />
                   )}
                 />
               </LabeledField>
@@ -1314,6 +1291,34 @@ const PromotionDetails = () => {
                   isOptionEqualToValue={(option, value) => option.id === value.id}
                   value={customerGroups.filter((group) => formData.customerGroupIds.includes(group.id))}
                   onChange={(event, newValue) => handleAvailableToChange(newValue.map((g) => g.id))}
+                  // Reference multi-select: ONE grey chip - the group name when a single
+                  // group is picked, "N Selected..." for more - so the field stays 42px
+                  // instead of growing a chip per group.
+                  renderTags={(value) => (
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-block',
+                        maxWidth: '100%',
+                        ml: '4px',
+                        px: '8px',
+                        py: '2px',
+                        borderRadius: '4px',
+                        bgcolor: '#e5e5e5',
+                        fontSize: 16,
+                        color: '#000',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {value.length === 1 ? value[0].name : `${value.length} Selected...`}
+                    </Box>
+                  )}
+                  sx={{
+                    '& .MuiAutocomplete-inputRoot': { flexWrap: 'nowrap', height: 42, py: '0 !important' },
+                    '& .MuiAutocomplete-input': { minWidth: 0 }
+                  }}
                   renderOption={(props, option, { selected }) => (
                     <Box component="li" {...props} key={option.id} sx={{ fontSize: 16, minHeight: '46px' }}>
                       <Checkbox size="small" checked={selected} sx={{ mr: 1, p: 0.5 }} />
@@ -1322,8 +1327,8 @@ const PromotionDetails = () => {
                   )}
                   slotProps={{
                     paper: {
+                      // Width follows the field (no fixed 400px, which left it narrower).
                       sx: {
-                        width: 400,
                         borderRadius: 0,
                         boxShadow: 'none',
                         border: '1px solid #d9d9d9'
@@ -1783,11 +1788,11 @@ const PromotionDetails = () => {
               </Typography>
             </Box>
                     {expandedCriteria[criterion.id] ? (
-                      <Box sx={{ p: 2 ,display: 'flex'}}>
+                      <Box sx={{ p: 2, display: 'flex', alignItems: 'center' }}>
                         {/* The controls take the remaining width so the PROFIT column
                             sits at the same right edge on every criterion; before, a
                             wider control row pushed it left. */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 2, flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
                           <Button
                             variant={criterion.isOptional ? 'contained' : 'outlined'}
                             size="small"
@@ -1924,8 +1929,8 @@ const PromotionDetails = () => {
                         </Box>
                       </Box>
                     ) : (
-                      <Box sx={{ p: 2 ,display: 'flex'}}>
-                        <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', flex: 1 }}>
+                      <Box sx={{ p: 2, display: 'flex', alignItems: 'center' }}>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', flex: 1 }}>
                           {getCriterionSummary(criterion)}
                         </Typography>
 
@@ -1975,117 +1980,26 @@ const PromotionDetails = () => {
         </>
         )}
 
-        {showSimulator && (() => {
-          const sim = evaluateSimulator();
-          return (
-            <Paper sx={{ p: 3, mt: 2, backgroundColor: 'white' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Promotion Simulator
-              </Typography>
-
-              <TextField
-                fullWidth
-                placeholder="Search for a product, classification or combo to add to the basket..."
-                value={searchTerms.sim || ''}
-                onChange={(e) => handleSearch('sim', e.target.value)}
-                onKeyDown={resultKeys.handleKeyDown('sim', searchResults.sim, handleAddSimProduct, () => setSearchResults((prev) => ({ ...prev, sim: [] })))}
-                size="small"
-                sx={{ mb: 2, maxWidth: 480 }}
-                InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
-              />
-
-              {searchResults.sim && searchResults.sim.length > 0 && (
-                <Paper sx={{ mb: 2, maxHeight: 200, overflow: 'auto', maxWidth: 480 }}>
-                  {searchResults.sim.map((result, i) => (
-                    <Box
-                      key={`${result.resultType}-${result.id}`}
-                      onClick={() => handleAddSimProduct(result)}
-                      sx={{
-                        p: 1.5,
-                        cursor: 'pointer',
-                        borderBottom: '1px solid #f0f0f0',
-                        '&:hover': { bgcolor: '#f5f5f5' },
-                        ...(resultKeys.isActive('sim', i) ? ACTIVE_ROW_SX : {})
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{result.name}</Typography>
-                        {result.resultType !== 'PRODUCT' && (
-                          <Chip
-                            size="small"
-                            label="Classification"
-                            sx={{ height: 18, fontSize: '0.65rem' }}
-                          />
-                        )}
-                      </Box>
-                    </Box>
-                  ))}
-                </Paper>
-              )}
-
-              {simBasket.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  Search above to add products to the simulated sale.
-                </Typography>
-              ) : (
-                <Box>
-                  {simBasket.map((item, index) => (
-                    <Box
-                      key={item.productId}
-                      sx={{
-                        display: 'grid',
-                        gridTemplateColumns: '90px 1fr 120px 40px',
-                        gap: 2,
-                        p: 1,
-                        alignItems: 'center',
-                        borderBottom: '1px solid #f0f0f0'
-                      }}
-                    >
-                      <NumberField
-                        int
-                        fallback={1}
-                        size="small"
-                        value={item.quantity}
-                        inputProps={{ min: 1 }}
-                        onCommit={(n) => {
-                          const quantity = Math.max(1, n);
-                          setSimBasket(prev => prev.map((it, i) => (i === index ? { ...it, quantity } : it)));
-                        }}
-                      />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.name}</Typography>
-                      <Typography variant="body2">${simLineTotal(item).toFixed(2)}</Typography>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => setSimBasket(prev => prev.filter((_, i) => i !== index))}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ))}
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mt: 2, flexWrap: 'wrap' }}>
-                    <Typography variant="body2">Normal price: ${sim.normalTotal.toFixed(2)}</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      Expected price: ${sim.expected.toFixed(2)}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontWeight: 700,
-                        color: sim.active ? '#16a34a' : '#f8f8f8',
-                        bgcolor: sim.active ? 'transparent' : '#dc2626',
-                        px: sim.active ? 0 : 1.5,
-                        py: sim.active ? 0 : 0.5
-                      }}
-                    >
-                      {sim.active ? 'Current Promotion Active' : 'No Promotion Active'}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-            </Paper>
-          );
-        })()}
+        <PromotionSimulatorPanel
+          open={showSimulator}
+          search={{
+            value: searchTerms.sim || '',
+            onChange: (v) => handleSearch('sim', v),
+            onKeyDown: resultKeys.handleKeyDown('sim', (searchResults.sim || []).filter((r) => r.resultType === 'PRODUCT'), handleAddSimProduct, () => setSearchResults((prev) => ({ ...prev, sim: [] }))),
+            results: (searchResults.sim || []).filter((r) => r.resultType === 'PRODUCT'),
+            onPick: handleAddSimProduct
+          }}
+          lines={(() => {
+            const sim = evaluateSimulator();
+            return simBasket.map((item, index) => {
+              const normal = simLineTotal(item);
+              const price = sim.prices?.get(index) ?? normal;
+              return { key: index, quantity: item.quantity, name: item.name, total: price, active: price < normal - 0.004 };
+            });
+          })()}
+          onQuantity={(key, n) => setSimBasket(prev => prev.map((it, i) => (i === key ? { ...it, quantity: n } : it)))}
+          onRemove={(key) => setSimBasket(prev => prev.filter((_, i) => i !== key))}
+        />
       </Box>
 
       <Box sx={{
@@ -2097,216 +2011,72 @@ const PromotionDetails = () => {
         position: 'sticky',
         bottom: 0
       }}>
+        {/* Same bar chrome as the shelf-ticket pages: 42px pills, 12px radius, bold 16px. */}
         <Button
-          variant="contained"
+          disableRipple
+          disableElevation
           startIcon={<CancelIcon />}
           component={RouterLink} to={'/marketing/promotions'}
           sx={{
-            bgcolor: '#e33430',
-            borderRadius: 0,
+            height: 42,
+            px: '24px',
+            borderRadius: '12px',
+            fontSize: 16,
+            fontWeight: 700,
+            textTransform: 'none',
+            bgcolor: '#fb2c36',
+            color: '#fff',
             boxShadow: 'none',
-            '&:hover': { bgcolor: '#cc2f2a', boxShadow: 'none' }
+            '&:hover': { bgcolor: '#ff6467', boxShadow: 'none' }
           }}
         >
-            Cancel
-          </Button>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showSimulator}
-              onChange={(e) => setShowSimulator(e.target.checked)}
-              sx={{ 
-                '& .MuiSwitch-switchBase.Mui-checked': {
-                  color: 'white'
-                },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                  backgroundColor: 'rgba(255,255,255,0.3)'
-                }
-              }}
-            />
-          }
-          label={
-            <Typography sx={{ color: 'white', fontWeight: 500 }}>
-              Show Simulator
-            </Typography>
-          }
-        />
+          Cancel
+        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* The app's flat pill toggle; on the sky bar the ON track turns white with a sky thumb. */}
+          <ShopfrontSwitch
+            checked={showSimulator}
+            onChange={(e) => setShowSimulator(e.target.checked)}
+            sx={{
+              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#fff' },
+              '& .MuiSwitch-switchBase.Mui-checked .MuiSwitch-thumb': { backgroundColor: '#5ebbeb' },
+              '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#f1f5f9' }
+            }}
+          />
+          <Typography sx={{ fontSize: 16, color: '#fff' }}>Show Simulator</Typography>
+        </Box>
         <Button
-          variant="contained"
+          disableRipple
+          disableElevation
           startIcon={<SaveIcon />}
           onClick={handleSave}
           disabled={saving}
           sx={{
-            bgcolor: 'white',
-            color: '#5ebbeb',
-            borderRadius: 0,
+            height: 42,
+            px: '24px',
+            borderRadius: '12px',
+            fontSize: 16,
+            fontWeight: 700,
+            textTransform: 'none',
+            bgcolor: '#fff',
+            color: '#00a6f4',
+            border: '1px solid #fff',
             boxShadow: 'none',
-            '&:hover': {
-              bgcolor: 'rgba(255,255,255,0.9)',
-              boxShadow: 'none'
-            }
+            '&:hover': { bgcolor: '#f0f9ff', boxShadow: 'none' },
+            '&.Mui-disabled': { bgcolor: '#fff', color: '#00a6f4', opacity: 0.7 }
           }}
         >
           {saving ? 'Saving...' : 'Save'}
         </Button>
       </Box>
 
-      {/* Edit Schedule — recurring promotions describe their schedule as ISO 8601
-          values (anchor date + repeating period + optional start time + duration) */}
-      <Dialog
+      {/* Edit Schedule (shared with the Express editor) */}
+      <EditScheduleDialog
         open={scheduleOpen}
+        value={formData.schedule}
         onClose={() => setScheduleOpen(false)}
-        maxWidth={false}
-        PaperProps={{ sx: { width: 620, borderRadius: 0, overflow: 'visible', mt: 8 } }}
-      >
-        <Box
-          sx={{
-            width: 100,
-            height: 100,
-            borderRadius: '50%',
-            bgcolor: '#5ebbeb',
-            color: '#f8f8f8',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 48,
-            fontWeight: 700,
-            position: 'absolute',
-            top: -50,
-            left: 'calc(50% - 50px)'
-          }}
-        >
-          ?
-        </Box>
-        <DialogContent sx={{ pt: 7 }}>
-          <Typography sx={{ fontSize: 20, fontWeight: 700, textAlign: 'center', mb: 2 }}>
-            Edit Schedule
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <Typography sx={{ fontSize: 14, color: '#676b72', mb: 0.5 }}>Preview</Typography>
-              <Box sx={{ display: 'flex', mb: 1 }}>
-                {['Month', 'Week'].map((mode) => (
-                  <Button
-                    key={mode}
-                    onClick={() => setSchedulePreview(mode)}
-                    startIcon={mode === 'Month' ? <CalendarMonthOutlinedIcon /> : null}
-                    sx={{
-                      textTransform: 'none',
-                      borderRadius: 0,
-                      boxShadow: 'none',
-                      bgcolor: schedulePreview === mode ? '#7ec8ee' : '#ececec',
-                      color: '#313439',
-                      px: 2,
-                      '&:hover': { bgcolor: schedulePreview === mode ? '#7ec8ee' : '#e0e0e0', boxShadow: 'none' }
-                    }}
-                  >
-                    {mode}
-                  </Button>
-                ))}
-              </Box>
-              <Typography sx={{ fontSize: 12, color: '#676b72', mb: 1.5 }}>
-                The values must be formatted as an{' '}
-                <Box
-                  component="a"
-                  href="https://en.wikipedia.org/wiki/ISO_8601"
-                  target="_blank"
-                  rel="noreferrer"
-                  sx={{ color: '#676b72', textDecoration: 'underline' }}
-                >
-                  ISO 8601
-                </Box>{' '}
-                value
-              </Typography>
-              {[
-                ['Anchor Date', 'anchorDate'],
-                ['Repeating Period', 'repeatingPeriod'],
-                ['Time to Start (optional)', 'timeToStart'],
-                ['Enabled Duration', 'enabledDuration']
-              ].map(([label, key]) => (
-                <TextField
-                  key={key}
-                  fullWidth
-                  size="small"
-                  label={label}
-                  value={scheduleDraft[key]}
-                  onChange={(e) => setScheduleDraft(prev => ({ ...prev, [key]: e.target.value }))}
-                  sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '4px', height: 38 } }}
-                />
-              ))}
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                <IconButton
-                  size="small"
-                  onClick={() => setScheduleMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                >
-                  <ChevronLeftIcon />
-                </IconButton>
-                <Typography sx={{ fontWeight: 700 }}>
-                  {scheduleMonth.toLocaleString('en-AU', { month: 'short', year: 'numeric' })}
-                </Typography>
-                <IconButton
-                  size="small"
-                  onClick={() => setScheduleMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                >
-                  <ChevronRightIcon />
-                </IconButton>
-              </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
-                {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => (
-                  <Typography key={d} sx={{ fontSize: 11, textAlign: 'center', color: '#676b72' }}>{d}</Typography>
-                ))}
-                {(schedulePreview === 'Month' ? monthGrid(scheduleMonth) : weekGrid(scheduleMonth)).map((day, i) => (
-                  <Box
-                    key={day ? day.toISOString() : `pad-${i}`}
-                    sx={{
-                      minHeight: 30,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 11,
-                      bgcolor: day ? (isSameDay(day, new Date()) ? '#d6ecfa' : '#ececec') : 'transparent'
-                    }}
-                  >
-                    {day ? ordinal(day.getDate()) : ''}
-                  </Box>
-                ))}
-              </Box>
-            </Grid>
-          </Grid>
-          <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-            <Button
-              onClick={() => setScheduleOpen(false)}
-              sx={{
-                flex: 1,
-                height: 40,
-                borderRadius: '4px',
-                textTransform: 'none',
-                bgcolor: '#f1f1f1',
-                color: '#313439',
-                '&:hover': { bgcolor: '#e4e4e4' }
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleScheduleContinue}
-              sx={{
-                flex: 1,
-                height: 40,
-                borderRadius: '4px',
-                textTransform: 'none',
-                bgcolor: '#2f8fe0',
-                color: '#f8f8f8',
-                '&:hover': { bgcolor: '#2679bd' }
-              }}
-            >
-              Continue
-            </Button>
-          </Box>
-        </DialogContent>
-      </Dialog>
+        onContinue={(schedule) => { handleInputChange('schedule', schedule); setScheduleOpen(false); }}
+      />
 
       <Snackbar
         open={snackbar.open}

@@ -6,7 +6,6 @@ import {
   TextField,
   Typography,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   FormControlLabel,
@@ -23,13 +22,26 @@ import {
   Alert,
   Autocomplete,
   Chip,
-  InputAdornment
+  InputAdornment,
+  Collapse
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Delete as DeleteIcon,
-  Close as CloseIcon
+  EditOutlined as EditOutlinedIcon,
+  Cancel as CancelIcon,
+  ImageOutlined as ImageIcon,
+  Inventory2Outlined as Inventory2OutlinedIcon,
+  HomeOutlined as HomeOutlinedIcon,
+  LocalOfferOutlined as LocalOfferOutlinedIcon,
+  ArrowRight as ArrowRightIcon,
+  ArrowDropDown as ArrowDropDownIcon,
+  CheckCircleOutline as CheckCircleOutlineIcon,
+  HighlightOffOutlined as HighlightOffOutlinedIcon,
+  Save as SaveIcon
 } from '@mui/icons-material';
+import EditScheduleDialog from '../../components/Marketing/EditScheduleDialog';
+import PromotionSimulatorPanel, { SIMULATOR_WIDTH, BOTTOM_BAR_HEIGHT } from '../../components/Marketing/PromotionSimulatorPanel';
 import { useLocation, useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
@@ -38,46 +50,74 @@ import promotionCategoryService from '../../services/promotionCategoryService';
 import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete';
 import customerGroupService from '../../services/customerGroupService';
 import productService from '../../services/productService';
+import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import DateTimeField from '../../components/Common/DateTimeField';
 import useResultKeys, { ACTIVE_ROW_SX } from '../../components/Common/useResultKeys';
 import { getBaseTier } from '../../utils/baseTier';
 
-// The reference shows the date as plain text "26/07/2026 19:30:00" with only its own
-// clear button — a native datetime-local can neither render that mask nor drop the
-// browser's calendar icon, so these are text fields holding the display string.
+// Start / End Date are edited with the shared DateTimeField (Date | null, with the
+// reference's DD/MM/YYYY HH:mm:ss mask and calendar / clock popover).
 const pad = (n) => String(n).padStart(2, '0');
 
-const formatDateForInput = (dateString) => {
-  if (!dateString) return '';
-  const raw = String(dateString).trim();
-  // Only read the ISO parts verbatim when the string carries NO timezone. A stored
-  // "2026-08-11T18:30:00.000Z" is local 12/08/2026 00:00 — taking its UTC parts
-  // shifted the start date a day back on every first edit-load. The view page uses
-  // new Date(...) (local), so the Date branch below keeps editor and view in sync.
-  const iso = /(Z|[+-]\d{2}:?\d{2})$/.test(raw)
-    ? null
-    : raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/);
-  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]} ${iso[4] || '00'}:${iso[5] || '00'}:${iso[6] || '00'}`;
-  const date = new Date(raw);
-  if (isNaN(date.getTime())) return '';
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+// Stored value (ISO, with or without timezone) -> local Date, or null.
+const toDateOrNull = (raw) => {
+  if (!raw) return null;
+  if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? null : raw;
+  const s = String(raw).trim();
+  // No timezone: read the parts verbatim as local time (a "Z" string goes through
+  // Date, which the view page also uses, so editor and view agree).
+  const m = /(Z|[+-]\d{2}:?\d{2})$/.test(s) ? null : s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  const d = m ? new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)) : new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
 };
 
-// "DD/MM/YYYY HH:mm:ss" -> the "YYYY-MM-DDTHH:mm:ss" the API has always been sent.
-const parseDisplayDate = (value) => {
-  if (!value) return '';
-  const m = String(value).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (!m) return String(value).trim();
-  return `${m[3]}-${pad(m[2])}-${pad(m[1])}T${pad(m[4] || 0)}:${m[5] || '00'}:${m[6] || '00'}`;
-};
+// Date -> the "YYYY-MM-DDTHH:mm:ss" (local) the API has always been sent.
+const toLocalIso = (d) => (d instanceof Date && !Number.isNaN(d.getTime())
+  ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  : '');
 
 // Money to whole cents. Every figure that reaches the Rebate box or the save
 // payload goes through this, so a 10% discount on $6.50 is 0.65, never
 // 0.6499999999999995.
 const roundCents = (n) => Math.round((Number(n) || 0) * 100) / 100;
 // Read-only figures: nothing (0) shows blank, not "$0.00" / "0.00%" (user 19/10/2026).
-const moneyOrBlank = (n) => (Math.round((Number(n) || 0) * 100) === 0 ? '' : `$${(Number(n) || 0).toFixed(2)}`);
-const pctOrBlank = (n) => (Math.round((Number(n) || 0) * 100) === 0 ? '' : `${(Number(n) || 0).toFixed(2)}%`);
+// Reference Express rows (live 04/11/2026): Cost "$0.00", % "100.00%" / "-100.00%"
+// are always printed, never blank.
+const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
+const pct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
+
+// Reference labels its fields above the box (same as the Advanced editor).
+const LabeledField = ({ label, children }) => (
+  <Box>
+    <Typography sx={{ fontSize: 14, color: '#676b72', mb: 0.5 }}>{label}</Typography>
+    {children}
+  </Box>
+);
+const headerFieldSx = {
+  '& .MuiOutlinedInput-root': { minHeight: 42, borderRadius: '8px', backgroundColor: '#fff' }
+};
+const toggleLabelSx = { ml: 0, '& .MuiFormControlLabel-label': { ml: '10px', fontSize: 16 } };
+
+// Reference search dropdown: the typed text is highlighted sky inside each result.
+const Highlight = ({ text, term }) => {
+  const t = String(text || '');
+  const q = String(term || '').trim();
+  if (!q) return t;
+  const idx = t.toLowerCase().indexOf(q.toLowerCase());
+  if (idx < 0) return t;
+  return (
+    <>
+      {t.slice(0, idx)}
+      <Box component="span" sx={{ color: '#5ebbeb' }}>{t.slice(idx, idx + q.length)}</Box>
+      {t.slice(idx + q.length)}
+    </>
+  );
+};
+// Group header order of the reference dropdown (categories first, products last).
+const GROUP_ORDER = ['CATEGORY', 'BRAND', 'FAMILY', 'TAG', 'PRODUCT'];
+const groupOf = (r) => (r.resultType === 'PRODUCT' ? 'PRODUCT' : String(r.type || 'CLASSIFICATION').toUpperCase());
+const GROUP_LABEL = { CATEGORY: 'CATEGORIES', BRAND: 'BRANDS', FAMILY: 'FAMILIES', TAG: 'TAGS', PRODUCT: 'PRODUCTS' };
 
 const ExpressPromotion = () => {
   const navigate = useNavigate();
@@ -99,15 +139,19 @@ const ExpressPromotion = () => {
   };
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     isRecurring: false,
-    startDate: '',
-    endDate: '',
+    schedule: null,
+    startDate: null,
+    endDate: null,
     categoryId: '',
     availableTo: 'All Customers',
     customerGroupIds: [],
+    // Reference "Available from": the outlet the promotion runs at (chip in the box).
+    outletId: resolveOutletId(),
     promotionType: 'Price Override',
     isActive: true,
     items: []
@@ -119,10 +163,11 @@ const ExpressPromotion = () => {
   const [searchResults, setSearchResults] = useState([]);
   // Reference: the top search result is highlighted; Up/Down move, Enter adds it.
   const resultKeys = useResultKeys();
-  const [, setSearchLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [showSimulator, setShowSimulator] = useState(false);
   const [simSearch, setSimSearch] = useState('');
   const [simResults, setSimResults] = useState([]);
+  const [simLoading, setSimLoading] = useState(false);
   const [basket, setBasket] = useState([]);
 
   const showSnackbarMessage = (message, severity) => {
@@ -138,8 +183,8 @@ const ExpressPromotion = () => {
       setFormData(prev => ({
         ...prev,
         ...draft,
-        startDate: formatDateForInput(draft.startDate),
-        endDate: formatDateForInput(draft.endDate)
+        startDate: toDateOrNull(draft.startDate),
+        endDate: toDateOrNull(draft.endDate)
       }));
     }
   }, [id]);
@@ -219,7 +264,8 @@ const ExpressPromotion = () => {
             promoPrice: item.promoPrice || 0,
             rebate: item.rebate || 0,
             rebatePercentage: item.rebatePercentage || 0,
-            discountPercentage: item.discountPercentage || 0
+            discountPercentage: item.discountPercentage || 0,
+            discountAmount: item.discountAmount || ''
           };
           
           console.log('Processed item:', processedItem);
@@ -230,8 +276,10 @@ const ExpressPromotion = () => {
       setFormData({
         name: promotion.name || '',
         isRecurring: promotion.isRecurring || false,
-        startDate: formatDateForInput(promotion.startDate),
-        endDate: formatDateForInput(promotion.endDate),
+        schedule: promotion.schedule ?? null,
+        outletId: promotion.outletId ?? null,
+        startDate: toDateOrNull(promotion.startDate),
+        endDate: toDateOrNull(promotion.endDate),
         categoryId: promotion.categoryId || '',
         availableTo: promotion.availableTo || 'All Customers',
         customerGroupIds: promotion.customerGroupIds || [],
@@ -239,7 +287,13 @@ const ExpressPromotion = () => {
         promotionType: ({ 'Buy X for Y': 'Price Override', 'Buy X get Y% off': 'Discount Percentage' })[promotion.promotionType]
           || promotion.promotionType || 'Price Override',
         isActive: promotion.isActive !== false,
-        items: itemsWithCost
+        items: [
+          ...itemsWithCost,
+          ...(promotion.conditions?.classificationItems || []).map((c) => classificationRow({
+            classificationId: c.classificationId, classificationType: c.classificationType, productName: c.name, members: c.members,
+            quantity: c.quantity, promoPrice: c.promoPrice || '', discountPercentage: c.discountPercentage || '', discountAmount: c.discountAmount || '', rebate: c.rebate || ''
+          }, promotion.promotionType))
+        ]
       });
     } catch (error) {
       console.error('Error fetching promotion:', error);
@@ -306,15 +360,34 @@ const ExpressPromotion = () => {
     ];
   };
 
+  // Reference Express (help "Express Promotions", live 04/11/2026): Price Override
+  // searches "a product or family"; Discount Percentage / Discount Amount search
+  // "a product, category, brand, family or tag". A classification adds its products.
+  const isPriceOverride = formData.promotionType === 'Price Override';
+  const classificationAllowed = (c) => !isPriceOverride || String(c.type || '').toUpperCase() === 'FAMILY';
+  const searchItems = async (term) => {
+    const query = term.trim();
+    if (!query) return [];
+    const [products, classifications] = await Promise.all([
+      productService.getProducts({ search: query, limit: 20 }).then((r) => r?.products || []).catch(() => []),
+      classificationService.getClassifications({ search: query }).then((r) => r?.classifications || []).catch(() => []),
+    ]);
+    return [
+      ...products.map((p) => ({ ...p, resultType: 'PRODUCT' })),
+      ...classifications.filter(classificationAllowed).map((c) => ({ ...c, resultType: 'CLASSIFICATION' })),
+    ];
+  };
+
   const searchProducts = async (term) => {
-    if (!term.trim()) {
+    // Reference: one character shows "Start typing to search..." and searches nothing.
+    if (term.trim().length < 2) {
       setSearchResults([]);
       return;
     }
 
     try {
       setSearchLoading(true);
-      setSearchResults(await searchCatalog(term));
+      setSearchResults(await searchItems(term));
     } catch (error) {
       console.error('Error searching products:', error);
       setSearchResults([]);
@@ -329,18 +402,32 @@ const ExpressPromotion = () => {
       return;
     }
     try {
+      setSimLoading(true);
       setSimResults(await searchCatalog(term));
     } catch (error) {
       console.error('Error searching simulator products:', error);
       setSimResults([]);
+    } finally {
+      setSimLoading(false);
     }
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      if (field !== 'promotionType' || value === prev.promotionType) return { ...prev, [field]: value };
+      // Switching type resets the per-row pricing to that type's starting state
+      // (Price Override: blank promo box; discount types: promo = normal, no discount).
+      return {
+        ...prev,
+        promotionType: value,
+        items: prev.items.map((it) => ({
+          ...it,
+          promoPrice: value === 'Price Override' ? '' : (Number(it.normalPrice) || 0),
+          discountPercentage: '',
+          discountAmount: ''
+        }))
+      };
+    });
   };
 
   const toPromotionItem = (product) => {
@@ -359,15 +446,45 @@ const ExpressPromotion = () => {
       unitNormal,
       cost: unitCost,
       normalPrice: unitNormal,
-      // Typed figures start blank, not 0 (user 19/10/2026); saved as 0 if left blank.
-      promoPrice: '',
+      // Reference: Price Override starts with a blank Promo Price box; the discount
+      // types print the normal total until a discount is typed.
+      promoPrice: formData.promotionType === 'Price Override' ? '' : unitNormal,
       rebate: '',
       rebatePercentage: 0,
-      discountPercentage: ''
+      discountPercentage: '',
+      discountAmount: ''
     };
   };
 
   const handleAddProduct = async (entry) => {
+    if (entry.resultType === 'CLASSIFICATION') {
+      // Reference (live 04/11/2026): a category/brand/family/tag is ONE row
+      // ("Cigarettes / CATEGORY"); the sell screen matches products by their
+      // classification. A FAMILY row carries its members for the "~" averages
+      // and the expandable member list ("Jets23 / FAMILY" -> Winfield Jets ...).
+      const type = String(entry.type || 'CLASSIFICATION').toUpperCase();
+      let members = [];
+      if (type === 'FAMILY') {
+        try {
+          const response = await classificationService.getClassificationProducts(entry.id);
+          members = (response?.assignedProducts || []).map((p) => {
+            const tier = getBaseTier(p.prices);
+            return { productId: p.id, name: p.name, unitCost: Number(p.cost || tier?.cost || 0), unitNormal: Number(tier?.price || 0) };
+          });
+        } catch (error) {
+          console.error('Error fetching family products:', error);
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.some((i) => i.classificationId === entry.id) ? prev.items : [...prev.items, classificationRow({
+          classificationId: entry.id, classificationType: type, productName: entry.name, members
+        }, prev.promotionType)]
+      }));
+      setSearchTerm('');
+      setSearchResults([]);
+      return;
+    }
     const products = [entry];
 
     setFormData(prev => ({
@@ -407,23 +524,67 @@ const ExpressPromotion = () => {
     setSimResults([]);
   };
 
-  // The promotion only triggers when EVERY promotion line has its required
-  // quantity in the basket (help docs: all criteria must be met).
-  const promotionActive = formData.items.length > 0 && formData.items.every((item) => {
-    const row = basket.find(b => b.productId === item.productId);
-    return row && row.quantity >= (item.quantity || 1);
-  });
-
-  // Reference Express (live: 48 Corona = $110, 96 = $220): every COMPLETE set of
-  // the line's Quantity sells at its Promo Price (a set total), extra units at
-  // the normal price.
-  const simulatedTotal = basket.reduce((sum, row) => {
-    const promoItem = promotionActive ? formData.items.find(i => i.productId === row.productId) : null;
-    if (!promoItem || !(promoItem.promoPrice > 0)) return sum + row.price * row.quantity;
+  // Reference Express simulator (live 04/11/2026, Price Override 2 for $3 on a
+  // $2.00 product): 1 unit -> $2.00 "No Promotion Active"; 3 units -> $5.00
+  // (one complete set at $3 + 1 leftover at $2.00), "Current Promotion Active".
+  // Each basket line carries its own status. A line prices by its product row;
+  // a classification row (category / brand / family / tag) is not simulated here.
+  const simLine = (row) => {
+    const normal = roundCents(row.price * row.quantity);
+    const promoItem = formData.items.find((i) => !i.classificationId && i.productId === row.productId);
+    if (!promoItem) return { total: normal, active: false };
     const setQty = Math.max(1, parseInt(promoItem.quantity, 10) || 1);
     const sets = Math.floor(row.quantity / setQty);
-    return sum + sets * promoItem.promoPrice + (row.quantity - sets * setQty) * row.price;
-  }, 0);
+    if (sets < 1) return { total: normal, active: false };
+    const covered = sets * setQty;
+    const leftover = (row.quantity - covered) * row.price;
+    let coveredPrice = row.price * covered;
+    if (formData.promotionType === 'Discount Percentage') {
+      const p = Number(promoItem.discountPercentage) || 0;
+      if (!(p > 0)) return { total: normal, active: false };
+      coveredPrice = coveredPrice * (1 - p / 100);
+    } else if (formData.promotionType === 'Discount Amount') {
+      const off = Number(promoItem.discountAmount) || 0;
+      if (!(off > 0)) return { total: normal, active: false };
+      coveredPrice = Math.max(0, coveredPrice - off * sets);
+    } else {
+      if (!(promoItem.promoPrice > 0)) return { total: normal, active: false };
+      coveredPrice = promoItem.promoPrice * sets;
+    }
+    const total = roundCents(coveredPrice + leftover);
+    return { total, active: total < normal - 0.004 };
+  };
+
+  // One editor row for a classification; a family's averages seed cost / normal so
+  // the usual discount maths and the "%" column work on the "~" figures.
+  const classificationRow = (row, promotionType) => {
+    const members = Array.isArray(row.members) ? row.members : [];
+    const avg = (k) => (members.length ? members.reduce((s, m) => s + (Number(m[k]) || 0), 0) / members.length : 0);
+    const unitCost = avg('unitCost');
+    const unitNormal = avg('unitNormal');
+    const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
+    return {
+      classificationId: row.classificationId,
+      classificationType: row.classificationType,
+      productId: null,
+      productName: row.productName,
+      members,
+      expanded: false,
+      quantity: qty,
+      unitCost,
+      unitNormal,
+      cost: roundCents(unitCost * qty),
+      normalPrice: roundCents(unitNormal * qty),
+      promoPrice: row.promoPrice ?? (promotionType === 'Price Override' ? '' : roundCents(unitNormal * qty)),
+      rebate: row.rebate ?? '',
+      rebatePercentage: 0,
+      discountPercentage: row.discountPercentage ?? '',
+      discountAmount: row.discountAmount ?? ''
+    };
+  };
+  const toggleExpanded = (index) => {
+    setFormData(prev => ({ ...prev, items: prev.items.map((it, i) => (i === index ? { ...it, expanded: !it.expanded } : it)) }));
+  };
 
   const handleRemoveItem = (index) => {
     setFormData(prev => ({
@@ -434,11 +595,14 @@ const ExpressPromotion = () => {
 
   const calculateProfit = (item) => {
     const promoPrice = parseFloat(item.promoPrice) || 0;
-    const cost = parseFloat(item.cost) || 0;
-    
-    if (promoPrice === 0) return 0;
-    if (cost <= 0) return -100;
-    
+    // Help "Express Promotions": Rebate is an "amount provided to reduce the
+    // product's cost", so it comes off the cost before the margin.
+    const cost = Math.max(0, (parseFloat(item.cost) || 0) - (parseFloat(item.rebate) || 0));
+
+    // Reference "%" column (live 04/11/2026): promo blank -> "-100.00%" in red,
+    // cost $0 with promo $2 -> "100.00%", cost $0.80 promo $1 -> "20.00%".
+    if (promoPrice === 0) return -100;
+
     const profit = ((promoPrice - cost) / promoPrice) * 100;
     
     if (isNaN(profit) || !isFinite(profit)) return 0;
@@ -469,27 +633,22 @@ const ExpressPromotion = () => {
         if (!(normal > 0)) return updated;
         const round = roundCents;
 
+        // Reference (live 04/11/2026, qty 2 x $2.00, 10%): Promo $3.60, Rebate stays
+        // $0 - the rebate is a separate supplier figure, never derived from the
+        // discount, and the promo price is never derived from the rebate.
         if (formData.promotionType === 'Discount Percentage') {
-          if (field === 'discountPercentage' || (field === 'quantity' && updated.discountPercentage > 0)) {
-            updated.promoPrice = round(normal * (1 - (Number(updated.discountPercentage) || 0) / 100));
-            updated.rebate = round(normal - updated.promoPrice);
-            updated.rebatePercentage = (updated.rebate / normal) * 100;
+          if (field === 'discountPercentage' || field === 'quantity') {
+            const pctOff = Number(updated.discountPercentage) || 0;
+            updated.promoPrice = pctOff > 0 ? round(normal * (1 - pctOff / 100)) : normal;
           }
-          return updated;
+        } else if (formData.promotionType === 'Discount Amount') {
+          // "$ off": the line's promo total is its normal total less the amount.
+          if (field === 'discountAmount' || field === 'quantity') {
+            const off = Number(updated.discountAmount) || 0;
+            updated.promoPrice = off > 0 ? round(Math.max(0, normal - off)) : normal;
+          }
         }
-        if (field === 'promoPrice') {
-          updated.rebate = round(normal - (Number(value) || 0));
-          updated.rebatePercentage = (updated.rebate / normal) * 100;
-        } else if (field === 'rebate') {
-          updated.promoPrice = round(normal - (Number(value) || 0));
-          updated.rebatePercentage = ((Number(value) || 0) / normal) * 100;
-        } else if (field === 'rebatePercentage') {
-          updated.rebate = round((normal * (Number(value) || 0)) / 100);
-          updated.promoPrice = round(normal - updated.rebate);
-        } else if (field === 'quantity' && updated.promoPrice > 0) {
-          updated.rebate = round(normal - updated.promoPrice);
-          updated.rebatePercentage = (updated.rebate / normal) * 100;
-        }
+        updated.rebatePercentage = (round(updated.rebate) / normal) * 100;
         return updated;
       })
     }));
@@ -500,11 +659,12 @@ const ExpressPromotion = () => {
       setLoading(true);
       const promotionData = {
         ...formData,
-        outletId: resolveOutletId(),
-        startDate: parseDisplayDate(formData.startDate),
-        endDate: parseDisplayDate(formData.endDate),
+        outletId: formData.outletId ?? resolveOutletId(),
+        schedule: formData.isRecurring ? formData.schedule : null,
+        startDate: formData.isRecurring ? '' : toLocalIso(formData.startDate),
+        endDate: formData.isRecurring ? '' : toLocalIso(formData.endDate),
         promotionType: formData.promotionType,
-        items: formData.items.map(item => ({
+        items: formData.items.filter((item) => !item.classificationId).map(item => ({
           productId: item.productId,
           quantity: item.quantity || 1,
           promoPrice: roundCents(item.promoPrice),
@@ -512,9 +672,22 @@ const ExpressPromotion = () => {
           rebate: roundCents(item.rebate),
           rebatePercentage: item.rebatePercentage || 0,
           discountPercentage: item.discountPercentage || 0,
-          discountAmount: roundCents(item.rebate)
+          discountAmount: formData.promotionType === 'Discount Amount' ? roundCents(item.discountAmount) : roundCents(item.rebate)
         })),
         conditions: {
+          // Classification rows (category / brand / family / tag) have no product id;
+          // the sell screen matches a product by its classification.
+          classificationItems: formData.items.filter((item) => item.classificationId).map((item) => ({
+            classificationId: item.classificationId,
+            classificationType: item.classificationType,
+            name: item.productName,
+            quantity: item.quantity || 1,
+            promoPrice: roundCents(item.promoPrice),
+            discountPercentage: Number(item.discountPercentage) || 0,
+            discountAmount: formData.promotionType === 'Discount Amount' ? roundCents(item.discountAmount) : 0,
+            rebate: roundCents(item.rebate),
+            members: (item.members || []).map((m) => ({ productId: m.productId, name: m.name, unitCost: m.unitCost, unitNormal: m.unitNormal }))
+          })),
           criteria: [{
             purchaseType: 'purchase',
             purchaseValue: 1,
@@ -522,7 +695,7 @@ const ExpressPromotion = () => {
                         formData.promotionType === 'Discount Percentage' ? 'percentage_discount' :
                         'discount',
             receiveValue: 0,
-            items: formData.items.map(item => ({
+            items: formData.items.filter((item) => !item.classificationId).map(item => ({
               productId: item.productId,
               rebate: roundCents(item.rebate),
               rebatePercentage: item.rebatePercentage
@@ -551,47 +724,35 @@ const ExpressPromotion = () => {
     }
   };
 
-  // Reference exposes a 25x24 radius-8 clear button once a value is set.
-  const clearAdornment = (value, onClear) => (value ? (
-    <InputAdornment position="end">
-      <IconButton
-        onClick={onClear}
-        sx={{ width: 25, height: 24, borderRadius: '8px', p: 0, color: '#676b72' }}
-      >
-        <CloseIcon sx={{ fontSize: 16 }} />
-      </IconButton>
-    </InputAdornment>
-  ) : null);
-
   const handleSnackbarClose = () => {
     setSnackbar({ open: false, message: '', severity: 'success' });
   };
 
   return (
-    <Box sx={{ p: 3, pb: '85px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
-      {/* Reference editor renders no page title and no back arrow — the footer
-          Cancel button is the only exit. */}
-      <Paper sx={{ p: 3, mb: 3,
+    <Box sx={{ p: 3, pb: '85px', pr: showSimulator ? `${SIMULATOR_WIDTH + 24}px` : 3, transition: 'padding-right 300ms', backgroundColor: '#fff', minHeight: '100vh' }}>
+      {/* Reference Express editor (live 04/11/2026): no page title, no card - a
+          three-column header with labels above the boxes, a divider, then the
+          search bar and the items table on the white page. */}
+      <Box sx={{
         '& .MuiOutlinedInput-root': { borderRadius: '8px' },
         '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
         '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
         '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
       }}>
-        <Typography variant="h6" sx={{ mb: 3 }}>Promotion Details</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+        <Grid container spacing={2} alignItems="flex-end">
+          <Grid item xs={12} md={4}>
             <TextField
               fullWidth
               size="small"
-              label="Name"
+              placeholder="Name"
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
+              sx={headerFieldSx}
             />
           </Grid>
-          
-          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
+          <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center', minHeight: 42 }}>
             <FormControlLabel
-              sx={{ ml: 0, gap: 1 }}
+              sx={toggleLabelSx}
               control={
                 <ShopfrontSwitch
                   checked={formData.isRecurring}
@@ -601,79 +762,86 @@ const ExpressPromotion = () => {
               label="Recurring Promotion"
             />
           </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Start Date"
-              placeholder="DD/MM/YYYY HH:MM:SS"
-              value={formData.startDate || ''}
-              onChange={(e) => handleInputChange('startDate', e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              InputProps={{ endAdornment: clearAdornment(formData.startDate, () => handleInputChange('startDate', '')) }}
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              size="small"
-              label="End Date"
-              placeholder="DD/MM/YYYY HH:MM:SS"
-              value={formData.endDate || ''}
-              onChange={(e) => handleInputChange('endDate', e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              InputProps={{ endAdornment: clearAdornment(formData.endDate, () => handleInputChange('endDate', '')) }}
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            {/* Reference Category is a searchable, clearable combobox. */}
-            <CreatableAutocomplete
-              size="small"
-              options={categories}
-              value={categories.find((c) => c.id === formData.categoryId) || null}
-              onChange={(newValue) => handleInputChange('categoryId', newValue?.id || '')}
-              onCreate={handleCreatePromotionCategory}
-              onError={(err) => showSnackbarMessage(err?.response?.data?.error || 'Failed to create category', 'error')}
-              placeholder="Select..."
-              textFieldProps={{ label: 'Category' }}
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Available to</InputLabel>
-              <Select
-                value={formData.availableTo}
-                onChange={(e) => handleInputChange('availableTo', e.target.value)}
-                label="Available to"
+          {formData.isRecurring ? (
+            <Grid item xs={12} md={4}>
+              <Button
+                fullWidth
+                startIcon={<EditOutlinedIcon />}
+                onClick={() => setScheduleOpen(true)}
+                sx={{
+                  bgcolor: 'rgb(56,161,105)',
+                  color: '#f8f8f8',
+                  height: 42,
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontSize: 16,
+                  fontWeight: 700,
+                  boxShadow: 'none',
+                  transition: 'background 0.2s, color 0.2s',
+                  '&:hover': { bgcolor: 'rgb(45,135,88)', boxShadow: 'none' }
+                }}
               >
-                <MenuItem value="All Customers">All Customers</MenuItem>
-                <MenuItem value="Specific Customer Groups">Specific Customer Groups</MenuItem>
-              </Select>
-            </FormControl>
+                Edit Schedule
+              </Button>
+            </Grid>
+          ) : (
+            <>
+              <Grid item xs={12} md={4}>
+                <DateTimeField value={formData.startDate} onChange={(v) => handleInputChange('startDate', v)} placeholder="Start Date" showLabel={false} />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <DateTimeField value={formData.endDate} onChange={(v) => handleInputChange('endDate', v)} placeholder="End Date" showLabel={false} />
+              </Grid>
+            </>
+          )}
+          <Grid item xs={12} md={4}>
+            <LabeledField label="Category">
+              <CreatableAutocomplete
+                size="small"
+                options={categories}
+                value={categories.find((c) => c.id === formData.categoryId) || null}
+                onChange={(newValue) => handleInputChange('categoryId', newValue?.id || '')}
+                onCreate={handleCreatePromotionCategory}
+                onError={(err) => showSnackbarMessage(err?.response?.data?.error || 'Failed to create category', 'error')}
+                placeholder="No Promotion Category"
+                renderInput={(params) => (
+                  <TextField {...params} placeholder="No Promotion Category" sx={headerFieldSx} />
+                )}
+              />
+            </LabeledField>
           </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Promotion type</InputLabel>
-              <Select
-                value={formData.promotionType}
-                onChange={(e) => handleInputChange('promotionType', e.target.value)}
-                label="Promotion type"
-              >
-                <MenuItem value="Price Override">Price Override</MenuItem>
-                <MenuItem value="Discount Percentage">Discount Percentage</MenuItem>
-                <MenuItem value="Discount Amount">Discount Amount</MenuItem>
-              </Select>
-            </FormControl>
+          <Grid item xs={12} md={4}>
+            <LabeledField label="Available to">
+              <FormControl fullWidth size="small" sx={headerFieldSx}>
+                <Select
+                  value={formData.availableTo}
+                  onChange={(e) => handleInputChange('availableTo', e.target.value)}
+                >
+                  <MenuItem value="All Customers">All Customers</MenuItem>
+                  <MenuItem value="Specific Customer Groups">Specific Customer Groups</MenuItem>
+                </Select>
+              </FormControl>
+            </LabeledField>
           </Grid>
-          
-          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
+          {/* Reference also shows "Available from" (outlet chip); dropped here because the
+              navbar outlet decides where a promotion lives (outlet-wise rule, user 04/11/2026). */}
+          <Grid item xs={12} md={4}>
+            <LabeledField label="Promotion type">
+              <FormControl fullWidth size="small" sx={headerFieldSx}>
+                <Select
+                  value={formData.promotionType}
+                  onChange={(e) => handleInputChange('promotionType', e.target.value)}
+                >
+                  <MenuItem value="Price Override">Price Override</MenuItem>
+                  <MenuItem value="Discount Percentage">Discount Percentage</MenuItem>
+                  <MenuItem value="Discount Amount">Discount Amount</MenuItem>
+                </Select>
+              </FormControl>
+            </LabeledField>
+          </Grid>
+          <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center', minHeight: 42 }}>
             <FormControlLabel
-              sx={{ ml: 0, gap: 1 }}
+              sx={toggleLabelSx}
               control={
                 <ShopfrontSwitch
                   checked={formData.isActive}
@@ -683,372 +851,404 @@ const ExpressPromotion = () => {
               label="Active"
             />
           </Grid>
-          
           {formData.availableTo === 'Specific Customer Groups' && (
-            <Grid item xs={12}>
-              <Autocomplete
-                multiple
-                size="small"
-                options={customerGroups}
-                getOptionLabel={(option) => option.name}
-                value={customerGroups.filter(group => 
-                  formData.customerGroupIds.includes(group.id)
-                )}
-                onChange={(event, newValue) => {
-                  handleInputChange('customerGroupIds', newValue.map(group => group.id));
-                }}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip
-                      variant="outlined"
-                      label={option.name}
-                      {...getTagProps({ index })}
-                    />
-                  ))
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Customer Groups"
-                    placeholder="Select customer groups"
-                  />
-                )}
-              />
+            <Grid item xs={12} md={4}>
+              <LabeledField label="Customer Groups">
+                <Autocomplete
+                  multiple
+                  size="small"
+                  options={customerGroups}
+                  getOptionLabel={(option) => option.name}
+                  value={customerGroups.filter(group => formData.customerGroupIds.includes(group.id))}
+                  onChange={(event, newValue) => {
+                    handleInputChange('customerGroupIds', newValue.map(group => group.id));
+                  }}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip variant="outlined" label={option.name} {...getTagProps({ index })} />
+                    ))
+                  }
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="Select customer groups" sx={headerFieldSx} />
+                  )}
+                />
+              </LabeledField>
             </Grid>
           )}
         </Grid>
-      </Paper>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Items in Promotion</Typography>
-        
-        <TextField
-          fullWidth
-          placeholder="Search for a product or family"
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            resultKeys.reset('items');
-            searchProducts(e.target.value);
-          }}
-          onKeyDown={resultKeys.handleKeyDown('items', searchResults, handleAddProduct, () => setSearchResults([]))}
-          InputProps={{
-            startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-          }}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ borderBottom: '1px solid #d4d4d4', my: 3, mx: -2 }} />
 
-        {searchResults.length > 0 && (
-          <Paper sx={{ mb: 2, maxHeight: 200, overflow: 'auto' }}>
-            {searchResults.map((product, i) => (
-              <Box
-                key={`${product.resultType}-${product.id}`}
-                onClick={() => handleAddProduct(product)}
-                sx={{
-                  p: 1.5,
-                  borderBottom: '1px solid #e0e0e0',
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: '#f5f5f5' },
-                  ...(resultKeys.isActive('items', i) ? ACTIVE_ROW_SX : {})
-                }}
-              >
-                <Typography variant="subtitle2">{product.name}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {`$${(getBaseTier(product.prices)?.price || 0).toFixed(2)}`}
-                </Typography>
-              </Box>
-            ))}
-          </Paper>
-        )}
-
-        {formData.items.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
-            <Typography>No items in promotion</Typography>
-          </Box>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ backgroundColor: '#5ebbeb' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>ITEM</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>QUANTITY</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>COST</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>NORMAL PRICE</TableCell>
-                  {formData.promotionType === 'Discount Percentage' && (
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>DISCOUNT AMOUNT</TableCell>
-                  )}
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>PROMO PRICE</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>REBATE</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>%</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>PROFIT</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {formData.items.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <Typography variant="subtitle2">{item.productName}</Typography>
-                      <Typography variant="caption" color="text.secondary">PRODUCT</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <NumberField
-                        int
-                        fallback={1}
-                        value={item.quantity || 1}
-                        onCommit={(n) => handleUpdateItem(index, 'quantity', n)}
-                        size="small"
-                        sx={{ width: 80 }}
-                      />
-                    </TableCell>
-                    {/* Cost / Normal Price / Promo Price are already TOTALS for the line's
-                        quantity (see fetchPromotion + handleUpdateItem); multiplying by the
-                        quantity again showed $45 for 3 x $5. */}
-                    <TableCell>
-                      <Typography variant="body2">{moneyOrBlank(item.cost)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{moneyOrBlank(item.normalPrice)}</Typography>
-                    </TableCell>
-                    {formData.promotionType === 'Discount Percentage' && (
-                      <TableCell>
-                        <NumberField
-                          value={item.discountPercentage ?? ''}
-                          fallback=""
-                          onCommit={(n) => handleUpdateItem(index, 'discountPercentage', n)}
-                          size="small"
-                          InputProps={{
-                            endAdornment: <InputAdornment position="end">%</InputAdornment>
-                          }}
-                          sx={{ width: 120 }}
-                        />
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      {formData.promotionType === 'Discount Percentage' ? (
-                        <Typography variant="body2">{moneyOrBlank(item.promoPrice)}</Typography>
-                      ) : (
-                        <NumberField
-                          value={item.promoPrice === '' ? '' : roundCents(item.promoPrice)}
-                          fallback=""
-                          onCommit={(totalPromoPrice) => handleUpdateItem(index, 'promoPrice', totalPromoPrice)}
-                          size="small"
-                          InputProps={{
-                            startAdornment: <InputAdornment position="start">$</InputAdornment>
-                          }}
-                          sx={{ width: 120 }}
-                          helperText={item.quantity > 1 ? `Per unit: $${((item.promoPrice || 0) / (item.quantity || 1)).toFixed(2)}` : ''}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <NumberField
-                        value={item.rebate === '' ? '' : roundCents(item.rebate)}
-                        fallback=""
-                        onCommit={(n) => handleUpdateItem(index, 'rebate', n)}
-                        size="small"
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start">$</InputAdornment>
-                        }}
-                        sx={{ width: 120 }}
-                        helperText={item.quantity > 1 ? `Per unit: $${((item.rebate || 0) / (item.quantity || 1)).toFixed(2)}` : ''}
-                        label={item.quantity > 1 ? 'Total Rebate' : 'Rebate'}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          color: (item.rebatePercentage || 0) < 0 ? 'error.main' : 'text.primary',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {pctOrBlank(item.rebatePercentage)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          color: calculateProfit(item) >= 0 ? 'success.main' : 'error.main',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {calculateProfit(item).toFixed(2)}%
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveItem(index)}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          Please note: All figures are inclusive of tax.
-        </Typography>
-      </Paper>
-
-      {showSimulator && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Promotion Simulator</Typography>
+        {/* Search: full width, clear button at the right once typed; the dropdown
+            overlays the page with grouped results (CATEGORIES ... PRODUCTS). */}
+        <Box sx={{ position: 'relative' }}>
           <TextField
             fullWidth
-            size="small"
-            placeholder="Search for a product to add to the simulated sale"
-            value={simSearch}
+            placeholder={isPriceOverride ? 'Search for a product or family' : 'Search for a product, category, brand, family or tag'}
+            // Browser form history popped up on ArrowDown over our own result list.
+            autoComplete="off"
+            inputProps={{ autoComplete: 'off', name: 'express-item-search' }}
+            value={searchTerm}
             onChange={(e) => {
-              setSimSearch(e.target.value);
-              resultKeys.reset('sim');
-              searchSimulator(e.target.value);
+              setSearchTerm(e.target.value);
+              resultKeys.reset('items');
+              searchProducts(e.target.value);
             }}
-            onKeyDown={resultKeys.handleKeyDown('sim', simResults, handleSimulatorAdd, () => setSimResults([]))}
-            InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
-            sx={{ mb: 2 }}
+            onKeyDown={resultKeys.handleKeyDown('items', searchResults, handleAddProduct, () => setSearchResults([]))}
+            InputProps={{
+              endAdornment: searchTerm ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => { setSearchTerm(''); setSearchResults([]); }} sx={{ color: '#404040' }}>
+                    <CancelIcon />
+                  </IconButton>
+                </InputAdornment>
+              ) : null
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': { minHeight: 50, borderRadius: '8px', fontSize: 16, bgcolor: '#fff' },
+              // Chrome autofill painted the box light blue.
+              '& input:-webkit-autofill': { WebkitBoxShadow: '0 0 0 100px #fff inset' }
+            }}
           />
+          <Typography sx={{ fontSize: 16, color: '#000', mt: '2px' }}>Please note: All figures are inclusive of tax</Typography>
 
-          {simResults.length > 0 && (
-            <Paper sx={{ mb: 2, maxHeight: 200, overflow: 'auto' }}>
-              {simResults.map((entry, i) => (
-                <Box
-                  key={`${entry.resultType}-${entry.id}`}
-                  onClick={() => handleSimulatorAdd(entry)}
-                  sx={{ p: 1.5, borderBottom: '1px solid #e0e0e0', cursor: 'pointer', '&:hover': { backgroundColor: '#f5f5f5' }, ...(resultKeys.isActive('sim', i) ? ACTIVE_ROW_SX : {}) }}
-                >
-                  <Typography variant="subtitle2">{entry.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {`$${(getBaseTier(entry.prices)?.price || 0).toFixed(2)}`}
-                  </Typography>
+          {/* Reference states: "Start typing to search..." (1 char), "No search results found." */}
+          {searchTerm.trim().length > 0 && searchResults.length === 0 && !searchLoading && (
+            <Paper sx={{ position: 'absolute', top: 54, left: 0, right: 0, zIndex: 20, borderRadius: '4px', px: 2, py: 1.5, borderBottom: '3px solid #5ebbeb' }}>
+              <Typography sx={{ fontSize: 18, color: '#000' }}>
+                {searchTerm.trim().length < 2 ? 'Start typing to search...' : 'No search results found.'}
+              </Typography>
+            </Paper>
+          )}
+          {searchResults.length > 0 && (
+            <Paper
+              sx={{ position: 'absolute', top: 54, left: 0, right: 0, zIndex: 20, maxHeight: 480, overflow: 'auto', borderRadius: '4px', px: 2, py: 1 }}
+            >
+              {GROUP_ORDER.filter((g) => searchResults.some((r) => groupOf(r) === g)).map((g) => (
+                <Box key={g}>
+                  <Typography sx={{ fontSize: 16, color: '#8a8a8a', letterSpacing: 0.5, pt: 1.5, pb: 0.5 }}>{GROUP_LABEL[g]}</Typography>
+                  {searchResults.map((product) => (groupOf(product) === g ? (
+                    <Box
+                      key={`${product.resultType}-${product.id}`}
+                      onClick={() => handleAddProduct(product)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        py: 1,
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: '#f5f5f5' },
+                        // Reference: no highlight on the top result (hover only); Enter still adds it.
+                      }}
+                    >
+                      {/* Reference icons: product = picture, family = house, category = box, brand/tag = label */}
+                      {(() => {
+                        const g = groupOf(product);
+                        const Glyph = g === 'PRODUCT' ? ImageIcon : g === 'FAMILY' ? HomeOutlinedIcon : g === 'CATEGORY' ? Inventory2OutlinedIcon : LocalOfferOutlinedIcon;
+                        return <Glyph sx={{ fontSize: 24, color: '#404040' }} />;
+                      })()}
+                      <Typography sx={{ fontSize: 18, color: '#404040' }}>
+                        <Highlight text={product.name} term={searchTerm} />
+                      </Typography>
+                    </Box>
+                  ) : null))}
                 </Box>
               ))}
             </Paper>
           )}
+        </Box>
 
-          {basket.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              Search for a product to build a simulated sale.
-            </Typography>
-          ) : (
-            <>
-              {basket.map((row) => {
-                const promoItem = promotionActive
-                  ? formData.items.find(i => i.productId === row.productId)
-                  : null;
-                const unit = promoItem && promoItem.promoPrice > 0 ? promoItem.promoPrice : row.price;
+        {/* Reference table header: sky band, white bold uppercase letter-spaced labels. */}
+        <TableContainer sx={{ mt: 2 }}>
+          <Table sx={{ '& td, & th': { border: 0 } }}>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: '#5ebbeb', '& th': { color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', py: 1 } }}>
+                <TableCell sx={{ textAlign: 'left !important' }}>ITEM</TableCell>
+                <TableCell>QUANTITY</TableCell>
+                <TableCell>COST</TableCell>
+                <TableCell>NORMAL PRICE</TableCell>
+                {!isPriceOverride && <TableCell>DISCOUNT AMOUNT</TableCell>}
+                <TableCell>PROMO PRICE</TableCell>
+                <TableCell>REBATE</TableCell>
+                <TableCell>%</TableCell>
+                <TableCell sx={{ width: 48 }} />
+              </TableRow>
+            </TableHead>
+            <TableBody sx={{ '& td': { fontSize: 16, color: '#000', py: 1.5, px: 1 } }}>
+              {formData.items.map((item, index) => {
+                // Reference (live 04/11/2026): a classification is ONE row. A FAMILY
+                // row shows "~" averages over its members and expands (arrow) into
+                // read-only member rows; a BRAND / CATEGORY row prints "-".
+                const isClass = !!item.classificationId;
+                const members = Array.isArray(item.members) ? item.members : [];
+                const hasFigures = !isClass || members.length > 0;
+                const approx = isClass && members.length > 0 ? '~' : '';
+                const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+                const memberPromo = (m) => {
+                  const normal = roundCents((Number(m.unitNormal) || 0) * qty);
+                  if (formData.promotionType === 'Discount Percentage') {
+                    const p = Number(item.discountPercentage) || 0;
+                    return p > 0 ? roundCents(normal * (1 - p / 100)) : normal;
+                  }
+                  if (formData.promotionType === 'Discount Amount') {
+                    const off = Number(item.discountAmount) || 0;
+                    return off > 0 ? roundCents(Math.max(0, normal - off)) : normal;
+                  }
+                  return Number(item.promoPrice) || 0;
+                };
                 return (
-                  <Box key={row.productId} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1, borderBottom: '1px solid #e0e0e0' }}>
-                    <TextField
-                      type="number"
-                      size="small"
-                      value={row.quantity}
-                      onChange={(e) => {
-                        const quantity = parseInt(e.target.value, 10) || 1;
-                        setBasket(prev => prev.map(b => (b.productId === row.productId ? { ...b, quantity } : b)));
-                      }}
-                      sx={{ width: 80 }}
-                    />
-                    <Typography sx={{ flexGrow: 1 }}>{row.productName}</Typography>
-                    <Typography sx={{ fontWeight: 700 }}>${(unit * row.quantity).toFixed(2)}</Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => setBasket(prev => prev.filter(b => b.productId !== row.productId))}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
+                  <React.Fragment key={item.classificationId ? `c-${item.classificationId}` : `p-${item.productId}-${index}`}>
+                    <TableRow>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {isClass && members.length > 0 && (
+                            <IconButton size="small" onClick={() => toggleExpanded(index)} sx={{ p: 0, color: '#404040' }}>
+                              {item.expanded ? <ArrowDropDownIcon /> : <ArrowRightIcon />}
+                            </IconButton>
+                          )}
+                          <Box>
+                            <Typography sx={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{item.productName}</Typography>
+                            <Typography sx={{ fontSize: 10, letterSpacing: 1, color: '#404040' }}>{isClass ? item.classificationType : 'PRODUCT'}</Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <NumberField
+                          int
+                          fallback={1}
+                          value={item.quantity || 1}
+                          onCommit={(n) => handleUpdateItem(index, 'quantity', n)}
+                          size="small"
+                          fullWidth
+                          sx={{ minWidth: 120, ...headerFieldSx }}
+                        />
+                      </TableCell>
+                      {/* Cost / Normal Price / Promo Price are TOTALS for the line's quantity. */}
+                      <TableCell>{hasFigures ? approx + money(item.cost) : '-'}</TableCell>
+                      <TableCell>{hasFigures ? approx + money(item.normalPrice) : '-'}</TableCell>
+                      {formData.promotionType === 'Discount Percentage' && (
+                        <TableCell>
+                          <NumberField
+                            value={item.discountPercentage ?? ''}
+                            fallback=""
+                            onCommit={(n) => handleUpdateItem(index, 'discountPercentage', n)}
+                            size="small"
+                            fullWidth
+                            InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                            sx={{ minWidth: 160, ...headerFieldSx }}
+                          />
+                        </TableCell>
+                      )}
+                      {formData.promotionType === 'Discount Amount' && (
+                        <TableCell>
+                          <NumberField
+                            value={item.discountAmount === '' || item.discountAmount == null ? '' : roundCents(item.discountAmount)}
+                            fallback=""
+                            onCommit={(n) => handleUpdateItem(index, 'discountAmount', n)}
+                            size="small"
+                            fullWidth
+                            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                            sx={{ minWidth: 160, ...headerFieldSx }}
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        {isPriceOverride ? (
+                          <NumberField
+                            value={item.promoPrice === '' ? '' : roundCents(item.promoPrice)}
+                            fallback=""
+                            onCommit={(totalPromoPrice) => handleUpdateItem(index, 'promoPrice', totalPromoPrice)}
+                            size="small"
+                            fullWidth
+                            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                            sx={{ minWidth: 160, ...headerFieldSx }}
+                          />
+                        ) : (hasFigures ? approx + money(item.promoPrice) : '-')}
+                      </TableCell>
+                      <TableCell>
+                        <NumberField
+                          value={item.rebate === '' ? '' : roundCents(item.rebate)}
+                          fallback={0}
+                          onCommit={(n) => handleUpdateItem(index, 'rebate', n)}
+                          size="small"
+                          fullWidth
+                          InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                          sx={{ minWidth: 160, ...headerFieldSx }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ color: hasFigures && calculateProfit(item) < 0 ? '#e33430 !important' : '#000', whiteSpace: 'nowrap' }}>
+                        {hasFigures ? approx + pct(calculateProfit(item)) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <IconButton size="small" onClick={() => handleRemoveItem(index)} sx={{ color: '#e33430' }}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                    {isClass && item.expanded && members.map((m) => {
+                      const mCost = roundCents((Number(m.unitCost) || 0) * qty);
+                      const mNormal = roundCents((Number(m.unitNormal) || 0) * qty);
+                      const mPromo = memberPromo(m);
+                      const mProfit = calculateProfit({ promoPrice: mPromo, cost: mCost, rebate: item.rebate });
+                      return (
+                        <TableRow key={`m-${item.classificationId}-${m.productId}`} sx={{ '& td': { py: 1 } }}>
+                          <TableCell sx={{ pl: '40px !important' }}>
+                            <Typography sx={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{m.name}</Typography>
+                            <Typography sx={{ fontSize: 10, letterSpacing: 1, color: '#404040' }}>PRODUCT</Typography>
+                          </TableCell>
+                          <TableCell />
+                          <TableCell>{money(mCost)}</TableCell>
+                          <TableCell>{money(mNormal)}</TableCell>
+                          {!isPriceOverride && <TableCell />}
+                          <TableCell>{mPromo > 0 ? money(mPromo) : ''}</TableCell>
+                          <TableCell />
+                          <TableCell sx={{ color: mProfit < 0 ? '#e33430 !important' : '#000', whiteSpace: 'nowrap' }}>{mPromo > 0 ? pct(mProfit) : ''}</TableCell>
+                          <TableCell />
+                        </TableRow>
+                      );
+                    })}
+                  </React.Fragment>
                 );
               })}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                <Typography
-                  sx={{ fontWeight: 700, color: promotionActive ? '#16a34a' : '#dc2626' }}
-                >
-                  {promotionActive ? 'Current Promotion Active' : 'No Promotion Active'}
-                </Typography>
-                <Typography sx={{ fontWeight: 700 }}>Total: ${simulatedTotal.toFixed(2)}</Typography>
-              </Box>
-            </>
-          )}
-        </Paper>
-      )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        {formData.items.length === 0 && (
+          <Typography sx={{ textAlign: 'center', py: 6, fontSize: 32, color: '#b5b5b5' }}>No items in promotion</Typography>
+        )}
+      </Box>
 
+      {/* Promotion Simulator: the reference right-edge panel (shared component). */}
+      <PromotionSimulatorPanel
+        open={showSimulator}
+        search={{
+          value: simSearch,
+          onChange: (v) => { setSimSearch(v); resultKeys.reset('sim'); searchSimulator(v); },
+          onKeyDown: resultKeys.handleKeyDown('sim', simResults, handleSimulatorAdd, () => setSimResults([])),
+          results: simResults,
+          loading: simLoading,
+          onPick: handleSimulatorAdd
+        }}
+        lines={basket.map((row) => { const s = simLine(row); return { key: row.productId, quantity: row.quantity, name: row.productName, total: s.total, active: s.active }; })}
+        onQuantity={(key, n) => setBasket(prev => prev.map(b => (b.productId === key ? { ...b, quantity: n } : b)))}
+        onRemove={(key) => setBasket(prev => prev.filter(b => b.productId !== key))}
+      />
+
+      {/* Bottom bar: same chrome as the Advanced editor - sky bar, red Cancel pill,
+          Show Simulator toggle, white Save pill. */}
       <Box sx={{
+        bgcolor: '#5ebbeb',
+        px: 2,
+        height: BOTTOM_BAR_HEIGHT, // fixed so the simulator panel ends exactly on the bar
+        boxSizing: 'border-box',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         position: 'fixed',
-        bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#5ebbeb',
-        px: '16px',
-        display: 'flex',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        gap: 2,
+        bottom: 0,
         zIndex: 1000
       }}>
+        {/* Cancel: same box shape as the Save button, red filled. */}
         <Button
+          disableRipple
+          disableElevation
           component={RouterLink} to={'/marketing/promotions'}
           sx={{
-            backgroundColor: '#e33430',
-            color: '#f8f8f8',
-            minWidth: 83,
-            height: 53,
-            borderRadius: 0,
+            height: 48,
+            px: '14px',
+            minWidth: 68,
+            borderRadius: '4px',
             fontSize: 16,
             fontWeight: 400,
             textTransform: 'none',
+            bgcolor: '#fb2c36',
+            color: '#fff',
+            border: '1px solid #fb2c36',
             boxShadow: 'none',
-            marginRight: 'auto',
-            transition: 'background-color 200ms, color 200ms',
-            '&:hover': { backgroundColor: '#e33430', boxShadow: 'none' }
+            '&:hover': { bgcolor: '#ff6467', boxShadow: 'none' }
           }}
         >
           Cancel
         </Button>
-        <FormControlLabel
-          sx={{ mr: 0 }}
-          control={
-            <ShopfrontSwitch
-              checked={showSimulator}
-              onChange={(e) => setShowSimulator(e.target.checked)}
-            />
-          }
-          label={<Typography sx={{ color: '#f8f8f8', fontSize: 16 }}>Show Simulator</Typography>}
-        />
-        <Button
-          onClick={handleSave}
-          disabled={loading}
-          sx={{
-            backgroundColor: '#5ebbeb',
-            color: '#f8f8f8',
-            border: '1px solid #f8f8f8',
-            minWidth: 68,
-            height: 53,
-            borderRadius: 0,
-            fontSize: 16,
-            fontWeight: 400,
-            textTransform: 'none',
-            boxShadow: 'none',
-            transition: 'background-color 200ms, color 200ms',
-            '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' }
-          }}
-        >
-          Save
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ShopfrontSwitch
+            checked={showSimulator}
+            onChange={(e) => setShowSimulator(e.target.checked)}
+            sx={{
+              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#fff' },
+              '& .MuiSwitch-switchBase.Mui-checked .MuiSwitch-thumb': { backgroundColor: '#5ebbeb' },
+              '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#f1f5f9' }
+            }}
+          />
+          <Typography sx={{ fontSize: 16, color: '#fff' }}>Show Simulator</Typography>
+        </Box>
+        {/* Reference: while the promotion has no name / no items the Save button is an
+            outlined (transparent, white border, no icon) 4px box; once it can be saved
+            it becomes the white pill with the save icon. */}
+        {(() => {
+          const canSave = Boolean(String(formData.name || '').trim()) && (formData.items || []).length > 0;
+          return canSave ? (
+            <Button
+              disableRipple
+              disableElevation
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              disabled={loading}
+              sx={{
+                height: 42,
+                px: '24px',
+                borderRadius: '12px',
+                fontSize: 16,
+                fontWeight: 700,
+                textTransform: 'none',
+                bgcolor: '#fff',
+                color: '#00a6f4',
+                border: '1px solid #fff',
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#f0f9ff', boxShadow: 'none' },
+                '&.Mui-disabled': { bgcolor: '#fff', color: '#00a6f4', opacity: 0.7 }
+              }}
+            >
+              {loading ? 'Saving...' : 'Save'}
+            </Button>
+          ) : (
+            <Button
+              disableRipple
+              onClick={handleSave}
+              sx={{
+                height: 48,
+                px: '14px',
+                minWidth: 68,
+                borderRadius: '4px',
+                fontSize: 16,
+                fontWeight: 400,
+                textTransform: 'none',
+                bgcolor: 'transparent',
+                color: '#fff',
+                border: '1px solid #fff',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' }
+              }}
+            >
+              Save
+            </Button>
+          );
+        })()}
       </Box>
 
+      <EditScheduleDialog
+        open={scheduleOpen}
+        value={formData.schedule}
+        onClose={() => setScheduleOpen(false)}
+        onContinue={(schedule) => { handleInputChange('schedule', schedule); setScheduleOpen(false); }}
+      />
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
           onClose={handleSnackbarClose}

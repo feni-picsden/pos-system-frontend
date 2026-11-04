@@ -11,11 +11,12 @@ import {
   TableRow,
   Alert,
 } from "@mui/material";
+// Reference rail glyphs are outlined: pencil, trash, house, clock.
 import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Home as HomeIcon,
-  History as HistoryIcon,
+  EditOutlined as EditIcon,
+  DeleteOutlineOutlined as DeleteIcon,
+  HomeOutlined as HomeIcon,
+  AccessTimeOutlined as HistoryIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import promotionService from "../../services/promotionService";
@@ -145,7 +146,7 @@ const PromotionView = () => {
   };
 
   // Revision times on the store's clock (Setup > General > Timezone).
-  const formatDateTime = (isoDate) => formatAppPattern(isoDate, "DD/MM/YYYY, HH:mm:ss") || "-";
+  const formatDateTime = (isoDate) => formatAppPattern(isoDate, "DD/MM/YYYY HH:mm:ss") || "-";
 
   // Reference ".promotion-home-header" label: 16px all-small-caps, grey.
   const HEADER_LABEL_SX = {
@@ -240,12 +241,12 @@ const PromotionView = () => {
     };
     
     const receiveText = receiveTextMap[criterion.receiveType] || 'a total price of';
-    
-    if (criterion.receiveType === 'percentage_discount') {
-      return `${optionalText} ${purchaseText} ${criterion.purchaseValue} to receive ${receiveText} ${criterion.receiveValue?.toFixed(2) || 0}%`;
-    }
-    
-    return `${optionalText} ${purchaseText} ${criterion.purchaseValue} to receive ${receiveText} $${criterion.receiveValue?.toFixed(2) || 0}`;
+    const amount = criterion.receiveType === 'percentage_discount'
+      ? `${criterion.receiveValue?.toFixed(2) || 0}%`
+      : `$${criterion.receiveValue?.toFixed(2) || 0}`;
+    // Reference sentence starts with a capital ("Purchase 10 to receive...").
+    const text = `${optionalText} ${purchaseText} ${criterion.purchaseValue} to receive ${receiveText} ${amount}`.trim();
+    return text.charAt(0).toUpperCase() + text.slice(1);
   };
 
   if (loading) {
@@ -273,7 +274,7 @@ const PromotionView = () => {
       id: "revision",
       label: "Revision History",
       icon: <HistoryIcon sx={{ fontSize: 24 }} />,
-      description: "Every change made to this promotion",
+      description: "Check the recent changes made to this promotion",
     },
   ];
 
@@ -343,11 +344,9 @@ const PromotionView = () => {
                       <TableCell sx={{ fontWeight: 700 }}>Timestamp</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell colSpan={5} sx={{ bgcolor: "#eeeeee" }}>
-                        <Typography variant="caption">
-                          Please Note: Revisions may take up to five minutes to
-                          appear
-                        </Typography>
+                      {/* Reference: a plain centred note line, no shading. */}
+                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: 400, color: "#000" }}>
+                        Please Note: Revisions may take up to five minutes to appear
                       </TableCell>
                     </TableRow>
                   </TableHead>
@@ -388,15 +387,36 @@ const PromotionView = () => {
                 {[
                   { label: "Start", value: promotion.startDate && formatDate(promotion.startDate) },
                   { label: "End", value: promotion.endDate && formatDate(promotion.endDate) },
+                  // Reference: the owning outlet as a bordered chip ("Premix King - Portland").
+                  { label: "Outlets", value: promotion.outlet?.name || (promotion.outletId == null ? "Global" : null), chip: true },
                   { label: "Promotion Category", value: promotion.category?.name },
                 ]
                   .filter((h) => h.value)
                   .map((h) => (
                     <Box key={h.label} sx={{ textAlign: "center" }}>
                       <Typography sx={HEADER_LABEL_SX}>{h.label}</Typography>
-                      <Typography sx={{ fontSize: 24, color: "#313439", lineHeight: 1.3 }}>
-                        {h.value}
-                      </Typography>
+                      {h.chip ? (
+                        <Box
+                          component="span"
+                          sx={{
+                            display: "inline-block",
+                            mt: "6px",
+                            px: "10px",
+                            py: "3px",
+                            border: "1px solid #a3a3a3",
+                            borderRadius: "4px",
+                            fontSize: 16,
+                            color: "#313439",
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {h.value}
+                        </Box>
+                      ) : (
+                        <Typography sx={{ fontSize: 24, color: "#313439", lineHeight: 1.3 }}>
+                          {h.value}
+                        </Typography>
+                      )}
                     </Box>
                   ))}
               </Box>
@@ -466,9 +486,12 @@ const PromotionView = () => {
               })()}
 
               {/* Reference .promotion-home-criteria-list.advanced */}
-              <Box sx={{ width: "90%", maxWidth: 800, margin: "auto", padding: "16px" }}>
-              {criteria.length > 0 && (
-                <Typography sx={SECTION_LABEL_SX}>Criteria</Typography>
+              {/* margin "0 auto": in this flex column, "auto" also centred the block vertically. */}
+              <Box sx={{ width: "90%", maxWidth: 800, margin: "0 auto", padding: "16px" }}>
+              {/* Reference: the CRITERIA label always renders; with none, a plain line says so. */}
+              <Typography sx={SECTION_LABEL_SX}>Criteria</Typography>
+              {criteria.length === 0 && (
+                <Typography sx={{ fontSize: 16, color: "#313439" }}>This promotion has no criteria</Typography>
               )}
               {criteria.map((criterion, criterionIndex) => {
                 const criterionProfit = calculateCriterionProfit(criterion);
@@ -661,12 +684,9 @@ const PromotionView = () => {
             sx={{
               backgroundColor: "#f8f8f8",
               boxShadow: WIDGET_SHADOW,
-              // Stretched to the Delete button so the rail reads as one block
-              // (same deliberate deviation as the product view).
-              flex: 1,
-              minHeight: 0,
-              overflow: "auto",
-              py: "4px",
+              // Reference card hugs its two rows; it does not fill the rail.
+              flex: "0 0 auto",
+              py: "8px",
             }}
           >
             {navigationItems.map((item, idx) => {

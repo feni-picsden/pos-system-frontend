@@ -11,15 +11,17 @@ import {
   TableRow,
   Alert,
 } from "@mui/material";
+// Reference rail glyphs are outlined: pencil, trash, house, clock.
 import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Home as HomeIcon,
-  History as HistoryIcon,
+  EditOutlined as EditIcon,
+  DeleteOutlineOutlined as DeleteIcon,
+  HomeOutlined as HomeIcon,
+  AccessTimeOutlined as HistoryIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import promotionService from "../../services/promotionService";
 import productService from "../../services/productService";
+import apiClient from "../../services/apiClient";
 import { getBaseTier } from "../../utils/baseTier";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { format } from "date-fns";
@@ -66,18 +68,23 @@ const ExpressPromotionView = () => {
     }
   }, [id]);
 
+  // Real per-field change rows from the server (GET /promotions/:id/revisions),
+  // newest first - the same source the advanced view reads. noCache so an edit
+  // made a moment ago isn't hidden by the TTL.
   useEffect(() => {
-    if (promotion?.id) {
-      setRevisions([
-        {
-          field: "Name",
-          from: promotion.name || "",
-          to: promotion.name || "",
-          user: "System",
-          timestamp: promotion.updatedAt || promotion.createdAt || new Date().toISOString(),
-        },
-      ]);
-    }
+    if (!promotion?.id) return;
+    let cancelled = false;
+    apiClient
+      .get(`/promotions/${promotion.id}/revisions`, { noCache: true })
+      .then((res) => {
+        if (!cancelled) setRevisions(res.data?.revisions || []);
+      })
+      .catch(() => {
+        if (!cancelled) setRevisions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [promotion?.id]);
 
   const loadPromotionData = async () => {
@@ -125,7 +132,38 @@ const ExpressPromotionView = () => {
         })
       );
 
-      setItems(itemsWithCost);
+      // Classification lines (category / brand / family / tag) saved by the express
+      // editor live in conditions.classificationItems; family rows carry their member
+      // products so cost / normal price are the members' averages (editor "~" values).
+      const avg = (list, key) => {
+        const nums = (list || []).map((m) => Number(m[key])).filter((n) => Number.isFinite(n));
+        return nums.length ? nums.reduce((s, n) => s + n, 0) / nums.length : 0;
+      };
+      const classificationRows = (promo.conditions?.classificationItems || []).map((c) => {
+        const unitNormal = avg(c.members, 'unitNormal');
+        const discountPercentage = Number(c.discountPercentage) || 0;
+        const discountAmount = Number(c.discountAmount) || 0;
+        let promoPrice = Number(c.promoPrice) || 0;
+        if (!promoPrice && unitNormal) {
+          if (discountPercentage) promoPrice = unitNormal * (1 - discountPercentage / 100);
+          else if (discountAmount) promoPrice = unitNormal - discountAmount;
+        }
+        return {
+          classificationId: c.classificationId,
+          classificationType: c.classificationType,
+          productName: c.name,
+          quantity: c.quantity || 1,
+          cost: avg(c.members, 'unitCost'),
+          normalPrice: unitNormal,
+          promoPrice,
+          rebate: Number(c.rebate) || 0,
+          discountPercentage,
+          discountAmount,
+          hasMembers: (c.members || []).length > 0
+        };
+      });
+
+      setItems([...itemsWithCost, ...classificationRows]);
       calculateMissingItems(itemsWithCost);
     } catch (err) {
       setError("Failed to load promotion");
@@ -172,7 +210,7 @@ const ExpressPromotionView = () => {
   };
 
   // Revision times on the store's clock (Setup > General > Timezone).
-  const formatDateTime = (isoDate) => formatAppPattern(isoDate, "DD/MM/YYYY, HH:mm:ss") || "-";
+  const formatDateTime = (isoDate) => formatAppPattern(isoDate, "DD/MM/YYYY HH:mm:ss") || "-";
 
   // Reference ".promotion-home-header" label: 16px all-small-caps, grey.
   const HEADER_LABEL_SX = {
@@ -194,8 +232,9 @@ const ExpressPromotionView = () => {
       ).toFixed(2)}%`;
     }
     if (type === "Discount Amount") {
-      const off =
-        (parseFloat(item.normalPrice) || 0) - (parseFloat(item.promoPrice) || 0);
+      const off = item.classificationType
+        ? parseFloat(item.discountAmount) || 0
+        : (parseFloat(item.normalPrice) || 0) - (parseFloat(item.promoPrice) || 0);
       return `Purchase ${qty} to receive a discount of $${off.toFixed(2)}`;
     }
     const total = (parseFloat(item.promoPrice) || 0) * qty;
@@ -304,11 +343,9 @@ const ExpressPromotionView = () => {
                       <TableCell sx={{ fontWeight: 700 }}>Timestamp</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell colSpan={5} sx={{ bgcolor: "#eeeeee" }}>
-                        <Typography variant="caption">
-                          Please Note: Revisions may take up to five minutes to
-                          appear
-                        </Typography>
+                      {/* Reference: a plain centred note line, no shading. */}
+                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: 400, color: "#000" }}>
+                        Please Note: Revisions may take up to five minutes to appear
                       </TableCell>
                     </TableRow>
                   </TableHead>
@@ -336,44 +373,63 @@ const ExpressPromotionView = () => {
             </>
           ) : (
             <>
-              {/* Reference .promotion-home-header: START / END / PROMOTION
-                  CATEGORY always render; an empty value shows as "-", the
-                  column never drops. Three equal columns across the middle 75%
-                  put their centres exactly on the 1/4, 1/2, 3/4 marks of the
-                  full content width. */}
+              {/* Reference .promotion-home-header: space-evenly, natural widths,
+                  items with no value are omitted; the outlet is a bordered chip. */}
               <Box
                 sx={{
                   display: "flex",
-                  width: "75%",
-                  mx: "auto",
-                  padding: "16px 0",
+                  justifyContent: "space-evenly",
+                  padding: "16px",
                   mb: 4,
                 }}
               >
                 {[
-                  { label: "Start", value: formatDate(promotion.startDate) },
-                  { label: "End", value: formatDate(promotion.endDate) },
-                  { label: "Promotion Category", value: promotion.category?.name || "-" },
-                ].map((h) => (
-                    <Box key={h.label} sx={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                  { label: "Start", value: promotion.startDate && formatDate(promotion.startDate) },
+                  { label: "End", value: promotion.endDate && formatDate(promotion.endDate) },
+                  { label: "Outlets", value: promotion.outlet?.name || (promotion.outletId == null ? "Global" : null), chip: true },
+                  { label: "Promotion Category", value: promotion.category?.name },
+                ]
+                  .filter((h) => h.value)
+                  .map((h) => (
+                    <Box key={h.label} sx={{ textAlign: "center" }}>
                       <Typography sx={HEADER_LABEL_SX}>{h.label}</Typography>
-                      <Typography sx={{ fontSize: 24, color: "#313439", lineHeight: 1.3 }}>
-                        {h.value}
-                      </Typography>
+                      {h.chip ? (
+                        <Box
+                          component="span"
+                          sx={{
+                            display: "inline-block",
+                            mt: "6px",
+                            px: "10px",
+                            py: "3px",
+                            border: "1px solid #a3a3a3",
+                            borderRadius: "4px",
+                            fontSize: 16,
+                            color: "#313439",
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {h.value}
+                        </Box>
+                      ) : (
+                        <Typography sx={{ fontSize: 24, color: "#313439", lineHeight: 1.3 }}>
+                          {h.value}
+                        </Typography>
+                      )}
                     </Box>
                   ))}
-                {/* ponytail: no promotion-type chip - the reference expresses the
-                    type through the criteria description sentence below. */}
               </Box>
 
               {/* Reference .promotion-home-criteria-list: no table - one bold
                   criterion sentence per line with a right-aligned margin %. */}
-              <Box sx={{ width: "90%", maxWidth: 800, margin: "auto", padding: "16px" }}>
+              {/* margin "0 auto": in this flex column, "auto" also centred the block vertically. */}
+              <Box sx={{ width: "90%", maxWidth: 800, margin: "0 auto", padding: "16px" }}>
                 {items.length > 0 ? (
                   <>
                     <Typography sx={SECTION_LABEL_SX}>Criteria</Typography>
                     {items.map((item, index) => {
                       const profit = calculateProfit(item);
+                      // category / brand / tag rows have no member prices -> "-" (editor shows "-")
+                      const profitText = item.classificationType && !item.hasMembers ? "-" : `${profit.toFixed(2)}%`;
                       return (
                         <Box key={index} sx={{ mb: 3 }}>
                           <Box
@@ -395,7 +451,7 @@ const ExpressPromotionView = () => {
                                 color: profit < 0 ? "#e33430" : "#313439",
                               }}
                             >
-                              {profit.toFixed(2)}%
+                              {profitText}
                             </Typography>
                           </Box>
                           <Box
@@ -420,7 +476,10 @@ const ExpressPromotionView = () => {
                                   textAlign: "right",
                                 }}
                               >
-                                Products
+                                {/* classification lines are labelled by their type (editor row) */}
+                                {item.classificationType
+                                  ? item.classificationType.charAt(0) + item.classificationType.slice(1).toLowerCase()
+                                  : "Products"}
                               </Typography>
                               <Typography component="span" sx={{ fontSize: 16, color: "#313439" }}>
                                 {item.productName || "Unknown Product"}
@@ -433,7 +492,7 @@ const ExpressPromotionView = () => {
                                 color: profit < 0 ? "#e33430" : "#313439",
                               }}
                             >
-                              {profit.toFixed(2)}%
+                              {profitText}
                             </Typography>
                           </Box>
                         </Box>

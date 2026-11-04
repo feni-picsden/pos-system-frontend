@@ -39,6 +39,12 @@ const promotionService = {
     return response.data;
   },
 
+  // Clone promotion (list bulk bar "Clone Promotions") -> "<name> (copy)"
+  clonePromotion: async (id) => {
+    const response = await apiClient.post(`/promotions/${id}/clone`);
+    return response.data;
+  },
+
   // Toggle promotion active status
   togglePromotionStatus: async (id, isActive) => {
     const response = await apiClient.patch(`/promotions/${id}/toggle`, { isActive });

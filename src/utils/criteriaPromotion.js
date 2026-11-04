@@ -212,6 +212,12 @@ const receiveOn = (lines, units, receiveType, value, sets = 1, rounding = 'Redis
     const rest = cents((l.q - cu) * l.unit);
     if (cu === 0 || coveredNormalCents === 0) { out.set(l.index, cents(l.q * l.unit)); return; }
     const own = cents(cu * l.unit);
+    // Live reference (04/11/2026, "each item for $1.50", Test x3 + Crates x1 pooled):
+    // every covered unit rings up at exactly $1.50 whatever it cost - a per-unit
+    // price, not a pooled total shared out. "A discount on each item" likewise
+    // comes off every unit of its own line.
+    if (receiveType === 'each_item_for') { out.set(l.index, Math.min(own, cents(cu * v)) + rest); return; }
+    if (receiveType === 'discount_each_item') { out.set(l.index, Math.max(0, own - cents(cu * v)) + rest); return; }
     const share = equalSplit
       ? own - (equalOff.get(l.index) || 0)
       : valueShares[coveredLines.indexOf(l)];
