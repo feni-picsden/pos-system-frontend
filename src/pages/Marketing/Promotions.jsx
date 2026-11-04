@@ -55,6 +55,7 @@ import promotionService from '../../services/promotionService';
 import posLocalDb from '../../services/posLocalDb';
 import { matchesProductSearch } from '../../utils/productSearch';
 import { rankProducts } from '../../utils/searchRank';
+import { filterPromotions } from '../../utils/promotionListFilter';
 import usePageCache from '../../hooks/usePageCache';
 import promotionCategoryService from '../../services/promotionCategoryService';
 import customerGroupService from '../../services/customerGroupService';
@@ -280,6 +281,16 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
+            onKeyDown={(e) => {
+              // Enter toggles the best match for what was typed; Escape closes the list.
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const canPick = !(requireQuery && !query.trim());
+                if (open && canPick && filtered.length > 0) toggle(filtered[0].id);
+              } else if (e.key === 'Escape') {
+                setOpen(false);
+              }
+            }}
             sx={{
               flex: 1,
               minWidth: 30,
@@ -882,64 +893,22 @@ const Promotions = () => {
     return map;
   }, [products]);
 
-  const filteredPromotions = useMemo(() => {
-    const active = (arr) => Array.isArray(arr) && arr.length > 0;
-    const from = parseYmd(dateRangeStart);
-    const to = parseYmd(dateRangeEnd);
-    const fromMs = from ? from.setHours(0, 0, 0, 0) : null;
-    const toMs = to ? to.setHours(23, 59, 59, 999) : null;
-
-    const q = searchTerm.trim().toLowerCase();
-
-    return promotions.filter((p) => {
-      // Search + active state used to be server-side query params; they filter
-      // locally now so no keystroke or toggle costs a round trip.
-      if (!showInactive && p.isActive === false) return false;
-      if (q && !(p.name || '').toLowerCase().includes(q)) return false;
-      if (active(categoryFilter) && !categoryFilter.includes(p.categoryId)) return false;
-
-      const items = Array.isArray(p.items) ? p.items : [];
-      if (active(productFilter)) {
-        const wanted = new Set(productFilter);
-        if (!items.some((i) => wanted.has(i.productId))) return false;
-      }
-      if (active(brandFilter) && !items.some((i) => brandFilter.includes(i.product?.brandId))) return false;
-      if (active(categoryStockFilter) && !items.some((i) => categoryStockFilter.includes(i.product?.categoryId))) return false;
-      if (active(familyFilter) && !items.some((i) => familyFilter.includes(i.product?.familyId))) return false;
-      if (
-        active(tagFilter) &&
-        !items.some((i) => (productTags.get(i.productId) || []).some((t) => tagFilter.includes(t)))
-      ) {
-        return false;
-      }
-
-      if (active(customerGroupFilter)) {
-        const groupIds = [
-          ...(Array.isArray(p.customerGroups) ? p.customerGroups.map((g) => g.customerGroupId) : []),
-          ...(Array.isArray(p.customerGroupIds) ? p.customerGroupIds : [])
-        ];
-        if (!groupIds.some((g) => customerGroupFilter.includes(g))) return false;
-      }
-
-      // A promotion with no outletId is global, so it belongs to every outlet
-      // and stays visible whichever outlets are picked.
-      if (active(outletFilter) && p.outletId != null && !outletFilter.includes(p.outletId)) {
-        return false;
-      }
-
-      // Promotion Range (reference, live 30/09: 01/10-31/10 lists only the three
-      // promotions ENDING 04/10; open-ended ones started in 2025 drop out): keep a
-      // promotion whose start date or end date falls inside the selected range.
-      if (fromMs || toMs) {
-        const inRange = (ms) => ms != null && (fromMs == null || ms >= fromMs) && (toMs == null || ms <= toMs);
-        const ps = p.startDate ? new Date(p.startDate).getTime() : null;
-        const pe = p.endDate ? new Date(p.endDate).getTime() : null;
-        if (!inRange(ps) && !inRange(pe)) return false;
-      }
-
-      return true;
-    });
-  }, [
+  // Search + Show Inactive + every dropdown filter locally (no round trip per
+  // keystroke / toggle); the rules live in utils/promotionListFilter (unit-tested).
+  const filteredPromotions = useMemo(() => filterPromotions(promotions, {
+    searchTerm,
+    showInactive,
+    categoryFilter,
+    productFilter,
+    brandFilter,
+    categoryStockFilter,
+    familyFilter,
+    tagFilter,
+    customerGroupFilter,
+    outletFilter,
+    dateRangeStart,
+    dateRangeEnd,
+  }, productTags), [
     promotions,
     searchTerm,
     showInactive,
