@@ -450,7 +450,7 @@ const ExpressPromotionView = () => {
                                 fontSize: 16,
                                 fontWeight: 700,
                                 whiteSpace: "nowrap",
-                                color: profit < 0 ? "#e33430" : "#313439",
+                                color: profitText !== "-" && profit < 0 ? "#e33430" : "#313439",
                               }}
                             >
                               {profitText}
@@ -491,7 +491,7 @@ const ExpressPromotionView = () => {
                               sx={{
                                 fontSize: 16,
                                 whiteSpace: "nowrap",
-                                color: profit < 0 ? "#e33430" : "#313439",
+                                color: profitText !== "-" && profit < 0 ? "#e33430" : "#313439",
                               }}
                             >
                               {profitText}
