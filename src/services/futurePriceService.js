@@ -1,18 +1,38 @@
 import apiClient from './apiClient';
 
+// Comma-joins an array / single value filter; '' when empty.
+const joinIds = (v) => (Array.isArray(v) ? v.filter((x) => x !== '' && x != null).join(',') : v ?? '');
+
 const futurePriceService = {
   // Get all future prices with optional filters
   getFuturePrices: async (filters = {}) => {
     const params = new URLSearchParams();
-    
-    if (filters.category) params.append('category', filters.category);
+
+    if (filters.category) params.append('category', joinIds(filters.category));
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
     if (filters.isApplied !== undefined) params.append('isApplied', filters.isApplied);
     if (filters.productId) params.append('productId', filters.productId);
-    if (filters.outletId) params.append('outletId', filters.outletId);
+    // Outlets filter (All Outlets only): one or several ids
+    if (filters.outletId) params.append('outletId', joinIds(filters.outletId));
+    // Created By / Price Set (multi): ids; price set 0 = Default Price Set
+    const createdBy = joinIds(filters.createdBy);
+    if (createdBy) params.append('createdBy', createdBy);
+    const priceSetId = joinIds(filters.priceSetId);
+    if (priceSetId !== '') params.append('priceSetId', priceSetId);
+    if (filters.search) params.append('search', filters.search);
 
-    const response = await apiClient.get(`/future-prices?${params.toString()}`);
+    const response = await apiClient.get(`/future-prices?${params.toString()}`, { noCache: true });
+    return response.data;
+  },
+
+  // Dropdown data for the page filters (Created By users, Price Sets), outlet-wise
+  getFilterOptions: async (outletId) => {
+    const params = new URLSearchParams();
+    const ids = joinIds(outletId);
+    if (ids) params.append('outletId', ids);
+    const qs = params.toString();
+    const response = await apiClient.get(`/future-prices/filters/options${qs ? `?${qs}` : ''}`, { noCache: true });
     return response.data;
   },
 
@@ -73,4 +93,3 @@ const futurePriceService = {
 };
 
 export default futurePriceService;
-

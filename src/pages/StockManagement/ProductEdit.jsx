@@ -88,6 +88,7 @@ import {
   Redo as RedoIcon,
   ArrowDropDown as ArrowDropDownIcon,
   WarningAmberOutlined as WarningAmberIcon,
+  AccessTimeOutlined as FuturePriceClockIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import productService from '../../services/productService';
@@ -105,6 +106,7 @@ import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete
 import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { priceSetService } from '../../services/priceSetService';
+import futurePriceService from '../../services/futurePriceService';
 import { syncPriceRows, rowQuantity } from '../../utils/priceRowSync';
 import { priceSourceLabel, isDefaultPriceRow } from '../../utils/priceSourceLabel';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
@@ -724,6 +726,40 @@ const ProductEdit = () => {
   // Settings > Price Sets — options for assigning a price point to a set.
   const [priceSets, setPriceSets] = useState([]);
 
+  // Utilities > Future Prices still pending for this product (reference: a clock
+  // icon beside the sell price; clicking it offers "Apply Price" now).
+  const [pendingFuturePrices, setPendingFuturePrices] = useState([]);
+  const loadPendingFuturePrices = async (productId) => {
+    if (!productId) return;
+    try {
+      const { futurePrices } = await futurePriceService.getFuturePrices({ productId, isApplied: false });
+      setPendingFuturePrices(futurePrices || []);
+    } catch (e) {
+      console.error('Error loading pending future prices:', e);
+    }
+  };
+  // The pending future price for a price row: same quantity, same price set.
+  const futurePriceForRow = (row) =>
+    pendingFuturePrices.find(
+      (fp) => Number(fp.quantity) === (rowQuantity(row) || 1) && (fp.priceSetId ?? null) === (row.priceSetId ?? null)
+    );
+  const applyFuturePriceNow = async (fp) => {
+    const when = new Date(fp.effectiveAt).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const proceed = await confirm(
+      `Apply the future price of $${Number(fp.price).toFixed(2)} (scheduled for ${when}) now? The scheduled date will be disregarded.`,
+      { title: 'Apply Future Price', confirmText: 'Apply Price', cancelText: 'Cancel' }
+    );
+    if (!proceed) return;
+    try {
+      await futurePriceService.applyFuturePrice(fp.id);
+      notify('Future price applied');
+      await loadProduct();
+      await loadPendingFuturePrices(id);
+    } catch (e) {
+      alert(e.response?.data?.error || 'Failed to apply future price');
+    }
+  };
+
   // Available options
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -794,6 +830,7 @@ const ProductEdit = () => {
     priceSetService.getPriceSets()
       .then(({ priceSets: sets }) => setPriceSets(sets || []))
       .catch((e) => console.error('Error loading price sets:', e));
+    loadPendingFuturePrices(id);
   }, [id, isTrueSuperAdmin, getOutletId]);
 
   // Recost the price rows whenever item cost changes. Must read prev.prices inside the
@@ -2830,6 +2867,23 @@ const ProductEdit = () => {
                               size="small"
                               InputProps={{
                                 startAdornment: '$',
+                                // Reference: a clock beside the sell price when a Future
+                                // Price is scheduled for this tier; click = Apply Price now.
+                                endAdornment: (() => {
+                                  const fp = futurePriceForRow(price);
+                                  if (!fp) return null;
+                                  return (
+                                    <InputAdornment position="end">
+                                      <Tooltip
+                                        title={`Future price $${Number(fp.price).toFixed(2)} from ${new Date(fp.effectiveAt).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} - click to apply now`}
+                                      >
+                                        <IconButton size="small" aria-label="Apply future price" onClick={() => applyFuturePriceNow(fp)} sx={{ p: '2px', color: '#0084d1' }}>
+                                          <FuturePriceClockIcon sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                    </InputAdornment>
+                                  );
+                                })(),
                               }}
                             />
                           </TableCell>

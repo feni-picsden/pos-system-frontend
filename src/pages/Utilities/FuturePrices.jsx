@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   Button,
   Table,
@@ -10,8 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
-  TableSortLabel,
+  Pagination,
   Checkbox,
   TextField,
   Dialog,
@@ -28,7 +26,6 @@ import {
   Popper,
   ClickAwayListener,
   FormControl,
-  InputLabel,
 } from '@mui/material';
 import {
   DeleteOutline as DeleteIcon,
@@ -36,14 +33,26 @@ import {
   SearchOutlined as SearchIcon,
   CalendarTodayOutlined as CalendarIcon,
   AccessTimeOutlined as ClockIcon,
-  HelpOutline as HelpIcon,
   ChevronLeftOutlined as ChevronLeftIcon,
   ChevronRightOutlined as ChevronRightIcon,
   AddOutlined as AddIcon,
   BlockOutlined as BlockIcon,
   PriorityHighOutlined as PriorityHighIcon,
   QuestionMarkOutlined as QuestionMarkIcon,
+  CheckBoxOutlineBlankOutlined as SquareIcon,
+  CheckBoxOutlined as CheckSquareIcon,
+  IndeterminateCheckBoxOutlined as IndeterminateSquareIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
+
+// Same sort glyph as the report pages: hollow up+down triangles, the current
+// direction's triangle filled.
+const SortGlyph = ({ active }) => (
+  <svg width="10" height="14" viewBox="0 0 10 14" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-block' }} aria-hidden="true">
+    <path d="M1 5.5 L5 1.5 L9 5.5 Z" fill={active === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'asc' ? 1.6 : 1.1} strokeLinejoin="round" />
+    <path d="M1 8.5 L5 12.5 L9 8.5 Z" fill={active === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={active === 'desc' ? 1.6 : 1.1} strokeLinejoin="round" />
+  </svg>
+);
 import {
   format,
   parse,
@@ -62,10 +71,14 @@ import {
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
 import futurePriceService from '../../services/futurePriceService';
 import classificationService from '../../services/classificationService';
-import { bestRateTier } from '../../utils/familyOverride';
+import { priceSetService } from '../../services/priceSetService';
+
+// Default Price Set as a pick in the Price Set filter / dialog (server id 0 = default).
+const DEFAULT_SET = { id: 0, name: 'Default Price Set', outletId: null };
 
 // Reference has no transitions anywhere on this page.
 const INSTANT = 'all 0s ease';
@@ -301,6 +314,146 @@ const FIELD_SX = {
   '& .MuiSelect-select, & .MuiInputBase-input': { fontSize: 16, py: 0, height: '42px !important', display: 'flex', alignItems: 'center' },
 };
 
+// Every open list on this page (same tokens as Product / Customer Utilities):
+// 10px under the field, 1px dark border, 8px radius, 56px rows, picked row blue,
+// hovered / keyboard row a faint grey wash.
+// Reference Future Prices lists: attached right under the field, hovered /
+// keyboard row filled sky-300, picked row text blue.
+const activeRowSx = { bgcolor: '#7dd3fc' };
+const LIST_PAPER_SX = {
+  mt: '4px',
+  border: '1px solid #000',
+  borderRadius: '8px',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+  '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent', color: '#00a6f4' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': activeRowSx,
+  '& .MuiAutocomplete-noOptions': { fontSize: 16, color: '#000', px: '14px', py: '18px' },
+};
+
+// Reference: the field's name floats above it (12px, black) only while it is
+// focused / open or holds a value; otherwise the name is the placeholder.
+const FloatLabel = ({ show, children }) =>
+  show ? (
+    <Typography
+      component="span"
+      sx={{ position: 'absolute', top: -18, left: 0, fontSize: 12, lineHeight: '16px', color: '#000', whiteSpace: 'nowrap' }}
+    >
+      {children}
+    </Typography>
+  ) : null;
+const SELECT_MENU_PROPS = {
+  anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+  transformOrigin: { vertical: 'top', horizontal: 'left' },
+  PaperProps: {
+    sx: {
+      mt: '10px',
+      maxHeight: 289,
+      border: '1px solid #000',
+      borderRadius: '8px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      '& .MuiMenu-list': { py: '2px' },
+      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+      '& .MuiMenuItem-root.Mui-selected': { color: '#00a6f4', bgcolor: 'transparent' },
+      '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': activeRowSx,
+    },
+  },
+};
+
+// Multi-select tag: flat grey 4px tag, black 16px text, no cross (field's × clears all).
+const TAG_CHIP_SX = {
+  height: 26,
+  borderRadius: '4px',
+  bgcolor: '#e5e5e5',
+  color: '#000',
+  fontSize: 16,
+  '& .MuiChip-label': { px: 1 },
+};
+
+const CLEAR_ICON_SX = { fontSize: 18, color: '#000' };
+
+// Grid checkboxes, as on the other Utilities lists: thin-outline square glyphs, 28x32 box.
+const CHECKBOX_GLYPHS = {
+  icon: <SquareIcon />,
+  checkedIcon: <CheckSquareIcon />,
+  indeterminateIcon: <IndeterminateSquareIcon />,
+};
+const CHECKBOX_SX = { p: '4px 2px', color: '#000', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#000' } };
+
+/**
+ * Multi-select filter (Outlets / Created By / Price Set): shows the first two
+ * picks then "N More...", rows with a square tick, picked rows blue; the list
+ * keeps its own order. Same 42px field as the other filters on this row.
+ */
+const MultiFilter = ({ label, options, value, onChange, noOptionsText = 'No Options' }) => {
+  const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  return (
+    <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
+      <FloatLabel show={open || focused || value.length > 0}>{label}</FloatLabel>
+      <Autocomplete
+        multiple
+        disableCloseOnSelect
+        open={open}
+        onOpen={() => setOpen(true)}
+        onClose={() => setOpen(false)}
+        sx={{
+          '& .MuiAutocomplete-clearIndicator': { visibility: value.length ? 'visible' : 'hidden', p: '2px' },
+          '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': CLEAR_ICON_SX,
+          '& .MuiAutocomplete-inputRoot': { pl: '14px', py: 0, flexWrap: 'nowrap', overflow: 'hidden' },
+          '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': { pl: 0, minWidth: 30 },
+          '& .MuiChip-root': { ml: 0, mr: '4px', flexShrink: 0 },
+        }}
+        options={options}
+        getOptionLabel={(o) => o?.name || ''}
+        isOptionEqualToValue={(o, v) => o.id === v.id}
+        value={value}
+        onChange={(_e, v) => onChange(v)}
+        noOptionsText={noOptionsText}
+        slotProps={{ paper: { sx: LIST_PAPER_SX } }}
+        renderOption={(props, option, { selected }) => {
+          const { key: _key, ...optionProps } = props;
+          return (
+            <li key={option.id} {...optionProps} style={{ ...optionProps.style, color: selected ? '#00a6f4' : undefined }}>
+              <Checkbox
+                checked={selected}
+                icon={<SquareIcon />}
+                checkedIcon={<CheckSquareIcon />}
+                sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+              />
+              {option.name}
+            </li>
+          );
+        }}
+        // Reference: one pick = its name (clipped), more = "N Selected..."
+        renderTags={(vals, getTagProps) => {
+          // eslint-disable-next-line no-unused-vars
+          const { key, onDelete, ...tagProps } = getTagProps({ index: 0 });
+          return [
+            <Chip
+              key={key}
+              size="small"
+              label={vals.length === 1 ? vals[0].name : `${vals.length} Selected...`}
+              sx={{ ...TAG_CHIP_SX, maxWidth: 150, '& .MuiChip-label': { px: 1, overflow: 'hidden', textOverflow: 'ellipsis' } }}
+              {...tagProps}
+            />,
+          ];
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            placeholder={value.length ? '' : label}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            sx={{ '& .MuiOutlinedInput-root': { ...FIELD_SX, py: '0 !important' }, '& input::placeholder': { color: '#808080', opacity: 1 } }}
+          />
+        )}
+      />
+    </Box>
+  );
+};
+
 // Schedule-dialog inputs: 1px #404040 border, 8px radius, #d4d4d4 fill when disabled.
 const DIALOG_INPUT_SX = {
   borderRadius: '8px',
@@ -310,6 +463,20 @@ const DIALOG_INPUT_SX = {
   '&.Mui-disabled': { bgcolor: '#d4d4d4' },
   '&.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
 };
+// Dialog text fields: 42px tall, placeholder in grey, 14px text inset.
+const DIALOG_FIELD_SX = {
+  '& .MuiOutlinedInput-root': { ...DIALOG_INPUT_SX, height: 42, pl: '14px' },
+  '& .MuiOutlinedInput-input': { py: 0, pl: 0, fontSize: 16, height: '42px' },
+  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& .Mui-disabled input::placeholder': { color: '#737373' },
+};
+// Reference dialog field names: 12px black, a fixed 16px line above the field
+// (kept as blank space while hidden so rows never jump).
+const DialogLabel = ({ show, children }) => (
+  <Typography sx={{ fontSize: 12, lineHeight: '16px', color: '#000', mb: '4px', visibility: show ? 'visible' : 'hidden' }}>
+    {children}
+  </Typography>
+);
 
 const DT_FORMAT = 'dd/MM/yyyy HH:mm:ss';
 const DT_MASK = 'DD/MM/YYYY HH:MM:SS';
@@ -407,9 +574,10 @@ const MonthGrid = ({ month, selected, onPick, onTitleClick }) => {
                 fontWeight: 700,
                 fontSize: 16,
                 transition: INSTANT,
-                bgcolor: isSelected ? '#5ebbeb' : 'transparent',
-                color: isSelected ? '#f8f8f8' : outside ? '#a1a1a1' : '#0084d1',
-                '&:hover': { bgcolor: isSelected ? '#5ebbeb' : 'rgba(0,0,0,0.05)' },
+                // Reference: the picked day is a solid sky-500 square with white text.
+                bgcolor: isSelected ? '#00a6f4' : 'transparent',
+                color: isSelected ? '#fff' : outside ? '#a1a1a1' : '#0084d1',
+                '&:hover': { bgcolor: isSelected ? '#00a6f4' : 'rgba(0,0,0,0.05)' },
               }}
             >
               {format(day, 'd')}
@@ -439,7 +607,7 @@ const timeInputSx = {
  * DD/MM/YYYY HH:mm:ss mask on focus) that opens a dual-month calendar popover
  * with calendar/clock tabs and a Current Day shortcut. Typing commits directly.
  */
-const DateTimeFilterField = ({ value, onChange, placeholder }) => {
+const DateTimeFilterField = ({ value, onChange, placeholder, label = placeholder }) => {
   const [focused, setFocused] = useState(false);
   const [invalid, setInvalid] = useState(false);
   const [open, setOpen] = useState(false);
@@ -525,19 +693,21 @@ const DateTimeFilterField = ({ value, onChange, placeholder }) => {
 
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
+        <FloatLabel show={focused || open || !!value}>{label}</FloatLabel>
         <Box
           ref={anchorRef}
           sx={{
             display: 'flex',
             alignItems: 'center',
             height: 42,
-            border: `1px solid ${invalid ? '#e33430' : '#404040'}`,
+            border: invalid ? '1px solid #e33430' : focused || open ? '2px solid #000' : '1px solid #404040',
             borderRadius: '8px',
             bgcolor: '#fff',
-            px: 1,
+            px: focused || open ? '13px' : '14px',
           }}
         >
+          {/* Reference: the mask (and a typed date) read in a monospace face. */}
           <Box
             component="input"
             ref={inputRef}
@@ -554,7 +724,7 @@ const DateTimeFilterField = ({ value, onChange, placeholder }) => {
               border: 0,
               outline: 'none',
               bgcolor: 'transparent',
-              fontFamily: 'inherit',
+              fontFamily: focused || open || value ? '"Roboto Mono", "Courier New", monospace' : 'inherit',
               fontSize: 16,
               color: '#000',
               '&::placeholder': { color: '#808080', opacity: 1 },
@@ -580,32 +750,55 @@ const DateTimeFilterField = ({ value, onChange, placeholder }) => {
               transition: INSTANT,
             }}
           >
-            {/* Reference shows a masked segment input strip at the top of the popover. */}
+            {/* Reference shows a masked segment input strip at the top of the popover
+                (monospace, 1px black border, × to clear once a date is set). */}
             <Box
-              component="input"
-              value={stripText}
-              onChange={(e) => setStripText(e.target.value)}
-              onBlur={commitStrip}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitStrip();
-              }}
-              placeholder="dd/mm/yyyy hh:mm:ss"
-              aria-label="Date and time"
               sx={{
-                width: '100%',
+                display: 'inline-flex',
+                alignItems: 'center',
+                width: 248,
                 height: 38,
-                border: '1px solid #e5e5e5',
+                border: '1px solid #000',
                 borderRadius: '8px',
                 px: 1.5,
                 mb: 2,
                 bgcolor: '#fff',
-                fontFamily: 'inherit',
-                fontSize: 16,
-                color: '#404040',
-                outline: 'none',
-                '&::placeholder': { color: '#808080', opacity: 1 },
               }}
-            />
+            >
+              <Box
+                component="input"
+                value={stripText}
+                onChange={(e) => setStripText(e.target.value)}
+                onBlur={commitStrip}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitStrip();
+                }}
+                placeholder="dd/mm/yyyy, hh:mm:ss"
+                aria-label="Date and time"
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  border: 0,
+                  bgcolor: 'transparent',
+                  fontFamily: '"Roboto Mono", "Courier New", monospace',
+                  fontSize: 14,
+                  color: '#000',
+                  outline: 'none',
+                  '&::placeholder': { color: '#404040', opacity: 1 },
+                }}
+              />
+              {value && (
+                <Box
+                  component="button"
+                  type="button"
+                  aria-label="Clear date"
+                  onClick={() => { onChange(null); setStripText(''); }}
+                  sx={{ border: 0, bgcolor: 'transparent', p: 0, ml: 1, cursor: 'pointer', display: 'flex' }}
+                >
+                  <CloseIcon sx={{ fontSize: 16, color: '#000' }} />
+                </Box>
+              )}
+            </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               {[
                 { key: 'calendar', icon: <CalendarIcon sx={{ fontSize: 18 }} />, label: 'Calendar' },
@@ -749,8 +942,10 @@ const DateTimeFilterField = ({ value, onChange, placeholder }) => {
   );
 };
 
-const COLUMNS = [
+// Our rule: under All Outlets an Outlet column says which outlet each row belongs to.
+const columnsFor = (showOutlet) => [
   { id: 'itemName', label: 'Item' },
+  ...(showOutlet ? [{ id: 'outletName', label: 'Outlet' }] : []),
   { id: 'priceSet', label: 'Price Set' },
   { id: 'createdBy', label: 'Created By' },
   { id: 'quantity', label: 'Quantity', numeric: true },
@@ -759,12 +954,14 @@ const COLUMNS = [
   { id: 'effectiveAt', label: 'Effective At', date: true },
 ];
 
-// The price this future price will replace: same quantity, preferring an outlet-specific row
-// over the global one. null when the product has no price at that quantity yet.
+// The price this future price will replace: same quantity IN THE SAME PRICE SET
+// (null = default), preferring an outlet-specific row over the global one.
+// null when the product has no price at that quantity in that set yet.
 const currentPriceFor = (fp) => {
   const rows = fp.product?.prices || [];
   const qty = fp.quantity || 1;
-  const atQty = rows.filter((p) => p.quantity === qty);
+  const setId = fp.priceSetId ?? null;
+  const atQty = rows.filter((p) => p.quantity === qty && (p.priceSetId ?? null) === setId);
   const hit =
     atQty.find((p) => fp.outletId != null && p.outletId === fp.outletId) ||
     atQty.find((p) => p.outletId == null) ||
@@ -777,31 +974,52 @@ const transformPrices = (list) =>
     id: fp.id,
     itemName: fp.productName || fp.product?.name || 'Unknown',
     itemType: fp.itemType || 'Product',
-    priceSet: fp.priceSet || 'Default Price Set',
+    priceSet: fp.priceSetRef?.name || (fp.priceSetId == null ? 'Default Price Set' : fp.priceSet),
+    priceSetId: fp.priceSetId ?? null,
     createdBy: fp.createdBy?.name || 'Unknown',
+    outletName: fp.outlet?.name || 'Global',
+    outletId: fp.outletId ?? null,
     quantity: fp.quantity || 1,
     currentPrice: currentPriceFor(fp),
     price: fp.price || 0,
     effectiveAt: fp.effectiveAt,
     isApplied: fp.isApplied || false,
+    status: fp.isApplied ? 'Applied' : 'Pending',
     appliedAt: fp.appliedAt,
     product: fp.product,
   }));
 
 const FuturePrices = () => {
   const { getOutletId } = useAuth();
+  // Outlet-wise: an outlet pick in the navbar already scopes every request
+  // (apiClient adds ?outletId=). Under All Outlets the page's own Outlets filter
+  // narrows the mixed list and the dropdown data to one or more outlets.
+  const { isAllOutlets, outlets } = useSelectedOutlet();
+  const [selectedOutlets, setSelectedOutlets] = useState([]);
+  const filterOutletId = isAllOutlets && selectedOutlets.length ? selectedOutlets.map((o) => o.id).join(',') : '';
+  const COLUMNS = useMemo(() => columnsFor(isAllOutlets), [isAllOutlets]);
+
   const [futurePrices, setFuturePrices] = useState([]);
   const [selectedPrices, setSelectedPrices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Reference filters: search (products and families), Category, Created By,
+  // Price Set, Start / End date.
+  const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categoryFocused, setCategoryFocused] = useState(false);
+  const [selectedCreators, setSelectedCreators] = useState([]);
+  const [selectedPriceSets, setSelectedPriceSets] = useState([]);
+  const [filterOptions, setFilterOptions] = useState({ createdBy: [], priceSets: [DEFAULT_SET] });
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   // Reference has no Filter button: selections self-apply. Debounced below, and
   // parseDateTimeText refuses <4-digit years, so typing never fetches half-dates.
-  const [appliedFilters, setAppliedFilters] = useState({});
+  const [appliedFilters, setAppliedFilters] = useState({ isApplied: false });
+  const filtersActive = Object.keys(appliedFilters).some((k) => k !== 'isApplied');
 
   // { kind: 'apply' | 'delete', ids: number[], row?: object }
   const [confirm, setConfirm] = useState(null);
@@ -815,25 +1033,45 @@ const FuturePrices = () => {
   const [scheduledTime, setScheduledTime] = useState(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const schedAnchorRef = useRef(null);
-  const [priceSet, setPriceSet] = useState('Default Price Set');
+  // Dialog Price Set pick: 0 = Default Price Set, else a PriceSet id in reach of
+  // the chosen product's outlet (its own outlet's sets + the global ones).
+  const [priceSetId, setPriceSetId] = useState(0);
+  const [allPriceSets, setAllPriceSets] = useState([]);
   const [quantity, setQuantity] = useState('');
   const [price, setPrice] = useState('');
+  const [quantityFocused, setQuantityFocused] = useState(false);
+  const [priceFocused, setPriceFocused] = useState(false);
   // Once the user types a price, quantity changes must never overwrite it.
-  const [priceTouched, setPriceTouched] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [loadingData, setLoadingData] = useState(false);
+  // Reference never shows a "Loading..." table: nothing until the first answer,
+  // then the empty state or the rows (a refetch keeps the current view).
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [dateError, setDateError] = useState('');
 
   const [orderBy, setOrderBy] = useState('effectiveAt');
   const [order, setOrder] = useState('asc');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  // Same local paging as the other list pages: 10 rows a page, page picker under the grid.
+  const rowsPerPage = 10;
 
-  const priceSets = ['Default Price Set'];
+  // The sets the dialog offers for the picked product: Default + the sets of the
+  // product's outlet + global sets. A global product (no outlet) under All
+  // Outlets may go into any set the admin can see.
+  const productOutletId = selectedProductDetails?.outletId ?? selectedItem?.outletId ?? null;
+  const priceSets = useMemo(
+    () => [
+      DEFAULT_SET,
+      ...allPriceSets.filter((s) => s.outletId == null || productOutletId == null || s.outletId === productOutletId),
+    ],
+    [allPriceSets, productOutletId]
+  );
+  // A set that fell out of reach when the product changed goes back to Default.
+  useEffect(() => {
+    if (priceSetId !== 0 && !priceSets.some((s) => s.id === priceSetId)) setPriceSetId(0);
+  }, [priceSets, priceSetId]);
 
   const fetchPrices = useCallback(async () => {
     try {
-      setLoadingData(true);
       const response = await futurePriceService.getFuturePrices(appliedFilters);
       if (response && response.futurePrices) {
         setFuturePrices(transformPrices(response.futurePrices));
@@ -842,7 +1080,7 @@ const FuturePrices = () => {
       console.error('Error fetching future prices:', err);
       setError(err.response?.data?.error || 'Failed to fetch future prices');
     } finally {
-      setLoadingData(false);
+      setLoadedOnce(true);
     }
   }, [appliedFilters]);
 
@@ -853,31 +1091,49 @@ const FuturePrices = () => {
   // Filters self-apply on change (reference has no Filter button).
   useEffect(() => {
     const t = setTimeout(() => {
-      const next = {};
+      // Reference article: the page "lists all future prices that have been
+      // created but have not been applied yet" - applied rows drop off.
+      const next = { isApplied: false };
+      if (searchText.trim()) next.search = searchText.trim();
       if (selectedCategory) next.category = selectedCategory;
+      if (selectedCreators.length) next.createdBy = selectedCreators.map((u) => u.id);
+      if (selectedPriceSets.length) next.priceSetId = selectedPriceSets.map((s) => s.id);
       if (startDate) next.startDate = startDate.toISOString();
       if (endDate) next.endDate = endDate.toISOString();
+      if (filterOutletId) next.outletId = filterOutletId;
       // Keep the old reference when nothing changed so no redundant refetch fires.
       setAppliedFilters((prev) =>
         JSON.stringify(prev) === JSON.stringify(next) ? prev : next
       );
     }, 400);
     return () => clearTimeout(t);
-  }, [selectedCategory, startDate, endDate]);
+  }, [searchText, selectedCategory, selectedCreators, selectedPriceSets, startDate, endDate, filterOutletId]);
 
+  // Dropdown data, outlet-wise: with an Outlets pick the categories, users and
+  // price sets are those outlets' (+ global); picks that fall out of scope clear.
   useEffect(() => {
-    const fetchCategories = async () => {
+    let alive = true;
+    const picked = filterOutletId || undefined;
+    (async () => {
       try {
-        const response = await classificationService.getClassifications({ type: 'Category' });
-        if (response && response.classifications) {
-          setCategories(response.classifications);
-        }
+        const [cats, opts, sets] = await Promise.all([
+          classificationService.getClassifications({ type: 'Category', ...(picked ? { outletId: picked } : {}) }),
+          futurePriceService.getFilterOptions(picked),
+          priceSetService.getPriceSets(),
+        ]);
+        if (!alive) return;
+        setCategories(cats?.classifications || []);
+        setFilterOptions({ createdBy: opts?.createdBy || [], priceSets: opts?.priceSets || [DEFAULT_SET] });
+        setAllPriceSets(sets?.priceSets || []);
       } catch (err) {
-        console.error('Error fetching categories:', err);
+        console.error('Error fetching future price filter data:', err);
       }
-    };
-    fetchCategories();
-  }, []);
+    })();
+    setSelectedCategory('');
+    setSelectedCreators([]);
+    setSelectedPriceSets([]);
+    return () => { alive = false; };
+  }, [filterOutletId]);
 
   const sortedPrices = useMemo(() => {
     const col = COLUMNS.find((c) => c.id === orderBy);
@@ -889,7 +1145,7 @@ const FuturePrices = () => {
       if (col?.date) return (new Date(av || 0) - new Date(bv || 0)) * dir;
       return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
     });
-  }, [futurePrices, orderBy, order]);
+  }, [futurePrices, orderBy, order, COLUMNS]);
 
   // Keep the page in range when a filter/delete shrinks the list.
   const safePage = page * rowsPerPage >= sortedPrices.length ? 0 : page;
@@ -979,12 +1235,14 @@ const FuturePrices = () => {
   const formatCurrency = (amount) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
+  // Reference (checked 04/11/2026 with three sets picked in turn): Product Price
+  // is ALWAYS the Default Price Set qty-1 price, whatever Price Set is picked.
   const getProductPrice = (product) => {
     if (!product) return 0;
-    if (Array.isArray(product.prices) && product.prices.length > 0) {
-      const defaultPrice = product.prices.find((p) => p.quantity === 1);
-      if (defaultPrice) return defaultPrice.price || 0;
-      return product.prices[0]?.price || 0;
+    const rows = (Array.isArray(product.prices) ? product.prices : []).filter((p) => p.priceSetId == null);
+    if (rows.length > 0) {
+      const unit = rows.find((p) => p.quantity === 1) || rows[0];
+      return unit.price || 0;
     }
     return product.retailPrice || product.caseCost || 0;
   };
@@ -994,23 +1252,6 @@ const FuturePrices = () => {
     return product.itemCost || product.caseCost || 0;
   };
 
-  const calculatePriceForQuantity = (product, qtyInput) => {
-    if (!product || !qtyInput || qtyInput <= 0) return 0;
-    const qty = Number(qtyInput);
-
-    if (Array.isArray(product.prices) && product.prices.length > 0) {
-      const sorted = [...product.prices].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
-      // Same rule the register sells at: the best per-unit rate at or below the
-      // quantity, so the suggested price matches what the till would charge.
-      const selectedTier = bestRateTier(sorted, qty) || sorted[0];
-      if (selectedTier) {
-        const pricePerUnit = (Number(selectedTier.price) || 0) / (Number(selectedTier.quantity) || 1);
-        return pricePerUnit * qty;
-      }
-    }
-    return getProductPrice(product) * qty;
-  };
-
   const resetScheduleForm = () => {
     setSelectedItem(null);
     setSelectedProductDetails(null);
@@ -1018,10 +1259,9 @@ const FuturePrices = () => {
     setItemSearchText('');
     setScheduledTime(null);
     setTimePickerOpen(false);
-    setPriceSet('Default Price Set');
+    setPriceSetId(0);
     setQuantity('');
     setPrice('');
-    setPriceTouched(false);
     setDateError('');
   };
 
@@ -1030,9 +1270,11 @@ const FuturePrices = () => {
       setError('Please fill in all required fields');
       return;
     }
+    // User decision 04/11/2026: a past time is refused (the reference accepts it,
+    // but it only auto-applies a minute later and the row vanishes unexplained;
+    // "Apply" is the way to apply now).
     if (scheduledTime <= new Date()) {
       setDateError('Please select a time that is in the future');
-      setError('Please select a time that is in the future');
       return;
     }
 
@@ -1047,7 +1289,7 @@ const FuturePrices = () => {
         productId: selectedItem.id,
         productName: selectedItem.name,
         itemType: 'Product',
-        priceSet,
+        priceSetId: priceSetId || null,
         quantity: parseFloat(quantity),
         price: parseFloat(price),
         effectiveAt: scheduledTime.toISOString(),
@@ -1085,34 +1327,70 @@ const FuturePrices = () => {
         </Button>
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-        {/* Reference Category is a SEARCHABLE autocomplete (text input + filter-as-you-type),
-            not a plain Select. */}
-        <Autocomplete
-          sx={{ flex: 1, minWidth: 0 }}
-          options={categories}
-          getOptionLabel={(o) => o?.name || ''}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
-          value={categories.find((c) => c.id === selectedCategory) || null}
-          onChange={(e, v) => setSelectedCategory(v ? v.id : '')}
-          // Reference dropdown attaches flat: radius 0, white, full field width.
-          slotProps={{ paper: { sx: { borderRadius: 0, bgcolor: '#fff' } }, listbox: { sx: { maxHeight: 320 } } }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              placeholder="Select Category..."
-              sx={{ '& .MuiOutlinedInput-root': { ...FIELD_SX, py: '0 !important' } }}
-            />
-          )}
-        />
+      {/* Reference: a plain full-width search bar (no icon) above the filters. */}
+      <TextField
+        fullWidth
+        placeholder="Search for products and families..."
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        sx={{
+          mb: '34px',
+          '& .MuiOutlinedInput-root': FIELD_SX,
+          '& .MuiOutlinedInput-input': { px: '14px' },
+          '& input::placeholder': { color: '#808080', opacity: 1 },
+        }}
+      />
 
-        <DateTimeFilterField value={startDate} onChange={setStartDate} placeholder="Select Start Date..." />
-        <DateTimeFilterField value={endDate} onChange={setEndDate} placeholder="Select End Date..." />
+      {/* Reference order: Category | Start Date | End Date | Created By | Price Set.
+          Our addition under All Outlets: Outlets first. The 34px above leaves room
+          for the floating labels. */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', '& > *': { flexBasis: 0, minWidth: 220 } }}>
+        {isAllOutlets && (
+          <MultiFilter label="Outlets" options={outlets} value={selectedOutlets} onChange={setSelectedOutlets} />
+        )}
+
+        {/* Reference Category is a SEARCHABLE autocomplete (text input + filter-as-you-type). */}
+        <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <FloatLabel show={categoryOpen || categoryFocused || !!selectedCategory}>Category</FloatLabel>
+          <Autocomplete
+            open={categoryOpen}
+            onOpen={() => setCategoryOpen(true)}
+            onClose={() => setCategoryOpen(false)}
+            sx={{
+              '& .MuiAutocomplete-clearIndicator': { visibility: selectedCategory ? 'visible' : 'hidden', p: '2px' },
+              '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': CLEAR_ICON_SX,
+              '& .MuiAutocomplete-inputRoot': { pl: '14px' },
+              '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': { pl: 0 },
+            }}
+            options={categories}
+            getOptionLabel={(o) => o?.name || ''}
+            isOptionEqualToValue={(o, v) => o.id === v.id}
+            value={categories.find((c) => c.id === selectedCategory) || null}
+            onChange={(_e, v) => setSelectedCategory(v ? v.id : '')}
+            noOptionsText="No Options"
+            slotProps={{ paper: { sx: LIST_PAPER_SX } }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Category"
+                onFocus={() => setCategoryFocused(true)}
+                onBlur={() => setCategoryFocused(false)}
+                sx={{ '& .MuiOutlinedInput-root': { ...FIELD_SX, py: '0 !important' }, '& input::placeholder': { color: '#808080', opacity: 1 } }}
+              />
+            )}
+          />
+        </Box>
+
+        <DateTimeFilterField value={startDate} onChange={setStartDate} placeholder="Start Date" />
+        <DateTimeFilterField value={endDate} onChange={setEndDate} placeholder="End Date" />
+
+        <MultiFilter label="Created By" options={filterOptions.createdBy} value={selectedCreators} onChange={setSelectedCreators} />
+        <MultiFilter label="Price Set" options={filterOptions.priceSets} value={selectedPriceSets} onChange={setSelectedPriceSets} />
       </Box>
 
       {/* Reference keeps the count and all four bulk actions on ONE row, right-aligned.
           No Filter button exists — filters self-apply. */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 2, mt: '32px', mb: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
         <Box sx={{ flexGrow: 1 }} />
         {/* Reference drops the count and all bulk actions entirely when there are no rows. */}
         {futurePrices.length > 0 && (
@@ -1172,7 +1450,9 @@ const FuturePrices = () => {
         </Alert>
       )}
 
-      {!loadingData && futurePrices.length === 0 ? (
+      {/* The empty-set block is for "nothing scheduled at all"; with a filter or
+          search active the grid stays, with its columns and a no-results row. */}
+      {!loadedOnce ? null : futurePrices.length === 0 && !filtersActive ? (
         /* Reference replaces the whole table with this block when there are no rows. */
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, py: 8 }}>
           {/* Reference: 200x160 black empty-set icon, 24px black H2, black subtitle. */}
@@ -1187,71 +1467,73 @@ const FuturePrices = () => {
           </Box>
         </Box>
       ) : (
-      <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e5e5e5', borderRadius: '12px' }}>
-        <Table>
+      /* Same grid as the other Utilities lists: 51px rounded sky header, 58px white rows, no rules. */
+      <TableContainer sx={{ bgcolor: 'transparent', boxShadow: 'none' }}>
+        {/* Fixed layout: the data columns share the width equally; checkbox and
+            actions keep their own widths. */}
+        <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow
               sx={{
-                backgroundColor: '#5ebbeb',
-                '& th': { color: '#fff', fontSize: 16, fontWeight: 700, borderBottom: 'none' },
-                '& .MuiTableSortLabel-root, & .MuiTableSortLabel-root:hover, & .MuiTableSortLabel-root.Mui-active':
-                  { color: '#fff' },
-                '& .MuiTableSortLabel-icon': { color: '#fff !important' },
+                '& th': { bgcolor: '#5ebbeb', color: '#fff', fontSize: 16, fontWeight: 700, border: 0, height: 51, py: 0, px: '8px' },
+                '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
+                '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
               }}
             >
-              <TableCell padding="checkbox">
+              <TableCell padding="checkbox" sx={{ pl: '20px', width: 48, boxSizing: 'border-box' }}>
                 <Checkbox
+                  {...CHECKBOX_GLYPHS}
                   indeterminate={selectedPrices.length > 0 && selectedPrices.length < futurePrices.length}
                   checked={futurePrices.length > 0 && selectedPrices.length === futurePrices.length}
                   onChange={handleSelectAll}
-                  sx={{ color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                  sx={{ ...CHECKBOX_SX, color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
                 />
               </TableCell>
-              {COLUMNS.map((col) => (
-                <TableCell key={col.id}>
-                  <TableSortLabel
-                    active={orderBy === col.id}
-                    direction={orderBy === col.id ? order : 'asc'}
-                    onClick={() => handleSort(col.id)}
-                  >
-                    {col.label}
-                  </TableSortLabel>
-                </TableCell>
-              ))}
+              {COLUMNS.map((col) => {
+                const active = orderBy === col.id;
+                return (
+                  <TableCell key={col.id} sx={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', '&&': { p: 0 } }} onClick={() => handleSort(col.id)}>
+                    {/* Report-page sort glyph (up/down triangles, the current direction
+                        filled), shown only on the sorted column. */}
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', height: 51, px: '8px' }}>
+                      {col.label}
+                      {active && <SortGlyph active={order} />}
+                    </Box>
+                  </TableCell>
+                );
+              })}
               {/* Reference leaves the row-action column header blank. */}
-              <TableCell />
+              <TableCell sx={{ width: 236 }} />
             </TableRow>
           </TableHead>
-          <TableBody>
-            {loadingData ? (
+          <TableBody
+            sx={{
+              '& tr': { bgcolor: '#fff' },
+              '& td': { border: 0, height: 58, py: 0, px: '8px', fontSize: 16, color: '#000' },
+            }}
+          >
+            {pagedPrices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4, color: '#676b72' }}>
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : pagedPrices.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4, color: '#676b72' }}>
-                  No future prices found
+                <TableCell colSpan={COLUMNS.length + 2} align="center" sx={{ py: 4, color: '#000', fontSize: 16 }}>
+                  No results found. Change search filters and try again.
                 </TableCell>
               </TableRow>
             ) : (
               pagedPrices.map((row) => (
-                <TableRow key={row.id} hover sx={{ '&:nth-of-type(even)': { bgcolor: '#f8f8f8' } }}>
-                  <TableCell padding="checkbox">
+                <TableRow key={row.id}>
+                  <TableCell padding="checkbox" sx={{ pl: '20px' }}>
                     <Checkbox
+                      {...CHECKBOX_GLYPHS}
                       checked={selectedPrices.includes(row.id)}
                       onChange={() => handleSelectPrice(row.id)}
+                      sx={CHECKBOX_SX}
                     />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      {row.itemType}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {row.itemName}
-                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: '#404040', lineHeight: '16px' }}>{row.itemType}</Typography>
+                    <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '20px' }}>{row.itemName}</Typography>
                   </TableCell>
+                  {isAllOutlets && <TableCell>{row.outletName}</TableCell>}
                   <TableCell>{row.priceSet}</TableCell>
                   <TableCell>{row.createdBy}</TableCell>
                   <TableCell>{row.quantity}</TableCell>
@@ -1259,14 +1541,11 @@ const FuturePrices = () => {
                     {row.currentPrice == null ? '—' : formatCurrency(row.currentPrice)}
                   </TableCell>
                   <TableCell>{formatCurrency(row.price)}</TableCell>
-                  <TableCell>
-                    {formatDate(row.effectiveAt)}
-                    {row.isApplied && <Chip label="Applied" size="small" color="success" sx={{ ml: 1 }} />}
-                  </TableCell>
+                  <TableCell>{formatDate(row.effectiveAt)}</TableCell>
                   <TableCell>
                     {/* Reference row actions are outlined pills — unlike Future Costs, which
                         uses borderless text links for the same two actions. */}
-                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', pr: '8px' }}>
                       <Button
                         variant="outlined"
                         startIcon={<DeleteIcon />}
@@ -1292,18 +1571,20 @@ const FuturePrices = () => {
             )}
           </TableBody>
         </Table>
-        <TablePagination
-          component="div"
-          count={sortedPrices.length}
-          page={safePage}
-          onPageChange={(e, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[10, 25, 50, 100]}
-        />
+        {/* Same page picker as the Products list: only when there is more than one page. */}
+        {sortedPrices.length > rowsPerPage && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
+            <Pagination
+              count={Math.ceil(sortedPrices.length / rowsPerPage)}
+              page={safePage + 1}
+              onChange={(_e, p) => setPage(p - 1)}
+              color="primary"
+              size="large"
+              showFirstButton
+              showLastButton
+            />
+          </Box>
+        )}
       </TableContainer>
       )}
 
@@ -1351,8 +1632,11 @@ const FuturePrices = () => {
             py: 2,
           }}
         >
-          <HelpIcon sx={{ fontSize: 22, color: '#075985' }} />
-          <Typography component="span" sx={{ fontSize: 18, fontWeight: 400, color: '#075985' }}>
+          {/* Reference: a bold "?" glyph (no circle) and a bold sky-800 title. */}
+          <Typography component="span" sx={{ fontSize: 22, fontWeight: 700, color: '#0369a1', lineHeight: 1 }}>
+            ?
+          </Typography>
+          <Typography component="span" sx={{ fontSize: 18, fontWeight: 700, color: '#0369a1' }}>
             Schedule Price Change
           </Typography>
         </DialogTitle>
@@ -1381,8 +1665,27 @@ const FuturePrices = () => {
                 }
                 slotProps={{
                   paper: {
-                    sx: { '& .MuiAutocomplete-groupLabel': { fontWeight: 700, color: '#000' } },
+                    sx: {
+                      mt: '4px',
+                      border: '1px solid #000',
+                      borderRadius: '8px',
+                      '& .MuiAutocomplete-groupLabel': { fontWeight: 700, fontSize: 16, color: '#000', lineHeight: '56px', px: '14px', borderBottom: '1px solid #e5e5e5' },
+                      '& .MuiAutocomplete-listbox': { maxHeight: 289, py: 0 },
+                      '& .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+                      '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#7dd3fc !important' },
+                    },
                   },
+                }}
+                // Reference rows: product name with its family (else brand) in small grey under it.
+                renderOption={(props, option) => {
+                  const { key: _key, ...optionProps } = props;
+                  const sub = option.family?.name || option.brand?.name || '';
+                  return (
+                    <li key={option.id} {...optionProps} style={{ ...optionProps.style, display: 'block' }}>
+                      <Box sx={{ lineHeight: '20px' }}>{option.name}</Box>
+                      {sub && <Box sx={{ fontSize: 13, color: '#737373', lineHeight: '16px' }}>{sub}</Box>}
+                    </li>
+                  );
                 }}
                 onInputChange={async (event, newValue) => {
                   setItemSearchText(newValue || '');
@@ -1408,7 +1711,6 @@ const FuturePrices = () => {
                 onChange={async (event, newValue) => {
                   setQuantity('');
                   setPrice('');
-                  setPriceTouched(false);
                   if (newValue && typeof newValue !== 'string') {
                     setSelectedItem(newValue);
                     try {
@@ -1442,57 +1744,70 @@ const FuturePrices = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
-              {/* Reference Scheduled Time: masked DD/MM/YYYY HH:mm:ss button + '...' opener,
-                  disabled (bg #d4d4d4) until an item is chosen. The MUI picker popover stays
-                  as the opener target, its own field hidden. */}
-              <Box ref={schedAnchorRef} sx={{ display: 'flex', gap: 1 }}>
-                <Box
-                  component="button"
-                  type="button"
-                  disabled={!selectedItem}
-                  onClick={() => setTimePickerOpen(true)}
-                  sx={{
-                    flex: 1,
-                    minWidth: 0,
-                    height: 42,
-                    border: `1px solid ${dateError ? '#e33430' : '#404040'}`,
-                    borderRadius: '8px',
-                    bgcolor: '#fff',
-                    px: 1.5,
-                    textAlign: 'left',
-                    fontFamily: 'inherit',
-                    fontSize: 16,
-                    color: scheduledTime ? '#000' : '#808080',
-                    cursor: 'pointer',
-                    '&:disabled': { bgcolor: '#d4d4d4', color: '#737373', cursor: 'not-allowed' },
-                  }}
-                >
-                  {scheduledTime ? format(scheduledTime, DT_FORMAT) : DT_MASK}
+            {/* Reference: a family product warns that its siblings take the price too. */}
+            {selectedItem && (selectedProductDetails?.family?.name || selectedItem?.family?.name) && (
+              <Grid item xs={12} sx={{ pt: '8px !important' }}>
+                <Typography sx={{ fontSize: 16, color: '#404040', lineHeight: '20px' }}>
+                  Will also apply price to family: {selectedProductDetails?.family?.name || selectedItem?.family?.name}
+                </Typography>
+              </Grid>
+            )}
+
+            {/* Reference: Product Price / Product Cost (for the typed quantity) appear
+                under the item once one is chosen; cost sits right-aligned. */}
+            {selectedItem && (
+              <Grid item xs={12} sx={{ pt: '8px !important' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography sx={{ fontSize: 16, color: '#404040', lineHeight: '20px' }}>Product Price</Typography>
+                    <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '20px' }}>
+                      {/* Reference: a dash until a quantity is typed, then price x quantity. */}
+                      {selectedProductDetails && parseFloat(quantity) > 0 ? formatCurrency(getProductPrice(selectedProductDetails) * parseFloat(quantity)) : <Box component="span" sx={{ fontWeight: 700 }}>—</Box>}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography sx={{ fontSize: 16, color: '#404040', lineHeight: '20px' }}>Product Cost</Typography>
+                    <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '20px' }}>
+                      {selectedProductDetails && parseFloat(quantity) > 0 ? formatCurrency(getProductCost(selectedProductDetails) * parseFloat(quantity)) : <Box component="span" sx={{ fontWeight: 700 }}>—</Box>}
+                    </Typography>
+                  </Box>
                 </Box>
-                <Box
-                  component="button"
-                  type="button"
-                  aria-label="Open date and time picker"
-                  disabled={!selectedItem}
-                  onClick={() => setTimePickerOpen(true)}
-                  sx={{
-                    width: 42,
-                    height: 42,
-                    flexShrink: 0,
-                    border: '1px solid #404040',
-                    borderRadius: '8px',
-                    bgcolor: '#fff',
-                    fontFamily: 'inherit',
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: '#000',
-                    cursor: 'pointer',
-                    '&:disabled': { bgcolor: '#d4d4d4', color: '#737373', cursor: 'not-allowed' },
-                  }}
-                >
-                  ...
+              </Grid>
+            )}
+
+            <Grid item xs={6}>
+              {/* Reference Scheduled Time: "Scheduled Time" placeholder with a '...' opener,
+                  its name above once open / set; disabled (bg #d4d4d4) until an item is
+                  chosen. The MUI picker popover stays as the opener, its own field hidden. */}
+              <DialogLabel show={timePickerOpen || !!scheduledTime}>Scheduled Time</DialogLabel>
+              <Box
+                ref={schedAnchorRef}
+                component="button"
+                type="button"
+                disabled={!selectedItem}
+                onClick={() => setTimePickerOpen(true)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  width: '100%',
+                  height: 42,
+                  border: dateError ? '1px solid #e33430' : timePickerOpen ? '2px solid #000' : '1px solid #404040',
+                  borderRadius: '8px',
+                  bgcolor: '#fff',
+                  px: timePickerOpen ? '13px' : '14px',
+                  textAlign: 'left',
+                  // Only the mask is monospace; a chosen date reads in the normal face (ref).
+                  fontFamily: !scheduledTime && timePickerOpen ? '"Roboto Mono", "Courier New", monospace' : 'inherit',
+                  fontSize: 16,
+                  color: scheduledTime ? '#000' : '#808080',
+                  cursor: 'pointer',
+                  '&:disabled': { bgcolor: '#d4d4d4', color: '#737373', cursor: 'not-allowed' },
+                }}
+              >
+                <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  {scheduledTime ? format(scheduledTime, DT_FORMAT) : timePickerOpen ? DT_MASK : 'Scheduled Time'}
                 </Box>
+                {!scheduledTime && <Box component="span" sx={{ fontWeight: 700, color: selectedItem ? '#000' : '#737373', ml: 1 }}>...</Box>}
               </Box>
               {dateError && (
                 <Typography sx={{ color: '#e33430', fontSize: 12, mt: 0.5 }}>{dateError}</Typography>
@@ -1505,14 +1820,15 @@ const FuturePrices = () => {
                   value={scheduledTime}
                   format="dd/MM/yyyy HH:mm:ss"
                   ampm={false}
+                  // User decision 04/11/2026: past days / times are greyed out in the
+                  // picker rather than refused with an error after the fact.
+                  minDateTime={new Date()}
+                  disablePast
                   views={['year', 'month', 'day', 'hours', 'minutes', 'seconds']}
                   onChange={(newValue) => {
                     setScheduledTime(newValue);
-                    setDateError(
-                      newValue && newValue <= new Date() ? 'Please select a time that is in the future' : ''
-                    );
+                    setDateError(newValue && Number.isNaN(newValue.getTime()) ? 'Invalid date' : '');
                   }}
-                  minDateTime={new Date()}
                   slotProps={{
                     // The picker's own field is hidden: the masked button row above is the field.
                     textField: {
@@ -1541,92 +1857,61 @@ const FuturePrices = () => {
               </LocalizationProvider>
             </Grid>
 
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Price Set</InputLabel>
+            <Grid item xs={6}>
+              {/* Reference: "Optionally select a Price Set that should apply to" - the
+                  price is applied INTO this set; Default + the sets the product's
+                  outlet can reach. Its name always sits above; disabled until an item. */}
+              <DialogLabel show>Price Set</DialogLabel>
+              <FormControl fullWidth disabled={!selectedItem}>
                 <Select
-                  value={priceSet}
-                  onChange={(e) => setPriceSet(e.target.value)}
-                  label="Price Set"
-                  sx={DIALOG_INPUT_SX}
+                  value={priceSetId}
+                  onChange={(e) => setPriceSetId(Number(e.target.value) || 0)}
+                  // A long set name clips with "..." before the arrow instead of running under it.
+                  sx={{ ...DIALOG_INPUT_SX, height: 42, fontSize: 16, '& .MuiSelect-select': { py: 0, pl: '14px', pr: '36px !important', lineHeight: '42px', height: '42px !important', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }}
+                  MenuProps={SELECT_MENU_PROPS}
                 >
                   {priceSets.map((set) => (
-                    <MenuItem key={set} value={set}>
-                      {set}
+                    <MenuItem key={set.id} value={set.id}>
+                      {set.name}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
 
-            {selectedProductDetails && (
-              <>
-                <Grid item xs={6}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    Product Price
-                  </Typography>
-                  <Typography
-                    variant="body1"
-                    sx={{ fontWeight: 500, borderBottom: '1px solid #ddd', pb: 0.5, minHeight: '24px' }}
-                  >
-                    {formatCurrency(getProductPrice(selectedProductDetails) * (parseFloat(quantity) || 1))}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    Product Cost
-                  </Typography>
-                  <Typography
-                    variant="body1"
-                    sx={{ fontWeight: 500, borderBottom: '1px solid #ddd', pb: 0.5, minHeight: '24px' }}
-                  >
-                    {formatCurrency(getProductCost(selectedProductDetails) * (parseFloat(quantity) || 1))}
-                  </Typography>
-                </Grid>
-              </>
-            )}
-
             <Grid item xs={6}>
+              <DialogLabel show={quantityFocused || quantity !== ''}>Quantity</DialogLabel>
               <TextField
                 fullWidth
-                label="Quantity"
+                placeholder={quantityFocused ? '' : 'Quantity'}
                 type="number"
                 value={quantity}
                 // Reference disables Quantity/Price/Scheduled Time until an item is chosen.
                 disabled={!selectedItem}
-                sx={{ '& .MuiOutlinedInput-root': DIALOG_INPUT_SX }}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  const qty = e.target.value;
-                  setQuantity(qty);
-                  // Only ever suggest a price the user has not typed over.
-                  if (priceTouched) return;
-                  if (selectedProductDetails && qty) {
-                    const calculated = calculatePriceForQuantity(selectedProductDetails, parseFloat(qty) || 0);
-                    setPrice(calculated > 0 ? calculated.toFixed(2) : '');
-                  } else {
-                    setPrice('');
-                  }
-                }}
+                sx={DIALOG_FIELD_SX}
+                onFocus={(e) => { setQuantityFocused(true); e.target.select(); }}
+                onBlur={() => setQuantityFocused(false)}
+                // Reference: the quantity only drives the Product Price / Cost readout
+                // above; the Price field stays whatever the user typed (no suggestion).
+                onChange={(e) => setQuantity(e.target.value)}
                 inputProps={{ min: 0 }}
               />
             </Grid>
 
             <Grid item xs={6}>
+              <DialogLabel show={priceFocused || price !== ''}>Price</DialogLabel>
               <TextField
                 fullWidth
-                label="Price"
+                placeholder={priceFocused ? '' : 'Price'}
                 type="number"
                 value={price}
                 disabled={!selectedItem}
-                sx={{ '& .MuiOutlinedInput-root': DIALOG_INPUT_SX }}
+                sx={DIALOG_FIELD_SX}
                 // Suggested price is a starting point: focusing selects it so typing replaces.
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  setPrice(e.target.value);
-                  setPriceTouched(e.target.value !== '');
-                }}
-                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                onFocus={(e) => { setPriceFocused(true); e.target.select(); }}
+                onBlur={() => setPriceFocused(false)}
+                onChange={(e) => setPrice(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start" sx={{ mr: '6px', '& p': { color: '#404040', fontSize: 16 } }}>$</InputAdornment> }}
                 inputProps={{ min: 0, step: 0.01 }}
               />
             </Grid>
@@ -1658,7 +1943,7 @@ const FuturePrices = () => {
             onClick={handleAddFuturePrice}
             variant="contained"
             disableElevation
-            disabled={!selectedItem || !scheduledTime || !quantity || !price || !!dateError}
+            disabled={loading || !selectedItem || !scheduledTime || !quantity || !price || !!dateError}
             sx={{
               width: 118,
               height: 42,
@@ -1666,15 +1951,17 @@ const FuturePrices = () => {
               fontWeight: 700,
               fontSize: 16,
               textTransform: 'none',
-              bgcolor: '#5ebbeb',
+              // Reference: sky-500 when ready; light grey, grey text, thin grey border until then.
+              bgcolor: '#00a6f4',
               color: '#fff',
+              border: '1px solid #00a6f4',
               boxShadow: 'none',
               transition: INSTANT,
-              '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-              '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373' },
+              '&:hover': { bgcolor: '#0084d1', borderColor: '#0084d1', boxShadow: 'none' },
+              '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373', borderColor: '#a1a1a1' },
             }}
           >
-            Add
+            {loading ? 'Add...' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>
