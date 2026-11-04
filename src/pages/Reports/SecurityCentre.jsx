@@ -382,7 +382,7 @@ const SecurityDateRange = ({ value, onChange }) => {
         open={open}
         anchorEl={pillRef.current}
         onClose={() => setOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         transitionDuration={0}
         elevation={0}

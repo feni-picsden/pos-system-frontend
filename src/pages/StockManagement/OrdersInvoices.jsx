@@ -552,7 +552,7 @@ const OrdersInvoices = () => {
           anchorEl={integrationsMenuAnchor}
           open={integrationsOpen}
           onClose={() => setIntegrationsMenuAnchor(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
           transformOrigin={{ vertical: 'top', horizontal: 'left' }}
           transitionDuration={0}
           PaperProps={{

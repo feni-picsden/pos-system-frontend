@@ -994,7 +994,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={Boolean(toast)} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      <Snackbar open={Boolean(toast)} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert severity={toast?.severity || 'info'} variant="filled" onClose={() => setToast(null)} sx={{ borderRadius: 0, fontSize: 15, fontWeight: 600 }}>
           {toast?.message}
         </Alert>

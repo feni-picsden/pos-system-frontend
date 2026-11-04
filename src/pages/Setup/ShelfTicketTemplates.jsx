@@ -326,7 +326,7 @@ const ShelfTicketTemplates = () => {
         open={snackbar.open}
         autoHideDuration={3500}
         onClose={() => setSnackbar(s => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={snackbar.severity} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
           {snackbar.message}

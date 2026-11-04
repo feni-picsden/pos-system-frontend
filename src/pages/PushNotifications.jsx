@@ -421,7 +421,7 @@ export default function PushNotifications() {
         open={snack.open}
         autoHideDuration={4000}
         onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity={snack.severity}>{snack.message}</Alert>
       </Snackbar>

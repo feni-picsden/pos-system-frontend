@@ -904,7 +904,7 @@ const CustomerDisplayEditor = () => {
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
         onClose={() => setMenuAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         transitionDuration={0}
         PaperProps={{
@@ -1146,7 +1146,7 @@ const CustomerDisplayEditor = () => {
         open={Boolean(colorPickerState.anchorEl)}
         anchorEl={colorPickerState.anchorEl}
         onClose={closeColorPicker}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
         <Box sx={{ p: 1 }}>

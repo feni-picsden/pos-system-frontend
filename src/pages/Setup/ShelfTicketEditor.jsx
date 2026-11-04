@@ -275,7 +275,7 @@ const ColorPickerButton = ({ color, onChange, label }) => {
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Box sx={{ p: 1.5, minWidth: 220 }}>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -1380,7 +1380,7 @@ const ShelfTicketEditor = () => {
         }}
       />
 
-      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert severity={snackbar.severity} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>

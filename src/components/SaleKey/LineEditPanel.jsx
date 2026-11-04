@@ -140,7 +140,7 @@ export const KeypadPopover = ({ open, anchorEl, onClose, value, setValue, onOk, 
     open={open}
     anchorEl={anchorEl}
     onClose={onClose}
-    anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+    anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
     PaperProps={{
       sx: {

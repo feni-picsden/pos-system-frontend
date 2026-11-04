@@ -355,7 +355,7 @@ const RefSelect = ({ label, value, options, onChange, width = 358, clearValue })
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transitionDuration={0}
         slotProps={{ paper: { sx: panelSx(width) } }}
       >
@@ -446,7 +446,7 @@ const OutletMultiSelect = ({ outlets, value, onChange, width = 358 }) => {
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transitionDuration={0}
         slotProps={{ paper: { sx: panelSx(width) } }}
       >
@@ -988,7 +988,7 @@ const InventoryMovement = () => {
         open={Boolean(dateAnchorEl)}
         anchorEl={dateAnchorEl}
         onClose={() => setDateAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transitionDuration={0}
         slotProps={{
           paper: {

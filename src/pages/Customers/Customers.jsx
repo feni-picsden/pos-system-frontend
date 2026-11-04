@@ -888,7 +888,7 @@ const Customers = () => {
         open={deleteToast}
         autoHideDuration={4000}
         onClose={() => setDeleteToast(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         message="Customer successfully deleted"
       />
     </Box>

@@ -573,7 +573,7 @@ const CloseRegister = () => {
           open={!!optionsAnchor}
           anchorEl={optionsAnchor}
           onClose={() => setOptionsAnchor(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
           transformOrigin={{ vertical: 'top', horizontal: 'center' }}
           slotProps={{ paper: { sx: { p: '12px', borderRadius: '12px', minWidth: 170 } } }}
         >

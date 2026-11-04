@@ -225,7 +225,7 @@ const DateRangeField = ({ value, onChange }) => {
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
         onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         PaperProps={{ sx: { p: 2, width: 540, bgcolor: '#fff', borderRadius: '8px' } }}
       >

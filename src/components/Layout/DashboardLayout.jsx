@@ -935,7 +935,7 @@ const DashboardLayout = ({ children }) => {
               open={Boolean(volAnchorEl)}
               anchorEl={volAnchorEl}
               onClose={() => setVolAnchorEl(null)}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               slotProps={{ paper: { sx: { width: 400, maxWidth: '95vw', bgcolor: 'rgb(248,248,248)', borderRadius: 0, boxShadow: 'rgba(0,0,0,0.2) 0 0 4px, rgba(0,0,0,0.15) 0 2px 4px', p: 2 } } }}
             >
@@ -1010,7 +1010,7 @@ const DashboardLayout = ({ children }) => {
               open={Boolean(syncAnchorEl)}
               anchorEl={syncAnchorEl}
               onClose={() => setSyncAnchorEl(null)}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               slotProps={{
                 paper: {

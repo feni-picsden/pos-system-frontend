@@ -3,7 +3,7 @@ import { Alert, Box, Snackbar } from '@mui/material';
 
 export default function FamilyOverrideToast({ open, familyName, onOverride, onClose }) {
   return (
-    <Snackbar open={open} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+    <Snackbar open={open} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
       <Alert severity="warning" onClose={onClose} sx={{ width: '100%', boxShadow: 3 }}>
         Family{familyName ? ` "${familyName}"` : ''} has been selected.{' '}
         <Box component="button" type="button" onClick={onOverride}

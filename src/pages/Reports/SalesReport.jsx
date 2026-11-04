@@ -1787,7 +1787,7 @@ const SalesReport = () => {
           anchorEl={columnsMenuAnchor}
           open={Boolean(columnsMenuAnchor)}
           onClose={handleColumnsMenuClose}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           PaperProps={{ sx: { width: 540, p: 1.5, mt: 1, borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' } }}
         >

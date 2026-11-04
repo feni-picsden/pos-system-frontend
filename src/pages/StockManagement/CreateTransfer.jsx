@@ -176,7 +176,7 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
         open={open}
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         TransitionProps={{ timeout: 0 }}
         PaperProps={{ sx: { p: 2, borderRadius: '8px' } }}

@@ -613,7 +613,7 @@ const StocktakedProducts = () => {
         open={Boolean(calendarAnchorEl)}
         anchorEl={calendarAnchorEl}
         onClose={() => setCalendarAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transitionDuration={0}
         slotProps={{
           paper: {

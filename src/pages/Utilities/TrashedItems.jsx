@@ -592,7 +592,7 @@ const TrashedItems = () => {
             open={Boolean(calAnchor)}
             anchorEl={calAnchor}
             onClose={() => setCalAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             disableAutoFocus
             disableEnforceFocus
