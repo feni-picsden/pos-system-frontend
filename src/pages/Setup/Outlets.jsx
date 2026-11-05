@@ -31,7 +31,7 @@ import {
   VisibilityOutlined as ViewIcon,
   SaveOutlined as SaveIcon,
 } from "@mui/icons-material";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import apiClient from "../../services/apiClient";
 import outletService from "../../services/outletService";
 import registerService from "../../services/registerService";
@@ -203,6 +203,12 @@ const Outlets = () => {
   const [editingOutlet, setEditingOutlet] = useState(null);
   const [editTab, setEditTab] = useState(0);
   const [editData, setEditData] = useState(null);
+  // The edited outlet's full outlet_settings blob ({ outletId, blob }), loaded
+  // with the editor so Discounting Below Cost Behaviour saves without wiping
+  // the other outlet settings. null = not loaded.
+  const outletSettingsRef = useRef(null);
+  // Register ids the editor opened with (sorted) - only a real change is sent.
+  const initialRegisterIdsRef = useRef([]);
   const [editErrors, setEditErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const logoInputRef = useRef(null);
@@ -223,6 +229,19 @@ const Outlets = () => {
     fetchOutlets();
     fetchRegisters();
   }, []);
+
+  // Deep link: /settings/registers-outlets?editOutlet=<id> (Setup > General >
+  // Registers tab "Edit" on an outlet row) opens this page's outlet editor.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkedOutletId = searchParams.get("editOutlet");
+  useEffect(() => {
+    if (!deepLinkedOutletId || outlets.length === 0) return;
+    const target = outlets.find((o) => String(o.id) === String(deepLinkedOutletId));
+    if (!target) return;
+    openEditor(target);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkedOutletId, outlets]);
 
   // Keep local state and the IDB cache in lockstep after a mutation we already
   // know succeeded — never depend on an immediate refetch (transient 401/503
@@ -268,6 +287,15 @@ const Outlets = () => {
     }
   };
 
+  // Registers & Outlets edits ANY outlet's register assignments, so the
+  // register list must hold every register - never the navbar-scoped list.
+  // (A scoped list once rebuilt an outlet's cached `registers` as [] and the
+  // next save unassigned all of that outlet's registers.)
+  const listAllRegisters = async () => {
+    const res = await apiClient.get("/registers?all=true", { skipOutletScope: true, noCache: true });
+    return res.data?.registers || [];
+  };
+
   const fetchRegisters = async () => {
     await posLocalDb.init();
     const cached = await posLocalDb.getStoreAll("registers");
@@ -275,8 +303,7 @@ const Outlets = () => {
       setRegisters(cached);
       const stale = await posLocalDb.isStoreStale("registers");
       if (stale) {
-        registerService
-          .list()
+        listAllRegisters()
           .then(async (data) => {
             const items = Array.isArray(data) ? data : [];
             await posLocalDb.putStoreAll("registers", items);
@@ -287,7 +314,7 @@ const Outlets = () => {
       return;
     }
     try {
-      const data = await registerService.list();
+      const data = await listAllRegisters();
       const items = Array.isArray(data) ? data : [];
       await posLocalDb.putStoreAll("registers", items);
       setRegisters(items);
@@ -359,7 +386,11 @@ const Outlets = () => {
       name: outlet.name || "",
       code: outlet.code || "",
       description: outlet.description || "",
-      registerIds: outlet.registers?.map((r) => r.id) || [],
+      // Server-side assignment list; the live register list is the fallback so
+      // a cached outlet row without `registers` never starts the editor empty.
+      registerIds: Array.isArray(outlet.registers)
+        ? outlet.registers.map((r) => r.id)
+        : registers.filter((r) => r.outletId === outlet.id).map((r) => r.id),
       metcashCustomerId: outlet.metcashCustomerId || "",
       metcashState: outlet.metcashState || "",
       metcashPillar: outlet.metcashPillar || "",
@@ -370,6 +401,7 @@ const Outlets = () => {
       street1: outlet.address || "",
     };
     setEditData(base);
+    initialRegisterIdsRef.current = [...base.registerIds].sort((a, b) => a - b);
     // Extended profile (contact / structured address / logo) lives in the
     // generic settings store — the outlet table has no columns for it.
     try {
@@ -386,6 +418,23 @@ const Outlets = () => {
       }
     } catch {
       // 404 = no profile saved yet
+    }
+    // "Discounting Below Cost Behaviour" lives in the outlet's outlet_settings
+    // blob (what the sell screen and Setup > General > Outlets use), NOT in the
+    // profile blob. Read it after the profile so a stale profile copy loses.
+    outletSettingsRef.current = null;
+    try {
+      const os = await settingsService.getOutletSettings(outlet.id);
+      if (os && !os.fromFallback) {
+        const { _updatedAt, ...blob } = os.settings || {};
+        outletSettingsRef.current = { outletId: outlet.id, blob };
+        const v = blob.discountingBelowCostBehaviour;
+        // 'Block' was this app's old name for Prevent.
+        // _belowCostLoaded is UI-only (the profile save writes EMPTY_PROFILE keys only).
+        setEditData((prev) => ({ ...prev, discountBelowCost: v === "Block" ? "Prevent" : (v || "Allow"), _belowCostLoaded: true }));
+      }
+    } catch (err) {
+      console.error("Failed to load outlet settings:", err);
     }
   };
 
@@ -424,12 +473,18 @@ const Outlets = () => {
     }
 
     const composed = composeAddress(editData);
+    // Register assignments go to the server ONLY when the user changed them.
+    // The backend replaces the outlet's whole register set when `registerIds`
+    // is present, so sending an unchanged (or stale) list could detach every
+    // register of the outlet.
+    const nextRegisterIds = [...(editData.registerIds || [])].sort((a, b) => a - b);
+    const registersChanged = JSON.stringify(nextRegisterIds) !== JSON.stringify(initialRegisterIdsRef.current || []);
     const payload = {
       name: editData.name,
       code: editData.code,
       address: composed || editingOutlet.address || "",
       description: editData.description,
-      registerIds: editData.registerIds,
+      ...(registersChanged ? { registerIds: editData.registerIds } : {}),
       metcashCustomerId: editData.metcashCustomerId,
       metcashState: editData.metcashState,
       metcashPillar: editData.metcashPillar,
@@ -452,13 +507,40 @@ const Outlets = () => {
       } catch (profileErr) {
         console.error("Failed to save outlet profile:", profileErr);
       }
+      // Write Discounting Below Cost Behaviour into this outlet's outlet_settings,
+      // merged over the full blob loaded with the editor so every other key is
+      // kept. Not loaded (fallback / error) = not written: a partial blob would
+      // replace the outlet's saved settings.
+      const loadedSettings = outletSettingsRef.current;
+      if (loadedSettings && loadedSettings.outletId === editingOutlet.id) {
+        const nextBehaviour = editData.discountBelowCost || "Allow";
+        const stored = loadedSettings.blob.discountingBelowCostBehaviour;
+        const storedNorm = stored === "Block" ? "Prevent" : (stored || "Allow");
+        if (nextBehaviour !== storedNorm) {
+          try {
+            await settingsService.updateOutletSettings(
+              { ...loadedSettings.blob, discountingBelowCostBehaviour: nextBehaviour },
+              editingOutlet.id
+            );
+          } catch (settingsErr) {
+            console.error("Failed to save outlet settings:", settingsErr);
+            setError(settingsErr.response?.data?.error || "Outlet saved, but Discounting Below Cost Behaviour could not be saved");
+          }
+        }
+      }
       const updated = {
         ...editingOutlet,
         ...(response.outlet || {}),
         _count: editingOutlet._count,
-        registers: registers
-          .filter((r) => editData.registerIds.includes(r.id))
-          .map(({ id, name, code, isActive, status }) => ({ id, name, code, isActive, status })),
+        // Unchanged assignments keep the server's own list; a changed one is
+        // rebuilt from the full register list, keeping any entry the list lacks.
+        registers: registersChanged
+          ? editData.registerIds.map((id) => {
+              const r = registers.find((x) => x.id === id)
+                || (editingOutlet.registers || []).find((x) => x.id === id);
+              return r ? { id: r.id, name: r.name, code: r.code, isActive: r.isActive, status: r.status } : { id };
+            })
+          : (editingOutlet.registers || []),
       };
       await applyOutlets(outlets.map((o) => (o.id === updated.id ? updated : o)));
       closeEditor();
@@ -495,7 +577,7 @@ const Outlets = () => {
     apiClient.bustCache("/registers");
     await posLocalDb.invalidateStore("outlets");
     await posLocalDb.invalidateStore("registers");
-    const [o, r] = await Promise.all([outletService.getEveryOutlet(), registerService.list()]);
+    const [o, r] = await Promise.all([outletService.getEveryOutlet(), listAllRegisters()]);
     const outletItems = o.outlets || [];
     const registerItems = Array.isArray(r) ? r : [];
     await posLocalDb.putStoreAll("outlets", outletItems);
@@ -581,7 +663,9 @@ const Outlets = () => {
     );
 
     return (
-      <Box sx={{ p: 3, pb: 12 }}>
+      // Centred 820px column, like the product edit page (user request 05/11/2026).
+      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+      <Box sx={{ p: 3, pb: 12, width: "100%", maxWidth: 820 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
           <Button
             disableRipple
@@ -628,7 +712,7 @@ const Outlets = () => {
           ))}
         </Box>
 
-        <Box sx={{ bgcolor: "#fff", borderRadius: "0 8px 8px 8px", p: 3, maxWidth: editTab === 4 ? "none" : 560 }}>
+        <Box sx={{ bgcolor: "#fff", borderRadius: "0 8px 8px 8px", p: 3 }}>
           {editTab === 0 && (
             <>
               {fieldBlock("name", "Name", { required: true })}
@@ -724,6 +808,8 @@ const Outlets = () => {
                   <Select
                     value={editData.discountBelowCost || "Allow"}
                     onChange={setField("discountBelowCost")}
+                    // Can't be saved unless the outlet's settings loaded (see handleSaveEditor).
+                    disabled={!editData._belowCostLoaded}
                     sx={{ height: 42, borderRadius: "8px", fontSize: 16, "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" } }}
                   >
                     <MenuItem value="Allow">Allow</MenuItem>
@@ -871,6 +957,7 @@ const Outlets = () => {
         >
           {saving ? "Saving..." : "Save"}
         </Button>
+      </Box>
       </Box>
     );
   }

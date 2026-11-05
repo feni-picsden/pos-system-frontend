@@ -69,7 +69,7 @@ import PageSaveBar from '../../components/Common/PageSaveBar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
-import { useSearchParams, Link as RouterLink } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 
 // The fixed app bar in DashboardLayout (HEADER_HEIGHT). Anything sticky on this page
 // has to start below it, or it scrolls under the bar and its text is clipped.
@@ -196,6 +196,8 @@ const SettingsSection = ({ id, label, flash, children }) => (
     id={`section-${id}`}
     sx={{
       borderTop: '1px solid #e5e5e5',
+      // No rule right under the page title: only BETWEEN sections.
+      '&:first-of-type': { borderTop: 0, pt: 3 },
       px: '4px',
       pt: 6,
       pb: 6,
@@ -208,7 +210,8 @@ const SettingsSection = ({ id, label, flash, children }) => (
     <Typography component="h2" sx={{ fontSize: '24px', fontWeight: 700, color: '#000', mb: 3 }}>
       {label}
     </Typography>
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</Box>
+    {/* Rule above runs the full page width; the fields stay ~756px. */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 748 }}>{children}</Box>
   </Box>
 );
 
@@ -405,6 +408,7 @@ const GeneralSettings = () => {
   // Navbar outlet selection — what the register list is actually scoped to.
   const { selectedOutletId: navbarOutletId, outlets: navbarOutlets } = useSelectedOutlet();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   // ponytail: section survives a reload via localStorage, no router plumbing needed.
   const [activeTab, setActiveTab] = useState(() => Number(localStorage.getItem('generalSettingsTab')) || 0);
   const [flashSection, setFlashSection] = useState(null);
@@ -448,6 +452,11 @@ const GeneralSettings = () => {
   const [outlets, setOutlets] = useState([]);
   const [selectedOutlet, setSelectedOutlet] = useState('');
   const [loadingOutletSettings, setLoadingOutletSettings] = useState(false);
+  // Register form lock while its saved values load (same idea as the outlet one).
+  const [loadingRegisterSettings, setLoadingRegisterSettings] = useState(false);
+  // Only the latest register load may land: a slow answer for the register just
+  // left must not overwrite the one now selected.
+  const registerLoadSeq = useRef(0);
   const [loadingOutlets, setLoadingOutlets] = useState(false);
   // Which reason-list field's "Edit Reasons" panel is open (REASON_LIST_FIELDS
   // key), plus the cash in/out lists which live in their own store - the
@@ -527,8 +536,13 @@ const GeneralSettings = () => {
   };
 
   const loadCustomerDisplayTemplates = async () => {
-    const templates = await customerDisplayTemplateService.listTemplates();
-    setCustomerDisplayTemplates(templates);
+    try {
+      const templates = await customerDisplayTemplateService.listTemplates();
+      setCustomerDisplayTemplates(Array.isArray(templates) ? templates : []);
+    } catch (error) {
+      console.error('Error loading customer display templates:', error);
+      setCustomerDisplayTemplates([]);
+    }
   };
 
   // Update current date/time every second
@@ -567,6 +581,34 @@ const GeneralSettings = () => {
 
   const markDirty = (store) =>
     setDirty(prev => (prev[store] ? prev : { ...prev, [store]: true }));
+
+  // Switching register with unsaved register edits asks first. OK discards them
+  // (dirty cleared, the target register re-read from the server); Cancel stays.
+  // Returns false when the user chose to stay.
+  const selectRegister = (registerId) => {
+    const next = String(registerId);
+    if (next === String(selectedRegister)) return true;
+    if (dirty.register) {
+      if (!window.confirm('You have unsaved changes for this register. Discard them?')) return false;
+      setDirty(prev => ({ ...prev, register: false }));
+    }
+    // A new id re-runs the [selectedRegister] effect, which re-reads the server
+    // value (loadRegisterSettings resets the form to defaults first).
+    setSelectedRegister(next);
+    return true;
+  };
+
+  // Same for the Outlets tab's outlet.
+  const selectOutlet = (outletId) => {
+    const next = String(outletId);
+    if (next === String(selectedOutlet)) return true;
+    if (dirty.outlet) {
+      if (!window.confirm('You have unsaved changes for this outlet. Discard them?')) return false;
+      setDirty(prev => ({ ...prev, outlet: false }));
+    }
+    setSelectedOutlet(next);
+    return true;
+  };
 
   // failed: false, true (load error) or 'forbidden' (server said 403).
   const setLoadResult = (store, failed) =>
@@ -638,9 +680,16 @@ const GeneralSettings = () => {
         const response = await outletService.getAllOutlets();
         if (response.outlets && response.outlets.length > 0) {
           setOutlets(response.outlets);
-          setSelectedOutlet(response.outlets[0].id.toString());
-          setSelectedOutletForSaleKeys(response.outlets[0].id.toString());
-          loadSaleKeySetsForOutlet(response.outlets[0].id.toString());
+          // Outlets tab: the navbar outlet when one is picked; in "All outlets"
+          // mode the dropdown lists every outlet and starts on the first one
+          // with its settings shown (user decision 05/11/2026).
+          const navbarPick = response.outlets.find((o) => navbarOutletId != null && Number(o.id) === Number(navbarOutletId));
+          const startOutlet = navbarPick || response.outlets[0];
+          setSelectedOutlet(startOutlet.id.toString());
+          // The local "Default Sale Keys by Outlet" picker starts on the same one.
+          const saleKeysId = startOutlet.id.toString();
+          setSelectedOutletForSaleKeys(saleKeysId);
+          loadSaleKeySetsForOutlet(saleKeysId);
           return;
         }
       }
@@ -680,8 +729,14 @@ const GeneralSettings = () => {
   };
 
   const loadRegisterSettings = async (registerId) => {
+    const seq = ++registerLoadSeq.current;
+    setLoadingRegisterSettings(true);
+    // Start from the defaults so nothing from the previous register (or an
+    // unsaved edit that was discarded) stays on screen while this one loads.
+    setRegisterSettings({ ...REGISTER_SETTINGS_DEFAULTS });
     try {
       const response = await settingsService.getRegisterSettings(registerId);
+      if (seq !== registerLoadSeq.current) return;
       setLoadResult('register', !!response.fromFallback);
       if (response.fromFallback) return;
       if (response.settings) {
@@ -696,7 +751,9 @@ const GeneralSettings = () => {
       }
     } catch (error) {
       console.error('Error loading register settings:', error);
-      setLoadResult('register', true);
+      if (seq === registerLoadSeq.current) setLoadResult('register', true);
+    } finally {
+      if (seq === registerLoadSeq.current) setLoadingRegisterSettings(false);
     }
   };
 
@@ -704,10 +761,12 @@ const GeneralSettings = () => {
     try {
       const list = await registerService.list({ isActive: true });
       setRegisters(list || []);
-      if (list?.length) {
-        const firstRegisterId = String(list[0].id);
-        setSelectedRegister(firstRegisterId);
-      }
+      // No registers here = nothing selected (a stale id would load and save
+      // settings for a register that is not in this list).
+      // A reload after a register-profile save keeps the register being edited.
+      setSelectedRegister((prev) => (list || []).some((r) => String(r.id) === String(prev))
+        ? String(prev)
+        : (list?.length ? String(list[0].id) : ''));
     } catch (error) {
       console.error('Error loading registers:', error);
     }
@@ -715,6 +774,8 @@ const GeneralSettings = () => {
 
   const loadRegisterCustomerDisplaySettings = async (registerId) => {
     if (!registerId) return;
+    // Defaults first: a failed load must not leave the previous register's display shown.
+    setRegisterCustomerDisplaySettings({ templateId: '', isEnabled: false, openWhenRegisterOpens: false, displayMode: 'Popup' });
     try {
       const config = await customerDisplayService.getRegisterConfig(Number(registerId));
       setRegisterCustomerDisplaySettings({
@@ -797,8 +858,6 @@ const GeneralSettings = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, outlets, registers]);
 
-  const isFullWidthList =
-    (SHOW_OUTLET_PROFILE_LIST && activeTab === 1 && !editingOutletId) || (activeTab === 2 && !editingRegisterId);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -993,12 +1052,13 @@ const GeneralSettings = () => {
   // ponytail: per-register settings live in the generic settings blob
   // (register_profile_<id>) - there is no per-register settings endpoint.
   const openRegisterEditor = async (register) => {
+    // Opening another register's editor also switches the Registers form to it.
+    if (!selectRegister(register.id)) return;
     setEditingRegisterId(register.id);
     setSearchParams({ register: String(register.id) }, { replace: false });
     setRegisterEditorTab(0);
     setEditingInvoiceNumber(false);
     setOpenClosureKey(null);
-    setSelectedRegister(String(register.id));
     setRegisterProfile({
       ...EMPTY_REGISTER_PROFILE,
       name: register.name || '',
@@ -1185,6 +1245,17 @@ const GeneralSettings = () => {
     }
   }, [selectedOutlet]);
 
+  // Navbar outlet -> Outlets tab outlet. The layout remounts this page on a
+  // navbar switch (App.jsx FreshPerOutletAndRoute), so this mainly covers the
+  // navbar id resolving after the outlet list loaded; selectOutlet asks before
+  // discarding unsaved outlet edits.
+  useEffect(() => {
+    if (navbarOutletId == null) return;
+    if (!outlets.some((o) => Number(o.id) === Number(navbarOutletId))) return;
+    selectOutlet(navbarOutletId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navbarOutletId, outlets]);
+
   useEffect(() => {
     // Multi-select: the first picked user seeds the values that get written to all of them.
     if (selectedUsers.length) {
@@ -1214,6 +1285,8 @@ const GeneralSettings = () => {
   };
 
   const handleSave = async () => {
+    // Nothing changed: no request, no "saved" toast (the button is disabled too).
+    if (!isDirty) return;
     if (anyLoadFailed) {
       setError('Settings could not be loaded, so saving is disabled. Click Retry to reload them first.');
       return;
@@ -1251,7 +1324,9 @@ const GeneralSettings = () => {
           }
         }
       }
-      if (dirty.register) {
+      // No register selected (outlet without registers): nothing to write - an
+      // id-less PUT would land on the legacy shared register row.
+      if (dirty.register && selectedRegister) {
         await settingsService.updateRegisterSettings(registerSettings, selectedRegister);
         if (selectedRegister) {
           await customerDisplayService.updateRegisterConfig(Number(selectedRegister), {
@@ -1388,11 +1463,18 @@ const GeneralSettings = () => {
           {loadingSaleKeySets ? (
             <MenuItem value="">Loading...</MenuItem>
           ) : (
-            saleKeySets.map((saleKeySet) => (
-              <MenuItem key={saleKeySet.id} value={saleKeySet.name}>
-                {saleKeySet.name}
-              </MenuItem>
-            ))
+            saleKeySets.map((saleKeySet) => {
+              // "All outlets": every outlet's sets are listed, so say which
+              // outlet each belongs to. One navbar outlet: names only.
+              const outletName = navbarOutletId == null
+                ? outlets.find((o) => Number(o.id) === Number(saleKeySet.outletId))?.name
+                : null;
+              return (
+                <MenuItem key={saleKeySet.id} value={saleKeySet.name}>
+                  {saleKeySet.name}{outletName ? ` — ${outletName}` : ''}
+                </MenuItem>
+              );
+            })
           )}
         </Select>
       </FormControl>
@@ -1651,6 +1733,19 @@ const GeneralSettings = () => {
   // Shared outlet/register list. `onEditRegister` decides what the per-register
   // Edit action opens (Outlets tab jumps to the Registers tab, Registers tab
   // opens the register editor).
+  // With a navbar outlet picked the register list is already scoped to it, so
+  // the other outlets' groups would only render empty - show that outlet only.
+  // Global (no navbar outlet) lists every outlet as before.
+  const navbarOutletGroup = navbarOutletId != null
+    ? outlets.filter((o) => Number(o.id) === Number(navbarOutletId))
+    : [];
+  const listedOutlets = navbarOutletGroup.length ? navbarOutletGroup : outlets;
+  // Register selector follows the same rule (the list is server-scoped already;
+  // this keeps it honest if a cached global list is still on screen).
+  const listedRegisters = navbarOutletId != null
+    ? registers.filter((r) => Number(r.outletId) === Number(navbarOutletId))
+    : registers;
+
   const renderOutletsList = (onEditRegister) => (
     <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', mb: 4 }}>
       {/* Header is present for semantics but collapsed to 0 height, as on the reference */}
@@ -1663,7 +1758,7 @@ const GeneralSettings = () => {
         </Box>
       </Box>
       <Box component="tbody">
-        {outlets.map((outlet) => (
+        {listedOutlets.map((outlet) => (
           <React.Fragment key={outlet.id}>
             <Box component="tr" sx={outletListRowSx(true)}>
               <Box component="td">
@@ -1672,17 +1767,20 @@ const GeneralSettings = () => {
                 </Box>
               </Box>
               <Box component="td" sx={{ width: 104 }}>
-                {renderEditAction(() => openOutletEditor(outlet))}
+                {/* Opens the full outlet editor on Setup > Registers & Outlets
+                    (user decision 05/11/2026), not this page's small profile form. */}
+                {renderEditAction(() => navigate(`/settings/registers-outlets?editOutlet=${outlet.id}`))}
               </Box>
             </Box>
             {registers.filter(r => r.outletId === outlet.id).map((register) => (
               <Box component="tr" key={`r-${register.id}`} sx={outletListRowSx(false)}>
                 <Box component="td" sx={{ fontSize: 16, fontWeight: 400 }}>{register.name}</Box>
                 <Box component="td" sx={{ width: 104 }}>
+                  {/* Register Edit opens the register editor (floats / closure print),
+                      kept as before (user decision 05/11/2026). */}
                   {renderEditAction(() => {
                     if (onEditRegister) return onEditRegister(register);
-                    setSelectedRegister(String(register.id));
-                    setActiveTab(2);
+                    if (selectRegister(register.id)) setActiveTab(2);
                   })}
                 </Box>
               </Box>
@@ -2282,7 +2380,7 @@ const GeneralSettings = () => {
         <FormControl fullWidth size="small">
           <Select
             value={selectedRegister}
-            onChange={(e) => setSelectedRegister(e.target.value)}
+            onChange={(e) => selectRegister(e.target.value)}
             sx={{
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: '#000',
@@ -2290,7 +2388,7 @@ const GeneralSettings = () => {
               }
             }}
           >
-            {registers.map((register) => {
+            {listedRegisters.map((register) => {
               // Several outlets each have a "Register 1": name alone cannot tell
               // them apart in the global list, so show the outlet beside it.
               const outletName = register.outlet?.name
@@ -2307,6 +2405,20 @@ const GeneralSettings = () => {
         </FormControl>
       </Box>
 
+      {/* Locked while the register's saved values load (outlet-tab pattern):
+          nothing toggled early is overwritten by, or mistaken for, the load. */}
+      <Box
+        component="fieldset"
+        disabled={loadingRegisterSettings}
+        aria-busy={loadingRegisterSettings}
+        sx={{
+          border: 0, p: 0, m: 0, minWidth: 0,
+          ...(loadingRegisterSettings && { pointerEvents: 'none', opacity: 0.55 }),
+        }}
+      >
+      {loadingRegisterSettings && (
+        <Typography sx={{ fontSize: 14, color: '#676b72', mb: 1 }}>Loading register settings…</Typography>
+      )}
       {/* Register Settings Title */}
       <Typography variant="h5" sx={{ mb: 4, fontWeight: 600 }}>
         Register Settings
@@ -2537,9 +2649,15 @@ const GeneralSettings = () => {
             </Box>
             <FormControl fullWidth size="small">
               <Select
-                value={registerCustomerDisplaySettings.templateId}
+                // '' = None. A saved template that no longer exists also shows
+                // None instead of a blank, out-of-range value.
+                value={customerDisplayTemplates.some((t) => String(t.id) === String(registerCustomerDisplaySettings.templateId))
+                  ? registerCustomerDisplaySettings.templateId
+                  : ''}
+                displayEmpty
                 onChange={(event) => {
                   markDirty('register');
+                  // None -> templateId '' (saved as null) and the display disabled.
                   setRegisterCustomerDisplaySettings((prev) => ({
                     ...prev,
                     templateId: event.target.value,
@@ -2547,6 +2665,7 @@ const GeneralSettings = () => {
                   }));
                 }}
               >
+                <MenuItem value="">None</MenuItem>
                 {customerDisplayTemplates.map((template) => (
                   <MenuItem key={template.id} value={template.id}>
                     {template.name} (#{template.id})
@@ -2554,6 +2673,11 @@ const GeneralSettings = () => {
                 ))}
               </Select>
             </FormControl>
+            {customerDisplayTemplates.length === 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                No customer display templates
+              </Typography>
+            )}
             <Button sx={{ mt: 1 }} component={RouterLink} to={'/setup/customer-display'}>
               Edit templates
             </Button>
@@ -2682,8 +2806,7 @@ const GeneralSettings = () => {
           </Box>
         </Box>
       </Box>
-
-
+      </Box>
     </Box>
   );
 
@@ -2709,7 +2832,7 @@ const GeneralSettings = () => {
       <Box
         id="section-user-miscellaneous"
         sx={{
-          borderTop: '1px solid #e5e5e5', px: '4px', pt: 6, pb: 6, scrollMarginTop: '144px',
+          px: '4px', pt: 3, pb: 6, scrollMarginTop: '144px',
           borderRadius: '8px', transition: 'background-color 300ms',
           backgroundColor: flashSection === 'user-miscellaneous' ? '#f0f0f0' : 'transparent'
         }}
@@ -2721,7 +2844,7 @@ const GeneralSettings = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 748 }}>
           <SettingRow
             label="Sale Keys"
             updated={stampFor('user', 'saleKeys')}
@@ -2782,7 +2905,8 @@ const GeneralSettings = () => {
           display: { xs: 'none', md: 'block' },
           minHeight: `calc(100vh - ${APP_BAR_HEIGHT}px)`,
           backgroundColor: '#e2e8f0',
-          borderRight: '4px solid rgba(203,213,225,0.5)',
+          // No right rule: the white active tab runs straight into the white
+          // content column (user request 05/11/2026).
           pt: 2,
           pb: 4
         }}
@@ -2843,7 +2967,9 @@ const GeneralSettings = () => {
 
       {/* Content column: one scrolling column (~756px) except the outlet/register
           LISTS which run full width. */}
-      <Box sx={{ flex: 1, maxWidth: isFullWidthList ? 'none' : 820, minWidth: 0, px: 4, pt: 2, pb: 12 }}>
+      {/* The column runs full width so the white sticky header band reaches the
+          right edge (user request 05/11/2026); the form itself stays ~756px. */}
+      <Box sx={{ flex: 1, minWidth: 0, px: 4, pt: 2, pb: 12, backgroundColor: '#fff' }}>
         {/* Same 50px offset as the rail: at top 0 this search bar sat under the fixed app
             bar and the section heading scrolled through the gap, half hidden. */}
         <Box sx={{ position: 'sticky', top: `${APP_BAR_HEIGHT}px`, zIndex: 3, backgroundColor: '#fff', pt: 1, pb: 2 }}>
@@ -2877,7 +3003,7 @@ const GeneralSettings = () => {
               />
             )}
           />
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, maxWidth: 756 }}>
             <Box>
               <Typography component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '32px', fontWeight: 700, color: '#000' }}>
                 {React.createElement(TAB_GROUPS[activeTab].icon, { sx: { fontSize: 32 } })}
@@ -2888,22 +3014,26 @@ const GeneralSettings = () => {
                   Local settings (not in Crinit's Shop)
                 </Typography>
               )}
+              {/* One navbar outlet: no selector and no name here - the navbar
+                  badge already says which outlet is being edited. */}
             </Box>
             {/* Reference: the outlet being edited is picked here, beside the title. */}
-            {activeTab === 1 && !editingOutletId && (
+            {/* One navbar outlet = nothing to choose: show its name, no dropdown. */}
+            {activeTab === 1 && !editingOutletId && navbarOutletId == null && (
               <FormControl size="small" sx={{ width: 240, flexShrink: 0 }}>
                 <Select
                   value={selectedOutlet || ''}
-                  onChange={(e) => setSelectedOutlet(e.target.value)}
+                  onChange={(e) => selectOutlet(e.target.value)}
                   disabled={loadingOutlets}
                   displayEmpty
                   renderValue={(v) => (v
                     ? (outlets.find((o) => String(o.id) === String(v))?.name || '')
-                    : <Box component="span" sx={{ color: '#9e9e9e' }}>Select Outlets to edit...</Box>)}
+                    : <Box component="span" sx={{ color: '#9e9e9e' }}>Select an outlet</Box>)}
                   sx={SETTING_FIELD_SX}
                   MenuProps={SETTING_LISTBOX_PROPS}
                 >
-                  {outlets.map((outlet) => (
+                  {/* A navbar outlet locks the list to that outlet; "All outlets" lists every outlet. */}
+                  {listedOutlets.map((outlet) => (
                     <MenuItem key={outlet.id} value={outlet.id.toString()}>
                       {outlet.name}
                     </MenuItem>
@@ -2956,10 +3086,12 @@ const GeneralSettings = () => {
         )}
 
         {/* Tab Content */}
+        <Box>
         {activeTab === 0 && renderCompanyTab()}
         {activeTab === 1 && renderOutletsTab()}
         {activeTab === 2 && renderRegistersTab()}
         {activeTab === 3 && renderUsersTab()}
+        </Box>
 
         {/* Success Snackbar */}
         <Snackbar
@@ -3003,7 +3135,14 @@ const GeneralSettings = () => {
             store is showing fallback defaults (see loadFailed). */}
         {/* Outlets: no Save while the outlet's values are still loading - it would
             store the defaults the form starts with. */}
-        <PageSaveBar onSave={handleSave} saving={loading} disabled={anyLoadFailed || (activeTab === 1 && loadingOutletSettings)} />
+        {/* Registers: same while the register's values load. Nothing changed: no Save. */}
+        <PageSaveBar
+          onSave={handleSave}
+          saving={loading}
+          disabled={!isDirty || anyLoadFailed
+            || (activeTab === 1 && loadingOutletSettings)
+            || (activeTab === 2 && loadingRegisterSettings)}
+        />
 
         {/* Confirm Leaving - raised when navigating away with unsaved changes */}
         <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)}>
