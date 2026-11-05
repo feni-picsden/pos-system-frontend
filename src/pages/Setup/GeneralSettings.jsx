@@ -191,6 +191,14 @@ const selectedFirst = (options, selected) => {
 
 // One settings section: 1px top rule, 24px/700 heading, and a 300ms background
 // flash when it is the jump target.
+// Shown inside a Select whose option list is empty (user request 05/11/2026).
+const NO_DATA_ITEM = (
+  <MenuItem disabled value="__no_data__" sx={{ color: '#9e9e9e', fontStyle: 'italic' }}>
+    No data found
+  </MenuItem>
+);
+const noData = (list) => (Array.isArray(list) && list.length === 0 ? NO_DATA_ITEM : null);
+
 const SettingsSection = ({ id, label, flash, children }) => (
   <Box
     id={`section-${id}`}
@@ -1462,7 +1470,7 @@ const GeneralSettings = () => {
         >
           {loadingSaleKeySets ? (
             <MenuItem value="">Loading...</MenuItem>
-          ) : (
+          ) : noData(saleKeySets) || (
             saleKeySets.map((saleKeySet) => {
               // "All outlets": every outlet's sets are listed, so say which
               // outlet each belongs to. One navbar outlet: names only.
@@ -1659,8 +1667,9 @@ const GeneralSettings = () => {
                   label="Sale Key Set"
                   value={selectedOutletSaleKeySetId}
                   onChange={(e) => setSelectedOutletSaleKeySetId(e.target.value)}
-                  disabled={loadingSaleKeySets || outletSaleKeySets.length === 0}
+                  disabled={loadingSaleKeySets}
                 >
+                  {noData(outletSaleKeySets)}
                   {outletSaleKeySets.map(s => (
                     <MenuItem key={s.id} value={String(s.id)}>
                       {s.name}{s.isDefault ? ' (Default)' : ''}
@@ -1968,6 +1977,7 @@ const GeneralSettings = () => {
                   MenuProps={SETTING_LISTBOX_PROPS}
                 >
                   <MenuItem value="">Select...</MenuItem>
+                  {noData(emailReceiptTemplates)}
                   {emailReceiptTemplates.map((template) => (
                     <MenuItem key={template.id} value={template.name}>
                       {template.name}
@@ -2488,6 +2498,7 @@ const GeneralSettings = () => {
                 onChange={handleRegisterSettingChange('defaultPaymentMethodId')}
                 displayEmpty
               >
+                {noData(paymentMethods)}
                 {[...paymentMethods]
                   .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                   .map((pm) => (
@@ -2519,6 +2530,7 @@ const GeneralSettings = () => {
                 onChange={handleRegisterSettingChange('defaultReceiptTemplateId')}
                 displayEmpty
               >
+                {noData(defaultReceiptTemplates)}
                 {defaultReceiptTemplates.map((template) => (
                   <MenuItem key={template.id} value={template.id}>{template.name}</MenuItem>
                 ))}
@@ -2544,6 +2556,7 @@ const GeneralSettings = () => {
                 displayEmpty
               >
                 <MenuItem value="">Default Price Set</MenuItem>
+                {noData(availablePriceSets)}
                 {availablePriceSets.map((ps) => (
                   <MenuItem key={ps.id} value={ps.id}>{ps.name}</MenuItem>
                 ))}
@@ -2576,9 +2589,9 @@ const GeneralSettings = () => {
                 <MenuItem value="Default">Default (outlet / company setting)</MenuItem>
                 {(() => {
                   const regOutlet = registers.find((r) => String(r.id) === String(selectedRegister))?.outletId;
-                  return saleKeySets
-                    .filter((s) => regOutlet == null || s.outletId == null || Number(s.outletId) === Number(regOutlet))
-                    .map((s) => <MenuItem key={s.id} value={s.name}>{s.name}</MenuItem>);
+                  const options = saleKeySets
+                    .filter((s) => regOutlet == null || s.outletId == null || Number(s.outletId) === Number(regOutlet));
+                  return noData(options) || options.map((s) => <MenuItem key={s.id} value={s.name}>{s.name}</MenuItem>);
                 })()}
               </Select>
             </FormControl>
@@ -2666,6 +2679,7 @@ const GeneralSettings = () => {
                 }}
               >
                 <MenuItem value="">None</MenuItem>
+                {noData(customerDisplayTemplates)}
                 {customerDisplayTemplates.map((template) => (
                   <MenuItem key={template.id} value={template.id}>
                     {template.name} (#{template.id})
@@ -2673,11 +2687,6 @@ const GeneralSettings = () => {
                 ))}
               </Select>
             </FormControl>
-            {customerDisplayTemplates.length === 0 && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                No customer display templates
-              </Typography>
-            )}
             <Button sx={{ mt: 1 }} component={RouterLink} to={'/setup/customer-display'}>
               Edit templates
             </Button>
