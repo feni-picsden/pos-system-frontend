@@ -30,8 +30,8 @@ import {
   Delete as DeleteIcon,
   EditOutlined as EditOutlinedIcon,
   Cancel as CancelIcon,
-  ImageOutlined as ImageIcon,
-  Inventory2Outlined as Inventory2OutlinedIcon,
+  CropOriginal as ImageIcon,
+  CakeOutlined as Inventory2OutlinedIcon,
   HomeOutlined as HomeOutlinedIcon,
   LocalOfferOutlined as LocalOfferOutlinedIcon,
   ArrowRight as ArrowRightIcon,
@@ -915,35 +915,43 @@ const ExpressPromotion = () => {
             InputProps={{
               endAdornment: searchTerm ? (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => { setSearchTerm(''); setSearchResults([]); }} sx={{ color: '#404040' }}>
-                    <CancelIcon />
+                  <IconButton size="small" onClick={() => { setSearchTerm(''); setSearchResults([]); }} sx={{ color: '#404040', p: '2px', mr: '-4px' }}>
+                    <CancelIcon sx={{ fontSize: 24 }} />
                   </IconButton>
                 </InputAdornment>
               ) : null
             }}
             sx={{
-              '& .MuiOutlinedInput-root': { minHeight: 50, borderRadius: '8px', fontSize: 16, bgcolor: '#fff' },
+              // Reference: 50px box, dark 1px border, 2px black once typing / focused.
+              '& .MuiOutlinedInput-root': { minHeight: 50, borderRadius: '6px', fontSize: 16, bgcolor: '#fff', pr: '12px' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+              '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+              '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
               // Chrome autofill painted the box light blue.
               '& input:-webkit-autofill': { WebkitBoxShadow: '0 0 0 100px #fff inset' }
             }}
           />
           <Typography sx={{ fontSize: 16, color: '#000', mt: '2px' }}>Please note: All figures are inclusive of tax</Typography>
 
+          {/* Reference dropdown: square panel with a 1px dark frame, drop shadow and a
+              3px sky line along the bottom; it overlaps the "Please note" line. */}
           {/* Reference states: "Start typing to search..." (1 char), "No search results found." */}
           {searchTerm.trim().length > 0 && searchResults.length === 0 && !searchLoading && (
-            <Paper sx={{ position: 'absolute', top: 54, left: 0, right: 0, zIndex: 20, borderRadius: '4px', px: 2, py: 1.5, borderBottom: '3px solid #5ebbeb' }}>
-              <Typography sx={{ fontSize: 18, color: '#000' }}>
+            <Paper square elevation={0} sx={{ position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, border: '1px solid #404040', borderBottom: '3px solid #5ebbeb', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '18px', py: '12px' }}>
+              <Typography sx={{ fontSize: 18, color: '#000', lineHeight: '24px' }}>
                 {searchTerm.trim().length < 2 ? 'Start typing to search...' : 'No search results found.'}
               </Typography>
             </Paper>
           )}
           {searchResults.length > 0 && (
             <Paper
-              sx={{ position: 'absolute', top: 54, left: 0, right: 0, zIndex: 20, maxHeight: 480, overflow: 'auto', borderRadius: '4px', px: 2, py: 1 }}
+              square
+              elevation={0}
+              sx={{ position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, maxHeight: 480, overflowY: 'scroll', border: '1px solid #404040', borderBottom: '3px solid #5ebbeb', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '14px', pt: '8px', pb: '6px' }}
             >
               {GROUP_ORDER.filter((g) => searchResults.some((r) => groupOf(r) === g)).map((g) => (
                 <Box key={g}>
-                  <Typography sx={{ fontSize: 16, color: '#8a8a8a', letterSpacing: 0.5, pt: 1.5, pb: 0.5 }}>{GROUP_LABEL[g]}</Typography>
+                  <Typography sx={{ fontSize: 16, color: '#9e9e9e', letterSpacing: 0.5, lineHeight: '20px', pt: '10px', pb: '4px' }}>{GROUP_LABEL[g]}</Typography>
                   {searchResults.map((product) => (groupOf(product) === g ? (
                     <Box
                       key={`${product.resultType}-${product.id}`}
@@ -951,8 +959,8 @@ const ExpressPromotion = () => {
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1.5,
-                        py: 1,
+                        gap: '12px',
+                        height: 41,
                         cursor: 'pointer',
                         '&:hover': { backgroundColor: '#f5f5f5' },
                         // Reference: no highlight on the top result (hover only); Enter still adds it.
@@ -962,9 +970,9 @@ const ExpressPromotion = () => {
                       {(() => {
                         const g = groupOf(product);
                         const Glyph = g === 'PRODUCT' ? ImageIcon : g === 'FAMILY' ? HomeOutlinedIcon : g === 'CATEGORY' ? Inventory2OutlinedIcon : LocalOfferOutlinedIcon;
-                        return <Glyph sx={{ fontSize: 24, color: '#404040' }} />;
+                        return <Glyph sx={{ fontSize: 22, color: '#404040' }} />;
                       })()}
-                      <Typography sx={{ fontSize: 18, color: '#404040' }}>
+                      <Typography sx={{ fontSize: 18, color: '#404040', lineHeight: '24px' }}>
                         <Highlight text={product.name} term={searchTerm} />
                       </Typography>
                     </Box>

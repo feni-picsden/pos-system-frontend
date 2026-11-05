@@ -2,68 +2,31 @@
 // screen used to ignore (reference: Available to = Customer Groups; Recurring
 // Promotion with an ISO 8601 schedule from the Edit Schedule dialog).
 
-// "P1W", "P1D", "P2M", "PT2H30M", "P1DT12H" -> parts. Null when unreadable.
-export function parseIsoDuration(value) {
-  const s = String(value || '').trim().toUpperCase();
-  const m = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(s);
-  if (!m || s === 'P' || s === 'PT') return null;
-  const n = (v) => parseInt(v || '0', 10);
-  const d = { years: n(m[1]), months: n(m[2]), weeks: n(m[3]), days: n(m[4]), hours: n(m[5]), minutes: n(m[6]), seconds: n(m[7]) };
-  const any = Object.values(d).some((v) => v > 0);
-  return any ? d : null;
-}
+import { parseIsoDuration, addDuration, parseAnchor, isScheduleOn } from './promotionSchedule.js';
 
-export function addDuration(date, d) {
-  const out = new Date(date.getTime());
-  if (d.years) out.setFullYear(out.getFullYear() + d.years);
-  if (d.months) out.setMonth(out.getMonth() + d.months);
-  const days = (d.weeks || 0) * 7 + (d.days || 0);
-  if (days) out.setDate(out.getDate() + days);
-  const ms = ((d.hours || 0) * 3600 + (d.minutes || 0) * 60 + (d.seconds || 0)) * 1000;
-  return ms ? new Date(out.getTime() + ms) : out;
-}
-
-// Local midnight of an anchor date ("2026-10-05" or a full ISO string), plus the
-// optional "HH:mm" time to start.
-function windowStartOf(anchorDate, timeToStart) {
-  const raw = String(anchorDate || '').trim();
-  if (!raw) return null;
-  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
-  const base = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : new Date(raw);
-  if (Number.isNaN(base.getTime())) return null;
-  const t = /^(\d{1,2}):(\d{2})/.exec(String(timeToStart || '').trim());
-  if (t) base.setHours(+t[1], +t[2], 0, 0);
-  else if (ymd) base.setHours(0, 0, 0, 0);
-  return base;
-}
+export { parseIsoDuration, addDuration };
 
 /**
- * Is a recurring schedule "on" at `now`?
- *   anchorDate      first occurrence (date)
+ * Is a recurring schedule "on" at `now`? (utils/promotionSchedule.js rules,
+ * measured on the live reference 05/11/2026.)
+ *   anchorDate      first occurrence, ISO or "DD/MM/YYYY HH:mm:ss", in the STORE zone
  *   repeatingPeriod ISO 8601 duration between occurrences (P1W = weekly)
- *   timeToStart     optional HH:mm within the day
- *   enabledDuration ISO 8601 duration each occurrence stays on (P1D = the whole day)
+ *   timeToStart     optional ISO duration (PT2H) or "HH:mm" after the anchor
+ *   enabledDuration ISO 8601 duration each occurrence stays on
  * A schedule with no anchor or no period is treated as always on (nothing to
  * repeat); an unreadable duration falls back to "whole period".
+ * @param {string} [timeZone] Setup > General timezone (browser zone when omitted)
  */
-export function isScheduleActiveAt(schedule, now = new Date()) {
+export function isScheduleActiveAt(schedule, now = new Date(), timeZone) {
   if (!schedule || typeof schedule !== 'object') return true;
-  const start = windowStartOf(schedule.anchorDate, schedule.timeToStart);
+  const anchor = parseAnchor(schedule.anchorDate, timeZone);
   const period = parseIsoDuration(schedule.repeatingPeriod);
-  if (!start || !period) return true;
-  const enabled = parseIsoDuration(schedule.enabledDuration);
-  if (now < start) return false;
-  // Walk occurrences forward to the last one that started on or before `now`
-  // (calendar months/years make a straight division unsafe). Bounded.
-  let occ = start;
-  for (let i = 0; i < 20000; i += 1) {
-    const next = addDuration(occ, period);
-    if (next.getTime() <= occ.getTime()) return true; // zero-length period: always on
-    if (next > now) break;
-    occ = next;
-  }
-  const end = enabled ? addDuration(occ, enabled) : addDuration(occ, period);
-  return now >= occ && now < end;
+  if (!anchor || !period) return true;
+  const draft = {
+    ...schedule,
+    enabledDuration: parseIsoDuration(schedule.enabledDuration) ? schedule.enabledDuration : schedule.repeatingPeriod,
+  };
+  return isScheduleOn(draft, timeZone, now);
 }
 
 /**

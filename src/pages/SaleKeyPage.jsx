@@ -102,7 +102,7 @@ import priceListService from '../services/priceListService';
 import { priceSetService } from '../services/priceSetService';
 import { resolvePriceListLine } from '../utils/priceListEngine';
 import { lineSavings, itemsPerCase } from '../utils/saleTotals';
-import { allocateCriteriaSets, allocateSpendPromotion, mergeCriteriaGroups, RECEIVE_TYPES as SPEND_RECEIVE_TYPES } from '../utils/criteriaPromotion';
+import { allocateCriteriaSets, allocateSpendPromotion, RECEIVE_TYPES as SPEND_RECEIVE_TYPES } from '../utils/criteriaPromotion';
 import { allocateCrossPromotions } from '../utils/crossPromotion';
 import { isCaseLine, lineStep, displayQuantity, toggleCase } from '../utils/caseLine';
 import { formatMoney } from '../utils/currency';
@@ -5969,7 +5969,7 @@ const SaleKeyPage = () => {
     // "Available to: Customer Groups" - only a member of a listed group gets it.
     if (!promotionAllowedForCustomer(promotion, selectedCustomer)) return false;
     // Recurring Promotion - only inside the schedule's current window.
-    if (promotion.isRecurring && promotion.schedule && !isScheduleActiveAt(promotion.schedule, now)) return false;
+    if (promotion.isRecurring && promotion.schedule && !isScheduleActiveAt(promotion.schedule, now, 'UTC')) return false;
     if (promotion.startDate) {
       const startDateStr = promotion.startDate;
       const startDate = new Date(startDateStr);
@@ -7484,11 +7484,12 @@ const SaleKeyPage = () => {
     const CROSS_RECEIVE = ['total_price', 'each_item_for', 'discount_each_item', 'discount_total', 'discount', 'percentage_discount'];
     const singleSimple = (p) => {
       if (!p || expressTypes.includes(p.promotionType) || !isPromotionActive(p)) return false;
-      if (p.conditions?.quantityType === 'more' || p.conditions?.mixCriteria) return false;
+      if (p.conditions?.quantityType === 'more') return false;
       const crit = liveCriteria(p);
       if (crit.length !== 1) return false;
       const c = crit[0];
-      return c && !c.isOptional && (c.purchaseType || 'purchase') === 'purchase'
+      // A single criterion is always Required (the editor greys the toggle out).
+      return c && (c.purchaseType || 'purchase') === 'purchase'
         && CROSS_RECEIVE.includes(c.receiveType) && (parseFloat(c.purchaseValue) || 0) >= 1
         && (c.receiveType === 'quantity_only' || (parseFloat(c.receiveValue) || 0) > 0)
         && c.quantityType !== 'more' && idsOfCriterion(c).size > 0;
@@ -7542,11 +7543,15 @@ const SaleKeyPage = () => {
       if (p.conditions?.quantityType === 'more') return false;
       if (handled.has(p.id ?? p.name)) return false;
       const crit = liveCriteria(p);
-      return crit.length >= 1 && crit.every(simpleCriterion) && crit.some((c) => !c.isOptional);
+      // All-Optional promotions apply too (reference 04/11/2026: each Optional
+      // criterion prices its own lines independently).
+      return crit.length >= 1 && crit.every(simpleCriterion);
     });
     promos.forEach((p) => {
       const key = p.id ?? p.name;
-      const idsOf = (c) => new Set((c.items || []).filter((i) => !i.excluded && i.productId != null).map((i) => String(i.productId)));
+      // "Exclude count quantity" ON (reference 05/11/2026): an excluded item still
+      // makes up the set and takes its per-unit share of the set price.
+      const idsOf = (c) => new Set((c.items || []).filter((i) => (!i.excluded || c.excludeCountQuantity) && i.productId != null).map((i) => String(i.productId)));
       const crits = liveCriteria(p).map((c) => ({ c, ids: idsOf(c) }));
       if (crits.some((x) => x.ids.size === 0)) return;
       handled.add(key);
@@ -7569,13 +7574,13 @@ const SaleKeyPage = () => {
           lines,
           setQty: Math.floor(parseFloat(c.purchaseValue)),
           setPrice: parseFloat(c.receiveValue) || 0,
-          optional: Boolean(c.isOptional),
+          optional: Boolean(c.isOptional) && crits.length >= 2,
           noChange: c.receiveType === 'quantity_only',
         };
       });
-      // Mix Criteria ON (help article: criteria "mix together as if they were a
-      // single criteria"): one pool, quantities and totals added up.
-      const groups = p.conditions?.mixCriteria ? mergeCriteriaGroups(builtGroups) : builtGroups;
+      // Mix Criteria ON measured identical to OFF on the live reference (04/11/2026):
+      // no pooling, each criterion keeps its own lines.
+      const groups = builtGroups;
       const allLines = groups.flatMap((g) => g.lines);
       if (allLines.length === 0) return;
       // Sets (every criterion met), leftovers and the split over the lines:

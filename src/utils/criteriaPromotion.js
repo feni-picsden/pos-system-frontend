@@ -64,7 +64,7 @@ const normalOfFirst = (byPrice, n) => {
  *        Max Applications Per Sale; the company's Price Rounding Mode.
  * @returns {{sets:number, allCovered:boolean, prices: Map<any, number>}}
  */
-export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute' } = {}) => {
+export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute', allowEqual = false } = {}) => {
   const prices = new Map();
   // Buy X get Y: an Optional criterion whose products are not in the cart does
   // not block the sets (it simply pays nothing out); a "(quantity only)"
@@ -76,7 +76,22 @@ export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute
       totalUnits: g.lines.reduce((s, l) => s + l.q, 0),
       byPrice: [...g.lines].sort((a, b) => b.unit - a.unit),
     }));
-  if (prepared.length === 0 || prepared.every((g) => g.optional)) return { sets: 0, allCovered: false, prices };
+  if (prepared.length === 0) return { sets: 0, allCovered: false, prices };
+  // Measured on the live reference (04/11/2026, Mix criteria ON and OFF gave the
+  // same result): when EVERY criterion is Optional each one is its own promotion
+  // on its own lines - Test "2 for $3" and Crabbies "1 for $3" each price
+  // independently, and one criterion met is enough for the promotion to apply.
+  if (prepared.every((g) => g.optional)) {
+    let sets = 0;
+    let allCovered = true;
+    prepared.forEach((g) => {
+      const r = allocateCriteriaSets([{ ...g, optional: false }], { maxSets, rounding, allowEqual });
+      sets += r.sets;
+      allCovered = allCovered && r.allCovered;
+      r.prices.forEach((v, k) => prices.set(k, v));
+    });
+    return { sets, allCovered: sets > 0 && allCovered, prices };
+  }
 
   let limit = prepared.length
     ? Math.min(...prepared.map((g) => (g.setQty > 0 ? Math.floor(g.totalUnits / g.setQty) : 0)))
@@ -84,7 +99,10 @@ export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute
   if (Number.isFinite(maxSets) && maxSets > 0) limit = Math.min(limit, maxSets);
 
   let sets = 0;
-  let best = 0.005;
+  // allowEqual: the editor simulator reports "Current Promotion Active" even when
+  // the promo total equals the normal price (reference, 04/11/2026); the sell
+  // screen only applies a promotion that actually saves.
+  let best = allowEqual ? -0.005 : 0.005;
   for (let s = 1; s <= limit; s += 1) {
     const saving = prepared.reduce((sum, g) => g.noChange ? sum : sum + normalOfFirst(g.byPrice, s * g.setQty) - s * g.setPrice, 0);
     if (saving > best) { best = saving; sets = s; }
@@ -298,10 +316,9 @@ export const allocateSpendPromotion = (groups, { maxSets, rounding = 'Redistribu
   return { applied, prices };
 };
 
-// "Mix Criteria" ON (reference help article: "whether the criteria should mix
-// together as if they were a single criteria"): every criterion's products
-// count in one pool, one set = the purchase quantities added up, at the promo
-// totals added up. Not verified on the live store (no Mix ON promotion there).
+// "Mix Criteria" pooling. MEASURED on the live reference (04/11/2026): Mix ON and
+// OFF price identically (each Optional criterion on its own lines), so nothing
+// calls this any more; kept only for the old unit tests.
 export const mergeCriteriaGroups = (groups) => {
   if (!groups.length) return [];
   const merged = { lines: [], setQty: 0, setPrice: 0 };

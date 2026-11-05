@@ -43,18 +43,40 @@ export const receiveOptions = (criterion) => {
 };
 
 // Spend "or more" text: always. Purchase grey "exactly" chip: with 2+ criteria, or
-// once a quantity is entered.
-export const showMatchChip = (criterion, criteriaCount, valueBlank = false) =>
-  isSpend(criterion) || criteriaCount >= 2 || (!valueBlank && num(criterion.purchaseValue) > 0);
+// once a quantity is entered - and only while Mix criteria is OFF (reference,
+// 04/11/2026: the chip goes once the criteria mix).
+export const showMatchChip = (criterion, criteriaCount, valueBlank = false, mixOn = false) =>
+  isSpend(criterion) || (!mixOn && (criteriaCount >= 2 || (!valueBlank && num(criterion.purchaseValue) > 0)));
 
 // Reference: switching purchase -> spend while "a total price of" is chosen (spend has
 // no such option) moves the criterion to "each item for".
 export const receiveTypeForPurchaseType = (purchaseType, receiveType) =>
   purchaseType === 'spend' && receiveType === 'total_price' ? 'each_item_for' : receiveType;
 
-// Grey "of any product" chip: shown once a quantity or amount is entered.
+// Grey "of any product" chip: a spend amount once entered; a purchase quantity
+// only from 2 up (reference, 04/11/2026: "Purchase 1" shows no chip).
 export const showAnyProductChip = (criterion, valueBlank = false) =>
-  !valueBlank && num(criterion.purchaseValue) > 0;
+  !valueBlank && num(criterion.purchaseValue) >= (isSpend(criterion) ? 0.01 : 2);
+
+// Header "Mix criteria" toggle (shown with 2+ criteria). Reference tooltips when
+// it is disabled, in this order: every criterion must be Optional, every one
+// needs a quantity, and no two may share a product.
+export const mixCriteriaState = (criteria) => {
+  const list = Array.isArray(criteria) ? criteria : [];
+  if (list.length < 2) return { disabled: true, reason: '' };
+  if (!list.every((c) => c.isOptional)) return { disabled: true, reason: 'Both criteria need to be optional' };
+  if (!list.every((c) => num(c.purchaseValue) >= 1)) return { disabled: true, reason: 'Both criteria require a valid quantity' };
+  const seen = new Set();
+  for (const c of list) {
+    for (const i of c.items || []) {
+      if (i.excluded || i.productId == null) continue;
+      const key = String(i.productId);
+      if (seen.has(key)) return { disabled: true, reason: 'The criteria cannot share the same items' };
+      seen.add(key);
+    }
+  }
+  return { disabled: false, reason: '' };
+};
 
 // Reference PROFIT for a spend criterion is always "-" (no per-item cost basis).
 export const profitHidden = (criterion) => isSpend(criterion);
