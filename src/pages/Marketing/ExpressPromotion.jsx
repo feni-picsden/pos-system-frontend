@@ -117,6 +117,9 @@ const Highlight = ({ text, term }) => {
 const GROUP_ORDER = ['CATEGORY', 'BRAND', 'FAMILY', 'TAG', 'PRODUCT'];
 const groupOf = (r) => (r.resultType === 'PRODUCT' ? 'PRODUCT' : String(r.type || 'CLASSIFICATION').toUpperCase());
 const GROUP_LABEL = { CATEGORY: 'CATEGORIES', BRAND: 'BRANDS', FAMILY: 'FAMILIES', TAG: 'TAGS', PRODUCT: 'PRODUCTS' };
+// Results in the order the dropdown draws them (grouped), so the keyboard index
+// (ArrowUp/Down, Enter) points at the row the user sees highlighted.
+const inDisplayOrder = (results) => GROUP_ORDER.flatMap((g) => results.filter((r) => groupOf(r) === g));
 
 const ExpressPromotion = () => {
   const navigate = useNavigate();
@@ -335,7 +338,7 @@ const ExpressPromotion = () => {
     const query = term.trim();
     if (!query) return [];
     const [products] = await Promise.all([
-      productService.getProducts({ search: query, limit: 20 }).then((r) => r?.products || []).catch(() => []),
+      productService.getProducts({ search: query, limit: 20, pick: 1 }).then((r) => r?.products || []).catch(() => []),
     ]);
     return [
       ...products.map((p) => ({ ...p, resultType: 'PRODUCT' })),
@@ -351,8 +354,8 @@ const ExpressPromotion = () => {
     const query = term.trim();
     if (!query) return [];
     const [products, classifications] = await Promise.all([
-      productService.getProducts({ search: query, limit: 20 }).then((r) => r?.products || []).catch(() => []),
-      classificationService.getClassifications({ search: query }).then((r) => r?.classifications || []).catch(() => []),
+      productService.getProducts({ search: query, limit: 20, pick: 1 }).then((r) => r?.products || []).catch(() => []),
+      classificationService.getClassifications({ search: query, lite: 1 }).then((r) => r?.classifications || []).catch(() => []),
     ]);
     return [
       ...products.map((p) => ({ ...p, resultType: 'PRODUCT' })),
@@ -391,7 +394,7 @@ const ExpressPromotion = () => {
       if (seq !== searchSeq.current) return; // a newer search (or a clear) superseded this one
       setSearchResults(results);
       // Enter was pressed while this search ran: add the top row of the fresh list.
-      if (resultKeys.takePending('items') && results.length > 0) handleAddProduct(results[0]);
+      if (resultKeys.takePending('items') && results.length > 0) handleAddProduct(inDisplayOrder(results)[0]);
     } catch (error) {
       console.error('Error searching products:', error);
       if (seq === searchSeq.current) setSearchResults([]);
@@ -487,7 +490,7 @@ const ExpressPromotion = () => {
       if (type === 'FAMILY') {
         const doneLoading = () => setFormData(prev => ({ ...prev, items: prev.items.map((i) => (i.classificationId === entry.id ? { ...i, membersLoading: false } : i)) }));
         try {
-          const response = await classificationService.getClassificationProducts(entry.id);
+          const response = await classificationService.getClassificationProducts(entry.id, { assignedOnly: 1 });
           const members = (response?.assignedProducts || []).map((p) => {
             const tier = getBaseTier(p.prices);
             return { productId: p.id, name: p.name, unitCost: Number(p.cost || tier?.cost || 0), unitNormal: Number(tier?.price || 0) };
@@ -943,7 +946,7 @@ const ExpressPromotion = () => {
               resultKeys.reset('items');
               searchProducts(e.target.value);
             }}
-            onKeyDown={resultKeys.handleKeyDown('items', searchResults, handleAddProduct, () => setSearchResults([]), { loading: searchLoading })}
+            onKeyDown={resultKeys.handleKeyDown('items', inDisplayOrder(searchResults), handleAddProduct, () => setSearchResults([]), { loading: searchLoading })}
             InputProps={{
               endAdornment: searchTerm ? (
                 <InputAdornment position="end">
@@ -985,7 +988,7 @@ const ExpressPromotion = () => {
               {GROUP_ORDER.filter((g) => searchResults.some((r) => groupOf(r) === g)).map((g) => (
                 <Box key={g}>
                   <Typography sx={{ fontSize: 16, color: '#9e9e9e', letterSpacing: 0.5, lineHeight: '20px', pt: '10px', pb: '4px' }}>{GROUP_LABEL[g]}</Typography>
-                  {searchResults.map((product) => (groupOf(product) === g ? (
+                  {inDisplayOrder(searchResults).map((product, flatIndex) => (groupOf(product) === g ? (
                     <Box
                       key={`${product.resultType}-${product.id}`}
                       onClick={() => handleAddProduct(product)}
@@ -995,8 +998,11 @@ const ExpressPromotion = () => {
                         gap: '12px',
                         height: 41,
                         cursor: 'pointer',
+                        mx: '-14px',
+                        px: '14px',
                         '&:hover': { backgroundColor: '#f5f5f5' },
-                        // Reference: no highlight on the top result (hover only); Enter still adds it.
+                        // Top result pre-highlighted; ArrowUp/Down move it, Enter adds it.
+                        ...(resultKeys.isActive('items', flatIndex) ? ACTIVE_ROW_SX : {}),
                       }}
                     >
                       {/* Reference icons: product = picture, family = house, category = box, brand/tag = label */}

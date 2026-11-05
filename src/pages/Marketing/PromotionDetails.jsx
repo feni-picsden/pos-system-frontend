@@ -611,10 +611,10 @@ const PromotionDetails = () => {
     await new Promise((resolve) => { searchTimers.current[criterionId] = setTimeout(resolve, 250); });
     if (searchSeq.current[criterionId] !== seq) return;
     const [products, classifications] = await Promise.all([
-      productService.getProducts({ search: searchValue, limit: 20 })
+      productService.getProducts({ search: searchValue, limit: 20, pick: 1 })
         .then(r => r.products || [])
         .catch(() => []),
-      classificationService.getClassifications({ search: searchValue })
+      classificationService.getClassifications({ search: searchValue, lite: 1 })
         .then(r => r.classifications || [])
         .catch(() => []),
     ]);
@@ -770,7 +770,7 @@ const PromotionDetails = () => {
       sourceLabel = `Classification: ${result.name}`;
       classification = { name: result.name, type: String(result.type || 'CLASSIFICATION').toUpperCase() };
       try {
-        const response = await classificationService.getClassificationProducts(result.id);
+        const response = await classificationService.getClassificationProducts(result.id, { assignedOnly: 1 });
         products = response.assignedProducts || [];
       } catch (error) {
         console.error('Error fetching classification products:', error);
@@ -781,11 +781,15 @@ const PromotionDetails = () => {
       }
     } else {
       let fullProduct = result;
-      try {
-        const productDetails = await productService.getProduct(result.id);
-        fullProduct = productDetails.product || productDetails;
-      } catch (error) {
-        console.error('Error fetching product details:', error);
+      // A pick-mode search row already carries prices and costs; the extra
+      // GET /products/:id (3-7s remote) held the row back after the click.
+      if (!Array.isArray(result.prices)) {
+        try {
+          const productDetails = await productService.getProduct(result.id);
+          fullProduct = productDetails.product || productDetails;
+        } catch (error) {
+          console.error('Error fetching product details:', error);
+        }
       }
       products = [fullProduct];
     }

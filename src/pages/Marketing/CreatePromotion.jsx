@@ -381,8 +381,8 @@ const CreatePromotion = () => {
     }
     setItemSearching(true);
     const [products, classifications] = await Promise.all([
-      productService.getProducts({ search: query, limit: 20 }).then((r) => r?.products || []).catch(() => []),
-      classificationService.getClassifications({ search: query }).then((r) => r?.classifications || []).catch(() => [])
+      productService.getProducts({ search: query, limit: 20, pick: 1 }).then((r) => r?.products || []).catch(() => []),
+      classificationService.getClassifications({ search: query, lite: 1 }).then((r) => r?.classifications || []).catch(() => [])
     ]);
     // Concatenated in group order — MUI groups consecutive options only. A Combo
     // Product is an ordinary product row, so it already arrives with the products.
@@ -402,7 +402,7 @@ const CreatePromotion = () => {
       let products = [selection];
       if (selection?.resultType === 'CLASSIFICATION') {
         products = await classificationService
-          .getClassificationProducts(selection.id)
+          .getClassificationProducts(selection.id, { assignedOnly: 1 })
           .then((r) => r?.assignedProducts || [])
           .catch(() => []);
       }
@@ -708,7 +708,7 @@ const CreatePromotion = () => {
       return;
     }
     try {
-      const response = await productService.getProducts({ search: term, limit: 20 });
+      const response = await productService.getProducts({ search: term, limit: 20, pick: 1 });
       setComboProductResults(Array.isArray(response?.products) ? response.products : []);
     } catch (error) {
       console.error('Error searching products:', error);

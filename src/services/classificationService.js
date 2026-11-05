@@ -30,6 +30,7 @@ const classificationService = {
     if (filters.type) params.append('type', filters.type);
     if (filters.categoryFilter) params.append('categoryFilter', filters.categoryFilter);
     if (filters.outletId) params.append('outletId', filters.outletId);
+    if (filters.lite) params.append('lite', '1'); // rows only, no per-row product counts
 
     const response = await apiClient.get(`/classifications?${params.toString()}`);
     return response.data;
@@ -68,7 +69,8 @@ const classificationService = {
     const params = new URLSearchParams();
     if (filters.search) params.append('search', filters.search);
     if (filters.unassignedOnly) params.append('unassignedOnly', filters.unassignedOnly);
-    
+    if (filters.assignedOnly) params.append('assignedOnly', '1'); // members only, slim pricing fields
+
     const response = await apiClient.get(`/classifications/${id}/products?${params.toString()}`);
     return response.data;
   },
