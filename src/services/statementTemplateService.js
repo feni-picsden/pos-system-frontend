@@ -88,8 +88,8 @@ const statementTemplateService = {
     if (outletId !== undefined) body.outletId = outletId;
     return (await apiClient.post('/statement-templates', body)).data;
   },
-  cloneTemplate: async (template) => {
-    const body = { name: `${template.name} (Copy)`, config: template.config || {}, outletId: template.outletId ?? null };
+  cloneTemplate: async (template, name) => {
+    const body = { name: (name || `${template.name} - Clone`).trim(), config: template.config || {}, outletId: template.outletId ?? null };
     return (await apiClient.post('/statement-templates', body)).data;
   },
   deleteTemplate: async (id) => (await apiClient.delete(`/statement-templates/${id}`)).data,
@@ -98,6 +98,13 @@ const statementTemplateService = {
     return { config: template?.config || {} };
   },
   updateTemplateConfig: async (id, config) => (await apiClient.put(`/statement-templates/${id}`, { config })).data,
+  // Same PUT; it also takes `name` (the editor saves a rename with the design).
+  updateTemplate: async (id, { config, name }) => {
+    const body = {};
+    if (config !== undefined) body.config = config;
+    if (name !== undefined) body.name = name;
+    return (await apiClient.put(`/statement-templates/${id}`, body)).data;
+  },
 };
 
 export { statementTemplateService };

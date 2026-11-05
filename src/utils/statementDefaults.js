@@ -4,6 +4,32 @@
 // editor uses to place them under the labelled Header/Footer regions; the live
 // StatementRenderer just renders them in array order (zone is ignored there).
 
+import { borderToCss, normalizeBorder, BORDER_SIDES } from './receiptTemplateShape.js';
+import { renderExpressions } from './receiptExpressions.js';
+
+// The three seeded Text blocks' original wording. A Text block that is cleared
+// and saved gets its default back (user request 05/11/2026).
+export const DEFAULT_STATEMENT_TEXTS = {
+  business: '<div style="text-align:right"><span style="font-size:17px"><strong>{businessName}</strong></span><br/>{businessAddress}<br/><br/>Ph: {businessPhone}<br/>{businessEmail}<br/><br/>ABN: {businessAbn}</div>',
+  customer: '<div style="text-align:left">{customerCode}<br/>{customerCompany}<br/>{customerName}<br/><span style="color:#808080">{customerAddress}<br/>{customerCity}</span></div>',
+  terms: '<div style="text-align:left">TERMS: Strictly 15 days of Statement.<br/><br/>____________________________<br/><br/><strong>Payment Details:</strong><br/><br/><strong>{businessName}</strong><br/>BSB: 000 000<br/>ACC: 0000 0000<br/><span style="font-size:10px">Thank you........</span></div>',
+};
+
+// Which default a Text block started from: its stored defaultText, or (for
+// templates saved before defaultText existed) a guess from its content.
+export const defaultTextFor = (props = {}) => {
+  if (props.defaultText) return props.defaultText;
+  const html = String(props.richTextContent || props.content || '');
+  if (/\{business(Address|Phone|Abn|Email)\}|ABN:/.test(html) && !/Payment Details/i.test(html)) return DEFAULT_STATEMENT_TEXTS.business;
+  if (/\{customer\w*\}|customer\./.test(html)) return DEFAULT_STATEMENT_TEXTS.customer;
+  if (/Payment Details|TERMS:/i.test(html)) return DEFAULT_STATEMENT_TEXTS.terms;
+  return '';
+};
+
+// True when rich text has no visible content (only tags, &nbsp; or spaces).
+export const isBlankRichText = (html) => !String(html || '')
+  .replace(/<img\b[^>]*>/gi, 'x').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+
 let seq = 0;
 const uid = (t) => `${t}-${Date.now()}-${seq++}`;
 
@@ -44,13 +70,47 @@ const buildVariableMap = (customer = {}, business = {}) => {
 // its (blank) line, except blank lines at the very top of the block — no code
 // starts the block at the company/name, an empty company leaves a gap below the
 // code.
+// Reference-style expressions ({IF(customer, customer.code, "")},
+// {coalesce(customer.billing.addressStreet1, "")} ...) are evaluated with the
+// receipt expression engine against this context. Paths follow the reference's
+// names; both the live API customer and the editor mock shape resolve.
+const buildExpressionContext = (customer, business = {}) => {
+  const c = customer || null;
+  const address = (prefix) => (c ? {
+    addressStreet1: c[`${prefix}Street1`] || (prefix === 'billing' ? c.address : '') || '',
+    addressStreet2: c[`${prefix}Street2`] || '',
+    addressSuburb: c[`${prefix}Suburb`] || (prefix === 'billing' ? c.city : '') || '',
+    addressPostcode: c[`${prefix}Postcode`] || '',
+    addressState: c[`${prefix}State`] || '',
+    addressCountry: c[`${prefix}Country`] || '',
+  } : null);
+  const vars = buildVariableMap(c || {}, business || {});
+  return {
+    customer: c ? {
+      ...c,
+      code: vars.customerCode,
+      company: vars.customerCompany,
+      name: vars.customerName,
+      billing: address('billing'),
+      delivery: address('delivery'),
+    } : null,
+    outlet: { ...business, abn: business?.abn || '' },
+  };
+};
+
+// Only braces that look like an expression (a call or a dotted path) are
+// evaluated, so ordinary braces and unknown {words} in a user's text survive.
+const EXPRESSION_RE = /\{([^{}]*[(.][^{}]*)\}/g;
+
 export const applyStatementVariables = (html, customer, business) => {
   if (!html) return html;
   const map = buildVariableMap(customer || {}, business || {});
+  const context = buildExpressionContext(customer, business || {});
   return String(html)
     .replace(/\{(\w+)\}/g, (match, key) =>
       Object.prototype.hasOwnProperty.call(map, key) ? map[key] : match
     )
+    .replace(EXPRESSION_RE, (match) => renderExpressions(match, context))
     .replace(/^((?:\s*<(?!br\b)[^>]*>)*)(?:\s*<br\s*\/?>)+/i, '$1')
     // An outlet with no phone / ABN would print a bare "Ph:" / "ABN:" caption.
     .replace(/(?:Ph|ABN):\s*(?=<br\s*\/?>|<\/)/g, '');
@@ -148,7 +208,8 @@ export const buildDefaultStatementComponents = () => [
               content: '{businessName}',
               // Reference: name (larger, bold), address, blank line, "Ph:" phone then
               // email, blank line, "ABN:" number.
-              richTextContent: '<div style="text-align:right"><span style="font-size:17px"><strong>{businessName}</strong></span><br/>{businessAddress}<br/><br/>Ph: {businessPhone}<br/>{businessEmail}<br/><br/>ABN: {businessAbn}</div>',
+              richTextContent: DEFAULT_STATEMENT_TEXTS.business,
+              defaultText: DEFAULT_STATEMENT_TEXTS.business,
             },
           }],
         },
@@ -173,7 +234,8 @@ export const buildDefaultStatementComponents = () => [
               content: '{customerName}',
               // Reference: code, company, name, then the address in grey. Empty
               // fields drop their line.
-              richTextContent: '<div style="text-align:left">{customerCode}<br/>{customerCompany}<br/>{customerName}<br/><span style="color:#808080">{customerAddress}<br/>{customerCity}</span></div>',
+              richTextContent: DEFAULT_STATEMENT_TEXTS.customer,
+              defaultText: DEFAULT_STATEMENT_TEXTS.customer,
             },
           }],
         },
@@ -212,7 +274,8 @@ export const buildDefaultStatementComponents = () => [
       backgroundColor: '#c9f3a1', padding: { top: 8, right: 8, bottom: 8, left: 8 }, border: { ...noBorder },
       fontSize: 13, fontWeight: 'normal', textAlign: 'left',
       content: 'TERMS: Strictly 15 days of Statement.',
-      richTextContent: '<div style="text-align:left">TERMS: Strictly 15 days of Statement.<br/><br/>____________________________<br/><br/><strong>Payment Details:</strong><br/><br/><strong>{businessName}</strong><br/>BSB: 000 000<br/>ACC: 0000 0000<br/><span style="font-size:10px">Thank you........</span></div>',
+      richTextContent: DEFAULT_STATEMENT_TEXTS.terms,
+              defaultText: DEFAULT_STATEMENT_TEXTS.terms,
     },
   },
 ];
@@ -226,3 +289,27 @@ export const buildDefaultStatementConfig = () => ({
   components: buildDefaultStatementComponents(),
   canvas: { width: 210, padding: 10, fontFamily: 'Arial', fontSize: 12, backgroundColor: '#ffffff' },
 });
+
+// ---- borders -------------------------------------------------------------------
+// The Border Settings dialog (shared with the receipt editor) stores a border PER
+// SIDE: { top, right, bottom, left: { width, style, color } }. Templates saved before
+// it carry ONE flat border { enabled, width, style, color }, which the printed
+// statement read two ways: a Text block drew it only when `enabled` was set (width
+// defaulting to 1); every other block drew it whenever width > 0 and ignored
+// `enabled` (their old panels toggled the width only). Map a flat border onto that
+// rule first, so a saved statement prints exactly the border it printed before.
+export const statementBorder = (border, { legacyUsesEnabled = false } = {}) => {
+  if (!border || typeof border !== 'object') return border;
+  if (BORDER_SIDES.some((k) => border[k] && typeof border[k] === 'object')) return border;
+  if (legacyUsesEnabled) {
+    return border.enabled
+      ? { ...border, enabled: true, width: Number(border.width) || 1 }
+      : { ...border, enabled: false };
+  }
+  return { ...border, enabled: Number(border.width) > 0 };
+};
+
+// CSS (borderTop/Right/Bottom/Left) for either border shape — the editor canvas,
+// the Settings preview, the preview dialog and the printed statement all use this.
+export const statementBorderCss = (border, options) =>
+  borderToCss(normalizeBorder(statementBorder(border, options)));

@@ -51,6 +51,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import outletService from '../../services/outletService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import TemplateListActions, { templateListHeadSx, templateListBodySx } from '../../components/Common/TemplateListActions';
 import PageLoader from '../../components/Common/PageLoader';
 import statementTemplateService from '../../services/statementTemplateService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
@@ -62,25 +63,58 @@ const blankCanvas = () => ({ width: 210, padding: 10, fontFamily: 'Arial', fontS
 const QuestionBadge = () => (
   <Box
     sx={{
-      position: 'absolute', top: -48, left: '50%', transform: 'translateX(-50%)',
-      width: 96, height: 96, borderRadius: '50%', bgcolor: '#1c86f2',
+      position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)',
+      width: 120, height: 120, borderRadius: '50%', bgcolor: '#1c86f2',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}
   >
-    <Box component="i" className="fal fa-question" aria-hidden="true" sx={{ display: 'flex', color: '#f8f8f8', '& svg': { height: 72 } }}>
-      <svg viewBox="0 0 320 512" fill="currentColor" focusable="false">
-        <path d="M80 160c0-35.3 28.7-64 64-64l32 0c35.3 0 64 28.7 64 64l0 3.6c0 21.8-11.1 42.1-29.4 53.8l-42.2 27.1c-25.2 16.2-40.4 44.1-40.4 74l0 1.4c0 17.7 14.3 32 32 32s32-14.3 32-32l0-1.4c0-8.2 4.2-15.8 11-20.2l42.2-27.1c36.6-23.6 58.8-64.1 58.8-107.7l0-3.6c0-70.7-57.3-128-128-128l-32 0C73.3 32 16 89.3 16 160c0 17.7 14.3 32 32 32s32-14.3 32-32zm80 320a40 40 0 1 0 0-80 40 40 0 1 0 0 80z" />
+    {/* Reference glyph: outlined '?' (light weight), not a solid fill */}
+    <Box component="i" className="fal fa-question" aria-hidden="true" sx={{ display: 'flex', color: '#f8f8f8', '& svg': { height: 80, width: 54 } }}>
+      <svg viewBox="0 0 24 36" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+        <path d="M5 11.5a7 7 0 1 1 10.6 6c-2.2 1.3-3.6 2.6-3.6 5.2v1.3" />
+        <circle cx="12" cy="30" r="3" />
       </svg>
     </Box>
   </Box>
 );
 
 const questionPaperSx = (width) => ({
-  width, maxWidth: 'calc(100vw - 32px)', m: 0, mt: '48px', bgcolor: '#fff', borderRadius: 0, overflow: 'visible',
+  width, maxWidth: 'calc(100vw - 32px)', m: 0, mt: '60px', bgcolor: '#fff', borderRadius: 0, overflow: 'visible',
   boxShadow: 'rgba(0,0,0,0.25) 0 0 30px 0, rgba(0,0,0,0.19) 0 15px 30px 0',
 });
 
-const dialogTitleSx = { fontSize: '18.72px', fontWeight: 700, color: '#000', textAlign: 'center', p: '8px 0 0', m: 0, mt: '48px' };
+const dialogTitleSx = { fontSize: '18.72px', fontWeight: 700, color: '#000', textAlign: 'center', p: '8px 0 0', m: 0, mt: '60px' };
+
+// Reference name input: 1px black box with small rounded corners (2px when focused).
+const nameFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    height: 53, bgcolor: '#fff', borderRadius: '4px',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  },
+  '& .MuiOutlinedInput-input': { p: '16px', fontSize: 16, color: '#000' },
+};
+
+// Reference green Create / Clone button (32px text, dark when disabled).
+const addButtonSx = {
+  height: 48, bgcolor: '#32b643', color: '#f8f8f8', border: '1px solid #f8f8f8', borderRadius: 0,
+  fontSize: 32, fontWeight: 400, lineHeight: 1, textTransform: 'none', boxShadow: 'none', p: '4px 8px',
+  transition: 'background 0.2s ease, color 0.2s ease',
+  '&:hover': { bgcolor: '#f8f8f8', color: '#32b643', boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: '#404040', color: '#737373', border: '1px solid #404040' },
+};
+
+// Same centred, evenly spaced actions as Setup > Receipts.
+const actionsCellSx = {
+  textAlign: 'center',
+  // One line, like the reference: no wrap, gap sized to fit the 391px column.
+  '& ul.actions': { display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap', columnGap: '16px' },
+  '& ul.actions li': { height: 'auto', lineHeight: '24px', display: 'inline-flex', alignItems: 'center', p: 0 },
+  '& ul.actions li > i.fal': { width: 20, height: 20, mr: '6px', '& svg': { width: 18, height: 18 } },
+};
+
+const apiError = (err, fallback) => err?.response?.data?.error || fallback;
 
 // Reference Cancel: pale grey, grey outline, 32px text.
 const cancelButtonSx = {
@@ -190,12 +224,16 @@ const StatementTemplates = () => {
     setShowStartDialog(true);
   };
 
+  const [creating, setCreating] = useState(false);
+
   const handleCreateTemplate = async (startFrom) => {
+    if (creating) return;
     try {
       if (!newTemplate.name.trim()) {
         setError('Please enter a name for the statement template');
         return;
       }
+      setCreating(true);
 
       const templateData = {
         name: newTemplate.name.trim(),
@@ -224,7 +262,11 @@ const StatementTemplates = () => {
       }
     } catch (err) {
       console.error('Error creating statement template:', err);
-      setError('Failed to create statement template');
+      // Close the Blank/Default step so the error is visible on the page.
+      setShowStartDialog(false);
+      setError(apiError(err, 'Failed to create statement template'));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -315,13 +357,47 @@ const StatementTemplates = () => {
     }
   };
 
-  const handleClone = async (template) => {
+  // Reference "Confirm Clone" (same as Receipts): ask the name, prefilled "<name> - Clone".
+  const [cloneSource, setCloneSource] = useState(null);
+  const [cloneName, setCloneName] = useState('');
+  const [cloneError, setCloneError] = useState('');
+  const [cloning, setCloning] = useState(false);
+
+  const handleClone = (template) => {
+    setCloneSource(template);
+    setCloneName(`${template.name} - Clone`);
+    setCloneError('');
+  };
+
+  const closeCloneDialog = () => {
+    if (cloning) return;
+    setCloneSource(null);
+    setCloneError('');
+  };
+
+  const confirmClone = async () => {
+    if (!cloneSource || cloning) return;
+    const name = cloneName.trim();
+    if (!name) {
+      setCloneError('Please enter a name for the clone');
+      return;
+    }
+    setCloning(true);
     try {
-      await statementTemplateService.cloneTemplate(template);
+      // Fresh copy from the server, so the clone gets the latest saved design.
+      let source = cloneSource;
+      if (cloneSource.id != null) {
+        const res = await statementTemplateService.getTemplate(cloneSource.id).catch(() => null);
+        if (res?.template) source = res.template;
+      }
+      await statementTemplateService.cloneTemplate(source, name);
+      setCloneSource(null);
       await loadTemplates();
     } catch (err) {
       console.error('Error cloning statement template:', err);
-      setError('Failed to clone statement template');
+      setCloneError(apiError(err, 'Failed to clone statement template'));
+    } finally {
+      setCloning(false);
     }
   };
 
@@ -375,114 +451,24 @@ const StatementTemplates = () => {
       <TableContainer>
         <Table sx={{ borderCollapse: 'collapse', tableLayout: 'fixed', bgcolor: 'transparent' }}>
           <TableHead>
-            <TableRow
-              sx={{
-                '& th': {
-                  bgcolor: 'transparent',
-                  color: '#000',
-                  fontWeight: 700,
-                  fontSize: 16,
-                  border: '1px solid #000',
-                  borderRadius: 0,
-                  height: 36,
-                  lineHeight: '20px',
-                  p: '8px',
-                  textAlign: 'center',
-                },
-              }}
-            >
+            <TableRow sx={templateListHeadSx}>
               {/* 1512 / 391 split of the 1903px table = 79.4535% */}
               <TableCell sx={{ width: '79.4535%' }}>Name</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody
-            sx={{
-              '& tr': { bgcolor: '#f8f8f8', height: 52 },
-              '& td': { border: '1px solid #000', fontSize: 16, fontWeight: 400, lineHeight: '20px', color: '#000', p: '16px' },
-            }}
-          >
+          {/* Reference rows alternate grey / white */}
+          <TableBody sx={{ ...templateListBodySx, '& tr:nth-of-type(even)': { bgcolor: '#fff' } }}>
             {templates.map((template) => (
-              <TableRow key={template.id}>
+              <TableRow key={template.id ?? 'default'}>
                 <TableCell>{template.name}</TableCell>
-                <TableCell sx={{ py: '16px' }}>
-                  <Box
-                    component="ul"
-                    className="actions"
-                    sx={{
-                      // Reference ul.actions is display:block with inline-block li.
-                      display: 'block',
-                      // Reference allows no break between the inline-block li.
-                      whiteSpace: 'nowrap',
-                      listStyle: 'none',
-                      m: 0,
-                      p: 0,
-                      '& li': {
-                        display: 'inline-block',
-                        // MUI Typography bleeds letter-spacing; reference li is normal.
-                        letterSpacing: 'normal',
-                        height: 19,
-                        p: '0 8px',
-                        m: 0,
-                        borderRadius: 0,
-                        fontSize: 16,
-                        fontWeight: 400,
-                        lineHeight: '19px',
-                        cursor: 'pointer',
-                        transition: 'all 0s',
-                        userSelect: 'none',
-                        whiteSpace: 'nowrap',
-                      },
-                      // Reference icons are <i class="fal fa-*"> (20x16, fw300). FontAwesome is not
-                      // installed and adding it is out of scope, so each glyph is an inline path in
-                      // the reference's own tag/class/box.
-                      '& li > i.fal': {
-                        width: 20,
-                        height: 16,
-                        mr: '8px',
-                        fontWeight: 300,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        verticalAlign: 'middle',
-                        flexShrink: 0,
-                        '& svg': { width: 14, height: 14 },
-                      },
-                      '& li.action-edit': { color: '#32b643', '&:hover': { color: '#6dd77b' } },
-                      '& li.action-view': { color: '#1c86f2', '&:hover': { color: '#73b4f7' } },
-                      '& li.action-delete': { color: '#e3342f', '&:hover': { color: '#f3aaa8' } },
-                      '& li.action-clone': { color: '#1c86f2', '&:hover': { color: '#73b4f7' } },
-                    }}
-                  >
-                    <li className="action-edit action-locked" onClick={() => handleEdit(template)}>
-                      <i className="fal fa-pencil fa-fw shopfront-icon" aria-hidden="true">
-                        <svg viewBox="0 0 512 512" fill="currentColor" focusable="false">
-                          <path d="M410.3 231l11.3-11.3-33.9-33.9-62.1-62.1L291.7 89.8l-11.3 11.3-22.6 22.6L58.6 322.9c-10.4 10.4-18 23.3-22.2 37.4L1 480.7c-2.5 8.4-.2 17.5 6.1 23.7s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L387.7 253.7 410.3 231zM160 399.4l-9.1 22.7c-4 3.1-8.5 5.4-13.3 6.9L59.4 452l23-78.1c1.4-4.9 3.8-9.4 6.9-13.3l22.7-9.1v32c0 8.8 7.2 16 16 16h32zM362.7 18.7L348.3 33.2 325.7 55.8 314.3 67.1l33.9 33.9 62.1 62.1 33.9 33.9 11.3-11.3 22.6-22.6 14.5-14.5c25-25 25-65.5 0-90.5L453.3 18.7c-25-25-65.5-25-90.5 0zm-47.4 168l-144 144c-6.2 6.2-16.4 6.2-22.6 0s-6.2-16.4 0-22.6l144-144c6.2-6.2 16.4-6.2 22.6 0s6.2 16.4 0 22.6z" />
-                        </svg>
-                      </i>Edit
-                    </li>
-                    <li className="action-view action-locked" onClick={() => handleConfigure(template)}>
-                      <i className="fal fa-cogs fa-fw shopfront-icon" aria-hidden="true">
-                        <svg viewBox="0 0 640 512" fill="currentColor" focusable="false">
-                          <path d="M308.5 135.3c7.1-6.3 9.9-16.2 6.2-25c-2.3-5.3-4.8-10.5-7.6-15.5L304 89.4c-3-5-6.3-9.9-9.8-14.6c-5.7-7.6-15.7-10.1-24.7-7.1l-28.2 9.3c-10.7-8.8-23-16-36.2-20.9L199 27.1c-1.9-9.3-9.1-16.7-18.5-17.8C173.9 8.4 167.2 8 160.4 8h-.7c-6.8 0-13.5 .4-20.1 1.2c-9.4 1.1-16.6 8.6-18.5 17.8L115 56.1c-13.3 5-25.5 12.1-36.2 20.9L50.5 67.8c-9-3-19-.5-24.7 7.1c-3.5 4.7-6.8 9.6-9.9 14.6l-3 5.3c-2.8 5-5.3 10.2-7.6 15.5c-3.7 8.7-.9 18.6 6.2 25l22.2 19.8C32.6 161.9 32 168.9 32 176s.6 14.1 1.7 20.9L11.5 216.7c-7.1 6.3-9.9 16.2-6.2 25c2.3 5.3 4.8 10.5 7.6 15.5l3 5.3c3 5 6.3 9.9 9.9 14.6c5.7 7.6 15.7 10.1 24.7 7.1l28.2-9.3c10.7 8.8 23 16 36.2 20.9l6.1 29.1c1.9 9.3 9.1 16.7 18.5 17.8c6.7 .8 13.5 1.2 20.4 1.2s13.7-.4 20.4-1.2c9.4-1.1 16.6-8.6 18.5-17.8l6.1-29.1c13.3-5 25.5-12.1 36.2-20.9l28.2 9.3c9 3 19 .5 24.7-7.1c3.5-4.7 6.8-9.5 9.8-14.6l3.1-5.4c2.8-5 5.3-10.2 7.6-15.5c3.7-8.7 .9-18.6-6.2-25l-22.2-19.8c1.1-6.8 1.7-13.8 1.7-20.9s-.6-14.1-1.7-20.9l22.2-19.8zM112 176a48 48 0 1 1 96 0 48 48 0 1 1 -96 0zM504.7 500.5c6.3 7.1 16.2 9.9 25 6.2c5.3-2.3 10.5-4.8 15.5-7.6l5.3-3.1c5-3 9.9-6.3 14.6-9.8c7.6-5.7 10.1-15.7 7.1-24.7l-9.3-28.2c8.8-10.7 16-23 20.9-36.2l29.1-6.1c9.3-1.9 16.7-9.1 17.8-18.5c.8-6.7 1.2-13.5 1.2-20.4s-.4-13.7-1.2-20.4c-1.1-9.4-8.6-16.6-17.8-18.5L583.8 307c-5-13.3-12.1-25.5-20.9-36.2l9.3-28.2c3-9 .5-19-7.1-24.7c-4.7-3.5-9.6-6.8-14.6-9.9l-5.3-3c-5-2.8-10.2-5.3-15.5-7.6c-8.7-3.7-18.6-.9-25 6.2l-19.8 22.2c-6.8-1.1-13.8-1.7-20.9-1.7s-14.1 .6-20.9 1.7l-19.8-22.2c-6.3-7.1-16.2-9.9-25-6.2c-5.3 2.3-10.5 4.8-15.5 7.6l-5.3 3c-5 3-9.9 6.3-14.6 9.9c-7.6 5.7-10.1 15.7-7.1 24.7l9.3 28.2c-8.8 10.7-16 23-20.9 36.2L307.1 313c-9.3 1.9-16.7 9.1-17.8 18.5c-.8 6.7-1.2 13.5-1.2 20.4s.4 13.7 1.2 20.4c1.1 9.4 8.6 16.6 17.8 18.5l29.1 6.1c5 13.3 12.1 25.5 20.9 36.2l-9.3 28.2c-3 9-.5 19 7.1 24.7c4.7 3.5 9.5 6.8 14.6 9.8l5.4 3.1c5 2.8 10.2 5.3 15.5 7.6c8.7 3.7 18.6 .9 25-6.2l19.8-22.2c6.8 1.1 13.8 1.7 20.9 1.7s14.1-.6 20.9-1.7l19.8 22.2zM464 304a48 48 0 1 1 0 96 48 48 0 1 1 0-96z" />
-                        </svg>
-                      </i>Configure
-                    </li>
-                    <li className="action-delete action-locked" onClick={() => handleDelete(template.id)}>
-                      <i className="fal fa-trash fa-fw shopfront-icon" aria-hidden="true">
-                        <svg viewBox="0 0 448 512" fill="currentColor" focusable="false">
-                          <path d="M135.2 17.7L128 32 32 32C14.3 32 0 46.3 0 64S14.3 96 32 96l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0-7.2-14.3C307.4 6.8 296.3 0 284.2 0L163.8 0c-12.1 0-23.2 6.8-28.6 17.7zM416 128L32 128 53.2 467c1.6 25.3 22.6 45 47.9 45l245.8 0c25.3 0 46.3-19.7 47.9-45L416 128z" />
-                        </svg>
-                      </i>Delete
-                    </li>
-                    <li className="action-clone action-locked" onClick={() => handleClone(template)}>
-                      <i className="fal fa-clone fa-fw shopfront-icon" aria-hidden="true">
-                        <svg viewBox="0 0 512 512" fill="currentColor" focusable="false">
-                          <path d="M64 464l224 0c8.8 0 16-7.2 16-16l0-64 48 0 0 64c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 224c0-35.3 28.7-64 64-64l64 0 0 48-64 0c-8.8 0-16 7.2-16 16l0 224c0 8.8 7.2 16 16 16zM224 304l224 0c8.8 0 16-7.2 16-16l0-224c0-8.8-7.2-16-16-16L224 48c-8.8 0-16 7.2-16 16l0 224c0 8.8 7.2 16 16 16zm-64-16l0-224c0-35.3 28.7-64 64-64L448 0c35.3 0 64 28.7 64 64l0 224c0 35.3-28.7 64-64 64l-224 0c-35.3 0-64-28.7-64-64z" />
-                        </svg>
-                      </i>Clone
-                    </li>
-                  </Box>
+                <TableCell sx={actionsCellSx}>
+                  <TemplateListActions
+                    onEdit={() => handleEdit(template)}
+                    onConfigure={() => handleConfigure(template)}
+                    onDelete={() => handleDelete(template.id)}
+                    onClone={() => handleClone(template)}
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -493,7 +479,7 @@ const StatementTemplates = () => {
       {/* + New, step 2 (reference): after the name, Blank or Default creates it */}
       <Dialog
         open={showStartDialog}
-        onClose={handleCloseCreateDialog}
+        onClose={() => { if (!creating) handleCloseCreateDialog(); }}
         maxWidth={false}
         // Same size as the name dialog before it.
         PaperProps={{ className: 'question show-frame', sx: questionPaperSx(382) }}
@@ -511,7 +497,9 @@ const StatementTemplates = () => {
               key={key}
               disableRipple
               onClick={() => handleCreateTemplate(key)}
+              disabled={creating}
               sx={{
+                '&.Mui-disabled': { bgcolor: '#8fc2f8', color: '#f8f8f8' },
                 flex: 1, height: 120, bgcolor: '#1c86f2', color: '#f8f8f8', borderRadius: 0,
                 display: 'flex', flexDirection: 'column', gap: '8px', textTransform: 'none',
                 fontSize: 20, fontWeight: 700, lineHeight: 1, boxShadow: 'none',
@@ -519,7 +507,7 @@ const StatementTemplates = () => {
               }}
             >
               <Icon sx={{ fontSize: 48 }} />
-              {label}
+              {creating ? 'Creating...' : label}
             </Button>
           ))}
         </Box>
@@ -548,7 +536,7 @@ const StatementTemplates = () => {
         </Typography>
 
         <DialogContent sx={{ p: '16px', overflow: 'visible' }}>
-          <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000', mb: '8px' }}>
+          <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000', mb: '8px', textAlign: 'center' }}>
             What should the statement be called?
           </Typography>
           <TextField
@@ -559,19 +547,7 @@ const StatementTemplates = () => {
             onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
             onKeyDown={(e) => { if (e.key === 'Enter') handleNameEntered(); }}
             required
-            sx={{
-              width: 350,
-              '& .MuiOutlinedInput-root': {
-                width: 350,
-                height: 53,
-                bgcolor: '#fff',
-                borderRadius: 0,
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-              },
-              '& .MuiOutlinedInput-input': { p: '16px', fontSize: 16, color: '#000' },
-            }}
+            sx={{ width: 350, ...nameFieldSx }}
           />
 
           {/* Outlet picker: All Outlets only (a navbar outlet owns the new template) */}
@@ -638,24 +614,7 @@ const StatementTemplates = () => {
             className="button-add"
             onClick={handleNameEntered}
             disabled={!newTemplate.name.trim()}
-            sx={{
-              width: 167,
-              minWidth: 167,
-              height: 48,
-              bgcolor: '#32b643',
-              color: '#f8f8f8',
-              border: '1px solid #f8f8f8',
-              borderRadius: 0,
-              fontSize: 32,
-              fontWeight: 400,
-              lineHeight: 1,
-              textTransform: 'none',
-              boxShadow: 'none',
-              p: '4px 8px',
-              transition: 'background 0.2s ease, color 0.2s ease',
-              '&:hover': { bgcolor: '#f8f8f8', color: '#32b643', boxShadow: 'none' },
-              '&.Mui-disabled': { bgcolor: '#404040', color: '#737373', border: '1px solid #404040' },
-            }}
+            sx={{ ...addButtonSx, width: 167, minWidth: 167 }}
           >
             Create
           </Button>
@@ -879,6 +838,43 @@ const StatementTemplates = () => {
             }}
           >
             {configSaving ? 'Saving...' : 'Update'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm Clone — reference: '?' badge, name question, prefilled name, Cancel / Clone. */}
+      <Dialog
+        open={Boolean(cloneSource)}
+        onClose={closeCloneDialog}
+        maxWidth={false}
+        PaperProps={{ className: 'question show-frame', sx: questionPaperSx(476) }}
+      >
+        <QuestionBadge />
+        <Typography component="h3" className="dialog-header-title" sx={dialogTitleSx}>
+          Confirm Clone
+        </Typography>
+        <DialogContent sx={{ p: '16px', overflow: 'visible' }}>
+          {cloneError && (
+            <Alert severity="error" onClose={() => setCloneError('')} sx={{ mb: 2 }}>{cloneError}</Alert>
+          )}
+          <Typography sx={{ fontSize: 16, color: '#000', mb: '16px', wordBreak: 'break-word' }}>
+            What do you want to name the clone of &quot;{cloneSource?.name}&quot;?
+          </Typography>
+          <TextField
+            fullWidth
+            autoFocus
+            value={cloneName}
+            onChange={(e) => setCloneName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmClone(); } }}
+            sx={nameFieldSx}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: '0 16px 16px', gap: '16px', '& > :not(:first-of-type)': { ml: 0 } }}>
+          <Button disableRipple onClick={closeCloneDialog} disabled={cloning} sx={{ ...cancelButtonSx, flex: 1 }}>
+            Cancel
+          </Button>
+          <Button disableRipple onClick={confirmClone} disabled={cloning || !cloneName.trim()} sx={{ ...addButtonSx, flex: 1 }}>
+            {cloning ? 'Cloning...' : 'Clone'}
           </Button>
         </DialogActions>
       </Dialog>
