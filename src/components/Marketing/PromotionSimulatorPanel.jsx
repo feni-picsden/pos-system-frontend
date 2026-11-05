@@ -46,7 +46,9 @@ const Highlight = ({ text, term }) => {
 // the right edge, ⊖ 1 ⊕ strip, digits, ., 0, backspace, Ok; Enter = Ok).
 const QuantityKeypad = ({ anchorEl, value, onClose, onCommit }) => {
   const [text, setText] = useState(String(value));
-  const ok = () => { onCommit(Math.max(1, parseInt(text, 10) || 1)); onClose(); };
+  // Reference (05/11/2026): committing 0 removes the line, so 0 is allowed here
+  // and the caller treats it as a remove.
+  const ok = () => { onCommit(Math.max(0, parseInt(text, 10) || 0)); onClose(); };
   return (
     <Popover
       open={Boolean(anchorEl)}
@@ -57,7 +59,7 @@ const QuantityKeypad = ({ anchorEl, value, onClose, onCommit }) => {
       PaperProps={{ sx: { width: 357, p: 2, borderRadius: '12px', bgcolor: '#FAFAFA', border: '1px solid #D4D4D4', overflow: 'visible', ml: '-10px' } }}
     >
       <Box sx={{ position: 'absolute', top: 32, right: '-8px', width: 14, height: 14, bgcolor: '#FAFAFA', borderTop: '1px solid #D4D4D4', borderRight: '1px solid #D4D4D4', transform: 'rotate(45deg)' }} />
-      <KeypadBody value={text} setValue={setText} onOk={ok} mode="qty" min={1} />
+      <KeypadBody value={text} setValue={setText} onOk={ok} mode="qty" min={0} />
     </Popover>
   );
 };
@@ -121,11 +123,12 @@ const PromotionSimulatorPanel = ({ open, search, lines, onQuantity, onRemove }) 
             <CancelIcon sx={{ fontSize: 28 }} />
           </IconButton>
         )}
-        {term && !search.loading && (
-          // ref: full-width white sheet straight under the strip, soft shadow, square corners
+        {term && (
+          // ref: full-width white sheet straight under the strip, soft shadow, square corners;
+          // "Searching..." while the request is in flight, then results / no-results.
           <Paper square elevation={0} sx={{ position: 'absolute', top: 56, left: 0, right: 0, zIndex: 5, maxHeight: 560, overflow: 'auto', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '20px', pt: '14px', pb: '10px' }}>
             {search.results.length === 0 ? (
-              <Typography sx={{ fontSize: 18, color: '#000', py: 1 }}>No search results found.</Typography>
+              <Typography sx={{ fontSize: 18, color: '#000', py: 1 }}>{search.loading ? 'Searching...' : 'No search results found.'}</Typography>
             ) : (
               <>
                 <Typography sx={{ fontSize: 16, color: '#9e9e9e', letterSpacing: 0.5, lineHeight: '22px', mb: '6px' }}>PRODUCTS</Typography>
@@ -203,7 +206,7 @@ const PromotionSimulatorPanel = ({ open, search, lines, onQuantity, onRemove }) 
           anchorEl={keypad.anchorEl}
           value={keypad.quantity}
           onClose={() => setKeypad(null)}
-          onCommit={(n) => onQuantity(keypad.key, n)}
+          onCommit={(n) => (n > 0 ? onQuantity(keypad.key, n) : onRemove(keypad.key))}
         />
       )}
     </Box>

@@ -161,6 +161,32 @@ assert.equal(sum(s.prices), 88); assert.equal(s.applied, false);   // $88: not m
   assert.equal(sum(l.prices), 160); assert.equal(l.applied, false);
 }
 
+// MULTI-CRITERIA with a "% off" reward (Shopfront docs: "If you have multiple
+// criteria within your promotion, they must all be met for a promotion to be
+// valid (excluding optional criteria)"). Required "Purchase 2 A -> 10% off" +
+// Required "Purchase 1 B -> 10% off", priced by allocateSpendPromotion.
+{
+  const twoReq = (a, b) => allocateSpendPromotion([
+    { kind: 'purchase', threshold: 2, receiveType: 'percentage_discount', receiveValue: 10, lines: a ? [{ index: 'A', q: a, unit: 10 }] : [] },
+    { kind: 'purchase', threshold: 1, receiveType: 'percentage_discount', receiveValue: 10, lines: b ? [{ index: 'B', q: b, unit: 20 }] : [] },
+  ]);
+  let t = twoReq(2, 0);                                  // 2 A only: B criterion unmet -> nothing
+  assert.equal(t.applied, false); assert.equal(t.prices.get('A'), 20);
+  t = twoReq(2, 1);                                      // 2 A + 1 B: both discounted
+  assert.equal(t.applied, true); assert.equal(t.prices.get('A'), 18); assert.equal(t.prices.get('B'), 18);
+  // Optional second criterion: the promotion "can be activated without this criteria being satisfied"
+  t = allocateSpendPromotion([
+    { kind: 'purchase', threshold: 2, receiveType: 'percentage_discount', receiveValue: 10, lines: [{ index: 'A', q: 2, unit: 10 }] },
+    { kind: 'purchase', threshold: 1, optional: true, receiveType: 'percentage_discount', receiveValue: 10, lines: [] },
+  ]);
+  assert.equal(t.applied, true); assert.equal(t.prices.get('A'), 18);
+  // "the same sell rate as 6 units": the caller supplies the per-unit rate on the line
+  t = allocateSpendPromotion([
+    { kind: 'purchase', threshold: 2, receiveType: 'same_sell_rate', receiveValue: 6, lines: [{ index: 'A', q: 3, unit: 10, rateUnit: 8 }] },
+  ]);
+  assert.equal(t.applied, true); assert.equal(t.prices.get('A'), 26, '2 covered at $8 + 1 leftover at $10');
+}
+
 // Two criteria where one criterion's promo total is ABOVE its own normal value
 // (found by the random-cart pass): the set still applies because the other
 // criterion saves more, but no line is ever charged more than its normal price.
@@ -191,6 +217,24 @@ assert.equal(r.total, 64); assert.equal(r.sets, 2); assert.equal(r.allCovered, t
 r = mix([PRO(2, 16.99), MUS(1)]);                                                 // 3 units: 1 set + 1 leftover
 assert.equal(r.sets, 1); assert.equal(r.allCovered, false);
 assert.equal(mergeCriteriaGroups([]).length, 0);
+
+// ---- An Optional criterion short of its quantity never blocks the Required ones ----
+{
+  // Required "Purchase 1 Prosecco -> $15" + Optionally "Purchase 2 Muscat -> $30"
+  const promo = (muscat) => allocateCriteriaSets([
+    { lines: [{ index: 'pro', q: 1, unit: 16.99 }], setQty: 1, setPrice: 15 },
+    { lines: muscat ? [{ index: 'mus', q: muscat, unit: 22.99 }] : [], setQty: 2, setPrice: 30, optional: true },
+  ]);
+  let r = promo(0);                                   // Prosecco alone
+  assert.equal(r.sets, 1); assert.equal(r.prices.get('pro'), 15);
+  r = promo(1);                                       // + 1 Muscat (below its 2): Prosecco still $15, Muscat normal
+  assert.equal(r.sets, 1, 'optional short of its quantity does not zero the sets');
+  assert.equal(r.prices.get('pro'), 15); assert.equal(r.prices.get('mus'), 22.99);
+  r = promo(2);                                       // + 2 Muscat: both criteria pay out
+  assert.equal(r.sets, 1); assert.equal(r.prices.get('pro'), 15); assert.equal(r.prices.get('mus'), 30);
+  r = promo(4);                                       // optional covers at most the Required sets (1)
+  assert.equal(r.sets, 1); assert.equal(r.prices.get('mus'), 75.98);   // $30 set + 2 x $22.99
+}
 
 // ---- Buy X get Y (Required X "(quantity only)" + Optional Y for $0) ----
 {

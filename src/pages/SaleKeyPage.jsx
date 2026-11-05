@@ -2277,7 +2277,18 @@ const SaleKeyPage = () => {
     const promotionPrice = isPromotionItem ? productOrPromotionItem.price : null;
     // ponytail: enforces effective disablePromotions for explicit promo-view adds —
     // when off for this member, we ignore the promo price and use base pricing.
-    const promoActive = isPromotionItem && !getEffectiveCustomerSettings(selectedCustomer).disablePromotions;
+    // The Promotions view also lists Future / All promotions and never checked
+    // customer group or schedule, so a tapped row charged a promotion that is not
+    // on today. The row's price is only honoured for an Express promotion that
+    // passes isPromotionActive; a criteria row (its price is one unit's retail)
+    // and anything else price off the ladder, where the cart-wide plan applies.
+    const sourcePromotion = isPromotionItem && productOrPromotionItem.promotionId != null
+      ? posLocalDb.getPromotions().find((p) => String(p.id) === String(productOrPromotionItem.promotionId))
+      : null;
+    const promoActive = isPromotionItem
+      && !productOrPromotionItem.fromCriteria
+      && sourcePromotion != null && isPromotionActive(sourcePromotion)
+      && !getEffectiveCustomerSettings(selectedCustomer).disablePromotions;
     let promotionQuantity = isPromotionItem
       ? (productOrPromotionItem.quantity ?? 1)
       : Math.max(1, parseInt(addQuantity, 10) || 1);
@@ -2347,22 +2358,11 @@ const SaleKeyPage = () => {
         const existingItem = updatedCart[existingItemIndex];
         const newQuantity = (existingItem.quantity || 1) + promotionQuantity;
         
-        // If this is from a promotion, use the promotion price calculation
-        // Otherwise, calculate normally
-        let newPrice;
-        if (promoActive && promotionPrice) {
-          // For promotion items, calculate price based on total quantity
-          // The promotion price is per unit for the promotion quantity
-          const unitPrice = promotionPrice / promotionQuantity;
-          newPrice = calculatePriceForQuantity(product, newQuantity);
-          // If promotion price is better, use it
-          const promoTotalPrice = unitPrice * newQuantity;
-          if (promoTotalPrice > 0 && (newPrice === 0 || promoTotalPrice < newPrice)) {
-            newPrice = promoTotalPrice;
-          }
-        } else {
-          newPrice = calculatePriceForQuantity(product, newQuantity);
-        }
+        // Merged line: price the whole quantity off the ladder (quantity breaks,
+        // price list, Express promotions); the cart-wide promotion passes reprice
+        // it afterwards. Scaling the promotion row's set price per unit charged
+        // 7 + 6 units of "6 for $37" at 13 x $6.17 instead of 2 sets + 1 unit.
+        const newPrice = calculatePriceForQuantity(product, newQuantity);
         
         const unitCost = getUnitCost(product, newQuantity > 0 ? newPrice / newQuantity : 0);
         updatedCart[existingItemIndex] = {
@@ -6031,10 +6031,24 @@ const SaleKeyPage = () => {
     const active = promos.filter((p) => isPromotionActive(p));
     // Always replace, even with an empty list: skipping the empty case kept the
     // previous active list in state after every promotion was set inactive, so
-    // the cart went on discounting until a full reload.
-    setActivePromotions(active);
+    // the cart went on discounting until a full reload. Same promotions (id +
+    // updatedAt) keep the same array so the minute tick does not reprice the cart.
+    const stamp = (list) => list.map((p) => `${p.id ?? p.name}@${p.updatedAt ?? ''}`).join('|');
+    setActivePromotions((prev) => (Array.isArray(prev) && stamp(prev) === stamp(active) ? prev : active));
     return active;
   };
+  // A recurring window (happy hour 17:00-19:00) or a start date arriving while
+  // the sell screen stays open and focused: the active list was only filtered at
+  // hydrate time, and every later check could remove a promotion but never add
+  // one. A minute tick re-hydrates. Through a ref so the tick always runs the
+  // latest closure (the attached customer decides group-gated promotions).
+  const hydrateActivePromotionsRef = useRef(hydrateActivePromotionsFromLocal);
+  hydrateActivePromotionsRef.current = hydrateActivePromotionsFromLocal;
+  useEffect(() => {
+    if (!selectedRegister?.id) return undefined;
+    const tick = setInterval(() => hydrateActivePromotionsRef.current(), 60 * 1000);
+    return () => clearInterval(tick);
+  }, [selectedRegister?.id]);
 
   // F5: hydrate Product Combos for the sell-screen pricing engine.
   // Reads the IndexedDB cache first (instant, offline-safe), then silently
@@ -6794,6 +6808,7 @@ const SaleKeyPage = () => {
                   product: product,
                   quantity: promotionQty,
                   price: promoPrice, // Total price for the promotion quantity
+                  promotionId: promotion.id, // handleAddProductFromSearch re-checks it is on today
                   promotionName: promotion.name,
                   startDate: promotion.startDate,
                   endDate: promotion.endDate
@@ -6826,14 +6841,21 @@ const SaleKeyPage = () => {
                 
                 if (product) {
                   // For criterion items, use the product's retail price or calculate from promotion
-                  const basePrice = product.retailPrice || product.prices?.[0]?.price || 0;
-                  const key = `${product.id}-${criterion.purchaseValue || 1}`;
-                  
+                  const qty = parseInt(criterion.purchaseValue, 10) || 1;
+                  // Shown price = what the ladder (and an active promotion) gives
+                  // that quantity today; the add path prices the same way.
+                  let shown = 0;
+                  try { shown = calculatePriceForQuantity(product, qty); } catch { shown = 0; }
+                  if (!(shown > 0)) shown = (product.retailPrice || product.prices?.[0]?.price || 0) * qty;
+                  const key = `${product.id}-${qty}`;
+
                   if (!productMap.has(key)) {
                     productMap.set(key, {
                       product: product,
-                      quantity: criterion.purchaseValue || 1,
-                      price: basePrice, // Will be calculated when added to cart
+                      quantity: qty,
+                      price: shown,
+                      promotionId: promotion.id,
+                      fromCriteria: true, // never a fixed price: the cart-wide plan prices sets
                       promotionName: promotion.name,
                       startDate: promotion.startDate,
                       endDate: promotion.endDate
@@ -6932,6 +6954,11 @@ const SaleKeyPage = () => {
       if ((promotion.conditions?.criteria || []).some((c) => c && c.purchaseType === 'spend')) {
         return false;
       }
+      // Likewise every MULTI-criteria promotion: Shopfront docs - "If you have
+      // multiple criteria within your promotion, they must all be met for a
+      // promotion to be valid (excluding optional criteria)". Per line this path
+      // saw one criterion at a time and gave "2 A -> 10% off" with no B in the cart.
+      if (liveCriteriaOf(promotion).length >= 2) return false;
 
       const isExpress = expressTypes.includes(promotion.promotionType);
       
@@ -7129,49 +7156,48 @@ const SaleKeyPage = () => {
 
     const receiveType = applicableCriterion.receiveType;
     const receiveValue = parseFloat(applicableCriterion.receiveValue) || 0;
-    
+
     console.log(`calculatePromotionPrice: Applying ${receiveType} with value ${receiveValue}, basePrice=${basePrice}, quantity=${quantity}`);
 
+    // Per-line fallback (manually discounted / locked lines, non-integer quantities)
+    // uses the same set maths as the cart-wide plan: the reward repeats per COMPLETE
+    // set of N units and leftover units sell at their normal unit price. "a total
+    // price of $37" on 12 units was $37 here (not 2 x $37) while the plan said $74.
+    // "N or more" covers every unit as one set.
+    const orMore = applicableCriterion.quantityType === 'more' || promotion.conditions?.quantityType === 'more';
+    const setQty = Math.max(1, Math.floor(purchaseQty) || 1);
+    const sets = orMore ? 1 : Math.floor(quantity / setQty);
+    if (sets < 1) return null;
+    const covered = orMore ? quantity : sets * setQty;
+    const unitBase = basePrice / quantity;
+    const coveredBase = unitBase * covered;
+    const leftover = (quantity - covered) * unitBase;
+    let coveredPrice;
     switch (receiveType) {
-      case 'total_price':
-        return receiveValue;
-      
-      case 'each_item_for':
-        return receiveValue * quantity;
-      
-      case 'discount_each_item':
-        const pricePerUnit = basePrice / quantity;
-        const discountedPerUnit = pricePerUnit - receiveValue;
-        return discountedPerUnit > 0 ? discountedPerUnit * quantity : null;
-      
+      case 'total_price': coveredPrice = receiveValue * sets; break;
+      case 'each_item_for': coveredPrice = receiveValue * covered; break;
+      case 'discount_each_item': coveredPrice = Math.max(0, coveredBase - receiveValue * covered); break;
       case 'discount_total':
-        return basePrice - receiveValue > 0 ? basePrice - receiveValue : null;
-      
-      case 'percentage_discount':
-        const discountDecimal = receiveValue / 100;
-        const discountedPrice = basePrice * (1 - discountDecimal);
-        return discountedPrice > 0 ? discountedPrice : null;
-      
-      case 'discount':
-        if (applicableCriterion.purchaseType === 'purchase') {
-          return basePrice - receiveValue > 0 ? basePrice - receiveValue : null;
-        }
-        return null;
-      
-      case 'same_sell_rate':
-        const sellRateQty = receiveValue;
-        const sellRatePrice = calculateBasePriceForQuantity(product, sellRateQty);
-        if (sellRatePrice === 0) return null;
-        const sellRatePerUnit = sellRatePrice / sellRateQty;
-        return sellRatePerUnit * quantity;
-      
-      case 'quantity_only':
-        return basePrice;
-      
-      default:
-        return null;
+      case 'discount': coveredPrice = Math.max(0, coveredBase - receiveValue * sets); break;
+      case 'percentage_discount': coveredPrice = coveredBase * (1 - receiveValue / 100); break;
+      case 'same_sell_rate': {
+        const sellRatePrice = calculateBasePriceForQuantity(product, receiveValue);
+        if (!(sellRatePrice > 0) || !(receiveValue > 0)) return null;
+        coveredPrice = (sellRatePrice / receiveValue) * covered;
+        break;
+      }
+      case 'quantity_only': return basePrice;
+      default: return null;
     }
+    const totalPrice = Math.round((coveredPrice + leftover) * 100) / 100;
+    return totalPrice < basePrice - 0.004 ? totalPrice : null;
   };
+
+  // Criteria that take part in pricing (the plan's liveCriteria rule): a purchase
+  // quantity with at least one live product, or a "spend" amount (any product).
+  const liveCriteriaOf = (promotion) => (promotion?.conditions?.criteria || []).filter((c) => c
+    && (parseFloat(c.purchaseValue) || 0) > 0
+    && (c.purchaseType === 'spend' || (c.items || []).some((i) => !i.excluded && i.productId != null)));
 
   const calculateBasePriceForQuantity = (product, quantity) => {
     if (!product) return 0;
@@ -7610,8 +7636,12 @@ const SaleKeyPage = () => {
       if (!p || expressTypes.includes(p.promotionType) || !isPromotionActive(p)) return false;
       if (handled.has(p.id ?? p.name)) return false;
       const crit = liveCriteria(p);
+      // Spend & Get, and every other MULTI-criteria promotion (any reward type):
+      // Shopfront docs - all criteria must be met, "excluding optional criteria".
+      // allocateSpendPromotion applies exactly that (Required = AND, Optional only
+      // when met), so "2 A -> 10% off + 1 B -> 10% off" needs both in the cart.
       return crit.length >= 1
-        && crit.some((c) => c && c.purchaseType === 'spend' && (parseFloat(c.purchaseValue) || 0) > 0)
+        && (crit.length >= 2 || crit.some((c) => c && c.purchaseType === 'spend' && (parseFloat(c.purchaseValue) || 0) > 0))
         && crit.every((c) => c && (parseFloat(c.purchaseValue) || 0) > 0 && SPEND_RECEIVE_TYPES.includes(c.receiveType || 'quantity_only'));
     });
     spendPromos.forEach((p) => {
@@ -7643,7 +7673,15 @@ const SaleKeyPage = () => {
           // (recomputed, not read back from item.price) competes with it below.
           let own = 0;
           try { own = parseFloat(calculatePriceForQuantity(product, q)) || 0; } catch { own = 0; }
-          lines.push({ index, q, normalTotal, unit: q > 0 ? normalTotal / q : 0, ownPrice: own > 0 ? own : normalTotal });
+          // "the same sell rate as N units": that per-unit rate comes off this
+          // product's own price ladder, so it rides on the line (criteriaPromotion).
+          let rateUnit;
+          if (c.receiveType === 'same_sell_rate') {
+            const n = parseFloat(c.receiveValue) || 0;
+            const rate = n > 0 ? calculateBasePriceForQuantity(product, n) : 0;
+            if (rate > 0) rateUnit = rate / n;
+          }
+          lines.push({ index, q, normalTotal, unit: q > 0 ? normalTotal / q : 0, ownPrice: own > 0 ? own : normalTotal, ...(rateUnit != null ? { rateUnit } : {}) });
         });
         return {
           kind: c.purchaseType === 'spend' ? 'spend' : 'purchase',

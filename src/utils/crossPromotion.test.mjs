@@ -51,4 +51,21 @@ assert.deepEqual([r.prices.get('a'), r.prices.get('b'), r.prices.get('c')], [3.3
 r = allocateCrossPromotions([{ index: 'x', productId: 'x', q: 12, unit: 8.5 }], [{ ...wt, maxSets: 1 }]);
 assert.equal(r.prices.get('x'), 37 + 6 * 8.5, 'max 1 set');
 
+// Promotions on products NOT in the cart take no part (and are not permuted):
+// 12 unrelated promos + the one relevant promo price exactly like that promo alone.
+{
+  const unrelated = Array.from({ length: 12 }, (_, i) => ({
+    key: `u${i}`, productIds: new Set([`other-${i}`]), setQty: 2, receiveType: 'percentage_discount', receiveValue: 50,
+  }));
+  const cartLines = [{ index: 'x', productId: 'x', q: 7, unit: 8.5 }];
+  const alone = allocateCrossPromotions(cartLines, [wt], { crossCount: false });
+  const started = Date.now();
+  const many = allocateCrossPromotions(cartLines, [...unrelated, wt], { crossCount: false });
+  assert.ok(Date.now() - started < 500, 'unrelated promotions must not be permuted');
+  assert.equal(many.prices.get('x'), alone.prices.get('x'), 'same price as the promo alone');
+  assert.equal(many.applied.get('wt'), alone.applied.get('wt'));
+  assert.equal(many.applied.get('u0'), false, 'an unrelated promotion is reported as not applied');
+  assert.equal(many.promoOf.get('x'), 'wt');
+}
+
 console.log('crossPromotion: all assertions passed');

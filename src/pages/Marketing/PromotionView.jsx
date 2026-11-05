@@ -101,7 +101,8 @@ const PromotionView = () => {
       promo.conditions.criteria.forEach((criterion) => {
         if (criterion.items) {
           criterion.items.forEach((item) => {
-            if (!item.productId || item.excluded) {
+            // An excluded item is a deliberate choice, not a missing product.
+            if (!item.productId) {
               missing.push({
                 ...item,
                 criterion: criterion,

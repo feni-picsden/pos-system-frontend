@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import NumberField from '../../components/Common/NumberField';
 import {
   Box,
@@ -58,7 +58,6 @@ import { getBaseTier } from '../../utils/baseTier';
 
 // Start / End Date are edited with the shared DateTimeField (Date | null, with the
 // reference's DD/MM/YYYY HH:mm:ss mask and calendar / clock popover).
-const pad = (n) => String(n).padStart(2, '0');
 
 // Stored value (ISO, with or without timezone) -> local Date, or null.
 const toDateOrNull = (raw) => {
@@ -72,10 +71,10 @@ const toDateOrNull = (raw) => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
-// Date -> the "YYYY-MM-DDTHH:mm:ss" (local) the API has always been sent.
-const toLocalIso = (d) => (d instanceof Date && !Number.isNaN(d.getTime())
-  ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-  : '');
+// Date -> UTC ISO for the API. Reference stores "2025-06-18T14:00:00+00:00" and
+// shows it on the browser clock in the editor; a zone-less local string was
+// parsed on the SERVER's clock, so the saved time shifted whenever the two differed.
+const toLocalIso = (d) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString() : '');
 
 // Money to whole cents. Every figure that reaches the Rebate box or the save
 // payload goes through this, so a 10% discount on $6.50 is 0.65, never
@@ -169,6 +168,10 @@ const ExpressPromotion = () => {
   const [simResults, setSimResults] = useState([]);
   const [simLoading, setSimLoading] = useState(false);
   const [basket, setBasket] = useState([]);
+  // Request sequence per search box: a slow response for an earlier term must not
+  // overwrite the list (or reopen the dropdown after the box was cleared).
+  const searchSeq = useRef(0);
+  const simSeq = useRef(0);
 
   const showSnackbarMessage = (message, severity) => {
     setSnackbar({ open: true, message, severity });
@@ -189,30 +192,9 @@ const ExpressPromotion = () => {
     }
   }, [id]);
 
-  useEffect(() => {
-    if (formData.items.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        items: prev.items.map(item => {
-          if (prev.promotionType === 'Discount Percentage' && item.discountPercentage > 0 && item.normalPrice > 0) {
-            // Money is rounded to cents here too: unrounded floats (0.6499999999999995)
-            // were shown in the Rebate box and saved to the database as-is.
-            const discountDecimal = item.discountPercentage / 100;
-            const promoPrice = roundCents(item.normalPrice * (1 - discountDecimal));
-            const rebate = roundCents(item.normalPrice - promoPrice);
-            const rebatePercentage = (rebate / item.normalPrice) * 100;
-            return {
-              ...item,
-              promoPrice,
-              rebate,
-              rebatePercentage
-            };
-          }
-          return item;
-        })
-      }));
-    }
-  }, [formData.promotionType]);
+  // (A type-change effect used to recompute Discount Percentage rows here. Its only
+  // live path was the edit-mode load, where it overwrote the saved supplier Rebate
+  // with normal - promo; handleInputChange already resets rows on a type switch.)
 
   const fetchPromotion = async () => {
     try {
@@ -378,37 +360,66 @@ const ExpressPromotion = () => {
     ];
   };
 
+  // Keystrokes are debounced: every character used to fire two API calls at once,
+  // so a quick "stubbie" queued a dozen requests and the list (and the pick that
+  // follows) waited on the slowest of them.
+  const SEARCH_DEBOUNCE_MS = 250;
+  const searchTimer = useRef(null);
+  const simTimer = useRef(null);
+  const debounced = (timerRef, fn) => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(fn, SEARCH_DEBOUNCE_MS);
+  };
+  useEffect(() => () => { clearTimeout(searchTimer.current); clearTimeout(simTimer.current); }, []);
+
   const searchProducts = async (term) => {
     // Reference: one character shows "Start typing to search..." and searches nothing.
+    const seq = ++searchSeq.current;
+    clearTimeout(searchTimer.current);
     if (term.trim().length < 2) {
       setSearchResults([]);
+      setSearchLoading(false); // an in-flight request's finally is now stale and skips this
+      resultKeys.clearPending('items');
       return;
     }
 
     try {
       setSearchLoading(true);
-      setSearchResults(await searchItems(term));
+      await new Promise((resolve) => debounced(searchTimer, resolve));
+      if (seq !== searchSeq.current) return;
+      const results = await searchItems(term);
+      if (seq !== searchSeq.current) return; // a newer search (or a clear) superseded this one
+      setSearchResults(results);
+      // Enter was pressed while this search ran: add the top row of the fresh list.
+      if (resultKeys.takePending('items') && results.length > 0) handleAddProduct(results[0]);
     } catch (error) {
       console.error('Error searching products:', error);
-      setSearchResults([]);
+      if (seq === searchSeq.current) setSearchResults([]);
     } finally {
-      setSearchLoading(false);
+      if (seq === searchSeq.current) setSearchLoading(false);
     }
   };
 
   const searchSimulator = async (term) => {
+    const seq = ++simSeq.current;
+    clearTimeout(simTimer.current);
     if (!term.trim()) {
       setSimResults([]);
+      setSimLoading(false);
       return;
     }
     try {
       setSimLoading(true);
-      setSimResults(await searchCatalog(term));
+      await new Promise((resolve) => debounced(simTimer, resolve));
+      if (seq !== simSeq.current) return;
+      const results = await searchCatalog(term);
+      if (seq !== simSeq.current) return;
+      setSimResults(results);
     } catch (error) {
       console.error('Error searching simulator products:', error);
-      setSimResults([]);
+      if (seq === simSeq.current) setSimResults([]);
     } finally {
-      setSimLoading(false);
+      if (seq === simSeq.current) setSimLoading(false);
     }
   };
 
@@ -463,26 +474,37 @@ const ExpressPromotion = () => {
       // classification. A FAMILY row carries its members for the "~" averages
       // and the expandable member list ("Jets23 / FAMILY" -> Winfield Jets ...).
       const type = String(entry.type || 'CLASSIFICATION').toUpperCase();
-      let members = [];
-      if (type === 'FAMILY') {
-        try {
-          const response = await classificationService.getClassificationProducts(entry.id);
-          members = (response?.assignedProducts || []).map((p) => {
-            const tier = getBaseTier(p.prices);
-            return { productId: p.id, name: p.name, unitCost: Number(p.cost || tier?.cost || 0), unitNormal: Number(tier?.price || 0) };
-          });
-        } catch (error) {
-          console.error('Error fetching family products:', error);
-        }
-      }
+      // The row lands at once; a family's members (for the "~" averages) fill in
+      // when their request returns, instead of holding the pick until then.
       setFormData(prev => ({
         ...prev,
         items: prev.items.some((i) => i.classificationId === entry.id) ? prev.items : [...prev.items, classificationRow({
-          classificationId: entry.id, classificationType: type, productName: entry.name, members
+          classificationId: entry.id, classificationType: type, productName: entry.name, members: [], membersLoading: type === 'FAMILY'
         }, prev.promotionType)]
       }));
       setSearchTerm('');
       setSearchResults([]);
+      if (type === 'FAMILY') {
+        const doneLoading = () => setFormData(prev => ({ ...prev, items: prev.items.map((i) => (i.classificationId === entry.id ? { ...i, membersLoading: false } : i)) }));
+        try {
+          const response = await classificationService.getClassificationProducts(entry.id);
+          const members = (response?.assignedProducts || []).map((p) => {
+            const tier = getBaseTier(p.prices);
+            return { productId: p.id, name: p.name, unitCost: Number(p.cost || tier?.cost || 0), unitNormal: Number(tier?.price || 0) };
+          });
+          setFormData(prev => ({
+            ...prev,
+            items: prev.items.map((i) => (i.classificationId === entry.id && String(i.classificationType).toUpperCase() === 'FAMILY' && !(i.members || []).length
+              // promoPrice seeded from an empty average is 0: let it re-seed from the members.
+              ? classificationRow({ ...i, members, promoPrice: i.promoPrice === 0 ? undefined : i.promoPrice }, prev.promotionType)
+              : i))
+          }));
+        } catch (error) {
+          console.error('Error fetching family products:', error);
+        } finally {
+          doneLoading();
+        }
+      }
       return;
     }
     const products = [entry];
@@ -586,6 +608,7 @@ const ExpressPromotion = () => {
       productId: null,
       productName: row.productName,
       members,
+      membersLoading: Boolean(row.membersLoading),
       expanded: false,
       quantity: qty,
       unitCost,
@@ -672,6 +695,12 @@ const ExpressPromotion = () => {
   };
 
   const handleSave = async () => {
+    // PUT silently ignores a blank name (POST 400s), so "updated successfully" showed
+    // while the old name stayed. Check here for both paths.
+    if (!formData.name.trim()) {
+      showSnackbarMessage('Promotion name is required', 'error');
+      return;
+    }
     try {
       setLoading(true);
       const promotionData = {
@@ -683,6 +712,9 @@ const ExpressPromotion = () => {
         promotionType: formData.promotionType,
         items: formData.items.filter((item) => !item.classificationId).map(item => ({
           productId: item.productId,
+          // Stored on the row (schema "for reference"); the revision log's
+          // "<name> added with a rebate of..." row read blank without it.
+          productName: item.productName,
           quantity: item.quantity || 1,
           promoPrice: roundCents(item.promoPrice),
           normalPrice: roundCents(item.normalPrice),
@@ -911,7 +943,7 @@ const ExpressPromotion = () => {
               resultKeys.reset('items');
               searchProducts(e.target.value);
             }}
-            onKeyDown={resultKeys.handleKeyDown('items', searchResults, handleAddProduct, () => setSearchResults([]))}
+            onKeyDown={resultKeys.handleKeyDown('items', searchResults, handleAddProduct, () => setSearchResults([]), { loading: searchLoading })}
             InputProps={{
               endAdornment: searchTerm ? (
                 <InputAdornment position="end">
@@ -935,15 +967,16 @@ const ExpressPromotion = () => {
 
           {/* Reference dropdown: square panel with a 1px dark frame, drop shadow and a
               3px sky line along the bottom; it overlaps the "Please note" line. */}
-          {/* Reference states: "Start typing to search..." (1 char), "No search results found." */}
-          {searchTerm.trim().length > 0 && searchResults.length === 0 && !searchLoading && (
+          {/* Reference states: "Start typing to search..." (1 char), "Searching..." while the
+              request is in flight, "No search results found." */}
+          {searchTerm.trim().length > 0 && searchResults.length === 0 && (
             <Paper square elevation={0} sx={{ position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, border: '1px solid #404040', borderBottom: '3px solid #5ebbeb', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '18px', py: '12px' }}>
               <Typography sx={{ fontSize: 18, color: '#000', lineHeight: '24px' }}>
-                {searchTerm.trim().length < 2 ? 'Start typing to search...' : 'No search results found.'}
+                {searchTerm.trim().length < 2 ? 'Start typing to search...' : searchLoading ? 'Searching...' : 'No search results found.'}
               </Typography>
             </Paper>
           )}
-          {searchResults.length > 0 && (
+          {searchTerm.trim().length >= 2 && searchResults.length > 0 && (
             <Paper
               square
               elevation={0}
@@ -1021,6 +1054,8 @@ const ExpressPromotion = () => {
                 const members = Array.isArray(item.members) ? item.members : [];
                 const hasFigures = !isClass || members.length > 0;
                 const approx = isClass && members.length > 0 ? '~' : '';
+                // A family's members are still loading: "~ …" rather than "-".
+                const dash = isClass && item.membersLoading ? '~ …' : '-';
                 const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
                 const memberPromo = (m) => {
                   const normal = roundCents((Number(m.unitNormal) || 0) * qty);
@@ -1062,8 +1097,8 @@ const ExpressPromotion = () => {
                         />
                       </TableCell>
                       {/* Cost / Normal Price / Promo Price are TOTALS for the line's quantity. */}
-                      <TableCell>{hasFigures ? approx + money(item.cost) : '-'}</TableCell>
-                      <TableCell>{hasFigures ? approx + money(item.normalPrice) : '-'}</TableCell>
+                      <TableCell>{hasFigures ? approx + money(item.cost) : dash}</TableCell>
+                      <TableCell>{hasFigures ? approx + money(item.normalPrice) : dash}</TableCell>
                       {formData.promotionType === 'Discount Percentage' && (
                         <TableCell>
                           <NumberField
@@ -1101,7 +1136,7 @@ const ExpressPromotion = () => {
                             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                             sx={{ minWidth: 160, ...headerFieldSx }}
                           />
-                        ) : (hasFigures ? approx + money(item.promoPrice) : '-')}
+                        ) : (hasFigures ? approx + money(item.promoPrice) : dash)}
                       </TableCell>
                       <TableCell>
                         <NumberField
@@ -1115,7 +1150,7 @@ const ExpressPromotion = () => {
                         />
                       </TableCell>
                       <TableCell sx={{ color: hasFigures && calculateProfit(item) < 0 ? '#e33430 !important' : '#000', whiteSpace: 'nowrap' }}>
-                        {hasFigures ? approx + pct(calculateProfit(item)) : '-'}
+                        {hasFigures ? approx + pct(calculateProfit(item)) : dash}
                       </TableCell>
                       <TableCell>
                         <IconButton size="small" onClick={() => handleRemoveItem(index)} sx={{ color: '#e33430' }}>

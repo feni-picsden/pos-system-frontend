@@ -234,7 +234,8 @@ const ExpressPromotionView = () => {
         : (parseFloat(item.normalPrice) || 0) - (parseFloat(item.promoPrice) || 0);
       return `Purchase ${qty} to receive a discount of $${off.toFixed(2)}`;
     }
-    const total = (parseFloat(item.promoPrice) || 0) * qty;
+    // promoPrice is stored as the TOTAL for the line's quantity (editor / sell screen).
+    const total = parseFloat(item.promoPrice) || 0;
     return `Purchase ${qty} to receive a total price of $${total.toFixed(2)}`;
   };
 

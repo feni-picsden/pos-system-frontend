@@ -114,6 +114,13 @@ const toLocalIso = (raw) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 };
 
+// "yyyy-MM-ddTHH:mm:ss" (browser local) -> UTC ISO, '' when blank/invalid.
+const localIsoToUtc = (local) => {
+  if (!local) return '';
+  const d = new Date(local);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+};
+
 const DateTimeField = ({ value, onChange }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [tab, setTab] = useState('calendar');
@@ -328,7 +335,10 @@ const PromotionDetails = () => {
     return null;
   };
 
-  const [, setLoading] = useState(false);
+  // Edit mode: Save stays disabled until the promotion has loaded. A Save fired
+  // before (or after a failed) fetch PUT an empty criteria list over the saved one.
+  const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [showSimulator, setShowSimulator] = useState(false);
@@ -364,6 +374,7 @@ const PromotionDetails = () => {
   const [searchResults, setSearchResults] = useState({});
   const [searchLoading, setSearchLoading] = useState({});
   const searchSeq = useRef({});
+  const searchTimers = useRef({}); // per-criterion debounce timers
   // Reference: the top search result is highlighted; Up/Down move, Enter adds it.
   const resultKeys = useResultKeys();
   const [expandedCriteria, setExpandedCriteria] = useState({});
@@ -391,6 +402,7 @@ const PromotionDetails = () => {
   const fetchPromotion = async () => {
     try {
       setLoading(true);
+      setLoadFailed(false);
       const response = await promotionService.getPromotion(id);
       const promotion = response.promotion || response;
       
@@ -475,6 +487,7 @@ const PromotionDetails = () => {
       }
     } catch (error) {
       console.error('Error fetching promotion:', error);
+      setLoadFailed(true);
       showSnackbar('Failed to load promotion', 'error');
     } finally {
       setLoading(false);
@@ -588,9 +601,15 @@ const PromotionDetails = () => {
     if (searchValue.trim().length < 2) {
       setSearchResults(prev => ({ ...prev, [criterionId]: [] }));
       setSearchLoading(prev => ({ ...prev, [criterionId]: false }));
+      resultKeys.clearPending(criterionId);
       return;
     }
     setSearchLoading(prev => ({ ...prev, [criterionId]: true }));
+    // Debounced: each keystroke used to fire both requests at once, so fast typing
+    // queued many and the list waited on the slowest.
+    clearTimeout(searchTimers.current[criterionId]);
+    await new Promise((resolve) => { searchTimers.current[criterionId] = setTimeout(resolve, 250); });
+    if (searchSeq.current[criterionId] !== seq) return;
     const [products, classifications] = await Promise.all([
       productService.getProducts({ search: searchValue, limit: 20 })
         .then(r => r.products || [])
@@ -603,13 +622,15 @@ const PromotionDetails = () => {
     setSearchLoading(prev => ({ ...prev, [criterionId]: false }));
     // A Combo Product is an ordinary product row, so it already arrives with the
     // products — no separate combo lookup is needed.
-    setSearchResults(prev => ({
-      ...prev,
-      [criterionId]: sortByGroup([
-        ...classifications.map(c => ({ ...c, resultType: 'CLASSIFICATION' })),
-        ...products.map(p => ({ ...p, resultType: 'PRODUCT' })),
-      ]),
-    }));
+    const sorted = sortByGroup([
+      ...classifications.map(c => ({ ...c, resultType: 'CLASSIFICATION' })),
+      ...products.map(p => ({ ...p, resultType: 'PRODUCT' })),
+    ]);
+    setSearchResults(prev => ({ ...prev, [criterionId]: sorted }));
+    // Enter was pressed while this search ran: add the top row of the fresh list.
+    if (resultKeys.takePending(criterionId) && sorted.length > 0 && criterionId !== 'sim' && criterionId !== 'combo') {
+      handleAddItemToCriterion(criterionId, sorted[0]);
+    }
   };
 
   // ---- Combo Deal handlers ----
@@ -863,6 +884,10 @@ const PromotionDetails = () => {
       items: criterion.items.map(item => ({ ...item, id: Date.now() + Math.random() }))
     };
     setCriteria(prev => [...prev, cloned]);
+    // Same as a new criterion: the Criteria panel opens, the items panel stays shut
+    // (one panel open at a time) - before, the clone came up with both collapsed.
+    setExpandedCriteria(prev => ({ ...prev, [cloned.id]: true }));
+    setExpandedItems(prev => ({ ...prev, [cloned.id]: false }));
   };
 
   const findPricingTier = (item, quantity) => {
@@ -1076,6 +1101,8 @@ const PromotionDetails = () => {
 
     return {
       ...formData,
+      startDate: formData.isRecurring ? '' : localIsoToUtc(formData.startDate),
+      endDate: formData.isRecurring ? '' : localIsoToUtc(formData.endDate),
       outletId: resolveOutletId(),
       promotionType: 'Combo Deal',
       items,
@@ -1096,6 +1123,12 @@ const PromotionDetails = () => {
   };
 
   const handleSave = async () => {
+    // The API rejects a blank name on create and silently keeps the old one on
+    // update, so an emptied Name box used to report "updated successfully".
+    if (!formData.name.trim()) {
+      showSnackbar('Promotion name is required', 'error');
+      return;
+    }
     if (isComboDeal) {
       if (comboItems.length === 0) {
         showSnackbar('Add at least one product to the combo', 'error');
@@ -1111,12 +1144,18 @@ const PromotionDetails = () => {
       setSaving(true);
       const promotionData = isComboDeal ? buildComboPromotionPayload() : {
         ...formData,
+        // The field edits a zone-less local string; send UTC so the server's clock
+        // never shifts it (reference stores "+00:00", editor shows browser time).
+        startDate: formData.isRecurring ? '' : localIsoToUtc(formData.startDate),
+        endDate: formData.isRecurring ? '' : localIsoToUtc(formData.endDate),
         schedule: formData.isRecurring ? formData.schedule : null,
         outletId: resolveOutletId(),
         conditions: {
           criteria,
           maxApplicationsPerSale: formData.maxApplicationsPerSale,
-          mixCriteria: formData.mixCriteria
+          // Persist what the toggle shows: the switch reads OFF while Mix is
+          // hidden (one criterion) or disabled, so a stale ON must not be saved.
+          mixCriteria: Boolean(formData.mixCriteria) && !mixCriteriaState(criteria).disabled
         }
       };
 
@@ -1546,9 +1585,11 @@ const PromotionDetails = () => {
               }}
             />
 
-            {searchResults.combo && searchResults.combo.length > 0 && (
+            {/* handleSearch also returns classifications; a combo holds products only,
+                so a category row must never be added as a phantom productId. */}
+            {(searchResults.combo || []).some((r) => r.resultType === 'PRODUCT') && (
               <Paper sx={{ mb: 2, maxHeight: 200, overflow: 'auto', maxWidth: 480 }}>
-                {searchResults.combo.map((product) => (
+                {searchResults.combo.filter((r) => r.resultType === 'PRODUCT').map((product) => (
                   <Box
                     key={product.id}
                     onClick={() => handleAddComboProduct(product)}
@@ -1752,7 +1793,7 @@ const PromotionDetails = () => {
                             inputProps={{ autoComplete: 'off', name: `criteria-item-search-${criterion.id}` }}
                             value={searchTerms[criterion.id] || ''}
                             onChange={(e) => handleSearch(criterion.id, e.target.value)}
-                            onKeyDown={resultKeys.handleKeyDown(criterion.id, searchResults[criterion.id], (r) => handleAddItemToCriterion(criterion.id, r), () => setSearchResults((prev) => ({ ...prev, [criterion.id]: [] })))}
+                            onKeyDown={resultKeys.handleKeyDown(criterion.id, searchResults[criterion.id], (r) => handleAddItemToCriterion(criterion.id, r), () => setSearchResults((prev) => ({ ...prev, [criterion.id]: [] })), { loading: Boolean(searchLoading[criterion.id]) })}
                             InputProps={{
                               endAdornment: searchLoading[criterion.id] ? (
                                 <CircularProgress size={20} sx={{ color: '#404040', mr: '2px' }} />
@@ -2087,6 +2128,8 @@ const PromotionDetails = () => {
             onChange: (v) => handleSearch('sim', v),
             onKeyDown: resultKeys.handleKeyDown('sim', (searchResults.sim || []).filter((r) => r.resultType === 'PRODUCT'), handleAddSimProduct, () => setSearchResults((prev) => ({ ...prev, sim: [] }))),
             results: (searchResults.sim || []).filter((r) => r.resultType === 'PRODUCT'),
+            // The panel's spinner / "No search results found." branch on this.
+            loading: Boolean(searchLoading.sim),
             onPick: handleAddSimProduct
           }}
           lines={(() => {
@@ -2167,7 +2210,7 @@ const PromotionDetails = () => {
               disableElevation
               startIcon={<SaveIcon />}
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || loading || loadFailed}
               sx={{
                 height: 42,
                 px: '24px',

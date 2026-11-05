@@ -36,6 +36,7 @@ import {
   ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { formatAppPattern } from '../../utils/appDateTime';
 import {
   format,
   addMonths,
@@ -807,11 +808,16 @@ const Promotions = () => {
   // global (outletId null) and other-outlet categories drop out and the filter
   // reads "No Options". Outlet users are unaffected: the API always scopes them
   // to their own outlet plus global ones regardless of this argument.
-  const { data: categories } = usePageCache('promotionCategories', () =>
+  // Same query as Setup > Promotion Categories: both pages share the one
+  // IndexedDB store, and two different shapes in it meant whichever page
+  // loaded last decided what the other showed for 5 minutes. The filter drops
+  // the inactive ones itself.
+  const { data: allCategories } = usePageCache('promotionCategories', () =>
     promotionCategoryService
-      .getPromotionCategories('all')
+      .getPromotionCategories('all', true)
       .then((r) => (Array.isArray(r) ? r : r?.promotionCategories || []))
   );
+  const categories = useMemo(() => allCategories.filter((c) => c.isActive !== false), [allCategories]);
   const { data: customerGroups } = usePageCache('customerGroups', () =>
     customerGroupService
       .getCustomerGroups(getOutletId())
@@ -938,6 +944,9 @@ const Promotions = () => {
       console.error(failureMessage, error);
       showSnackbar(failureMessage, 'error');
     } finally {
+      // The ticks are spent: deleted / hidden rows used to stay selected, so the
+      // bar read "N selected" over nothing and a second action hit 404s.
+      setSelectedIds([]);
       // Always resync: a partial failure still changed some rows.
       await fetchPromotions();
     }
@@ -993,7 +1002,6 @@ const Promotions = () => {
       'Promotions cloned',
       'Failed to clone promotions'
     );
-    setSelectedIds([]);
   };
 
   const confirmBulkDates = async () => {
@@ -1013,7 +1021,9 @@ const Promotions = () => {
     setBulkEnd(null);
   };
 
-  const formatDate = (dateString) => (dateString ? format(new Date(dateString), 'dd/MM/yyyy') : '');
+  // Store-clock date, the same the view page prints (browser-local showed a
+  // different day from the view for the same row once the zones differed).
+  const formatDate = (dateString) => (dateString ? (formatAppPattern(dateString, 'DD/MM/YYYY') || '') : '');
 
 
   return (

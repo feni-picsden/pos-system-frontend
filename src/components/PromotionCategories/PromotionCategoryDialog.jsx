@@ -152,7 +152,10 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
           ? [parseInt(scopedOutletId)]
           : (formData.outletIds.length > 0 ? formData.outletIds.map(id => parseInt(id)) : null),
         isActive: formData.isActive,
-        outletId: formData.outletId || null,
+        // Edit sends the outlet only when the picker is on screen: a null
+        // outletId on a PUT is stamped with the header outlet by apiClient, which
+        // re-homed a GLOBAL category to that outlet on every edit.
+        ...(isEditMode && !showOutletFilter ? {} : { outletId: formData.outletId || null }),
       };
 
       let response;

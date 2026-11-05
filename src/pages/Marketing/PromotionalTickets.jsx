@@ -132,7 +132,10 @@ const PromotionalTickets = () => {
       promotions
         .filter((promotion) => {
           if (!promotion.isActive) return false;
-          if ((promotion.conditions?.criteria || []).length > 1) return false;
+          const crit = promotion.conditions?.criteria || [];
+          if (crit.length > 1) return false;
+          // The page's own rule: a single criterion must be a "Sell Total".
+          if (crit.length === 1 && crit[0]?.receiveType !== 'total_price') return false;
           if (categoryId != null && promotion.categoryId !== categoryId) return false;
           return (promotion.items || []).some((item) => item.productId);
         })

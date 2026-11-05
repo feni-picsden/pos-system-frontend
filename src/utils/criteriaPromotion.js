@@ -93,9 +93,14 @@ export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute
     return { sets, allCovered: sets > 0 && allCovered, prices };
   }
 
-  let limit = prepared.length
-    ? Math.min(...prepared.map((g) => (g.setQty > 0 ? Math.floor(g.totalUnits / g.setQty) : 0)))
-    : 0;
+  // Sets are limited by the REQUIRED criteria only. An Optional criterion never
+  // blocks: with fewer units than its purchase quantity it simply covers no set
+  // of its own (1 Prosecco + 1 Muscat on "Required 1 Prosecco -> $15, Optionally
+  // 2 Muscat -> $30" still prices the Prosecco at $15).
+  const ownSets = (g) => (g.setQty > 0 ? Math.floor(g.totalUnits / g.setQty) : 0);
+  const setsOf = (g, s) => (g.optional ? Math.min(s, ownSets(g)) : s);
+  const required = prepared.filter((g) => !g.optional);
+  let limit = required.length ? Math.min(...required.map(ownSets)) : 0;
   if (Number.isFinite(maxSets) && maxSets > 0) limit = Math.min(limit, maxSets);
 
   let sets = 0;
@@ -104,20 +109,25 @@ export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute
   // screen only applies a promotion that actually saves.
   let best = allowEqual ? -0.005 : 0.005;
   for (let s = 1; s <= limit; s += 1) {
-    const saving = prepared.reduce((sum, g) => g.noChange ? sum : sum + normalOfFirst(g.byPrice, s * g.setQty) - s * g.setPrice, 0);
+    const saving = prepared.reduce((sum, g) => {
+      if (g.noChange) return sum;
+      const n = setsOf(g, s);
+      return sum + normalOfFirst(g.byPrice, n * g.setQty) - n * g.setPrice;
+    }, 0);
     if (saving > best) { best = saving; sets = s; }
   }
 
   prepared.forEach((g) => {
     const promoUnits = new Map();
-    let toCover = sets * g.setQty;
+    const gSets = setsOf(g, sets);
+    let toCover = gSets * g.setQty;
     g.byPrice.forEach((l) => {
       const t = Math.min(l.q, toCover);
       promoUnits.set(l.index, t);
       toCover -= t;
     });
-    const covered = sets * g.setQty;
-    const promoCents = cents(sets * g.setPrice);
+    const covered = gSets * g.setQty;
+    const promoCents = cents(gSets * g.setPrice);
     const withPromo = g.lines.filter((l) => (promoUnits.get(l.index) || 0) > 0);
     // The promo total over the covered units, per the Price Rounding Mode.
     const shares = splitCents(promoCents, withPromo.map((l) => promoUnits.get(l.index) || 0), rounding);
@@ -127,7 +137,7 @@ export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute
       let c;
       if (g.noChange) {
         c = own; // "(quantity only)": counted, never repriced
-      } else if (sets > 0 && pu > 0) {
+      } else if (gSets > 0 && pu > 0) {
         const share = shares[withPromo.indexOf(l)];
         c = share + cents((l.q - pu) * l.unit);
         // Never dearer than on its own - whether partly covered (2 Prosecco + 1
@@ -163,7 +173,9 @@ export const allocateCriteriaSets = (groups, { maxSets, rounding = 'Redistribute
 //     spend criterion to its whole lines;
 //   * nothing changes unless the customer actually saves.
 
-export const RECEIVE_TYPES = ['total_price', 'each_item_for', 'discount_each_item', 'discount_total', 'discount', 'percentage_discount', 'quantity_only'];
+// 'same_sell_rate' ("the same sell rate as N units"): the caller puts that per-unit
+// rate on each line as `rateUnit` (it depends on the product's own price ladder).
+export const RECEIVE_TYPES = ['total_price', 'each_item_for', 'discount_each_item', 'discount_total', 'discount', 'percentage_discount', 'same_sell_rate', 'quantity_only'];
 
 // New price (in cents) for `units` units of each line (dearest first when a
 // count is given), under one "to receive" rule applied `sets` times (a purchase
@@ -197,6 +209,9 @@ const receiveOn = (lines, units, receiveType, value, sets = 1, rounding = 'Redis
     case 'discount_total':
     case 'discount': target = Math.max(0, coveredNormalCents - cents(v * perSet)); equalSplit = true; break;
     case 'percentage_discount': target = Math.max(0, Math.round(coveredNormalCents * (1 - v / 100))); break;
+    case 'same_sell_rate':
+      target = coveredLines.reduce((s, l) => s + Math.min(cents((cover.get(l.index) || 0) * l.unit), cents((cover.get(l.index) || 0) * (Number(l.rateUnit) || l.unit))), 0);
+      break;
     default: target = coveredNormalCents; // quantity_only
   }
   const offCents = coveredNormalCents - target; // what comes off, spread over the covered units
@@ -236,6 +251,7 @@ const receiveOn = (lines, units, receiveType, value, sets = 1, rounding = 'Redis
     // comes off every unit of its own line.
     if (receiveType === 'each_item_for') { out.set(l.index, Math.min(own, cents(cu * v)) + rest); return; }
     if (receiveType === 'discount_each_item') { out.set(l.index, Math.max(0, own - cents(cu * v)) + rest); return; }
+    if (receiveType === 'same_sell_rate') { out.set(l.index, Math.min(own, cents(cu * (Number(l.rateUnit) || l.unit))) + rest); return; }
     const share = equalSplit
       ? own - (equalOff.get(l.index) || 0)
       : valueShares[coveredLines.indexOf(l)];

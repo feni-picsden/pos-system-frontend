@@ -69,7 +69,14 @@ export const allocateCrossPromotions = (lines, promos, { crossCount = true, roun
   });
   units.sort((a, b) => b.normal - a.normal);
 
-  const live = promos.filter((p) => p.setQty >= 1 && p.productIds.size > 0);
+  // Only promotions that touch a product in the cart take part: the caller hands
+  // over every active promotion in the store, and the OFF path permutes them.
+  const inCart = new Set(units.map((u) => u.productId));
+  const live = promos.filter((p) => p.setQty >= 1 && p.productIds.size > 0
+    && [...p.productIds].some((id) => inCart.has(String(id))));
+  // Permuting more than this many promotions is too slow for a cart change
+  // (9! = 362,880 passes); fall back to one greedy exclusive pass instead.
+  const MAX_PERMUTED = 8;
 
   // One pass of one promotion over the units it may use. Returns the unit
   // indexes it covers (sets x N, dearest first) or [] when it does not qualify.
@@ -105,6 +112,8 @@ export const allocateCrossPromotions = (lines, promos, { crossCount = true, roun
   let best;
   if (crossCount || live.length <= 1) {
     best = priceWith(live, false);
+  } else if (live.length > MAX_PERMUTED) {
+    best = priceWith(live, true);
   } else {
     // OFF: units are exclusive; the cheapest order of applying the promotions wins.
     permutations(live).forEach((order) => {
@@ -150,7 +159,8 @@ export const allocateCrossPromotions = (lines, promos, { crossCount = true, roun
     const m = ownerCount.get(l.index);
     if (m && m.size) promoOf.set(l.index, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]);
   });
-  const applied = new Map(live.map((p) => [p.key, best.appliedKeys.has(p.key)]));
+  // Every promotion handed in gets an answer; one with no product in the cart is simply not applied.
+  const applied = new Map(promos.map((p) => [p.key, best.appliedKeys.has(p.key)]));
   return { prices, applied, promoOf };
 };
 
