@@ -450,7 +450,7 @@ const ExpressPromotion = () => {
     // Price are TOTALS for the line's Quantity (48 Corona -> Promo $110), so the
     // per-unit figures are kept to rescale them when the quantity changes.
     const baseTier = getBaseTier(product.prices);
-    const unitCost = product.cost || baseTier?.cost || 0;
+    const unitCost = product.cost || baseTier?.cost || product.itemCost || 0; // tier cost, else the product's last cost
     const unitNormal = baseTier?.price || 0;
     return {
       productId: product.id,
@@ -493,7 +493,7 @@ const ExpressPromotion = () => {
           const response = await classificationService.getClassificationProducts(entry.id, { assignedOnly: 1 });
           const members = (response?.assignedProducts || []).map((p) => {
             const tier = getBaseTier(p.prices);
-            return { productId: p.id, name: p.name, unitCost: Number(p.cost || tier?.cost || 0), unitNormal: Number(tier?.price || 0) };
+            return { productId: p.id, name: p.name, unitCost: Number(p.cost || tier?.cost || p.itemCost || 0), unitNormal: Number(tier?.price || 0) };
           });
           setFormData(prev => ({
             ...prev,

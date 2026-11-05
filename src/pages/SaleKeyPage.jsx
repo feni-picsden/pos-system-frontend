@@ -6046,7 +6046,13 @@ const SaleKeyPage = () => {
   hydrateActivePromotionsRef.current = hydrateActivePromotionsFromLocal;
   useEffect(() => {
     if (!selectedRegister?.id) return undefined;
-    const tick = setInterval(() => hydrateActivePromotionsRef.current(), 60 * 1000);
+    const tick = setInterval(() => {
+      // A promotion write empties the memory list until the next pull
+      // (posLocalDb.invalidateStore); re-filtering that would drop every
+      // promotion from the cart for up to a minute, so the tick waits.
+      if (!posLocalDb.getPromotions().length) return;
+      hydrateActivePromotionsRef.current();
+    }, 60 * 1000);
     return () => clearInterval(tick);
   }, [selectedRegister?.id]);
 
@@ -6819,8 +6825,11 @@ const SaleKeyPage = () => {
           });
         }
         
-        // Handle regular promotions with conditions/criteria
-        if (promotion.conditions && promotion.conditions.criteria && Array.isArray(promotion.conditions.criteria)) {
+        // Handle regular promotions with conditions/criteria. An Express promotion
+        // already listed its item rows above; the criteria stub the Express editor
+        // also stores (purchase 1, value 0) drew a second, wrong row per product.
+        const hasItemRows = Array.isArray(promotion.items) && promotion.items.length > 0;
+        if (!hasItemRows && promotion.conditions && promotion.conditions.criteria && Array.isArray(promotion.conditions.criteria)) {
           promotion.conditions.criteria.forEach(criterion => {
             if (criterion.items && Array.isArray(criterion.items)) {
               criterion.items.forEach(item => {
@@ -7655,7 +7664,11 @@ const SaleKeyPage = () => {
         const anyProduct = c.purchaseType === 'spend' && ids.size === 0;
         const lines = [];
         cartItems.forEach((item, index) => {
-          if (claimed.has(index)) return;
+          // A line another promotion already priced still COUNTS here (docs: all
+          // criteria must be met) - withholding it left "1 Juice + 2 TEST 24pk ->
+          // 10% off" unmet whenever a single-criterion promotion had priced the
+          // TEST line, and the Juice stayed full price. The line only MOVES to
+          // this promotion when it is cheaper (ownPrice below = the price it has).
           if (item.isCombo || item.giftCardId || !item.productId || item.discountInfo || item.isPromotionItem || item.priceLocked) return;
           if (!anyProduct && !ids.has(String(item.productId))) return;
           const q = parseFloat(item.quantity) || 0;
@@ -7672,7 +7685,9 @@ const SaleKeyPage = () => {
           // priced from the normal value; the line's own price-list / Express price
           // (recomputed, not read back from item.price) competes with it below.
           let own = 0;
-          try { own = parseFloat(calculatePriceForQuantity(product, q)) || 0; } catch { own = 0; }
+          const prior = targets.get(index);
+          if (prior && prior.price > 0) own = prior.price;
+          else { try { own = parseFloat(calculatePriceForQuantity(product, q)) || 0; } catch { own = 0; } }
           // "the same sell rate as N units": that per-unit rate comes off this
           // product's own price ladder, so it rides on the line (criteriaPromotion).
           let rateUnit;
