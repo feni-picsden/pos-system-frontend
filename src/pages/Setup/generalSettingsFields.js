@@ -772,7 +772,7 @@ export const LOCAL_TAB_FIELDS = [
   ]),
   ...local('Outlets', 1, 'Miscellaneous', ['Discounting Below Cost Behaviour']),
   ...local('Registers', 2, 'General', [
-    'Safe drop alert amount', 'Default Payment Method', 'Default Receipt Template'
+    'Safe drop alert amount', 'Default Payment Method', 'Default Receipt Template', 'Sale Keys'
   ]),
   ...local('Registers', 2, 'Sell Screen', [
     // 'Use Tyro integrated receipts' hidden (user 20/10/2026) - not searchable either.

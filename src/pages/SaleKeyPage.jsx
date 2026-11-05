@@ -330,6 +330,11 @@ const SaleKeyPage = () => {
   const [associateTarget, setAssociateTarget] = useState(null);
   const [associateSaving, setAssociateSaving] = useState(false);
   const searchRef = useRef(null);
+  // Sale key folder navigation history. Each entry is the grid that was showing
+  // before an Open Sale Key Folder key replaced it, so Return to the Previous
+  // Sale Key Folder can walk back one level at a time (reference), not jump
+  // straight to Home. Empty on the home keys.
+  const folderStackRef = useRef([]);
   const lastRegisterControlCheckRef = useRef(0);
   // Barcode scanning: serialize rapid scans, dedupe CR+LF double-Enters and
   // invalidate stale in-flight name searches (scanner input outruns renders).
@@ -1383,6 +1388,18 @@ const SaleKeyPage = () => {
           ? sets.find(set => set.name === userSaleKeys)
           : null;
 
+        // 0b) Register level (Setup > General > Registers > Sale Keys) beats
+        // the outlet and company defaults - reference order Company < Outlet < Register < User.
+        if (!targetSet) {
+          const regId = selectedRegister?.id || localStorage.getItem('selectedRegisterId');
+          const registerSaleKeys = regId
+            ? (await settingsService.getRegisterSettings(regId).catch(() => null))?.settings?.saleKeys
+            : null;
+          if (registerSaleKeys && registerSaleKeys !== 'Default') {
+            targetSet = sets.find(set => set.name === registerSaleKeys) || null;
+          }
+        }
+
         // 1) Prefer outlet-wise default (isDefault flag per outlet)
         if (!targetSet) targetSet = sets.find(set => set.isDefault);
 
@@ -1485,6 +1502,15 @@ const SaleKeyPage = () => {
             ? JSON.parse(folderData.config.saleKeys) 
             : folderData.config.saleKeys || []
         };
+        // Remember where we came from so Return to the Previous Folder can
+        // step back exactly one level (home => empty stack).
+        if (saleKeyConfig) {
+          folderStackRef.current.push({
+            config: saleKeyConfig,
+            folder: currentFolder,
+            name: currentFolderName,
+          });
+        }
         setSaleKeyConfig(config);
         setCurrentFolder({ id: folderData.id || folderId, name: folderName });
         setCurrentFolderName(folderName);
@@ -1501,6 +1527,7 @@ const SaleKeyPage = () => {
   };
 
   const goBackToMain = () => {
+    folderStackRef.current = [];
     setCurrentFolder(null);
     setSaleKeyConfig(mainSaleKeyConfig);
     setCurrentFolderName('Home Keys');
@@ -2106,9 +2133,11 @@ const SaleKeyPage = () => {
       return;
     }
     const term = searchTerm.trim();
+    const typedBarcodeQty = productMatchesBarcode(product, term) ? getBarcodeQuantity(product, term) : 0;
     handleAddProductFromSearch(
       product,
-      productMatchesBarcode(product, term) ? getBarcodeQuantity(product, term) : 1
+      typedBarcodeQty || 1,
+      typedBarcodeQty ? { barcodeQuantity: typedBarcodeQty } : undefined
     );
   };
 
@@ -2259,9 +2288,14 @@ const SaleKeyPage = () => {
     return figure(Number(units) || 0, 'On Hand');
   };
 
-  const handleAddProductFromSearch = async (productOrPromotionItem, addQuantity = 1) => {
+  // `options.barcodeQuantity`: the pack quantity of the barcode that was scanned
+  // (or typed) to add this product. Stamped on the line so the "Increase /
+  // Decrease by the Originally Scanned Barcode Quantity" keys can step by it.
+  // Adds that did not come from a barcode leave it unset (those keys then step by 1).
+  const handleAddProductFromSearch = async (productOrPromotionItem, addQuantity = 1, options = {}) => {
     const ok = await ensureRegisterControl();
     if (!ok) return 'blocked';
+    const scannedBarcodeQuantity = Math.max(0, parseFloat(options?.barcodeQuantity) || 0);
 
     const hasProductWrapper = productOrPromotionItem && productOrPromotionItem.product != null;
     const rawProduct = hasProductWrapper ? productOrPromotionItem.product : productOrPromotionItem;
@@ -2372,7 +2406,10 @@ const SaleKeyPage = () => {
           price: newPrice,
           normalPrice: calculateNormalPriceForQuantity(product, newQuantity),
           unitCost: existingItem.unitCost != null && existingItem.unitCost > 0 ? existingItem.unitCost : unitCost,
-          retailTaxRate: existingItem.retailTaxRate || product.retailTaxRate
+          retailTaxRate: existingItem.retailTaxRate || product.retailTaxRate,
+          // The most recent scan's pack size wins; a non-scan add keeps what the
+          // line already had.
+          ...(scannedBarcodeQuantity > 0 ? { barcodeQuantity: scannedBarcodeQuantity } : {}),
         };
         addedLine = updatedCart[existingItemIndex];
         return updatedCart;
@@ -2427,7 +2464,8 @@ const SaleKeyPage = () => {
           familyColor: product.family?.color || null,
           quantity: promotionQuantity,
           timestamp: Date.now(),
-          action: 'add-product'
+          action: 'add-product',
+          ...(scannedBarcodeQuantity > 0 ? { barcodeQuantity: scannedBarcodeQuantity } : {}),
         };
         return [...prev, addedLine];
       }
@@ -2658,9 +2696,11 @@ const SaleKeyPage = () => {
       }
       if (matches.length === 1) {
         // Apply the barcode's pack quantity (e.g. a carton code adds 12 units).
+        const scannedQty = getBarcodeQuantity(matches[0], code);
         const result = await handleAddProductFromSearch(
           matches[0],
-          getBarcodeQuantity(matches[0], code)
+          scannedQty,
+          { barcodeQuantity: scannedQty }
         );
         if (result) return true;
       }
@@ -3204,27 +3244,48 @@ const SaleKeyPage = () => {
       let delta; // per-set price change on the combo line
       if (sign < 0) {
         if (idx === -1) {
-          alert(`${componentProduct.name} is not a component of ${pkg.name}.`);
-          return;
-        }
-        const perUnit = (parseFloat(items[idx].normalPrice) || 0) / (items[idx].quantity || 1);
-        if ((items[idx].quantity || 1) > 1) {
-          items[idx] = {
-            ...items[idx],
-            quantity: (items[idx].quantity || 1) - 1,
-            normalPrice: (parseFloat(items[idx].normalPrice) || 0) - perUnit,
-          };
+          // Reference: "If the package does not contain the component, the
+          // component will be added to the package with a negative value."
+          items.push({
+            productId: componentProduct.id,
+            name: componentProduct.name,
+            quantity: -1,
+            normalPrice: -unitPrice,
+            retailTaxRate: componentProduct.retailTaxRate,
+            taxPercent: getTaxRatePercent(componentProduct.retailTaxRate),
+            unitCost: getUnitCost(componentProduct, unitPrice),
+          });
+          delta = -unitPrice;
         } else {
-          items.splice(idx, 1);
+          const curQty = items[idx].quantity || 1;
+          const perUnit = Math.abs((parseFloat(items[idx].normalPrice) || 0) / curQty) || unitPrice;
+          const nextQty = curQty - 1;
+          if (nextQty === 0) {
+            items.splice(idx, 1);
+          } else {
+            items[idx] = {
+              ...items[idx],
+              quantity: nextQty,
+              normalPrice: (parseFloat(items[idx].normalPrice) || 0) - perUnit,
+            };
+          }
+          delta = -perUnit;
         }
-        delta = -perUnit;
       } else {
         if (idx !== -1) {
-          items[idx] = {
-            ...items[idx],
-            quantity: (items[idx].quantity || 1) + 1,
-            normalPrice: (parseFloat(items[idx].normalPrice) || 0) + unitPrice,
-          };
+          // Adding to a negative (removed) component brings it back towards 0;
+          // at exactly 0 the entry goes.
+          const curQty = items[idx].quantity || 1;
+          const nextQty = curQty + 1;
+          if (nextQty === 0) {
+            items.splice(idx, 1);
+          } else {
+            items[idx] = {
+              ...items[idx],
+              quantity: nextQty,
+              normalPrice: (parseFloat(items[idx].normalPrice) || 0) + unitPrice,
+            };
+          }
         } else {
           items.push({
             productId: componentProduct.id,
@@ -3250,6 +3311,9 @@ const SaleKeyPage = () => {
       return;
     }
 
+    // Reference: "Remove a Component" on a line that is not a package has no effect.
+    if (sign < 0) return;
+
     // No package/combo line selected — separate line, per Shopfront's fallback.
     setCart(prev => [...prev, {
       id: `component-${componentProduct.id}-${Date.now()}`,
@@ -3266,20 +3330,40 @@ const SaleKeyPage = () => {
   };
 
   // Apply Shopfront keyboard tokens ([Backspace], [Delete], [Clear]) plus literal
-  // text to the current product-search value.
-  const applySearchTokens = (current, raw) => {
-    let result = current || '';
+  // text to the current product-search value, exactly as if typed at the caret:
+  // literal text is inserted at the caret, [Backspace] removes the character
+  // before it, [Delete] the character after it, [Clear] empties the box.
+  // Returns { value, caret } so the caller can restore the caret position.
+  const applySearchTokens = (current, raw, caretAt = null) => {
+    let value = current || '';
+    let caret = caretAt == null || caretAt > value.length ? value.length : Math.max(0, caretAt);
+    const insert = (text) => {
+      if (!text) return;
+      value = value.slice(0, caret) + text + value.slice(caret);
+      caret += text.length;
+    };
     const tokenRe = /\[(Backspace|Delete|Clear)\]/gi;
     let lastIndex = 0;
     let m;
     while ((m = tokenRe.exec(raw)) !== null) {
-      result += raw.slice(lastIndex, m.index);
+      insert(raw.slice(lastIndex, m.index));
       const tok = m[1].toLowerCase();
-      // ponytail: no cursor concept on the search box — [Delete] behaves like [Backspace].
-      result = tok === 'clear' ? '' : result.slice(0, -1);
+      if (tok === 'clear') {
+        value = '';
+        caret = 0;
+      } else if (tok === 'backspace') {
+        if (caret > 0) {
+          value = value.slice(0, caret - 1) + value.slice(caret);
+          caret -= 1;
+        }
+      } else {
+        // delete: the character after the caret
+        value = value.slice(0, caret) + value.slice(caret + 1);
+      }
       lastIndex = tokenRe.lastIndex;
     }
-    return result + raw.slice(lastIndex);
+    insert(raw.slice(lastIndex));
+    return { value, caret };
   };
 
   const handleSaleKeyClick = async (saleKey) => {
@@ -3300,10 +3384,11 @@ const SaleKeyPage = () => {
       return;
     }
 
-    // Disable payment actions if no products in cart
+    // Disable payment actions if no products in cart — unless the key is flagged
+    // Prevent Disable (reference: that flag stops the automatic context disable).
     if ((saleKey.action === 'payment' || saleKey.action === 'pay-amount' ||
          ((saleKey.name || '').toLowerCase().includes('cash') && saleKey.amount)) &&
-        cart.length === 0) {
+        cart.length === 0 && !saleKey.behavior?.preventDisable) {
       return; // Disable payment keys when cart is empty
     }
     
@@ -4030,29 +4115,42 @@ const SaleKeyPage = () => {
         break;
       case 'flip-sale': {
         if (cart.length === 0) { alert('No products to flip.'); return; }
-        // Bulk return: every SALE line turns into a return. A line that is
-        // already a return stays one (a returned quantity is always negative),
-        // so pressing again changes nothing.
-        if (!cart.some(i => (parseFloat(i.quantity) || 1) > 0)) break;
-        const flipReason = await askRefundReason();
+        // Reference: EVERY line gets the opposite sign — sale lines become
+        // returns and return lines go back to sales — so pressing the key again
+        // reverts the sale to its original quantities. The refund reason is only
+        // asked when at least one line is actually turning into a return.
+        const anyBecomingReturn = cart.some(i => (parseFloat(i.quantity) || 1) > 0);
+        const flipReason = anyBecomingReturn ? await askRefundReason() : '';
         if (flipReason === null) break;
-        setCart(prev => prev.map(i => ((parseFloat(i.quantity) || 1) > 0 ? {
-          ...flipLineSign(i),
-          ...(flipReason ? { refundReason: flipReason } : {}),
-        } : i)));
+        setCart(prev => prev.map(i => {
+          const flipped = flipLineSign(i);
+          if ((parseFloat(i.quantity) || 1) > 0) {
+            return { ...flipped, ...(flipReason ? { refundReason: flipReason } : {}) };
+          }
+          // Back to a sale line: the refund reason no longer applies.
+          const { refundReason: _dropped, ...rest } = flipped;
+          return rest;
+        }));
         setSelectedCartItem(null);
         break;
       }
       case 'return-item': {
         if (!selectedCartItem) { alert('Select a product in the cart to return.'); return; }
-        // Already a return: it stays one (never flipped back into a sale).
-        if ((parseFloat(selectedCartItem.quantity) || 1) < 0) break;
-        const returnReason = await askRefundReason();
+        // Reference: pressing the key again on a returned line flips it back to
+        // a sale ("if you've selected the wrong product to return simply select
+        // the Return Product button again"). The refund reason is only asked
+        // when the line is turning into a return.
+        const becomingReturn = (parseFloat(selectedCartItem.quantity) || 1) > 0;
+        const returnReason = becomingReturn ? await askRefundReason() : '';
         if (returnReason === null) break;
-        const flip = (i) => ({
-          ...flipLineSign(i),
-          ...(returnReason ? { refundReason: returnReason } : {}),
-        });
+        const flip = (i) => {
+          const flipped = flipLineSign(i);
+          if (becomingReturn) {
+            return { ...flipped, ...(returnReason ? { refundReason: returnReason } : {}) };
+          }
+          const { refundReason: _dropped, ...rest } = flipped;
+          return rest;
+        };
         setCart(prev => prev.map(i =>
           (i.id === selectedCartItem.id && i.timestamp === selectedCartItem.timestamp ? flip(i) : i)));
         setSelectedCartItem(prev => (prev ? flip(prev) : prev));
@@ -4064,8 +4162,9 @@ const SaleKeyPage = () => {
         if (cart.length === 0) { alert('No products in cart.'); return; }
         if (!selectedCartItem) { alert('Please select a product from the cart first'); return; }
         const sign = saleKey.action === 'add-quantity-barcode' ? 1 : -1;
-        // ponytail: the originally-scanned barcode multipack qty isn't tracked locally;
-        // fall back to the line's barcodeQuantity, else 1.
+        // The line's barcodeQuantity is the pack size of the barcode that was
+        // scanned/typed to add it (stamped in handleAddProductFromSearch). A line
+        // that was never added by barcode steps by 1.
         const step = (parseFloat(selectedCartItem.barcodeQuantity) || 1) * sign;
         const idx = cart.findIndex(i => i.id === selectedCartItem.id && i.timestamp === selectedCartItem.timestamp);
         if (idx === -1) break;
@@ -4154,14 +4253,42 @@ const SaleKeyPage = () => {
         setSelectedCartItem(prev => (prev ? { ...prev, ...repriced } : prev));
         break;
       }
-      case 'product-search-input':
-        // Inject the configured text into the product search box (search runs via effect).
-        setSearchTerm(prev => applySearchTokens(prev, saleKey.keyboardText || ''));
+      case 'product-search-input': {
+        // Inject the configured text into the product search box at the caret
+        // (search runs via effect). The caret is read from the real input so
+        // [Backspace] / [Delete] act where the operator left the cursor.
+        const inputEl = searchRef.current?.querySelector?.('input') || null;
+        const caretAt = inputEl && typeof inputEl.selectionStart === 'number' ? inputEl.selectionStart : null;
+        const { value: nextValue, caret: nextCaret } = applySearchTokens(searchTerm, saleKey.keyboardText || '', caretAt);
+        setSearchTerm(nextValue);
+        if (inputEl) {
+          // Restore the caret after React has written the new value.
+          setTimeout(() => {
+            try {
+              inputEl.focus();
+              inputEl.setSelectionRange(nextCaret, nextCaret);
+            } catch {
+              // input type does not support selection — nothing to restore
+            }
+          }, 0);
+        }
         break;
-      case 'previous-folder':
-        // ponytail: single-level nesting — returns to Home keys (no-op if already there).
-        if (currentFolder) goBackToMain();
+      }
+      case 'previous-folder': {
+        // Reference: back one level to the folder that was open before this
+        // one. On the home keys this has no function.
+        if (!currentFolder) break;
+        const previous = folderStackRef.current.pop();
+        if (!previous) {
+          goBackToMain();
+          break;
+        }
+        setSaleKeyConfig(previous.config);
+        setCurrentFolder(previous.folder);
+        setCurrentFolderName(previous.name);
+        setError('');
         break;
+      }
       case 'search-additional': {
         // Search products by their additional-information fields (description,
         // order/invoice notes, supplier code, barcodes) and surface the matches in
@@ -8985,16 +9112,16 @@ const SaleKeyPage = () => {
                             // code to; otherwise it sells it. A row the search
                             // matched BY BARCODE adds that barcode's pack quantity,
                             // exactly like scanning it.
-                            onClick={() =>
-                              associatingBarcode
-                                ? setAssociateTarget(product)
-                                : handleAddProductFromSearch(
-                                    product,
-                                    productMatchesBarcode(product, searchTerm.trim())
-                                      ? getBarcodeQuantity(product, searchTerm.trim())
-                                      : 1
-                                  )
-                            }
+                            onClick={() => {
+                              if (associatingBarcode) { setAssociateTarget(product); return; }
+                              const term = searchTerm.trim();
+                              const typedBarcodeQty = productMatchesBarcode(product, term) ? getBarcodeQuantity(product, term) : 0;
+                              handleAddProductFromSearch(
+                                product,
+                                typedBarcodeQty || 1,
+                                typedBarcodeQty ? { barcodeQuantity: typedBarcodeQty } : undefined
+                              );
+                            }}
                             sx={searchRowSx(idx, activeResultIndex === searchResults.customers.length + idx)}
                           >
                             {/* Reference search row: name, its price (or price range)
@@ -10730,7 +10857,9 @@ const SaleKeyPage = () => {
         products={barcodeChoices?.products || []}
         onSelect={async (product, qty) => {
           setBarcodeChoices(null);
-          await handleAddProductFromSearch(product, qty);
+          // Picked from a scanned-barcode match: carry the pack quantity so the
+          // "by originally scanned barcode quantity" keys step by it.
+          await handleAddProductFromSearch(product, qty, { barcodeQuantity: qty });
           focusSearchInput();
         }}
         onClose={() => {

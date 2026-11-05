@@ -41,7 +41,7 @@ import {
   DragIndicator,
 } from '@mui/icons-material';
 import { ChromePicker } from 'react-color';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import saleKeyService from '../../services/saleKeyService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
@@ -49,6 +49,7 @@ import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { productOptionLabel } from '../../utils/productOptionLabel';
 import { searchProducts } from '../../utils/productSearch';
 import SaleKeyTileContent from '../../components/SaleKey/SaleKeyTileContent';
+import { saleKeyHoverSx } from '../../utils/saleKeyHover';
 import { saleKeyCanvasSx, saleKeyPreviewPanelSx } from '../../utils/saleKeyCanvas';
 import SaleKeyPreviewTabs from '../../components/SaleKey/SaleKeyPreviewTabs';
 import { saleKeyGeometry, pointerCellDelta, canPlaceSaleKey, moveSaleKey } from '../../utils/saleKeyGeometry';
@@ -124,6 +125,68 @@ const ACTION_OPTIONS = [
   return x < y ? -1 : x > y ? 1 : 0;
 });
 
+// Action ids written by older layouts / the seeded defaults that the sell screen
+// still runs but the combobox never listed, so the key showed a blank Action.
+// Mapped on load and on select; params are kept (the handlers read the same fields).
+const LEGACY_ACTION_MAP = {
+  payment: 'pay-amount',
+  'case-quantity': 'use-case-quantity',
+  discount: 'apply-discount',
+};
+const migrateSaleKey = (key) => {
+  if (!key || !LEGACY_ACTION_MAP[key.action]) return key;
+  return { ...key, action: LEGACY_ACTION_MAP[key.action] };
+};
+const migrateSaleKeys = (keys) => (keys || []).map(migrateSaleKey);
+
+// Option list for the Action combobox: an id nobody knows is still shown
+// (as "<id> (unknown)") rather than an empty box that hides what the key does.
+const actionOptionsFor = (action) =>
+  !action || ACTION_OPTIONS.some((o) => o.value === action)
+    ? ACTION_OPTIONS
+    : [...ACTION_OPTIONS, { value: action, label: `${action} (unknown)` }];
+
+// Everything an action owns. Changing the action resets all of these, the way
+// the sell screen's Add Sale Key dialog does, so a Pay Amount key turned into a
+// product key does not keep printing "$20.00".
+const ACTION_PARAM_RESET = {
+  amount: '',
+  productId: null,
+  selectedProduct: null,
+  paymentMethod: '',
+  selectedPaymentMethod: null,
+  requestQuantity: false,
+  quantity: '',
+  requestCaseQuantity: false,
+  caseQuantity: '',
+  useProductImage: 'Never',
+  folderId: '',
+  folderName: '',
+  classificationType: undefined,
+  classificationId: '',
+  classificationName: '',
+  componentProduct: null,
+  componentProductId: null,
+  componentProductName: '',
+  customerData: null,
+  customerId: null,
+  customerName: '',
+  noteScope: undefined,
+  discountType: undefined,
+  discountValue: '',
+  keyboardText: '',
+  priceSetId: '',
+  priceSetName: '',
+  priceSetKind: '',
+  promotionType: undefined,
+  infoText: '',
+  specialText: '',
+  durationAgo: '',
+  dateFormat: '',
+};
+
+const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40];
+
 const SaleKeyEditor = () => {
   const { setId } = useParams();
   const navigate = useNavigate();
@@ -172,6 +235,10 @@ const SaleKeyEditor = () => {
   const [currentSet, setCurrentSet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [hoveredKeyId, setHoveredKeyId] = useState(null);
+  // What the server last gave us (or what Save last sent), serialised; the
+  // layout is dirty while the current config differs from it.
+  const [savedSnapshot, setSavedSnapshot] = useState(null);
 
   useEffect(() => {
     loadSaleKeyConfig();
@@ -183,6 +250,28 @@ const SaleKeyEditor = () => {
       const { selectedProduct, ...rest } = key;
       return rest;
     });
+  };
+
+  const snapshotOf = (grid, keys) => JSON.stringify({ gridSize: grid, saleKeys: sanitizeSaleKeys(keys) });
+  const applyLoadedConfig = (grid, keys) => {
+    const migrated = migrateSaleKeys(keys);
+    setGridSize(grid);
+    setSaleKeys(migrated);
+    setSavedSnapshot(snapshotOf(grid, migrated));
+  };
+  const isDirty = savedSnapshot !== null && snapshotOf(gridSize, saleKeys) !== savedSnapshot;
+
+  // Leaving the page (reload / close tab) with unsaved keys asks first.
+  useEffect(() => {
+    if (!isDirty) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty]);
+
+  const handleCancel = () => {
+    if (isDirty && !window.confirm('You have unsaved changes to these sale keys. Leave without saving?')) return;
+    navigate('/setup/sale-key-sets');
   };
 
   const loadSaleKeyConfig = async () => {
@@ -227,23 +316,19 @@ const SaleKeyEditor = () => {
         const setData = await saleKeyService.getSaleKeySet(parsedSetId);
         setCurrentSet(setData);
         if (setData.config) {
-          setGridSize(setData.config.gridSize || { rows: 6, cols: 6 });
-          setSaleKeys(setData.config.saleKeys || []);
+          applyLoadedConfig(setData.config.gridSize || { rows: 6, cols: 6 }, setData.config.saleKeys || []);
         } else {
           // Use default config for this set
           const defaultConfig = saleKeyService.getDefaultConfig(setId);
-          setGridSize(defaultConfig.gridSize);
-          setSaleKeys(defaultConfig.saleKeys);
+          applyLoadedConfig(defaultConfig.gridSize, defaultConfig.saleKeys);
         }
       } else {
         const activeSet = await saleKeyService.getActiveSaleKeySet(saleKeysOutletId());
         setCurrentSet(activeSet);
         if (activeSet && activeSet.config) {
-          setGridSize(activeSet.config.gridSize || { rows: 6, cols: 6 });
-          setSaleKeys(activeSet.config.saleKeys || []);
+          applyLoadedConfig(activeSet.config.gridSize || { rows: 6, cols: 6 }, activeSet.config.saleKeys || []);
         } else {
-          setGridSize({ rows: 6, cols: 6 });
-          setSaleKeys([]);
+          applyLoadedConfig({ rows: 6, cols: 6 }, []);
         }
       }
     } catch (error) {
@@ -263,7 +348,7 @@ const SaleKeyEditor = () => {
     action: 'no-action',
     amount: '',
     productId: null,
-    paymentMethod: 'cash',
+    paymentMethod: '',
     selectedProduct: null,
     requestQuantity: false,
     quantity: '',
@@ -276,6 +361,9 @@ const SaleKeyEditor = () => {
     backgroundColor: '#4CAF50',
     textColor: '#FFFFFF',
     borderColor: '#000000',
+    hoverBackgroundColor: '',
+    hoverText: '',
+    hoverTextColor: '',
     fontSize: 16,
     textStyle: { bold: false, italic: false, underline: false },
     behavior: {
@@ -353,7 +441,7 @@ const SaleKeyEditor = () => {
     // Ensure the key has all required properties by merging with defaults
     const keyWithDefaults = {
       ...defaultKeyProperties,
-      ...key,
+      ...migrateSaleKey(key),
       // Preserve existing nested objects but ensure they exist
       textStyle: { ...defaultKeyProperties.textStyle, ...key.textStyle },
       behavior: { ...defaultKeyProperties.behavior, ...key.behavior },
@@ -421,30 +509,10 @@ const SaleKeyEditor = () => {
     handleKeySelect(key);
   };
 
-  const handleGridCellClick = (row, col) => {
-    const isOccupied = saleKeys.some(key => {
-      if (!key || !key.position) return false;
-      
-      const width = key.size?.width || key.position.w || 1;
-      const height = key.size?.height || key.position.h || 1;
-      
-      return col >= key.position.x && 
-             col < key.position.x + width &&
-             row >= key.position.y && 
-             row < key.position.y + height;
-    });
-    
-    if (!isOccupied) {
-      const newKey = {
-        ...defaultKeyProperties,
-        id: `key-${Date.now()}`,
-        name: 'New Key',
-        position: { x: col, y: row },
-      };
-      setSaleKeys([...saleKeys, newKey]);
-      debugSetSelectedKey(newKey);
-      setSnackbar({ open: true, message: 'New sale key added at selected position', severity: 'success' });
-    }
+  // An empty cell only clears the selection; keys are added with the Add Sale
+  // Key button (reference), never by clicking the canvas.
+  const handleGridCellClick = () => {
+    debugSetSelectedKey(null);
   };
 
   const getPointerPosition = (e) => {
@@ -609,22 +677,23 @@ const SaleKeyEditor = () => {
     }
   }, [isResizing, handleResizeMove, handleResizeEnd]);
 
-  // Properties whose change should auto-save the layout to the server.
-  const AUTOSAVE_PROPS = [
-    'selectedProduct', 'productId', 'selectedPaymentMethod',
-    'folderId', 'folderName',
-  ];
-
   // Accepts either (property, value) or a single object of {property: value}.
   // Related properties (e.g. folderId + folderName) MUST be applied in one call:
   // two successive calls both read the same stale selectedKey/saleKeys closures,
   // so the second call silently drops the first one's update (this was why
   // folderId never persisted from the folder picker).
+  // Nothing here writes to the server: only Save does (an auto-save on product /
+  // folder picks used to persist every other unsaved edit behind Cancel's back).
   const handlePropertyChange = (propertyOrUpdates, value) => {
     if (!selectedKey) return;
-    const updates = typeof propertyOrUpdates === 'string'
+    let updates = typeof propertyOrUpdates === 'string'
       ? { [propertyOrUpdates]: value }
       : (propertyOrUpdates || {});
+
+    // A new action starts with clean parameters.
+    if ('action' in updates && updates.action !== selectedKey.action) {
+      updates = { ...ACTION_PARAM_RESET, ...updates };
+    }
 
     const updatedKey = { ...selectedKey };
     Object.entries(updates).forEach(([property, val]) => {
@@ -636,41 +705,44 @@ const SaleKeyEditor = () => {
       }
     });
 
-    debugSetSelectedKey(updatedKey);
-    const updatedSaleKeys = saleKeys.map(key =>
-      key.id === selectedKey.id ? updatedKey : key
-    );
-    setSaleKeys(updatedSaleKeys);
-
-    // Auto-save to server to prevent data loss
-    if (Object.keys(updates).some(p => AUTOSAVE_PROPS.includes(p))) {
-      const sanitized = sanitizeSaleKeys(updatedSaleKeys);
-      setTimeout(async () => {
-        try {
-          const config = {
-            gridSize,
-            saleKeys: sanitized,
-          };
-
-          if (currentSet?.id) {
-            await saleKeyService.updateSaleKeySet(currentSet.id, { config });
-          }
-        } catch (error) {
-          console.error('Auto-save failed:', error);
-        }
-      }, 500);
+    // Typed position / size must obey the same rules as drag and resize.
+    const geometric = Object.keys(updates).some((p) => p.startsWith('position.') || p.startsWith('size.'));
+    if (geometric) {
+      if (updatedKey.size) {
+        updatedKey.position = { ...updatedKey.position, w: updatedKey.size.width, h: updatedKey.size.height };
+      }
+      if (!canPlaceSaleKey(updatedKey, saleKeys, gridSize)) {
+        setSnackbar({
+          open: true,
+          message: 'That position or size would overlap another key or leave the grid',
+          severity: 'warning',
+        });
+        return;
+      }
     }
+
+    debugSetSelectedKey(updatedKey);
+    setSaleKeys(saleKeys.map(key =>
+      key.id === selectedKey.id ? updatedKey : key
+    ));
   };
 
-  const handleTextStyleChange = (style) => {
-    if (selectedKey) {
-      const updatedKey = { ...selectedKey };
-      updatedKey.textStyle[style] = !updatedKey.textStyle[style];
-      debugSetSelectedKey(updatedKey);
-      setSaleKeys(saleKeys.map(key => 
-        key.id === selectedKey.id ? updatedKey : key
-      ));
+  // Columns / Rows can only shrink while every key still fits.
+  const handleGridSizeChange = (next) => {
+    const outside = saleKeys.filter((key) => {
+      if (!key?.position) return false;
+      const { position, size } = saleKeyGeometry(key);
+      return position.x + size.width > next.cols || position.y + size.height > next.rows;
+    });
+    if (outside.length) {
+      setSnackbar({
+        open: true,
+        message: `Cannot shrink the grid: ${outside.length} key${outside.length === 1 ? '' : 's'} would fall outside it`,
+        severity: 'warning',
+      });
+      return;
     }
+    setGridSize(next);
   };
 
   const handleColorChange = (color) => {
@@ -737,6 +809,7 @@ const SaleKeyEditor = () => {
       if (currentSet?.id) {
         // Update existing sale key set
         await saleKeyService.updateSaleKeySet(currentSet.id, { config, ...(currentSet.name?.trim() ? { name: currentSet.name.trim() } : {}) });
+        setSavedSnapshot(snapshotOf(gridSize, saleKeys));
       } else {
         // Create new sale key set
         const newSet = await saleKeyService.createSaleKeySet({
@@ -747,6 +820,7 @@ const SaleKeyEditor = () => {
           config
         });
         setCurrentSet(newSet);
+        setSavedSnapshot(snapshotOf(gridSize, saleKeys));
         // Navigate to the new set's edit page
         navigate(`/setup/sale-key/${newSet.id}`);
       }
@@ -973,18 +1047,24 @@ const SaleKeyEditor = () => {
     const isSelected = selectedKey?.id === key.id;
     const cellWidth = 100 / gridSize.cols;
     const cellHeight = 100 / gridSize.rows;
+    const hovered = hoveredKeyId === key.id;
+    const product = key.productId ? availableProducts.find((p) => p.id === key.productId) || null : null;
 
     return (
       <Box
         key={key.id}
+        onPointerEnter={() => setHoveredKeyId(key.id)}
+        onPointerLeave={() => setHoveredKeyId((id) => (id === key.id ? null : id))}
         sx={{
           position: 'absolute',
           left: `${(key.position.x || 0) * cellWidth}%`,
           top: `${(key.position.y || 0) * cellHeight}%`,
           width: `${width * cellWidth}%`,
           height: `${height * cellHeight}%`,
-          backgroundColor: key.backgroundColor || '#4CAF50',
-          color: key.textColor || '#FFFFFF',
+          // Same hover colours as the sell screen.
+          ...saleKeyHoverSx(key, hovered),
+          // Animate colours only; position/size must follow drag and resize immediately.
+          transition: key.behavior?.preventHoverAnimation ? 'none' : 'background-color 0.2s ease, color 0.2s ease',
           border: `1px solid ${isSelected ? '#1976d2' : (key.borderColor || '#000000')}`,
           display: 'flex',
           flexDirection: 'column',
@@ -998,11 +1078,6 @@ const SaleKeyEditor = () => {
           fontWeight: key.textStyle?.bold ? 'bold' : 'normal',
           fontStyle: key.textStyle?.italic ? 'italic' : 'normal',
           textDecoration: key.textStyle?.underline ? 'underline' : 'none',
-          '&:hover': {
-            opacity: key.behavior?.preventHover ? 1 : 0.8,
-          },
-          // Animate appearance only; position/size must follow drag and resize immediately.
-          transition: key.behavior?.preventHoverAnimation ? 'none' : 'opacity 0.2s ease, background-color 0.2s ease',
           boxSizing: 'border-box',
           // Reference tile (pmk.onshopfront.com) insets nothing: the artwork runs
           // to the border and only the 1px border separates one key from the next.
@@ -1033,7 +1108,7 @@ const SaleKeyEditor = () => {
           </>
         )}
         
-        <SaleKeyTileContent saleKey={key} />
+        <SaleKeyTileContent saleKey={key} product={product} hovered={hovered} />
 
       </Box>
     );
@@ -1248,7 +1323,7 @@ const SaleKeyEditor = () => {
                 fullWidth
                 label="Columns"
                 value={gridSize.cols}
-                onCommit={(n) => setGridSize({ ...gridSize, cols: n })}
+                onCommit={(n) => handleGridSizeChange({ ...gridSize, cols: n })}
                 inputProps={{ min: 1, max: 12 }}
                 size="small"
               />
@@ -1261,7 +1336,7 @@ const SaleKeyEditor = () => {
                 fullWidth
                 label="Rows"
                 value={gridSize.rows}
-                onCommit={(n) => setGridSize({ ...gridSize, rows: n })}
+                onCommit={(n) => handleGridSizeChange({ ...gridSize, rows: n })}
                 inputProps={{ min: 1, max: 12 }}
                 size="small"
               />
@@ -1314,10 +1389,10 @@ const SaleKeyEditor = () => {
               {/* Searchable, clearable Action combobox (matches reference react-select) */}
               <Autocomplete
                 fullWidth
-                options={ACTION_OPTIONS}
+                options={actionOptionsFor(selectedKey.action)}
                 getOptionLabel={(option) => option.label || ''}
                 isOptionEqualToValue={(option, value) => option.value === value?.value}
-                value={ACTION_OPTIONS.find((o) => o.value === selectedKey.action) || null}
+                value={actionOptionsFor(selectedKey.action).find((o) => o.value === selectedKey.action) || null}
                 onChange={(event, newValue) => handlePropertyChange('action', newValue ? newValue.value : 'no-action')}
                 renderInput={(params) => (
                   <TextField {...params} label="Action" placeholder="Search actions..." />
@@ -1354,7 +1429,7 @@ const SaleKeyEditor = () => {
                   }
                   loading={loadingPaymentMethods}
                   onChange={(event, newValue) =>
-                    handlePropertyChange('paymentMethod', newValue ? newValue.name : 'cash')
+                    handlePropertyChange('paymentMethod', newValue ? newValue.name : '')
                   }
                   renderInput={(params) => (
                     <TextField {...params} label="Payment Method" placeholder="Select..." />
@@ -1367,7 +1442,14 @@ const SaleKeyEditor = () => {
                   fullWidth
                   options={availablePaymentMethods}
                   getOptionLabel={(option) => option.name}
-                  value={availablePaymentMethods.find(method => method.id === selectedKey.selectedPaymentMethod?.id) || null}
+                  // Older keys carry only the method NAME (the sell screen honours it).
+                  value={
+                    availablePaymentMethods.find(method => method.id === selectedKey.selectedPaymentMethod?.id)
+                    || availablePaymentMethods.find(method =>
+                      (method.name || '').toLowerCase() === (selectedKey.selectedPaymentMethod?.name || selectedKey.paymentMethod || '').toLowerCase())
+                    || null
+                  }
+                  isOptionEqualToValue={(option, value) => option.id === value?.id}
                   loading={loadingPaymentMethods}
                   onChange={(event, newValue) => {
                     handlePropertyChange('selectedPaymentMethod', newValue);
@@ -1992,20 +2074,15 @@ const SaleKeyEditor = () => {
               <FormControl fullWidth sx={{ mb: 2 }}>
                 <InputLabel>Font Size</InputLabel>
                 <Select
-                  value={selectedKey.fontSize}
+                  value={selectedKey.fontSize || 16}
                   onChange={(e) => handlePropertyChange('fontSize', e.target.value)}
                   label="Font Size"
                 >
-                  <MenuItem value={12}>12</MenuItem>
-                  <MenuItem value={14}>14</MenuItem>
-                  <MenuItem value={16}>16</MenuItem>
-                  <MenuItem value={18}>18</MenuItem>
-                  <MenuItem value={20}>20</MenuItem>
-                  <MenuItem value={24}>24</MenuItem>
-                  <MenuItem value={28}>28</MenuItem>
-                  <MenuItem value={32}>32</MenuItem>
-                  <MenuItem value={36}>36</MenuItem>
-                  <MenuItem value={40}>40</MenuItem>
+                  {/* A stored size outside the list (e.g. 13 from the sell-screen dialog) stays selectable. */}
+                  {(FONT_SIZES.includes(selectedKey.fontSize || 16)
+                    ? FONT_SIZES
+                    : [...FONT_SIZES, selectedKey.fontSize].sort((a, b) => a - b)
+                  ).map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
                 </Select>
               </FormControl>
 
@@ -2037,6 +2114,19 @@ const SaleKeyEditor = () => {
               {renderColorControl('Border Colour', 'borderColor')}
               {renderColorControl('Normal Background Colour', 'backgroundColor')}
               {renderColorControl('Normal Text Colour', 'textColor')}
+
+              {/* Hover appearance (reference fields); ignored while Prevent Hover is on. */}
+              {renderColorControl('Hover Background Colour', 'hoverBackgroundColor')}
+              <TextField
+                fullWidth
+                label="Hover Text"
+                value={selectedKey.hoverText || ''}
+                onChange={(e) => handlePropertyChange('hoverText', e.target.value)}
+                sx={{ mb: 2 }}
+                placeholder="Text shown while hovered..."
+                helperText="Not visible when the key has an image"
+              />
+              {renderColorControl('Hover Text Colour', 'hoverTextColor')}
 
               {/* Image Section */}
               <Divider sx={{ my: 2 }} />
@@ -2140,6 +2230,7 @@ const SaleKeyEditor = () => {
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSave}
+            disabled={!isDirty}
             sx={{ mb: 1 }}
           >
             Save
@@ -2148,7 +2239,7 @@ const SaleKeyEditor = () => {
             fullWidth
             variant="outlined"
             startIcon={<CloseIcon />}
-            component={RouterLink} to={'/setup/sale-key-sets'}
+            onClick={handleCancel}
           >
             Cancel
           </Button>

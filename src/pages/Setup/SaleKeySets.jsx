@@ -34,6 +34,8 @@ import saleKeyService from '../../services/saleKeyService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
+import { usePermissions } from '../../hooks/usePermissions';
+import paymentMethodService from '../../services/paymentMethodService';
 import posLocalDb from '../../services/posLocalDb';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { formatDate as formatAppDate } from '../../utils/appDateTime';
@@ -46,6 +48,10 @@ const SaleKeySets = () => {
     isAllOutlets,
     isTrueSuperAdmin,
   } = useSelectedOutlet();
+  const { hasPermission } = usePermissions();
+  const canAdd = hasPermission('sale_keys.add');
+  const canEdit = hasPermission('sale_keys.edit');
+  const canDelete = hasPermission('sale_keys.delete');
   const [saleKeySets, setSaleKeySets] = useState([]);
   const [, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,6 +65,8 @@ const SaleKeySets = () => {
   // Fresh nonce per message (Snackbar `key`) so back-to-back messages each get their full 3s.
   const setSnackbar = (next) => setSnackbarState({ ...next, nonce: next.open ? Date.now() : snackbar.nonce });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  // { id, name, referencedBy?: string } - referencedBy set after the server
+  // refused the first attempt; the dialog then offers "Delete anyway".
   const [setToDelete, setSetToDelete] = useState(null);
   const navigate = useNavigate();
 
@@ -154,8 +162,16 @@ const SaleKeySets = () => {
       };
 
       if (newSetData.template !== 'no-template') {
-        const templateConfig = saleKeyService.getDefaultConfig(newSetData.template);
-        setData.config = templateConfig;
+        // Pay keys in the template only become real "Pay the Exact Amount"
+        // keys when a payment method with that name exists; otherwise they
+        // stay labelled no-action keys.
+        let paymentMethods = [];
+        try {
+          paymentMethods = (await paymentMethodService.getPaymentMethods())?.paymentMethods || [];
+        } catch {
+          paymentMethods = [];
+        }
+        setData.config = saleKeyService.getDefaultConfig(newSetData.template, paymentMethods);
       }
 
       await saleKeyService.createSaleKeySet(setData);
@@ -180,14 +196,30 @@ const SaleKeySets = () => {
 
   const handleCloneSet = async (setId, setName) => {
     try {
-      const newName = `${setName} (Copy)`;
-      await saleKeyService.cloneSaleKeySet(setId, newName);
+      // "(Copy)", then "(Copy 2)".."(Copy 10)" when that name is already taken.
+      let cloned = null;
+      let lastErr = null;
+      for (let n = 1; n <= 10 && !cloned; n++) {
+        const newName = n === 1 ? `${setName} (Copy)` : `${setName} (Copy ${n})`;
+        try {
+          cloned = await saleKeyService.cloneSaleKeySet(setId, newName);
+        } catch (err) {
+          lastErr = err;
+          const msg = String(err.response?.data?.error || '');
+          if (!(err.response?.status === 400 && /already exists/i.test(msg))) throw err;
+        }
+      }
+      if (!cloned) throw lastErr;
       await posLocalDb.invalidateStore('saleKeySets');
-      setSnackbar({ open: true, message: 'Sale key set cloned successfully', severity: 'success' });
+      setSnackbar({ open: true, message: `Cloned as "${cloned.name}"`, severity: 'success' });
       loadSaleKeySets();
     } catch (err) {
       console.error('Error cloning sale key set:', err);
-      setSnackbar({ open: true, message: 'Failed to clone sale key set', severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: err?.response?.data?.error || 'Failed to clone sale key set',
+        severity: 'error',
+      });
     }
   };
 
@@ -202,24 +234,33 @@ const SaleKeySets = () => {
       return;
     }
     try {
-      await saleKeyService.deleteSaleKeySet(setToDelete.id);
+      await saleKeyService.deleteSaleKeySet(setToDelete.id, { force: Boolean(setToDelete.referencedBy) });
       await posLocalDb.invalidateStore('saleKeySets');
       setSnackbar({ open: true, message: 'Sale key set deleted successfully', severity: 'success' });
       loadSaleKeySets();
     } catch (err) {
+      // Another folder opens this set: keep the dialog open and offer force delete.
+      if (err.response?.status === 400 && err.response?.data?.code === 'REFERENCED') {
+        const names = (err.response.data.referencedBy || []).map((r) => r.name).join(', ');
+        setSetToDelete((prev) => ({ ...prev, referencedBy: names || 'another sale key folder' }));
+        return;
+      }
       console.error('Error deleting sale key set:', err);
-      setSnackbar({ open: true, message: 'Failed to delete sale key set', severity: 'error' });
-    } finally {
-      setDeleteDialogOpen(false);
-      setSetToDelete(null);
+      setSnackbar({
+        open: true,
+        message: err?.response?.data?.error || 'Failed to delete sale key set',
+        severity: 'error',
+      });
     }
+    setDeleteDialogOpen(false);
+    setSetToDelete(null);
   };
 
   // dd/mm/yyyy on the store's clock (Setup > General > Timezone).
   const formatDate = formatAppDate;
 
-  // New is always available: in global mode the dialog asks for the outlet.
-  const createDisabled = false;
+  // New needs sale_keys.add; in global mode the dialog asks for the outlet.
+  const createDisabled = !canAdd;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -263,7 +304,6 @@ const SaleKeySets = () => {
                   <TableCell>Outlet</TableCell>
                 )}
                 <TableCell>Description</TableCell>
-                <TableCell>Status</TableCell>
                 <TableCell>Created</TableCell>
                 <TableCell>Updated</TableCell>
                 <TableCell>Actions</TableCell>
@@ -283,22 +323,6 @@ const SaleKeySets = () => {
                     <TableCell>{getOutletLabel(set.outletId)}</TableCell>
                   )}
                   <TableCell>{set.description}</TableCell>
-                  <TableCell>
-                    <Box
-                      sx={{
-                        display: 'inline-block',
-                        px: 2,
-                        py: 0.5,
-                        borderRadius: 1,
-                        bgcolor: set.isActive ? '#e8f5e8' : '#ffebee',
-                        color: set.isActive ? '#2e7d32' : '#c62828',
-                        fontSize: '0.875rem',
-                        fontWeight: 'medium',
-                      }}
-                    >
-                      {set.isActive ? 'Active' : 'Inactive'}
-                    </Box>
-                  </TableCell>
                   <TableCell>{formatDate(set.createdAt)}</TableCell>
                   <TableCell>{formatDate(set.updatedAt)}</TableCell>
                   <TableCell>
@@ -306,6 +330,7 @@ const SaleKeySets = () => {
                       <Button
                         size="small"
                         startIcon={<EditIcon />}
+                        disabled={!canEdit}
                         onClick={() => handleEditSet(set.id)}
                         sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                       >
@@ -314,6 +339,7 @@ const SaleKeySets = () => {
                       <Button
                         size="small"
                         startIcon={<CloneIcon />}
+                        disabled={!canAdd}
                         onClick={() => handleCloneSet(set.id, set.name)}
                         sx={{ color: '#ff9800', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                       >
@@ -322,6 +348,7 @@ const SaleKeySets = () => {
                       <Button
                         size="small"
                         startIcon={<DeleteIcon />}
+                        disabled={!canDelete}
                         onClick={() => handleDeleteSet(set.id, set.name)}
                         sx={{ color: '#dc2626', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                       >
@@ -433,9 +460,9 @@ const SaleKeySets = () => {
                 }}
               >
                 <MenuItem value="no-template" sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>No template</MenuItem>
-                <MenuItem value="home-keys" sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>Home Keys Template</MenuItem>
-                <MenuItem value="more-functions" sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>More Functions Template</MenuItem>
-                <MenuItem value="products" sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>Products Template</MenuItem>
+                {saleKeyService.getTemplates().map((t) => (
+                  <MenuItem key={t.id} value={t.id} sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>{t.name}</MenuItem>
+                ))}
               </Select>
             </FormControl>
 
@@ -481,7 +508,10 @@ const SaleKeySets = () => {
       <ConfirmDeleteDialog
         open={deleteDialogOpen}
         title="Delete Sale Key Set"
-        message={`Are you sure you want to delete "${setToDelete?.name || ''}"? This action cannot be undone.`}
+        confirmText={setToDelete?.referencedBy ? 'Delete anyway' : 'Delete'}
+        message={setToDelete?.referencedBy
+          ? `"${setToDelete.name}" is opened by a sale key in: ${setToDelete.referencedBy}. Those keys will stop working. Delete anyway?`
+          : `Are you sure you want to delete "${setToDelete?.name || ''}"? This action cannot be undone.`}
         onCancel={() => {
           setDeleteDialogOpen(false);
           setSetToDelete(null);

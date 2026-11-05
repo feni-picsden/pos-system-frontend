@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Grid } from '@mui/material';
 import SaleKeyTileContent from './SaleKeyTileContent';
 import { isDisplayOnlyKey } from '../../utils/saleKeyDisplay';
 import { saleKeyCanvasSx } from '../../utils/saleKeyCanvas';
+import { saleKeyHoverSx } from '../../utils/saleKeyHover';
 
 // Actions that operate on the current sale: the reference gives ALL of these a
 // not-allowed cursor (and ignores the click) while the sale is idle/empty,
@@ -30,6 +31,7 @@ const SaleKeysGrid = ({
   onSaleKeyClick,
   caseModeActive = false,
 }) => {
+  const [hoveredId, setHoveredId] = useState(null);
   if (!saleKeyConfig || !saleKeyConfig.saleKeys) {
     return null;
   }
@@ -64,20 +66,21 @@ const SaleKeysGrid = ({
         // Highlight armed Use Case Quantity keys so the active mode is visible.
         const isCaseModeKey = caseModeActive && saleKey.action === 'use-case-quantity';
 
-        // Reference keeps every tile label at 16px whatever the tile spans.
-        const labelSize = Math.max(saleKey.fontSize || 16, 16);
+        const labelSize = saleKey.fontSize || 16;
+        const hovered = hoveredId === saleKey.id;
 
         return (
           <Box
             key={saleKey.id}
+            onPointerEnter={() => setHoveredId(saleKey.id)}
+            onPointerLeave={() => setHoveredId((id) => (id === saleKey.id ? null : id))}
             sx={{
               position: 'absolute',
               left: `${(saleKey.position.x || 0) * cellWidth}%`,
               top: `${(saleKey.position.y || 0) * cellHeight}%`,
               width: `${width * cellWidth}%`,
               height: `${height * cellHeight}%`,
-              backgroundColor: saleKey.backgroundColor || '#4CAF50',
-              color: saleKey.textColor || '#FFFFFF',
+              ...saleKeyHoverSx(saleKey, hovered),
               // Keep the configured border; case mode retains its active highlight.
               border: isCaseModeKey ? '3px solid #0284c7' : `1px solid ${saleKey.borderColor || '#ffffff'}`,
               boxShadow: isCaseModeKey ? 'inset 0 0 0 2px #f8f8f8' : 'none',
@@ -98,7 +101,6 @@ const SaleKeysGrid = ({
               // Reference marks an unusable key with the CURSOR only — the tile keeps
               // its configured colour (no dim/filter was measured on the reference).
               filter: 'none',
-              transition: 'background-color 0.2s',
               boxSizing: 'border-box',
               padding: 0,
               margin: 0,
@@ -106,7 +108,7 @@ const SaleKeysGrid = ({
             }}
             onClick={isKeyDisabled || isDisplayOnly ? undefined : () => onSaleKeyClick(saleKey)}
           >
-            <SaleKeyTileContent saleKey={saleKey} />
+            <SaleKeyTileContent saleKey={saleKey} hovered={hovered} />
           </Box>
         );
       })}

@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import { formatMoney } from '../../utils/currency';
 import { CLOCK_ACTIONS, getSaleKeyLiveText } from '../../utils/saleKeyDisplay';
 import { appTimeZone } from '../../utils/appDateTime';
+import { resolveSaleKeyImage } from '../../utils/saleKeyImage';
 
 // Re-renders a clock key as time passes: every second for the current time,
 // every minute for a previous date (enough to roll over at midnight). Other
@@ -33,10 +34,11 @@ const useNow = (action) => {
  * The tile must be a positioned element, because a filled image is laid out
  * against it.
  */
-const SaleKeyTileContent = ({ saleKey }) => {
-  // Reference keeps every tile label at 16px whatever the tile spans, and applies
-  // the key's own text styling to the price as well as the name.
-  const labelSize = Math.max(saleKey.fontSize || 16, 16);
+// `product`: the resolved product when the caller has one ("Use Product Image");
+// `hovered`: shows Hover Text in place of the name (never over artwork).
+const SaleKeyTileContent = ({ saleKey, product = null, hovered = false }) => {
+  // The key's own font size, applied to the price as well as the name.
+  const labelSize = saleKey.fontSize || 16;
   const labelSx = {
     fontSize: `${labelSize}px`,
     fontWeight: saleKey.textStyle?.bold ? 'bold' : 'normal',
@@ -59,14 +61,18 @@ const SaleKeyTileContent = ({ saleKey }) => {
   // tile corner to corner and the label sits on top of it. As an ordinary flex
   // item it could only ever fill the room the label left over, which is what put
   // a band of empty colour under the image.
-  const fillsKey = Boolean(saleKey.image && saleKey.fillKeyWithImage);
+  const image = resolveSaleKeyImage(saleKey, product);
+  const fillsKey = Boolean(image && saleKey.fillKeyWithImage);
+  // Hover Text replaces the name while hovered; it is never shown over artwork (reference).
+  const hoverActive = hovered && !saleKey.behavior?.preventHover;
+  const label = hoverActive && !image && saleKey.hoverText ? saleKey.hoverText : saleKey.name;
 
   return (
     <>
-      {saleKey.image && (
+      {image && (
         <Box
           component="img"
-          src={saleKey.image}
+          src={image}
           alt={saleKey.name}
           sx={fillsKey ? {
             position: 'absolute',
@@ -92,7 +98,7 @@ const SaleKeyTileContent = ({ saleKey }) => {
         />
       )}
 
-      {(saleKey.name || amount || liveText) && (
+      {(label || amount || liveText) && (
         <Box
           sx={{
             ...labelSx,
@@ -108,7 +114,7 @@ const SaleKeyTileContent = ({ saleKey }) => {
             // Keeps the label above a filled image, which is out of flow.
             position: 'relative',
             zIndex: 1,
-            ...(saleKey.image ? {
+            ...(image ? {
               position: 'absolute',
               top: '50%',
               transform: 'translateY(-50%)',
@@ -122,7 +128,7 @@ const SaleKeyTileContent = ({ saleKey }) => {
               {amount}
             </Box>
           )}
-          {saleKey.name && <Box>{saleKey.name}</Box>}
+          {label && <Box>{label}</Box>}
           {!isPaymentKey && amount && <Box>{amount}</Box>}
           {/* Keeps the operator's line breaks in info text. */}
           {liveText && <Box sx={{ whiteSpace: 'pre-line' }}>{liveText}</Box>}

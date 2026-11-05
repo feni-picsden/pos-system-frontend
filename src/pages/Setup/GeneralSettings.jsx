@@ -68,6 +68,7 @@ import paymentMethodService from '../../services/paymentMethodService';
 import PageSaveBar from '../../components/Common/PageSaveBar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { useSearchParams, Link as RouterLink } from 'react-router-dom';
 
 // The fixed app bar in DashboardLayout (HEADER_HEIGHT). Anything sticky on this page
@@ -353,6 +354,8 @@ const REGISTER_SETTINGS_DEFAULTS = {
   defaultPaymentMethodId: '',
   defaultReceiptTemplateId: '',
   defaultPriceSetId: '',
+  // Sale key set NAME; 'Default' = use the outlet / company default.
+  saleKeys: 'Default',
   // Sell Screen
   loginAfterSale: false,
   neverOpenCashDrawer: false,
@@ -591,7 +594,12 @@ const GeneralSettings = () => {
   const loadSaleKeySets = async () => {
     setLoadingSaleKeySets(true);
     try {
-      const response = await saleKeyService.getSaleKeySets();
+      // Sets belong to ONE outlet: list the navbar outlet's (a global admin with
+      // no outlet picked used to get every outlet's sets, and a set picked from
+      // another outlet never resolved on this outlet's sell screen).
+      const response = await saleKeyService.getSaleKeySets(
+        getSaleKeysOutletId({ isTrueSuperAdmin: user?.isSuperAdmin, getOutletId: () => user?.outletId, selectedOutletId: navbarOutletId })
+      );
       const sets = response.saleKeySets || saleKeyService.getDefaultSaleKeySets();
       setSaleKeySets(sets);
     } catch (error) {
@@ -2427,6 +2435,39 @@ const GeneralSettings = () => {
                 {availablePriceSets.map((ps) => (
                   <MenuItem key={ps.id} value={ps.id}>{ps.name}</MenuItem>
                 ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          {/* Sale keys - reference: Company < Outlet < Register < User, each
+              level overriding the one above. Stored by set NAME like the user level. */}
+          <Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                Sale Keys
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Updated {stampFor('register', 'saleKeys')}
+              </Typography>
+            </Box>
+            <FormControl fullWidth size="small">
+              <Select
+                value={(() => {
+                  const regOutlet = registers.find((r) => String(r.id) === String(selectedRegister))?.outletId;
+                  const options = saleKeySets.filter((s) => regOutlet == null || s.outletId == null || Number(s.outletId) === Number(regOutlet));
+                  const v = registerSettings.saleKeys || 'Default';
+                  return v === 'Default' || options.some((s) => s.name === v) ? v : 'Default';
+                })()}
+                onChange={handleRegisterSettingChange('saleKeys')}
+                disabled={loadingSaleKeySets}
+              >
+                <MenuItem value="Default">Default (outlet / company setting)</MenuItem>
+                {(() => {
+                  const regOutlet = registers.find((r) => String(r.id) === String(selectedRegister))?.outletId;
+                  return saleKeySets
+                    .filter((s) => regOutlet == null || s.outletId == null || Number(s.outletId) === Number(regOutlet))
+                    .map((s) => <MenuItem key={s.id} value={s.name}>{s.name}</MenuItem>);
+                })()}
               </Select>
             </FormControl>
           </Box>
