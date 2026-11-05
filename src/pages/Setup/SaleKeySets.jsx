@@ -68,6 +68,8 @@ const SaleKeySets = () => {
   // { id, name, referencedBy?: string } - referencedBy set after the server
   // refused the first attempt; the dialog then offers "Delete anyway".
   const [setToDelete, setSetToDelete] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [cloningId, setCloningId] = useState(null);
   const navigate = useNavigate();
 
   const resolveListOutletId = useCallback(
@@ -137,6 +139,7 @@ const SaleKeySets = () => {
   };
 
   const handleCreateSet = async () => {
+    if (creating) return;
     try {
       if (!newSetData.name.trim()) {
         setSnackbar({ open: true, message: 'Please enter a name for the sale key set', severity: 'error' });
@@ -154,6 +157,7 @@ const SaleKeySets = () => {
         return;
       }
 
+      setCreating(true);
       const setData = {
         name: newSetData.name.trim(),
         description: newSetData.description.trim(),
@@ -187,6 +191,8 @@ const SaleKeySets = () => {
         message: err.response?.data?.error || 'Failed to create sale key set',
         severity: 'error',
       });
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -195,12 +201,16 @@ const SaleKeySets = () => {
   };
 
   const handleCloneSet = async (setId, setName) => {
+    if (cloningId) return;
+    setCloningId(setId);
     try {
+      // Cloning "X (Copy)" gives "X (Copy 2)", not "X (Copy) (Copy)".
+      const baseName = String(setName).replace(/\s*\(Copy(?: \d+)?\)\s*$/i, '');
       // "(Copy)", then "(Copy 2)".."(Copy 10)" when that name is already taken.
       let cloned = null;
       let lastErr = null;
       for (let n = 1; n <= 10 && !cloned; n++) {
-        const newName = n === 1 ? `${setName} (Copy)` : `${setName} (Copy ${n})`;
+        const newName = n === 1 ? `${baseName} (Copy)` : `${baseName} (Copy ${n})`;
         try {
           cloned = await saleKeyService.cloneSaleKeySet(setId, newName);
         } catch (err) {
@@ -220,6 +230,8 @@ const SaleKeySets = () => {
         message: err?.response?.data?.error || 'Failed to clone sale key set',
         severity: 'error',
       });
+    } finally {
+      setCloningId(null);
     }
   };
 
@@ -306,7 +318,7 @@ const SaleKeySets = () => {
                 <TableCell>Description</TableCell>
                 <TableCell>Created</TableCell>
                 <TableCell>Updated</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell align="center" sx={{ width: 330 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody
@@ -325,8 +337,8 @@ const SaleKeySets = () => {
                   <TableCell>{set.description}</TableCell>
                   <TableCell>{formatDate(set.createdAt)}</TableCell>
                   <TableCell>{formatDate(set.updatedAt)}</TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 3 }}>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
                       <Button
                         size="small"
                         startIcon={<EditIcon />}
@@ -339,11 +351,11 @@ const SaleKeySets = () => {
                       <Button
                         size="small"
                         startIcon={<CloneIcon />}
-                        disabled={!canAdd}
+                        disabled={!canAdd || Boolean(cloningId)}
                         onClick={() => handleCloneSet(set.id, set.name)}
                         sx={{ color: '#ff9800', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                       >
-                        Clone
+                        {cloningId === set.id ? 'Cloning...' : 'Clone'}
                       </Button>
                       <Button
                         size="small"
@@ -365,24 +377,26 @@ const SaleKeySets = () => {
 
       <Dialog
         open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        maxWidth="sm"
+        onClose={() => { if (!creating) setCreateDialogOpen(false); }}
+        maxWidth="xs"
         fullWidth
+        PaperProps={{ sx: { borderRadius: '12px', alignSelf: 'flex-start', mt: 8 } }}
       >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box
               sx={{
-                width: 60,
-                height: 60,
+                width: 40,
+                height: 40,
                 borderRadius: '50%',
                 bgcolor: '#1976d2',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'white',
-                fontSize: '2rem',
+                fontSize: '1.4rem',
                 fontWeight: 'bold',
+                flexShrink: 0,
               }}
             >
               ?
@@ -391,8 +405,8 @@ const SaleKeySets = () => {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="body1" sx={{ mb: 1.5, fontWeight: 'medium' }}>
               What should the sale keys be called?
             </Typography>
             <TextField
@@ -401,8 +415,11 @@ const SaleKeySets = () => {
               value={newSetData.name}
               onChange={(e) => setNewSetData({ ...newSetData, name: e.target.value })}
               placeholder="Enter sale key set name"
+              size="small"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateSet(); } }}
               sx={{
-                mb: 3,
+                mb: 2,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '8px',
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
@@ -413,7 +430,7 @@ const SaleKeySets = () => {
             />
 
             {globalMode && (
-              <FormControl fullWidth sx={{ mb: 3 }}>
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                 <InputLabel>Outlet *</InputLabel>
                 <Select
                   value={newSetData.outletId ?? ''}
@@ -432,10 +449,10 @@ const SaleKeySets = () => {
               </FormControl>
             )}
 
-            <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
+            <Typography variant="body1" sx={{ mb: 1.5, fontWeight: 'medium' }}>
               Should a template be used when creating sale keys?
             </Typography>
-            <FormControl fullWidth sx={{ mb: 2 }}>
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
               <InputLabel>Template</InputLabel>
               <Select
                 value={newSetData.template}
@@ -473,7 +490,7 @@ const SaleKeySets = () => {
               onChange={(e) => setNewSetData({ ...newSetData, description: e.target.value })}
               placeholder="Enter description"
               multiline
-              rows={2}
+              minRows={3}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '8px',
@@ -485,22 +502,24 @@ const SaleKeySets = () => {
             />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 0 }}>
           <Button
+            disabled={creating}
             onClick={() => {
               setCreateDialogOpen(false);
               setNewSetData({ name: '', description: '', template: 'no-template' });
             }}
-            sx={{ color: '#666' }}
+            sx={{ color: '#666', textTransform: 'none', fontWeight: 700 }}
           >
             Cancel
           </Button>
           <Button
             onClick={handleCreateSet}
             variant="contained"
-            sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
+            disabled={creating || !newSetData.name.trim()}
+            sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#b9e2f6', color: '#fff' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 3, height: 40 }}
           >
-            Create
+            {creating ? 'Creating...' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>
