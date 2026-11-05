@@ -23,8 +23,8 @@ import promotionService from "../../services/promotionService";
 import productService from "../../services/productService";
 import apiClient from "../../services/apiClient";
 import { getBaseTier } from "../../utils/baseTier";
-import { formatRevisionValue } from "../../utils/revisionValue";
-import { format } from "date-fns";
+import PromotionRevisionCell from "../../components/Marketing/PromotionRevisionCell";
+import { revisionSentence } from "../../utils/promotionRevision";
 import { formatAppPattern } from "../../utils/appDateTime";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import {
@@ -202,14 +202,9 @@ const ExpressPromotionView = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    try {
-      return format(new Date(dateString), "dd/MM/yyyy");
-    } catch {
-      return dateString;
-    }
-  };
+  // Reference view prints the start / end DATE on the store clock (an editor
+  // "03/11/2026 18:30:00" browser-local start shows as "04/11/2026" - 05/11/2026).
+  const formatDate = (dateString) => (dateString ? formatAppPattern(dateString, "DD/MM/YYYY") || "-" : "-");
 
   // Revision times on the store's clock (Setup > General > Timezone).
   const formatDateTime = (isoDate) => formatAppPattern(isoDate, "DD/MM/YYYY HH:mm:ss") || "-";
@@ -256,6 +251,19 @@ const ExpressPromotionView = () => {
     
     return profit;
   };
+
+  // Group label per table block: "Products", else the classification type.
+  const groupedItems = (() => {
+    const map = new Map();
+    items.forEach((it) => {
+      const key = it.classificationType
+        ? it.classificationType.charAt(0) + it.classificationType.slice(1).toLowerCase()
+        : "Products";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(it);
+    });
+    return [...map.entries()];
+  })();
 
   if (loading) {
     return null;
@@ -346,22 +354,27 @@ const ExpressPromotionView = () => {
                     </TableRow>
                     <TableRow>
                       {/* Reference: a plain centred note line, no shading. */}
-                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: 400, color: "#000" }}>
+                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: "400 !important", color: "#000" }}>
                         Please Note: Revisions may take up to five minutes to appear
                       </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {revisions && revisions.length > 0 ? (
-                      revisions.map((rev, idx) => (
+                      revisions.map((rev, idx) => {
+                        // criteria rows: the Type | Item | Included table sits in From,
+                        // the criterion sentence in To (reference, both added and removed).
+                        const crit = revisionSentence(rev.to) != null ? rev.to : revisionSentence(rev.from) != null ? rev.from : null;
+                        return (
                         <TableRow key={`rev-${idx}`}>
                           <TableCell>{rev.field}</TableCell>
-                          <TableCell>{formatRevisionValue(rev.from)}</TableCell>
-                          <TableCell>{formatRevisionValue(rev.to)}</TableCell>
+                          <TableCell>{crit ? <PromotionRevisionCell field={rev.field} value={crit} /> : <PromotionRevisionCell field={rev.field} value={rev.from} />}</TableCell>
+                          <TableCell>{crit ? crit.summary : <PromotionRevisionCell field={rev.field} value={rev.to} />}</TableCell>
                           <TableCell>{rev.user || "-"}</TableCell>
                           <TableCell>{formatDateTime(rev.timestamp)}</TableCell>
                         </TableRow>
-                      ))
+                        );
+                      })
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
@@ -421,85 +434,62 @@ const ExpressPromotionView = () => {
                   ))}
               </Box>
 
-              {/* Reference .promotion-home-criteria-list: no table - one bold
-                  criterion sentence per line with a right-aligned margin %. */}
-              {/* margin "0 auto": in this flex column, "auto" also centred the block vertically. */}
-              <Box sx={{ width: "90%", maxWidth: 800, margin: "0 auto", padding: "16px" }}>
+              {/* Reference express view (Price Override, measured 05/11/2026): a plain
+                  table - Item | Quantity | Cost | Normal Price | Promo Price | Rebate | %,
+                  bold centred headers, one small-caps group label row ("PRODUCTS",
+                  "FAMILIES"...), bold item names, centred figures. */}
+              <Box sx={{ padding: "0 16px 16px 80px" }}>
                 {items.length > 0 ? (
                   <>
                     <Typography sx={SECTION_LABEL_SX}>Criteria</Typography>
-                    {items.map((item, index) => {
-                      const profit = calculateProfit(item);
-                      // category / brand / tag rows have no member prices -> "-" (editor shows "-")
-                      const profitText = item.classificationType && !item.hasMembers ? "-" : `${profit.toFixed(2)}%`;
-                      return (
-                        <Box key={index} sx={{ mb: 3 }}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                              gap: 2,
-                            }}
-                          >
-                            <Typography sx={{ fontSize: 16, fontWeight: 700, color: "#313439" }}>
-                              {getItemSummary(item)}
-                            </Typography>
-                            <Typography
-                              sx={{
-                                fontSize: 16,
-                                fontWeight: 700,
-                                whiteSpace: "nowrap",
-                                color: profitText !== "-" && profit < 0 ? "#e33430" : "#313439",
-                              }}
-                            >
-                              {profitText}
-                            </Typography>
-                          </Box>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "baseline",
-                              gap: 2,
-                              mb: "4px",
-                            }}
-                          >
-                            <Box sx={{ display: "flex", alignItems: "baseline", gap: 2, minWidth: 0 }}>
-                              <Typography
-                                component="span"
-                                sx={{
-                                  fontSize: 16,
-                                  fontVariant: "all-small-caps",
-                                  letterSpacing: "1px",
-                                  color: "#676b72",
-                                  flexShrink: 0,
-                                  minWidth: 96,
-                                  textAlign: "right",
-                                }}
-                              >
-                                {/* classification lines are labelled by their type (editor row) */}
-                                {item.classificationType
-                                  ? item.classificationType.charAt(0) + item.classificationType.slice(1).toLowerCase()
-                                  : "Products"}
-                              </Typography>
-                              <Typography component="span" sx={{ fontSize: 16, color: "#313439" }}>
-                                {item.productName || "Unknown Product"}
-                              </Typography>
-                            </Box>
-                            <Typography
-                              sx={{
-                                fontSize: 16,
-                                whiteSpace: "nowrap",
-                                color: profitText !== "-" && profit < 0 ? "#e33430" : "#313439",
-                              }}
-                            >
-                              {profitText}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      );
-                    })}
+                    <Box
+                      component="table"
+                      sx={{
+                        width: "90%",
+                        borderCollapse: "collapse",
+                        "& th": { fontSize: 16, fontWeight: 700, color: "#313439", textAlign: "center", padding: "4px 8px" },
+                        "& td": { fontSize: 16, color: "#313439", textAlign: "center", padding: "8px 8px" },
+                        "& td.item": { textAlign: "left", fontWeight: 700, paddingLeft: "16px" },
+                        "& td.group": { ...SECTION_LABEL_SX, mb: 0, textAlign: "left", letterSpacing: "1px", padding: "12px 0 0" },
+                      }}
+                    >
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: "center" }}>Item</th>
+                          <th>Quantity</th>
+                          <th>Cost</th>
+                          <th>Normal Price</th>
+                          <th>Promo Price</th>
+                          <th>Rebate</th>
+                          <th>%</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedItems.map(([group, rows]) => (
+                          <React.Fragment key={group}>
+                            <tr>
+                              <td className="group" colSpan={7}>{group}</td>
+                            </tr>
+                            {rows.map((item, index) => {
+                              const profit = calculateProfit(item);
+                              const profitText = item.classificationType && !item.hasMembers ? "-" : `${profit.toFixed(2)}%`;
+                              const red = profitText !== "-" && profit < 0;
+                              return (
+                                <tr key={index}>
+                                  <td className="item">{item.productName || "Unknown Product"}</td>
+                                  <td>{item.quantity}</td>
+                                  <td>${(parseFloat(item.cost) || 0).toFixed(2)}</td>
+                                  <td>${(parseFloat(item.normalPrice) || 0).toFixed(2)}</td>
+                                  <td>${(parseFloat(item.promoPrice) || 0).toFixed(2)}</td>
+                                  <td>${(parseFloat(item.rebate) || 0).toFixed(2)}</td>
+                                  <td style={{ color: red ? "#e33430" : "#313439" }}>{profitText}</td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </Box>
                   </>
                 ) : (
                   <Typography sx={{ fontSize: 16, color: "#676b72" }}>
@@ -567,10 +557,6 @@ const ExpressPromotionView = () => {
                     </Box>
                   </Box>
                 )}
-
-                <Typography sx={{ fontSize: 16, color: "#676b72", mt: 2 }}>
-                  Please note: All figures are inclusive of tax.
-                </Typography>
               </Box>
             </>
           )}

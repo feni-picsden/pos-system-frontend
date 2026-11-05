@@ -21,14 +21,14 @@ import {
 import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import promotionService from "../../services/promotionService";
 import apiClient from "../../services/apiClient";
-import { format } from "date-fns";
 import { formatAppPattern } from "../../utils/appDateTime";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import PageLoader from "../../components/Common/PageLoader";
 import { getBaseTier } from "../../utils/baseTier";
 import { criteriaOfPromotion } from "../../utils/promotionCriteria";
 import settingsService from "../../services/settingsService";
-import { formatRevisionValue } from "../../utils/revisionValue";
+import PromotionRevisionCell from "../../components/Marketing/PromotionRevisionCell";
+import { revisionSentence } from "../../utils/promotionRevision";
 import {
   WIDGET_SHADOW,
   GRID_TABLE_SX,
@@ -136,14 +136,9 @@ const PromotionView = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    try {
-      return format(new Date(dateString), "dd/MM/yyyy");
-    } catch {
-      return dateString;
-    }
-  };
+  // Reference view prints the start / end DATE on the store clock (an editor
+  // "03/11/2026 18:30:00" browser-local start shows as "04/11/2026" - 05/11/2026).
+  const formatDate = (dateString) => (dateString ? formatAppPattern(dateString, "DD/MM/YYYY") || "-" : "-");
 
   // Revision times on the store's clock (Setup > General > Timezone).
   const formatDateTime = (isoDate) => formatAppPattern(isoDate, "DD/MM/YYYY HH:mm:ss") || "-";
@@ -223,7 +218,9 @@ const PromotionView = () => {
     return ((totalSell - totalCost) / totalSell) * 100;
   };
 
-  const formatProfitPct = (v) => (v == null || isNaN(v) ? 'N/A' : `${v.toFixed(2)}%`);
+  // Reference prints an unknown / zero margin as a red "0.00%" (user 05/11/2026), never N/A.
+  const formatProfitPct = (v) => (v == null || isNaN(v) ? '0.00%' : `${v.toFixed(2)}%`);
+  const profitColor = (v) => (v == null || isNaN(v) || v <= 0 ? '#e33430' : '#313439');
 
   const getCriterionSummary = (criterion) => {
     const optionalText = criterion.isOptional ? 'Optionally' : '';
@@ -345,22 +342,27 @@ const PromotionView = () => {
                     </TableRow>
                     <TableRow>
                       {/* Reference: a plain centred note line, no shading. */}
-                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: 400, color: "#000" }}>
+                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: "400 !important", color: "#000" }}>
                         Please Note: Revisions may take up to five minutes to appear
                       </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {revisions && revisions.length > 0 ? (
-                      revisions.map((rev, idx) => (
+                      revisions.map((rev, idx) => {
+                        // criteria rows: the Type | Item | Included table sits in From,
+                        // the criterion sentence in To (reference, both added and removed).
+                        const crit = revisionSentence(rev.to) != null ? rev.to : revisionSentence(rev.from) != null ? rev.from : null;
+                        return (
                         <TableRow key={`rev-${idx}`}>
                           <TableCell>{rev.field}</TableCell>
-                          <TableCell>{formatRevisionValue(rev.from)}</TableCell>
-                          <TableCell>{formatRevisionValue(rev.to)}</TableCell>
+                          <TableCell>{crit ? <PromotionRevisionCell field={rev.field} value={crit} /> : <PromotionRevisionCell field={rev.field} value={rev.from} />}</TableCell>
+                          <TableCell>{crit ? crit.summary : <PromotionRevisionCell field={rev.field} value={rev.to} />}</TableCell>
                           <TableCell>{rev.user || "-"}</TableCell>
                           <TableCell>{formatDateTime(rev.timestamp)}</TableCell>
                         </TableRow>
-                      ))
+                        );
+                      })
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
@@ -507,7 +509,7 @@ const PromotionView = () => {
                           fontSize: 16,
                           fontWeight: 700,
                           whiteSpace: "nowrap",
-                          color: criterionProfit < 0 ? "#e33430" : "#313439",
+                          color: profitColor(criterionProfit),
                         }}
                       >
                         {formatProfitPct(criterionProfit)}
@@ -544,7 +546,7 @@ const PromotionView = () => {
                             </Typography>
                           </Box>
                           <Typography
-                            sx={{ fontSize: 16, whiteSpace: "nowrap", color: profit < 0 ? "#e33430" : "#313439" }}
+                            sx={{ fontSize: 16, whiteSpace: "nowrap", color: profitColor(profit) }}
                           >
                             {formatProfitPct(profit)}
                           </Typography>

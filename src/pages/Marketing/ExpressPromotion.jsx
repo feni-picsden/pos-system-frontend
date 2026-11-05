@@ -1194,12 +1194,12 @@ const ExpressPromotion = () => {
           disableElevation
           component={RouterLink} to={'/marketing/promotions'}
           sx={{
-            height: 48,
-            px: '14px',
-            minWidth: 68,
-            borderRadius: '4px',
+            // Same pill as Save (user 05/11/2026): 42px, 12px radius, bold - red filled.
+            height: 42,
+            px: '24px',
+            borderRadius: '12px',
             fontSize: 16,
-            fontWeight: 400,
+            fontWeight: 700,
             textTransform: 'none',
             bgcolor: '#fb2c36',
             color: '#fff',
@@ -1210,7 +1210,8 @@ const ExpressPromotion = () => {
         >
           Cancel
         </Button>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* Reference bar: Cancel at the left, the Show Simulator toggle sits beside Save at the right. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', mr: 2 }}>
           <ShopfrontSwitch
             checked={showSimulator}
             onChange={(e) => setShowSimulator(e.target.checked)}
@@ -1226,8 +1227,8 @@ const ExpressPromotion = () => {
             outlined (transparent, white border, no icon) 4px box; once it can be saved
             it becomes the white pill with the save icon. */}
         {(() => {
-          const canSave = Boolean(String(formData.name || '').trim()) && (formData.items || []).length > 0;
-          return canSave ? (
+          // Save is always the white pill (user 05/11/2026: "same button all"); handleSave validates.
+          return (
             <Button
               disableRipple
               disableElevation
@@ -1246,30 +1247,11 @@ const ExpressPromotion = () => {
                 border: '1px solid #fff',
                 boxShadow: 'none',
                 '&:hover': { bgcolor: '#f0f9ff', boxShadow: 'none' },
-                '&.Mui-disabled': { bgcolor: '#fff', color: '#00a6f4', opacity: 0.7 }
+                // While saving the button keeps its normal look (user 05/11/2026): no dimming, no label change.
+                '&.Mui-disabled': { bgcolor: '#fff', color: '#00a6f4', opacity: 1 }
               }}
             >
               {loading ? 'Saving...' : 'Save'}
-            </Button>
-          ) : (
-            <Button
-              disableRipple
-              onClick={handleSave}
-              sx={{
-                height: 48,
-                px: '14px',
-                minWidth: 68,
-                borderRadius: '4px',
-                fontSize: 16,
-                fontWeight: 400,
-                textTransform: 'none',
-                bgcolor: 'transparent',
-                color: '#fff',
-                border: '1px solid #fff',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' }
-              }}
-            >
-              Save
             </Button>
           );
         })()}

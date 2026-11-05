@@ -59,7 +59,7 @@ import { allocateCriteriaSets, allocateSpendPromotion, RECEIVE_TYPES as SPEND_RE
 import { bestRateTier } from '../../utils/familyOverride';
 import settingsService from '../../services/settingsService';
 import EditScheduleDialog from '../../components/Marketing/EditScheduleDialog';
-import PromotionSimulatorPanel, { SIMULATOR_WIDTH } from '../../components/Marketing/PromotionSimulatorPanel';
+import PromotionSimulatorPanel, { SIMULATOR_WIDTH, BOTTOM_BAR_HEIGHT } from '../../components/Marketing/PromotionSimulatorPanel';
 import ItemSearchDropdown from '../../components/Marketing/ItemSearchDropdown';
 import { sortByGroup } from '../../utils/itemSearchGroups';
 
@@ -1288,7 +1288,8 @@ const PromotionDetails = () => {
       minHeight: '100vh', 
       backgroundColor: '#f5f5f5',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      pb: `${BOTTOM_BAR_HEIGHT}px` // the bar is fixed (same as the Express editor)
     }}>
       {/* The simulator panel sits down the right edge (reference), so the page keeps clear of it. */}
       <Box sx={{ flex: 1, p: 3, pr: showSimulator ? `${SIMULATOR_WIDTH + 24}px` : 3, transition: 'padding-right 300ms' }}>
@@ -2105,14 +2106,20 @@ const PromotionDetails = () => {
         />
       </Box>
 
+      {/* Bottom bar: same chrome as the Express editor - fixed sky bar, fixed height. */}
       <Box sx={{
         bgcolor: '#5ebbeb',
-        p: 2,
+        px: 2,
+        height: BOTTOM_BAR_HEIGHT,
+        boxSizing: 'border-box',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        position: 'sticky',
-        bottom: 0
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1000
       }}>
         {/* Same bar chrome as the shelf-ticket pages: 42px pills, 12px radius, bold 16px. */}
         {/* Same bar as the Express editor: red Cancel box, Save outlined until the
@@ -2122,12 +2129,12 @@ const PromotionDetails = () => {
           disableElevation
           component={RouterLink} to={'/marketing/promotions'}
           sx={{
-            height: 48,
-            px: '14px',
-            minWidth: 68,
-            borderRadius: '4px',
+            // Same pill as Save (user 05/11/2026): 42px, 12px radius, bold - red filled.
+            height: 42,
+            px: '24px',
+            borderRadius: '12px',
             fontSize: 16,
-            fontWeight: 400,
+            fontWeight: 700,
             textTransform: 'none',
             bgcolor: '#fb2c36',
             color: '#fff',
@@ -2138,7 +2145,8 @@ const PromotionDetails = () => {
         >
           Cancel
         </Button>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* Reference bar: Cancel at the left, the Show Simulator toggle sits beside Save at the right. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', mr: 2 }}>
           {/* The app's flat pill toggle; on the sky bar the ON track turns white with a sky thumb. */}
           <ShopfrontSwitch
             checked={showSimulator}
@@ -2152,9 +2160,8 @@ const PromotionDetails = () => {
           <Typography sx={{ fontSize: 16, color: '#fff' }}>Show Simulator</Typography>
         </Box>
         {(() => {
-          const canSave = Boolean(String(formData.name || '').trim())
-            && (isComboDeal ? comboItems.length > 0 : criteria.some((c) => (c.items || []).some((i) => !i.excluded)));
-          return canSave ? (
+          // Save is always the white pill (user 05/11/2026: "same button all"); handleSave validates.
+          return (
             <Button
               disableRipple
               disableElevation
@@ -2173,30 +2180,11 @@ const PromotionDetails = () => {
                 border: '1px solid #fff',
                 boxShadow: 'none',
                 '&:hover': { bgcolor: '#f0f9ff', boxShadow: 'none' },
-                '&.Mui-disabled': { bgcolor: '#fff', color: '#00a6f4', opacity: 0.7 }
+                // While saving the button keeps its normal look (user 05/11/2026): no dimming, no label change.
+                '&.Mui-disabled': { bgcolor: '#fff', color: '#00a6f4', opacity: 1 }
               }}
             >
               {saving ? 'Saving...' : 'Save'}
-            </Button>
-          ) : (
-            <Button
-              disableRipple
-              onClick={handleSave}
-              sx={{
-                height: 48,
-                px: '14px',
-                minWidth: 68,
-                borderRadius: '4px',
-                fontSize: 16,
-                fontWeight: 400,
-                textTransform: 'none',
-                bgcolor: 'transparent',
-                color: '#fff',
-                border: '1px solid #fff',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' }
-              }}
-            >
-              Save
             </Button>
           );
         })()}
