@@ -73,7 +73,7 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
 
   // The outlet's logo / ABN live in its Setup > Outlets profile, not on the sale.
   const convertSaleToReceiptData = (saleRow) =>
-    withOutletProfile(saleToReceiptData(saleRow)).then(setReceiptData);
+    withOutletProfile(saleToReceiptData(saleRow, { isReprint: true })).then(setReceiptData);
 
   const printReceipt = () => {
     if (!receiptData) return;

@@ -57,9 +57,10 @@ const receiptTemplateService = {
   },
 
   // Delete a receipt template
-  deleteTemplate: async (id) => {
+  // force: delete even though the template is in use (409 IN_USE lists the usages).
+  deleteTemplate: async (id, { force = false } = {}) => {
     try {
-      const response = await apiClient.delete(`/receipt-templates/${id}`);
+      const response = await apiClient.delete(`/receipt-templates/${id}${force ? '?force=1' : ''}`);
       return response.data;
     } catch (error) {
       console.error('Error deleting receipt template:', error);
@@ -68,9 +69,10 @@ const receiptTemplateService = {
   },
 
   // Clone a receipt template
-  cloneTemplate: async (id) => {
+  // name (optional): the clone's name; the backend picks "(Copy)", "(Copy 2)"... when absent or taken.
+  cloneTemplate: async (id, { name } = {}) => {
     try {
-      const response = await apiClient.post(`/receipt-templates/${id}/clone`);
+      const response = await apiClient.post(`/receipt-templates/${id}/clone`, name ? { name } : undefined);
       return response.data;
     } catch (error) {
       console.error('Error cloning receipt template:', error);

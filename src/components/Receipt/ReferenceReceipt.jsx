@@ -430,9 +430,19 @@ const hasEftposBlock = (components) => (components || []).some((component) => {
   return false;
 });
 
-const ReferenceReceipt = ({ components = [], data }) => (
+// Generic / Text Only receipts are for printers that cannot print images (reference
+// "How to Setup Receipt Templates"): logo, image and barcode blocks are dropped,
+// including ones nested inside columns.
+const IMAGE_TYPES = new Set(['img', 'logo', 'image', 'outlet_logo', 'barcode']);
+const stripImages = (components = []) => components
+  .filter((c) => c && !IMAGE_TYPES.has(c.type))
+  .map((c) => ((c.type === 'column' || c.type === 'columns') && Array.isArray(c.value)
+    ? { ...c, value: c.value.map((cell) => ({ ...cell, components: stripImages(cell?.components || []) })) }
+    : c));
+
+const ReferenceReceipt = ({ components = [], data, textOnly = false }) => (
   <div style={{ width: '100%', background: '#fff' }}>
-    {components.map((component, index) => (
+    {(textOnly ? stripImages(components) : components).map((component, index) => (
       <ReferenceComponent key={index} component={component} data={data} />
     ))}
     {/* Reference: the bank's slip is appended to the receipt whether or not the

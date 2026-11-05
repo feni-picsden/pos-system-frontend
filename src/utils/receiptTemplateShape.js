@@ -227,28 +227,79 @@ export const paperSettings = (template) => {
 const WHITE = '#FFFFFF';
 const noSide = { borderColor: WHITE, borderStyle: 'none', borderWidth: 0 };
 
-const referenceBorderToEditor = (border = {}) => {
-  const side = [border.top, border.bottom, border.left, border.right]
-    .find((s) => s && s.borderStyle && s.borderStyle !== 'none' && Number(s.borderWidth));
-  return side
-    ? { enabled: true, color: side.borderColor, style: side.borderStyle, width: Number(side.borderWidth) }
-    : { enabled: false, color: '#000000', style: 'solid', width: 1 };
+// ---- borders -------------------------------------------------------------------
+// The editor edits borders PER SIDE, exactly like the reference's Border Settings
+// dialog (Simple = all four sides, Advanced = one side at a time):
+//   border = { top: { width, style, color }, right: {...}, bottom: {...}, left: {...} }
+// A side with width 0 or style 'none' has no border. Storage is the reference's own
+// per-side shape ({ borderWidth, borderStyle, borderColor }), so a saved per-side
+// border round-trips verbatim.
+export const BORDER_SIDES = ['top', 'right', 'bottom', 'left'];
+export const NO_BORDER_SIDE = Object.freeze({ width: 0, style: 'none', color: '#000000' });
+
+export const isSideOn = (side) => Boolean(side) && side.style !== 'none' && Number(side.width) > 0;
+
+const allSides = (side) => Object.fromEntries(BORDER_SIDES.map((k) => [k, { ...side }]));
+
+// Any border the editor may hold -> the per-side shape. Older editor-shape templates
+// (and older palette defaults) carry ONE border { enabled, width, style, color }: on
+// when `enabled` says so, else when width > 0; an explicit width 0 is always off.
+export const normalizeBorder = (border) => {
+  if (!border || typeof border !== 'object') return allSides(NO_BORDER_SIDE);
+  if (BORDER_SIDES.some((k) => border[k] && typeof border[k] === 'object')) {
+    return Object.fromEntries(BORDER_SIDES.map((k) => {
+      const s = border[k] || NO_BORDER_SIDE;
+      return [k, { width: Number(s.width) || 0, style: s.style || 'none', color: s.color || '#000000' }];
+    }));
+  }
+  const explicitZero = border.width != null && border.width !== '' && Number(border.width) === 0;
+  const on = !explicitZero && (border.enabled ?? Number(border.width) > 0);
+  return allSides(on
+    ? { width: Number(border.width) || 1, style: border.style || 'solid', color: border.color || '#000000' }
+    : NO_BORDER_SIDE);
 };
 
-const editorBorderToReference = (border = {}, previous) => {
-  // `enabled: false` means no border even though the panel still carries a width —
-  // without this every unbordered block came back from the editor fully boxed.
-  if (border.enabled === false) {
-    return previous && Object.values(previous).some((s) => s?.borderStyle && s.borderStyle !== 'none')
-      ? previous
-      : { top: noSide, left: noSide, right: noSide, bottom: noSide };
-  }
-  if (!border.enabled && !(border.width > 0)) return previous || { top: noSide, left: noSide, right: noSide, bottom: noSide };
-  // The editor only exposes one border for the whole box; keep the reference's
-  // per-side arrangement when it already had one, otherwise box the component.
-  if (previous && Object.values(previous).some((s) => s?.borderStyle && s.borderStyle !== 'none')) return previous;
-  const side = { borderColor: border.color || '#000000ff', borderStyle: border.style || 'solid', borderWidth: String(border.width || 1) };
-  return { top: side, left: side, right: side, bottom: side };
+export const isBorderOn = (border) => {
+  const sides = normalizeBorder(border);
+  return BORDER_SIDES.some((k) => isSideOn(sides[k]));
+};
+
+// CSS for the editor canvas and the editor-shape renderer: one declaration per side.
+export const borderToCss = (border) => {
+  const sides = normalizeBorder(border);
+  const css = (s) => (isSideOn(s) ? `${Number(s.width)}px ${s.style} ${s.color}` : 'none');
+  return {
+    borderTop: css(sides.top),
+    borderRight: css(sides.right),
+    borderBottom: css(sides.bottom),
+    borderLeft: css(sides.left),
+  };
+};
+
+const referenceBorderToEditor = (border = {}) => Object.fromEntries(BORDER_SIDES.map((k) => {
+  const s = border?.[k];
+  if (!s) return [k, { ...NO_BORDER_SIDE }];
+  return [k, {
+    width: Number(s.borderWidth) || 0,
+    style: s.borderStyle || 'none',
+    color: s.borderColor || '#000000',
+  }];
+}));
+
+const noBorder = () => ({ top: noSide, left: noSide, right: noSide, bottom: noSide });
+
+const editorBorderToReference = (border, previous) => {
+  // A component that carries no editor border at all keeps whatever it had stored.
+  if (!border) return previous || noBorder();
+  // Every side is written as edited. (It used to fall back to the STORED border, so a
+  // border switched off in the panel came straight back after Save -> reload.)
+  const sides = normalizeBorder(border);
+  return Object.fromEntries(BORDER_SIDES.map((k) => {
+    const s = sides[k];
+    return [k, isSideOn(s)
+      ? { borderColor: s.color, borderStyle: s.style, borderWidth: String(Number(s.width)) }
+      : { ...noSide }];
+  }));
 };
 
 const emptyPadding = { top: '', left: '', right: '', bottom: '' };

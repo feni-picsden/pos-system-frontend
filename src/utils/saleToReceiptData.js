@@ -8,7 +8,9 @@ import settingsService from '../services/settingsService';
 import { groupSaleItemsForReceipt, itemsPerCase } from './saleTotals';
 import { appTimeZone, formatDateTime, toAppZonedDate } from './appDateTime';
 
-export function saleToReceiptData(sale) {
+// opts.isReprint: reference "The Gift Cards component will not appear on receipts when
+// reprinted" — the gift-card block is left empty for a reprint (Sales History > Reprint).
+export function saleToReceiptData(sale, { isReprint = false } = {}) {
   if (!sale) return null;
 
   // A combo banks its member products (stock/loyalty/reports need them) but printed
@@ -209,7 +211,7 @@ export function saleToReceiptData(sale) {
     // Rebuilt blocks — without these three the components rendered empty on a reprint.
     loyalty,
     account,
-    giftCards,
+    giftCards: isReprint ? [] : giftCards,
   };
 }
 

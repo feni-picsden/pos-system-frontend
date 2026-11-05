@@ -27,6 +27,8 @@ import {
   Tooltip,
   Tabs,
   Tab,
+  Snackbar,
+  Chip,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -41,10 +43,10 @@ import {
   ArrowDropUp as ArrowDropUpIcon,
   ArrowDropDown as ArrowDropDownIcon,
   ContentCopy as CopyIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
   Edit as EditIcon,
   Close as CloseIcon,
+  Link as LinkIcon,
+  LinkOff as LinkOffIcon,
   TitleOutlined,
   ViewWeekOutlined,
   StorefrontOutlined,
@@ -69,8 +71,10 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import receiptTemplateService from '../../services/receiptTemplateService';
+import { taxRateService } from '../../services/taxRateService';
 import MediaDialog from '../../components/Common/MediaDialog';
-import { toEditorComponents, toReferenceComponents, toReferenceComponent, COLUMN_LABELS, isWideTemplate, paperWidthMm, isEmailTemplate, isTextOnlyTemplate, applyReceiptConfig, isPaymentTemplate } from '../../utils/receiptTemplateShape';
+import ColorInput from '../../components/Common/ColorInput';
+import { toEditorComponents, toReferenceComponents, toReferenceComponent, COLUMN_LABELS, isWideTemplate, paperWidthMm, isEmailTemplate, isTextOnlyTemplate, applyReceiptConfig, isPaymentTemplate, borderToCss, normalizeBorder, isSideOn, BORDER_SIDES } from '../../utils/receiptTemplateShape';
 import ConfigureReceiptDialog from '../../components/Receipt/ConfigureReceiptDialog';
 import { renderExpressions, sampleReceiptContext } from '../../utils/receiptExpressions';
 import { ReferenceComponent } from '../../components/Receipt/ReferenceReceipt';
@@ -137,17 +141,277 @@ const PAYMENT_PALETTE = [
   COMPONENT_TYPES.TEXT, COMPONENT_TYPES.IMAGE, COMPONENT_TYPES.COLUMNS, COMPONENT_TYPES.SPACER,
 ].map((type) => AVAILABLE_COMPONENTS.find((c) => c.type === type));
 
+// Generic / Text Only receipts are for printers that cannot print images, so the
+// image-type blocks are not offered there (reference: "Normal Receipt - ... can
+// include images", text-only cannot).
+const IMAGE_TYPES = [COMPONENT_TYPES.OUTLET_LOGO, COMPONENT_TYPES.IMAGE, COMPONENT_TYPES.BARCODE];
+
+// A Columns cell holds at most this many components.
+const MAX_PER_CELL = 2;
+
+// One font-size option list for every panel. A size stored by another editor (the
+// adapter reads reference-authored blocks as 11) that is not in the list is kept as
+// an option, so the Select never renders blank or snaps the value on first change.
+const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96];
+const fontSizeOptions = (current) => {
+  const n = Number(current);
+  return Number.isFinite(n) && n > 0 && !FONT_SIZES.includes(n)
+    ? [...FONT_SIZES, n].sort((a, b) => a - b)
+    : FONT_SIZES;
+};
+
+// ---- Border Settings dialog (reference "Edit Border") ----------------------------
+// Simple edits all four sides together; Advanced edits the side picked with the
+// arrows. Update hands back the per-side border { top, right, bottom, left }, each
+// { width, style, color } — the shape receiptTemplateShape stores per side.
+const BORDER_STYLES = ['none', 'hidden', 'dotted', 'dashed', 'solid', 'double', 'groove', 'ridge', 'inset', 'outset'];
+const DEFAULT_BORDER_SIDE = { width: 1, style: 'solid', color: '#000000' };
+const BLUE = '#1c86f2';
+const DARK = '#313439';
+// Filled / outlined triangles per side, in picker order.
+const SIDE_ARROWS = {
+  top: { filled: '▲', outlined: '△', pos: { top: 4, left: '50%', transform: 'translateX(-50%)' } },
+  right: { filled: '▶', outlined: '▷', pos: { right: 6, top: '50%', transform: 'translateY(-50%)' } },
+  bottom: { filled: '▼', outlined: '▽', pos: { bottom: 4, left: '50%', transform: 'translateX(-50%)' } },
+  left: { filled: '◀', outlined: '◁', pos: { left: 6, top: '50%', transform: 'translateY(-50%)' } },
+};
+
+const sameSide = (a, b) => Number(a.width) === Number(b.width) && a.style === b.style && a.color === b.color;
+
+// Reference dropdown list (used by every Select in the editor): opens BELOW the
+// field, ~5 rows then scroll, 1px black frame, hovered row light blue, picked row
+// in blue text.
+const REF_MENU_PROPS = {
+  anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+  transformOrigin: { vertical: 'top', horizontal: 'left' },
+  PaperProps: {
+    sx: {
+      mt: '2px', maxHeight: 285, borderRadius: '8px', border: '1px solid #000', boxShadow: 'none',
+      '& .MuiMenuItem-root': { minHeight: 56, fontSize: 16, color: '#000', px: 2 },
+      '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible': { bgcolor: '#6fd0ff' },
+      '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#1c86f2' },
+      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#6fd0ff' },
+    },
+  },
+};
+
+const BorderSettingsDialog = ({ open, value, onCancel, onUpdate }) => {
+  const [mode, setMode] = useState('simple');
+  const [side, setSide] = useState('top');
+  const [sides, setSides] = useState(() => normalizeBorder(value));
+
+  // Seed from the component each time the dialog opens. A component with no border
+  // at all opens on the reference defaults (1px solid black); nothing changes until
+  // Update. Sides that differ open in Advanced.
+  useEffect(() => {
+    if (!open) return;
+    const current = normalizeBorder(value);
+    const any = BORDER_SIDES.some((k) => isSideOn(current[k]));
+    setSides(any ? current : Object.fromEntries(BORDER_SIDES.map((k) => [k, { ...DEFAULT_BORDER_SIDE }])));
+    setMode(BORDER_SIDES.every((k) => sameSide(current[k], current.top)) ? 'simple' : 'advanced');
+    setSide('top');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const shown = mode === 'simple' ? sides.top : sides[side];
+
+  const edit = (patch) => {
+    const next = { ...shown, ...patch };
+    // A width typed onto a 'none' side means "draw it"; picking a visible style for a
+    // 0-wide side gives it the default width. Width 0 or style None = no border.
+    if (patch.width != null && Number(patch.width) > 0 && next.style === 'none') next.style = 'solid';
+    if (patch.style && patch.style !== 'none' && !(Number(next.width) > 0)) next.width = 1;
+    setSides((prev) => (mode === 'simple'
+      ? Object.fromEntries(BORDER_SIDES.map((k) => [k, { ...next }]))
+      : { ...prev, [side]: next }));
+  };
+
+  const update = () => onUpdate(mode === 'simple'
+    ? Object.fromEntries(BORDER_SIDES.map((k) => [k, { ...sides.top }]))
+    : sides);
+
+  const segment = (key, label) => (
+    <Button
+      onClick={() => setMode(key)}
+      disableElevation
+      sx={{
+        bgcolor: mode === key ? BLUE : DARK,
+        color: '#fff',
+        borderRadius: 0,
+        textTransform: 'none',
+        px: 2.5,
+        '&:hover': { bgcolor: mode === key ? '#1670d0' : '#24272b' },
+      }}
+    >
+      {label}
+    </Button>
+  );
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      PaperProps={{
+        elevation: 0,
+        sx: { width: 526, maxWidth: '92vw', bgcolor: '#fff', borderRadius: 0, overflow: 'visible', position: 'relative', mt: 8 },
+      }}
+    >
+      {/* Reference: big blue '?' badge sitting half over the top edge */}
+      <Box sx={{
+        position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)',
+        width: 120, height: 120, borderRadius: '50%', bgcolor: BLUE, color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 72, fontWeight: 700, lineHeight: 1,
+      }}>
+        ?
+      </Box>
+      <DialogContent sx={{ px: 2, pt: 9, pb: 2, overflow: 'visible' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#000' }}>Border Settings</Typography>
+          <Box sx={{ display: 'flex' }}>
+            {segment('simple', 'Simple')}
+            {segment('advanced', 'Advanced')}
+          </Box>
+        </Box>
+
+        {/* Side picker: the inner bar shows the border as currently set on each side */}
+        {/* Live preview: the bar redraws with the pending (not yet Updated) border. */}
+        {/* Preview widths are capped so a big width (e.g. 100) fills the bar instead of
+            growing it over the Simple/Advanced toggle. The saved width is unchanged. */}
+        <Box sx={{ position: 'relative', width: 250, height: 100, mx: 'auto', mb: 2, bgcolor: '#e5e5e5', overflow: 'hidden' }}>
+          <Box
+            sx={{
+              position: 'absolute', top: 32, left: 32, width: 186, height: 36, bgcolor: '#f8f8f8', boxSizing: 'border-box', overflow: 'hidden',
+              ...borderToCss(Object.fromEntries(BORDER_SIDES.map((k) => {
+                const s = mode === 'simple' ? sides.top : sides[k];
+                return [k, { ...s, width: Math.min(Number(s?.width) || 0, 18) }];
+              }))),
+            }}
+          />
+          {BORDER_SIDES.map((k) => {
+            const picked = mode === 'advanced' && side === k;
+            return (
+              <Box
+                key={k}
+                component="button"
+                type="button"
+                aria-label={`${k} border`}
+                disabled={mode === 'simple'}
+                onClick={() => setSide(k)}
+                sx={{
+                  position: 'absolute',
+                  ...SIDE_ARROWS[k].pos,
+                  p: 0,
+                  border: 0,
+                  background: 'none',
+                  lineHeight: 1,
+                  fontSize: 16,
+                  cursor: mode === 'simple' ? 'default' : 'pointer',
+                  color: picked ? BLUE : '#8a8d91',
+                }}
+              >
+                {mode === 'simple' || picked ? SIDE_ARROWS[k].filled : SIDE_ARROWS[k].outlined}
+              </Box>
+            );
+          })}
+        </Box>
+
+        {/* Width | Style | Colour on one row */}
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
+          <Box sx={{ width: 100 }}>
+            <Typography sx={{ fontSize: 16, color: '#000' }}>Width</Typography>
+            <TextField
+              type="number"
+              inputProps={{ min: 0 }}
+              value={shown.width}
+              onChange={(e) => edit({ width: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+              sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#fff', borderRadius: 0, height: 54 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000' } }}
+            />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontSize: 16, color: '#000' }}>Style</Typography>
+            <Select MenuProps={REF_MENU_PROPS}
+              fullWidth
+              value={BORDER_STYLES.includes(shown.style) ? shown.style : 'none'}
+              onChange={(e) => edit({ style: e.target.value })}
+              sx={{ bgcolor: '#fff', borderRadius: '8px', height: 54, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
+              // Reference list: opens BELOW the field, ~5 rows then scroll, 1px black
+              // frame, hovered row light blue, picked row in blue text.
+              MenuProps={REF_MENU_PROPS}
+            >
+              {BORDER_STYLES.map((st) => (
+                <MenuItem key={st} value={st}>{st.charAt(0).toUpperCase() + st.slice(1)}</MenuItem>
+              ))}
+            </Select>
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: 16, color: '#000' }}>Colour</Typography>
+            {/* Reference swatch: colour inside a thick black frame; click = picker popup */}
+            <Box sx={{ position: 'relative', width: 74, height: 54, bgcolor: shown.color, border: '5px solid #000', boxSizing: 'border-box', cursor: 'pointer' }}>
+              <ColorInput
+                aria-label="Border colour"
+                value={shown.color || '#000000'}
+                onChange={(e) => edit({ color: e.target.value })}
+              />
+            </Box>
+          </Box>
+        </Box>
+      </DialogContent>
+
+      <Box sx={{ display: 'flex', gap: 2, px: 2, pb: 2 }}>
+        <Button
+          onClick={onCancel}
+          disableElevation
+          sx={{ flex: 1, borderRadius: 0, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', textTransform: 'none', fontSize: 28, fontWeight: 400, height: 48, '&:hover': { bgcolor: '#ececec' } }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={update}
+          disableElevation
+          sx={{ flex: 1, borderRadius: 0, bgcolor: BLUE, color: '#fff', textTransform: 'none', fontSize: 28, fontWeight: 400, height: 48, '&:hover': { bgcolor: '#1670d0' } }}
+        >
+          Update
+        </Button>
+      </Box>
+    </Dialog>
+  );
+};
+
 // Padding is a pixel offset and must never be negative: coerce empty/NaN/negative to 0.
 const clampPad = (v) => Math.max(0, parseInt(v, 10) || 0);
 
 const ReceiptEditor = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
-  const { alert, prompt } = useAppDialogs();
+  const { prompt, confirm } = useAppDialogs();
   const { templateId } = useParams();
   const navigate = useNavigate();
   const [template, setTemplate] = useState(null);
   // "Account Payment Receipt" templates get the payment palette, panels and preview.
   const paymentTemplate = isPaymentTemplate(template);
+  // Generic / Text Only templates get no image-type blocks.
+  const textOnlyTemplate = isTextOnlyTemplate(template);
+  // Short notices (e.g. "column is full") — a drop that is refused must say so.
+  const [notice, setNotice] = useState('');
+  // Border Settings dialog: { value, apply } for the component being edited.
+  const [borderDialog, setBorderDialog] = useState(null);
+  // Padding link (centre button): ON = typing one side sets all four.
+  const [paddingLinked, setPaddingLinked] = useState(false);
+  // Tax Indicator "Tax" options: the store's tax rates (Setup > Tax Rates).
+  const [taxNames, setTaxNames] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    taxRateService.getTaxRates()
+      .then(({ taxRates }) => {
+        if (!alive) return;
+        const names = (taxRates || [])
+          .filter((t) => t && t.name && t.isActive !== false)
+          .map((t) => t.name)
+          .filter((name, i, all) => name !== 'No Tax' && all.indexOf(name) === i);
+        setTaxNames(names);
+      })
+      .catch((err) => console.error('Error loading tax rates:', err));
+    return () => { alive = false; };
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -156,7 +420,6 @@ const ReceiptEditor = () => {
   const [receiptComponents, setReceiptComponents] = useState([]);
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [draggedComponent, setDraggedComponent] = useState(null);
   const [draggedFromPalette, setDraggedFromPalette] = useState(null);
   const [textEditorOpen, setTextEditorOpen] = useState(false);
   const [textEditorContent, setTextEditorContent] = useState('');
@@ -169,6 +432,10 @@ const ReceiptEditor = () => {
   // sidebar and browser Back each leave the editor for a different place.
   const pendingLeaveRef = useRef(null);
   const savedSnapshot = useRef('');
+  // The unsaved-changes baseline covers the components AND the header name field —
+  // a rename used to leave through Cancel with no prompt and was lost.
+  const snapshotOf = (components, name) =>
+    JSON.stringify({ components: toReferenceComponents(components), name: name ?? '' });
   // The Configure dialog edits `config` (padding / width / attachments), which the
   // component snapshot cannot see. Set on Confirm, cleared on a successful save.
   const configDirty = useRef(false);
@@ -318,6 +585,9 @@ const ReceiptEditor = () => {
       });
       setLoading(false);
     }
+    // loadTemplate reads templateId itself; re-running on its identity would refetch
+    // on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId]);
 
   const loadTemplate = async () => {
@@ -335,7 +605,7 @@ const ReceiptEditor = () => {
       // Baseline for the unsaved-changes check: what the template looked like when it
       // opened. Compared in reference shape so cosmetic editor-state differences
       // (ids, selection) never read as an edit.
-      savedSnapshot.current = JSON.stringify(toReferenceComponents(loaded));
+      savedSnapshot.current = snapshotOf(loaded, response.template.name);
       
       // Load canvas settings
       if (response.template.config && response.template.config.canvas) {
@@ -429,7 +699,7 @@ const ReceiptEditor = () => {
       
       setError('');
       // A successful save is the new baseline for the unsaved-changes check.
-      savedSnapshot.current = JSON.stringify(configData.components);
+      savedSnapshot.current = snapshotOf(receiptComponents, template?.name);
       configDirty.current = false;
       return true;
     } catch (err) {
@@ -485,7 +755,7 @@ const ReceiptEditor = () => {
 
   const hasUnsavedChanges = () =>
     configDirty.current ||
-    savedSnapshot.current !== JSON.stringify(toReferenceComponents(receiptComponents));
+    savedSnapshot.current !== snapshotOf(receiptComponents, template?.name);
 
   const leaveEditor = () => navigate('/setup/receipts');
 
@@ -508,22 +778,25 @@ const ReceiptEditor = () => {
     setLeavePrompt(true);
   });
 
-  const handleAddComponent = (componentType) => {
-    try {
-      const newComponent = {
-        id: `${componentType}-${Date.now()}`,
-        type: componentType,
-        position: { x: 0, y: receiptComponents.length * 50 },
-        properties: getDefaultProperties(componentType),
-        visible: true,
-      };
-      
-      setReceiptComponents(prev => [...prev, newComponent]);
-      setSelectedComponent(newComponent.id);
-      console.log('Component added successfully:', componentType);
-    } catch (error) {
-      console.error('Error adding component:', error);
-    }
+  // Image-type blocks are not offered on a Generic / Text Only template.
+  const isAllowedType = (componentType) => !(textOnlyTemplate && IMAGE_TYPES.includes(componentType));
+
+  // `atIndex` inserts at that position (a palette tile dropped ON a component lands
+  // where it was dropped, not at the end); omitted, the block is appended.
+  const handleAddComponent = (componentType, atIndex) => {
+    if (!isAllowedType(componentType)) return;
+    const newComponent = {
+      id: `${componentType}-${Date.now()}`,
+      type: componentType,
+      properties: getDefaultProperties(componentType),
+      visible: true,
+    };
+    setReceiptComponents((prev) => {
+      const next = [...prev];
+      next.splice(atIndex == null || atIndex < 0 ? next.length : atIndex, 0, newComponent);
+      return next;
+    });
+    setSelectedComponent(newComponent.id);
   };
 
   const getDefaultProperties = (componentType) => {
@@ -676,14 +949,11 @@ const ReceiptEditor = () => {
           }
         };
       case COMPONENT_TYPES.TEXT:
+        // Text stores background / padding / border only (measured whitelist); its
+        // font, size, colour and alignment live in the rich-text HTML. The font keys
+        // that used to sit here drew 16px on the canvas while the receipt printed 12px.
         return {
-          showTitle: true,
-          title: 'Text',
-          fontColor: '#000000',
           backgroundColor: '#ffffff',
-          fontSize: 16,
-          fontWeight: 'normal',
-          textAlign: 'left',
           padding: { top: 0, right: 0, bottom: 0, left: 0 },
           border: { enabled: false, width: 1, color: '#000000', style: 'solid' },
           content: '',
@@ -849,48 +1119,133 @@ const ReceiptEditor = () => {
     }
   };
 
-  const handleAddComponentToColumn = (parentComponentId, columnId, componentType) => {
-    const newComponent = {
-      id: `${componentType}-${Date.now()}`,
-      type: componentType,
-      properties: getDefaultProperties(componentType),
-      visible: true,
-    };
+  // ---- component tree helpers (top level + Columns cells) ----------------------
+  // A position is { kind: 'top', index } or { kind: 'cell', parentId, columnId, index };
+  // a drag source is { kind: 'top', id } or { kind: 'cell', parentId, columnId, index }.
+  const findCell = (tree, parentId, columnId) => tree
+    .find((c) => c.id === parentId && c.type === COMPONENT_TYPES.COLUMNS)
+    ?.properties?.columns?.find((col) => col.id === columnId);
 
-    setReceiptComponents(prev =>
-      prev.map(comp => {
-        if (comp.id === parentComponentId && comp.type === COMPONENT_TYPES.COLUMNS) {
-          const updatedColumns = comp.properties.columns.map(col => {
-            if (col.id === columnId) {
-              return {
-                ...col,
-                components: [...(col.components || []), newComponent]
-              };
-            }
-            return col;
-          });
-          
-          return {
-            ...comp,
-            properties: {
-              ...comp.properties,
-              columns: updatedColumns
-            }
-          };
+  const mapCell = (tree, parentId, columnId, fn) => tree.map((c) => (
+    c.id === parentId && c.type === COMPONENT_TYPES.COLUMNS
+      ? {
+          ...c,
+          properties: {
+            ...c.properties,
+            columns: c.properties.columns.map((col) => (
+              col.id === columnId ? { ...col, components: fn(col.components || []) } : col
+            )),
+          },
         }
-        return comp;
-      })
-    );
+      : c
+  ));
+
+  // Insert `comp` at a position. Returns { tree } or { error } (cell full, a Columns
+  // block into a cell).
+  const insertAt = (tree, comp, target) => {
+    if (target.kind === 'top') {
+      const next = [...tree];
+      next.splice(target.index == null ? next.length : target.index, 0, comp);
+      return { tree: next };
+    }
+    if (comp.type === COMPONENT_TYPES.COLUMNS) return { error: 'Columns cannot be placed inside a column' };
+    const cell = findCell(tree, target.parentId, target.columnId);
+    if (!cell) return { error: 'Column not found' };
+    if ((cell.components || []).length >= MAX_PER_CELL) {
+      return { error: `This column is full (max ${MAX_PER_CELL} components)` };
+    }
+    return {
+      tree: mapCell(tree, target.parentId, target.columnId, (list) => {
+        const next = [...list];
+        next.splice(target.index == null ? next.length : target.index, 0, comp);
+        return next;
+      }),
+    };
   };
 
-  const handleDragStart = (e, componentType, fromPalette = false) => {
+  // Move an existing component from `source` to `target`. Pure — returns the new
+  // tree, or { error } and the tree unchanged.
+  const moveComponent = (tree, source, target) => {
+    let comp;
+    let rest;
+    const to = { ...target };
+    if (source.kind === 'top') {
+      const from = tree.findIndex((c) => String(c.id) === String(source.id));
+      if (from === -1) return { tree };
+      comp = tree[from];
+      rest = tree.filter((_, i) => i !== from);
+      if (to.kind === 'top' && to.index != null && to.index > from) to.index -= 1;
+    } else {
+      const cell = findCell(tree, source.parentId, source.columnId);
+      comp = cell?.components?.[source.index];
+      if (!comp) return { tree };
+      rest = mapCell(tree, source.parentId, source.columnId, (list) => list.filter((_, i) => i !== source.index));
+      if (to.kind === 'cell' && to.parentId === source.parentId && to.columnId === source.columnId
+        && to.index != null && to.index > source.index) to.index -= 1;
+    }
+    // Dropping a Columns block into one of its own cells would delete it.
+    if (to.kind === 'cell' && to.parentId === comp.id) return { tree, error: 'Columns cannot be placed inside a column' };
+    // Crossing between the top level and a cell gets a fresh id: loaded ids are
+    // index-based and can collide between the two levels.
+    const crosses = source.kind !== to.kind;
+    const moved = crosses ? { ...comp, id: `${comp.type}-${Date.now()}` } : comp;
+    const result = insertAt(rest, moved, to);
+    return result.error ? { tree, error: result.error } : result;
+  };
+
+  const readSource = (e) => {
+    try {
+      return JSON.parse(e.dataTransfer.getData('componentSource') || 'null');
+    } catch {
+      return null;
+    }
+  };
+
+  // Handles every drop: a palette tile is added at `target`, a dragged component is
+  // moved there. A refused drop says why instead of doing nothing.
+  const dropAt = (e, target) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const paletteType = e.dataTransfer.getData('componentType');
+    const source = readSource(e);
+    if (paletteType && draggedFromPalette) {
+      if (!isAllowedType(paletteType)) {
+        setNotice('Images are not printed on text-only receipts');
+      } else if (target.kind === 'top') {
+        handleAddComponent(paletteType, target.index);
+      } else {
+        const fresh = {
+          id: `${paletteType}-${Date.now()}`,
+          type: paletteType,
+          properties: getDefaultProperties(paletteType),
+          visible: true,
+        };
+        const result = insertAt(receiptComponents, fresh, target);
+        if (result.error) setNotice(result.error);
+        else setReceiptComponents(result.tree);
+      }
+    } else if (source) {
+      const result = moveComponent(receiptComponents, source, target);
+      if (result.error) {
+        setNotice(result.error);
+      } else if (result.tree !== receiptComponents) {
+        setReceiptComponents(result.tree);
+        // Nested selection ids are positional; a move can leave them pointing elsewhere.
+        if (source.kind === 'cell' || target.kind === 'cell') setSelectedComponent(null);
+      }
+    }
+    handleDragEnd();
+  };
+
+  // `payload`: the palette type when fromPalette, otherwise a drag source.
+  const handleDragStart = (e, payload, fromPalette = false) => {
+    e.stopPropagation(); // a nested block's drag must not become its Columns parent's
     setIsDragging(true);
     if (fromPalette) {
-      setDraggedFromPalette(componentType);
-      e.dataTransfer.setData('componentType', componentType);
+      setDraggedFromPalette(payload);
+      e.dataTransfer.setData('componentType', payload);
     } else {
-      setDraggedComponent(componentType);
-      e.dataTransfer.setData('componentId', componentType);
+      e.dataTransfer.setData('componentSource', JSON.stringify(payload));
     }
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -898,7 +1253,6 @@ const ReceiptEditor = () => {
   const handleDragEnd = () => {
     setIsDragging(false);
     setDraggedFromPalette(null);
-    setDraggedComponent(null);
   };
 
   const handleDragOver = (e) => {
@@ -906,71 +1260,40 @@ const ReceiptEditor = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  // Dropping on the paper itself: a palette tile appends a component, an existing
-  // component dropped past the end moves to the end. Only column cells used to
-  // accept a drop, so dragging from the palette onto the paper did nothing.
-  const handleDropOnCanvas = (e) => {
-    e.preventDefault();
-    const paletteType = e.dataTransfer.getData('componentType');
-    const movedId = e.dataTransfer.getData('componentId');
-    if (paletteType && draggedFromPalette) {
-      handleAddComponent(paletteType);
-    } else if (movedId) {
-      setReceiptComponents((prev) => {
-        const from = prev.findIndex((c) => String(c.id) === String(movedId));
-        if (from === -1) return prev;
-        const next = [...prev];
-        const [moved] = next.splice(from, 1);
-        next.push(moved);
-        return next;
-      });
-    }
-    handleDragEnd();
-  };
+  // Paper: append / move to the end. A component: take its position. A cell: append
+  // to that cell. A nested component: take its position in its cell.
+  const handleDropOnCanvas = (e) => dropAt(e, { kind: 'top', index: null });
+  const handleDropOnComponent = (e, targetId) =>
+    dropAt(e, { kind: 'top', index: receiptComponents.findIndex((c) => String(c.id) === String(targetId)) });
+  const handleDropInColumn = (e, parentId, columnId, index = null) =>
+    dropAt(e, { kind: 'cell', parentId, columnId, index });
 
-  // Dropping one component onto another reorders: the dragged block takes the
-  // target's position. The drag handle used to be decorative.
-  const handleDropOnComponent = (e, targetId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const paletteType = e.dataTransfer.getData('componentType');
-    const movedId = e.dataTransfer.getData('componentId');
-    if (paletteType && draggedFromPalette) {
-      handleDragEnd();
-      return handleAddComponent(paletteType);
-    }
-    if (movedId && String(movedId) !== String(targetId)) {
-      setReceiptComponents((prev) => {
-        const from = prev.findIndex((c) => String(c.id) === String(movedId));
-        const to = prev.findIndex((c) => String(c.id) === String(targetId));
-        if (from === -1 || to === -1) return prev;
-        const next = [...prev];
-        const [moved] = next.splice(from, 1);
-        next.splice(to, 0, moved);
-        return next;
-      });
-    }
-    handleDragEnd();
-  };
-
-  const handleDropInColumn = (e, parentComponentId, columnId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const componentType = e.dataTransfer.getData('componentType');
-    if (componentType && draggedFromPalette) {
-      const parentComponent = receiptComponents.find(comp => comp.id === parentComponentId);
-      const targetColumn = parentComponent?.properties?.columns?.find(col => col.id === columnId);
-      
-      if (targetColumn && targetColumn.components && targetColumn.components.length >= 2) {
-        handleDragEnd();
-        return;
+  // Find a component anywhere in the tree by the id the canvas selects it with
+  // (top-level id, or `${parent.id}-${column.id}-${index}` for a nested block).
+  const locateComponent = (id) => {
+    const top = receiptComponents.find((c) => c.id === id);
+    if (top) return { component: top };
+    for (const parent of receiptComponents) {
+      if (parent.type !== COMPONENT_TYPES.COLUMNS) continue;
+      for (const column of parent.properties?.columns || []) {
+        const children = column.components || [];
+        const index = children.findIndex((child, childIndex) =>
+          `${parent.id}-${column.id}-${childIndex}` === id || child.id === id);
+        if (index !== -1) {
+          return { component: children[index], parentId: parent.id, columnId: column.id, nestedIndex: index };
+        }
       }
-      
-      handleAddComponentToColumn(parentComponentId, columnId, componentType);
     }
-    
-    handleDragEnd();
+    return null;
+  };
+
+  // Update a component wherever it lives (used by the Media Centre pick, which used to
+  // look at the top level only and dropped the pick for an image inside a column).
+  const updateAnyComponent = (id, updates) => {
+    const found = locateComponent(id);
+    if (!found) return;
+    if (found.parentId) handleNestedComponentUpdate(found.parentId, found.columnId, found.nestedIndex, updates);
+    else handleComponentUpdate(id, updates);
   };
 
   // One sample sale per editor session — stamped once so the canvas doesn't
@@ -997,7 +1320,7 @@ const ReceiptEditor = () => {
       <Box
         key={component.id}
         draggable
-        onDragStart={(e) => handleDragStart(e, component.id)}
+        onDragStart={(e) => handleDragStart(e, { kind: 'top', id: component.id })}
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDrop={(e) => handleDropOnComponent(e, component.id)}
@@ -1078,6 +1401,8 @@ const ReceiptEditor = () => {
           </Box>
         )}
 
+        {renderTextOnlyWarning(component)}
+
         {/* Component Content — matches the renderer: only an explicit false hides it */}
         {component.visible !== false && (
           <Box sx={{ p: 0, minHeight: 20 }}>
@@ -1088,11 +1413,27 @@ const ReceiptEditor = () => {
     );
   };
 
+  // An image-type block already on a Generic / Text Only template (added before the
+  // type changed, or authored elsewhere) is flagged rather than silently kept.
+  const renderTextOnlyWarning = (component) => (
+    textOnlyTemplate && IMAGE_TYPES.includes(component.type) ? (
+      <Chip
+        size="small"
+        color="warning"
+        label="Not printed on text-only receipts"
+        sx={{ m: 0.5 }}
+      />
+    ) : null
+  );
+
   // Blocks whose printed shape is owned by the receipt renderer. The canvas draws
   // them with that same renderer against a sample sale, so what the author sees on
   // the canvas is exactly what the sale prints — the two used to disagree (canvas:
   // "Rounding:" left-aligned; receipt: "Rounding" right-aligned in the money column).
   const RENDERER_OWNED = [
+    // Heading used to be drawn by hand without its padding or background, so the
+    // canvas and the printed heading differed.
+    COMPONENT_TYPES.HEADER,
     COMPONENT_TYPES.PRODUCTS,
     COMPONENT_TYPES.TAX,
     COMPONENT_TYPES.TOTALS,
@@ -1120,26 +1461,6 @@ const ReceiptEditor = () => {
       );
     }
     switch (component.type) {
-      case COMPONENT_TYPES.HEADER:
-        return (
-          <Box sx={{
-            textAlign: component.properties?.textAlign || 'center',
-            border: component.properties?.border?.enabled
-              ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-              : 'none',
-          }}>
-            <Typography
-              variant="body2"
-              sx={{
-                color: component.properties?.fontColor || '#000',
-                fontSize: `${component.properties?.fontSize || 12}px`,
-                fontWeight: component.properties?.fontWeight || 'normal',
-              }}
-            >
-              {component.properties?.completedSale || 'Tax Invoice'}
-            </Typography>
-          </Box>
-        );
       case COMPONENT_TYPES.OUTLET_LOGO:
         return (
           <Box
@@ -1148,7 +1469,7 @@ const ReceiptEditor = () => {
               justifyContent: component.properties?.horizontalAlignment || 'center',
               backgroundColor: component.properties?.backgroundColor || '#ffffff',
               padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: `${component.properties?.border?.width || 0}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`,
+              ...borderToCss(component.properties?.border),
               minHeight: 60,
               alignItems: 'center',
             }}
@@ -1189,9 +1510,7 @@ const ReceiptEditor = () => {
             sx={{
               backgroundColor: component.properties?.backgroundColor || '#ffffff',
               padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
+              ...borderToCss(component.properties?.border),
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -1224,99 +1543,6 @@ const ReceiptEditor = () => {
             </Box>
           </Box>
         );
-      case COMPONENT_TYPES.INDICATOR:
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 12}px`,
-              fontWeight: component.properties?.fontWeight || 'Normal',
-              color: component.properties?.fontColor || '#000000',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-            }}
-          >
-            <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit', fontWeight: 'bold' }}>
-              {component.properties?.indicator || '*'}
-            </Typography>
-            <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-              {component.properties?.text || 'Indicates items with'} {component.properties?.tax || 'No Tax'}
-            </Typography>
-          </Box>
-        );
-      case COMPONENT_TYPES.SURCHARGE:
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 12}px`,
-              fontWeight: component.properties?.fontWeight || 'Normal',
-              color: component.properties?.fontColor || '#000000',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              minHeight: 20,
-            }}
-          >
-            {/* Name */}
-            {component.properties?.showTitle !== false && (
-              <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                Surcharge
-              </Typography>
-            )}
-            
-            {/* Amount */}
-            {component.properties?.showTotal !== false && (
-              <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                $2.00
-              </Typography>
-            )}
-          </Box>
-        );
-      case COMPONENT_TYPES.LOYALTY:
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 12}px`,
-              fontWeight: component.properties?.fontWeight || 'Normal',
-              color: component.properties?.fontColor || '#000000',
-            }}
-          >
-            {component.properties?.showTitle && (
-              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, fontSize: 'inherit', color: 'inherit' }}>
-                {component.properties?.title || 'Loyalty'}
-              </Typography>
-            )}
-
-            {/* Loyalty Items */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {component.properties?.loyaltyItems?.filter(item => item.enabled).map((item, index) => (
-                <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                    {item.name}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                    0000
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        );
       case COMPONENT_TYPES.COLUMNS:
         return (
           <Box
@@ -1324,7 +1550,7 @@ const ReceiptEditor = () => {
               display: 'flex',
               backgroundColor: component.properties?.backgroundColor || '#ffffff',
               padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: `${component.properties?.border?.width || 0}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`,
+              ...borderToCss(component.properties?.border),
               minHeight: 100,
             }}
           >
@@ -1359,9 +1585,16 @@ const ReceiptEditor = () => {
                       const isNestedSelected = selectedComponent === nestedComponentId;
                       
                       return (
-                        <Box 
-                          key={nestedIndex} 
-                          sx={{ 
+                        <Box
+                          key={nestedIndex}
+                          // A nested block can be dragged out to the paper, into the
+                          // other cell, or onto a sibling to reorder.
+                          draggable={!isPreview}
+                          onDragStart={(e) => handleDragStart(e, { kind: 'cell', parentId: component.id, columnId: column.id, index: nestedIndex })}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDropInColumn(e, component.id, column.id, nestedIndex)}
+                          sx={{
                             width: '100%', 
                             mb: 1,
                             border: '1px solid #e0e0e0',
@@ -1417,43 +1650,10 @@ const ReceiptEditor = () => {
                                 >
                                   <SettingsIcon fontSize="small" />
                                 </IconButton>
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    nestedComp.visible = !nestedComp.visible;
-                                    // Update the component in the column
-                                    setReceiptComponents(prev =>
-                                      prev.map(comp => {
-                                        if (comp.id === component.id && comp.type === COMPONENT_TYPES.COLUMNS) {
-                                          const updatedColumns = comp.properties.columns.map(col => {
-                                            if (col.id === column.id) {
-                                              const updatedComponents = [...col.components];
-                                              updatedComponents[nestedIndex] = { ...nestedComp };
-                                              return {
-                                                ...col,
-                                                components: updatedComponents
-                                              };
-                                            }
-                                            return col;
-                                          });
-                                          
-                                          return {
-                                            ...comp,
-                                            properties: {
-                                              ...comp.properties,
-                                              columns: updatedColumns
-                                            }
-                                          };
-                                        }
-                                        return comp;
-                                      })
-                                    );
-                                  }}
-                                  sx={{ color: 'inherit', p: 0.25 }}
-                                >
-                                  {nestedComp.visible !== false ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                                </IconButton>
+                                {/* No show/hide toggle: the reference has none, and the
+                                    `visible` flag it wrote was never saved (the storage
+                                    shape has no such key), so it only hid the block until
+                                    reload. It also mutated state in place. */}
                                 <IconButton
                                   size="small"
                                   onClick={(e) => {
@@ -1505,10 +1705,12 @@ const ReceiptEditor = () => {
                             </Box>
                           )}
 
+                          {!isPreview && renderTextOnlyWarning(nestedComp)}
+
                           {/* Component Content */}
                           {nestedComp.visible !== false && (
                             <Box sx={{ p: 0, minHeight: 30 }}>
-                              {renderComponentContent(nestedComp)}
+                              {renderComponentContent(nestedComp, isPreview)}
                             </Box>
                           )}
                         </Box>
@@ -1563,7 +1765,7 @@ const ReceiptEditor = () => {
               justifyContent: component.properties?.horizontalAlignment || 'center',
               backgroundColor: component.properties?.backgroundColor || '#ffffff',
               padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: `${component.properties?.border?.width || 0}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`,
+              ...borderToCss(component.properties?.border),
               minHeight: 60,
               alignItems: 'center',
             }}
@@ -1598,210 +1800,26 @@ const ReceiptEditor = () => {
             )}
           </Box>
         );
-      case COMPONENT_TYPES.GIFT_CARDS:
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 12}px`,
-              fontWeight: component.properties?.fontWeight || 'normal',
-              color: component.properties?.fontColor || '#000000',
-              textAlign: component.properties?.textAlign || 'left',
-            }}
-          >
-            {component.properties?.showTitle && (
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  mb: 1,
-                  fontSize: 'inherit',
-                  color: 'inherit',
-                  textAlign: 'inherit'
-                }}
-              >
-                {component.properties?.title || 'Gift Cards'}
-              </Typography>
-            )}
-            
-            {/* Gift Cards List */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {component.properties?.giftCards?.map((giftCard, index) => (
-                <Box key={giftCard.id || index} sx={{ mb: 1 }}>
-                  {/* Gift Card ID */}
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      fontSize: 'inherit', 
-                      color: 'inherit', 
-                      fontWeight: 'bold',
-                      mb: 0.5
-                    }}
-                  >
-                    Gift Card {giftCard.id}
-                  </Typography>
-                  
-                  {/* Gift Card Details */}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                    {component.properties?.fields
-                      ?.filter(field => field.enabled)
-                      ?.sort((a, b) => a.order - b.order)
-                      ?.map((field) => (
-                        <Box key={field.name} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                            {field.name}:
-                          </Typography>
-                          <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit', fontWeight: 'bold' }}>
-                            {field.name === 'Original' && `$${giftCard.original?.toFixed(2) || '0.00'}`}
-                            {field.name === 'Amount Used' && `$${giftCard.amountUsed?.toFixed(2) || '0.00'}`}
-                            {field.name === 'Current' && `$${giftCard.current?.toFixed(2) || '0.00'}`}
-                            {field.name === 'Expiry' && giftCard.expiry}
-                          </Typography>
-                        </Box>
-                      ))}
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        );
-      case COMPONENT_TYPES.TOTALS:
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 12}px`,
-              fontWeight: component.properties?.fontWeight || 'normal',
-              color: component.properties?.fontColor || '#000000',
-              textAlign: component.properties?.textAlign || 'left',
-            }}
-          >
-            {component.properties?.showTitle && (
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  mb: 1,
-                  fontSize: 'inherit',
-                  color: 'inherit',
-                  textAlign: 'inherit'
-                }}
-              >
-                {component.properties?.title || 'Totals'}
-              </Typography>
-            )}
-            
-            {/* Totals List */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {component.properties?.fields
-                ?.filter(field => field.enabled)
-                ?.sort((a, b) => a.order - b.order)
-                ?.map((field) => (
-                  <Box key={field.name} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                      {field.name}:
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        fontSize: 'inherit', 
-                        color: 'inherit', 
-                        fontWeight: field.name === 'Total' ? 'bold' : 'inherit'
-                      }}
-                    >
-                      {field.name === 'Rounding' && `$${component.properties?.totalsData?.rounding?.toFixed(2) || '0.00'}`}
-                      {field.name === 'Savings' && `$${component.properties?.totalsData?.savings?.toFixed(2) || '0.00'}`}
-                      {field.name === 'Discount' && `$${component.properties?.totalsData?.discount?.toFixed(2) || '0.00'}`}
-                      {field.name === 'Total' && `$${component.properties?.totalsData?.total?.toFixed(2) || '0.00'}`}
-                      {field.name === 'Change' && `$${component.properties?.totalsData?.change?.toFixed(2) || '0.00'}`}
-                    </Typography>
-                  </Box>
-                ))}
-            </Box>
-          </Box>
-        );
-      case COMPONENT_TYPES.ACCOUNT:
-        const enabledFields = Object.entries(component.properties?.fields || {})
-          .filter(([_, field]) => field.enabled)
-          .sort(([_, a], [__, b]) => a.order - b.order);
-
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 12}px`,
-              fontWeight: component.properties?.fontWeight || 'normal',
-              color: component.properties?.fontColor || '#000000',
-              textAlign: component.properties?.textAlign || 'left',
-              minHeight: 60,
-            }}
-          >
-            {component.properties?.showTitle && (
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 'bold',
-                  marginBottom: 1,
-                  fontSize: `${component.properties?.fontSize || 12}px`,
-                  color: component.properties?.fontColor || '#000000',
-                }}
-              >
-                {component.properties?.title || 'Account'}
-              </Typography>
-            )}
-            
-            <Box>
-              {enabledFields.map(([key, field]) => (
-                <Box key={key} sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: 0.5 }}>
-                  <Typography sx={{ fontSize: `${component.properties?.fontSize || 12}px` }}>
-                    {field.name}:
-                  </Typography>
-                  <Typography sx={{ fontSize: `${component.properties?.fontSize || 12}px`, fontWeight: 'bold' }}>
-                    ${component.properties?.accountData?.[key]?.toFixed(2) || '0.00'}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        );
       case COMPONENT_TYPES.TEXT:
         return (
           <Box
             sx={{
               backgroundColor: component.properties?.backgroundColor || '#ffffff',
               padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 16}px`,
-              fontWeight: component.properties?.fontWeight || 'normal',
-              color: component.properties?.fontColor || '#000000',
-              textAlign: component.properties?.textAlign || 'left',
-              display: 'flex',
-              alignItems: 'center',
+              ...borderToCss(component.properties?.border),
+              // Text saves background / padding / border only; size, colour and
+              // alignment come from the rich-text HTML. Draw on the printed receipt's
+              // base (Roboto 12px black, ReceiptRenderer reference path) so the
+              // canvas matches print instead of showing unsaved 16px defaults.
+              fontFamily: 'Roboto, sans-serif',
+              fontSize: '12px',
+              lineHeight: 1.35,
+              color: '#000',
             }}
           >
             {component.properties?.content || component.properties?.richTextContent ? (
               <Box
-                sx={{
-                  width: '100%',
-                  fontSize: 'inherit',
-                  color: 'inherit',
-                  textAlign: 'inherit',
-                  fontWeight: 'inherit',
-                }}
+                sx={{ width: '100%' }}
                 dangerouslySetInnerHTML={{
                   // Preview expressions resolved against a sample sale, like the
                   // reference's editor (docs/parity/receipt-template.md §11.6).
@@ -1829,178 +1847,6 @@ const ReceiptEditor = () => {
                 </Typography>
               </Box>
             )}
-          </Box>
-        );
-      case COMPONENT_TYPES.PAYMENTS:
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 12}px`,
-              fontWeight: component.properties?.fontWeight || 'Normal',
-              color: component.properties?.fontColor || '#000000',
-            }}
-          >
-            {component.properties?.showTitle && (
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  mb: 1,
-                  fontSize: 'inherit',
-                  color: 'inherit'
-                }}
-              >
-                {component.properties?.title || 'Payments'}
-              </Typography>
-            )}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {/* Sample payment data for preview */}
-              {[
-                { name: 'Cash', amount: '$5.00' },
-                { name: 'EFTPOS', amount: '$20.00' }
-              ].map((payment, index) => (
-                <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  {component.properties?.showPaymentNames && (
-                    <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                      {payment.name}
-                    </Typography>
-                  )}
-                  {component.properties?.showAmounts && (
-                    <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit', ml: 'auto' }}>
-                      {payment.amount}
-                    </Typography>
-                  )}
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        );
-      case COMPONENT_TYPES.PRODUCTS:
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 14}px`,
-              fontWeight: component.properties?.fontWeight || 'Normal',
-              color: component.properties?.fontColor || '#000000',
-            }}
-          >
-            {/* {component.properties?.showTitle && (
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  mb: 1,
-                  fontSize: 'inherit',
-                  color: 'inherit',
-                  bgcolor: '#1976d2',
-                  // color: 'white',
-                  p: 1,
-                  textAlign: 'center'
-                }}
-              >
-                {component.properties?.title || 'Products'}
-              </Typography>
-            )} */}
-            
-            {/* Table Header */}
-            <Box sx={{ display: 'flex', borderBottom: '1px solid #ccc', mb: 1 }}>
-              {component.properties?.fields?.filter(f => f.enabled).map((field, index) => (
-                <Box key={index} sx={{ flex: 1, p: 0.5, textAlign: 'center', fontWeight: 'bold', fontSize: 'inherit', color: 'inherit' }}>
-                  {field.name}
-                </Box>
-              ))}
-            </Box>
-            
-            {/* Sample Product Rows */}
-            {[
-              { name: 'Test No Tax', values: ['24', '2', '$9.99', '$1.00', '$19.98', '$239.76', '$20.98', '48', '$1.00'] },
-              { name: 'Test Product*', values: ['24', '2', '$9.99', '$1.00', '$19.98', '$239.76', '$20.98', '48', '$1.00'] }
-            ].map((product, productIndex) => (
-              <Box key={productIndex}>
-                <Box sx={{ display: 'flex', borderBottom: '1px solid #eee', py: 0.5 }}>
-                  {component.properties?.fields?.filter(f => f.enabled).map((field, fieldIndex) => (
-                    <Box key={fieldIndex} sx={{ flex: 1, p: 0.5, textAlign: 'center', fontSize: 'inherit', color: 'inherit' }}>
-                      {fieldIndex === 0 ? product.name : product.values[fieldIndex - 1] || ''}
-                    </Box>
-                  ))}
-                </Box>
-                
-                {/* Product Notes and Discount Reasons */}
-                {(component.properties?.showProductNote || component.properties?.showDiscountReason) && (
-                  <Box sx={{ pl: 1, pb: 0.5, fontSize: '0.9em', color: 'inherit' }}>
-                    {component.properties?.showProductNote && (
-                      <Typography variant="caption" sx={{ display: 'block', color: 'inherit' }}>
-                        - Test product note
-                      </Typography>
-                    )}
-                    {component.properties?.showDiscountReason && (
-                      <Typography variant="caption" sx={{ display: 'block', color: 'inherit' }}>
-                        - Test discount reason
-                      </Typography>
-                    )}
-                  </Box>
-                )}
-              </Box>
-            ))}
-          </Box>
-        );
-      case COMPONENT_TYPES.TAX:
-        return (
-          <Box
-            sx={{
-              backgroundColor: component.properties?.backgroundColor || '#ffffff',
-              padding: `${component.properties?.padding?.top || 0}px ${component.properties?.padding?.right || 0}px ${component.properties?.padding?.bottom || 0}px ${component.properties?.padding?.left || 0}px`,
-              border: component.properties?.border?.enabled 
-                ? `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`
-                : 'none',
-              fontSize: `${component.properties?.fontSize || 12}px`,
-              fontWeight: component.properties?.fontWeight || 'Normal',
-              color: component.properties?.fontColor || '#000000',
-            }}
-          >
-            {/* {component.properties?.showTitle && (
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  mb: 1,
-                  fontSize: 'inherit',
-                  color: 'white',
-                  bgcolor: '#1976d2',
-                  p: 1,
-                  textAlign: 'center'
-                }}
-              >
-                {component.properties?.title || 'Tax'}
-              </Typography>
-            )} */}
-            
-            {/* Tax Items */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {component.properties?.taxItems?.filter(item => item.enabled).map((item, index) => (
-                <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                    {item.name}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: 'inherit', color: 'inherit' }}>
-                    {item.name === 'No Tax' ? '$0.00' : 
-                     item.name === 'Test Tax' ? '$0.50' :
-                     item.name === 'Savings' ? '$2.00' :
-                     item.name === 'Discount' ? '$2.00' : '$0.00'}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
           </Box>
         );
       default:
@@ -2140,7 +1986,7 @@ const ReceiptEditor = () => {
       return (
         <Box>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Weight</Typography>
-          <Select
+          <Select MenuProps={REF_MENU_PROPS}
             fullWidth
             size="small"
             value={value}
@@ -2157,6 +2003,88 @@ const ReceiptEditor = () => {
         </Box>
       );
     };
+
+    // Padding (px): four boxes around a centre square holding the round blue link
+    // button. Linked, typing one side sets all four (reference control).
+    const renderPaddingControl = () => {
+      const padding = component.properties?.padding || {};
+      const setSide = (key, raw) => {
+        const n = clampPad(raw);
+        const next = paddingLinked
+          ? { top: n, right: n, bottom: n, left: n }
+          : { top: 0, right: 0, bottom: 0, left: 0, ...padding, [key]: n };
+        updateComponent({ properties: { ...component.properties, padding: next } });
+      };
+      const box = (key, label) => (
+        <TextField
+          size="small"
+          type="number"
+          placeholder="0"
+          inputProps={{ min: 0, 'aria-label': `Padding ${label}`, style: { textAlign: 'center' } }}
+          // Empty shows the greyed 0 placeholder; a real 0 is still a value.
+          value={Number(padding[key]) ? padding[key] : ''}
+          onChange={(e) => setSide(key, e.target.value)}
+          sx={{ width: 72 }}
+        />
+      );
+      return (
+        <Box>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (px)</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '72px 72px 72px', gridTemplateRows: 'auto auto auto', gap: 1, justifyContent: 'center', alignItems: 'center', justifyItems: 'center' }}>
+            <Box />
+            {box('top', 'top')}
+            <Box />
+            {box('left', 'left')}
+            <Box sx={{ width: 56, height: 40, bgcolor: '#e5e5e5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Tooltip title={paddingLinked ? 'Unlink sides' : 'Link all sides'}>
+                <IconButton
+                  size="small"
+                  aria-pressed={paddingLinked}
+                  onClick={() => setPaddingLinked((v) => !v)}
+                  sx={{
+                    width: 30,
+                    height: 30,
+                    bgcolor: paddingLinked ? BLUE : '#fff',
+                    color: paddingLinked ? '#fff' : BLUE,
+                    border: `1px solid ${BLUE}`,
+                    '&:hover': { bgcolor: paddingLinked ? '#1670d0' : '#e8f1fd' },
+                  }}
+                >
+                  {paddingLinked ? <LinkIcon fontSize="small" /> : <LinkOffIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+            </Box>
+            {box('right', 'right')}
+            <Box />
+            {box('bottom', 'bottom')}
+            <Box />
+          </Box>
+        </Box>
+      );
+    };
+
+    // Border: a preview of the component's real (per-side) border, then Edit Border,
+    // which opens the Border Settings dialog.
+    const renderBorderControl = () => (
+      <Box>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
+        <Box sx={{ height: 44, bgcolor: '#e5e5e5', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+          <Box sx={{ width: '80%', height: 22, bgcolor: '#fff', ...borderToCss(component.properties?.border) }} />
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<EditIcon />}
+          onClick={() => setBorderDialog({
+            value: component.properties?.border,
+            apply: (border) => updateComponent({ properties: { ...component.properties, border } }),
+          })}
+          sx={{ textTransform: 'none' }}
+        >
+          Edit Border
+        </Button>
+      </Box>
+    );
 
     return (
       <Box sx={{ p: 2 }}>
@@ -2209,8 +2137,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.fontColor || '#000000'}
                   onChange={(e) =>
                     updateComponent({
@@ -2243,8 +2171,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.backgroundColor || '#ffffff'}
                   onChange={(e) =>
                     updateComponent({
@@ -2265,7 +2193,7 @@ const ReceiptEditor = () => {
 
             <FormControl fullWidth size="small">
               <InputLabel>Font Size</InputLabel>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 value={component.properties?.fontSize || 12}
                 onChange={(e) =>
                   updateComponent({
@@ -2274,7 +2202,7 @@ const ReceiptEditor = () => {
                 }
                 label="Font Size"
               >
-                {[8, 10, 12, 14, 16, 18, 20, 24].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -2284,7 +2212,7 @@ const ReceiptEditor = () => {
 
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Text Align</Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: "flex" }}>
                 {[
                   { value: 'left', Icon: FormatAlignLeftOutlined },
                   { value: 'center', Icon: FormatAlignCenterOutlined },
@@ -2293,17 +2221,19 @@ const ReceiptEditor = () => {
                   <Button
                     key={align.value}
                     size="small"
-                    variant={component.properties?.textAlign === align.value ? 'contained' : 'outlined'}
+                    variant="contained"
+                    disableElevation
                     onClick={() =>
-                      updateComponent({
-                        properties: { ...component.properties, textAlign: align.value }
-                      })
+                      updateComponent({ properties: { ...component.properties, textAlign: align.value } })
                     }
+                    // Reference: one segmented control, dark with the selected side blue.
                     sx={{
                       flex: 1,
                       minWidth: 0,
-                      bgcolor: component.properties?.textAlign === align.value ? '#1976d2' : 'transparent',
-                      color: component.properties?.textAlign === align.value ? 'white' : 'inherit',
+                      borderRadius: 0,
+                      bgcolor: component.properties?.textAlign === align.value ? BLUE : DARK,
+                      color: "#fff",
+                      "&:hover": { bgcolor: component.properties?.textAlign === align.value ? "#1670d0" : "#24272b" },
                     }}
                   >
                     <align.Icon fontSize="small" />
@@ -2312,101 +2242,9 @@ const ReceiptEditor = () => {
               </Box>
             </Box>
 
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ position: 'relative', width: '100%', height: 40, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px solid #999' }} />
-                </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<span>✏️</span>}
-                  onClick={() => {
-                    // Toggle border enabled
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                      }
-                    });
-                  }}
-                >
-                  Edit Border
-                </Button>
-              </Box>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -2481,7 +2319,6 @@ const ReceiptEditor = () => {
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Horizontal Alignment</Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {['flex-start', 'center', 'flex-end'].map((align, index) => {
-                  const labels = ['Left', 'Center', 'Right'];
                   const icons = ['≡', '≡', '≡'];
                   return (
                     <Button
@@ -2522,8 +2359,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.backgroundColor || '#ffffff'}
                   onChange={(e) =>
                     updateComponent({
@@ -2542,379 +2379,15 @@ const ReceiptEditor = () => {
               </Box>
             </Box>
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => {
-                  // For now, just toggle border width between 0 and 1
-                  const currentWidth = component.properties?.border?.width || 0;
-                  updateComponent({
-                    properties: {
-                      ...component.properties,
-                      border: {
-                        ...component.properties?.border,
-                        width: currentWidth > 0 ? 0 : 1
-                      }
-                    }
-                  });
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Edit Border
-              </Button>
-              
-              {/* Border Color - only show if border width > 0 */}
-              {(component.properties?.border?.width || 0) > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" sx={{ mb: 0.5, display: 'block' }}>Border Color</Typography>
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: 30,
-                      bgcolor: component.properties?.border?.color || '#000000',
-                      border: '1px solid #ccc',
-                      borderRadius: 1,
-                      cursor: 'pointer',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <input
-                      type="color"
-                      value={component.properties?.border?.color || '#000000'}
-                      onChange={(e) =>
-                        updateComponent({
-                          properties: {
-                            ...component.properties,
-                            border: { ...component.properties?.border, color: e.target.value }
-                          }
-                        })
-                      }
-                      style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                        cursor: 'pointer',
-                        opacity: 0,
-                      }}
-                    />
-                  </Box>
-                </Box>
-              )}
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
         {component.type === COMPONENT_TYPES.BARCODE && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* Padding Visual Control */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Padding (in pixels)</Typography>
-              <Box sx={{ position: 'relative', mb: 2 }}>
-                {/* Visual padding control */}
-                <Box
-                  sx={{
-                    width: 120,
-                    height: 80,
-                    bgcolor: '#e0e0e0',
-                    border: '1px solid #999',
-                    position: 'relative',
-                    mx: 'auto',
-                    mb: 2,
-                  }}
-                >
-                  {/* Inner content area */}
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: component.properties?.padding?.top || 0,
-                      left: component.properties?.padding?.left || 0,
-                      right: component.properties?.padding?.right || 0,
-                      bottom: component.properties?.padding?.bottom || 0,
-                      bgcolor: '#f5f5f5',
-                      border: '1px solid #999',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {/* Center dot */}
-                    <Box
-                      sx={{
-                        width: 4,
-                        height: 4,
-                        bgcolor: '#fff',
-                        borderRadius: '50%',
-                      }}
-                    />
-                  </Box>
-                  
-                  {/* Padding indicators */}
-                  {/* Top padding */}
-                  {component.properties?.padding?.top > 0 && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: component.properties.padding.top,
-                        borderTop: '2px dashed #1976d2',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Box sx={{ width: 8, height: 1, bgcolor: '#fff' }} />
-                    </Box>
-                  )}
-                  
-                  {/* Left padding */}
-                  {component.properties?.padding?.left > 0 && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        bottom: 0,
-                        width: component.properties.padding.left,
-                        borderLeft: '2px dashed #1976d2',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Box sx={{ width: 1, height: 8, bgcolor: '#fff' }} />
-                    </Box>
-                  )}
-                  
-                  {/* Right padding */}
-                  {component.properties?.padding?.right > 0 && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
-                        width: component.properties.padding.right,
-                        borderRight: '2px dashed #1976d2',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Box sx={{ width: 1, height: 8, bgcolor: '#fff' }} />
-                    </Box>
-                  )}
-                  
-                  {/* Bottom padding */}
-                  {component.properties?.padding?.bottom > 0 && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: component.properties.padding.bottom,
-                        borderBottom: '2px dashed #1976d2',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Box sx={{ width: 8, height: 1, bgcolor: '#fff' }} />
-                    </Box>
-                  )}
-                </Box>
-                
-                {/* Input fields arranged around the visual */}
-                <Box sx={{ position: 'relative', width: 200, height: 120, mx: 'auto' }}>
-                  {/* Top input */}
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: 60,
-                      '& .MuiInputBase-input': {
-                        textAlign: 'center',
-                        bgcolor: 'white',
-                      }
-                    }}
-                  />
-                  
-                  {/* Left input */}
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                    sx={{
-                      position: 'absolute',
-                      left: 0,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: 60,
-                      '& .MuiInputBase-input': {
-                        textAlign: 'center',
-                        bgcolor: 'white',
-                      }
-                    }}
-                  />
-                  
-                  {/* Right input */}
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                    sx={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: 60,
-                      '& .MuiInputBase-input': {
-                        textAlign: 'center',
-                        bgcolor: 'white',
-                      }
-                    }}
-                  />
-                  
-                  {/* Bottom input */}
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: 60,
-                      '& .MuiInputBase-input': {
-                        textAlign: 'center',
-                        bgcolor: 'white',
-                      }
-                    }}
-                  />
-                </Box>
-              </Box>
-            </Box>
+            {renderPaddingControl()}
           </Box>
         )}
 
@@ -2955,142 +2428,9 @@ const ReceiptEditor = () => {
               </Typography>
             </Box>
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => {
-                  // Toggle border width between 0 and 1
-                  const currentWidth = component.properties?.border?.width || 0;
-                  updateComponent({
-                    properties: {
-                      ...component.properties,
-                      border: {
-                        ...component.properties?.border,
-                        width: currentWidth > 0 ? 0 : 1
-                      }
-                    }
-                  });
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Edit Border
-              </Button>
-              
-              {/* Border Color - only show if border width > 0 */}
-              {(component.properties?.border?.width || 0) > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" sx={{ mb: 0.5, display: 'block' }}>Border Color</Typography>
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: 30,
-                      bgcolor: component.properties?.border?.color || '#000000',
-                      border: '1px solid #ccc',
-                      borderRadius: 1,
-                      cursor: 'pointer',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <input
-                      type="color"
-                      value={component.properties?.border?.color || '#000000'}
-                      onChange={(e) =>
-                        updateComponent({
-                          properties: {
-                            ...component.properties,
-                            border: { ...component.properties?.border, color: e.target.value }
-                          }
-                        })
-                      }
-                      style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                        cursor: 'pointer',
-                        opacity: 0,
-                      }}
-                    />
-                  </Box>
-                </Box>
-              )}
-            </Box>
+            {renderBorderControl()}
 
             {/* Background Color */}
             <Box>
@@ -3107,8 +2447,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.backgroundColor || '#ffffff'}
                   onChange={(e) =>
                     updateComponent({
@@ -3161,9 +2501,20 @@ const ReceiptEditor = () => {
                   variant="outlined"
                   color="error"
                   startIcon={<DeleteIcon />}
-                  onClick={() => {
+                  onClick={async () => {
                     const currentColumns = component.properties?.columns || [];
                     const currentWidths = component.properties?.columnWidths || [];
+                    // Removing the last cell deletes what is in it — ask first.
+                    const removed = currentColumns[currentColumns.length - 1];
+                    const lost = removed?.components?.length || 0;
+                    if (currentColumns.length > 1 && lost > 0) {
+                      const ok = await confirm(
+                        `Column ${currentColumns.length} holds ${lost} component${lost === 1 ? '' : 's'}. Remove the column and ${lost === 1 ? 'it' : 'them'}?`,
+                        { title: 'Remove column', confirmText: 'Remove' },
+                      );
+                      if (!ok) return;
+                      setSelectedComponent(null);
+                    }
                     if (currentColumns.length > 1) { // Min 1 column
                       const newColumns = currentColumns.slice(0, -1);
                       const newWidths = currentWidths.slice(0, -1);
@@ -3223,7 +2574,7 @@ const ReceiptEditor = () => {
             {/* Tax Type Dropdown */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Tax</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.tax || 'No Tax'}
@@ -3233,19 +2584,24 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                <MenuItem value="No Tax">No Tax</MenuItem>
-                <MenuItem value="GST">GST</MenuItem>
-                <MenuItem value="VAT">VAT</MenuItem>
-                <MenuItem value="Sales Tax">Sales Tax</MenuItem>
-                <MenuItem value="Custom">Custom</MenuItem>
+                {/* "No Tax" then the store's tax rates (Setup > Tax Rates). The saved
+                    value is the tax NAME — the renderer finds the sale's tax by name.
+                    A stored name no longer in the list stays as an option so the
+                    select never renders blank. */}
+                {(() => {
+                  const stored = component.properties?.tax;
+                  const options = ['No Tax', ...taxNames];
+                  if (stored && !options.includes(stored)) options.push(stored);
+                  return options.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>);
+                })()}
               </Select>
             </Box>
 
             {/* Font Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.fontColor || '#000000'}
                 onChange={(e) =>
                   updateComponent({
@@ -3265,8 +2621,8 @@ const ReceiptEditor = () => {
             {/* Background Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Background Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.backgroundColor || '#ffffff'}
                 onChange={(e) =>
                   updateComponent({
@@ -3286,7 +2642,7 @@ const ReceiptEditor = () => {
             {/* Font Size */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.fontSize || 12}
@@ -3296,7 +2652,7 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -3304,103 +2660,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                <Box sx={{ position: 'relative', width: 60, height: 60, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px dashed #999' }} />
-                  <Box sx={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, flex: 1 }}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Box>
-              </Box>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ position: 'relative', width: '100%', height: 40, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px solid #999' }} />
-                </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<span>✏️</span>}
-                  onClick={() => {
-                    // Toggle border enabled
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                      }
-                    });
-                  }}
-                >
-                  Edit Border
-                </Button>
-              </Box>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -3414,8 +2676,8 @@ const ReceiptEditor = () => {
             {/* Font Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.fontColor || '#000000'}
                 onChange={(e) =>
                   updateComponent({
@@ -3435,8 +2697,8 @@ const ReceiptEditor = () => {
             {/* Background Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Background Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.backgroundColor || '#ffffff'}
                 onChange={(e) =>
                   updateComponent({
@@ -3456,7 +2718,7 @@ const ReceiptEditor = () => {
             {/* Font Size */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.fontSize || 12}
@@ -3466,7 +2728,7 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -3474,103 +2736,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                <Box sx={{ position: 'relative', width: 60, height: 60, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px dashed #999' }} />
-                  <Box sx={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, flex: 1 }}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Box>
-              </Box>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ position: 'relative', width: '100%', height: 40, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px solid #999' }} />
-                </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<span>✏️</span>}
-                  onClick={() => {
-                    // Toggle border enabled
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                      }
-                    });
-                  }}
-                >
-                  Edit Border
-                </Button>
-              </Box>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -3583,8 +2751,8 @@ const ReceiptEditor = () => {
             {/* Font Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.fontColor || '#000000'}
                 onChange={(e) =>
                   updateComponent({
@@ -3604,8 +2772,8 @@ const ReceiptEditor = () => {
             {/* Background Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Background Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.backgroundColor || '#ffffff'}
                 onChange={(e) =>
                   updateComponent({
@@ -3625,7 +2793,7 @@ const ReceiptEditor = () => {
             {/* Font Size */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.fontSize || 12}
@@ -3635,7 +2803,7 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -3643,103 +2811,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                <Box sx={{ position: 'relative', width: 60, height: 60, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px dashed #999' }} />
-                  <Box sx={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, flex: 1 }}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Box>
-              </Box>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ position: 'relative', width: '100%', height: 40, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px solid #999' }} />
-                </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<span>✏️</span>}
-                  onClick={() => {
-                    // Toggle border enabled
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                      }
-                    });
-                  }}
-                >
-                  Edit Border
-                </Button>
-              </Box>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -3896,8 +2970,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.backgroundColor || '#ffffff'}
                   onChange={(e) =>
                     updateComponent({
@@ -3916,142 +2990,9 @@ const ReceiptEditor = () => {
               </Box>
             </Box>
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => {
-                  // Toggle border width between 0 and 1
-                  const currentWidth = component.properties?.border?.width || 0;
-                  updateComponent({
-                    properties: {
-                      ...component.properties,
-                      border: {
-                        ...component.properties?.border,
-                        width: currentWidth > 0 ? 0 : 1
-                      }
-                    }
-                  });
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Edit Border
-              </Button>
-              
-              {/* Border Color - only show if border width > 0 */}
-              {(component.properties?.border?.width || 0) > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" sx={{ mb: 0.5, display: 'block' }}>Border Color</Typography>
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: 30,
-                      bgcolor: component.properties?.border?.color || '#000000',
-                      border: '1px solid #ccc',
-                      borderRadius: 1,
-                      cursor: 'pointer',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <input
-                      type="color"
-                      value={component.properties?.border?.color || '#000000'}
-                      onChange={(e) =>
-                        updateComponent({
-                          properties: {
-                            ...component.properties,
-                            border: { ...component.properties?.border, color: e.target.value }
-                          }
-                        })
-                      }
-                      style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                        cursor: 'pointer',
-                        opacity: 0,
-                      }}
-                    />
-                  </Box>
-                </Box>
-              )}
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -4060,7 +3001,7 @@ const ReceiptEditor = () => {
             {/* Text Align */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Text Align</Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: "flex" }}>
                 {[
                   { value: 'left', Icon: FormatAlignLeftOutlined },
                   { value: 'center', Icon: FormatAlignCenterOutlined },
@@ -4069,17 +3010,19 @@ const ReceiptEditor = () => {
                   <Button
                     key={align.value}
                     size="small"
-                    variant={component.properties?.textAlign === align.value ? 'contained' : 'outlined'}
+                    variant="contained"
+                    disableElevation
                     onClick={() =>
-                      updateComponent({
-                        properties: { ...component.properties, textAlign: align.value }
-                      })
+                      updateComponent({ properties: { ...component.properties, textAlign: align.value } })
                     }
+                    // Reference: one segmented control, dark with the selected side blue.
                     sx={{
                       flex: 1,
                       minWidth: 0,
-                      bgcolor: component.properties?.textAlign === align.value ? '#1976d2' : 'transparent',
-                      color: component.properties?.textAlign === align.value ? 'white' : 'inherit',
+                      borderRadius: 0,
+                      bgcolor: component.properties?.textAlign === align.value ? BLUE : DARK,
+                      color: "#fff",
+                      "&:hover": { bgcolor: component.properties?.textAlign === align.value ? "#1670d0" : "#24272b" },
                     }}
                   >
                     <align.Icon fontSize="small" />
@@ -4088,117 +3031,9 @@ const ReceiptEditor = () => {
               </Box>
             </Box>
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 5}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 5}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 5}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 5}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ 
-                width: '100%', 
-                height: 40, 
-                border: '1px solid #ccc', 
-                bgcolor: '#f5f5f5',
-                borderRadius: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mb: 1
-              }}>
-                <Box sx={{ 
-                  width: '80%', 
-                  height: '60%', 
-                  bgcolor: 'white', 
-                  border: '1px solid #999',
-                  borderRadius: 0.5
-                }} />
-              </Box>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => {
-                  // Toggle border enabled
-                  updateComponent({
-                    properties: {
-                      ...component.properties,
-                      border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                    }
-                  });
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Edit Border
-              </Button>
-            </Box>
+            {renderBorderControl()}
 
             {/* The reference registry gives eftpos ONLY textAlign + padding + border and
                 `settings: () => null` — measured 2026-08-07. Font size/weight/colour and
@@ -4227,8 +3062,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.fontColor || '#000000'}
                   onChange={(e) =>
                     updateComponent({
@@ -4262,8 +3097,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.backgroundColor || '#ffffff'}
                   onChange={(e) =>
                     updateComponent({
@@ -4285,7 +3120,7 @@ const ReceiptEditor = () => {
             {/* Font Size */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.fontSize || 12}
@@ -4295,7 +3130,7 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                {[8, 9, 10, 11, 12, 14, 16, 18, 20].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -4303,117 +3138,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ 
-                width: '100%', 
-                height: 40, 
-                border: '1px solid #ccc', 
-                bgcolor: '#f5f5f5',
-                borderRadius: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mb: 1
-              }}>
-                <Box sx={{ 
-                  width: '80%', 
-                  height: '60%', 
-                  bgcolor: 'white', 
-                  border: '1px solid #999',
-                  borderRadius: 0.5
-                }} />
-              </Box>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => {
-                  // Toggle border enabled
-                  updateComponent({
-                    properties: {
-                      ...component.properties,
-                      border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                    }
-                  });
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Edit Border
-              </Button>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -4443,8 +3170,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.fontColor || '#000000'}
                   onChange={(e) =>
                     updateComponent({
@@ -4478,8 +3205,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.backgroundColor || '#ffffff'}
                   onChange={(e) =>
                     updateComponent({
@@ -4501,7 +3228,7 @@ const ReceiptEditor = () => {
             {/* Font Size */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.fontSize || 12}
@@ -4511,7 +3238,7 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                {[8, 9, 10, 11, 12, 14, 16, 18, 20].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -4519,117 +3246,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ 
-                width: '100%', 
-                height: 40, 
-                border: '1px solid #ccc', 
-                bgcolor: '#f5f5f5',
-                borderRadius: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mb: 1
-              }}>
-                <Box sx={{ 
-                  width: '80%', 
-                  height: '60%', 
-                  bgcolor: 'white', 
-                  border: '1px solid #999',
-                  borderRadius: 0.5
-                }} />
-              </Box>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => {
-                  // Toggle border enabled
-                  updateComponent({
-                    properties: {
-                      ...component.properties,
-                      border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                    }
-                  });
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Edit Border
-              </Button>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -4643,8 +3262,8 @@ const ReceiptEditor = () => {
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Colour</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.fontColor || '#000000'}
                   onChange={(e) =>
                     updateComponent({
@@ -4670,8 +3289,8 @@ const ReceiptEditor = () => {
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Background Colour</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.backgroundColor || '#ffffff'}
                   onChange={(e) =>
                     updateComponent({
@@ -4697,7 +3316,7 @@ const ReceiptEditor = () => {
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
               <FormControl fullWidth size="small">
-                <Select
+                <Select MenuProps={REF_MENU_PROPS}
                   value={component.properties?.fontSize || 12}
                   onChange={(e) => 
                     updateComponent({
@@ -4705,7 +3324,7 @@ const ReceiptEditor = () => {
                     })
                   }
                 >
-                  {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32].map(size => (
+                  {fontSizeOptions(component.properties?.fontSize).map(size => (
                     <MenuItem key={size} value={size}>{size}</MenuItem>
                   ))}
                 </Select>
@@ -4714,116 +3333,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) => 
-                      updateComponent({
-                        properties: { 
-                          ...component.properties, 
-                          padding: { ...component.properties.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) => 
-                      updateComponent({
-                        properties: { 
-                          ...component.properties, 
-                          padding: { ...component.properties.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) => 
-                      updateComponent({
-                        properties: { 
-                          ...component.properties, 
-                          padding: { ...component.properties.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) => 
-                      updateComponent({
-                        properties: { 
-                          ...component.properties, 
-                          padding: { ...component.properties.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box
-                sx={{
-                  width: '100%',
-                  height: 40,
-                  border: `${component.properties?.border?.width || 1}px ${component.properties?.border?.style || 'solid'} ${component.properties?.border?.color || '#000000'}`,
-                  borderRadius: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: '#f5f5f5',
-                }}
-              >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={async () => {
-                    const width = await prompt('Border width (px):', component.properties?.border?.width || 1, { title: 'Border' });
-                    const color = await prompt('Border colour (hex):', component.properties?.border?.color || '#000000', { title: 'Border' });
-                    if (width && color) {
-                      updateComponent({
-                        properties: { 
-                          ...component.properties, 
-                          border: { 
-                            ...component.properties.border, 
-                            width: parseInt(width) || 1,
-                            color: color
-                          }
-                        }
-                      });
-                    }
-                  }}
-                >
-                  Edit Border
-                </Button>
-              </Box>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -4864,8 +3376,8 @@ const ReceiptEditor = () => {
                   overflow: 'hidden',
                 }}
               >
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={component.properties?.backgroundColor || '#ffffff'}
                   onChange={(e) =>
                     updateComponent({
@@ -4884,117 +3396,9 @@ const ReceiptEditor = () => {
               </Box>
             </Box>
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Grid>
-              </Grid>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ 
-                width: '100%', 
-                height: 40, 
-                border: '1px solid #ccc', 
-                bgcolor: '#f5f5f5',
-                borderRadius: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mb: 1
-              }}>
-                <Box sx={{ 
-                  width: '80%', 
-                  height: '60%', 
-                  bgcolor: 'white', 
-                  border: '1px solid #999',
-                  borderRadius: 0.5
-                }} />
-              </Box>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => {
-                  // Toggle border enabled
-                  updateComponent({
-                    properties: {
-                      ...component.properties,
-                      border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                    }
-                  });
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Edit Border
-              </Button>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -5007,8 +3411,8 @@ const ReceiptEditor = () => {
             {/* Font Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.fontColor || '#000000'}
                 onChange={(e) =>
                   updateComponent({
@@ -5028,8 +3432,8 @@ const ReceiptEditor = () => {
             {/* Background Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Background Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.backgroundColor || '#ffffff'}
                 onChange={(e) =>
                   updateComponent({
@@ -5049,7 +3453,7 @@ const ReceiptEditor = () => {
             {/* Font Size */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.fontSize || 12}
@@ -5059,7 +3463,7 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -5067,113 +3471,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                <TextField
-                  size="small"
-                  label="Top"
-                  type="number"
-                  value={component.properties?.padding?.top || 0}
-                  onChange={(e) =>
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                      }
-                    })
-                  }
-                />
-                <TextField
-                  size="small"
-                  label="Right"
-                  type="number"
-                  value={component.properties?.padding?.right || 0}
-                  onChange={(e) =>
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                      }
-                    })
-                  }
-                />
-                <TextField
-                  size="small"
-                  label="Bottom"
-                  type="number"
-                  value={component.properties?.padding?.bottom || 0}
-                  onChange={(e) =>
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                      }
-                    })
-                  }
-                />
-                <TextField
-                  size="small"
-                  label="Left"
-                  type="number"
-                  value={component.properties?.padding?.left || 0}
-                  onChange={(e) =>
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                      }
-                    })
-                  }
-                />
-              </Box>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <FormControlLabel
-                  control={
-                    <ShopfrontSwitch
-                      checked={component.properties?.border?.enabled || false}
-                      onChange={(e) =>
-                        updateComponent({
-                          properties: {
-                            ...component.properties,
-                            border: { ...component.properties?.border, enabled: e.target.checked }
-                          }
-                        })
-                      }
-                      size="small"
-                    />
-                  }
-                  label="Enable Border"
-                />
-                {component.properties?.border?.enabled && (
-                  <input
-                    type="color"
-                    value={component.properties?.border?.color || '#000000'}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          border: { ...component.properties?.border, color: e.target.value }
-                        }
-                      })
-                    }
-                    style={{
-                      width: '100%',
-                      height: '30px',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  />
-                )}
-              </Box>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -5221,8 +3521,8 @@ const ReceiptEditor = () => {
             {/* Font Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.fontColor || '#000000'}
                 onChange={(e) =>
                   updateComponent({
@@ -5242,8 +3542,8 @@ const ReceiptEditor = () => {
             {/* Background Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Background Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.backgroundColor || '#ffffff'}
                 onChange={(e) =>
                   updateComponent({
@@ -5263,7 +3563,7 @@ const ReceiptEditor = () => {
             {/* Font Size */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.fontSize || 14}
@@ -5273,7 +3573,7 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -5281,103 +3581,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                <Box sx={{ position: 'relative', width: 60, height: 60, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px dashed #999' }} />
-                  <Box sx={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, flex: 1 }}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Box>
-              </Box>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ position: 'relative', width: '100%', height: 40, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px solid #999' }} />
-                </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<span>✏️</span>}
-                  onClick={() => {
-                    // Toggle border enabled
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                      }
-                    });
-                  }}
-                >
-                  Edit Border
-                </Button>
-              </Box>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -5394,8 +3600,8 @@ const ReceiptEditor = () => {
             {/* Font Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.fontColor || '#000000'}
                 onChange={(e) =>
                   updateComponent({
@@ -5415,8 +3621,8 @@ const ReceiptEditor = () => {
             {/* Background Colour */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Background Colour</Typography>
-              <input
-                type="color"
+              <ColorInput
+                
                 value={component.properties?.backgroundColor || '#ffffff'}
                 onChange={(e) =>
                   updateComponent({
@@ -5436,7 +3642,7 @@ const ReceiptEditor = () => {
             {/* Font Size */}
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
-              <Select
+              <Select MenuProps={REF_MENU_PROPS}
                 fullWidth
                 size="small"
                 value={component.properties?.fontSize || 12}
@@ -5446,7 +3652,7 @@ const ReceiptEditor = () => {
                   })
                 }
               >
-                {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32].map(size => (
+                {fontSizeOptions(component.properties?.fontSize).map(size => (
                   <MenuItem key={size} value={size}>{size}</MenuItem>
                 ))}
               </Select>
@@ -5454,103 +3660,9 @@ const ReceiptEditor = () => {
 
             {renderFontWeight()}
 
-            {/* Padding */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Padding (in pixels)</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                <Box sx={{ position: 'relative', width: 60, height: 60, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px dashed #999' }} />
-                  <Box sx={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 8, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                  <Box sx={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: 8, height: 1, bgcolor: '#999' }} />
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, flex: 1 }}>
-                  <TextField
-                    size="small"
-                    label="Top"
-                    type="number"
-                    value={component.properties?.padding?.top || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, top: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Left"
-                    type="number"
-                    value={component.properties?.padding?.left || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, left: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Right"
-                    type="number"
-                    value={component.properties?.padding?.right || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, right: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                  <TextField
-                    size="small"
-                    label="Bottom"
-                    type="number"
-                    value={component.properties?.padding?.bottom || 0}
-                    onChange={(e) =>
-                      updateComponent({
-                        properties: {
-                          ...component.properties,
-                          padding: { ...component.properties?.padding, bottom: clampPad(e.target.value) }
-                        }
-                      })
-                    }
-                  />
-                </Box>
-              </Box>
-            </Box>
+            {renderPaddingControl()}
 
-            {/* Border */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ position: 'relative', width: '100%', height: 40, border: '1px solid #ccc', bgcolor: '#f5f5f5' }}>
-                  <Box sx={{ position: 'absolute', top: 8, left: 8, right: 8, bottom: 8, bgcolor: 'white', border: '1px solid #999' }} />
-                </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<span>✏️</span>}
-                  onClick={() => {
-                    // Toggle border enabled
-                    updateComponent({
-                      properties: {
-                        ...component.properties,
-                        border: { ...component.properties?.border, enabled: !component.properties?.border?.enabled }
-                      }
-                    });
-                  }}
-                >
-                  Edit Border
-                </Button>
-              </Box>
-            </Box>
+            {renderBorderControl()}
           </Box>
         )}
 
@@ -5648,7 +3760,7 @@ const ReceiptEditor = () => {
                 <Divider orientation="vertical" flexItem />
                 
                 {/* Font Style */}
-                <Select 
+                <Select MenuProps={REF_MENU_PROPS} 
                   size="small" 
                   defaultValue="Normal" 
                   sx={{ minWidth: 80 }}
@@ -5669,7 +3781,7 @@ const ReceiptEditor = () => {
                 </Select>
                 
                 {/* Font Size */}
-                <Select 
+                <Select MenuProps={REF_MENU_PROPS} 
                   size="small" 
                   defaultValue="16" 
                   sx={{ minWidth: 70 }}
@@ -6252,7 +4364,9 @@ const ReceiptEditor = () => {
             {activeTab === 0 && (
               <Box sx={{ p: 2 }}>
                 <Grid container spacing={1.5}>
-                  {(paymentTemplate ? PAYMENT_PALETTE : SALE_PALETTE).map((comp) => (
+                  {(paymentTemplate ? PAYMENT_PALETTE : SALE_PALETTE)
+                    .filter((comp) => isAllowedType(comp.type))
+                    .map((comp) => (
                     <Grid item xs={4} key={comp.type}>
                       <Card
                         draggable
@@ -6415,12 +4529,32 @@ const ReceiptEditor = () => {
 
       {/* Unsaved-changes prompt — the reference's own shape: title "Save", body
           "Save <name>?", and Yes / No / Cancel (measured 2026-08-06). */}
-      <Dialog open={leavePrompt} onClose={() => setLeavePrompt(false)} maxWidth="xs">
-        <DialogContent sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Save</Typography>
-          <Typography variant="body1">Save {template?.name || 'receipt'}?</Typography>
+      <Dialog
+        open={leavePrompt}
+        onClose={() => { if (!saving) setLeavePrompt(false); }}
+        PaperProps={{ sx: { borderRadius: 0, width: 491, maxWidth: '92vw', overflow: 'visible', position: 'relative', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' } }}
+      >
+        {/* Same family as Confirm Clone: '?' badge over the top edge */}
+        <Box sx={{
+          position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)',
+          width: 56, height: 56, borderRadius: '50%', bgcolor: '#1c86f2',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        }}>
+          <Typography sx={{ color: '#fff', fontSize: 30, fontWeight: 700, lineHeight: 1 }}>?</Typography>
+        </Box>
+        <Typography sx={{ textAlign: 'center', color: '#000', fontWeight: 700, fontSize: 20, pt: 4.5, pb: 0.5, px: 3 }}>
+          Save
+        </Typography>
+        <DialogContent sx={{ px: 3, pt: 1.5, pb: 2.5 }}>
+          <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'center', wordBreak: 'break-word' }}>
+            Save &quot;{template?.name || 'receipt'}&quot;?
+          </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 2, justifyContent: 'center', gap: 1 }}>
+        <DialogActions sx={{
+          px: 3, pb: 2.5, pt: 0, gap: 2, '& > :not(style) ~ :not(style)': { ml: 0 },
+          '& .MuiButton-root': { flex: 1, height: 48, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 400, fontSize: 22 },
+          '& .MuiButton-root:hover': { boxShadow: 'none' },
+        }}>
           <Button
             variant="contained"
             onClick={async () => {
@@ -6431,9 +4565,9 @@ const ReceiptEditor = () => {
               pendingLeaveRef.current = null;
             }}
             disabled={saving}
-            sx={{ bgcolor: '#1c86f2', color: '#f8f8f8', borderRadius: 0, textTransform: 'none', fontSize: 18, minWidth: 72 }}
+            sx={{ bgcolor: '#1c86f2', color: '#fff', '&:hover': { bgcolor: '#1670d0' }, '&.Mui-disabled': { bgcolor: '#8fc2f8', color: '#fff' } }}
           >
-            Yes
+            {saving ? 'Saving...' : 'Yes'}
           </Button>
           <Button
             variant="contained"
@@ -6443,17 +4577,19 @@ const ReceiptEditor = () => {
               // clean before proceeding: the guard releases its history trap on
               // the render that follows, once the leave is already under way.
               configDirty.current = false;
-              savedSnapshot.current = JSON.stringify(toReferenceComponents(receiptComponents));
+              savedSnapshot.current = snapshotOf(receiptComponents, template?.name);
               pendingLeaveRef.current?.();
               pendingLeaveRef.current = null;
             }}
-            sx={{ bgcolor: '#e3342f', color: '#f8f8f8', borderRadius: 0, textTransform: 'none', fontSize: 18, minWidth: 72, '&:hover': { bgcolor: '#cc2f2a' } }}
+            disabled={saving}
+            sx={{ bgcolor: '#e3342f', color: '#fff', '&:hover': { bgcolor: '#cc2f2a' }, '&.Mui-disabled': { bgcolor: '#f0a3a1', color: '#fff' } }}
           >
             No
           </Button>
           <Button
             onClick={() => setLeavePrompt(false)}
-            sx={{ bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', borderRadius: 0, textTransform: 'none', fontSize: 18, minWidth: 88 }}
+            disabled={saving}
+            sx={{ bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #9e9e9e', '&:hover': { bgcolor: '#e9e9e9' } }}
           >
             Cancel
           </Button>
@@ -6469,16 +4605,41 @@ const ReceiptEditor = () => {
         }}
         onSelect={(imageUrl) => {
           if (selectedComponent && mediaDialogFor) {
-            const component = receiptComponents.find(c => c.id === selectedComponent);
-            if (component) {
-              handleComponentUpdate(selectedComponent, {
-                properties: { ...component.properties, imageUrl: imageUrl }
+            // Tree lookup, so an Image / Outlet Logo inside a Columns cell gets the pick
+            // too (a top-level-only find dropped it silently).
+            const found = locateComponent(selectedComponent);
+            if (found) {
+              updateAnyComponent(selectedComponent, {
+                properties: { ...found.component.properties, imageUrl },
               });
             }
           }
         }}
         accept="image/*"
       />
+
+      {/* Edit Border -> Border Settings (Simple / Advanced, per side). */}
+      <BorderSettingsDialog
+        open={Boolean(borderDialog)}
+        value={borderDialog?.value}
+        onCancel={() => setBorderDialog(null)}
+        onUpdate={(border) => {
+          borderDialog?.apply(border);
+          setBorderDialog(null);
+        }}
+      />
+
+      {/* Refused drops (full column, image on a text-only receipt) say why. */}
+      <Snackbar
+        open={Boolean(notice)}
+        autoHideDuration={3000}
+        onClose={() => setNotice('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="warning" onClose={() => setNotice('')} sx={{ width: '100%' }}>
+          {notice}
+        </Alert>
+      </Snackbar>
 
       {/* Configure Receipt — the SAME dialog the list page's Configure action opens. */}
       <ConfigureReceiptDialog

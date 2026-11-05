@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
 import {
   Box,
@@ -46,12 +46,21 @@ const ReceiptTemplates = () => {
   const canModifyReceipts = useHasPermission('modify_receipts');
   // Templates render from IndexedDB first, then revalidate in the background.
   const {
-    data: templates,
+    data: cachedTemplates,
     loading,
     refresh: loadTemplates,
   } = usePageCache('receiptTemplates', () =>
     receiptTemplateService.getTemplates().then((r) => r.templates || [])
   );
+  // One stable order everywhere (oldest first, id tie-break) — same as the backend.
+  // The IndexedDB copy and the network answer used to come back in different orders,
+  // so the list flipped between newest-first and oldest-first across reloads.
+  const templates = useMemo(() => [...(cachedTemplates || [])].sort((a, b) => {
+    const ta = new Date(a.createdAt || 0).getTime() || 0;
+    const tb = new Date(b.createdAt || 0).getTime() || 0;
+    return ta - tb || (Number(a.id) || 0) - (Number(b.id) || 0);
+  }), [cachedTemplates]);
+  const apiError = (err, fallback) => err?.response?.data?.error || fallback;
   const [error, setError] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
@@ -98,7 +107,7 @@ const ReceiptTemplates = () => {
       }
 
       const templateData = {
-        name: newTemplate.name,
+        name: newTemplate.name.trim(),
         type: newTemplate.type,
         isAccountPayment: newTemplate.isAccountPayment,
         for: newTemplate.isAccountPayment ? 'Payment' : 'Sale',
@@ -190,46 +199,97 @@ const ReceiptTemplates = () => {
       setError(configError);
       return;
     }
+    // Reference: every attachment points at an A4 receipt, and the same one at most once.
+    const atts = Array.isArray(updatedConfig.attachments) ? updatedConfig.attachments : [];
+    if (atts.some((a) => !a.receiptTemplateId)) {
+      setError('Please select an A4 receipt for every attachment');
+      return;
+    }
+    if (new Set(atts.map((a) => String(a.receiptTemplateId))).size !== atts.length) {
+      setError('The same A4 receipt cannot be attached more than once');
+      return;
+    }
     try {
       setConfigSaving(true);
       await receiptTemplateService.updateTemplateConfig(configureTemplate.id, updatedConfig);
       handleCloseConfigure();
     } catch (err) {
       console.error('Error saving receipt config:', err);
-      setError('Failed to save receipt configuration');
+      setError(apiError(err, 'Failed to save receipt configuration'));
     } finally {
       setConfigSaving(false);
     }
   };
 
-  const handleDelete = (templateId) => {
-    setTemplateToDelete(templateId);
+  // templateToDelete: { id, name, usages? } — usages is set once the backend refused
+  // with 409 IN_USE; the dialog then lists them and offers "Delete anyway" (?force=1).
+  const handleDelete = (template) => {
+    setTemplateToDelete({ id: template.id, name: template.name, usages: null });
     setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setTemplateToDelete(null);
   };
 
   const confirmDelete = async () => {
     if (!templateToDelete) return;
     try {
       setDeleteLoading(true);
-      await receiptTemplateService.deleteTemplate(templateToDelete);
+      await receiptTemplateService.deleteTemplate(templateToDelete.id, { force: Boolean(templateToDelete.usages) });
       await loadTemplates();
+      closeDeleteDialog();
     } catch (err) {
+      if (err?.response?.status === 409 && err.response.data?.code === 'IN_USE') {
+        // Keep the dialog open, now listing where the template is used.
+        setTemplateToDelete((prev) => ({ ...prev, usages: err.response.data.usages || [] }));
+        return;
+      }
       console.error('Error deleting receipt template:', err);
-      setError('Failed to delete receipt template');
+      setError(apiError(err, 'Failed to delete receipt template'));
+      closeDeleteDialog();
     } finally {
       setDeleteLoading(false);
-      setDeleteDialogOpen(false);
-      setTemplateToDelete(null);
     }
   };
 
-  const handleClone = async (template) => {
+  // Reference "Confirm Clone": asks for the clone's name, prefilled "<name> - Clone".
+  const [cloneSource, setCloneSource] = useState(null);
+  const [cloneName, setCloneName] = useState('');
+  const [cloneError, setCloneError] = useState('');
+  const [cloning, setCloning] = useState(false);
+
+  const handleClone = (template) => {
+    setCloneSource(template);
+    setCloneName(`${template.name} - Clone`);
+    setCloneError('');
+  };
+
+  const closeCloneDialog = () => {
+    if (cloning) return;
+    setCloneSource(null);
+    setCloneError('');
+  };
+
+  const confirmClone = async () => {
+    if (!cloneSource || cloning) return;
+    const name = cloneName.trim();
+    if (!name) {
+      setCloneError('Please enter a name for the clone');
+      return;
+    }
+    setCloning(true);
     try {
-      await receiptTemplateService.cloneTemplate(template.id);
+      await receiptTemplateService.cloneTemplate(cloneSource.id, { name });
+      setCloneSource(null);
       await loadTemplates();
     } catch (err) {
       console.error('Error cloning receipt template:', err);
-      setError('Failed to clone receipt template');
+      // Error stays inside the dialog so the name can be corrected.
+      setCloneError(apiError(err, 'Failed to clone receipt template'));
+    } finally {
+      setCloning(false);
     }
   };
 
@@ -239,6 +299,15 @@ const ReceiptTemplates = () => {
     'A4 Receipt',
     'Email Receipt',
   ];
+
+  // Actions centred, glyphs ~21px (the shared list style draws 14px glyphs).
+  const actionsCellSx = {
+    textAlign: 'center',
+    // Even spacing: same 28px gap between every action, icon 18px + 6px to its label.
+    '& ul.actions': { display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', columnGap: '28px' },
+    '& ul.actions li': { height: 'auto', lineHeight: '24px', display: 'inline-flex', alignItems: 'center', p: 0 },
+    '& ul.actions li > i.fal': { width: 20, height: 20, mr: '6px', '& svg': { width: 18, height: 18 } },
+  };
 
   if (loading) {
     return <PageLoader />;
@@ -288,7 +357,7 @@ const ReceiptTemplates = () => {
         <Table sx={{ borderCollapse: 'collapse', tableLayout: 'fixed', bgcolor: 'transparent' }}>
           <TableHead>
             <TableRow sx={templateListHeadSx}>
-              <TableCell sx={{ width: '46%' }}>Name</TableCell>
+              <TableCell sx={{ width: '46%', textAlign: 'left !important' }}>Name</TableCell>
               <TableCell sx={{ width: '17%' }}>Type</TableCell>
               <TableCell sx={{ width: '12%' }}>For</TableCell>
               <TableCell>Actions</TableCell>
@@ -298,14 +367,14 @@ const ReceiptTemplates = () => {
             {templates.map((template) => (
               <TableRow key={template.id}>
                 <TableCell>{template.name}</TableCell>
-                <TableCell>{template.type?.replace(/ Receipt$/, '')}</TableCell>
-                <TableCell>{template.for || (template.isAccountPayment ? 'Payment' : 'Sale')}</TableCell>
-                <TableCell>
+                <TableCell sx={{ textAlign: 'center' }}>{template.type?.replace(/ Receipt$/, '')}</TableCell>
+                <TableCell sx={{ textAlign: 'center' }}>{template.for || (template.isAccountPayment ? 'Payment' : 'Sale')}</TableCell>
+                <TableCell sx={actionsCellSx}>
                   {canModifyReceipts && (
                     <TemplateListActions
                       onEdit={() => handleEdit(template)}
                       onConfigure={() => handleConfigure(template)}
-                      onDelete={() => handleDelete(template.id)}
+                      onDelete={() => handleDelete(template)}
                       onClone={() => handleClone(template)}
                     />
                   )}
@@ -479,6 +548,66 @@ const ReceiptTemplates = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Confirm Clone — reference: '?' badge, name question, prefilled name, Cancel / Clone. */}
+      <Dialog
+        open={Boolean(cloneSource)}
+        onClose={closeCloneDialog}
+        PaperProps={{ sx: { borderRadius: 0, width: 491, maxWidth: '92vw', overflow: 'visible', position: 'relative', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' } }}
+      >
+        <Box sx={{
+          position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)',
+          width: 56, height: 56, borderRadius: '50%', bgcolor: '#1c86f2',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        }}>
+          <Typography sx={{ color: '#fff', fontSize: 30, fontWeight: 700, lineHeight: 1 }}>?</Typography>
+        </Box>
+        <Typography sx={{ textAlign: 'center', color: '#000', fontWeight: 700, fontSize: 20, pt: 4.5, pb: 0.5, px: 3 }}>
+          Confirm Clone
+        </Typography>
+        <DialogContent sx={{ px: 3, pt: 1.5, pb: 2 }}>
+          {cloneError && (
+            <Alert severity="error" onClose={() => setCloneError('')} sx={{ mb: 2 }}>{cloneError}</Alert>
+          )}
+          <Typography sx={{ fontSize: 16, color: '#000', mb: 1.5, textAlign: 'center' }}>
+            What do you want to name the clone of &quot;{cloneSource?.name}&quot;?
+          </Typography>
+          <TextField
+            fullWidth
+            autoFocus
+            value={cloneName}
+            onChange={(e) => setCloneName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmClone(); } }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '4px',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 2 }}>
+          <Button
+            fullWidth
+            onClick={closeCloneDialog}
+            disabled={cloning}
+            sx={{ bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #9e9e9e', textTransform: 'none', boxShadow: 'none', borderRadius: 0, fontWeight: 400, fontSize: 26, height: 48, '&:hover': { bgcolor: '#e9e9e9', boxShadow: 'none' } }}
+          >
+            Cancel
+          </Button>
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={confirmClone}
+            disabled={cloning}
+            sx={{ bgcolor: '#32b643', color: '#fff', '&:hover': { bgcolor: '#2ba03b', boxShadow: 'none' }, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 400, fontSize: 26, height: 48, '&.Mui-disabled': { bgcolor: '#9fd8a7', color: '#fff' } }}
+          >
+            {cloning ? 'Cloning...' : 'Clone'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Configure — the SAME dialog the editor's gear opens (shared component). */}
       <ConfigureReceiptDialog
         open={showConfigureDialog}
@@ -497,12 +626,12 @@ const ReceiptTemplates = () => {
       <ConfirmDeleteDialog
         open={deleteDialogOpen}
         title="Delete Receipt Template"
-        message="Are you sure you want to delete this receipt template?"
+        confirmText={templateToDelete?.usages ? 'Delete anyway' : 'Delete'}
+        message={templateToDelete?.usages
+          ? `"${templateToDelete.name}" is in use: ${templateToDelete.usages.join('; ')}. Those settings will fall back to another template. Delete anyway?`
+          : `Are you sure you want to delete "${templateToDelete?.name || 'this receipt template'}"?`}
         loading={deleteLoading}
-        onCancel={() => {
-          setDeleteDialogOpen(false);
-          setTemplateToDelete(null);
-        }}
+        onCancel={closeDeleteDialog}
         onConfirm={confirmDelete}
       />
     </Box>

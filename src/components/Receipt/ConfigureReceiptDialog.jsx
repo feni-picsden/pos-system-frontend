@@ -70,7 +70,13 @@ const ConfigureReceiptDialog = ({
 }) => {
   const padding = value?.padding || { top: 0, left: 0, right: 0, bottom: 0 };
   const attachments = value?.attachments || [];
-  const setPadding = (side, v) => onChange({ ...value, padding: { ...padding, [side]: v } });
+  // Padding is pixels >= 0: a typed "-5" is clamped to 0 (it used to be saved and
+  // rendered as negative padding). An empty field stays empty while typing.
+  const setPadding = (side, v) => {
+    const n = Number(v);
+    const next = v === '' ? '' : (Number.isFinite(n) && n > 0 ? v : 0);
+    onChange({ ...value, padding: { ...padding, [side]: next } });
+  };
   const setAttachments = (next) => onChange({ ...value, attachments: next });
 
   return (
@@ -198,8 +204,16 @@ const ConfigureReceiptDialog = ({
                         onChange={(e) => setAttachments(attachments.map((a, i) => (i === index ? { ...a, receiptTemplateId: e.target.value } : a)))}
                         sx={{ borderRadius: 0 }}
                       >
+                        {/* Reference: "make sure not to include the same A4 receipt more
+                            than once" — one already attached on another row is disabled. */}
                         {a4Templates.map((t) => (
-                          <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                          <MenuItem
+                            key={t.id}
+                            value={t.id}
+                            disabled={attachments.some((a, i) => i !== index && String(a.receiptTemplateId) === String(t.id))}
+                          >
+                            {t.name}
+                          </MenuItem>
                         ))}
                       </Select>
                     </FormControl>

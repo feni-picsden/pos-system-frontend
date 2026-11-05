@@ -12,9 +12,47 @@ const ICONS = {
   clone: { viewBox: '0 0 512 512', d: 'M64 464l224 0c8.8 0 16-7.2 16-16l0-64 48 0 0 64c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 224c0-35.3 28.7-64 64-64l64 0 0 48-64 0c-8.8 0-16 7.2-16 16l0 224c0 8.8 7.2 16 16 16zM224 304l224 0c8.8 0 16-7.2 16-16l0-224c0-8.8-7.2-16-16-16L224 48c-8.8 0-16 7.2-16 16l0 224c0 8.8 7.2 16 16 16zm-64-16l0-224c0-35.3 28.7-64 64-64L448 0c35.3 0 64 28.7 64 64l0 224c0 35.3-28.7 64-64 64l-224 0c-35.3 0-64-28.7-64-64z' },
 };
 
+// Thin outline glyphs like the reference's FontAwesome *light* set (user
+// request 05/11/2026): stroked 24px paths, not the old solid fills.
+const GEAR = 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z';
+const OUTLINE = {
+  pencil: (
+    <>
+      <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </>
+  ),
+  cogs: (
+    <>
+      <g transform="translate(-0.6 -0.6) scale(0.62)"><path d={GEAR} /><circle cx="12" cy="12" r="3" /></g>
+      <g transform="translate(9.6 9.6) scale(0.6)"><path d={GEAR} /><circle cx="12" cy="12" r="3" /></g>
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ),
+  clone: (
+    <>
+      <rect x="8" y="8" width="14" height="14" rx="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </>
+  ),
+};
+
 const Glyph = ({ name }) => (
   <i className={`fal fa-${name} fa-fw shopfront-icon`} aria-hidden="true">
-    <svg viewBox={ICONS[name].viewBox} fill="currentColor" focusable="false"><path d={ICONS[name].d} /></svg>
+    <svg
+      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+      strokeLinecap="round" strokeLinejoin="round" focusable="false"
+      style={{ overflow: 'visible' }}
+    >
+      {OUTLINE[name] || <path d={ICONS[name].d} />}
+    </svg>
   </i>
 );
 

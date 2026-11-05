@@ -4,7 +4,7 @@ import { createBarcodeSvgMarkup } from '../../utils/barcodeSvg';
 import { renderExpressions, buildReceiptContext } from '../../utils/receiptExpressions';
 import ReferenceReceipt, { isReferenceShape } from './ReferenceReceipt';
 import { buildReferenceData } from '../../utils/referenceReceiptData';
-import { isWideTemplate, paperSettings, paperWidthMm } from '../../utils/receiptTemplateShape';
+import { isTextOnlyTemplate, isWideTemplate, paperSettings, paperWidthMm, borderToCss } from '../../utils/receiptTemplateShape';
 import { itemsPerCase } from '../../utils/saleTotals';
 
 /**
@@ -56,7 +56,6 @@ const ReceiptRenderer = ({ receiptData, template, fit = false, preview = false }
   const canvas = config.canvas || {};
   const backgroundColor = canvas.backgroundColor || '#f5f5f5';
   const primaryColor = canvas.primaryColor || '#333';
-  const secondaryColor = canvas.secondaryColor || '#666';
   const fontFamily = canvas.fontFamily || "'Arial', sans-serif";
   
   // Handle fontSize - can be number or string
@@ -149,7 +148,7 @@ const ReceiptRenderer = ({ receiptData, template, fit = false, preview = false }
         }}
       >
         {trainingBanner}
-        <ReferenceReceipt components={components} data={buildReferenceData(receiptData)} />
+        <ReferenceReceipt components={components} data={buildReferenceData(receiptData)} textOnly={isTextOnlyTemplate(template)} />
         {trainingBanner}
       </Box>
     );
@@ -200,14 +199,14 @@ const getItemTax = (item, lineTotal) => {
 const getComponentStyles = (props) => {
   const padding = props.padding || { top: 0, left: 0, right: 0, bottom: 0 };
   const margin = props.margin || { top: 0, left: 0, right: 0, bottom: 0 };
-  const border = props.border || { enabled: false, color: '#000000', style: 'solid', width: 1 };
   const backgroundColor = props.backgroundColor || '#ffffff';
-  
+
   return {
     padding: `${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px`,
     margin: `${margin.top}px ${margin.right}px ${margin.bottom}px ${margin.left}px`,
-    // ponytail: logo/image/columns panels toggle border.width and never set enabled - width decides when enabled is absent.
-    border: (border.enabled ?? border.width > 0) ? `${border.width || 1}px ${border.style} ${border.color}` : 'none',
+    // Per-side, same rule as the save adapter: reads the editor's per-side border and
+    // the older single { enabled, width, style, color } shape alike.
+    ...borderToCss(props.border),
     backgroundColor: backgroundColor,
     // The logo/image panels store horizontalAlignment as flex values (the editor canvas
     // uses it as justifyContent); text-align only understands left/center/right.
@@ -985,7 +984,6 @@ const renderTaxComponent = (receiptData, component, index) => {
   
   const subtotal = parseFloat(receiptData.subtotal || 0);
   const discount = parseFloat(receiptData.discount || 0);
-  const tax = parseFloat(receiptData.tax || 0);
   const rounding = parseFloat(receiptData.rounding || 0);
   const total = parseFloat(receiptData.total || 0);
   const savings = parseFloat(receiptData.savings || 0);
@@ -1309,7 +1307,7 @@ const renderSurchargeComponent = (receiptData, component, index) => {
   }
   
   const surchargeEntries = Object.entries(surcharges);
-  const validSurcharges = surchargeEntries.filter(([name, amount]) => parseFloat(amount || 0) > 0);
+  const validSurcharges = surchargeEntries.filter(([, amount]) => parseFloat(amount || 0) > 0);
   
   if (validSurcharges.length === 0) {
     return null;
