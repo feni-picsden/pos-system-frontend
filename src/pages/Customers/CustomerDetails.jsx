@@ -1907,7 +1907,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
         open={createdToast}
         autoHideDuration={4000}
         onClose={() => setCreatedToast(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
         message="Successfully created customer"
       />
     </Box>

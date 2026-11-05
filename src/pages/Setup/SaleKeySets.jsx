@@ -380,7 +380,7 @@ const SaleKeySets = () => {
         onClose={() => { if (!creating) setCreateDialogOpen(false); }}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: '12px', alignSelf: 'flex-start', mt: 8 } }}
+        PaperProps={{ sx: { borderRadius: '12px' } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -541,6 +541,7 @@ const SaleKeySets = () => {
       <Snackbar
         key={snackbar.nonce}
         open={snackbar.open}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         autoHideDuration={3000}
         // Ignore "clickaway" so a click elsewhere on the page does not swallow the message.
         onClose={(event, reason) => {

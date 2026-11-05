@@ -65,6 +65,12 @@ const buildTheme = (mode) =>
           },
         },
       },
+      // Every toast (success / error message) shows at the top centre, app-wide.
+      MuiSnackbar: {
+        defaultProps: {
+          anchorOrigin: { vertical: "top", horizontal: "center" },
+        },
+      },
       MuiChip: {
         styleOverrides: {
           root: {

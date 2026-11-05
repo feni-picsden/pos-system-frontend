@@ -1229,8 +1229,7 @@ const CustomerView = () => {
       <Snackbar
         open={activeTab === "balance" && unallocatedToastFor != null}
         onClose={(_, reason) => { if (reason !== "clickaway") setUnallocatedToastFor(null); }}
-        // Reference: the toast sits at the bottom-left of the screen.
-        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
         sx={{ zIndex: 2100 }}
       >
         <Alert
