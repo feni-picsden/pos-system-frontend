@@ -14,6 +14,8 @@ import {
   Dialog,
   TextField,
   Tooltip,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,6 +31,8 @@ import usePageCache from '../../hooks/usePageCache';
 import trashedItemsService from '../../services/trashedItemsService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { useHasPermission } from '../../hooks/usePermissions';
+import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import { REF_MENU_PROPS } from '../../components/Common/refMenuProps';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -76,7 +80,9 @@ const LOCKED_TOOLTIP_PROPS = {
 
 // Small centered name-prompt dialog matching the reference "Create New Role" prompt:
 // light-blue title bar with '?' icon, question text, 42px input, Cancel/confirm buttons.
-const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, onCancel, onConfirm }) => (
+// `outletPicker` (optional) = { value, options: [{id,name}], onChange }: shown on All Outlets
+// for a global admin so the new role can be company-wide or for one outlet.
+const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, onCancel, onConfirm, outletPicker = null }) => (
   <Dialog
     open={open}
     onClose={onCancel}
@@ -110,6 +116,30 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
           },
         }}
       />
+      {outletPicker && (
+        <>
+          <Typography sx={{ color: '#313439', fontSize: 16, mt: 2, mb: 0.75 }}>Outlet</Typography>
+          <Select
+            fullWidth
+            value={outletPicker.value}
+            onChange={(e) => outletPicker.onChange(e.target.value)}
+            MenuProps={REF_MENU_PROPS}
+            inputProps={{ 'aria-label': 'Role outlet' }}
+            sx={{
+              height: 42,
+              borderRadius: '8px',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#595959', borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#595959' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+            }}
+          >
+            <MenuItem value="global">Global</MenuItem>
+            {outletPicker.options.map((o) => (
+              <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>
+            ))}
+          </Select>
+        </>
+      )}
       {/* Both buttons share the row evenly so they line up with the input's edges above. */}
       <Box sx={{ display: 'flex', gap: 1.25, mt: 2.5 }}>
         <Button
@@ -166,7 +196,10 @@ const RolesAndPermissions = () => {
   const [deletedRoles, setDeletedRoles] = useState([]);
   const [error, setError] = useState('');
   const [cloneDialog, setCloneDialog] = useState({ open: false, role: null, name: '' });
-  const [createDialog, setCreateDialog] = useState({ open: false, name: '' });
+  // All Outlets mode (global admin, no navbar outlet): show which outlet each role
+  // belongs to and let a new role be made Global or for one outlet (like Products).
+  const { globalMode, outlets, outletNameOf } = useGlobalOutlet();
+  const [createDialog, setCreateDialog] = useState({ open: false, name: '', outletId: 'global' });
   const [deleteDialog, setDeleteDialog] = useState({ open: false, role: null, loading: false });
 
   // Permission checks
@@ -194,12 +227,14 @@ const RolesAndPermissions = () => {
 
   const handleCreateConfirm = async () => {
     try {
-      const response = await roleService.createRole({ name: createDialog.name.trim() });
-      setCreateDialog({ open: false, name: '' });
+      const payload = { name: createDialog.name.trim() };
+      if (globalMode && createDialog.outletId !== 'global') payload.outletId = createDialog.outletId;
+      const response = await roleService.createRole(payload);
+      setCreateDialog({ open: false, name: '', outletId: 'global' });
       // Land on the permission editor for the new role (all permissions off by default).
       navigate(`/setup/roles/${response.role.id}/permissions`);
     } catch (err) {
-      setCreateDialog({ open: false, name: '' });
+      setCreateDialog({ open: false, name: '', outletId: 'global' });
       setError(err.response?.data?.error || 'Failed to create role');
       console.error('Error creating role:', err);
     }
@@ -277,7 +312,7 @@ const RolesAndPermissions = () => {
               disableRipple
               disableElevation
               startIcon={<AddIcon />}
-              onClick={() => setCreateDialog({ open: true, name: '' })}
+              onClick={() => setCreateDialog({ open: true, name: '', outletId: 'global' })}
               sx={PRIMARY_BUTTON_SX}
             >
               Add Role
@@ -320,6 +355,7 @@ const RolesAndPermissions = () => {
               >
                 <TableCell sx={{ pl: '20px' }}>Name</TableCell>
                 <TableCell>User Count</TableCell>
+                {globalMode && <TableCell>Outlet</TableCell>}
                 <TableCell sx={{ pr: '20px' }}>
                   <Box sx={{ ...ACTIONS_GRID_SX, gridTemplateColumns: '420px' }}>
                     <Box sx={{ textAlign: 'center' }}>Actions</Box>
@@ -337,7 +373,8 @@ const RolesAndPermissions = () => {
               {roles.map((role) => (
                 <TableRow key={role.id}>
                   <TableCell sx={{ pl: '20px' }}>{role.name}</TableCell>
-                  <TableCell  >{role.userCount}</TableCell>
+                  <TableCell>{role.userCount}</TableCell>
+                  {globalMode && <TableCell>{outletNameOf(role.outletId)}</TableCell>}
                   <TableCell sx={{ pr: '20px' }}>
                     {(canEditRoles || canDeleteRoles) ? (
                       <Box sx={ACTIONS_GRID_SX}>
@@ -407,6 +444,7 @@ const RolesAndPermissions = () => {
                     </Box>
                   </TableCell>
                   <TableCell />
+                  {globalMode && <TableCell>{outletNameOf(item.outletId ?? null)}</TableCell>}
                   <TableCell sx={{ pr: '20px' }}>
                     <Box sx={ACTIONS_GRID_SX}>
                       <Box />
@@ -430,7 +468,7 @@ const RolesAndPermissions = () => {
               ))}
               {roles.length === 0 && deletedRoles.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={globalMode ? 4 : 3} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
                       No roles found
                     </Typography>
@@ -450,8 +488,9 @@ const RolesAndPermissions = () => {
         value={createDialog.name}
         confirmText="Create"
         onChange={(name) => setCreateDialog({ ...createDialog, name })}
-        onCancel={() => setCreateDialog({ open: false, name: '' })}
+        onCancel={() => setCreateDialog({ open: false, name: '', outletId: 'global' })}
         onConfirm={handleCreateConfirm}
+        outletPicker={globalMode ? { value: createDialog.outletId, options: outlets, onChange: (outletId) => setCreateDialog({ ...createDialog, outletId }) } : null}
       />
 
       {/* Clone Role prompt */}
