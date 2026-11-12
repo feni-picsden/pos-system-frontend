@@ -226,7 +226,8 @@ const DashboardLayout = ({ children }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, logout } = useAuth();
   // Bell "Receive Stock" follows the backend permission keys (display only, 16/10/2026)
-  const gates = orderGates(usePermissions());
+  const permissionsCtx = usePermissions();
+  const gates = orderGates(permissionsCtx);
   // Only the remount key below still needs the outlet; the selector itself moved
   // into the Location Selector dialog.
   const { selectedOutletId } = useSelectedOutlet();
@@ -256,6 +257,15 @@ const DashboardLayout = ({ children }) => {
 
   const handleModifyUser = () => {
     setProfileDrawerOpen(false);
+    // Reference ("Adding and Editing Users"): Modify User "will take you to your
+    // user edit page" - the same Setup > Users edit page, not a second form.
+    // Someone without users.edit cannot save there, so they keep the profile page.
+    const isAdmin = user?.hasAllPermission === true || user?.isSuperAdmin === true;
+    const canEditUsers = isAdmin || (permissionsCtx?.hasPermission?.('users.edit') && permissionsCtx?.hasPermission?.('users.view'));
+    if (user?.id && canEditUsers) {
+      navigate(`/settings/users?edit=${user.id}`);
+      return;
+    }
     navigate('/profile/edit');
   };
 

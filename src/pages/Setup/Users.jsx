@@ -36,6 +36,13 @@ import {
   // required field once it is satisfied.
   ErrorOutline as RequiredIcon,
   Check as ValidIcon,
+  // Reference edit page: a glyph on every tab and in front of each section title.
+  KeyOutlined as GeneralIcon,
+  ContactsOutlined as ContactIcon,
+  AssessmentOutlined as ReportingIcon,
+  StarBorderOutlined as QuickMenuIcon,
+  LockOutlined as LockIcon,
+  DragIndicator as DragHandleIcon,
 } from '@mui/icons-material';
 import InputAdornment from '@mui/material/InputAdornment';
 import UserFormDialog from '../../components/Users/UserFormDialog';
@@ -54,6 +61,7 @@ import { useHasPermission } from '../../hooks/usePermissions';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import PageSaveBar from '../../components/Common/PageSaveBar';
+import { REF_MENU_PROPS } from '../../components/Common/refMenuProps';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -325,26 +333,20 @@ const editSelectSx = {
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
 };
 
+// Reference edit page: a bold label ABOVE each field (not beside it).
 const FieldRow = ({ label, children, invalid = false }) => (
-  <Box
-    sx={{
-      display: 'grid',
-      gridTemplateColumns: { xs: '1fr', sm: '180px 1fr' },
-      alignItems: 'center',
-      gap: { xs: 0.5, sm: 2 },
-      mb: 2.5,
-    }}
-  >
+  <Box sx={{ mb: 3 }}>
     {/* A required field left empty turns its label red and puts a warning
         triangle in front of it, the way the reference does. */}
     <Typography
       sx={{
         fontSize: 16,
-        fontWeight: 500,
-        color: invalid ? '#c0392b' : '#676b72',
+        fontWeight: 700,
+        color: invalid ? '#c0392b' : '#000',
         display: 'flex',
         alignItems: 'center',
         gap: 0.75,
+        mb: 1,
       }}
     >
       {invalid && <RequiredIcon sx={{ fontSize: 18 }} />}
@@ -353,6 +355,24 @@ const FieldRow = ({ label, children, invalid = false }) => (
     {children}
   </Box>
 );
+
+// Reference: each tab panel opens with a grey glyph + bold section title.
+const SectionTitle = ({ icon, children }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 4 }}>
+    {React.cloneElement(icon, { sx: { fontSize: 20, color: '#8a8f98' } })}
+    <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000' }}>{children}</Typography>
+  </Box>
+);
+
+// "SA" for "Super Admin3" - same rule as the header avatar.
+const initialsOf = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+
+const EDIT_TABS = [
+  { label: 'General', icon: <GeneralIcon /> },
+  { label: 'Contact', icon: <ContactIcon /> },
+  { label: 'Reporting Access', icon: <ReportingIcon /> },
+  { label: 'Quick Menu', icon: <QuickMenuIcon /> },
+];
 
 /**
  * Dedicated edit-user page (reference navigates to /settings/users/{id}/edit).
@@ -419,6 +439,17 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
   const [quickMenu, setQuickMenu] = useState(() =>
     (user.quickMenuItems || []).map((i) => ({ name: i.name || '', url: i.url || '' }))
   );
+  // Drag-and-drop reorder of the quick menu rows (reference "Handle button").
+  const [dragIndex, setDragIndex] = useState(null);
+  const moveQuickMenuItem = (from, to) => {
+    if (from == null || to == null || from === to) return;
+    setQuickMenu((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (canPickAnyOutlet) {
@@ -587,62 +618,82 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
   const tabPanelSx = { maxWidth: 680 };
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header: back link + title */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-        <Button
-          disableRipple
-          onClick={onBack}
+    <Box sx={{ pb: 12 }}>
+      {/* Reference: a pale blue-grey band holds the back link, the "Editing …"
+          title and the tab strip; the open tab is a white card joined to the page. */}
+      <Box sx={{ bgcolor: '#e3e9f1', px: 3, pt: 2, borderBottom: '1px solid #d0d0d0', '& .MuiTabs-root': { mb: '-1px' } }}>
+        <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Button
+            disableRipple
+            onClick={onBack}
+            sx={{
+              color: '#5ebbeb',
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: 16,
+              height: 42,
+              borderRadius: '12px',
+              transition: INSTANT,
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+            }}
+          >
+            &#8249; Users
+          </Button>
+          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+            Editing {user.name}
+          </Typography>
+        </Box>
+
+        {/* Tabs: General | Contact | Reporting Access | Quick Menu */}
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
           sx={{
-            color: '#5ebbeb',
-            textTransform: 'none',
-            fontWeight: 700,
-            fontSize: 16,
-            height: 42,
-            borderRadius: '12px',
-            transition: INSTANT,
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+            minHeight: 56,
+            '& .MuiTabs-indicator': { display: 'none' },
+            '& .MuiTab-root': {
+              minHeight: 56,
+              textTransform: 'none',
+              fontSize: 14,
+              fontWeight: 500,
+              color: '#000',
+              px: 3,
+              gap: 1,
+              borderRadius: '8px 8px 0 0',
+              border: '1px solid transparent',
+              borderBottom: 0,
+              transition: INSTANT,
+              outline: 'none',
+              '& .MuiSvgIcon-root': { fontSize: 18, color: '#676b72' },
+              // No keyboard-focus ring doubling the tab border (reference has none)
+              '&.Mui-focusVisible': { outline: 'none', boxShadow: 'none' },
+            },
+            // The open tab is a card in the page colour, sitting on the band's edge
+            '& .MuiTab-root.Mui-selected': { bgcolor: '#f8f8f8', borderColor: '#d0d0d0', color: '#000', fontWeight: 700 },
           }}
         >
-          &#8249; Users
-        </Button>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Editing {user.name}
-        </Typography>
+          {/* Reference flags the tab that holds the unfilled field, so the warning
+              is visible even while another tab is open. */}
+          {EDIT_TABS.map((t, i) => {
+            const invalid = i === 0 && generalTabInvalid;
+            return (
+              <Tab
+                key={t.label}
+                disableRipple
+                label={t.label}
+                icon={invalid ? <RequiredIcon sx={{ color: '#c0392b !important' }} /> : t.icon}
+                iconPosition="start"
+                sx={invalid ? { color: '#c0392b !important' } : undefined}
+              />
+            );
+          })}
+        </Tabs>
+        </Box>
       </Box>
 
-      {/* Tabs: General | Contact | Reporting Access | Quick Menu */}
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        sx={{
-          mb: 3,
-          borderBottom: '1px solid #d9d9d9',
-          '& .MuiTabs-indicator': { backgroundColor: '#5ebbeb', height: 3 },
-          '& .MuiTab-root': {
-            textTransform: 'none',
-            fontSize: 16,
-            fontWeight: 500,
-            color: '#676b72',
-            transition: INSTANT,
-          },
-          '& .MuiTab-root.Mui-selected': { fontWeight: 700, color: '#313439' },
-        }}
-      >
-        {/* Reference flags the tab that holds the unfilled field, so the warning
-            is visible even while another tab is open. */}
-        <Tab
-          disableRipple
-          label="General"
-          icon={generalTabInvalid ? <RequiredIcon sx={{ fontSize: 18 }} /> : undefined}
-          iconPosition="start"
-          sx={generalTabInvalid ? { color: '#c0392b !important', minHeight: 48 } : undefined}
-        />
-        <Tab disableRipple label="Contact" />
-        <Tab disableRipple label="Reporting Access" />
-        <Tab disableRipple label="Quick Menu" />
-      </Tabs>
-
+      {/* Reference: the form sits in a centred column under the band */}
+      <Box sx={{ px: 3, pt: 4, maxWidth: 900, mx: 'auto' }}>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
@@ -657,65 +708,52 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
       {/* General */}
       {tab === 0 && (
         <Box sx={tabPanelSx}>
+          <SectionTitle icon={<GeneralIcon />}>General</SectionTitle>
           <FieldRow label="Image">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+              {/* Reference: a 200px round grey placeholder; click it to pick a picture */}
               <Avatar
                 src={avatarSrc || undefined}
                 onClick={() => fileInputRef.current?.click()}
-                sx={{ width: 90, height: 90, bgcolor: avatarSrc ? '#e0e0e0' : '#1976d2', color: '#fff', fontSize: 30, cursor: 'pointer' }}
+                title="Click to upload an image"
+                sx={{ width: 200, height: 200, bgcolor: avatarSrc ? '#e0e0e0' : '#1976d2', color: '#fff', fontSize: 72, fontWeight: 500, cursor: 'pointer' }}
               >
-                {/* Same placeholder as Modify User / the header: the user's initials. */}
-                {!avatarSrc && (initialsOf(form.name || user.name) || <PersonIcon sx={{ fontSize: 40 }} />)}
+                {/* Same placeholder as the header avatar: the user's initials ("SA") */}
+                {!avatarSrc && (initialsOf(form.name || user.name) || <PersonIcon sx={{ fontSize: 150 }} />)}
               </Avatar>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  onChange={handleAvatarChange}
-                />
-                <Button
-                  disableRipple
-                  onClick={() => fileInputRef.current?.click()}
-                  sx={{
-                    border: '1px solid #5ebbeb',
-                    color: '#5ebbeb',
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    fontSize: 16,
-                    height: 42,
-                    px: 2,
-                    borderRadius: '12px',
-                    transition: INSTANT,
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #5ebbeb' },
-                  }}
-                >
-                  {avatarSrc ? 'Change Image' : 'Upload Image'}
-                </Button>
-                {avatarSrc && (
-                  <Button
-                    disableRipple
-                    onClick={() => {
-                      setAvatarDataUrl(null);
-                      setAvatarCleared(true);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                    }}
-                    sx={{
-                      color: '#dc2626',
-                      textTransform: 'none',
-                      fontWeight: 700,
-                      fontSize: 16,
-                      height: 42,
-                      borderRadius: '12px',
-                      transition: INSTANT,
-                      '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
-                    }}
-                  >
-                    Remove Image
-                  </Button>
-                )}
-              </Box>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={handleAvatarChange}
+              />
+              {/* Only once there is a picture to remove */}
+              {avatarSrc && (
+              <Button
+                disableRipple
+                startIcon={<CloseIcon sx={{ fontSize: 16 }} />}
+                onClick={() => {
+                  setAvatarDataUrl(null);
+                  setAvatarCleared(true);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                sx={{
+                  bgcolor: '#dedede',
+                  color: '#4b4f56',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: 16,
+                  height: 42,
+                  px: 2,
+                  borderRadius: '8px',
+                  transition: INSTANT,
+                  '&:hover': { bgcolor: '#d0d0d0' },
+                }}
+              >
+                Remove Image
+              </Button>
+              )}
             </Box>
           </FieldRow>
 
@@ -736,7 +774,6 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               onChange={setField('username')}
               placeholder="Username"
               error={saveAttempted && usernameMissing}
-              helperText="What this person types to log in. Must be unique."
               // Reference puts a green tick inside a satisfied required field.
               InputProps={
                 form.username.trim()
@@ -756,21 +793,22 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
 
           <FieldRow label="Password">
             {!showPasswordFields ? (
+              // Reference: a full-width green outlined "Update Password" with a lock
               <Button
                 disableRipple
+                fullWidth
+                startIcon={<LockIcon sx={{ fontSize: 18 }} />}
                 onClick={() => setShowPasswordFields(true)}
                 sx={{
-                  justifySelf: 'start',
-                  border: '1px solid #16a34a',
+                  border: '1px solid #22c55e',
                   color: '#16a34a',
                   textTransform: 'none',
                   fontWeight: 700,
                   fontSize: 16,
                   height: 42,
-                  px: 2,
-                  borderRadius: '12px',
+                  borderRadius: '8px',
                   transition: INSTANT,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #16a34a' },
+                  '&:hover': { bgcolor: 'rgba(34,197,94,0.08)', border: '1px solid #22c55e' },
                 }}
               >
                 Update Password
@@ -823,11 +861,10 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               fullWidth
               sx={editSelectSx}
               IconComponent={ArrowDropDownIcon}
+              MenuProps={REF_MENU_PROPS}
+              renderValue={(v) => (v ? (v === 'NO_ROLE_ALL_PERMISSIONS' ? 'No Role (has all permissions)' : v) : <Box component="span" sx={{ color: '#808080' }}>Select a role</Box>)}
             >
-              <MenuItem value="" disabled>
-                <Box component="em" sx={{ color: '#808080' }}>Select a role</Box>
-              </MenuItem>
-              <MenuItem value="NO_ROLE_ALL_PERMISSIONS">No Role (All Permissions)</MenuItem>
+              <MenuItem value="NO_ROLE_ALL_PERMISSIONS">No Role (has all permissions)</MenuItem>
               {roles
                 .filter((r) => r.isActive !== false)
                 .map((r) => (
@@ -882,8 +919,8 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               />
               <Typography sx={{ fontSize: 16, color: '#676b72' }}>
                 {form.requiresPasswordReset
-                  ? 'User cannot log in until a new password is saved'
-                  : 'User is not required to reset their password'}
+                  ? 'The user must have a new password saved before they can log in'
+                  : "The user doesn't need to reset their password"}
               </Typography>
             </Box>
           </FieldRow>
@@ -893,6 +930,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
       {/* Contact */}
       {tab === 1 && (
         <Box sx={tabPanelSx}>
+          <SectionTitle icon={<ContactIcon />}>Contact</SectionTitle>
           <FieldRow label="Email">
             <TextField
               type="email"
@@ -918,18 +956,17 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
       {/* Reporting Access */}
       {tab === 2 && (
         <Box sx={tabPanelSx}>
+          <SectionTitle icon={<ReportingIcon />}>Reporting Access</SectionTitle>
           {reporting.length === 0 ? (
             <Typography sx={{ fontSize: 16, color: '#676b72' }}>
               No outlet assignments found for this user.
             </Typography>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            // Reference: a plain list — bold outlet name, then the switch and its hint
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {reporting.map((r) => (
-                <Box
-                  key={r.outletId}
-                  sx={{ border: '1px solid #404040', borderRadius: '8px', p: 2 }}
-                >
-                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439', mb: 1 }}>
+                <Box key={r.outletId}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', mb: 1 }}>
                     {r.outletName}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -957,18 +994,41 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
 
       {/* Quick Menu */}
       {tab === 3 && (
-        <Box sx={tabPanelSx}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 40px', gap: 1.5, mb: 1 }}>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>Name</Typography>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>Page</Typography>
+        <Box>
+          <SectionTitle icon={<QuickMenuIcon />}>Quick Menu</SectionTitle>
+          <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', mb: 1.5 }}>Quick Menu Items</Typography>
+          {/* Reference columns: handle | Name | URL | bin. The URL column holds our
+              page picker (+ External switch) rather than a typed path. */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '28px 1fr 2.4fr 40px', gap: 1.5, mb: 1 }}>
+            <Box />
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', textAlign: 'center' }}>Name</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', textAlign: 'center' }}>URL</Typography>
             <Box />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {quickMenu.map((item, idx) => (
               <Box
                 key={idx}
-                sx={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 40px', gap: 1.5, alignItems: 'center' }}
+                draggable
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragIndex(idx); }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                onDrop={(e) => { e.preventDefault(); moveQuickMenuItem(dragIndex, idx); setDragIndex(null); }}
+                onDragEnd={() => setDragIndex(null)}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '28px 1fr 2.4fr 40px',
+                  gap: 1.5,
+                  alignItems: 'center',
+                  opacity: dragIndex === idx ? 0.5 : 1,
+                }}
               >
+                {/* Reference "Handle button": click and drag to rearrange the order */}
+                <Box
+                  title="Drag to reorder"
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', color: '#676b72', '&:active': { cursor: 'grabbing' } }}
+                >
+                  <DragHandleIcon sx={{ fontSize: 22 }} />
+                </Box>
                 <TextField
                   value={item.name}
                   onChange={(e) => {
@@ -1004,23 +1064,23 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                 </IconButton>
               </Box>
             ))}
+            {/* Reference "+ Add Item": full-width green outlined */}
             <Button
               disableRipple
+              fullWidth
               startIcon={<AddIcon />}
               onClick={() => setQuickMenu((prev) => [...prev, { name: '', url: '' }])}
               sx={{
-                alignSelf: 'flex-start',
                 mt: 1,
-                border: '1px solid #5ebbeb',
-                color: '#5ebbeb',
+                border: '1px solid #22c55e',
+                color: '#16a34a',
                 textTransform: 'none',
                 fontWeight: 700,
                 fontSize: 16,
                 height: 42,
-                px: 2,
-                borderRadius: '12px',
+                borderRadius: '8px',
                 transition: INSTANT,
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #5ebbeb' },
+                '&:hover': { bgcolor: 'rgba(34,197,94,0.08)', border: '1px solid #22c55e' },
               }}
             >
               Add Item
@@ -1028,15 +1088,13 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
           </Box>
         </Box>
       )}
+      </Box>
 
       {/* Floating blue Save */}
       <PageSaveBar onSave={handleSave} saving={saving} />
     </Box>
   );
 };
-
-// "SA" for "Super Admin3" - same rule as the header avatar.
-const initialsOf = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
 const Users = () => {
   const { user: currentUser } = useAuth();
@@ -1188,10 +1246,12 @@ const Users = () => {
           </Button>
         )}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            {filteredUsers.length} Users
+        {/* Same right-top counter as the Products page: big number + "Results" */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, color: '#000', lineHeight: 1 }}>
+            {filteredUsers.length}
           </Typography>
+          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
         </Box>
       </Box>
 

@@ -5,41 +5,52 @@ import {
   DialogActions,
   TextField,
   Button,
-  FormControl,
-  InputLabel,
   Select,
   MenuItem,
-  FormControlLabel,
   Box,
   Typography,
   Alert,
+  InputAdornment,
 } from '@mui/material';
-import { CheckOutlined as CheckIcon } from '@mui/icons-material';
+import {
+  CheckOutlined as CheckIcon,
+  Check as ValidIcon,
+  Close as InvalidIcon,
+  ArrowDropDown as ArrowDropDownIcon,
+} from '@mui/icons-material';
 import ShopfrontSwitch from '../Common/ShopfrontSwitch';
 import { userService } from '../../services/userService';
 import { roleService } from '../../services/roleService';
 import { outletService } from '../../services/outletService';
+import settingsService from '../../services/settingsService';
+import { REF_MENU_PROPS } from '../Common/refMenuProps';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
-// Parity input styling: #404040 1px outline, focused #000 2px, radius 8px.
+// Parity input styling: #404040 1px outline, focused #000 2px, radius 8px, 42px tall.
 const inputSx = {
   '& .MuiOutlinedInput-root': {
+    height: 42,
     borderRadius: '8px',
     fontSize: 16,
+    bgcolor: '#fff',
     '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
     '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+    '&.Mui-error .MuiOutlinedInput-notchedOutline': { borderColor: '#dc2626' },
   },
-  '& .MuiOutlinedInput-input': { '&::placeholder': { color: '#808080', opacity: 1 } },
+  '& .MuiOutlinedInput-input': { padding: '9px 16px', '&::placeholder': { color: '#808080', opacity: 1 } },
 };
 
 const selectSx = {
+  height: 42,
   borderRadius: '8px',
   fontSize: 16,
+  bgcolor: '#fff',
   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+  '&.Mui-error .MuiOutlinedInput-notchedOutline': { borderColor: '#dc2626' },
 };
 
 // Footer buttons per reference: 118x42, radius 12, fw700, no transition/shadow.
@@ -58,6 +69,18 @@ const footerButtonSx = (bg, fg, hoverBg) => ({
   '&.Mui-disabled': { bgcolor: 'rgba(0,0,0,0.1)', color: '#b3b3b3' },
 });
 
+// Reference: a small label sits ABOVE each field (Username / Password / Role).
+const FieldLabel = ({ children, invalid = false }) => (
+  <Typography sx={{ fontSize: 13, color: invalid ? '#dc2626' : '#313439', mb: 0.5, lineHeight: '18px' }}>
+    {children}
+  </Typography>
+);
+
+const ErrorText = ({ children }) =>
+  children ? (
+    <Typography sx={{ fontSize: 12, color: '#dc2626', mt: 0.5 }}>{children}</Typography>
+  ) : null;
+
 const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
   const { user: currentUser, isTrueSuperAdmin, getOutletName } = useAuth();
   const [formData, setFormData] = useState({
@@ -66,13 +89,15 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     // name and required: login matches the username and nothing else.
     username: '',
     password: '',
-    confirmPassword: '',
-    role: 'user',
+    role: '',
     isActive: true,
     hasAllPermission: false,
     outletId: null,
     assignMultipleOutlets: false,
     outletIds: [],
+    // Reference Create dialog: "Enable Reporting for All Outlets"  -  every outlet
+    // this user is assigned to starts with its Reporting Access switch on.
+    reportAccessAllOutlets: true,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -80,6 +105,9 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
   const [roles, setRoles] = useState([]);
   const [rolesLoading, setRolesLoading] = useState(false);
   const [outlets, setOutlets] = useState([]);
+  // Existing usernames, so the field can show the reference's red cross for a
+  // username that is already taken before Create is pressed.
+  const [takenUsernames, setTakenUsernames] = useState([]);
   // Sequence number so an out-of-order roles response can't overwrite a newer outlet's list.
   const rolesReqRef = useRef(0);
 
@@ -87,7 +115,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
 
   // Only a TRUE global admin (super admin / all-permission NOT pinned to an outlet)
   // may choose an arbitrary outlet for a user. Outlet admins and regular users are
-  // confined to their own outlet — the backend enforces this regardless of the UI.
+  // confined to their own outlet  -  the backend enforces this regardless of the UI.
   // Header-outlet rule (user, 21/10/2026): the Outlet picker shows only in All
   // Outlets mode; with an outlet selected in the navbar the new user is created
   // for that outlet and the field is hidden.
@@ -112,12 +140,19 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           loadRoles(fixedOutletId);
         }
       }
+      userService
+        .getUsers()
+        // Exact match, the same rule the backend's usernameTaken() applies.
+        .then((r) => setTakenUsernames((r.users || []).flatMap((u) => [String(u.username || '').trim(), String(u.name || '').trim()]).filter(Boolean)))
+        .catch(() => setTakenUsernames([]));
     }
   }, [open, currentUser, isTrueSuperAdmin, canPickAnyOutlet]);
 
   // Reset form when dialog opens/closes or user changes
   useEffect(() => {
     if (open) {
+      const reportingDefault =
+        settingsService.getCachedGeneralSettings()?.defaultNewUsersReportingAccessAllOutlets !== false;
       if (user) {
         // Edit mode - populate form with user data
         const userOutletIds =
@@ -132,20 +167,19 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           name: user.name || '',
           username: user.username || '',
           password: '',
-          confirmPassword: '',
           role: user.hasAllPermission ? 'NO_ROLE_ALL_PERMISSIONS' : (user.role || ''),
           isActive: user.isActive !== undefined ? user.isActive : true,
           hasAllPermission: user.hasAllPermission || false,
           outletId: userOutletIds[0] || null,
           assignMultipleOutlets: userOutletIds.length > 1,
           outletIds: userOutletIds,
+          reportAccessAllOutlets: reportingDefault,
         });
       } else {
         setFormData({
           name: '',
           username: '',
           password: '',
-          confirmPassword: '',
           role: '',
           isActive: true,
           hasAllPermission: false,
@@ -156,6 +190,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
             : fixedOutletId
               ? [fixedOutletId]
               : [],
+          reportAccessAllOutlets: reportingDefault,
         });
       }
       setError('');
@@ -228,7 +263,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     if (field === 'assignMultipleOutlets' && canPickAnyOutlet) {
       const enabled = !!value;
       if (enabled) {
-        // Moving from single → multi: ensure outletIds contains the current primary outlet
+        // Moving from single â†’ multi: ensure outletIds contains the current primary outlet
         const currentId = formData.outletId;
         const existingIds = Array.isArray(newData.outletIds) ? newData.outletIds : [];
         const merged = currentId
@@ -236,7 +271,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           : existingIds;
         newData.outletIds = merged;
       } else {
-        // Moving from multi → single: keep first selected as primary outlet
+        // Moving from multi â†’ single: keep first selected as primary outlet
         const firstId = Array.isArray(formData.outletIds) && formData.outletIds.length > 0
           ? formData.outletIds[0]
           : formData.outletId || null;
@@ -255,7 +290,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
 
     // For regular users and outlet admins, ensure outletId is always their assigned outlet
     if (!canPickAnyOutlet) {
-      newData.outletId = currentUser?.outletId || null;
+      newData.outletId = fixedOutletId;
       newData.outletIds = newData.outletId ? [newData.outletId] : [];
       newData.assignMultipleOutlets = false;
     }
@@ -264,7 +299,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     if (field === 'role') {
       if (value === 'NO_ROLE_ALL_PERMISSIONS') {
         newData.hasAllPermission = true;
-        // For "No Role (All Permissions)", user gets all permissions for the selected outlet only
+        // For "No Role (has all permissions)", user gets all permissions for the selected outlet only
         newData.outletId = formData.outletId;
       } else {
         newData.hasAllPermission = false;
@@ -272,7 +307,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     }
 
     setFormData(newData);
-    
+
     // Clear validation error when user starts typing
     if (validationErrors[field]) {
       setValidationErrors(prev => ({
@@ -282,29 +317,30 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     }
   };
 
+  const usernameTrimmed = formData.username.trim();
+  const usernameTaken =
+    Boolean(usernameTrimmed) &&
+    takenUsernames.includes(usernameTrimmed) &&
+    usernameTrimmed !== String(user?.username || '').trim();
+
   const validateForm = () => {
     const errors = {};
 
-    // Name validation
-    if (!formData.username.trim()) {
-      errors.username = 'Username is required';
-    }
     if (!formData.name.trim()) {
       errors.name = 'Name is required';
+    }
+    if (!usernameTrimmed) {
+      errors.username = 'Username is required';
+    } else if (usernameTaken) {
+      errors.username = 'That username is already in use';
     }
 
     // Password validation (required for new users, optional for edit)
     if (!isEditMode && !formData.password) {
       errors.password = 'Password is required';
     }
-    
     if (formData.password && formData.password.length < 6) {
       errors.password = 'Password must be at least 6 characters';
-    }
-
-    // Confirm password validation
-    if (formData.password && formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
     }
 
     // Outlet validation
@@ -341,7 +377,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     try {
       const userData = {
         name: formData.name.trim(),
-        username: formData.username.trim(),
+        username: usernameTrimmed,
         isActive: formData.isActive,
         hasAllPermission: formData.hasAllPermission,
       };
@@ -367,15 +403,19 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
         if (formData.outletId) {
           userData.outletId = formData.outletId;
         }
-      if (formData.assignMultipleOutlets && Array.isArray(formData.outletIds)) {
-        userData.assignMultipleOutlets = true;
-        userData.outletIds = formData.outletIds;
-      }
+        if (formData.assignMultipleOutlets && Array.isArray(formData.outletIds)) {
+          userData.assignMultipleOutlets = true;
+          userData.outletIds = formData.outletIds;
+        }
       } else if (!isEditMode) {
         // Regular users / outlet admins create in their own outlet; a global admin
         // standing in a navbar outlet creates for that outlet. Editing without the
         // picker leaves the user's assignments untouched.
         userData.outletId = fixedOutletId;
+      }
+
+      if (!isEditMode) {
+        userData.reportAccessAllOutlets = Boolean(formData.reportAccessAllOutlets);
       }
 
       if (isEditMode) {
@@ -392,27 +432,8 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
     }
   };
 
-  const getRoleDisplayText = () => {
-    if (!formData.role) {
-      return 'No role selected';
-    }
-    if (formData.role === 'NO_ROLE_ALL_PERMISSIONS') {
-      return 'No Role (All Permissions)';
-    }
-    const selectedRole = roles.find(role => role.name === formData.role);
-    return selectedRole?.name || formData.role;
-  };
-
-  const getRoleDescription = () => {
-    if (!formData.role) {
-      return 'Please select a role for this user';
-    }
-    if (formData.role === 'NO_ROLE_ALL_PERMISSIONS') {
-      return 'Outlet admin access - all permissions for this specific outlet only';
-    }
-    const selectedRole = roles.find(role => role.name === formData.role);
-    return selectedRole?.description || 'Role permissions will be applied according to system settings';
-  };
+  const usernameInvalid = Boolean(validationErrors.username) || usernameTaken;
+  const outletName = (id) => outlets.find((o) => o.id === id)?.name || `Outlet ${id}`;
 
   return (
     <Dialog
@@ -443,293 +464,193 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
         </Typography>
       </Box>
 
-      <DialogContent>
+      <DialogContent sx={{ pt: 3, pb: 1 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-          {/* Name Field (labeled, per reference) */}
-          <TextField
-            label="Name"
-            value={formData.name}
-            onChange={(e) => handleInputChange('name', e.target.value)}
-            error={!!validationErrors.name}
-            helperText={validationErrors.name}
-            fullWidth
-            required
-            sx={inputSx}
-          />
+        {/* autoComplete="off" on the form: Chrome was filling the signed-in
+            admin's own username + password into a NEW user's fields. */}
+        <Box component="form" autoComplete="off" onSubmit={(e) => e.preventDefault()} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Name: reference shows it as a bare placeholder field */}
+          <Box>
+            <TextField
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              placeholder="Name"
+              error={!!validationErrors.name}
+              fullWidth
+              sx={inputSx}
+              inputProps={{ autoComplete: 'off', name: 'new-user-display-name' }}
+            />
+            <ErrorText>{validationErrors.name}</ErrorText>
+          </Box>
 
-          {/* Username — the login credential. Its own field, and required: the
-              reference refuses to save a user without one, because the display
-              name above is never matched at sign-in. */}
-          <TextField
-            label="Username"
-            value={formData.username}
-            onChange={(e) => handleInputChange('username', e.target.value)}
-            error={!!validationErrors.username}
-            helperText={validationErrors.username || 'What this person types to log in. Must be unique.'}
-            fullWidth
-            required
-            sx={inputSx}
-          />
+          {/* Username  -  the login credential. Required and unique: a red cross
+              while it is empty or already taken, a green tick once it is fine. */}
+          <Box>
+            <FieldLabel invalid={usernameInvalid}>Username</FieldLabel>
+            <TextField
+              value={formData.username}
+              onChange={(e) => handleInputChange('username', e.target.value)}
+              error={usernameInvalid}
+              fullWidth
+              sx={inputSx}
+              inputProps={{ autoComplete: 'off', name: 'new-user-login-name' }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {/* Reference: tick once it is fine, cross only when it is wrong
+                        (taken, or still empty after Create was pressed) */}
+                    {usernameTrimmed && !usernameTaken ? (
+                      <ValidIcon sx={{ fontSize: 20, color: '#16a34a' }} />
+                    ) : usernameInvalid ? (
+                      <InvalidIcon sx={{ fontSize: 20, color: '#dc2626' }} />
+                    ) : null}
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <ErrorText>{validationErrors.username || (usernameTaken ? 'That username is already in use' : '')}</ErrorText>
+          </Box>
 
-          {/* Password Field */}
-          <TextField
-            placeholder={isEditMode ? 'New Password (leave blank to keep current)' : 'Password'}
-            type="password"
-            value={formData.password}
-            onChange={(e) => handleInputChange('password', e.target.value)}
-            error={!!validationErrors.password}
-            helperText={validationErrors.password}
-            fullWidth
-            required={!isEditMode}
-            sx={inputSx}
-          />
+          {/* Password */}
+          <Box>
+            <FieldLabel invalid={!!validationErrors.password}>Password</FieldLabel>
+            <TextField
+              type="password"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              placeholder={isEditMode ? 'Leave blank to keep the current password' : ''}
+              error={!!validationErrors.password}
+              fullWidth
+              sx={inputSx}
+              inputProps={{ autoComplete: 'new-password', name: 'new-user-password' }}
+            />
+            <ErrorText>{validationErrors.password}</ErrorText>
+          </Box>
 
-          {/* Confirm Password Field */}
-          <TextField
-            placeholder="Confirm Password"
-            type="password"
-            value={formData.confirmPassword}
-            onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-            error={!!validationErrors.confirmPassword}
-            helperText={validationErrors.confirmPassword}
-            fullWidth
-            required={!!formData.password}
-            sx={inputSx}
-          />
+          {/* Outlet (our outlet-wise rule, not in the reference): only in All
+              Outlets mode. With a navbar outlet the user is created for it. */}
+          {!canPickAnyOutlet && fixedOutletId && !isEditMode && (
+            <Typography sx={{ fontSize: 13, color: '#676b72' }}>
+              Creating user for outlet: <strong>{fixedOutletName || `Outlet ${fixedOutletId}`}</strong>
+            </Typography>
+          )}
 
-                                 {/* Outlet Information for Regular Users and Outlet Admins */}
-            {!canPickAnyOutlet && fixedOutletId && !isEditMode && (
-              <Box sx={{ p: 2, backgroundColor: '#e3f2fd', borderRadius: 1, border: '1px solid #2196f3' }}>
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
-                  Creating user for outlet: {fixedOutletName || `Outlet ${fixedOutletId}`}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  You can only create users in your assigned outlet
-                </Typography>
-              </Box>
-            )}
-
-          {/* Outlet Selection - Only show for true super admins */}
           {canPickAnyOutlet && (
             <>
-              {/* Single-outlet selection when multi-outlet is OFF */}
               {!formData.assignMultipleOutlets && (
-                <FormControl fullWidth>
-                  <InputLabel>Outlet</InputLabel>
+                <Box>
+                  <FieldLabel invalid={!!validationErrors.outletId}>Outlet</FieldLabel>
                   <Select
                     value={formData.outletId || ''}
-                    label="Outlet"
+                    displayEmpty
                     onChange={(e) => handleInputChange('outletId', e.target.value)}
                     error={!!validationErrors.outletId}
+                    fullWidth
                     sx={selectSx}
+                    IconComponent={ArrowDropDownIcon}
+                    MenuProps={REF_MENU_PROPS}
+                    renderValue={(v) => (v ? outletName(v) : <Box component="span" sx={{ color: '#808080' }}>Select an outlet</Box>)}
                   >
-                    <MenuItem value="">
-                      <em>Select an outlet</em>
-                    </MenuItem>
                     {outlets.map((outlet) => (
-                      <MenuItem key={outlet.id} value={outlet.id}>
-                        <Box>
-                          <Typography variant="body2">
-                            {outlet.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {outlet.code} - {outlet.address}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
+                      <MenuItem key={outlet.id} value={outlet.id}>{outlet.name}</MenuItem>
                     ))}
-                    {outlets.length === 0 && (
-                      <MenuItem disabled>No outlets available</MenuItem>
-                    )}
+                    {outlets.length === 0 && <MenuItem disabled>No outlets available</MenuItem>}
                   </Select>
-                  {validationErrors.outletId && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                      {validationErrors.outletId}
-                    </Typography>
-                  )}
-                </FormControl>
+                  <ErrorText>{validationErrors.outletId}</ErrorText>
+                </Box>
               )}
 
-              {/* Assign Multiple Outlets Toggle */}
-              <Box sx={{ mt: 2 }}>
-                <FormControlLabel
-                  control={
-                    <ShopfrontSwitch
-                      checked={formData.assignMultipleOutlets}
-                      onChange={(e) =>
-                        handleInputChange('assignMultipleOutlets', e.target.checked)
-                      }
-                    />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="body2">
-                        Assign Multiple Outlets
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Allow this user to access more than one outlet
-                      </Typography>
-                    </Box>
-                  }
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <ShopfrontSwitch
+                  checked={formData.assignMultipleOutlets}
+                  onChange={(e) => handleInputChange('assignMultipleOutlets', e.target.checked)}
                 />
+                <Typography sx={{ fontSize: 16, color: '#313439' }}>Assign Multiple Outlets</Typography>
               </Box>
 
-              {/* Multi-outlet selection when enabled */}
               {formData.assignMultipleOutlets && (
-                <FormControl fullWidth sx={{ mt: 1 }}>
-                  <InputLabel>Outlets</InputLabel>
+                <Box>
+                  <FieldLabel invalid={!!validationErrors.outletId}>Outlets</FieldLabel>
                   <Select
                     multiple
                     value={formData.outletIds || []}
-                    label="Outlets"
+                    displayEmpty
                     onChange={(e) => handleInputChange('outletIds', e.target.value)}
+                    error={!!validationErrors.outletId}
+                    fullWidth
                     sx={selectSx}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => {
-                          const outlet = outlets.find((o) => o.id === value);
-                          return (
-                            <Typography
-                              key={value}
-                              variant="caption"
-                              sx={{ mr: 0.5 }}
-                            >
-                              {outlet?.name || `Outlet ${value}`}
-                            </Typography>
-                          );
-                        })}
-                      </Box>
-                    )}
+                    IconComponent={ArrowDropDownIcon}
+                    MenuProps={REF_MENU_PROPS}
+                    renderValue={(selected) =>
+                      selected.length
+                        ? selected.map(outletName).join(', ')
+                        : <Box component="span" sx={{ color: '#808080' }}>Select outlets</Box>
+                    }
                   >
                     {outlets.map((outlet) => (
-                      <MenuItem key={outlet.id} value={outlet.id}>
-                        <Box>
-                          <Typography variant="body2">
-                            {outlet.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {outlet.code} - {outlet.address}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
+                      <MenuItem key={outlet.id} value={outlet.id}>{outlet.name}</MenuItem>
                     ))}
-                    {outlets.length === 0 && (
-                      <MenuItem disabled>No outlets available</MenuItem>
-                    )}
+                    {outlets.length === 0 && <MenuItem disabled>No outlets available</MenuItem>}
                   </Select>
-                  {validationErrors.outletId && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                      {validationErrors.outletId}
-                    </Typography>
-                  )}
-                </FormControl>
+                  <ErrorText>{validationErrors.outletId}</ErrorText>
+                </Box>
               )}
             </>
           )}
 
-          {/* Role Selection */}
-          <FormControl fullWidth>
-            <InputLabel>Role</InputLabel>
+          {/* Role */}
+          <Box>
+            <FieldLabel invalid={!!validationErrors.role}>Role</FieldLabel>
             <Select
               value={formData.role || ''}
-              label="Role"
+              displayEmpty
               onChange={(e) => handleInputChange('role', e.target.value)}
               error={!!validationErrors.role}
               disabled={(canPickAnyOutlet && !formData.outletId) || rolesLoading}
+              fullWidth
               sx={selectSx}
+              IconComponent={ArrowDropDownIcon}
+              MenuProps={REF_MENU_PROPS}
+              renderValue={(v) => {
+                if (!v) {
+                  return (
+                    <Box component="span" sx={{ color: '#808080' }}>
+                      {rolesLoading ? 'Loading roles...' : canPickAnyOutlet && !formData.outletId ? 'Select an outlet first' : 'Select a role'}
+                    </Box>
+                  );
+                }
+                return v === 'NO_ROLE_ALL_PERMISSIONS' ? 'No Role (has all permissions)' : v;
+              }}
             >
-              <MenuItem value="">
-                <em>Select a role</em>
-              </MenuItem>
-              
-              {/* Special "No Role" option with all permissions */}
-              <MenuItem value="NO_ROLE_ALL_PERMISSIONS">
-                <Box>
-                  <Typography variant="body2">
-                    No Role (has all permissions)
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    All permissions for selected outlet only
-                  </Typography>
-                </Box>
-              </MenuItem>
-              
+              {/* Reference: the owner-style option sits first */}
+              <MenuItem value="NO_ROLE_ALL_PERMISSIONS">No Role (has all permissions)</MenuItem>
               {roles.map((role) => (
-                <MenuItem key={role.id} value={role.name}>
-                  <Box>
-                    <Typography variant="body2">
-                      {role.name}
-                    </Typography>
-                  </Box>
-                </MenuItem>
+                <MenuItem key={role.id} value={role.name}>{role.name}</MenuItem>
               ))}
-                                                           {roles.length === 0 && (
-                                   <MenuItem disabled>
-                     {rolesLoading
-                       ? 'Loading roles…'
-                       : canPickAnyOutlet && !formData.outletId
-                         ? 'Select an outlet first'
-                         : 'No roles available'
-                     }
-                   </MenuItem>
-                )}
             </Select>
-            {validationErrors.role && (
-              <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                {validationErrors.role}
-              </Typography>
-            )}
-          </FormControl>
+            <ErrorText>{validationErrors.role}</ErrorText>
+          </Box>
 
-          {/* Status Switch */}
-          <FormControlLabel
-            control={
+          {/* Reference: "Enable Reporting for All Outlets"  -  starts every assigned
+              outlet's Reporting Access switch on (default from Setup > General). */}
+          {!isEditMode && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <ShopfrontSwitch
-                checked={formData.isActive}
-                onChange={(e) => handleInputChange('isActive', e.target.checked)}
+                checked={formData.reportAccessAllOutlets}
+                onChange={(e) => handleInputChange('reportAccessAllOutlets', e.target.checked)}
               />
-            }
-            label={
-              <Box>
-                <Typography variant="body2">
-                  Active User
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {formData.isActive ? 'User can log in' : 'User cannot log in'}
-                </Typography>
-              </Box>
-            }
-          />
-
-                     {/* Role Summary */}
-           <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
-             <Typography variant="body2" color="text.secondary">
-               Selected Role: <strong>{getRoleDisplayText()}</strong>
-             </Typography>
-             <Typography variant="caption" color="text.secondary">
-               {getRoleDescription()}
-             </Typography>
-                                                                                                               {formData.outletId && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                       Outlet: <strong>
-                       {canPickAnyOutlet 
-                         ? (outlets.find(o => o.id === formData.outletId)?.name || 'Unknown')
-                         : (getOutletName() || outlets.find(o => o.id === formData.outletId)?.name || '—')
-                       }
-                     </strong>
-                  </Typography>
-                )}
-           </Box>
+              <Typography sx={{ fontSize: 16, color: '#313439' }}>Enable Reporting for All Outlets</Typography>
+            </Box>
+          )}
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 3, gap: 1 }}>
+      <DialogActions sx={{ p: 3, pt: 2, gap: 1 }}>
         <Button
           disableRipple
           onClick={onClose}
