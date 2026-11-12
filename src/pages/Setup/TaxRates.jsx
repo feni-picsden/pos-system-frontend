@@ -97,6 +97,9 @@ const TaxRates = () => {
   // Load tax rates on component mount
   // Refetch on outlet switch (see Registers.jsx).
   const { selectedOutletId } = useSelectedOutlet();
+  // Outlet column only on "All Outlets": with a navbar outlet every row is
+  // that outlet or Global, so the column adds nothing.
+  const showOutletColumn = isTrueSuperAdmin() && selectedOutletId == null;
   useEffect(() => {
     loadTaxRates();
   }, [selectedOutletId]);
@@ -309,7 +312,7 @@ const TaxRates = () => {
               >
                 <TableCell>Name</TableCell>
                 <TableCell>Amount</TableCell>
-                {isTrueSuperAdmin() && <TableCell>Outlet</TableCell>}
+                {showOutletColumn && <TableCell>Outlet</TableCell>}
                 <TableCell>Status</TableCell>
                 <TableCell>Default</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -318,7 +321,7 @@ const TaxRates = () => {
             <TableBody>
               {taxRates.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isTrueSuperAdmin() ? 6 : 5} align="center" sx={{ py: 4, border: 0 }}>
+                  <TableCell colSpan={showOutletColumn ? 6 : 5} align="center" sx={{ py: 4, border: 0 }}>
                     <Typography variant="body1" color="text.secondary">
                       No tax rates found. {canAddTaxRates && 'Click "New" to create your first tax rate.'}
                     </Typography>
@@ -398,7 +401,7 @@ const TaxRates = () => {
                         {formatAmount(taxRate.amount)}
                       </Typography>
                     </TableCell>
-                    {isTrueSuperAdmin() && (
+                    {showOutletColumn && (
                       <TableCell>
                         <Chip
                           label={getOutletDisplay(taxRate)}
