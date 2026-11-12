@@ -20,7 +20,7 @@ import {
 // Reference: "Looking for the file format? Click here." on the Import Gift
 // Cards page opens the help article in a right-hand drawer (left table of
 // contents, article on the right, < > and Close) - same control as the
-// External Stocktake help. Content: support.onshopfront.com article
+// External Stocktake help. Content: support.onCrinit Shop.com article
 // 115003889472 "Setting up and Selling Gift Cards".
 
 const SECTIONS = [
@@ -157,7 +157,7 @@ export default function GiftCardsHelpDrawer({ open, onClose, initialSection = 'i
         </Box>
         <Box ref={bodyRef} sx={{ flex: 1, overflowY: 'auto', px: 4, pb: 4 }}>
           <H2 id="setup">Setting up and Selling Gift Cards</H2>
-          <P>Gift cards in Shopfront use a uniquely generated code. Once a gift card has been fully redeemed its code can be used again on a new card.</P>
+          <P>Gift cards in Crinit Shop use a uniquely generated code. Once a gift card has been fully redeemed its code can be used again on a new card.</P>
 
           <H3 id="payment">Creating the Gift Card Payment Method</H3>
           <P>Gift cards are redeemed through a payment method, so the first step is to create one.</P>

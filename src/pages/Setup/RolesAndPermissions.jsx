@@ -13,6 +13,7 @@ import {
   CircularProgress,
   Dialog,
   TextField,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -59,6 +60,19 @@ const rowActionSx = (color) => ({
   transition: INSTANT,
   '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
 });
+
+// Reference lays the row actions out as three equal columns (Edit / Delete / Clone);
+// a deleted role's Restore sits in the middle column.
+const ACTIONS_GRID_SX = { display: 'grid', gridTemplateColumns: 'repeat(3, 140px)', justifyContent: 'end', alignItems: 'center' };
+const LOCKED_TOOLTIP = 'This is defined by Crinit Shop and cannot be modified.';
+const LOCKED_TOOLTIP_PROPS = {
+  arrow: true,
+  placement: 'top',
+  componentsProps: {
+    tooltip: { sx: { bgcolor: '#fff', color: '#313439', fontSize: 15, fontWeight: 400, border: '1px solid #d0d0d0', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', px: 2, py: 1, borderRadius: '8px' } },
+    arrow: { sx: { color: '#fff', '&::before': { border: '1px solid #d0d0d0' } } },
+  },
+};
 
 // Small centered name-prompt dialog matching the reference "Create New Role" prompt:
 // light-blue title bar with '?' icon, question text, 42px input, Cancel/confirm buttons.
@@ -205,6 +219,8 @@ const RolesAndPermissions = () => {
       setDeleteDialog({ open: false, role: null, loading: false });
       setError(err.response?.data?.error || 'Failed to delete role');
       console.error('Error deleting role:', err);
+      // The row may be stale (deleted elsewhere): drop it from the list.
+      if (err.response?.status === 404) loadRoles();
     }
   };
 
@@ -304,7 +320,11 @@ const RolesAndPermissions = () => {
               >
                 <TableCell sx={{ pl: '20px' }}>Name</TableCell>
                 <TableCell>User Count</TableCell>
-                <TableCell align="right" sx={{ pr: '20px' }}>Actions</TableCell>
+                <TableCell sx={{ pr: '20px' }}>
+                  <Box sx={{ ...ACTIONS_GRID_SX, gridTemplateColumns: '420px' }}>
+                    <Box sx={{ textAlign: 'center' }}>Actions</Box>
+                  </Box>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody
@@ -317,11 +337,11 @@ const RolesAndPermissions = () => {
               {roles.map((role) => (
                 <TableRow key={role.id}>
                   <TableCell sx={{ pl: '20px' }}>{role.name}</TableCell>
-                  <TableCell>{role.userCount}</TableCell>
-                  <TableCell align="right" sx={{ pr: '20px' }}>
-                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                      {(canEditRoles || canDeleteRoles) ? (
-                        <>
+                  <TableCell  >{role.userCount}</TableCell>
+                  <TableCell sx={{ pr: '20px' }}>
+                    {(canEditRoles || canDeleteRoles) ? (
+                      <Box sx={ACTIONS_GRID_SX}>
+                        <Box>
                           {canEditRoles && (
                             <Button
                               disableRipple
@@ -332,6 +352,8 @@ const RolesAndPermissions = () => {
                               Edit
                             </Button>
                           )}
+                        </Box>
+                        <Box>
                           {canDeleteRoles && (
                             <Button
                               disableRipple
@@ -342,7 +364,18 @@ const RolesAndPermissions = () => {
                               Delete
                             </Button>
                           )}
-                          {canEditRoles && (
+                        </Box>
+                        <Box>
+                          {canEditRoles && !role.isActive ? (
+                            <Button
+                              disableRipple
+                              startIcon={<RestoreIcon />}
+                              onClick={() => handleToggleStatus(role.id)}
+                              sx={rowActionSx('#0284c7')}
+                            >
+                              Restore
+                            </Button>
+                          ) : canEditRoles && (
                             <Button
                               disableRipple
                               startIcon={<CloneIcon />}
@@ -352,49 +385,48 @@ const RolesAndPermissions = () => {
                               Clone
                             </Button>
                           )}
-                          {canEditRoles && !role.isActive && (
-                            <Button
-                              disableRipple
-                              startIcon={<RestoreIcon />}
-                              onClick={() => handleToggleStatus(role.id)}
-                              sx={rowActionSx('#0284c7')}
-                            >
-                              Restore
-                            </Button>
-                          )}
-                        </>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                          No actions available
-                        </Typography>
-                      )}
-                    </Box>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'right' }}>
+                        No actions available
+                      </Typography>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
               {/* Deleted (restorable) roles stay listed as locked gray rows */}
               {deletedRoles.map((item) => (
-                <TableRow key={`deleted-${item.trashedItemId}`}>
+                /* Hovering anywhere on a locked row shows the tooltip centred over the row (reference). */
+                <Tooltip key={`deleted-${item.trashedItemId}`} title={LOCKED_TOOLTIP} {...LOCKED_TOOLTIP_PROPS}>
+                <TableRow>
                   <TableCell sx={{ pl: '20px' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LockIcon sx={{ fontSize: 18, color: '#9e9e9e' }} />
-                      <Typography sx={{ fontSize: 16, color: '#9e9e9e' }}>{item.name}</Typography>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, cursor: 'default' }}>
+                      <LockIcon sx={{ fontSize: 18, color: '#313439' }} />
+                      <Typography sx={{ fontSize: 16, color: '#000' }}>{item.name}</Typography>
                     </Box>
                   </TableCell>
                   <TableCell />
-                  <TableCell align="right" sx={{ pr: '20px' }}>
-                    {canAddRoles && (
-                      <Button
-                        disableRipple
-                        startIcon={<RestoreIcon />}
-                        onClick={() => handleRestoreDeleted(item)}
-                        sx={rowActionSx('#0284c7')}
-                      >
-                        Restore
-                      </Button>
-                    )}
+                  <TableCell sx={{ pr: '20px' }}>
+                    <Box sx={ACTIONS_GRID_SX}>
+                      <Box />
+                      <Box>
+                        {canAddRoles && (
+                          <Button
+                            disableRipple
+                            startIcon={<RestoreIcon />}
+                            onClick={() => handleRestoreDeleted(item)}
+                            sx={rowActionSx('#0284c7')}
+                          >
+                            Restore
+                          </Button>
+                        )}
+                      </Box>
+                      <Box />
+                    </Box>
                   </TableCell>
                 </TableRow>
+                </Tooltip>
               ))}
               {roles.length === 0 && deletedRoles.length === 0 && (
                 <TableRow>

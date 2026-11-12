@@ -22,9 +22,9 @@ import {
 // Reference: "Looking for the file format? Click here." in the Import Customers
 // dialog opens the help article "Customer Management" in a right-hand drawer
 // (title, "Open externally" link, < > section paging, Close). Content:
-// support.onshopfront.com article 115003820631.
+// support.onCrinit Shop.com article 115003820631.
 
-const ARTICLE_URL = 'https://support.onshopfront.com/hc/en-us/articles/115003820631-Customer-Management';
+const ARTICLE_URL = 'https://support.onCrinit Shop.com/hc/en-us/articles/115003820631-Customer-Management';
 
 const SECTIONS = [
   'creating', 'groups', 'adding', 'emailing', 'assigning', 'pricelists', 'merging', 'exporting', 'importing', 'faq',
@@ -180,7 +180,7 @@ export default function CustomersHelpDrawer({ open, onClose, initialSection = 'i
         </Typography>
 
         <H2 id="creating">Creating Customers</H2>
-        <P>Creating customers within Shopfront allows for various functions, such as account sales, loyalty, promotions, customer history and price lists.</P>
+        <P>Creating customers within Crinit Shop allows for various functions, such as account sales, loyalty, promotions, customer history and price lists.</P>
         <P italic>Note: Before creating customers, you may wish to set up customer groups such as loyalty customers and account customers. This article also provides information about creating customer groups.</P>
         <P>To create your customers, follow the steps below. If you have a sales key icon created, you can also create customers from the register:</P>
         <Ol items={[

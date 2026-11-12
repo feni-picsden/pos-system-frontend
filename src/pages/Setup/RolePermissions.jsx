@@ -6,7 +6,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   Alert,
   FormControl,
   InputLabel,
@@ -16,6 +15,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -35,6 +35,20 @@ const INSTANT = 'all 0s ease';
 // Baseline of the editable state; toggle order must not count as an edit.
 const snapshot = (name, permissions) =>
   JSON.stringify([name.trim(), [...permissions].sort()]);
+
+// Reference rule: a permission is only grantable while every permission it
+// requires is granted. Dropping a parent drops its dependants too (repeat
+// until stable, so a chain like See Host Connections > See Host Changes >
+// Manage Host Changes collapses in one go).
+const pruneUnmet = (selected, requiresByName) => {
+  let current = [...selected];
+  for (;;) {
+    const have = new Set(current);
+    const next = current.filter((name) => (requiresByName[name] || []).every((req) => have.has(req)));
+    if (next.length === current.length) return next;
+    current = next;
+  }
+};
 
 const RolePermissions = () => {
   const navigate = useNavigate();
@@ -124,24 +138,44 @@ const RolePermissions = () => {
     }
   };
 
+  // name -> required permission names / label, from the catalog
+  const requiresByName = useMemo(
+    () => Object.fromEntries(catalog.map((p) => [p.name, p.requires || []])),
+    [catalog]
+  );
+  const labelByName = useMemo(
+    () => Object.fromEntries(catalog.map((p) => [p.name, p.description || p.label || p.name])),
+    [catalog]
+  );
+
   const handlePermissionToggle = (permission) => {
     setSelectedPermissions((current) =>
       current.includes(permission)
-        ? current.filter((p) => p !== permission)
+        ? pruneUnmet(current.filter((p) => p !== permission), requiresByName)
         : [...current, permission]
     );
   };
 
   // Category switch (local addition, requested): one toggle beside the heading
-  // turns the whole category on when any of it is off, else off.
+  // turns the whole category on when any of it is off, else off. Only the
+  // permissions whose requirements are met can come on.
+  // A category counts as fully on when nothing more in it CAN come on (members locked
+  // by a parent in another category are ignored), so the next click turns it off.
+  const categoryWouldBe = (current, names) =>
+    pruneUnmet([...current, ...names.filter((n) => !current.includes(n))], requiresByName);
+  const categoryAllOn = (current, names) =>
+    categoryWouldBe(current, names).filter((n) => names.includes(n)).every((n) => current.includes(n));
   const handleCategoryToggle = (permissions) => {
     const names = permissions.map((p) => p.name);
     setSelectedPermissions((current) => {
-      const allOn = names.every((n) => current.includes(n));
-      if (allOn) return current.filter((n) => !names.includes(n));
-      return [...current, ...names.filter((n) => !current.includes(n))];
+      if (categoryAllOn(current, names)) return pruneUnmet(current.filter((n) => !names.includes(n)), requiresByName);
+      return categoryWouldBe(current, names);
     });
   };
+
+  // Which permissions this role may currently switch on
+  const selectedSet = useMemo(() => new Set(selectedPermissions), [selectedPermissions]);
+  const missingFor = (name) => (requiresByName[name] || []).filter((req) => !selectedSet.has(req));
 
   const handleSave = async () => {
     if (!roleName.trim()) {
@@ -153,11 +187,14 @@ const RolePermissions = () => {
       setSaving(true);
       setError('');
 
+      // Never send a grant whose requirements are off (the API refuses it, and a
+      // role saved before this rule existed may still carry one).
+      const grants = pruneUnmet(selectedPermissions, requiresByName);
       if (isEditMode) {
         if (roleName.trim() !== originalName) {
           await roleService.updateRole(roleId, { name: roleName.trim() });
         }
-        await roleService.updateRolePermissions(roleId, selectedPermissions);
+        await roleService.updateRolePermissions(roleId, grants);
       } else {
         const response = await roleService.createRole({
           name: roleName.trim(),
@@ -167,11 +204,11 @@ const RolePermissions = () => {
           outletId: outletId,
         });
         if (response.role && response.role.id) {
-          await roleService.updateRolePermissions(response.role.id, selectedPermissions);
+          await roleService.updateRolePermissions(response.role.id, grants);
         }
       }
 
-      savedSnapshot.current = snapshot(roleName, selectedPermissions);
+      savedSnapshot.current = snapshot(roleName, grants);
       leaveEditor();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save role');
@@ -231,20 +268,25 @@ const RolePermissions = () => {
         <Typography variant="h4" component="h1" fontWeight="bold">
           {isEditMode ? 'Modify Role' : 'Create New Role'}
         </Typography>
+        <Box sx={{ flexGrow: 1 }} />
         {isEditMode && (
+          // Reference: grey outlined "Revisions" at the top right
           <Button
             disableRipple
             onClick={handleRevisions}
             startIcon={<HistoryIcon />}
             sx={{
-              color: '#5ebbeb',
+              color: '#313439',
+              border: '1px solid #8a8f98',
+              bgcolor: '#fff',
               textTransform: 'none',
               fontWeight: 700,
               fontSize: 16,
               height: 42,
+              px: 2.5,
               borderRadius: '12px',
               transition: INSTANT,
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #8a8f98' },
             }}
           >
             Revisions
@@ -326,7 +368,7 @@ const RolePermissions = () => {
               {category}
             </Typography>
             <ShopfrontSwitch
-              checked={permissions.every((p) => selectedPermissions.includes(p.name))}
+              checked={permissions.some((p) => selectedPermissions.includes(p.name)) && categoryAllOn(selectedPermissions, permissions.map((p) => p.name))}
               onChange={() => handleCategoryToggle(permissions)}
               inputProps={{ 'aria-label': `All ${category} permissions` }}
             />
@@ -334,34 +376,72 @@ const RolePermissions = () => {
               {permissions.filter((p) => selectedPermissions.includes(p.name)).length} / {permissions.length}
             </Typography>
           </Box>
-          <Grid container>
+          {/* Reference: 4 equal columns, items flow DOWN each column (alphabetical top-to-bottom), roomy rows */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+              gridAutoFlow: 'column',
+              gridTemplateRows: { xs: 'none', sm: `repeat(${Math.ceil(permissions.length / 2)}, auto)`, md: `repeat(${Math.ceil(permissions.length / 4)}, auto)` },
+              columnGap: 3,
+              rowGap: 0,
+            }}
+          >
             {permissions.map((permission) => {
-              const checked = selectedPermissions.includes(permission.name);
-              return (
-                <Grid
-                  item
-                  xs={12}
-                  sm={6}
-                  md={3}
-                  key={permission.name}
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.75 }}
-                >
+              const missing = missingFor(permission.name);
+              const locked = missing.length > 0;
+              // A grant whose parent is off reads as off (it cannot be used anyway)
+              const checked = !locked && selectedPermissions.includes(permission.name);
+              const cell = (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
                   <ShopfrontSwitch
                     checked={checked}
+                    disabled={locked}
                     onChange={() => handlePermissionToggle(permission.name)}
+                    inputProps={{ 'aria-label': permission.label }}
                   />
-                  <Typography sx={{ fontSize: 15, color: '#313439' }}>
+                  <Typography sx={{ fontSize: 15, color: locked ? '#8a8f98' : '#313439' }}>
                     {permission.label}
                   </Typography>
-                </Grid>
+                </Box>
+              );
+              return (
+                <Box
+                  key={permission.name}
+                  sx={{ display: 'flex', alignItems: 'center', py: 1.25, minWidth: 0 }}
+                >
+                  {locked ? (
+                    // Reference: hovering a greyed toggle lists what must be on first
+                    <Tooltip
+                      arrow
+                      placement="top"
+                      componentsProps={{
+                        tooltip: { sx: { bgcolor: '#f8f8f8', color: '#000', fontSize: 15, border: '1px solid #d9d9d9', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', px: 2, py: 1.5, maxWidth: 360 } },
+                        arrow: { sx: { color: '#f8f8f8', '&::before': { border: '1px solid #d9d9d9' } } },
+                      }}
+                      title={
+                        <Box>
+                          <Typography sx={{ fontSize: 15, mb: 0.5 }}>The following permissions are required:</Typography>
+                          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                            {missing.map((req) => (
+                              <Typography key={req} component="li" sx={{ fontSize: 15 }}>{labelByName[req] || req}</Typography>
+                            ))}
+                          </Box>
+                        </Box>
+                      }
+                    >
+                      {cell}
+                    </Tooltip>
+                  ) : cell}
+                </Box>
               );
             })}
-          </Grid>
+          </Box>
         </Box>
       ))}
 
       {groups.length === 0 && (
-        <Typography color="text.secondary" sx={{ py: 4 }}>
+        <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
           No permissions match "{searchTerm}"
         </Typography>
       )}

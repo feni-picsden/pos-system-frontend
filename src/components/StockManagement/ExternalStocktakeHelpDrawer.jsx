@@ -21,14 +21,14 @@ import {
 // Reference: the "For information about formatting click here." link in the
 // Import Stocktake dialog opens the help article in a right-hand drawer (left
 // table of contents, article on the right, < > and Close). Content is the
-// support.onshopfront.com article 34108517200909 "External Stocktake Import & Export".
+// support.onCrinit Shop.com article 34108517200909 "External Stocktake Import & Export".
 
 const SECTIONS = [
   { id: 'exporting', title: 'Exporting Your Product File', level: 0 },
   { id: 'importing', title: 'Importing the Stocktake File', level: 0 },
   { id: 'format', title: 'Stocktake File Format', level: 1 },
-  { id: 'uploading', title: 'Uploading into Shopfront', level: 1 },
-  { id: 'processing', title: 'Processing in Shopfront', level: 0 },
+  { id: 'uploading', title: 'Uploading into Crinit Shop', level: 1 },
+  { id: 'processing', title: 'Processing in Crinit Shop', level: 0 },
   { id: 'matching', title: 'Product Matching', level: 1 },
   { id: 'discrepancy', title: 'Discrepancy Checking & Applying Inventory', level: 1 },
 ];
@@ -182,7 +182,7 @@ export default function ExternalStocktakeHelpDrawer({ open, onClose, initialSect
         </Box>
         <Box ref={bodyRef} sx={{ flex: 1, overflowY: 'auto', px: 4, pb: 4 }}>
           <H2 id="exporting">Exporting Your Product File</H2>
-          <P>The first step when using an external stocktaker is to provide them with a list of your products, in Shopfront we've got a standardised format that stocktakers can use.</P>
+          <P>The first step when using an external stocktaker is to provide them with a list of your products, in Crinit Shop we've got a standardised format that stocktakers can use.</P>
           <P>Head to the External Stocktakes page (Menu &gt; Stock Management &gt; More &gt; External Stocktake) then press the <i>Export Stocktake File</i> button.</P>
           <P>Select whether or not you'd like to export products that don't contain barcodes. If you do export them, you'll need a way to manually import them back into the system (e.g., some stocktakes provide a custom number to unmatched products you can use in place of a barcode).</P>
           <P>Finally, press <i>Export</i>.</P>
@@ -191,7 +191,7 @@ export default function ExternalStocktakeHelpDrawer({ open, onClose, initialSect
           <ColumnTable rows={EXPORT_COLUMNS} />
 
           <H2 id="importing">Importing the Stocktake File</H2>
-          <P>After the stocktaker has completed counting your products, they can provide you with a CSV file that can be imported back into Shopfront.</P>
+          <P>After the stocktaker has completed counting your products, they can provide you with a CSV file that can be imported back into Crinit Shop.</P>
 
           <H3 id="format">Stocktake File Format</H3>
           <P>The file should contain the following columns:</P>
@@ -207,8 +207,8 @@ export default function ExternalStocktakeHelpDrawer({ open, onClose, initialSect
           ]} />
           <Note>Be careful if you open or save the file using Excel. Unfortunately, Excel attempts to pass barcodes as numbers, and because they're long, they'll be converted to scientific notation.</Note>
 
-          <H3 id="uploading">Uploading into Shopfront</H3>
-          <P>Once you've received the file from the stocktaker, you then need to upload it into Shopfront, this can be done by:</P>
+          <H3 id="uploading">Uploading into Crinit Shop</H3>
+          <P>Once you've received the file from the stocktaker, you then need to upload it into Crinit Shop, this can be done by:</P>
           <Ol items={[
             { text: 'Navigating to the External Stocktake page (Menu > Stock Management > More > External Stocktake)' },
             { text: 'Pressing the Import Stocktake File button' },
@@ -217,24 +217,24 @@ export default function ExternalStocktakeHelpDrawer({ open, onClose, initialSect
             { text: 'Selecting whether this file will add to the existing stock or override the stock' },
           ]} />
           <Note>If you're a multi-Outlet store, you can select which location to import the file into.</Note>
-          <P>Once you're all ready to start processing it, press the <i>Import</i> button. Shopfront will begin to process this in the background and may take a few minutes, you'll receive a notification once it's done.</P>
+          <P>Once you're all ready to start processing it, press the <i>Import</i> button. Crinit Shop will begin to process this in the background and may take a few minutes, you'll receive a notification once it's done.</P>
 
-          <H2 id="processing">Processing in Shopfront</H2>
+          <H2 id="processing">Processing in Crinit Shop</H2>
           <P>After you've uploaded the file and you've received the notification that it's ready to go, you can now process the stock in your store.</P>
           <P>You'll need to view the external stocktake, this can be done by either opening the notification you've received or by pressing the <i>View</i> button on the External Stocktake page (Menu &gt; Stock Management &gt; More &gt; External Stocktake).</P>
           <P>Processing an External Stocktake involves two parts:</P>
           <Ol items={[{ text: 'Product Matching' }, { text: 'Discrepancy Checking & Applying Inventory' }]} />
 
           <H3 id="matching">Product Matching</H3>
-          <P>Product matching needs to be completed first. Shopfront attempts to match the file back to your products by matching the barcode, but sometimes a stocktaker will provide a barcode you don't have in your file, or you might have a duplicate barcode, and you'll need to select which one to use.</P>
+          <P>Product matching needs to be completed first. Crinit Shop attempts to match the file back to your products by matching the barcode, but sometimes a stocktaker will provide a barcode you don't have in your file, or you might have a duplicate barcode, and you'll need to select which one to use.</P>
           <P>Any product that doesn't match your system will be highlighted in green. You can elect to associate the unmatched barcode with an existing product or you can create a new product.</P>
           <Note>If you complete the stocktake without associating or creating all the products on the stocktake, they'll be automatically created in your file.</Note>
-          <P>Once you're happy with how the file looks, you can then press the <i>Complete</i> button which finishes this step and move onto the next step which allows you to adjust the stock in Shopfront.</P>
+          <P>Once you're happy with how the file looks, you can then press the <i>Complete</i> button which finishes this step and move onto the next step which allows you to adjust the stock in Crinit Shop.</P>
 
           <H3 id="discrepancy">Discrepancy Checking &amp; Applying Inventory</H3>
           <P>After you've completed the Product matching step, you'll now be able to check any discrepancies and apply the stocktake to your product file.</P>
           <P>Once you're on the apply screen for the external stocktake, you can elect to either review or apply the stocktake.</P>
-          <P>Pressing the <i>Apply Stocktake</i> button will cause Shopfront to start applying the stock in the background (this may take a few minutes), alternatively you can press the <i>Review</i> button to check for any discrepancies before applying it (but don't forget to apply it once you're done!).</P>
+          <P>Pressing the <i>Apply Stocktake</i> button will cause Crinit Shop to start applying the stock in the background (this may take a few minutes), alternatively you can press the <i>Review</i> button to check for any discrepancies before applying it (but don't forget to apply it once you're done!).</P>
         </Box>
       </Box>
     </Drawer>

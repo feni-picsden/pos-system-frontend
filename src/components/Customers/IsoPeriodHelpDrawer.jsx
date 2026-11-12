@@ -16,7 +16,7 @@ import { Close as CloseIcon, OpenInNew as OpenIcon } from '@mui/icons-material';
 // Reference: Customer Group > Account Sales > Credit Terms, "It must be formatted
 // as an ISO 8601 duration." opens help article 27899706774157 in a right drawer.
 
-const ARTICLE_URL = 'https://support.onshopfront.com/hc/en-us/articles/27899706774157-ISO-8601-Period-Format';
+const ARTICLE_URL = 'https://support.onCrinit Shop.com/hc/en-us/articles/27899706774157-ISO-8601-Period-Format';
 
 const DESIGNATORS = [
   ['P', 'The duration designator, placed at the start of the duration representation'],
@@ -82,7 +82,7 @@ export default function IsoPeriodHelpDrawer({ open, onClose }) {
         </Typography>
 
         <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>
-          Shopfront uses the ISO 8601 Period format to define a period of time. A period starts with a P (for
+          Crinit Shop uses the ISO 8601 Period format to define a period of time. A period starts with a P (for
           Period), followed by a number and a designator. Multiple number and designator pairs can be combined.
         </Typography>
 

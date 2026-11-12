@@ -166,7 +166,7 @@ const SAMPLE_INTEGRATIONS = [
     id: 'pricer-esl',
     name: 'Pricer ESL',
     description: 'Import pricing and product data from Crinit\'s Shop to your Pricer ESL system',
-    developedBy: 'Pricer-Shopfront-Integration',
+    developedBy: 'Pricer-Crinit Shop-Integration',
     badge: 'approved',
     isActive: false,
     logoPlaceholder: 'OZESL',
