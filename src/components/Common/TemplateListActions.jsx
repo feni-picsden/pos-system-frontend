@@ -44,7 +44,8 @@ const OUTLINE = {
   ),
 };
 
-const Glyph = ({ name }) => (
+// Exported so other Setup lists (Tax Rates) can reuse the same outline glyphs.
+export const Glyph = ({ name }) => (
   <i className={`fal fa-${name} fa-fw shopfront-icon`} aria-hidden="true">
     <svg
       viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"

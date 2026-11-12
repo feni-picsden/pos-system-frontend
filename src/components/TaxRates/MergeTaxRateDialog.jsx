@@ -69,20 +69,25 @@ const MergeTaxRateDialog = ({
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
 
-  const hasMergeable = mergeableTaxRates && mergeableTaxRates.length > 0;
-  const fromTax = taxRates?.find((t) => t.id === fromId);
-  const sameAmountAsFrom = fromTax
-    ? (taxRates || []).filter(
-        (t) => t.id !== fromId && Number(t.amount) === Number(fromTax.amount)
-      )
-    : [];
-
-  // Options sorted by percentage so groupBy gets contiguous groups. The system
-  // "No Tax" rate is locked - it can be merged INTO but never merged away.
+  // The system "No Tax" rate is locked - it can be merged INTO but never merged away.
   const isSystemRate = (t) => t.name === 'No Tax' && t.outletId == null;
-  const fromOptions = [...(mergeableTaxRates || [])].filter((t) => !isSystemRate(t)).sort(
-    (a, b) => Number(a.amount) - Number(b.amount)
-  );
+  // Same outlet view (backend rule): a global rate's products live in every
+  // outlet, so it only merges into another global rate; an outlet rate merges
+  // into its own outlet or a global rate.
+  const canMergeInto = (from, to) =>
+    from.outletId == null ? to.outletId == null : (to.outletId == null || to.outletId === from.outletId);
+  const destinationsFor = (from) =>
+    (taxRates || []).filter(
+      (t) => t.id !== from.id && Number(t.amount) === Number(from.amount) && canMergeInto(from, t)
+    );
+
+  // Options sorted by percentage so groupBy gets contiguous groups.
+  const fromOptions = [...(mergeableTaxRates || [])]
+    .filter((t) => !isSystemRate(t) && destinationsFor(t).length > 0)
+    .sort((a, b) => Number(a.amount) - Number(b.amount));
+  const hasMergeable = fromOptions.length > 0;
+  const fromTax = taxRates?.find((t) => t.id === fromId);
+  const sameAmountAsFrom = fromTax ? destinationsFor(fromTax) : [];
 
   useEffect(() => {
     if (!open) {
@@ -96,9 +101,9 @@ const MergeTaxRateDialog = ({
       onClose();
       return;
     }
-    if (fromId && toId) {
+    // The page confirms first (a merge cannot be reversed) and closes this dialog.
+    if (fromId && toId && fromId !== toId) {
       onMerge(fromId, toId);
-      onClose();
     }
   };
 

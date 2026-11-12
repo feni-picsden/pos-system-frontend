@@ -20,14 +20,13 @@ import {
   Star as StarIcon,
   StarBorder as StarBorderIcon,
   Merge as MergeIcon,
-  EditOutlined as EditOutlinedIcon,
-  DeleteOutline as DeleteOutlineIcon,
   ContentCopyOutlined as ContentCopyOutlinedIcon,
   LockOutlined as LockOutlinedIcon,
 } from '@mui/icons-material';
 import TaxRateDialog from '../../components/TaxRates/TaxRateDialog';
 import MergeTaxRateDialog from '../../components/TaxRates/MergeTaxRateDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { Glyph } from '../../components/Common/TemplateListActions';
 import PageLoader from '../../components/Common/PageLoader';
 import { taxRateService } from '../../services/taxRateService';
 import { useHasPermission } from '../../hooks/usePermissions';
@@ -50,6 +49,32 @@ const PILL_BUTTON_SX = {
   transition: INSTANT,
 };
 
+// Row action (Edit / Delete): coloured text with the reference's thin outline
+// glyph (same glyph set as the Statements / Receipts lists).
+const ROW_ACTION_SX = {
+  textTransform: 'none',
+  fontWeight: 700,
+  fontSize: 16,
+  height: 42,
+  borderRadius: '12px',
+  minWidth: 0,
+  px: 1.5,
+  transition: INSTANT,
+  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '& .MuiButton-startIcon': { mr: '6px' },
+  '& i.fal': { display: 'inline-flex', alignItems: 'center', '& svg': { width: 18, height: 18 } },
+};
+
+// Reference: "used by" explains the greyed Delete.
+const usageText = (usage) => {
+  if (!usage) return '';
+  const parts = [];
+  if (usage.products) parts.push(`${usage.products} product${usage.products === 1 ? '' : 's'}`);
+  if (usage.saleItems) parts.push(`${usage.saleItems} sale line${usage.saleItems === 1 ? '' : 's'}`);
+  if (usage.surcharges) parts.push(`${usage.surcharges} surcharge${usage.surcharges === 1 ? '' : 's'}`);
+  return parts.join(', ');
+};
+
 const TaxRates = () => {
   const { isTrueSuperAdmin: isTrueSuperAdmin } = useAuth();
   const [taxRates, setTaxRates] = useState([]);
@@ -58,6 +83,9 @@ const TaxRates = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingTaxRate, setEditingTaxRate] = useState(null);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  // Merge is irreversible (reference note), so Continue asks once more.
+  const [pendingMerge, setPendingMerge] = useState(null);
+  const [merging, setMerging] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -116,19 +144,6 @@ const TaxRates = () => {
       setDeleteTarget(null);
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const handleToggleStatus = async (taxRateId) => {
-    try {
-      await taxRateService.toggleTaxRateStatus(taxRateId);
-      await posLocalDb.invalidateStore('taxRates');
-      await loadTaxRates();
-      setError('');
-    } catch (err) {
-      const errorMessage = err.response?.data?.error || 'Failed to toggle tax rate status';
-      setError(errorMessage);
-      console.error('Error toggling tax rate status:', err);
     }
   };
 
@@ -192,16 +207,28 @@ const TaxRates = () => {
     setMergeDialogOpen(true);
   };
 
-  const handleMergeTaxRates = async (fromTaxRateId, toTaxRateId) => {
+  const handleMergeTaxRates = (fromTaxRateId, toTaxRateId) => {
+    const from = taxRates.find((t) => t.id === fromTaxRateId);
+    const to = taxRates.find((t) => t.id === toTaxRateId);
+    if (!from || !to) return;
+    setMergeDialogOpen(false);
+    setPendingMerge({ from, to });
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!pendingMerge) return;
     try {
-      await taxRateService.mergeTaxRates(fromTaxRateId, toTaxRateId);
+      setMerging(true);
+      await taxRateService.mergeTaxRates(pendingMerge.from.id, pendingMerge.to.id);
       await posLocalDb.invalidateStore('taxRates');
       await loadTaxRates();
-      setMergeDialogOpen(false);
       setError('');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to merge tax rates');
       console.error('Error merging tax rates:', err);
+    } finally {
+      setMerging(false);
+      setPendingMerge(null);
     }
   };
 
@@ -246,6 +273,14 @@ const TaxRates = () => {
             Merge
           </Button>
         )}
+        <Box sx={{ flexGrow: 1 }} />
+        {/* Live results counter, like the Products / Stocktakes pages */}
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: '#000' }}>
+            {taxRates.length}
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
+        </Box>
       </Box>
 
       {/* Error Alert */}
@@ -267,7 +302,7 @@ const TaxRates = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: '#5fb8ea', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px', pl: '20px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px', pr: '20px' },
                 }}
@@ -293,17 +328,17 @@ const TaxRates = () => {
                 taxRates.map((taxRate) => (
                   <TableRow
                     key={taxRate.id}
-                    sx={{ '& td': { borderBottom: '1px solid #e0e0e0' } }}
+                    sx={{ height: 70, '& td': { borderBottom: '1px solid #e0e0e0' } }}
                   >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {isLockedRate(taxRate) && (
+                        {/* Reference row glyph: padlock for the system rate, copy icon otherwise. */}
+                        {isLockedRate(taxRate) ? (
                           <Tooltip title="This is defined by the system and cannot be modified." placement="top-start">
                             <LockOutlinedIcon sx={{ fontSize: 18, color: '#000', cursor: 'default' }} />
                           </Tooltip>
-                        )}
-                        {taxRate.masterDatabaseRef && (
-                          <Tooltip title="Copy UUID">
+                        ) : (
+                          <Tooltip title="Copy ID">
                             <IconButton
                               size="small"
                               disableRipple
@@ -323,32 +358,37 @@ const TaxRates = () => {
                         <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {taxRate.name}
                         </Typography>
+                        {/* Reference: " - Default" in blue, or " - Set as Default" link */}
                         {taxRate.isDefault ? (
-                          <Typography component="span" sx={{ color: '#3b82f6', fontSize: 16, ml: 0.5 }}>
-                            Default
+                          <Typography component="span" sx={{ color: '#3b82f6', fontSize: 16 }}>
+                            {' - Default'}
                           </Typography>
                         ) : (
                           canEditTaxRates && taxRate.isActive && (
-                            <Box
-                              component="button"
-                              onClick={() => handleSetDefault(taxRate.id)}
-                              sx={{
-                                border: 0,
-                                bgcolor: 'transparent',
-                                color: '#000',
-                                textDecoration: 'underline',
-                                fontSize: 16,
-                                fontFamily: 'inherit',
-                                cursor: 'pointer',
-                                px: 0.75,
-                                py: 0.25,
-                                borderRadius: '8px',
-                                transition: INSTANT,
-                                '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
-                              }}
-                            >
-                              Set as Default
-                            </Box>
+                            <Typography component="span" sx={{ fontSize: 16, color: '#000' }}>
+                              {' - '}
+                              <Box
+                                component="button"
+                                type="button"
+                                onClick={() => handleSetDefault(taxRate.id)}
+                                sx={{
+                                  border: 0,
+                                  bgcolor: 'transparent',
+                                  color: '#000',
+                                  textDecoration: 'underline',
+                                  fontSize: 16,
+                                  fontFamily: 'inherit',
+                                  cursor: 'pointer',
+                                  px: 0.5,
+                                  py: 0.25,
+                                  borderRadius: '8px',
+                                  transition: INSTANT,
+                                  '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
+                                }}
+                              >
+                                Set as Default
+                              </Box>
+                            </Typography>
                           )
                         )}
                       </Box>
@@ -369,21 +409,13 @@ const TaxRates = () => {
                       </TableCell>
                     )}
                     <TableCell>
-                      {/* System rate (No Tax) can be switched on, never off. */}
-                      {(() => {
-                        const canToggle = canEditTaxRates && !(isLockedRate(taxRate) && taxRate.isActive);
-                        return (
-                      <Tooltip title={canToggle ? (taxRate.isActive ? 'Click to deactivate' : 'Click to activate') : ''}>
-                        <Chip
-                          label={taxRate.isActive ? 'Active' : 'Inactive'}
-                          color={taxRate.isActive ? 'success' : 'default'}
-                          size="small"
-                          onClick={canToggle ? () => handleToggleStatus(taxRate.id) : undefined}
-                          sx={{ fontWeight: 500 }}
-                        />
-                      </Tooltip>
-                        );
-                      })()}
+                      {/* Read-only badge; Active is changed from the Edit dialog. */}
+                      <Chip
+                        label={taxRate.isActive ? 'Active' : 'Inactive'}
+                        color={taxRate.isActive ? 'success' : 'default'}
+                        size="small"
+                        sx={{ fontWeight: 500, cursor: 'default' }}
+                      />
                     </TableCell>
                     <TableCell>
                       {taxRate.isDefault ? (
@@ -399,47 +431,34 @@ const TaxRates = () => {
                         {canEditTaxRates && !isLockedRate(taxRate) && (
                           <Button
                             disableRipple
-                            startIcon={<EditOutlinedIcon />}
+                            startIcon={<Glyph name="pencil" />}
                             onClick={() => handleEditTaxRate(taxRate)}
-                            sx={{
-                              color: '#16a34a',
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: 16,
-                              height: 42,
-                              borderRadius: '12px',
-                              minWidth: 0,
-                              px: 1.5,
-                              transition: INSTANT,
-                              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
-                            }}
+                            sx={{ ...ROW_ACTION_SX, color: '#16a34a' }}
                           >
                             Edit
                           </Button>
                         )}
                         {canDeleteTaxRates && !isLockedRate(taxRate) && (
                           <Tooltip
-                            title={taxRate.isDefault ? 'Cannot delete the default Tax Rate' : ''}
+                            title={
+                              taxRate.isDefault
+                                ? 'Cannot delete the default Tax Rate'
+                                : taxRate.inUse
+                                  ? `Used by ${usageText(taxRate.usage)} - merge it into another tax rate instead`
+                                  : ''
+                            }
                             placement="top"
                             arrow
                           >
                           <span>
                           <Button
                             disableRipple
-                            startIcon={<DeleteOutlineIcon />}
+                            startIcon={<Glyph name="trash" />}
                             onClick={() => setDeleteTarget(taxRate)}
-                            disabled={Boolean(taxRate.isDefault)}
+                            disabled={Boolean(taxRate.isDefault) || Boolean(taxRate.inUse)}
                             sx={{
+                              ...ROW_ACTION_SX,
                               color: '#dc2626',
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: 16,
-                              height: 42,
-                              borderRadius: '12px',
-                              minWidth: 0,
-                              px: 1.5,
-                              transition: INSTANT,
-                              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
                               '&.Mui-disabled': {
                                 bgcolor: 'rgba(0,0,0,0.1)',
                                 color: '#b5b5b5',
@@ -481,6 +500,18 @@ const TaxRates = () => {
         mergeableTaxRates={mergeableTaxRates}
         taxRates={taxRates}
         formatAmount={formatAmount}
+      />
+
+      {/* Merge confirmation - there is no way to reverse a merge */}
+      <ConfirmDeleteDialog
+        open={Boolean(pendingMerge)}
+        title="Merge Tax Rate"
+        message={`Merge "${pendingMerge?.from?.name}" into "${pendingMerge?.to?.name}"? All product and sale data will be moved to "${pendingMerge?.to?.name}" and "${pendingMerge?.from?.name}" will be deleted. This cannot be undone.`}
+        confirmText="Merge"
+        loadingText="Merging..."
+        loading={merging}
+        onCancel={() => setPendingMerge(null)}
+        onConfirm={handleConfirmMerge}
       />
 
       {/* Delete confirmation */}

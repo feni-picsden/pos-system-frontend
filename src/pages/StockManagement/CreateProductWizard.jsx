@@ -23,10 +23,23 @@ import { Add as AddIcon, DeleteOutline } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/productService';
 import settingsService from '../../services/settingsService';
+import { taxRateService } from '../../services/taxRateService';
 import { createPageRuleSession } from '../../utils/pageRuleSandbox';
 import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
 import PageRuleWizard from '../../components/Common/PageRuleWizard';
 import { useAuth } from '../../contexts/AuthContext';
+
+// A new product starts on the outlet's DEFAULT tax rate (Setup > Tax Rates ->
+// "Set as Default"); this used to be a fixed "GST".
+const defaultTaxRateName = async () => {
+  try {
+    const { taxRates } = await taxRateService.getTaxRates();
+    const def = (taxRates || []).find((t) => t && t.isDefault && t.isActive !== false && t.name);
+    return def ? def.name : 'GST';
+  } catch {
+    return 'GST';
+  }
+};
 
 const steps = [
   { label: 'Barcode' },
@@ -323,7 +336,7 @@ const CreateProductWizard = () => {
         type: 'Normal Product',
         status: 'Active',
         description: '',
-        retailTaxRate: 'GST',
+        retailTaxRate: await defaultTaxRateName(),
         purchaseTaxRate: 'Inherit',
         sellOnShopMyLocal: false,
         trackInventory: true,
@@ -623,11 +636,11 @@ const CreateProductWizard = () => {
           location={{ outlet: null, register: null }}
           dbFetch={fetchPageRuleDatabase}
           onCancel={() => navigate('/products')}
-          onFinish={(fields) => {
+          onFinish={async (fields) => {
             const wizardData = {
               type: 'Normal Product',
               status: 'Active',
-              retailTaxRate: 'GST',
+              retailTaxRate: await defaultTaxRateName(),
               purchaseTaxRate: 'Inherit',
               trackInventory: true,
               ...fields,

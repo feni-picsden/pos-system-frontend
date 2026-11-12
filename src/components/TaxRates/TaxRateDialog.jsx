@@ -23,6 +23,9 @@ import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { REF_MENU_PROPS } from '../Common/refMenuProps';
+
+const NAME_MAX = 100;
 
 const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' }) => {
   const { user, isTrueSuperAdmin } = useAuth();
@@ -102,15 +105,20 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
         setError('Tax rate name is required');
         return;
       }
+      if (formData.name.trim().length > NAME_MAX) {
+        setError(`Tax rate name must be ${NAME_MAX} characters or fewer`);
+        return;
+      }
 
-      if (!formData.amount || isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) < 0) {
-        setError('Amount must be a valid number greater than or equal to 0');
+      const amount = parseFloat(formData.amount);
+      if (String(formData.amount).trim() === '' || !Number.isFinite(amount) || amount < 0 || amount > 100) {
+        setError('Amount must be a number between 0 and 100');
         return;
       }
 
       const taxRateData = {
         name: formData.name.trim(),
-        amount: parseFloat(formData.amount),
+        amount,
         masterDatabaseRef: formData.masterDatabaseRef.trim() || null,
         isActive: formData.isActive,
         isDefault: formData.isDefault,
@@ -192,11 +200,12 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
             onChange={(e) => handleInputChange('name', e.target.value)}
             fullWidth
             required
-            placeholder="Enter tax rate name (e.g., GST, VAT)"
+            placeholder="Name"
+            inputProps={{ maxLength: NAME_MAX }}
             sx={{
               marginTop: 2,
               '& .MuiOutlinedInput-root': {
-                borderRadius: 1,
+                borderRadius: '8px',
               },
             }}
           />
@@ -208,9 +217,10 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
             fullWidth
             required
             type="number"
-            inputProps={{ min: 0, step: 0.01 }}
-            placeholder="Enter tax percentage (e.g., 10.0 for 10%)"
+            inputProps={{ min: 0, max: 100, step: 0.01 }}
+            placeholder="Amount"
             InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
           />
 
           {SHOW_MASTER_DATABASE_REF && (
@@ -220,6 +230,7 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
             value={formData.masterDatabaseRef}
             onChange={(e) => handleInputChange('masterDatabaseRef', e.target.value)}
             fullWidth
+            SelectProps={{ MenuProps: REF_MENU_PROPS }}
             InputProps={{
               endAdornment: formData.masterDatabaseRef ? (
                 <InputAdornment position="end" sx={{ mr: 2.5 }}>
@@ -256,6 +267,7 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
               value={formData.outletId || ''}
               onChange={(e) => handleInputChange('outletId', e.target.value === '' ? null : parseInt(e.target.value))}
               fullWidth
+              SelectProps={{ MenuProps: REF_MENU_PROPS }}
             >
               <MenuItem value="">
                 <em>Global (All Outlets)</em>
@@ -276,10 +288,13 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
           )}
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {/* The current default can't be made inactive or un-defaulted here;
+                pick another rate's "Set as Default" first (server rejects both). */}
             <FormControlLabel
               control={
                 <Switch
                   checked={formData.isActive}
+                  disabled={Boolean(isEditMode && taxRate?.isDefault)}
                   onChange={(e) => handleInputChange('isActive', e.target.checked)}
                 />
               }
@@ -290,11 +305,17 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
               control={
                 <Switch
                   checked={formData.isDefault}
+                  disabled={Boolean(isEditMode && taxRate?.isDefault)}
                   onChange={(e) => handleInputChange('isDefault', e.target.checked)}
                 />
               }
               label="Set as Default"
             />
+            {isEditMode && taxRate?.isDefault && (
+              <Typography variant="body2" color="text.secondary">
+                This is the default tax rate. Set another rate as default first to change these.
+              </Typography>
+            )}
           </Box>
         </Box>
       </DialogContent>

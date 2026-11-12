@@ -183,6 +183,9 @@ const ReceiptEditor = () => {
   const [paddingLinked, setPaddingLinked] = useState(false);
   // Tax Indicator "Tax" options: the store's tax rates (Setup > Tax Rates).
   const [taxNames, setTaxNames] = useState([]);
+  // Reference "* Indicates items with GST": a new indicator names the outlet's
+  // DEFAULT tax rate (Setup > Tax Rates), not a fixed "No Tax".
+  const [defaultTaxName, setDefaultTaxName] = useState('GST');
   useEffect(() => {
     let alive = true;
     taxRateService.getTaxRates()
@@ -193,6 +196,8 @@ const ReceiptEditor = () => {
           .map((t) => t.name)
           .filter((name, i, all) => name !== 'No Tax' && all.indexOf(name) === i);
         setTaxNames(names);
+        const def = (taxRates || []).find((t) => t && t.isDefault && t.name);
+        if (def) setDefaultTaxName(def.name);
       })
       .catch((err) => console.error('Error loading tax rates:', err));
     return () => { alive = false; };
@@ -810,7 +815,7 @@ const ReceiptEditor = () => {
         return {
           indicator: '*',
           text: 'Indicates items with',
-          tax: 'No Tax',
+          tax: defaultTaxName,
           fontColor: '#000000',
           backgroundColor: '#ffffff',
           fontSize: 12,

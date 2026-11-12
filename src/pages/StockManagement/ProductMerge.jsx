@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/productService';
+import { taxRateService } from '../../services/taxRateService';
 import { searchProducts } from '../../utils/productSearch.js';
 import { stripHtml } from '../../services/posLocalDb';
 import { useAuth } from '../../contexts/AuthContext';
@@ -166,6 +167,9 @@ const ProductMerge = () => {
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [families, setFamilies] = useState([]);
+  // Setup > Tax Rates for this outlet (the Tax Rate select used to be a fixed
+  // GST / No Tax / Inherit list, so a store's own rates could not be picked).
+  const [taxRates, setTaxRates] = useState([]);
 
   // Load available products and classification options
   useEffect(() => {
@@ -188,15 +192,17 @@ const ProductMerge = () => {
 
   const loadClassificationOptions = async () => {
     try {
-      const [categoriesResponse, brandsResponse, familiesResponse] = await Promise.all([
+      const [categoriesResponse, brandsResponse, familiesResponse, taxRatesResponse] = await Promise.all([
         productService.getCategories(),
         productService.getBrands(),
         productService.getFamilies(),
+        taxRateService.getTaxRates().catch(() => ({ taxRates: [] })),
       ]);
-      
+
       setCategories(Array.isArray(categoriesResponse) ? categoriesResponse : []);
       setBrands(Array.isArray(brandsResponse) ? brandsResponse : []);
       setFamilies(Array.isArray(familiesResponse) ? familiesResponse : []);
+      setTaxRates(Array.isArray(taxRatesResponse?.taxRates) ? taxRatesResponse.taxRates : []);
     } catch (error) {
       console.error('Error loading classification options:', error);
     }
@@ -1287,9 +1293,18 @@ const ProductMerge = () => {
                           value={mergedProduct.retailTaxRate}
                           onChange={(e) => handleInputChange('retailTaxRate', e.target.value)}
                         >
-                          <MenuItem value="GST">GST</MenuItem>
-                          <MenuItem value="No Tax">No Tax</MenuItem>
-                          <MenuItem value="Inherit">Inherit</MenuItem>
+                          {/* The outlet's rates by name ("No Tax" is a row of that table).
+                              A value no longer in the list stays so the select never
+                              renders blank. "Inherit" is a purchase-tax value only. */}
+                          {(() => {
+                            const names = taxRates.map((t) => t.name).filter((n, i, all) => all.indexOf(n) === i);
+                            if (!names.includes('No Tax')) names.push('No Tax');
+                            const current = mergedProduct.retailTaxRate;
+                            if (current && !names.includes(current)) names.push(current);
+                            return names.map((n) => (
+                              <MenuItem key={n} value={n}>{n}</MenuItem>
+                            ));
+                          })()}
                         </Select>
                       </FormControl>
                     </Grid>

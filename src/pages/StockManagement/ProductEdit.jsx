@@ -800,6 +800,8 @@ const ProductEdit = () => {
         ...(wizard
           ? {
               name: wizard.name || prev.name,
+              // The wizard resolves the outlet's default tax rate; keep it.
+              retailTaxRate: wizard.retailTaxRate || prev.retailTaxRate,
               categoryId: wizard.categoryId ?? prev.categoryId,
               tags: wizard.tagIds || wizard.tags || prev.tags,
               caseQuantity: wizard.caseQuantity || prev.caseQuantity,
@@ -995,7 +997,14 @@ const ProductEdit = () => {
       setTags(Array.isArray(tagsResponse) ? tagsResponse : []);
       setMscOptions(Array.isArray(mscResponse) ? mscResponse : []);
       setSuppliers(Array.isArray(suppliersResponse) ? suppliersResponse : []);
-      setTaxRates(Array.isArray(taxRatesResponse.taxRates) ? taxRatesResponse.taxRates : []);
+      const rates = Array.isArray(taxRatesResponse.taxRates) ? taxRatesResponse.taxRates : [];
+      setTaxRates(rates);
+      // A brand-new product starts on the outlet's DEFAULT rate (Setup > Tax
+      // Rates), not a fixed "GST". Only the untouched initial value is replaced.
+      if (!id || id === 'new') {
+        const def = rates.find((r) => r.isDefault && r.isActive !== false);
+        if (def) setFormData((prev) => (prev.retailTaxRate === 'GST' ? { ...prev, retailTaxRate: def.name } : prev));
+      }
     } catch (error) {
       console.error('Error loading options:', error);
       // Fallback to mock data
@@ -2487,7 +2496,8 @@ const ProductEdit = () => {
                   onChange={(e) => handleInputChange('retailTaxRate', e.target.value)}
                 >
                   <MenuItem value="No Tax">No Tax</MenuItem>
-                  {taxRates.map((tax) => (
+                  {/* "No Tax" is itself a row of the tax-rate table - listed once, above. */}
+                  {taxRates.filter((tax) => tax.name !== 'No Tax').map((tax) => (
                     <MenuItem key={tax.id} value={tax.name}>
                       {tax.name} ({tax.amount}%)
                     </MenuItem>
@@ -2510,7 +2520,7 @@ const ProductEdit = () => {
                 >
                   <MenuItem value="Inherit">Inherit</MenuItem>
                   <MenuItem value="No Tax">No Tax</MenuItem>
-                  {taxRates.map((tax) => (
+                  {taxRates.filter((tax) => tax.name !== 'No Tax').map((tax) => (
                     <MenuItem key={tax.id} value={tax.name}>
                       {tax.name} ({tax.amount}%)
                     </MenuItem>
