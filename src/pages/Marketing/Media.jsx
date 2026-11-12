@@ -8,7 +8,6 @@ import {
   TextField,
   Paper,
   IconButton,
-  Dialog,
   Alert,
   CircularProgress,
   List,
@@ -18,7 +17,6 @@ import {
   ListItemText,
   Select,
   MenuItem,
-  SvgIcon,
   Tooltip,
   useTheme,
   useMediaQuery,
@@ -27,10 +25,7 @@ import {
   CloudUploadOutlined as CloudUploadIcon,
   FolderOutlined as FolderIcon,
   FolderOpenOutlined as FolderOpenIcon,
-  ImageOutlined as ImageIcon,
   InsertDriveFileOutlined as FileIcon,
-  VideoFileOutlined as VideoIcon,
-  PictureAsPdfOutlined as PdfIcon,
   DeleteOutline as DeleteIcon,
   EditOutlined as EditIcon,
   SyncOutlined as RefreshIcon,
@@ -45,181 +40,37 @@ import {
   CheckBox as CheckedIcon,
   StorageOutlined as StorageIcon,
   DescriptionOutlined as DescriptionIcon,
-  HelpOutline as HelpIcon,
   AttachFile as AttachIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
-import { formatDistanceToNowStrict } from 'date-fns';
 import apiClient from '../../services/apiClient';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
-
-const USED_FILE_MSG = "Cannot delete a file that is being used somewhere in Crinit's Shop";
-
-const SORT_OPTIONS = ['Created At', 'Last Modified', 'Name', 'File Type'];
-
-const COMPARATORS = {
-  'Created At': (a, b) => new Date(a.created || 0) - new Date(b.created || 0),
-  'Last Modified': (a, b) => new Date(a.modified || 0) - new Date(b.modified || 0),
-  Name: (a, b) => a.name.localeCompare(b.name),
-  'File Type': (a, b) => (a.extension || '').localeCompare(b.extension || ''),
-};
-
-// Media files are served by the API host from /uploads (not /api), so the origin
-// has to follow apiClient's baseURL — hardcoding a host breaks every environment
-// but the one it names. Same derivation as Setup/Users.jsx and Common/MediaDialog.jsx.
-const API_ORIGIN = (apiClient.defaults?.baseURL || '').replace(/\/+api\/?$/, '').replace(/\/+$/, '');
-
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
-const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.flv', '.wmv'];
-
-const isImageFile = (item) => IMAGE_EXTENSIONS.includes((item?.extension || '').toLowerCase());
-const isVideoFile = (item) => VIDEO_EXTENSIONS.includes((item?.extension || '').toLowerCase());
-
-// "Created 5 years ago" – empty string on a missing/garbage timestamp
-// (formatDistanceToNowStrict throws a RangeError on an invalid date).
-const relativeCreated = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? ''
-    : `Created ${formatDistanceToNowStrict(date, { addSuffix: true })}`;
-};
-
-// Thin-line "fal fa-sort-amount-up" / "fal fa-sort-amount-down": the arrow flips
-// with the sort direction so the current direction is always readable.
-const SortAmountIcon = ({ up, ...props }) => (
-  <SvgIcon viewBox="0 0 24 24" {...props}>
-    <path
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d={
-        up
-          ? 'M6 20V4.5M2.5 8L6 4.5 9.5 8M13 5.5h8M13 11.5h6M13 17.5h4'
-          : 'M6 4v15.5M2.5 16L6 19.5 9.5 16M13 5.5h8M13 11.5h6M13 17.5h4'
-      }
-    />
-  </SvgIcon>
-);
-
-/**
- * Shopfront ".question.show-frame" modal: a centred 289px card with a blue
- * circular question badge overhanging the top edge.
- * Declared at module scope so the input keeps focus between keystrokes.
- */
-// busy: the request is on its way - both buttons and Enter are off, so a
-// double click cannot send it twice
-const QuestionDialog = ({ open, title, body, value, onChange, onCancel, onConfirm, confirmText, confirmDisabled = false, busy = false }) => (
-  <Dialog
-    open={open}
-    onClose={busy ? undefined : onCancel}
-    transitionDuration={0}
-    PaperProps={{
-      sx: {
-        width: 289,
-        maxWidth: '92vw',
-        borderRadius: 0,
-        boxShadow: '0 0 30px rgba(0,0,0,0.25)',
-        overflow: 'visible',
-        mt: '48px',
-      },
-    }}
-  >
-    <Box
-      sx={{
-        position: 'absolute',
-        top: -48,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 96,
-        height: 96,
-        borderRadius: '50%',
-        bgcolor: '#1c86f2',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <HelpIcon sx={{ fontSize: 56, color: '#f8f8f8' }} />
-    </Box>
-    <Box sx={{ pt: '60px', px: 2, pb: 2, textAlign: 'center' }}>
-      <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#313439', mb: 1 }}>{title}</Typography>
-      <Typography sx={{ fontSize: 14, color: '#676b72', mb: 2 }}>{body}</Typography>
-      <Box
-        component="input"
-        autoFocus
-        value={value}
-        disabled={busy}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !confirmDisabled && !busy) onConfirm();
-        }}
-        sx={{
-          width: 257,
-          maxWidth: '100%',
-          height: 53,
-          border: '1px solid #000000',
-          borderRadius: 0,
-          fontSize: 16,
-          fontFamily: 'inherit',
-          px: 1.5,
-          boxSizing: 'border-box',
-          outline: 'none',
-        }}
-      />
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5, mt: 2 }}>
-        <Button
-          onClick={onCancel}
-          disabled={busy}
-          sx={{
-            width: 121,
-            height: 48,
-            borderRadius: 0,
-            bgcolor: '#f8f8f8',
-            color: '#676b72',
-            border: '1px solid #676b72',
-            textTransform: 'none',
-            fontSize: 16,
-            boxShadow: 'none',
-            '&:hover': { bgcolor: '#f8f8f8', boxShadow: 'none' },
-            '&.Mui-disabled': {
-              bgcolor: '#f8f8f8',
-              color: '#b3b3b3',
-              border: '1px solid #676b72',
-            },
-          }}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={onConfirm}
-          disabled={confirmDisabled || busy}
-          variant="contained"
-          sx={{
-            width: 121,
-            height: 48,
-            borderRadius: 0,
-            bgcolor: '#32b643',
-            color: '#f8f8f8',
-            textTransform: 'none',
-            fontSize: 16,
-            boxShadow: 'none',
-            '&:hover': { bgcolor: '#32b643', boxShadow: 'none' },
-            '&.Mui-disabled': {
-              bgcolor: '#e0e0e0',
-              color: '#a6a6a6',
-              boxShadow: 'none',
-            },
-          }}
-        >
-          {busy ? `${confirmText}...` : confirmText}
-        </Button>
-      </Box>
-    </Box>
-  </Dialog>
-);
+// Look + helpers shared with the picker dialog (Common/MediaDialog.jsx)
+import {
+  USED_FILE_MSG,
+  SORT_OPTIONS,
+  COMPARATORS,
+  getMediaUrl,
+  isImageFile,
+  isVideoFile,
+  relativeCreated,
+  formatFileSize,
+  typeGlyph,
+  treeRowSx,
+  tileSx,
+  captionSx,
+  chipBtnSx,
+  railBtnSx,
+  sortSelectSx,
+  sortMenuProps,
+  searchFieldSx,
+  crumbSeparatorSx,
+  crumbButtonSx,
+  uploadBtnSx,
+  newFolderBtnSx,
+} from '../../components/Common/mediaCentreUi.js';
+import { SortAmountIcon, QuestionDialog } from '../../components/Common/mediaCentreComponents';
 
 const Media = () => {
   const theme = useTheme();
@@ -559,31 +410,6 @@ const Media = () => {
     if (opening && !childrenOf[folderPath]) loadChildren(folderPath);
   };
 
-  // Reference `.folder-header`: 2rem tall, 1.25rem text, 2rem line-height.
-  // Size lives on the row so the label just inherits it.
-  const treeRowSx = (current) => ({
-    height: 32,
-    minHeight: 32,
-    py: 0,
-    px: 1,
-    fontSize: '1.25rem',
-    lineHeight: '2rem',
-    transition: 'none',
-    color: current ? '#1c86f2' : 'rgb(0,0,0)',
-    '& .MuiListItemText-primary': { fontSize: 'inherit', lineHeight: 'inherit' },
-    '& .MuiSvgIcon-root': { color: current ? '#1c86f2' : '#676b72' },
-    // Row hover lightens the row; the current folder gets a stronger fill
-    '&&:hover': {
-      bgcolor: current ? '#d9d9d9' : '#e6e6e6',
-      color: current ? 'rgb(12,109,207)' : '#313439',
-    },
-    // ...and the chevron / label recolour on their own when hovered directly
-    '& .folder-close-toggle:hover .MuiSvgIcon-root': {
-      color: current ? 'rgb(12,109,207)' : '#1c86f2',
-    },
-    '& .folder-heading:hover': { color: current ? 'rgb(12,109,207)' : '#1c86f2' },
-  });
-
   // Render folder tree
   const renderFolderTree = (folderList, level = 0) => {
     return folderList.map((folder) => {
@@ -687,93 +513,6 @@ const Media = () => {
     return [...dirs, ...docs];
   }, [files, searchQuery, sortBy, sortAsc]);
 
-  // File-type glyph used by the thumbnail overlay
-  const typeGlyph = (item, fontSize) => {
-    const sx = { fontSize, color: '#f8f8f8' };
-    if (isImageFile(item)) return <ImageIcon sx={sx} />;
-    if (isVideoFile(item)) return <VideoIcon sx={sx} />;
-    if ((item.extension || '').toLowerCase() === '.pdf') return <PdfIcon sx={sx} />;
-    return <FileIcon sx={sx} />;
-  };
-
-  // Format file size – reference style: 1000-based, "15.05 kB"
-  const formatFileSize = (bytes) => {
-    const n = Number(bytes) || 0;
-    if (n < 1000) return `${n} bytes`;
-    const sizes = ['kB', 'MB', 'GB'];
-    const i = Math.min(Math.floor(Math.log10(n) / 3), sizes.length);
-    return `${(n / 1000 ** i).toFixed(2)} ${sizes[i - 1]}`;
-  };
-
-  // Helper function to construct proper media URL
-  const getMediaUrl = (url) => {
-    if (!url) return '';
-    if (/^(https?:|data:|blob:)/i.test(url)) return url;
-    // Strip the leading slash so the join never doubles up
-    return `${API_ORIGIN}/${String(url).replace(/^\/+/, '')}`;
-  };
-
-  const tileSx = (selected) => ({
-    width: 227,
-    height: 200,
-    bgcolor: selected ? '#bdbdbd' : '#f8f8f8',
-    borderRadius: 0,
-    boxShadow: 'none',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1,
-    cursor: 'pointer',
-    userSelect: 'none',
-    transition: 'background-color 200ms ease-in-out',
-    // Reference: hovering greys the tile and lifts the dark overlay off the picture
-    '&:hover': { bgcolor: '#bdbdbd' },
-    '&:hover .media-overlay': { opacity: 0 },
-  });
-
-  const captionSx = {
-    fontSize: 16,
-    color: '#313439',
-    maxWidth: 207,
-    textAlign: 'center',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  };
-
-  // 36x34 flat chip button used by the refresh + sort-direction controls
-  const chipBtnSx = {
-    width: 36,
-    height: 34,
-    borderRadius: '6px',
-    bgcolor: '#f8f8f8',
-    color: '#313439',
-    p: '8px',
-    transition: 'background 0.2s ease',
-    '&&:hover': { bgcolor: '#d9d9d9' },
-  };
-
-  const railBtnSx = (disabled) => ({
-    height: 35,
-    borderRadius: '6px',
-    bgcolor: '#f8f8f8',
-    color: '#676b72',
-    fontSize: 16,
-    fontWeight: 400,
-    textTransform: 'none',
-    boxShadow: 'none',
-    gap: 0.75,
-    px: 1.5,
-    transition: 'background 200ms ease, color 200ms ease',
-    '&:hover': {
-      bgcolor: disabled ? '#f8f8f8' : '#d9d9d9',
-      color: disabled ? '#bdbdbd' : '#313439',
-      boxShadow: 'none',
-    },
-    '&.Mui-disabled': { bgcolor: '#f8f8f8', color: '#bdbdbd' },
-  });
-
   const selectedFile = selectedItems.length === 1 ? selectedItems[0] : null;
   const canRename = selectedItems.length === 1;
   // Reference: a file used somewhere can be renamed but not deleted
@@ -806,20 +545,7 @@ const Media = () => {
           fullWidth
           startIcon={<CloudUploadIcon sx={{ fontSize: 28 }} />}
           onClick={() => fileInputRef.current?.click()}
-          sx={{
-            height: 64,
-            borderRadius: 0,
-            bgcolor: '#32b643',
-            color: '#f8f8f8',
-            fontSize: 24,
-            fontWeight: 400,
-            textTransform: 'none',
-            boxShadow: 'none',
-            borderBottom: '1px solid currentColor',
-            transition: 'background 0.2s ease, color 0.2s ease',
-            // Reference inverts on hover
-            '&&:hover': { bgcolor: '#f8f8f8', color: '#32b643', boxShadow: 'none' },
-          }}
+          sx={uploadBtnSx}
         >
           Upload
         </Button>
@@ -827,19 +553,7 @@ const Media = () => {
           fullWidth
           startIcon={<AddIcon />}
           onClick={() => setFolderDialogOpen(true)}
-          sx={{
-            height: 48,
-            borderRadius: 0,
-            bgcolor: '#1c86f2',
-            color: '#f8f8f8',
-            fontSize: 16,
-            fontWeight: 400,
-            textTransform: 'none',
-            boxShadow: 'none',
-            borderBottom: '1px solid currentColor',
-            transition: 'background 0.2s ease, color 0.2s ease',
-            '&&:hover': { bgcolor: '#f8f8f8', color: '#1c86f2', boxShadow: 'none' },
-          }}
+          sx={newFolderBtnSx}
         >
           New Folder
         </Button>
@@ -889,32 +603,14 @@ const Media = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', fontSize: 14, color: '#313439' }}>
               {getBreadcrumbs().map((crumb) => (
                 <React.Fragment key={crumb.path || 'home'}>
-                  <Box
-                    component="span"
-                    sx={{ color: '#313439', fontSize: 14, fontWeight: 700, m: '0 2px', p: '4px 0' }}
-                  >
+                  <Box component="span" sx={crumbSeparatorSx}>
                     /
                   </Box>
                   <Box
                     component="button"
                     type="button"
                     onClick={() => handleFolderClick(crumb.path)}
-                    sx={{
-                      border: 0,
-                      bgcolor: 'transparent',
-                      color: '#313439',
-                      fontSize: 14,
-                      fontFamily: 'inherit',
-                      display: 'inline-block',
-                      height: 24,
-                      lineHeight: '16px',
-                      p: '4px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      textDecoration: 'none',
-                      transition: 'background 200ms ease-in-out',
-                      '&&:hover': { bgcolor: '#d9d9d9' },
-                    }}
+                    sx={crumbButtonSx}
                   >
                     {crumb.name}
                   </Box>
@@ -939,44 +635,8 @@ const Media = () => {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 IconComponent={ArrowDropDown}
-                sx={{
-                  width: 150,
-                  height: 34, // same height as the two chip buttons beside it
-                  bgcolor: '#f8f8f8',
-                  borderRadius: '6px',
-                  fontSize: 14,
-                  p: 0,
-                  transition: 'background 0.2s, color 0.2s',
-                  '& .MuiSelect-select': {
-                    padding: '0 8px 0 10px !important',
-                    minHeight: 'unset',
-                    height: 34,
-                    lineHeight: '34px',
-                    display: 'flex',
-                    alignItems: 'center',
-                  },
-                  '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                  '& .MuiSelect-icon': { color: '#676b72', transition: 'color 0.2s' },
-                  '&:hover': { bgcolor: '#d9d9d9' },
-                  '&:hover .MuiSelect-icon': { color: '#313439' },
-                }}
-                MenuProps={{
-                  transitionDuration: 0,
-                  PaperProps: {
-                    elevation: 0,
-                    sx: {
-                      width: 148,
-                      mt: '11px',
-                      borderRadius: 0,
-                      boxShadow: 'none',
-                      '& .MuiMenuItem-root': { minHeight: 56, px: 2, fontSize: 16, color: '#313439' },
-                      '& .MuiMenuItem-root.Mui-selected': { color: '#38bdf8', bgcolor: 'transparent' },
-                      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
-                    },
-                  },
-                }}
+                sx={sortSelectSx}
+                MenuProps={sortMenuProps}
               >
                 {SORT_OPTIONS.map((option) => (
                   <MenuItem key={option} value={option}>{option}</MenuItem>
@@ -1031,17 +691,7 @@ const Media = () => {
                 </IconButton>
               ) : null,
             }}
-            sx={{
-              mt: 2,
-              '& .MuiInputBase-root': {
-                height: 48,
-                bgcolor: '#ededed',
-                borderRadius: '24px',
-                fontSize: 16,
-                padding: '0 16px 0 24px',
-              },
-              '& .MuiInputBase-input': { p: 0 },
-            }}
+            sx={searchFieldSx}
           />
         </Box>
 

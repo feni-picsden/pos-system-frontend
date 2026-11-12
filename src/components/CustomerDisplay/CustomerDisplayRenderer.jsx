@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Typography } from '@mui/material';
+import { getMediaUrl } from '../Common/mediaCentreUi';
 
-const isVideoUrl = (url = '') => /\.(mp4|webm|mov|ogg)$/i.test(url);
+// Same test as the editor's: a media URL may carry a query string / hash.
+const isVideoUrl = (url = '') => /\.(mp4|webm|mov|ogg)(\?|#|$)/i.test(String(url));
+// Both toggles off = media keeps its own ratio inside the box (contain);
+// "fill" stretches to the box; "cover" keeps the ratio and crops the overflow.
 const getObjectFit = (settings = {}) => {
   if (settings.stretchToFill) return 'fill';
   if (settings.stretchToCover) return 'cover';
-  if (settings.containWidth || settings.containHeight) return 'contain';
-  return 'cover';
+  return 'contain';
 };
 
 // ponytail: one placeholder is all the sale payload carries; add more tokens here if needed.
@@ -45,20 +48,43 @@ const SlideShowContent = ({ component }) => {
 
   if (!slides.length) {
     return (
-      <Box sx={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="body2" sx={{ opacity: 0.7 }}>
+      <Box sx={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(128,128,128,0.6)', boxSizing: 'border-box' }}>
+        <Typography variant="body2" sx={{ color: '#9ca3af' }}>
           {component?.settings?.fallbackText || 'No slides configured'}
         </Typography>
       </Box>
     );
   }
 
-  const activeSlide = slides[index % slides.length];
-  if (isVideoUrl(activeSlide.url)) {
-    return <Box component="video" src={activeSlide.url} autoPlay muted loop sx={{ width: '100%', height: '100%', objectFit: getObjectFit(component?.settings || {}) }} />;
-  }
-
-  return <Box component="img" src={activeSlide.url} alt="slide" sx={{ width: '100%', height: '100%', objectFit: getObjectFit(component?.settings || {}) }} />;
+  // Crossfade: every slide is stacked, only the active one is visible, and the
+  // opacity change is animated so the swap doesn't flash.
+  const activeIndex = index % slides.length;
+  const objectFit = getObjectFit(component?.settings || {});
+  return (
+    <Box sx={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+      {slides.map((slide, i) => {
+        const active = i === activeIndex;
+        const layerSx = {
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit,
+          opacity: active ? 1 : 0,
+          transition: 'opacity 600ms ease-in-out',
+          pointerEvents: 'none',
+        };
+        // Media URLs may be stored relative to the API ("/uploads/…"); resolve them.
+        const src = getMediaUrl(slide.url);
+        return isVideoUrl(slide.url) ? (
+          // Only the visible video plays; hidden ones are unmounted so they don't buffer.
+          active && <Box key={`${slide.url}-${i}`} component="video" src={src} autoPlay muted loop sx={layerSx} />
+        ) : (
+          <Box key={`${slide.url}-${i}`} component="img" src={src} alt="slide" sx={layerSx} />
+        );
+      })}
+    </Box>
+  );
 };
 
 const CustomerDisplayRenderer = ({
@@ -152,33 +178,43 @@ const CustomerDisplayRenderer = ({
   const renderComponent = (component) => {
     switch (component.type) {
       case 'sale-table': {
-        const headers = (component?.settings?.headers || [
+        // Same fallback as the editor: no (or empty) saved headers = the four defaults
+        const headers = (component?.settings?.headers?.length ? component.settings.headers : [
           { key: 'product', label: 'Product', visible: true, align: 'Default' },
           { key: 'quantity', label: 'Quantity', visible: true, align: 'Default' },
           { key: 'price', label: 'Price', visible: true, align: 'Default' },
           { key: 'total', label: 'Total', visible: true, align: 'Default' },
         ]).filter((header) => header.visible !== false);
-        const columnTemplate = headers.map(() => '1fr').join(' ');
-        const alignMap = { Left: 'left', Center: 'center', Right: 'right', Default: 'left' };
+        // Reference: the product column is wide, the number columns narrow; every
+        // cell has a grid line when "Show Grid" is on; header bold and centred
+        // (product header left); a promotion line is drawn in the promotion colour.
+        const columnTemplate = headers.map((header) => (header.key === 'product' ? '3.6fr' : '1fr')).join(' ');
+        const alignMap = { Left: 'left', Center: 'center', Centre: 'center', Right: 'right' };
+        const defaultAlign = (header) => (header.key === 'product' ? 'left' : 'center');
+        const cellAlign = (header) => alignMap[header.align] || defaultAlign(header);
+        const showGrid = component?.settings?.showGrid !== false;
+        const gridLine = showGrid ? `1px solid ${component?.settings?.gridLineColor || '#000'}` : 'none';
+        const cellSx = { border: gridLine, px: 1, py: 0.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
         return (
-          <Box sx={{ width: '100%', height: '100%', p: 1, color: component?.settings?.textColor || '#fff', fontSize: component?.settings?.fontSize || 24 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: columnTemplate, fontWeight: 700, mb: 1 }}>
+          <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', color: component?.settings?.textColor || '#000', fontSize: component?.settings?.fontSize || 20 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: columnTemplate, fontWeight: 700 }}>
               {headers.map((header) => (
-                <span key={header.key} style={{ textAlign: alignMap[header.align] || 'left' }}>{header.label}</span>
+                <Box key={header.key} sx={{ ...cellSx, textAlign: cellAlign(header) }}>{header.label}</Box>
               ))}
             </Box>
             {items.slice(0, 8).map((item) => (
-              <Box key={`${item.id}-${item.timestamp || item.name}`} sx={{ display: 'grid', gridTemplateColumns: columnTemplate, mb: 0.5, borderBottom: component?.settings?.showGrid ? `1px solid ${component?.settings?.gridLineColor || '#000'}` : 'none' }}>
+              <Box key={`${item.id}-${item.timestamp || item.name}`} sx={{ display: 'grid', gridTemplateColumns: columnTemplate, color: item.isPromotion ? (component?.settings?.promotionColor || '#2ce56f') : 'inherit' }}>
+                {/* Body cells follow an explicit column alignment; "Default" is left (reference) */}
                 {headers.map((header) => (
-                  <span key={header.key} style={{ textAlign: alignMap[header.align] || 'left', color: header.key === 'product' && item.isPromotion ? (component?.settings?.promotionColor || '#2ce56f') : undefined }}>
+                  <Box key={header.key} sx={{ ...cellSx, textAlign: alignMap[header.align] || 'left' }}>
                     {header.key === 'product' ? item.name : header.key === 'quantity' ? (item.quantity || 1) : header.key === 'price' ? `$${Number(item.unitPrice || 0).toFixed(2)}` : `$${Number(item.totalPrice || item.price || 0).toFixed(2)}`}
-                  </span>
+                  </Box>
                 ))}
               </Box>
             ))}
             {/* Reference footer: "Public Holiday Surcharge: $2.25 | 1 Item" — the surcharge
                 (custom name) sits at the bottom of the sale table, before the item count. */}
-            <Box sx={{ mt: 'auto', pt: 1, fontSize: 32, textAlign: 'right', color: component?.settings?.footerTextColor || '#fff', bgcolor: component?.settings?.footerBackgroundColor || 'transparent' }}>
+            <Box sx={{ mt: 'auto', px: 1, py: 0.5, textAlign: 'right', color: component?.settings?.footerTextColor || 'inherit', bgcolor: component?.settings?.footerBackgroundColor || 'transparent' }}>
               {Object.entries(totals.surcharges || {}).filter(([, amt]) => Number(amt) > 0).map(([name, amt]) => `${name}: $${Number(amt).toFixed(2)} | `).join('')}
               {Number(totals.itemCount || 0)} {Number(totals.itemCount || 0) === 1 ? 'Item' : 'Items'}
             </Box>
@@ -186,10 +222,28 @@ const CustomerDisplayRenderer = ({
         );
       }
       case 'totals': {
-        const labels = component?.settings?.labels || [
-          { key: 'total', label: 'Total:', visible: true },
-          { key: 'savings', label: 'Savings:', visible: true },
-        ];
+        // Same default rows as the editor; rows with no value (change/approved/thank you
+        // before payment) are skipped so the box shows what the reference shows.
+        const labels = component?.settings?.labels?.length
+          ? component.settings.labels
+          : [
+              { key: 'total', label: 'Total:', visible: true },
+              { key: 'savings', label: 'Savings:', visible: true },
+              { key: 'change', label: 'Change:', visible: true },
+              { key: 'approved', label: 'Approved', visible: true },
+              { key: 'thank_you', label: 'Thank You', visible: true },
+              { key: 'remaining', label: 'Remaining', visible: false },
+              { key: 'paid', label: 'Paid', visible: false },
+            ];
+        const hasValue = (key) => {
+          if (key === 'total' || key === 'savings') return true;
+          if (key === 'change') return Number(totals.change || 0) > 0;
+          if (key === 'approved') return Boolean(totals.approved);
+          if (key === 'thank_you') return Boolean(totals.paid) && Number(totals.remaining || 0) <= 0;
+          if (key === 'remaining') return totals.remaining != null;
+          if (key === 'paid') return totals.paid != null;
+          return true;
+        };
         const totalRows = {
           total: `$${Number(totals.total || 0).toFixed(2)}`,
           savings: `$${Number(totals.savings || 0).toFixed(2)}`,
@@ -200,13 +254,14 @@ const CustomerDisplayRenderer = ({
           paid: `$${Number(totals.paid || 0).toFixed(2)}`,
         };
         return (
-          <Box sx={{ width: '100%', height: '100%', p: 2, color: component?.settings?.textColor || '#fff' }}>
-            {labels.filter((label) => label.visible !== false).map((label) => (
+          // Reference: totals centred in the box, bold by default, savings in the promotion colour
+          <Box sx={{ width: '100%', height: '100%', p: 2, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', color: component?.settings?.textColor || '#fff' }}>
+            {labels.filter((label) => label.visible !== false && hasValue(label.key)).map((label) => (
               <Typography
                 key={label.key}
                 sx={{
-                  fontSize: component?.settings?.fontSize || 45,
-                  fontWeight: component?.settings?.bold ? 700 : 400,
+                  fontSize: component?.settings?.fontSize || 24,
+                  fontWeight: component?.settings?.bold === false ? 400 : 700,
                   fontStyle: component?.settings?.italic ? 'italic' : 'normal',
                   textDecoration: component?.settings?.underline ? 'underline' : 'none',
                   color: label.key === 'savings' ? (component?.settings?.promotionColor || '#2ce56f') : (component?.settings?.textColor || '#fff'),
@@ -220,14 +275,14 @@ const CustomerDisplayRenderer = ({
       }
       case 'image':
         if (isVideoUrl(component?.settings?.src || '')) {
-          return <Box component="video" src={component.settings.src} autoPlay muted loop sx={{ width: '100%', height: '100%', objectFit: getObjectFit(component?.settings || {}) }} />;
+          return <Box component="video" src={getMediaUrl(component.settings.src)} autoPlay muted loop sx={{ width: '100%', height: '100%', objectFit: getObjectFit(component?.settings || {}) }} />;
         }
         if (component?.settings?.src) {
-          return <Box component="img" src={component.settings.src} alt="display" sx={{ width: '100%', height: '100%', objectFit: getObjectFit(component?.settings || {}) }} />;
+          return <Box component="img" src={getMediaUrl(component.settings.src)} alt="display" sx={{ width: '100%', height: '100%', objectFit: getObjectFit(component?.settings || {}) }} />;
         }
         return (
-          <Box sx={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography variant="body2">{component?.settings?.fallbackText || 'Select to Add Image'}</Typography>
+          <Box sx={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(128,128,128,0.6)', boxSizing: 'border-box' }}>
+            <Typography variant="body2" sx={{ color: '#9ca3af' }}>{component?.settings?.fallbackText || 'Select to Add Image'}</Typography>
           </Box>
         );
       case 'slideshow':
@@ -253,12 +308,10 @@ const CustomerDisplayRenderer = ({
         position: 'relative',
         width: '100%',
         height: '100%',
-        // In editor mode, keep a SaleKey-like white grid canvas regardless of component count.
-        bgcolor: showEditorCanvasGrid
-          ? '#f7f7f7'
-          : hasComponents
-          ? (template?.defaultBackgroundColor || '#000')
-          : '#f7f7f7',
+        // Reference: the editor canvas is the real screen (template background,
+        // black by default) so colours and white text read the same as on the
+        // customer-facing display; the snap grid is drawn faintly on top.
+        bgcolor: template?.defaultBackgroundColor || '#000',
       }}
     >
       {(showEditorCanvasGrid || !hasComponents) && (
@@ -268,8 +321,8 @@ const CustomerDisplayRenderer = ({
             inset: 0,
             pointerEvents: 'none',
             backgroundImage: `
-              linear-gradient(to right, rgba(0,0,0,0.12) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(0,0,0,0.12) 1px, transparent 1px)
+              linear-gradient(to right, rgba(128,128,128,0.35) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(128,128,128,0.35) 1px, transparent 1px)
             `,
             backgroundSize: `${100 / Math.max(1, Number(gridCols) || 10)}% ${100 / Math.max(1, Number(gridRows) || 10)}%`,
             zIndex: 0,

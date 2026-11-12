@@ -144,14 +144,44 @@ const resolveRegisterIdFromStorage = () => {
   }
 };
 
-export const openCustomerDisplayWindow = async (registerId) => {
+// Reference "Presentation" mode uses the browser's cast feature (Presentation
+// API). Returns true when a presentation started; false lets the caller fall
+// back to the popup (no API, no second screen, or the user closed the picker).
+const startPresentation = async (url) => {
+  if (typeof window === 'undefined' || typeof window.PresentationRequest !== 'function') return false;
+  try {
+    const request = new window.PresentationRequest([url]);
+    const connection = await request.start();
+    return Boolean(connection);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Open the customer display for a register.
+ * @param {number} [registerId]
+ * @param {{ mode?: 'Presentation' | 'Popup' | string }} [options] the register's
+ *   "Customer display mode" (reference: Presentation = cast, Popup = window).
+ */
+export const openCustomerDisplayWindow = async (registerId, options = {}) => {
   const id = registerId ?? resolveRegisterIdFromStorage();
 
-  const targetScreen = await getTargetScreen();
-  const savedBounds = targetScreen ? null : readSavedBounds();
   const url = id != null
     ? `/customer-display?registerId=${encodeURIComponent(id)}`
     : '/customer-display';
+
+  if (String(options.mode || '').toLowerCase() === 'presentation') {
+    const absolute = new URL(url, window.location.origin).toString();
+    if (await startPresentation(absolute)) {
+      // Nothing to track: the cast receiver is not a window we own. Return a
+      // stand-in so callers treat the display as open.
+      return { closed: false, presentation: true, focus: () => {}, close: () => {} };
+    }
+  }
+
+  const targetScreen = await getTargetScreen();
+  const savedBounds = targetScreen ? null : readSavedBounds();
   const popup = window.open(
     url,
     CUSTOMER_DISPLAY_WINDOW_NAME,

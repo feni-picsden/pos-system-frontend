@@ -18,7 +18,6 @@ import {
   Paper,
   Popover,
   Select,
-  Switch,
   Tab,
   Tabs,
   TextField,
@@ -26,8 +25,17 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  ArrowUpward as ArrowUpwardIcon,
   AttachMoney as AttachMoneyIcon,
   Delete as DeleteIcon,
+  AccountTreeOutlined as AccountTreeOutlinedIcon,
+  BuildOutlined as BuildOutlinedIcon,
+  Close as CloseIcon,
+  SaveOutlined as SaveOutlinedIcon,
+  Edit as EditIcon,
+  FlipToBackOutlined as FlipToBackIcon,
+  FlipToFrontOutlined as FlipToFrontIcon,
   FormatBold,
   FormatItalic,
   FormatUnderlined,
@@ -40,13 +48,55 @@ import {
   TextFields as TextFieldsIcon,
 } from '@mui/icons-material';
 import { ChromePicker } from 'react-color';
-import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import MediaDialog from '../../components/Common/MediaDialog';
+// App-wide toggle look (same as the other Setup pages)
+import Switch from '../../components/Common/ShopfrontSwitch';
+import { getMediaUrl } from '../../components/Common/mediaCentreUi';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { format as formatDate, isValid as isValidDate } from 'date-fns';
+
+// Calendar popover styled like the Promotions wizard picker.
+const PICKER_POPOVER_SX = {
+  borderRadius: '12px',
+  backgroundColor: '#f5f5f5',
+  border: '1px solid #e5e5e5',
+  boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+};
+// Slide dates are kept as local "yyyy-MM-ddTHH:mm" strings (what the renderer parses).
+const slideDateToDate = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return isValidDate(d) ? d : null;
+};
+const dateToSlideDate = (date) => (date && isValidDate(date) ? formatDate(date, "yyyy-MM-dd'T'HH:mm") : '');
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import CustomerDisplayRenderer from '../../components/CustomerDisplay/CustomerDisplayRenderer';
 import customerDisplayTemplateService from '../../services/customerDisplayTemplateService';
 import { createDefaultCustomerDisplayTemplate } from '../../utils/customerDisplayDefaults';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { REF_MENU_PROPS } from '../../components/Common/refMenuProps';
+
+// Columns the renderer draws when a sale table has no saved headers (same order).
+const DEFAULT_SALE_TABLE_HEADERS = [
+  { key: 'product', label: 'Product', visible: true, align: 'Default' },
+  { key: 'quantity', label: 'Quantity', visible: true, align: 'Default' },
+  { key: 'price', label: 'Price', visible: true, align: 'Default' },
+  { key: 'total', label: 'Total', visible: true, align: 'Default' },
+];
+
+// Rows the Totals component can show (reference order; Remaining and Paid start off).
+const DEFAULT_TOTALS_LABELS = [
+  { key: 'total', label: 'Total:', visible: true },
+  { key: 'savings', label: 'Savings:', visible: true },
+  { key: 'change', label: 'Change:', visible: true },
+  { key: 'approved', label: 'Approved', visible: true },
+  { key: 'thank_you', label: 'Thank You', visible: true },
+  { key: 'remaining', label: 'Remaining', visible: false },
+  { key: 'paid', label: 'Paid', visible: false },
+];
 
 const componentTypes = [
   { id: 'slideshow', label: 'Slide Show', icon: SlideshowIcon },
@@ -122,13 +172,72 @@ const createComponent = (type, index, componentMode) => ({
       : {},
 });
 
+const LIST_PATH = '/settings/customer-display';
+
+const isVideoUrl = (url = '') => /\.(mp4|webm|mov|ogg)(\?|#|$)/i.test(String(url));
+const slideName = (slide, index) => {
+  try {
+    const path = String(slide?.url || '').split(/[?#]/)[0];
+    return decodeURIComponent(path.split('/').pop() || '') || `Slide ${index + 1}`;
+  } catch {
+    return `Slide ${index + 1}`;
+  }
+};
+
+// Slide thumbnail (reference lists thumbnail + filename + "N seconds").
+const SlideThumb = ({ url, size = 48 }) => (
+  <Box
+    sx={{
+      width: size,
+      height: size,
+      flexShrink: 0,
+      bgcolor: '#000',
+      border: '1px solid #9d9d9d',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    }}
+  >
+    {url ? (
+      isVideoUrl(url) ? (
+        <Box component="video" src={getMediaUrl(url)} muted sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <Box component="img" src={getMediaUrl(url)} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      )
+    ) : (
+      <SlideshowIcon sx={{ color: '#fff', fontSize: size * 0.55 }} />
+    )}
+  </Box>
+);
+
+// What Save sends - compared to decide whether there are unsaved changes.
+const snapshotOf = (template) => JSON.stringify({
+  name: template?.name,
+  defaultTextColor: template?.defaultTextColor,
+  defaultBackgroundColor: template?.defaultBackgroundColor,
+  idle: template?.idle,
+  sale: template?.sale,
+});
+
+const moveItem = (list, from, to) => {
+  if (to < 0 || to >= list.length || from === to) return list;
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+};
+
 const CustomerDisplayEditor = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
-  const { alert } = useAppDialogs();
+  const { alert, confirm } = useAppDialogs();
   const gridSize = { rows: 10, cols: 10 };
   const { templateId } = useParams();
   const navigate = useNavigate();
   const [template, setTemplate] = useState(createDefaultCustomerDisplayTemplate());
+  // The last saved/loaded state; Cancel asks before throwing away a change.
+  const [savedSnapshot, setSavedSnapshot] = useState('');
+  const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState('idle');
   const [selectedId, setSelectedId] = useState('');
   const [componentTab, setComponentTab] = useState(0);
@@ -137,74 +246,158 @@ const CustomerDisplayEditor = () => {
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
   const [slideDialogOpen, setSlideDialogOpen] = useState(false);
   const [slideMediaDialogOpen, setSlideMediaDialogOpen] = useState(false);
-  const [newSlide, setNewSlide] = useState({ url: '', seconds: 3.5, startAt: '', endAt: '' });
+  // Edit Slideshow works on a draft: Confirm commits it, Cancel throws it away.
+  const [slideDraft, setSlideDraft] = useState([]);
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(-1);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
+  // Configure Customer Display works on a draft too: Update applies, Cancel reverts.
+  const [configDraft, setConfigDraft] = useState({ name: '', defaultTextColor: '#ffffff', defaultBackgroundColor: '#000000' });
+  const [configError, setConfigError] = useState('');
   const [colorPickerState, setColorPickerState] = useState({
     anchorEl: null,
     color: '#000000',
     onChange: null,
   });
 
+  const openConfigDialog = (source) => {
+    const src = source || template;
+    setConfigDraft({
+      name: src?.name || '',
+      defaultTextColor: src?.defaultTextColor || '#ffffff',
+      defaultBackgroundColor: src?.defaultBackgroundColor || '#000000',
+    });
+    setConfigError('');
+    setNameDialogOpen(true);
+  };
+
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       if (!templateId || templateId === 'new') {
         const created = createDefaultCustomerDisplayTemplate();
         setTemplate(created);
+        setSavedSnapshot('');
         setSelectedId('');
-        setNameDialogOpen(true);
+        openConfigDialog(created);
         return;
       }
       setNameDialogOpen(false);
-      const all = await customerDisplayTemplateService.listTemplates();
-      const existing = all.find((item) => String(item.id) === String(templateId));
+      let existing = null;
+      try {
+        existing = await customerDisplayTemplateService.getTemplate(templateId);
+      } catch (err) {
+        console.error(err);
+      }
+      if (!existing) {
+        const all = await customerDisplayTemplateService.listTemplates();
+        existing = all.find((item) => String(item.id) === String(templateId)) || null;
+      }
+      if (cancelled) return;
       if (existing) {
         setTemplate(existing);
+        setSavedSnapshot(snapshotOf(existing));
         setSelectedId('');
       } else {
-        navigate('/setup/customer-display', { replace: true });
+        navigate(LIST_PATH, { replace: true });
       }
     };
     load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId, navigate]);
 
   const activeComponents = useMemo(() => template?.[mode]?.components || [], [template, mode]);
   const selectedComponent = activeComponents.find((item) => item.id === selectedId);
+  const isDirty = templateId === 'new' || snapshotOf(template) !== savedSnapshot;
 
-  const saveTemplate = async () => {
+  const saveTemplate = async (override) => {
+    if (saving) return false;
+    const toSave = override || template;
+    if (!String(toSave?.name || '').trim()) {
+      alert('Please enter a name for the customer display');
+      return false;
+    }
+    setSaving(true);
     try {
-      const { savedId } = await customerDisplayTemplateService.upsertTemplate(template);
+      const { savedId } = await customerDisplayTemplateService.upsertTemplate(toSave);
+      setSavedSnapshot(snapshotOf(toSave));
       const replaceHistory = templateId === 'new';
       if (replaceHistory && savedId != null && savedId !== '') {
-        navigate(`/setup/customer-display/${savedId}/edit`, { replace: true });
+        navigate(`${LIST_PATH}/${savedId}/edit`, { replace: true });
       } else {
-        navigate('/setup/customer-display', { replace: replaceHistory });
+        navigate(LIST_PATH, { replace: replaceHistory });
       }
+      return true;
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.error || err?.message || 'Failed to save customer display template');
+      return false;
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleCancel = async () => {
+    if (isDirty) {
+      const ok = await confirm('You have unsaved changes. Leave without saving?', {
+        title: 'Unsaved Changes',
+        confirmText: 'Leave',
+      });
+      if (!ok) return;
+    }
+    navigate(LIST_PATH);
   };
 
   const handleTemplateDialogPrimaryAction = async () => {
+    const name = String(configDraft.name || '').trim();
+    if (!name) {
+      setConfigError('Please enter a name for the customer display');
+      return;
+    }
+    if (name.length > 100) {
+      setConfigError('The name can be at most 100 characters');
+      return;
+    }
+    const next = {
+      ...template,
+      name,
+      defaultTextColor: configDraft.defaultTextColor,
+      defaultBackgroundColor: configDraft.defaultBackgroundColor,
+    };
     // For new templates, this dialog is the first action users take.
     // Save immediately so the create API is called from here as well.
     if (templateId === 'new') {
-      await saveTemplate();
+      setTemplate(next);
+      const ok = await saveTemplate(next);
+      if (ok) setNameDialogOpen(false);
       return;
     }
+    setTemplate(next);
     setNameDialogOpen(false);
   };
 
+  const handleTemplateDialogCancel = () => {
+    setNameDialogOpen(false);
+    setConfigError('');
+    // A brand-new template that was never named has nothing to keep.
+    if (templateId === 'new') navigate(LIST_PATH, { replace: true });
+  };
+
+  // Replace one mode's component list WITHOUT mutating the previous state
+  // (the old `next[mode].components = ...` wrote into the object the previous
+  // state still referenced, so an updater that ran twice compounded itself).
+  const withComponents = (prev, components) => ({
+    ...prev,
+    [mode]: { ...(prev?.[mode] || {}), components },
+  });
+
   const updateSelected = (updater) => {
     if (!selectedComponent) return;
-    setTemplate((prev) => {
-      const updated = { ...prev };
-      updated[mode].components = updated[mode].components.map((component) =>
+    setTemplate((prev) =>
+      withComponents(prev, (prev?.[mode]?.components || []).map((component) =>
         component.id === selectedId ? updater(component) : component
-      );
-      return updated;
-    });
+      ))
+    );
   };
 
   const updateSelectedSettings = (settingsUpdate) => {
@@ -230,8 +423,19 @@ const CustomerDisplayEditor = () => {
   };
 
   const renderColorField = (label, value, onChange, sx = {}) => {
-    const raw = (value || '#000000').trim();
-    const hex = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(raw) ? raw : '#000000';
+    const raw = (value || '').trim();
+    const isHex = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(raw);
+    // No colour set = transparent: show a checkerboard instead of pretending it is black.
+    const hex = isHex ? raw : '#000000';
+    const transparentSx = isHex
+      ? {}
+      : {
+          backgroundImage:
+            'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+          backgroundSize: '12px 12px',
+          backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0',
+          bgcolor: '#fff',
+        };
     return (
       <Box sx={{ mb: 1.5, ...sx }}>
         <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500 }}>
@@ -253,25 +457,25 @@ const CustomerDisplayEditor = () => {
             height: 44,
             minHeight: 44,
             bgcolor: hex,
+            ...transparentSx,
             border: '5px solid #1a1a1a',
             borderRadius: 0.5,
             cursor: 'pointer',
             boxSizing: 'border-box',
             '&:focus-visible': { outline: '2px solid #1976d2', outlineOffset: 2 },
           }}
+          title={isHex ? hex : 'Transparent (click to pick a colour)'}
         />
       </Box>
     );
   };
 
   const updateSelectedById = (componentId, updates) => {
-    setTemplate((prev) => {
-      const next = { ...prev };
-      next[mode].components = next[mode].components.map((component) =>
+    setTemplate((prev) =>
+      withComponents(prev, (prev?.[mode]?.components || []).map((component) =>
         component.id === componentId ? { ...component, ...updates } : component
-      );
-      return next;
-    });
+      ))
+    );
   };
 
   const addComponent = (type) => {
@@ -304,9 +508,12 @@ const CustomerDisplayEditor = () => {
     };
 
     setTemplate((prev) => {
-      const next = { ...prev };
-      const list = [...next[mode].components];
+      const list = [...(prev?.[mode]?.components || [])];
       const newItem = createComponent(type, list.length, mode);
+      // On top of everything already there: `list.length + 1` collided with an
+      // existing zIndex after a delete or a layer swap, so the new component
+      // and an old one could not be reordered against each other.
+      newItem.zIndex = list.reduce((max, item) => Math.max(max, Number(item.zIndex) || 0), 0) + 1;
       const cellW = 100 / gridSize.cols;
       const cellH = 100 / gridSize.rows;
       const desiredWidthCells = Math.max(1, Math.round((newItem.w || cellW) / cellW));
@@ -317,8 +524,7 @@ const CustomerDisplayEditor = () => {
       newItem.w = desiredWidthCells * cellW;
       newItem.h = desiredHeightCells * cellH;
       list.push(newItem);
-      next[mode].components = list;
-      return next;
+      return withComponents(prev, list);
     });
     setMenuAnchor(null);
   };
@@ -326,34 +532,24 @@ const CustomerDisplayEditor = () => {
   const moveLayer = (direction) => {
     if (!selectedComponent) return;
     setTemplate((prev) => {
-      const next = { ...prev };
-      const list = [...next[mode].components];
+      const list = prev?.[mode]?.components || [];
       const sorted = [...list].sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
       const index = sorted.findIndex((item) => item.id === selectedId);
       if (index === -1) return prev;
       const swapWith = direction === 'up' ? index + 1 : index - 1;
       if (swapWith < 0 || swapWith >= sorted.length) return prev;
-      const current = sorted[index];
-      const target = sorted[swapWith];
-      const temp = current.zIndex || 0;
-      current.zIndex = target.zIndex || 0;
-      target.zIndex = temp;
-      next[mode].components = list.map((item) => {
-        if (item.id === current.id) return { ...item, zIndex: current.zIndex };
-        if (item.id === target.id) return { ...item, zIndex: target.zIndex };
-        return item;
-      });
-      return next;
+      // Swap positions in the stacking ORDER and renumber 1..n. Swapping the two
+      // zIndex values did nothing when they were equal (the default template
+      // gives every component zIndex 1), so Bring Forwards / Send Backwards had
+      // no effect until the user had added components.
+      const zIndexById = new Map(moveItem(sorted, index, swapWith).map((item, i) => [item.id, i + 1]));
+      return withComponents(prev, list.map((item) => ({ ...item, zIndex: zIndexById.get(item.id) })));
     });
   };
 
   const deleteSelected = () => {
     if (!selectedId) return;
-    setTemplate((prev) => {
-      const next = { ...prev };
-      next[mode].components = next[mode].components.filter((item) => item.id !== selectedId);
-      return next;
-    });
+    setTemplate((prev) => withComponents(prev, (prev?.[mode]?.components || []).filter((item) => item.id !== selectedId)));
     setSelectedId('');
     setComponentTab(0);
   };
@@ -384,7 +580,8 @@ const CustomerDisplayEditor = () => {
         await customerDisplayTemplateService.removeTemplate(idNum);
       }
       setConfirmDeleteOpen(false);
-      navigate('/setup/customer-display');
+      setSavedSnapshot(snapshotOf(template));
+      navigate(LIST_PATH);
     } catch (err) {
       console.error(err);
       setConfirmDeleteOpen(false);
@@ -422,7 +619,8 @@ const CustomerDisplayEditor = () => {
               </Typography>
               <IconButton
                 disableRipple
-                onClick={() => setNameDialogOpen(true)}
+                aria-label="Configure Customer Display"
+                onClick={() => openConfigDialog()}
                 sx={{
                   p: 0.5,
                   borderRadius: '8px',
@@ -494,7 +692,9 @@ const CustomerDisplayEditor = () => {
                 }}
               >
                 <AddIcon sx={{ fontSize: 32 }} />
-                <KeyboardArrowDownIcon sx={{ fontSize: 16 }} />
+                {/* Split-button divider, then the arrow (points up while the menu is open) */}
+                <Box sx={{ width: '1px', alignSelf: 'stretch', my: 1, mx: 0.75, bgcolor: 'rgba(255,255,255,0.6)' }} />
+                <KeyboardArrowDownIcon sx={{ fontSize: 16, transform: menuAnchor ? 'rotate(180deg)' : 'none', transition: 'transform 120ms' }} />
               </Button>
             </Box>
           </Paper>
@@ -502,7 +702,14 @@ const CustomerDisplayEditor = () => {
             <CustomerDisplayRenderer
               template={template}
               mode={mode}
-              data={{ cartItems: [], totals: { total: 0, savings: 0, itemCount: 0 } }}
+              // Reference editor shows example sale data so the Sale layout can be judged.
+              data={{
+                cartItems: [
+                  { id: 'example-1', name: 'Example Item', quantity: 24, unitPrice: 10, totalPrice: 240 },
+                  { id: 'example-2', name: 'Example Promotion Item', quantity: 12, unitPrice: 5, totalPrice: 60, isPromotion: true },
+                ],
+                totals: { total: 10, savings: 2, itemCount: 36 },
+              }}
               selectedComponentId={selectedId}
               onSelectComponent={selectComponent}
               onChangeComponent={updateSelectedById}
@@ -526,6 +733,8 @@ const CustomerDisplayEditor = () => {
             >
               <Tab
                 label="Components"
+                icon={<AccountTreeOutlinedIcon sx={{ fontSize: 20 }} />}
+                iconPosition="start"
                 sx={{
                   minHeight: 64,
                   height: 64,
@@ -539,6 +748,8 @@ const CustomerDisplayEditor = () => {
               />
               <Tab
                 label="Settings"
+                icon={<BuildOutlinedIcon sx={{ fontSize: 18 }} />}
+                iconPosition="start"
                 disabled={!selectedComponent}
                 sx={{
                   minHeight: 64,
@@ -597,13 +808,67 @@ const CustomerDisplayEditor = () => {
                 {!selectedComponent && <Typography variant="body2">Select a component</Typography>}
                 {selectedComponent && (
                   <>
-                    <Button fullWidth sx={{ mb: 1 }} onClick={() => moveLayer('up')}>Bring Forwards</Button>
-                    <Button fullWidth sx={{ mb: 2 }} onClick={() => moveLayer('down')}>Send Backwards</Button>
-                    <TextField fullWidth label="Width (%)" type="number" value={selectedComponent.w} onChange={(e) => updateSelected((item) => ({ ...item, w: Number(e.target.value) }))} sx={{ mb: 1 }} />
-                    <TextField fullWidth label="Height (%)" type="number" value={selectedComponent.h} onChange={(e) => updateSelected((item) => ({ ...item, h: Number(e.target.value) }))} sx={{ mb: 1 }} />
+                    {/* Reference: two outlined boxes side by side, icon above the label */}
+                    <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                      {[
+                        { label: 'Bring Forwards', dir: 'up', icon: <FlipToFrontIcon sx={{ fontSize: 18 }} /> },
+                        { label: 'Send Backwards', dir: 'down', icon: <FlipToBackIcon sx={{ fontSize: 18 }} /> },
+                      ].map(({ label, dir, icon }) => (
+                        <Button
+                          key={dir}
+                          disableRipple
+                          onClick={() => moveLayer(dir)}
+                          sx={{
+                            flex: 1,
+                            flexDirection: 'column',
+                            gap: 0.25,
+                            py: 1,
+                            border: '1px solid #9d9d9d',
+                            borderRadius: '4px',
+                            bgcolor: '#f8f8f8',
+                            color: '#676b72',
+                            textTransform: 'none',
+                            fontSize: 14,
+                            lineHeight: 1.2,
+                            '&:hover': { bgcolor: '#ebebeb' },
+                          }}
+                        >
+                          {icon}
+                          {label}
+                        </Button>
+                      ))}
+                    </Box>
+                    {/* Size stays inside the screen: 1..100 and never past the right/bottom edge.
+                        An empty field is ignored (keeps the last size) instead of collapsing to 0. */}
+                    <TextField
+                      fullWidth
+                      label="Width (%)"
+                      type="number"
+                      inputProps={{ min: 1, max: 100 }}
+                      value={selectedComponent.w}
+                      onChange={(e) => {
+                        if (e.target.value === '') return;
+                        const w = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                        updateSelected((item) => ({ ...item, w: Math.min(w, 100 - (Number(item.x) || 0)) }));
+                      }}
+                      sx={{ mb: 1 }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Height (%)"
+                      type="number"
+                      inputProps={{ min: 1, max: 100 }}
+                      value={selectedComponent.h}
+                      onChange={(e) => {
+                        if (e.target.value === '') return;
+                        const h = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                        updateSelected((item) => ({ ...item, h: Math.min(h, 100 - (Number(item.y) || 0)) }));
+                      }}
+                      sx={{ mb: 1 }}
+                    />
                     {renderColorField(
                       'Background Colour',
-                      selectedComponent?.settings?.backgroundColor || '#000000',
+                      selectedComponent?.settings?.backgroundColor || '',
                       (nextColor) => updateSelectedSettings({ backgroundColor: nextColor })
                     )}
                     {selectedComponent.type === 'text' && (
@@ -712,54 +977,63 @@ const CustomerDisplayEditor = () => {
                           selectedComponent?.settings?.footerBackgroundColor || '#000000',
                           (nextColor) => updateSelectedSettings({ footerBackgroundColor: nextColor })
                         )}
-                        {(selectedComponent?.settings?.headers || []).map((header, idx) => (
-                          <Box key={header.key} sx={{ mb: 1 }}>
-                            <TextField
-                              fullWidth
-                              label={`Header ${idx + 1}`}
-                              value={header.label}
-                              onChange={(e) =>
-                                updateSelectedSettings({
-                                  headers: (selectedComponent?.settings?.headers || []).map((item, i) =>
-                                    i === idx ? { ...item, label: e.target.value } : item
-                                  ),
-                                })
-                              }
-                              sx={{ mb: 0.5 }}
-                            />
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <FormControl size="small" sx={{ minWidth: 120 }}>
-                                <InputLabel>Alignment</InputLabel>
-                                <Select
-                                  label="Alignment"
-                                  value={header.align || 'Default'}
-                                  onChange={(e) =>
-                                    updateSelectedSettings({
-                                      headers: (selectedComponent?.settings?.headers || []).map((item, i) =>
-                                        i === idx ? { ...item, align: e.target.value } : item
-                                      ),
-                                    })
-                                  }
-                                >
-                                  <MenuItem value="Default">Default</MenuItem>
-                                  <MenuItem value="Left">Left</MenuItem>
-                                  <MenuItem value="Center">Center</MenuItem>
-                                  <MenuItem value="Right">Right</MenuItem>
-                                </Select>
-                              </FormControl>
-                              <Switch
-                                checked={header.visible !== false}
-                                onChange={(e) =>
-                                  updateSelectedSettings({
-                                    headers: (selectedComponent?.settings?.headers || []).map((item, i) =>
-                                      i === idx ? { ...item, visible: e.target.checked } : item
-                                    ),
-                                  })
-                                }
-                              />
-                            </Box>
-                          </Box>
-                        ))}
+                        {/* Reference: "Header" list (reorder arrows + name + on/off), then a
+                            separate "Column Alignment" block with one select per column.
+                            A template saved without headers edits the renderer's defaults. */}
+                        {(() => {
+                          const headers = selectedComponent?.settings?.headers?.length
+                            ? selectedComponent.settings.headers
+                            : DEFAULT_SALE_TABLE_HEADERS;
+                          const setHeaders = (next) => updateSelectedSettings({ headers: next });
+                          const patchHeader = (idx, patch) => setHeaders(headers.map((item, i) => (i === idx ? { ...item, ...patch } : item)));
+                          return (
+                            <>
+                              <Typography variant="body2" sx={{ mb: 0.6, fontWeight: 500 }}>
+                                Header
+                              </Typography>
+                              {headers.map((header, idx) => (
+                                <Box key={header.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                    <IconButton size="small" aria-label="Move header up" disabled={idx === 0} onClick={() => setHeaders(moveItem(headers, idx, idx - 1))} sx={{ p: 0.25 }}>
+                                      <ArrowUpwardIcon sx={{ fontSize: 14 }} />
+                                    </IconButton>
+                                    <IconButton size="small" aria-label="Move header down" disabled={idx === headers.length - 1} onClick={() => setHeaders(moveItem(headers, idx, idx + 1))} sx={{ p: 0.25 }}>
+                                      <ArrowDownwardIcon sx={{ fontSize: 14 }} />
+                                    </IconButton>
+                                  </Box>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    value={header.label}
+                                    disabled={header.visible === false}
+                                    onChange={(e) => patchHeader(idx, { label: e.target.value })}
+                                  />
+                                  <Switch checked={header.visible !== false} onChange={(e) => patchHeader(idx, { visible: e.target.checked })} />
+                                </Box>
+                              ))}
+                              <Typography variant="body2" sx={{ mt: 1, mb: 0.6, fontWeight: 500 }}>
+                                Column Alignment
+                              </Typography>
+                              {headers.map((header, idx) => (
+                                <Box key={`align-${header.key}`} sx={{ mb: 1 }}>
+                                  <Typography variant="body2" sx={{ mb: 0.4 }}>{header.label}</Typography>
+                                  <FormControl size="small" fullWidth>
+                                    <Select
+                                      MenuProps={REF_MENU_PROPS}
+                                      value={header.align || 'Default'}
+                                      onChange={(e) => patchHeader(idx, { align: e.target.value })}
+                                    >
+                                      <MenuItem value="Default">Default</MenuItem>
+                                      <MenuItem value="Left">Left</MenuItem>
+                                      <MenuItem value="Center">Centre</MenuItem>
+                                      <MenuItem value="Right">Right</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                </Box>
+                              ))}
+                            </>
+                          );
+                        })()}
                       </>
                     )}
                     {selectedComponent.type === 'totals' && (
@@ -774,7 +1048,7 @@ const CustomerDisplayEditor = () => {
                           selectedComponent?.settings?.promotionColor || '#00ff3b',
                           (nextColor) => updateSelectedSettings({ promotionColor: nextColor })
                         )}
-                        <TextField fullWidth label="Text Size" type="number" value={selectedComponent?.settings?.fontSize || 45} onChange={(e) => updateSelectedSettings({ fontSize: Number(e.target.value) })} sx={{ mb: 1 }} />
+                        <TextField fullWidth label="Text Size" type="number" value={selectedComponent?.settings?.fontSize || 24} onChange={(e) => updateSelectedSettings({ fontSize: Number(e.target.value) })} sx={{ mb: 1 }} />
                         <Typography variant="body2" sx={{ mb: 0.6, fontWeight: 500 }}>
                           Style
                         </Typography>
@@ -789,13 +1063,14 @@ const CustomerDisplayEditor = () => {
                             gap: 0.5,
                           }}
                         >
+                          {/* Totals are bold unless switched off (reference default) */}
                           <Button
                             size="small"
-                            onClick={() => updateSelectedSettings({ bold: !(selectedComponent?.settings?.bold === true) })}
+                            onClick={() => updateSelectedSettings({ bold: selectedComponent?.settings?.bold === false })}
                             sx={{
                               minWidth: 0,
-                              color: selectedComponent?.settings?.bold ? '#1976d2' : '#4f4f4f',
-                              bgcolor: selectedComponent?.settings?.bold ? '#ffffff' : 'transparent',
+                              color: selectedComponent?.settings?.bold !== false ? '#1976d2' : '#4f4f4f',
+                              bgcolor: selectedComponent?.settings?.bold !== false ? '#ffffff' : 'transparent',
                             }}
                           >
                             <FormatBold fontSize="small" />
@@ -823,31 +1098,38 @@ const CustomerDisplayEditor = () => {
                             <FormatUnderlined fontSize="small" />
                           </Button>
                         </Box>
-                        {(selectedComponent?.settings?.labels || []).map((labelRow, idx) => (
-                          <Box key={labelRow.key} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-                            <TextField
-                              fullWidth
-                              value={labelRow.label}
-                              onChange={(e) =>
-                                updateSelectedSettings({
-                                  labels: (selectedComponent?.settings?.labels || []).map((item, i) =>
-                                    i === idx ? { ...item, label: e.target.value } : item
-                                  ),
-                                })
-                              }
-                            />
-                            <Switch
-                              checked={labelRow.visible !== false}
-                              onChange={(e) =>
-                                updateSelectedSettings({
-                                  labels: (selectedComponent?.settings?.labels || []).map((item, i) =>
-                                    i === idx ? { ...item, visible: e.target.checked } : item
-                                  ),
-                                })
-                              }
-                            />
-                          </Box>
-                        ))}
+                        <Typography variant="body2" sx={{ mb: 0.6, fontWeight: 500 }}>
+                          Labels
+                        </Typography>
+                        {/* Reference rows (Total … Paid) are edited even when the template has
+                            none saved yet; a switched-off row's name is greyed. */}
+                        {(() => {
+                          const labels = selectedComponent?.settings?.labels?.length
+                            ? selectedComponent.settings.labels
+                            : DEFAULT_TOTALS_LABELS;
+                          const setLabels = (next) => updateSelectedSettings({ labels: next });
+                          const patchLabel = (idx, patch) => setLabels(labels.map((item, i) => (i === idx ? { ...item, ...patch } : item)));
+                          return labels.map((labelRow, idx) => (
+                            <Box key={labelRow.key} sx={{ display: 'flex', gap: 0.5, mb: 1, alignItems: 'center' }}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                <IconButton size="small" aria-label="Move label up" disabled={idx === 0} onClick={() => setLabels(moveItem(labels, idx, idx - 1))} sx={{ p: 0.25 }}>
+                                  <ArrowUpwardIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                                <IconButton size="small" aria-label="Move label down" disabled={idx === labels.length - 1} onClick={() => setLabels(moveItem(labels, idx, idx + 1))} sx={{ p: 0.25 }}>
+                                  <ArrowDownwardIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                              </Box>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                value={labelRow.label}
+                                disabled={labelRow.visible === false}
+                                onChange={(e) => patchLabel(idx, { label: e.target.value })}
+                              />
+                              <Switch checked={labelRow.visible !== false} onChange={(e) => patchLabel(idx, { visible: e.target.checked })} />
+                            </Box>
+                          ));
+                        })()}
                       </>
                     )}
                     {(selectedComponent.type === 'image' || selectedComponent.type === 'slideshow') && (
@@ -875,15 +1157,41 @@ const CustomerDisplayEditor = () => {
                           <>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                               <Typography>Stretch media to fill</Typography>
-                              <Switch checked={selectedComponent?.settings?.stretchToFill === true} onChange={(e) => updateSelectedSettings({ stretchToFill: e.target.checked })} />
+                              {/* Fill and cover are rival object-fit modes: turning one on turns the other off */}
+                              <Switch checked={selectedComponent?.settings?.stretchToFill === true} onChange={(e) => updateSelectedSettings({ stretchToFill: e.target.checked, ...(e.target.checked ? { stretchToCover: false } : {}) })} />
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                               <Typography>Stretch media to cover</Typography>
-                              <Switch checked={selectedComponent?.settings?.stretchToCover === true} onChange={(e) => updateSelectedSettings({ stretchToCover: e.target.checked })} />
+                              <Switch checked={selectedComponent?.settings?.stretchToCover === true} onChange={(e) => updateSelectedSettings({ stretchToCover: e.target.checked, ...(e.target.checked ? { stretchToFill: false } : {}) })} />
                             </Box>
-                            <Button fullWidth variant="outlined" onClick={() => setSlideDialogOpen(true)}>
+                            <Typography variant="body2" sx={{ mb: 0.6, fontWeight: 500 }}>
+                              Slides
+                            </Typography>
+                            <Button
+                              fullWidth
+                              disableElevation
+                              variant="contained"
+                              onClick={() => {
+                                setSlideDraft((selectedComponent?.settings?.slides || []).map((slide) => ({ ...slide })));
+                                setSelectedSlideIndex(-1);
+                                setSlideDialogOpen(true);
+                              }}
+                              sx={{ mb: 1, bgcolor: 'rgb(50,182,67)', textTransform: 'none', borderRadius: 0, '&:hover': { bgcolor: 'rgb(34,122,45)' } }}
+                            >
                               Edit Slideshow
                             </Button>
+                            <List dense disablePadding>
+                              {(selectedComponent?.settings?.slides || []).map((slide, index) => (
+                                <ListItemButton key={`${slide.url}-${index}`} disableRipple sx={{ gap: 1, px: 0.5 }}>
+                                  <SlideThumb url={slide.url} size={40} />
+                                  <ListItemText
+                                    primary={slideName(slide, index)}
+                                    secondary={`${Number(slide.seconds || 3.5)} seconds`}
+                                    primaryTypographyProps={{ noWrap: true, fontSize: 14 }}
+                                  />
+                                </ListItemButton>
+                              ))}
+                            </List>
                           </>
                         )}
                       </>
@@ -893,8 +1201,26 @@ const CustomerDisplayEditor = () => {
               </Box>
             )}
             <Box sx={{ mt: 'auto', p: 0.75, borderTop: '1px solid #d0d0d0', display: 'grid', gap: 0.75 }}>
-              <Button fullWidth variant="contained" onClick={saveTemplate}>Save</Button>
-              <Button fullWidth component={RouterLink} to={'/setup/customer-display'}>Cancel</Button>
+              {/* Reference: blue Save with a save icon, grey outlined Cancel with an X */}
+              <Button
+                fullWidth
+                variant="contained"
+                disableElevation
+                disabled={saving}
+                onClick={() => saveTemplate()}
+                startIcon={<SaveOutlinedIcon sx={{ fontSize: 18 }} />}
+                sx={{ height: 36, borderRadius: '4px', textTransform: 'none', fontSize: 16, bgcolor: '#1c86f2', '&:hover': { bgcolor: '#1a73d6' } }}
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+              <Button
+                fullWidth
+                onClick={handleCancel}
+                startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
+                sx={{ height: 36, borderRadius: '4px', textTransform: 'none', fontSize: 16, color: '#676b72', bgcolor: '#f8f8f8', border: '1px solid #d0d0d0', '&:hover': { bgcolor: '#ebebeb' } }}
+              >
+                Cancel
+              </Button>
             </Box>
           </Paper>
         </Grid>
@@ -904,12 +1230,15 @@ const CustomerDisplayEditor = () => {
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
         onClose={() => setMenuAnchor(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        // Reference: wide grey list hanging below the "+" button, right edges
+        // aligned, large rows with icons, nothing pre-highlighted.
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         transitionDuration={0}
+        autoFocus={false}
         PaperProps={{
           sx: {
-            mt: 0.6,
+            mt: '2px',
             width: 400,
             borderRadius: 0,
             border: '1px solid #000',
@@ -952,83 +1281,199 @@ const CustomerDisplayEditor = () => {
         open={slideMediaDialogOpen}
         onClose={() => setSlideMediaDialogOpen(false)}
         accept="image/*,video/*"
-        onSelect={(url) => {
-          if (selectedSlideIndex < 0) {
-            const slide = { url, seconds: 3.5, startAt: '', endAt: '' };
-            const slides = [...(selectedComponent?.settings?.slides || []), slide];
-            updateSelectedSettings({ slides });
+        multiple
+        onSelect={(urls) => {
+          // Reference "Add New Slide": each picked media becomes a new slide
+          // (5 seconds by default); the last one is selected for editing.
+          const picked = (Array.isArray(urls) ? urls : [urls]).filter(Boolean);
+          if (!picked.length) return;
+          setSlideDraft((prev) => {
+            const slides = [...prev, ...picked.map((url) => ({ url, seconds: 5, startAt: '', endAt: '' }))];
             setSelectedSlideIndex(slides.length - 1);
-            setNewSlide(slide);
-          } else {
-            setNewSlide((prev) => ({ ...prev, url }));
-          }
+            return slides;
+          });
           setSlideMediaDialogOpen(false);
         }}
       />
 
-      <Dialog open={slideDialogOpen} onClose={() => setSlideDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Edit Slideshow</DialogTitle>
+      {/* Edit Slideshow (reference): pencil badge, Add New Slide, reorder arrows +
+          thumbnail + name + seconds, slide editor (Seconds / Start At / End At),
+          Cancel / Confirm. Works on a draft; only Confirm writes to the component. */}
+      <Dialog
+        open={slideDialogOpen}
+        onClose={() => setSlideDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 0, overflow: 'visible', boxShadow: '0 0 30px rgba(0,0,0,.25), 0 15px 30px rgba(0,0,0,.19)' } }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -34,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 68,
+            height: 68,
+            borderRadius: '50%',
+            bgcolor: '#1c86f2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <EditIcon sx={{ color: '#fff', fontSize: 36 }} />
+        </Box>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 700, fontSize: 20, pt: 5, pb: 1 }}>Edit Slideshow</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', gap: 2, minHeight: 360 }}>
-            <Box sx={{ width: 260, borderRight: '1px solid #ddd', pr: 1 }}>
-              <Button variant="contained" color="success" fullWidth sx={{ mb: 1 }} onClick={() => setSlideMediaDialogOpen(true)}>
+            <Box sx={{ width: 320, borderRight: '1px solid #ddd', pr: 1 }}>
+              <Button
+                fullWidth
+                disableElevation
+                variant="contained"
+                startIcon={<AddIcon />}
+                sx={{ mb: 1, bgcolor: 'rgb(50,182,67)', textTransform: 'none', borderRadius: 0, '&:hover': { bgcolor: 'rgb(34,122,45)' } }}
+                onClick={() => setSlideMediaDialogOpen(true)}
+              >
                 Add New Slide
               </Button>
-              <Button
-                variant="contained"
-                color="error"
-                fullWidth
-                disabled={selectedSlideIndex < 0}
-                onClick={() => {
-                  if (selectedSlideIndex < 0) return;
-                  updateSelectedSettings({
-                    slides: (selectedComponent?.settings?.slides || []).filter((_, index) => index !== selectedSlideIndex),
-                  });
-                  setSelectedSlideIndex(-1);
-                }}
-              >
-                Remove Slide
-              </Button>
-              <List dense sx={{ mt: 1, maxHeight: 280, overflow: 'auto' }}>
-                {(selectedComponent?.settings?.slides || []).map((slide, index) => (
-                  <ListItemButton key={`${slide.url}-${index}`} selected={selectedSlideIndex === index} onClick={() => {
-                    setSelectedSlideIndex(index);
-                    setNewSlide(slide);
-                  }}>
-                    <ListItemText primary={slide.url?.split('/').pop() || `Slide ${index + 1}`} secondary={`${Number(slide.seconds || 3.5).toFixed(2)} seconds`} />
+              <List dense sx={{ mt: 1, maxHeight: 320, overflow: 'auto' }}>
+                {slideDraft.length === 0 && (
+                  <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>
+                    No slides yet. Use Add New Slide.
+                  </Typography>
+                )}
+                {slideDraft.map((slide, index) => (
+                  <ListItemButton
+                    key={`${slide.url}-${index}`}
+                    selected={selectedSlideIndex === index}
+                    onClick={() => setSelectedSlideIndex(index)}
+                    sx={{ gap: 1, px: 0.5 }}
+                  >
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <IconButton
+                        size="small"
+                        aria-label="Move slide up"
+                        disabled={index === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSlideDraft((prev) => moveItem(prev, index, index - 1));
+                          setSelectedSlideIndex((cur) => (cur === index ? index - 1 : cur === index - 1 ? index : cur));
+                        }}
+                      >
+                        <ArrowUpwardIcon fontSize="inherit" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        aria-label="Move slide down"
+                        disabled={index === slideDraft.length - 1}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSlideDraft((prev) => moveItem(prev, index, index + 1));
+                          setSelectedSlideIndex((cur) => (cur === index ? index + 1 : cur === index + 1 ? index : cur));
+                        }}
+                      >
+                        <ArrowDownwardIcon fontSize="inherit" />
+                      </IconButton>
+                    </Box>
+                    <SlideThumb url={slide.url} />
+                    <ListItemText
+                      primary={slideName(slide, index)}
+                      secondary={`${Number(slide.seconds || 5)} seconds`}
+                      primaryTypographyProps={{ noWrap: true }}
+                    />
                   </ListItemButton>
                 ))}
               </List>
             </Box>
             <Box sx={{ flex: 1 }}>
-              {selectedSlideIndex < 0 ? (
+              {selectedSlideIndex < 0 || !slideDraft[selectedSlideIndex] ? (
                 <Typography sx={{ mt: 12, textAlign: 'center', color: 'text.secondary' }}>Select a slide to edit</Typography>
               ) : (
                 <>
-                  <Button variant="outlined" onClick={() => setSlideMediaDialogOpen(true)} sx={{ mb: 1 }}>
-                    Replace Media
-                  </Button>
-                  <TextField fullWidth label="Selected Media URL" value={newSlide.url} sx={{ mt: 1, mb: 1 }} InputProps={{ readOnly: true }} />
-                  <TextField fullWidth label="Seconds" type="number" value={newSlide.seconds} onChange={(e) => setNewSlide((prev) => ({ ...prev, seconds: e.target.value }))} sx={{ mb: 1 }} />
-                  <TextField fullWidth label="Start At" type="datetime-local" InputLabelProps={{ shrink: true }} value={newSlide.startAt || ''} onChange={(e) => setNewSlide((prev) => ({ ...prev, startAt: e.target.value }))} sx={{ mb: 1 }} />
-                  <TextField fullWidth label="End At" type="datetime-local" InputLabelProps={{ shrink: true }} value={newSlide.endAt || ''} onChange={(e) => setNewSlide((prev) => ({ ...prev, endAt: e.target.value }))} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                    <SlideThumb url={slideDraft[selectedSlideIndex].url} size={96} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography noWrap sx={{ fontWeight: 600 }}>{slideName(slideDraft[selectedSlideIndex], selectedSlideIndex)}</Typography>
+                      <Button
+                        size="small"
+                        color="error"
+                        sx={{ textTransform: 'none', px: 0 }}
+                        onClick={() => {
+                          setSlideDraft((prev) => prev.filter((_, i) => i !== selectedSlideIndex));
+                          setSelectedSlideIndex(-1);
+                        }}
+                      >
+                        Remove Slide
+                      </Button>
+                    </Box>
+                  </Box>
+                  <TextField
+                    fullWidth
+                    label="Seconds"
+                    type="number"
+                    inputProps={{ min: 1, step: 0.5 }}
+                    value={slideDraft[selectedSlideIndex].seconds ?? 5}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSlideDraft((prev) => prev.map((s, i) => (i === selectedSlideIndex ? { ...s, seconds: value } : s)));
+                    }}
+                    sx={{ mb: 1.5 }}
+                  />
+                  {/* Same calendar as the rest of the app (Promotions): MUI date-time
+                      picker with Clear / Current Day / OK. Stored as "yyyy-MM-ddTHH:mm"
+                      local time, the format the renderer already reads. */}
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    {[
+                      { key: 'startAt', label: 'Start At', help: 'Leave blank to show the slide straight away' },
+                      { key: 'endAt', label: 'End At', help: 'Leave blank to keep showing the slide until it is removed' },
+                    ].map(({ key, label, help }) => (
+                      <DateTimePicker
+                        key={key}
+                        label={label}
+                        value={slideDateToDate(slideDraft[selectedSlideIndex][key])}
+                        onChange={(value) => {
+                          const next = dateToSlideDate(value);
+                          setSlideDraft((prev) => prev.map((s, i) => (i === selectedSlideIndex ? { ...s, [key]: next } : s)));
+                        }}
+                        format="dd/MM/yyyy HH:mm"
+                        ampm={false}
+                        localeText={{ todayButtonLabel: 'Current Day' }}
+                        slotProps={{
+                          textField: { fullWidth: true, helperText: help, sx: { mb: 1.5 } },
+                          actionBar: { actions: ['clear', 'today', 'accept'] },
+                          desktopPaper: { sx: PICKER_POPOVER_SX },
+                          mobilePaper: { sx: PICKER_POPOVER_SX },
+                        }}
+                      />
+                    ))}
+                  </LocalizationProvider>
                 </>
               )}
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSlideDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
           <Button
-            variant="contained"
+            onClick={() => setSlideDialogOpen(false)}
+            sx={{ flex: 1, height: 48, borderRadius: 0, textTransform: 'none', fontSize: 16, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid currentColor', '&:hover': { bgcolor: '#676b72', color: '#f8f8f8' } }}
+          >
+            Cancel
+          </Button>
+          <Button
             onClick={() => {
-              if (!selectedComponent || selectedSlideIndex < 0) return;
-              updateSelectedSettings({
-                slides: (selectedComponent?.settings?.slides || []).map((slide, index) =>
-                  index === selectedSlideIndex ? newSlide : slide
-                ),
-              });
+              if (!selectedComponent) return;
+              // Seconds must be a positive number; blank dates mean "forever".
+              const slides = slideDraft.map((s) => ({
+                ...s,
+                seconds: Math.max(1, Number(s.seconds) || 5),
+                startAt: s.startAt || '',
+                endAt: s.endAt || '',
+              }));
+              updateSelectedSettings({ slides });
+              setSlideDialogOpen(false);
             }}
+            sx={{ flex: 1, height: 48, borderRadius: 0, textTransform: 'none', fontSize: 16, bgcolor: 'rgb(50,182,67)', color: '#f8f8f8', border: '1px solid rgb(50,182,67)', '&:hover': { bgcolor: '#f8f8f8', color: 'rgb(50,182,67)' } }}
           >
             Confirm
           </Button>
@@ -1049,10 +1494,13 @@ const CustomerDisplayEditor = () => {
 
       <Dialog
         open={nameDialogOpen}
-        onClose={() => setNameDialogOpen(false)}
+        onClose={handleTemplateDialogCancel}
+        // Translucent backdrop so the canvas stays visible behind the dialog (ref)
+        slotProps={{ backdrop: { sx: { bgcolor: 'rgba(0,0,0,0.45)' } } }}
         PaperProps={{
           sx: {
-            width: 291,
+            width: 360,
+            maxWidth: '92vw',
             borderRadius: 0,
             overflow: 'visible',
             boxShadow: '0 0 30px rgba(0,0,0,.25), 0 15px 30px rgba(0,0,0,.19)',
@@ -1080,11 +1528,17 @@ const CustomerDisplayEditor = () => {
           Configure Customer Display
         </DialogTitle>
         <DialogContent sx={{ px: 2.5 }}>
+          {configError && (
+            <Typography sx={{ color: '#e3342f', fontSize: 14, textAlign: 'center', mb: 1 }}>{configError}</Typography>
+          )}
           <Typography sx={{ textAlign: 'center', mb: 0.5 }}>Name</Typography>
           <TextField
             fullWidth
-            value={template.name}
-            onChange={(e) => setTemplate((prev) => ({ ...prev, name: e.target.value }))}
+            autoFocus
+            value={configDraft.name}
+            inputProps={{ maxLength: 100 }}
+            onChange={(e) => setConfigDraft((prev) => ({ ...prev, name: e.target.value }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleTemplateDialogPrimaryAction(); } }}
             sx={{
               mb: 1.5,
               '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53 },
@@ -1093,20 +1547,20 @@ const CustomerDisplayEditor = () => {
           />
           {renderColorField(
             'Default text colour',
-            template.defaultTextColor,
-            (nextColor) => setTemplate((prev) => ({ ...prev, defaultTextColor: nextColor })),
+            configDraft.defaultTextColor,
+            (nextColor) => setConfigDraft((prev) => ({ ...prev, defaultTextColor: nextColor })),
             { textAlign: 'center' }
           )}
           {renderColorField(
             'Default background colour',
-            template.defaultBackgroundColor,
-            (nextColor) => setTemplate((prev) => ({ ...prev, defaultBackgroundColor: nextColor })),
+            configDraft.defaultBackgroundColor,
+            (nextColor) => setConfigDraft((prev) => ({ ...prev, defaultBackgroundColor: nextColor })),
             { mb: 0, textAlign: 'center' }
           )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', gap: 1, pb: 2.5, pt: 1 }}>
           <Button
-            onClick={() => setNameDialogOpen(false)}
+            onClick={handleTemplateDialogCancel}
             sx={{
               width: 121,
               height: 48,
@@ -1124,6 +1578,7 @@ const CustomerDisplayEditor = () => {
           </Button>
           <Button
             onClick={handleTemplateDialogPrimaryAction}
+            disabled={saving}
             sx={{
               width: 121,
               height: 48,

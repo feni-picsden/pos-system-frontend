@@ -16,43 +16,44 @@ export const createDefaultCustomerDisplayTemplate = () => ({
   name: 'Customer Display',
   defaultTextColor: '#ffffff',
   defaultBackgroundColor: '#000000',
+  // Reference idle screen: one full-screen slide show (logo / promotions)
   idle: {
     components: [
-      createComponent('idle-slide-1', 'slideshow', 5, 8, 45, 70, {
+      createComponent('idle-slide-1', 'slideshow', 0, 0, 100, 100, {
         slides: [],
         fallbackText: 'Select slides for promotions',
-      }),
-      createComponent('idle-text-1', 'text', 52, 8, 43, 18, {
-        text: 'Welcome to our store',
-        color: '#ffffff',
-        fontSize: 30,
-      }),
-      createComponent('idle-image-1', 'image', 52, 30, 43, 48, {
-        src: '',
-        fallbackText: 'Select to Add Image',
+        stretchToCover: true,
       }),
     ],
   },
+  // Reference sale screen: table top-left, totals top-right, a small slide show
+  // under the totals, and a wide slide show along the bottom.
   sale: {
     components: [
-      createComponent('sale-table-1', 'sale-table', 0, 0, 72, 58, {
+      // White table with black grid and text, green promotion lines
+      createComponent('sale-table-1', 'sale-table', 0, 0, 70, 55, {
         showGrid: true,
+        gridLineColor: '#000000',
         promotionColor: '#2ce56f',
+        textColor: '#000000',
+        backgroundColor: '#ffffff',
+        footerTextColor: '#000000',
+        footerBackgroundColor: '#ffffff',
+        fontSize: 20,
+      }),
+      createComponent('sale-total-1', 'totals', 70, 0, 30, 20, {
         textColor: '#ffffff',
+        promotionColor: '#2ce56f',
         backgroundColor: '#000000',
+        fontSize: 24,
+        bold: true,
       }),
-      createComponent('sale-total-1', 'totals', 72, 0, 28, 28, {
-        textColor: '#ffffff',
-        savingsColor: '#2ce56f',
-        backgroundColor: '#000000',
+      createComponent('sale-slide-2', 'slideshow', 70, 20, 30, 35, {
+        slides: [],
+        fallbackText: 'Edit slideshow',
+        backgroundColor: '#ffffff',
       }),
-      // {{customerName}} is substituted from the attached sale customer by CustomerDisplayRenderer.
-      createComponent('sale-customer-1', 'text', 72, 28, 28, 12, {
-        text: '{{customerName}}',
-        color: '#ffffff',
-        fontSize: 26,
-      }),
-      createComponent('sale-slide-1', 'slideshow', 0, 58, 100, 42, {
+      createComponent('sale-slide-1', 'slideshow', 0, 55, 100, 45, {
         slides: [],
         fallbackText: 'Edit slideshow',
       }),

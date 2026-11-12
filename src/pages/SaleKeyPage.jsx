@@ -983,9 +983,10 @@ const SaleKeyPage = () => {
     const fromStorage = localStorage.getItem('selectedRegisterId');
     const parsed = fromStorage ? parseInt(fromStorage, 10) : NaN;
     const registerId = selectedRegister?.id ?? (Number.isNaN(parsed) ? null : parsed);
-    const popup = await openCustomerDisplayWindow(registerId ?? undefined);
+    // Register setting "Customer display mode": Presentation (cast) or Popup.
+    const popup = await openCustomerDisplayWindow(registerId ?? undefined, { mode: customerDisplaySettings?.displayMode });
     if (!popup) {
-      alert('Popup was blocked. Please allow popups and manage windows on all displays.');
+      alert('Failed to open customer display: the popup was blocked. Please allow popups and manage windows on all displays.');
       return;
     }
 
@@ -997,6 +998,13 @@ const SaleKeyPage = () => {
     const timer = setInterval(() => {
       if (customerDisplayWindowRef.current && customerDisplayWindowRef.current.closed) {
         customerDisplayWindowRef.current = null;
+        setIsCustomerDisplayOpen(false);
+      }
+      // The display may have been opened elsewhere (Menu > Register > Open
+      // Customer Display); the shared window ref knows, so the red icon stops.
+      if (!customerDisplayWindowRef.current && isCustomerDisplayWindowOpen()) {
+        setIsCustomerDisplayOpen(true);
+      } else if (!customerDisplayWindowRef.current && !isCustomerDisplayWindowOpen()) {
         setIsCustomerDisplayOpen(false);
       }
     }, 1000);
@@ -1038,7 +1046,16 @@ const SaleKeyPage = () => {
         quantity: item.quantity || 1,
         unitPrice: (parseFloat(item.price) || 0) / Math.max(parseFloat(item.quantity) || 1, 1),
         totalPrice: parseFloat(item.price) || 0,
-        isPromotion: Boolean(item.isPromotionItem),
+        // Reference: a line sold at a promotion price shows in the promotion
+        // colour on the display. `isPromotionItem` only marks the promotion rows
+        // added from search; a product whose price was cut by a promotion carries
+        // `promotionId` / `criteriaPromo` / a `normalPrice` above its price instead.
+        isPromotion: Boolean(
+          item.isPromotionItem
+            || item.promotionId != null
+            || item.criteriaPromo != null
+            || (Number(item.normalPrice) || 0) > (Number(item.price) || 0)
+        ),
       })),
       totals: {
         subtotal,

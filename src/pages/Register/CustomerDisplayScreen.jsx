@@ -58,7 +58,7 @@ const CustomerDisplayScreen = () => {
     const id = parseRegisterId();
     if (id == null) {
       setLoading(false);
-      setError('No register selected for customer display. Open it from the sales screen or register menu after selecting a register.');
+      setError('Failed to open customer display: no register has been selected. Open it from the sales screen or Register > Open Customer Display after selecting a register.');
       return;
     }
     setRegisterId(id);
@@ -84,10 +84,29 @@ const CustomerDisplayScreen = () => {
             }
           : null;
         setRegisterConfig(normalizedConfig);
-        setDisplayState(state?.payload || {});
+        // The sell screen's local push (same browser) is instant while the server
+        // copy is debounced; never let the initial load replace a newer local state.
+        let localPayload = null;
+        try {
+          const raw = localStorage.getItem(getCustomerDisplayStorageKey(registerId));
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed && Number(parsed.registerId) === Number(registerId)) localPayload = parsed.payload || null;
+        } catch {
+          // Ignore malformed/unavailable cached display state
+        }
+        const serverStamp = Number(state?.payload?.updatedAt) || 0;
+        const localStamp = Number(localPayload?.updatedAt) || 0;
+        setDisplayState((prev) => {
+          const prevStamp = Number(prev?.updatedAt) || 0;
+          if (localPayload && localStamp >= serverStamp && localStamp >= prevStamp) return localPayload;
+          if (serverStamp >= prevStamp) return state?.payload || prev || {};
+          return prev;
+        });
         setTemplates(templateList);
       } catch (err) {
-        setError('Failed to load customer display settings');
+        setError(err?.response?.status === 404
+          ? 'Failed to open customer display: the selected register no longer exists.'
+          : 'Failed to open customer display: the display settings could not be loaded.');
       } finally {
         setLoading(false);
       }
@@ -99,10 +118,15 @@ const CustomerDisplayScreen = () => {
   useEffect(() => {
     if (!registerId) return undefined;
 
+    // Never let an older state (e.g. the 15 s server poll, which lags the
+    // instant local push) overwrite a newer one: compare updatedAt stamps.
+    let lastAppliedAt = 0;
     const applyPayload = (payload) => {
-      if (payload && typeof payload === 'object') {
-        setDisplayState(payload);
-      }
+      if (!payload || typeof payload !== 'object') return;
+      const stamp = Number(payload.updatedAt) || 0;
+      if (stamp && stamp < lastAppliedAt) return;
+      if (stamp) lastAppliedAt = stamp;
+      setDisplayState(payload);
     };
 
     const readLocalState = () => {
@@ -211,7 +235,7 @@ const CustomerDisplayScreen = () => {
     return (
       <Box sx={{ p: 2 }}>
         <Alert severity="error">
-          No customer display templates found. Create one under Setup → Customer Display, then assign it to this register.
+          Failed to open customer display: no customer display template has been allocated to this register. Create one under Setup → Customer Display, then pick it for the register under Setup → General → Registers.
         </Alert>
       </Box>
     );

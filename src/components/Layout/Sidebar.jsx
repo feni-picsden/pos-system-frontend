@@ -433,7 +433,8 @@ const menuItems = [
         title: "Customer Display",
         icon: <DesktopWindowsOutlined />,
         path: "/settings/customer-display",
-        permissions: ["register.access"],
+        // Same permission the route itself checks (modify_customer_displays).
+        permissions: ["modify_customer_displays"],
       },
       {
         id: "users",

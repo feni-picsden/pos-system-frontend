@@ -68,6 +68,7 @@ import paymentMethodService from '../../services/paymentMethodService';
 import PageSaveBar from '../../components/Common/PageSaveBar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 
@@ -415,6 +416,10 @@ const GeneralSettings = () => {
   const { user, getOutletName } = useAuth();
   // Navbar outlet selection — what the register list is actually scoped to.
   const { selectedOutletId: navbarOutletId, outlets: navbarOutlets } = useSelectedOutlet();
+  // Navbar register: the Register Settings form opens on it first (not on the first row).
+  const { selectedRegister: navbarRegister } = useSelectedRegister();
+  const navbarRegisterIdRef = useRef(null);
+  navbarRegisterIdRef.current = navbarRegister?.id ?? navbarRegister?.registerId ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   // ponytail: section survives a reload via localStorage, no router plumbing needed.
@@ -799,9 +804,15 @@ const GeneralSettings = () => {
       // No registers here = nothing selected (a stale id would load and save
       // settings for a register that is not in this list).
       // A reload after a register-profile save keeps the register being edited.
-      setSelectedRegister((prev) => (list || []).some((r) => String(r.id) === String(prev))
-        ? String(prev)
-        : (list?.length ? String(list[0].id) : ''));
+      // First open: the navbar's register (falls back to localStorage, then the
+      // first row). A later reload keeps whatever is being edited.
+      const navbarId = navbarRegisterIdRef.current ?? localStorage.getItem('selectedRegisterId');
+      const has = (id) => id != null && id !== '' && (list || []).some((r) => String(r.id) === String(id));
+      setSelectedRegister((prev) => {
+        if (has(prev)) return String(prev);
+        if (has(navbarId)) return String(navbarId);
+        return list?.length ? String(list[0].id) : '';
+      });
     } catch (error) {
       console.error('Error loading registers:', error);
     }
@@ -2497,12 +2508,11 @@ const GeneralSettings = () => {
         aria-busy={registerFormLocked}
         sx={{
           border: 0, p: 0, m: 0, minWidth: 0,
-          ...(registerFormLocked && { pointerEvents: 'none', opacity: 0.55 }),
+          // While a register's settings load the form is only locked against
+          // clicks; no greyed-out look or "Loading…" text (reference shows none).
+          ...(registerFormLocked && { pointerEvents: 'none' }),
         }}
       >
-      {registerFormLocked && (
-        <Typography sx={{ fontSize: 14, color: '#676b72', mb: 1 }}>Loading register settings…</Typography>
-      )}
       {/* Register Settings Title */}
       <Typography variant="h5" sx={{ mb: 4, fontWeight: 600 }}>
         Register Settings
@@ -2753,15 +2763,20 @@ const GeneralSettings = () => {
                 }}
               >
                 <MenuItem value="">None</MenuItem>
-                {noData(customerDisplayTemplates)}
-                {customerDisplayTemplates.map((template) => (
-                  <MenuItem key={template.id} value={template.id}>
-                    {template.name} (#{template.id})
-                  </MenuItem>
-                ))}
+                {(() => {
+                  // Only templates this register's outlet can see (its own + global).
+                  const regOutlet = registers.find((r) => String(r.id) === String(selectedRegister))?.outletId;
+                  const options = customerDisplayTemplates
+                    .filter((t) => regOutlet == null || t.outletId == null || Number(t.outletId) === Number(regOutlet));
+                  return noData(options) || options.map((template) => (
+                    <MenuItem key={template.id} value={template.id}>
+                      {template.name} (#{template.id})
+                    </MenuItem>
+                  ));
+                })()}
               </Select>
             </FormControl>
-            <Button sx={{ mt: 1 }} component={RouterLink} to={'/setup/customer-display'}>
+            <Button sx={{ mt: 1 }} component={RouterLink} to={'/settings/customer-display'}>
               Edit templates
             </Button>
           </Box>
@@ -2809,9 +2824,13 @@ const GeneralSettings = () => {
                   }));
                 }}
               >
+                {/* Reference launch modes: Presentation (browser cast) / Popup.
+                    Fullscreen / Window are legacy values and stay listed only
+                    while a register still has one saved. */}
+                <MenuItem value="Presentation">Presentation</MenuItem>
                 <MenuItem value="Popup">Popup</MenuItem>
-                <MenuItem value="Fullscreen">Fullscreen</MenuItem>
-                <MenuItem value="Window">Window</MenuItem>
+                {registerCustomerDisplaySettings.displayMode === 'Fullscreen' && <MenuItem value="Fullscreen">Fullscreen</MenuItem>}
+                {registerCustomerDisplaySettings.displayMode === 'Window' && <MenuItem value="Window">Window</MenuItem>}
               </Select>
             </FormControl>
           </Box>

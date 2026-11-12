@@ -36,6 +36,11 @@ const customerDisplayService = {
     return response.data?.templates || [];
   },
 
+  async getTemplate(templateId) {
+    const response = await apiClient.get(`/customer-display/templates/${templateId}`);
+    return response.data?.template || null;
+  },
+
   async createTemplate(template) {
     const response = await apiClient.post(
       '/customer-display/templates',

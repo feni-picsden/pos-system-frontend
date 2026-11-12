@@ -1,6 +1,28 @@
 import customerDisplayService from './customerDisplayService';
 import { normalizeCustomerDisplayTemplate } from '../utils/customerDisplayDefaults';
 
+const normalizeId = (template) => {
+  const rawId = template.id;
+  const numericId = Number(rawId);
+  const id =
+    rawId != null && rawId !== '' && Number.isFinite(numericId)
+      ? numericId
+      : rawId;
+  return normalizeCustomerDisplayTemplate({ ...template, id });
+};
+
+const toPayload = (template) => {
+  const normalized = normalizeCustomerDisplayTemplate(template);
+  return {
+    name: String(normalized.name || '').trim(),
+    isActive: normalized.isActive !== false,
+    defaultTextColor: normalized.defaultTextColor,
+    defaultBackgroundColor: normalized.defaultBackgroundColor,
+    idleLayout: normalized.idle,
+    saleLayout: normalized.sale,
+  };
+};
+
 const customerDisplayTemplateService = {
   async listTemplates(outletId) {
     try {
@@ -8,31 +30,26 @@ const customerDisplayTemplateService = {
       if (!Array.isArray(templates) || templates.length === 0) {
         return [];
       }
-      return templates.map((template) => {
-        const rawId = template.id;
-        const numericId = Number(rawId);
-        const id =
-          rawId != null && rawId !== '' && Number.isFinite(numericId)
-            ? numericId
-            : rawId;
-        return normalizeCustomerDisplayTemplate({ ...template, id });
-      });
+      return templates.map(normalizeId);
     } catch (error) {
       console.error('customerDisplayTemplateService.listTemplates', error);
       return [];
     }
   },
 
+  // One template by id (404 -> null). Errors other than 404 propagate.
+  async getTemplate(templateId) {
+    try {
+      const template = await customerDisplayService.getTemplate(templateId);
+      return template ? normalizeId(template) : null;
+    } catch (error) {
+      if (error?.response?.status === 404) return null;
+      throw error;
+    }
+  },
+
   async upsertTemplate(template) {
-    const normalized = normalizeCustomerDisplayTemplate(template);
-    const payload = {
-      name: normalized.name,
-      isActive: normalized.isActive !== false,
-      defaultTextColor: normalized.defaultTextColor,
-      defaultBackgroundColor: normalized.defaultBackgroundColor,
-      idleLayout: normalized.idle,
-      saleLayout: normalized.sale,
-    };
+    const payload = toPayload(template);
     const idNum = Number(template.id);
     const shouldUpdate =
       template.id != null &&
@@ -41,18 +58,19 @@ const customerDisplayTemplateService = {
       idNum > 0;
 
     let savedId = idNum;
+    let saved = null;
     if (shouldUpdate) {
-      await customerDisplayService.updateTemplate(idNum, payload);
+      saved = await customerDisplayService.updateTemplate(idNum, payload);
     } else {
-      const created = await customerDisplayService.createTemplate({
+      saved = await customerDisplayService.createTemplate({
         ...payload,
         name: payload.name || 'Customer Display',
       });
-      const createdNum = Number(created?.id);
-      savedId = Number.isFinite(createdNum) ? createdNum : created?.id;
+      const createdNum = Number(saved?.id);
+      savedId = Number.isFinite(createdNum) ? createdNum : saved?.id;
     }
     const templates = await this.listTemplates();
-    return { savedId, templates };
+    return { savedId, template: saved ? normalizeId(saved) : null, templates };
   },
 
   async removeTemplate(templateId) {
@@ -60,23 +78,21 @@ const customerDisplayTemplateService = {
     return this.listTemplates();
   },
 
-  async cloneTemplate(templateId) {
-    const templates = await this.listTemplates();
-    const source = templates.find((item) => item.id === templateId);
-    if (!source) return templates;
+  // Reference "Confirm Clone": the copy takes the name the user typed
+  // (prefilled "<name> - Clone"). Fresh copy from the server so the clone gets
+  // the latest saved design.
+  async cloneTemplate(templateId, name) {
+    const source =
+      (await this.getTemplate(templateId)) ||
+      (await this.listTemplates()).find((item) => String(item.id) === String(templateId));
+    if (!source) throw new Error('Customer display template not found');
 
-    const cloned = {
-      ...source,
-      id: `customer-display-${Date.now()}`,
-      name: `${source.name} Copy`,
-    };
-    await customerDisplayService.createTemplate({
-      ...cloned,
-      id: undefined,
-      idleLayout: cloned.idle,
-      saleLayout: cloned.sale,
+    const cloneName = String(name || `${source.name} - Clone`).trim();
+    const created = await customerDisplayService.createTemplate({
+      ...toPayload(source),
+      name: cloneName,
     });
-    return this.listTemplates();
+    return created ? normalizeId(created) : null;
   },
 };
 
