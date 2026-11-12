@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Paper,
   Alert,
   CircularProgress,
   Table,
@@ -14,6 +13,7 @@ import {
   TableRow,
 } from '@mui/material';
 import transfereeService from '../../services/transfereeService';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -22,37 +22,39 @@ const formatDate = (value) => {
   return d.toISOString().slice(0, 10);
 };
 
-const HEADER_SX = {
-  '& th': {
-    backgroundColor: '#5ebbeb',
-    color: '#f8f8f8',
-    fontWeight: 700,
-    fontSize: 16,
-    textTransform: 'uppercase',
-    padding: '8px',
-    height: 36,
-    borderBottom: 'none',
-  },
-};
+const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
 
+// Reference: H1 = transferee name, then a plain bordered table of the transfers
+// made to it (From | Status | Type | Order Date | Total Cost) ending in a Total row.
 const TransfereeView = () => {
   const { id } = useParams();
+  const { selectedOutletId } = useSelectedOutlet();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [transferee, setTransferee] = useState(null);
   const [transfers, setTransfers] = useState([]);
+  const [totalCost, setTotalCost] = useState(0);
 
   useEffect(() => {
     document.title = 'View Transferees | Crinit\'s Shop';
   }, []);
 
+  // Reloads on a navbar outlet switch: the rows are the transfers the current
+  // outlet view may see (own outlet, or every outlet on All Outlets).
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
         const response = await transfereeService.getTransfereeTransfers(id);
+        const rows = response.transfers || [];
         setTransferee(response.transferee || null);
-        setTransfers(response.transfers || []);
+        setTransfers(rows);
+        setTotalCost(
+          response.totalCost != null
+            ? Number(response.totalCost)
+            : rows.reduce((s, t) => s + (Number(t.totalAmount) || 0), 0)
+        );
+        setError('');
       } catch (err) {
         console.error('Error loading transferee transfers:', err);
         setError(err.response?.data?.error || 'Failed to load transferee');
@@ -61,7 +63,7 @@ const TransfereeView = () => {
       }
     };
     load();
-  }, [id]);
+  }, [id, selectedOutletId]);
 
   if (loading) {
     return (
@@ -72,7 +74,7 @@ const TransfereeView = () => {
   }
 
   return (
-    <Box sx={{ p: 1 }}>
+    <Box sx={{ p: 3 }}>
       <Typography
         component="h1"
         sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}
@@ -86,43 +88,57 @@ const TransfereeView = () => {
         </Alert>
       )}
 
-      {transfers.length === 0 ? (
-        <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000' }}>
-          No orders found.
-        </Typography>
-      ) : (
-        <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>
-          <Table size="small">
+      {/* Reference: plain bordered grid (1px black cells), bold centred headings,
+          every transfer to this transferee, then a final "Total" row. The grid is
+          shown even with no transfers so the layout can be checked. */}
+      {!error && (
+        <TableContainer>
+          <Table
+            size="small"
+            sx={{
+              borderCollapse: 'collapse',
+              '& th, & td': {
+                border: '1px solid #000',
+                fontSize: 16,
+                color: '#000',
+                p: '8px 8px',
+                height: 36,
+              },
+              '& th': { fontWeight: 700, textAlign: 'center' },
+            }}
+          >
             <TableHead>
-              <TableRow sx={HEADER_SX}>
+              <TableRow>
                 <TableCell>From</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell>Order Date</TableCell>
-                <TableCell align="right">Total Cost</TableCell>
+                <TableCell>Total Cost</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {transfers.map((row, index) => (
-                <TableRow
-                  key={row.id}
-                  sx={{
-                    bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
-                    '& td': {
-                      color: '#000',
-                      fontSize: 16,
-                      padding: '8px 8px 8px 10px',
-                      borderBottom: 'none',
-                    },
-                  }}
-                >
+              {transfers.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} sx={{ color: '#555', textAlign: 'center' }}>
+                    No transfers have been made to this transferee yet.
+                  </TableCell>
+                </TableRow>
+              )}
+              {transfers.map((row) => (
+                <TableRow key={row.id}>
                   <TableCell>{row.outlet?.name || ''}</TableCell>
                   <TableCell>{row.status}</TableCell>
                   <TableCell>{row.type}</TableCell>
                   <TableCell>{formatDate(row.orderDate)}</TableCell>
-                  <TableCell align="right">${Number(row.totalAmount || 0).toFixed(2)}</TableCell>
+                  <TableCell>{money(row.totalAmount)}</TableCell>
                 </TableRow>
               ))}
+              <TableRow>
+                <TableCell colSpan={4} sx={{ textAlign: 'right', border: 0, borderRight: '1px solid #000' }}>
+                  Total
+                </TableCell>
+                <TableCell>{money(totalCost)}</TableCell>
+              </TableRow>
             </TableBody>
           </Table>
         </TableContainer>
