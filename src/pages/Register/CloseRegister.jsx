@@ -171,7 +171,8 @@ const CloseRegister = () => {
   const [allMethods, setAllMethods] = useState([]);
   const [regPayments, setRegPayments] = useState(null); // { map, complete } | null
   const navigate = useNavigate();
-  const { clearSelectedRegister } = useSelectedRegister();
+  const { clearSelectedRegister, selectedRegister } = useSelectedRegister();
+  const registerOutletId = selectedRegister?.outletId ?? selectedRegister?.outlet?.id ?? null;
   const registerId = localStorage.getItem('selectedRegisterId')
     ? parseInt(localStorage.getItem('selectedRegisterId'))
     : null;
@@ -197,9 +198,16 @@ const CloseRegister = () => {
       .getPaymentMethods({ isActive: true })
       .then((r) => {
         setAllMethods(r?.paymentMethods || []);
-        const cash = (r?.paymentMethods || []).find(
-          (m) => String(m.type || '').toLowerCase() === 'cash' || String(m.name || '').trim().toLowerCase() === 'cash'
+        // The register outlet's view (its own + global methods). Prefer the
+        // method NAMED Cash - own outlet first, then global - and only then the
+        // first Cash-type one; the list is newest-first, so "first Cash type"
+        // alone picked whichever cash method was created last.
+        const visible = (r?.paymentMethods || []).filter(
+          (m) => registerOutletId == null || m.outletId == null || m.outletId === registerOutletId
         );
+        const named = visible.filter((m) => String(m.name || '').trim().toLowerCase() === 'cash');
+        const cash = named.find((m) => m.outletId != null) || named[0]
+          || visible.find((m) => String(m.type || '').toLowerCase() === 'cash');
         const configured = parseDenominations(getPaymentMethodSettings(cash).closeRegisterDenominations);
         if (configured) setDenominations(configured);
       })
@@ -219,7 +227,7 @@ const CloseRegister = () => {
         if (Number.isFinite(Number(f)) && f !== '' && f != null) setFloatAmount((cur) => (cur === '' ? String(f) : cur));
       })
       .catch(() => setRegPayments(null));
-  }, [registerId]);
+  }, [registerId, registerOutletId]);
 
   const expectedFor = (method) => {
     const map = preview?.paymentBreakdown || {};

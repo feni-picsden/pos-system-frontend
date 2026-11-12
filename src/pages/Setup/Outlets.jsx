@@ -30,6 +30,12 @@ import {
   DeleteOutline as DeleteIcon,
   VisibilityOutlined as ViewIcon,
   SaveOutlined as SaveIcon,
+  LocalOfferOutlined as GeneralTabIcon,
+  FaxOutlined as ContactTabIcon,
+  BadgeOutlined as AddressTabIcon,
+  TuneOutlined as MiscTabIcon,
+  ExtensionOutlined as IntegrationsTabIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import apiClient from "../../services/apiClient";
@@ -41,6 +47,7 @@ import posLocalDb from "../../services/posLocalDb";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import ShopfrontSwitch from "../../components/Common/ShopfrontSwitch";
 import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
+import { clearOutletProfileCache } from "../../utils/outletReceiptProfile";
 
 // Reference has no transitions on its action links.
 const INSTANT = "all 0s ease";
@@ -131,6 +138,8 @@ const EMPTY_PROFILE = {
   useGlobalCost: true,
   businessNumber: "",
   hasKitchenScreen: false,
+  // Primary Ticketing Price Set (id as string; "" = none / Default).
+  primaryTicketingPriceSetId: "",
   logo: "",
   email: "",
   fax: "",
@@ -168,7 +177,43 @@ const ADDRESS_FIELDS = [
   ["country", "Country"],
 ];
 
-const EDITOR_TABS = ["General", "Contact", "Address", "Miscellaneous", "Integrations"];
+// Reference editor tabs (General / Contact / Address) + our extra sections in the same style.
+const EDITOR_TABS = [
+  { label: "General", Icon: GeneralTabIcon },
+  { label: "Contact", Icon: ContactTabIcon },
+  { label: "Address", Icon: AddressTabIcon },
+  { label: "Miscellaneous", Icon: MiscTabIcon },
+  { label: "Integrations", Icon: IntegrationsTabIcon },
+];
+
+// Fixed app bar height (DashboardLayout HEADER_HEIGHT): the sticky tab row sits under it.
+const APP_BAR_HEIGHT = 50;
+const BAND_BG = "#e2e8f0";
+const EDITOR_COLUMN = 764;
+
+// Reference editor fields: bold label above a full-width 42px input, 1px dark border, 6px corners.
+const EDITOR_LABEL_SX = { mb: 0.75, fontWeight: 700, fontSize: 16, color: "#000" };
+const EDITOR_FIELD_SX = {
+  "& .MuiOutlinedInput-root": {
+    height: 42,
+    borderRadius: "6px",
+    fontSize: 16,
+    bgcolor: "#fff",
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" },
+  },
+  "& .MuiOutlinedInput-input": { padding: "9px 12px" },
+};
+const EDITOR_SELECT_SX = {
+  height: 42,
+  borderRadius: "6px",
+  fontSize: 16,
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" },
+};
+// ~70px field-to-field rhythm (label + 42px input + gap).
+const EDITOR_ROW_SX = { mb: 2 };
 
 // Structured address parts -> the single address column the rest of the app reads.
 const composeAddress = (p) =>
@@ -203,6 +248,12 @@ const Outlets = () => {
   const [editingOutlet, setEditingOutlet] = useState(null);
   const [editTab, setEditTab] = useState(0);
   const [editData, setEditData] = useState(null);
+  // editData as loaded (same async merges) - Save is pale until they differ.
+  const [editBaseline, setEditBaseline] = useState(null);
+  const [priceSets, setPriceSets] = useState([]);
+  // Header band scrolled away -> the tab row is stuck to the top.
+  const [tabsStuck, setTabsStuck] = useState(false);
+  const bandSentinelRef = useRef(null);
   // The edited outlet's full outlet_settings blob ({ outletId, blob }), loaded
   // with the editor so Discounting Below Cost Behaviour saves without wiping
   // the other outlet settings. null = not loaded.
@@ -228,7 +279,22 @@ const Outlets = () => {
   useEffect(() => {
     fetchOutlets();
     fetchRegisters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Watch a 1px sentinel at the bottom of the header band: once it scrolls
+  // under the app bar, the tab row is stuck and the active tab gets its outline.
+  const editorOpen = !!(editingOutlet && editData);
+  useEffect(() => {
+    const el = bandSentinelRef.current;
+    if (!editorOpen || !el || typeof IntersectionObserver === "undefined") return undefined;
+    const io = new IntersectionObserver(
+      ([entry]) => setTabsStuck(!entry.isIntersecting && entry.boundingClientRect.top < APP_BAR_HEIGHT + 1),
+      { rootMargin: `-${APP_BAR_HEIGHT}px 0px 0px 0px`, threshold: 0 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [editorOpen]);
 
   // Deep link: /settings/registers-outlets?editOutlet=<id> (Setup > General >
   // Registers tab "Edit" on an outlet row) opens this page's outlet editor.
@@ -243,42 +309,30 @@ const Outlets = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkedOutletId, outlets]);
 
-  // Keep local state and the IDB cache in lockstep after a mutation we already
-  // know succeeded — never depend on an immediate refetch (transient 401/503
-  // used to resurrect deleted rows).
+  // This page holds EVERY outlet (?all=true). The IndexedDB "outlets" store is the
+  // navbar's list of the user's ASSIGNED outlets, so this page must never read or
+  // fill it: reading it showed only the assigned outlets here (a new, unassigned
+  // outlet vanished after a reload), and filling it put every outlet into the
+  // navbar selector. After a mutation the shared store is dropped and the navbar
+  // re-pulls its own list.
   const { refreshOutlets } = useSelectedOutlet() || {};
+  const syncNavbarOutlets = async () => {
+    apiClient.bustCache("/outlets");
+    await posLocalDb.invalidateStore("outlets").catch(() => {});
+    if (refreshOutlets) refreshOutlets().catch(() => {});
+  };
+  // Local state follows a mutation we already know succeeded — never depend on
+  // an immediate refetch (transient 401/503 used to resurrect deleted rows).
   const applyOutlets = async (next) => {
     setOutlets(next);
-    await posLocalDb.putStoreAll("outlets", next);
-    // Navbar outlet switcher + Location Selector hold their own copy.
-    if (refreshOutlets) refreshOutlets().catch(() => {});
+    await syncNavbarOutlets();
   };
 
   const fetchOutlets = async () => {
-    await posLocalDb.init();
-    const cached = await posLocalDb.getStoreAll("outlets");
-    if (cached.length > 0) {
-      setOutlets(cached);
-      setLoading(false);
-      const stale = await posLocalDb.isStoreStale("outlets");
-      if (stale) {
-        outletService
-          .getAllOutlets()
-          .then(async (r) => {
-            const items = r.outlets || [];
-            await posLocalDb.putStoreAll("outlets", items);
-            setOutlets(items);
-          })
-          .catch(() => {});
-      }
-      return;
-    }
     try {
       setLoading(true);
       const response = await outletService.getEveryOutlet();
-      const items = response.outlets || [];
-      await posLocalDb.putStoreAll("outlets", items);
-      setOutlets(items);
+      setOutlets(response.outlets || []);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.error || "Failed to fetch outlets");
@@ -296,28 +350,12 @@ const Outlets = () => {
     return res.data?.registers || [];
   };
 
+  // Same for registers: the IndexedDB "registers" store is the navbar-scoped list
+  // other pages read, so the full list here stays in page state only.
   const fetchRegisters = async () => {
-    await posLocalDb.init();
-    const cached = await posLocalDb.getStoreAll("registers");
-    if (cached.length > 0) {
-      setRegisters(cached);
-      const stale = await posLocalDb.isStoreStale("registers");
-      if (stale) {
-        listAllRegisters()
-          .then(async (data) => {
-            const items = Array.isArray(data) ? data : [];
-            await posLocalDb.putStoreAll("registers", items);
-            setRegisters(items);
-          })
-          .catch(() => {});
-      }
-      return;
-    }
     try {
       const data = await listAllRegisters();
-      const items = Array.isArray(data) ? data : [];
-      await posLocalDb.putStoreAll("registers", items);
-      setRegisters(items);
+      setRegisters(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch registers:", err);
     }
@@ -357,17 +395,28 @@ const Outlets = () => {
       return;
     }
 
+    if (submitting) return; // double click / Enter repeat
     try {
       setSubmitting(true);
-      const response = await outletService.createOutlet(formData);
+      const response = await outletService.createOutlet({
+        ...formData,
+        name: formData.name.trim(),
+        code: formData.code.trim(),
+      });
+      const movedIds = formData.registerIds;
       const created = {
         ...(response.outlet || {}),
         _count: { user_outlets: 0 },
         registers: registers
-          .filter((r) => formData.registerIds.includes(r.id))
+          .filter((r) => movedIds.includes(r.id))
           .map(({ id, name, code, isActive, status }) => ({ id, name, code, isActive, status })),
       };
-      await applyOutlets([created, ...outlets]);
+      // Registers picked here MOVE from their old outlet - drop them there too.
+      await applyOutlets([
+        created,
+        ...outlets.map((o) => ({ ...o, registers: (o.registers || []).filter((r) => !movedIds.includes(r.id)) })),
+      ]);
+      if (movedIds.length) refreshFromServer().catch(() => {});
       handleCloseDialog();
     } catch (err) {
       setFormErrors({ general: err.response?.data?.error || "Failed to save outlet" });
@@ -394,14 +443,26 @@ const Outlets = () => {
       metcashCustomerId: outlet.metcashCustomerId || "",
       metcashState: outlet.metcashState || "",
       metcashPillar: outlet.metcashPillar || "",
-      outletLatitude: outlet.outletLatitude || null,
-      outletLongitude: outlet.outletLongitude || null,
-      allowedRadius: outlet.allowedRadius || null,
+      outletLatitude: outlet.outletLatitude ?? null,
+      outletLongitude: outlet.outletLongitude ?? null,
+      allowedRadius: outlet.allowedRadius ?? null,
       ...EMPTY_PROFILE,
+      // The outlet row's own email / phone columns seed the profile copy.
+      email: outlet.email || "",
+      phone: outlet.phone || "",
       street1: outlet.address || "",
     };
     setEditData(base);
+    setEditBaseline(base);
     initialRegisterIdsRef.current = [...base.registerIds].sort((a, b) => a - b);
+    // Primary Ticketing Price Set choices: this outlet's price sets + global ones.
+    apiClient
+      .get("/price-sets", { params: { outletId: outlet.id }, noCache: true })
+      .then((r) => {
+        const rows = r.data?.priceSets || [];
+        setPriceSets(rows.filter((ps) => ps.outletId == null || ps.outletId === outlet.id));
+      })
+      .catch(() => setPriceSets([]));
     // Extended profile (contact / structured address / logo) lives in the
     // generic settings store — the outlet table has no columns for it.
     try {
@@ -414,7 +475,15 @@ const Outlets = () => {
       }
       const profile = res?.setting?.value;
       if (profile && typeof profile === "object") {
-        setEditData((prev) => ({ ...prev, ...profile }));
+        // Blank profile email/phone don't hide the outlet row's own columns.
+        const merged = (prev) => ({
+          ...prev,
+          ...profile,
+          email: profile.email || prev.email,
+          phone: profile.phone || prev.phone,
+        });
+        setEditData(merged);
+        setEditBaseline(merged);
       }
     } catch {
       // 404 = no profile saved yet
@@ -431,7 +500,9 @@ const Outlets = () => {
         const v = blob.discountingBelowCostBehaviour;
         // 'Block' was this app's old name for Prevent.
         // _belowCostLoaded is UI-only (the profile save writes EMPTY_PROFILE keys only).
-        setEditData((prev) => ({ ...prev, discountBelowCost: v === "Block" ? "Prevent" : (v || "Allow"), _belowCostLoaded: true }));
+        const withBelowCost = (prev) => ({ ...prev, discountBelowCost: v === "Block" ? "Prevent" : (v || "Allow"), _belowCostLoaded: true });
+        setEditData(withBelowCost);
+        setEditBaseline(withBelowCost);
       }
     } catch (err) {
       console.error("Failed to load outlet settings:", err);
@@ -441,8 +512,12 @@ const Outlets = () => {
   const closeEditor = () => {
     setEditingOutlet(null);
     setEditData(null);
+    setEditBaseline(null);
     setEditErrors({});
   };
+
+  // Save stays pale until something actually changed.
+  const editDirty = !!editData && !!editBaseline && JSON.stringify(editData) !== JSON.stringify(editBaseline);
 
   const setField = (key) => (e) => {
     const value = e?.target ? e.target.value : e;
@@ -466,25 +541,33 @@ const Outlets = () => {
     const errors = {};
     if (!editData.name.trim()) errors.name = "Name is required";
     if (!editData.code.trim()) errors.code = "Code is required";
+    const email = (editData.email || "").trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter a valid email address";
     if (Object.keys(errors).length > 0) {
       setEditErrors(errors);
-      setEditTab(0);
+      setEditTab(errors.name || errors.code ? 0 : 1);
       return;
     }
 
     const composed = composeAddress(editData);
-    // Register assignments go to the server ONLY when the user changed them.
-    // The backend replaces the outlet's whole register set when `registerIds`
-    // is present, so sending an unchanged (or stale) list could detach every
-    // register of the outlet.
-    const nextRegisterIds = [...(editData.registerIds || [])].sort((a, b) => a - b);
-    const registersChanged = JSON.stringify(nextRegisterIds) !== JSON.stringify(initialRegisterIdsRef.current || []);
+    // Register assignments travel as a DELTA, and only when the user changed
+    // them: the backend unassigns only registers that are in this outlet AND
+    // listed, so a stale or partial list can never detach another register.
+    const initialIds = initialRegisterIdsRef.current || [];
+    const nextIds = editData.registerIds || [];
+    const assignRegisterIds = nextIds.filter((id) => !initialIds.includes(id));
+    const unassignRegisterIds = initialIds.filter((id) => !nextIds.includes(id));
+    const registersChanged = assignRegisterIds.length > 0 || unassignRegisterIds.length > 0;
     const payload = {
-      name: editData.name,
-      code: editData.code,
+      name: editData.name.trim(),
+      code: editData.code.trim(),
       address: composed || editingOutlet.address || "",
       description: editData.description,
-      ...(registersChanged ? { registerIds: editData.registerIds } : {}),
+      // The outlet row's own contact columns (receipts / emails read them).
+      email,
+      phone: (editData.phone || "").trim(),
+      ...(assignRegisterIds.length ? { assignRegisterIds } : {}),
+      ...(unassignRegisterIds.length ? { unassignRegisterIds } : {}),
       metcashCustomerId: editData.metcashCustomerId,
       metcashState: editData.metcashState,
       metcashPillar: editData.metcashPillar,
@@ -504,8 +587,11 @@ const Outlets = () => {
           "outlet",
           `Contact and address profile for outlet ${editingOutlet.id}`
         );
+        // Receipt headers cache profiles for the session - drop the stale copy.
+        clearOutletProfileCache();
       } catch (profileErr) {
         console.error("Failed to save outlet profile:", profileErr);
+        setError(profileErr.response?.data?.error || "Outlet saved, but its contact / address / logo details could not be saved");
       }
       // Write Discounting Below Cost Behaviour into this outlet's outlet_settings,
       // merged over the full blob loaded with the editor so every other key is
@@ -542,7 +628,13 @@ const Outlets = () => {
             })
           : (editingOutlet.registers || []),
       };
-      await applyOutlets(outlets.map((o) => (o.id === updated.id ? updated : o)));
+      // A register assigned here moved OUT of its old outlet: drop it there too,
+      // then re-pull, so the next edit of that outlet starts from the truth.
+      await applyOutlets(outlets.map((o) => (o.id === updated.id ? updated : {
+        ...o,
+        registers: (o.registers || []).filter((r) => !assignRegisterIds.includes(r.id)),
+      })));
+      if (registersChanged) refreshFromServer().catch(() => {});
       closeEditor();
     } catch (err) {
       setEditErrors({ general: err.response?.data?.error || "Failed to save outlet" });
@@ -575,16 +667,11 @@ const Outlets = () => {
   const refreshFromServer = async () => {
     apiClient.bustCache("/outlets");
     apiClient.bustCache("/registers");
-    await posLocalDb.invalidateStore("outlets");
-    await posLocalDb.invalidateStore("registers");
+    await posLocalDb.invalidateStore("registers").catch(() => {});
     const [o, r] = await Promise.all([outletService.getEveryOutlet(), listAllRegisters()]);
-    const outletItems = o.outlets || [];
-    const registerItems = Array.isArray(r) ? r : [];
-    await posLocalDb.putStoreAll("outlets", outletItems);
-    await posLocalDb.putStoreAll("registers", registerItems);
-    setOutlets(outletItems);
-    setRegisters(registerItems);
-    if (refreshOutlets) refreshOutlets().catch(() => {});
+    setOutlets(o.outlets || []);
+    setRegisters(Array.isArray(r) ? r : []);
+    await syncNavbarOutlets();
   };
 
   const openRegisterDialog = (outlet) => {
@@ -644,96 +731,184 @@ const Outlets = () => {
     return <PageLoader />;
   }
 
-  // ─── Full-page outlet editor ──────────────────────────────────────────────
+  // â”€â”€â”€ Full-page outlet editor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Reference layout: grey-blue header band (title + icon folder tabs), the tab
+  // row sticks under the app bar once the band scrolls away, white centred
+  // section body with a heading per tab, floating Save bottom-right.
 
   if (editingOutlet && editData) {
     const fieldBlock = (key, label, props = {}) => (
-      <Box key={key} sx={{ mb: 2 }}>
-        <Typography sx={FIELD_LABEL_SX}>{label}</Typography>
+      <Box key={key} sx={EDITOR_ROW_SX}>
+        <Typography component="label" htmlFor={`outlet-${key}`} sx={{ ...EDITOR_LABEL_SX, display: "block" }}>
+          {label}
+        </Typography>
         <TextField
+          id={`outlet-${key}`}
           fullWidth
           value={editData[key] ?? ""}
           onChange={setField(key)}
           error={!!editErrors[key]}
           helperText={editErrors[key]}
-          sx={FIELD_SX}
+          sx={EDITOR_FIELD_SX}
           {...props}
         />
       </Box>
     );
 
-    return (
-      // Centred 820px column, like the product edit page (user request 05/11/2026).
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <Box sx={{ p: 3, pb: 12, width: "100%", maxWidth: 820 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
-          <Button
-            disableRipple
-            onClick={closeEditor}
-            sx={{ minWidth: 0, color: "#313439", transition: INSTANT, "&:hover": { bgcolor: "rgba(0,0,0,0.05)" } }}
-            aria-label="Back to outlets"
-          >
-            <ArrowBackIcon />
-          </Button>
-          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: "#000" }}>
-            Editing {editingOutlet.name}
+    const sectionHeading = (tabIndex) => {
+      const { label, Icon } = EDITOR_TABS[tabIndex];
+      return (
+        <Box sx={{ position: "relative", mb: 3 }}>
+          {/* Small grey icon hangs in the left margin, per reference */}
+          <Icon sx={{ position: "absolute", left: -36, top: 6, fontSize: 22, color: "#8a8d91" }} />
+          <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700, color: "#000" }}>
+            {label}
           </Typography>
         </Box>
+      );
+    };
 
-        {editErrors.general && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {editErrors.general}
-          </Alert>
-        )}
+    const switchRow = (key, label, offText, onText) => (
+      <Box sx={EDITOR_ROW_SX}>
+        <Typography sx={EDITOR_LABEL_SX}>{label}</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", minHeight: 42 }}>
+          <ShopfrontSwitch
+            checked={!!editData[key]}
+            onChange={(e) => setEditData((prev) => ({ ...prev, [key]: e.target.checked }))}
+          />
+          <Typography sx={{ ml: 1.5, fontSize: 14, color: "#676b72" }}>
+            {editData[key] ? onText : offText}
+          </Typography>
+        </Box>
+      </Box>
+    );
 
-        <Box sx={{ display: "flex" }}>
-          {EDITOR_TABS.map((tab, i) => (
-            <Box
-              key={tab}
-              component="button"
-              type="button"
-              onClick={() => setEditTab(i)}
-              sx={{
-                height: 56,
-                px: 4,
-                border: 0,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                fontSize: 14,
-                fontWeight: editTab === i ? 700 : 400,
-                color: "#313439",
-                bgcolor: editTab === i ? "#fff" : "transparent",
-                borderRadius: "8px 8px 0 0",
-                transition: INSTANT,
-              }}
+    const registerOutletName = (register) =>
+      outlets.find((o) => o.id === register.outletId)?.name || null;
+
+    return (
+      <Box sx={{ width: "100%", pb: 12, bgcolor: "#fff", minHeight: "100%" }}>
+        {/* Header band */}
+        <Box sx={{ bgcolor: BAND_BG }}>
+          <Box sx={{ maxWidth: EDITOR_COLUMN, mx: "auto", px: 2, pt: 3, pb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+            <Button
+              disableRipple
+              onClick={closeEditor}
+              sx={{ minWidth: 0, p: 0.5, color: "#313439", transition: INSTANT, "&:hover": { bgcolor: "rgba(0,0,0,0.06)" } }}
+              aria-label="Back to outlets"
             >
-              {tab}
-            </Box>
-          ))}
+              <ArrowBackIcon fontSize="small" />
+            </Button>
+            <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: "#000" }}>
+              Editing {editingOutlet.name}
+            </Typography>
+          </Box>
+          <Box ref={bandSentinelRef} sx={{ height: 1 }} />
         </Box>
 
-        <Box sx={{ bgcolor: "#fff", borderRadius: "0 8px 8px 8px", p: 3 }}>
+        {/* Tab row: sticky under the app bar once the band has scrolled away */}
+        <Box
+          role="tablist"
+          sx={{
+            position: "sticky",
+            top: APP_BAR_HEIGHT,
+            zIndex: 5,
+            bgcolor: tabsStuck ? "#fff" : BAND_BG,
+            boxShadow: tabsStuck ? "0 1px 0 rgba(0,0,0,0.08)" : "none",
+          }}
+        >
+          <Box sx={{ maxWidth: EDITOR_COLUMN, mx: "auto", px: 2, display: "flex", gap: 0.5, pt: tabsStuck ? 0.75 : 0, pb: tabsStuck ? 0.75 : 0 }}>
+            {EDITOR_TABS.map((tab, i) => {
+              const { label, Icon } = tab;
+              const active = editTab === i;
+              return (
+                <Box
+                  key={label}
+                  component="button"
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setEditTab(i)}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    height: tabsStuck ? 42 : 48,
+                    px: 2.5,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    fontSize: 15,
+                    fontWeight: active ? 700 : 400,
+                    color: "#313439",
+                    bgcolor: active ? "#fff" : "transparent",
+                    // Folder tab joining the white page; outlined pill once stuck.
+                    border: active && tabsStuck ? "1px solid #000" : "1px solid transparent",
+                    borderRadius: tabsStuck ? "8px" : "8px 8px 0 0",
+                    transition: INSTANT,
+                    "&:hover": { bgcolor: active ? "#fff" : "rgba(255,255,255,0.5)" },
+                  }}
+                >
+                  <Icon sx={{ fontSize: 18, color: active ? "#0084d1" : "#313439" }} />
+                  {label}
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+
+        {/* Section body */}
+        <Box sx={{ maxWidth: EDITOR_COLUMN, mx: "auto", px: 2, pl: { xs: 6, md: 2 }, pt: 4 }}>
+          {editErrors.general && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {editErrors.general}
+            </Alert>
+          )}
+
+          {sectionHeading(editTab)}
+
           {editTab === 0 && (
             <>
               {fieldBlock("name", "Name", { required: true })}
               {fieldBlock("code", "Outlet Code", { required: true })}
               {fieldBlock("businessNumber", "Business Number")}
 
-              <Box sx={{ mb: 2 }}>
-                <Typography sx={FIELD_LABEL_SX}>Has Kitchen Screen</Typography>
-                <Box sx={{ display: "flex", alignItems: "center", height: 42 }}>
-                  <ShopfrontSwitch
-                    checked={!!editData.hasKitchenScreen}
-                    onChange={(e) => setEditData((prev) => ({ ...prev, hasKitchenScreen: e.target.checked }))}
-                  />
-                  <Typography sx={{ ml: 1.5, fontSize: 14, color: "#676b72" }}>
-                    This Outlet is not allowed to use Kitchen Screens
-                  </Typography>
-                </Box>
+              {switchRow(
+                "hasKitchenScreen",
+                "Has Kitchen Screen",
+                "This Outlet is not allowed to use Kitchen Screens",
+                "This Outlet is allowed to use Kitchen Screens"
+              )}
+
+              <Box sx={EDITOR_ROW_SX}>
+                <Typography sx={{ ...EDITOR_LABEL_SX, mb: 0.25 }}>Primary Ticketing Price Set</Typography>
+                <Typography sx={{ fontSize: 14, color: "#676b72", mb: 0.75 }}>
+                  This is the default price set that will be used for tickets in this store
+                </Typography>
+                <FormControl fullWidth>
+                  <Select
+                    value={
+                      priceSets.some((ps) => String(ps.id) === String(editData.primaryTicketingPriceSetId))
+                        ? String(editData.primaryTicketingPriceSetId)
+                        : ""
+                    }
+                    onChange={setField("primaryTicketingPriceSetId")}
+                    displayEmpty
+                    sx={EDITOR_SELECT_SX}
+                  >
+                    <MenuItem value="">
+                      <Typography component="span" sx={{ color: "#808080" }}>Select...</Typography>
+                    </MenuItem>
+                    {priceSets.map((ps) => (
+                      <MenuItem key={ps.id} value={String(ps.id)}>
+                        {ps.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Box>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography sx={FIELD_LABEL_SX}>Logo</Typography>
+              <Box sx={EDITOR_ROW_SX}>
+                <Typography sx={EDITOR_LABEL_SX}>Logo</Typography>
                 <input
                   ref={logoInputRef}
                   type="file"
@@ -742,12 +917,15 @@ const Outlets = () => {
                   style={{ display: "none" }}
                 />
                 <Box
+                  role="button"
+                  tabIndex={0}
                   onClick={() => logoInputRef.current?.click()}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") logoInputRef.current?.click(); }}
                   sx={{
-                    width: 240,
-                    height: 120,
-                    bgcolor: "#f7f7f7",
-                    border: "1px dashed #d9d9d9",
+                    width: "100%",
+                    height: 250,
+                    bgcolor: "#efefef",
+                    borderRadius: "6px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -759,58 +937,61 @@ const Outlets = () => {
                   {editData.logo ? (
                     <Box component="img" src={editData.logo} alt="Outlet logo" sx={{ maxWidth: "100%", maxHeight: "100%" }} />
                   ) : (
-                    <Typography sx={{ fontSize: 16, color: "#676b72" }}>Select Image</Typography>
+                    <Typography sx={{ fontSize: 16, color: "#313439" }}>Select Image</Typography>
                   )}
                 </Box>
-                {editData.logo && (
-                  <Button
-                    disableRipple
-                    onClick={() => setEditData((prev) => ({ ...prev, logo: "" }))}
-                    sx={{
-                      textTransform: "none",
-                      minWidth: 0,
-                      px: 0,
-                      fontWeight: 400,
-                      fontSize: 16,
-                      color: "#313439",
-                      transition: INSTANT,
-                      "&:hover": { bgcolor: "transparent", opacity: 0.7 },
-                    }}
-                  >
-                    Remove Image
-                  </Button>
-                )}
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  disableRipple
+                  startIcon={<CloseIcon />}
+                  disabled={!editData.logo}
+                  onClick={() => setEditData((prev) => ({ ...prev, logo: "" }))}
+                  sx={{
+                    height: 42,
+                    textTransform: "none",
+                    fontWeight: 400,
+                    fontSize: 16,
+                    color: "#313439",
+                    borderColor: "#404040",
+                    borderRadius: "6px",
+                    transition: INSTANT,
+                    "&:hover": { borderColor: "#000", bgcolor: "rgba(0,0,0,0.03)" },
+                  }}
+                >
+                  Remove Image
+                </Button>
               </Box>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography sx={FIELD_LABEL_SX}>Description</Typography>
+              <Box sx={EDITOR_ROW_SX}>
+                <Typography sx={EDITOR_LABEL_SX}>Description</Typography>
                 <TextField
                   fullWidth
                   multiline
                   rows={2}
                   value={editData.description}
                   onChange={setField("description")}
-                  sx={MULTILINE_FIELD_SX}
+                  sx={{ ...MULTILINE_FIELD_SX, "& .MuiOutlinedInput-root": { ...MULTILINE_FIELD_SX["& .MuiOutlinedInput-root"], borderRadius: "6px" } }}
                 />
               </Box>
             </>
           )}
 
-          {editTab === 1 && CONTACT_FIELDS.map(([key, label]) => fieldBlock(key, label))}
+          {editTab === 1 && CONTACT_FIELDS.map(([key, label]) => fieldBlock(key, label, key === "email" ? { type: "email" } : {}))}
 
           {editTab === 2 && ADDRESS_FIELDS.map(([key, label]) => fieldBlock(key, label))}
 
           {editTab === 3 && (
             <>
-              <Box sx={{ mb: 2 }}>
-                <Typography sx={FIELD_LABEL_SX}>Discounting Below Cost Behaviour</Typography>
+              <Box sx={EDITOR_ROW_SX}>
+                <Typography sx={EDITOR_LABEL_SX}>Discounting Below Cost Behaviour</Typography>
                 <FormControl fullWidth>
                   <Select
                     value={editData.discountBelowCost || "Allow"}
                     onChange={setField("discountBelowCost")}
                     // Can't be saved unless the outlet's settings loaded (see handleSaveEditor).
                     disabled={!editData._belowCostLoaded}
-                    sx={{ height: 42, borderRadius: "8px", fontSize: 16, "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" } }}
+                    sx={EDITOR_SELECT_SX}
                   >
                     <MenuItem value="Allow">Allow</MenuItem>
                     <MenuItem value="Warn">Warn</MenuItem>
@@ -823,24 +1004,18 @@ const Outlets = () => {
                 </Typography>
               </Box>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography sx={FIELD_LABEL_SX}>Use Global Cost</Typography>
-                <Box sx={{ display: "flex", alignItems: "center", height: 42 }}>
-                  <ShopfrontSwitch
-                    checked={!!editData.useGlobalCost}
-                    onChange={(e) => setEditData((prev) => ({ ...prev, useGlobalCost: e.target.checked }))}
-                  />
-                  <Typography sx={{ ml: 1.5, fontSize: 14, color: "#676b72" }}>
-                    Share product costs globally across outlets instead of maintaining individual costs
-                  </Typography>
-                </Box>
-              </Box>
+              {switchRow(
+                "useGlobalCost",
+                "Use Global Cost",
+                "Share product costs globally across outlets instead of maintaining individual costs",
+                "Share product costs globally across outlets instead of maintaining individual costs"
+              )}
             </>
           )}
 
           {editTab === 4 && (
             <>
-              <Box sx={{ mb: 3, maxWidth: 720 }}>
+              <Box sx={{ mb: 3 }}>
                 <MapLocationPicker
                   latitude={editData.outletLatitude}
                   longitude={editData.outletLongitude}
@@ -853,14 +1028,14 @@ const Outlets = () => {
                 />
               </Box>
 
-              <Box sx={{ mb: 2, maxWidth: 560 }}>
-                <Typography sx={FIELD_LABEL_SX}>Registers</Typography>
+              <Box sx={EDITOR_ROW_SX}>
+                <Typography sx={EDITOR_LABEL_SX}>Registers</Typography>
                 <FormControl fullWidth>
                   <Select
                     multiple
                     value={editData.registerIds}
                     onChange={setField("registerIds")}
-                    input={<OutlinedInput sx={{ minHeight: 42, borderRadius: "8px", "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" } }} />}
+                    input={<OutlinedInput sx={{ minHeight: 42, borderRadius: "6px", "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" } }} />}
                     renderValue={(selected) => (
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {selected.map((value) => {
@@ -870,94 +1045,90 @@ const Outlets = () => {
                       </Box>
                     )}
                   >
-                    {registers.map((register) => (
-                      <MenuItem key={register.id} value={register.id}>
-                        {register.name} ({register.code})
+                    {registers.map((register) => {
+                      const owner = register.outletId !== editingOutlet.id ? registerOutletName(register) : null;
+                      return (
+                        <MenuItem key={register.id} value={register.id}>
+                          {register.name} ({register.code}){owner ? ` - moves from ${owner}` : ""}
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+                <Typography sx={{ mt: 0.5, fontSize: 14, color: "#676b72" }}>
+                  Picking a register from another outlet moves it to this outlet (it must be closed).
+                  A register can't be left without an outlet: to take one out, pick it in another
+                  outlet or delete it.
+                </Typography>
+              </Box>
+
+              <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#313439", mb: 2 }}>
+                Metcash Integration
+              </Typography>
+              <Box sx={EDITOR_ROW_SX}>
+                <Typography sx={EDITOR_LABEL_SX}>Customer ID</Typography>
+                <TextField
+                  fullWidth
+                  value={editData.metcashCustomerId}
+                  onChange={setField("metcashCustomerId")}
+                  helperText="Contact Crinit's Shop or your BDM for this information"
+                  sx={EDITOR_FIELD_SX}
+                />
+              </Box>
+              <Box sx={EDITOR_ROW_SX}>
+                <Typography sx={EDITOR_LABEL_SX}>State</Typography>
+                <FormControl fullWidth>
+                  <Select value={editData.metcashState} onChange={setField("metcashState")} displayEmpty sx={EDITOR_SELECT_SX}>
+                    <MenuItem value="">
+                      <em>Select...</em>
+                    </MenuItem>
+                    {["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"].map((s) => (
+                      <MenuItem key={s} value={s}>
+                        {s}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               </Box>
-
-              <Box sx={{ maxWidth: 560 }}>
-                <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#313439", mb: 2 }}>
-                  Metcash Integration
-                </Typography>
-                <Box sx={{ mb: 2 }}>
-                  <Typography sx={FIELD_LABEL_SX}>Customer ID</Typography>
-                  <TextField
-                    fullWidth
-                    value={editData.metcashCustomerId}
-                    onChange={setField("metcashCustomerId")}
-                    helperText="Contact Crinit's Shop or your BDM for this information"
-                    sx={FIELD_SX}
-                  />
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography sx={FIELD_LABEL_SX}>State</Typography>
-                  <FormControl fullWidth>
-                    <Select
-                      value={editData.metcashState}
-                      onChange={setField("metcashState")}
-                      displayEmpty
-                      sx={{ height: 42, borderRadius: "8px", "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" } }}
-                    >
-                      <MenuItem value="">
-                        <em>Select...</em>
+              <Box sx={EDITOR_ROW_SX}>
+                <Typography sx={EDITOR_LABEL_SX}>Pillar</Typography>
+                <FormControl fullWidth>
+                  <Select value={editData.metcashPillar} onChange={setField("metcashPillar")} displayEmpty sx={EDITOR_SELECT_SX}>
+                    <MenuItem value="">
+                      <em>Select...</em>
+                    </MenuItem>
+                    {["Cellarbrations", "IGA", "Foodland", "Other"].map((p) => (
+                      <MenuItem key={p} value={p}>
+                        {p}
                       </MenuItem>
-                      {["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"].map((s) => (
-                        <MenuItem key={s} value={s}>
-                          {s}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography sx={FIELD_LABEL_SX}>Pillar</Typography>
-                  <FormControl fullWidth>
-                    <Select
-                      value={editData.metcashPillar}
-                      onChange={setField("metcashPillar")}
-                      displayEmpty
-                      sx={{ height: 42, borderRadius: "8px", "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" } }}
-                    >
-                      <MenuItem value="">
-                        <em>Select...</em>
-                      </MenuItem>
-                      {["Cellarbrations", "IGA", "Foodland", "Other"].map((p) => (
-                        <MenuItem key={p} value={p}>
-                          {p}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
+                    ))}
+                  </Select>
+                </FormControl>
               </Box>
             </>
           )}
         </Box>
 
-        {/* Floating Save, bottom-right, per reference editor */}
+        {/* Floating Save, bottom-right, pale until something changed */}
         <Button
           variant="contained"
           disableRipple
           disableElevation
           startIcon={<SaveIcon />}
           onClick={handleSaveEditor}
-          disabled={saving}
+          disabled={saving || !editDirty}
           sx={{
             ...PRIMARY_BUTTON_SX,
             position: "fixed",
             bottom: 24,
             right: 24,
             zIndex: 1200,
+            "&.Mui-disabled": { bgcolor: "#5ebbeb", color: "#fff", opacity: 0.45 },
             "&:focus, &:focus-visible": { outline: "none", boxShadow: "none" },
           }}
         >
           {saving ? "Saving..." : "Save"}
         </Button>
-      </Box>
       </Box>
     );
   }

@@ -7,6 +7,7 @@ import {
   Grid,
   IconButton,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { Add as AddIcon, BackspaceOutlined, DeleteOutline, Close } from '@mui/icons-material';
 import LoyaltyPaymentDialog from '../Loyalty/LoyaltyPaymentDialog';
 import PayByCardDialog from '../Payment/PayByCardDialog';
@@ -15,7 +16,7 @@ import TyroPairingDialog from '../Payment/TyroPairingDialog';
 import tyroService from '../../services/tyroService';
 import { isEftposMethod } from '../../services/linklyService';
 import { allowsCashOut, getPaymentMethodSettings } from '../../services/paymentMethodService';
-import settingsService from '../../services/settingsService';
+import { roundTender, roundingAdjustment } from '../../utils/paymentRounding';
 import { useAppDialogs } from '../Common/AppDialogProvider';
 import { formatMoney } from '../../utils/currency';
 
@@ -55,22 +56,8 @@ const refundTender = (typedAmount, remainingBalance) => {
   return -(amt > 0 ? Math.min(amt, owed) : owed);
 };
 
-// "Use Rounding" (Setup > Payment Methods): round to the nearest currency amount.
-// The step is Setup > General > Currency > "Round To" (0.05 in Australia).
-// Applies to what this method tenders; other methods are exact.
-const roundingStep = () => Number(settingsService.getCachedGeneralSettings().roundTo) || 0.05;
-const roundTender = (amount, method, step = roundingStep()) => {
-  if (getPaymentMethodSettings(method).useRounding !== true) return amount;
-  const sign = amount < 0 ? -1 : 1;
-  return sign * Math.round(Math.abs(amount) / step) * step;
-};
-
-// What a rounded tender that settles `balance` books as Rounding: the balance less
-// the balance rounded (+ when rounded down, - when rounded up), 0 when exact.
-const roundingAdjustment = (balance, method, step = roundingStep()) => {
-  const diff = Math.round((balance - roundTender(balance, method, step)) * 100) / 100;
-  return Math.abs(diff) < step ? diff : 0;
-};
+// "Use Rounding" helpers live in utils/paymentRounding (shared with the sell
+// screen's payment sale keys).
 
 // Cash is the only tender that can be over-paid: the difference is handed back as
 // change from the drawer. Every other method is capped at the balance still owed.
@@ -128,6 +115,8 @@ const FinalizeSaleDialog = ({
 }) => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
   const { alert } = useAppDialogs();
+  // Setup > Payment Methods saves a separate (Dark Mode) colour pair.
+  const isDarkMode = useTheme().palette.mode === 'dark';
   const [paymentAmount, setPaymentAmount] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
   const [showLoyaltyDialog, setShowLoyaltyDialog] = useState(false);
@@ -671,12 +660,15 @@ const FinalizeSaleDialog = ({
                   !paymentAmount.trim() &&
                   remainingBalance > -PAYMENT_TOLERANCE;
                 // Setup > Payment Methods > "Payment Button Background / Text
-                // Colour" (hex). Unset or invalid = the plain white/black tile.
-                const hex = (v) => (/^#[0-9a-fA-F]{6}$/.test(String(v || '')) ? v : null);
+                // Colour" (hex; the picker adds an alpha byte when the opacity is
+                // lowered, #rrggbbaa). In dark mode the "(Dark Mode)" pair wins,
+                // falling back to the light pair. Unset or invalid = plain tile.
+                const hex = (v) => (/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(String(v || '')) ? v : null);
                 const isAccountOrLoyalty = [method.name, method.type].some(value =>
                   ['on account', 'loyalty'].includes(String(value || '').trim().toLowerCase()));
-                const tileBg = hex(methodSettings.buttonBackgroundColour) || (isAccountOrLoyalty ? '#e5e7eb' : null);
-                const tileFg = hex(methodSettings.buttonTextColour);
+                const tileBg = (isDarkMode && hex(methodSettings.buttonBackgroundColourDark))
+                  || hex(methodSettings.buttonBackgroundColour) || (isAccountOrLoyalty ? '#e5e7eb' : null);
+                const tileFg = (isDarkMode && hex(methodSettings.buttonTextColourDark)) || hex(methodSettings.buttonTextColour);
                 return (
                   <Button
                     key={method.id || index}

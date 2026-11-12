@@ -465,6 +465,8 @@ const GeneralSettings = () => {
   // Only the latest register load may land: a slow answer for the register just
   // left must not overwrite the one now selected.
   const registerLoadSeq = useRef(0);
+  const [loadingRegisterDisplay, setLoadingRegisterDisplay] = useState(false);
+  const registerDisplayLoadSeq = useRef(0);
   const [loadingOutlets, setLoadingOutlets] = useState(false);
   // Which reason-list field's "Edit Reasons" panel is open (REASON_LIST_FIELDS
   // key), plus the cash in/out lists which live in their own store - the
@@ -482,6 +484,9 @@ const GeneralSettings = () => {
   const [editingRegisterId, setEditingRegisterId] = useState(null);
   const [registerEditorTab, setRegisterEditorTab] = useState(0);
   const [registerProfile, setRegisterProfile] = useState(EMPTY_REGISTER_PROFILE);
+  // 'loading' | 'ready' | 'failed' - Save is allowed only once 'ready'.
+  const [registerProfileState, setRegisterProfileState] = useState('loading');
+  const registerProfileSeq = useRef(0);
   const [editingInvoiceNumber, setEditingInvoiceNumber] = useState(false);
   const [openClosureKey, setOpenClosureKey] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -530,16 +535,30 @@ const GeneralSettings = () => {
     loadAvailablePriceSets();
     loadCustomerDisplayTemplates();
     loadRegisters();
-    loadPaymentMethods();
     loadCashReasons();
   }, []);
 
-  const loadPaymentMethods = async () => {
+  // The register panel / editor lists the payment methods of the REGISTER's
+  // outlet (its own + the global ones), not the navbar outlet's: on All
+  // Outlets the navbar list held every outlet's methods, and a register could
+  // be given another outlet's method as its default.
+  const paymentMethodsSeq = useRef(0);
+  const loadPaymentMethods = async (registerOutletId) => {
+    const seq = ++paymentMethodsSeq.current;
     try {
-      const res = await paymentMethodService.getPaymentMethods({ isActive: true });
-      setPaymentMethods(res?.paymentMethods || res?.data || []);
+      const res = registerOutletId
+        ? await paymentMethodService.getPaymentMethods(
+          { isActive: true, outletId: registerOutletId },
+          { skipOutletScope: true, noCache: true }
+        )
+        : await paymentMethodService.getPaymentMethods({ isActive: true });
+      if (seq !== paymentMethodsSeq.current) return;
+      const list = (res?.paymentMethods || res?.data || []).filter((pm) => pm.isActive !== false);
+      setPaymentMethods(registerOutletId
+        ? list.filter((pm) => pm.outletId == null || Number(pm.outletId) === Number(registerOutletId))
+        : list);
     } catch {
-      setPaymentMethods([]);
+      if (seq === paymentMethodsSeq.current) setPaymentMethods([]);
     }
   };
 
@@ -736,6 +755,14 @@ const GeneralSettings = () => {
     }
   };
 
+  // Outlet of the register the panel / editor is on (editor wins).
+  const paymentsRegisterOutletId = registers.find(
+    (r) => String(r.id) === String(editingRegisterId || selectedRegister)
+  )?.outletId ?? null;
+  useEffect(() => {
+    loadPaymentMethods(paymentsRegisterOutletId);
+  }, [paymentsRegisterOutletId]);
+
   const loadRegisterSettings = async (registerId) => {
     const seq = ++registerLoadSeq.current;
     setLoadingRegisterSettings(true);
@@ -782,18 +809,28 @@ const GeneralSettings = () => {
 
   const loadRegisterCustomerDisplaySettings = async (registerId) => {
     if (!registerId) return;
+    // Part of the register form lock: Save writes this config too, so saving
+    // before it loaded reset the register's customer display to None.
+    const seq = ++registerDisplayLoadSeq.current;
+    setLoadingRegisterDisplay(true);
     // Defaults first: a failed load must not leave the previous register's display shown.
     setRegisterCustomerDisplaySettings({ templateId: '', isEnabled: false, openWhenRegisterOpens: false, displayMode: 'Popup' });
     try {
       const config = await customerDisplayService.getRegisterConfig(Number(registerId));
+      if (seq !== registerDisplayLoadSeq.current) return;
       setRegisterCustomerDisplaySettings({
         templateId: config?.templateId || '',
         isEnabled: !!config?.isEnabled,
         openWhenRegisterOpens: !!config?.openWhenRegisterOpens,
         displayMode: config?.displayMode || 'Popup',
       });
+      setLoadResult('registerDisplay', false);
     } catch (error) {
       console.error('Error loading register customer display settings:', error);
+      // 403 = no access to displays: nothing to protect, Save stays available.
+      if (seq === registerDisplayLoadSeq.current) setLoadResult('registerDisplay', error?.response?.status !== 403);
+    } finally {
+      if (seq === registerDisplayLoadSeq.current) setLoadingRegisterDisplay(false);
     }
   };
 
@@ -1072,45 +1109,78 @@ const GeneralSettings = () => {
       name: register.name || '',
       invoiceNumber: register.invoiceNumber != null ? String(register.invoiceNumber) : ''
     });
+    // Save stays off until the saved profile has loaded: saving the empty
+    // starting form wrote over the register's floats / closure settings.
+    const seq = ++registerProfileSeq.current;
+    setRegisterProfileState('loading');
     try {
       const res = await settingsService.getSetting(`register_profile_${register.id}`);
+      if (seq !== registerProfileSeq.current) return;
       const saved = res?.setting?.value;
       if (saved && typeof saved === 'object') {
         setRegisterProfile(prev => ({
           ...prev,
           ...saved,
-          closurePrint: { ...DEFAULT_CLOSURE_PRINT, ...(saved.closurePrint || {}) }
+          // The record is the truth for name / invoice number; the blob copy may be stale.
+          name: register.name || saved.name || '',
+          invoiceNumber: register.invoiceNumber != null ? String(register.invoiceNumber) : (saved.invoiceNumber ?? ''),
+          closurePrint: { ...DEFAULT_CLOSURE_PRINT, ...(saved.closure?.print || {}), ...(saved.closurePrint || {}) }
         }));
       }
-    } catch {
-      // nothing saved for this register yet - keep the values from the register record
+      setRegisterProfileState('ready');
+    } catch (err) {
+      if (seq !== registerProfileSeq.current) return;
+      // 404 = nothing saved for this register yet: the defaults are the truth.
+      // Anything else is a failed read - saving would overwrite what is stored.
+      setRegisterProfileState(err?.response?.status === 404 ? 'ready' : 'failed');
     }
   };
 
   const handleSaveRegisterProfile = async () => {
     if (!editingRegisterId) return;
+    if (registerProfileState !== 'ready') {
+      setError(registerProfileState === 'failed'
+        ? 'This register\'s settings could not be loaded, so saving is disabled. Reopen the register to retry.'
+        : 'Please wait for the register\'s settings to load.');
+      return;
+    }
+    if (!String(registerProfile.name || '').trim()) {
+      setError('Register name is required');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      await settingsService.updateSetting(
-        `register_profile_${editingRegisterId}`, registerProfile, 'register', 'Register profile'
-      );
-      // Mirror name + invoice number onto the register record itself -
+      // Register record first: a refused name (duplicate in this outlet) must
+      // stop the save instead of being swallowed behind a "saved" toast.
       // registers.invoiceNumber is what the sale flow actually increments.
+      const register = registers.find((r) => r.id === editingRegisterId);
       const registerUpdate = {};
-      if (registerProfile.name) registerUpdate.name = registerProfile.name;
+      const trimmedName = String(registerProfile.name).trim();
+      if (trimmedName !== register?.name) registerUpdate.name = trimmedName;
       const invoiceNumber = Number(registerProfile.invoiceNumber);
-      if (registerProfile.invoiceNumber !== '' && Number.isFinite(invoiceNumber)) {
+      if (registerProfile.invoiceNumber !== '' && Number.isFinite(invoiceNumber)
+        && invoiceNumber !== register?.invoiceNumber) {
         registerUpdate.invoiceNumber = invoiceNumber;
       }
       if (Object.keys(registerUpdate).length > 0) {
         try {
           await registerService.update(editingRegisterId, registerUpdate);
-          await loadRegisters();
-        } catch {
-          // register record is not always writable by the current role; the blob is still saved
+        } catch (err) {
+          // Only a missing register.manage right is tolerated (the blob below is
+          // a settings.edit write); a validation error is the user's to fix.
+          if (err?.response?.status !== 403) throw err;
         }
       }
+      // closure.print mirrors closurePrint: Setup > Registers' editor reads it
+      // there, and a stale copy was written back over this save.
+      const { name: _name, invoiceNumber: _inv, ...profileBlob } = registerProfile;
+      await settingsService.updateSetting(
+        `register_profile_${editingRegisterId}`,
+        { ...profileBlob, closure: { ...(registerProfile.closure || {}), print: registerProfile.closurePrint } },
+        'register', 'Register profile'
+      );
+      await loadRegisters();
       setShowSuccess(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save register');
@@ -1280,6 +1350,8 @@ const GeneralSettings = () => {
 
   // One floating Save persists EVERY dirty store in one click, not just the
   // active tab's.
+  // Register form (settings + customer display) still loading.
+  const registerFormLocked = loadingRegisterSettings || loadingRegisterDisplay;
   const anyLoadFailed = Object.values(loadFailed).some(Boolean);
   const onlyForbidden = anyLoadFailed && Object.values(loadFailed).every((v) => !v || v === 'forbidden');
 
@@ -1289,6 +1361,7 @@ const GeneralSettings = () => {
     if (loadFailed.company) loadSettings();
     if (loadFailed.outlet && selectedOutlet) loadOutletSettings(selectedOutlet);
     if (loadFailed.register && selectedRegister) loadRegisterSettings(selectedRegister);
+    if (loadFailed.registerDisplay && selectedRegister) loadRegisterCustomerDisplaySettings(selectedRegister);
     if (loadFailed.users && selectedUsers.length) loadUserSettings(selectedUsers[0]);
   };
 
@@ -1739,9 +1812,8 @@ const GeneralSettings = () => {
     }
   });
 
-  // Shared outlet/register list. `onEditRegister` decides what the per-register
-  // Edit action opens (Outlets tab jumps to the Registers tab, Registers tab
-  // opens the register editor).
+  // Shared outlet/register list. Both Edit actions open the Registers & Outlets
+  // editors (outlet via ?editOutlet=, register via /registers?edit=).
   // With a navbar outlet picked the register list is already scoped to it, so
   // the other outlets' groups would only render empty - show that outlet only.
   // Global (no navbar outlet) lists every outlet as before.
@@ -1755,7 +1827,7 @@ const GeneralSettings = () => {
     ? registers.filter((r) => Number(r.outletId) === Number(navbarOutletId))
     : registers;
 
-  const renderOutletsList = (onEditRegister) => (
+  const renderOutletsList = () => (
     <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', mb: 4 }}>
       {/* Header is present for semantics but collapsed to 0 height, as on the reference */}
       <Box component="thead" sx={{ display: 'block', height: 0, overflow: 'hidden' }}>
@@ -1785,12 +1857,9 @@ const GeneralSettings = () => {
               <Box component="tr" key={`r-${register.id}`} sx={outletListRowSx(false)}>
                 <Box component="td" sx={{ fontSize: 16, fontWeight: 400 }}>{register.name}</Box>
                 <Box component="td" sx={{ width: 104 }}>
-                  {/* Register Edit opens the register editor (floats / closure print),
-                      kept as before (user decision 05/11/2026). */}
-                  {renderEditAction(() => {
-                    if (onEditRegister) return onEditRegister(register);
-                    if (selectRegister(register.id)) setActiveTab(2);
-                  })}
+                  {/* Register Edit opens the Registers & Outlets editor, like the
+                      outlet Edit above (user decision 12/11/2026). */}
+                  {renderEditAction(() => navigate(`/registers?edit=${register.id}`))}
                 </Box>
               </Box>
             ))}
@@ -2360,23 +2429,28 @@ const GeneralSettings = () => {
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSaveRegisterProfile}
-            disabled={loading}
+            disabled={loading || registerProfileState !== 'ready'}
             sx={{
               bgcolor: '#5ebbeb', color: '#fff', height: 42, px: 6, borderRadius: '12px',
               fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none',
               '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }
             }}
           >
-            {loading ? 'Saving...' : 'Save'}
+            {loading ? 'Saving...' : registerProfileState === 'loading' ? 'Loading...' : 'Save'}
           </Button>
         </Box>
+        {registerProfileState === 'failed' && (
+          <Typography sx={{ textAlign: 'center', color: '#d32f2f', fontSize: 14, mt: 1 }}>
+            This register&apos;s settings could not be loaded, so saving is disabled.
+          </Typography>
+        )}
       </Box>
     );
   };
 
   const renderRegistersTab = () => editingRegisterId ? renderRegisterEditor() : (
     <Box sx={{ p: 3 }}>
-      {renderOutletsList(openRegisterEditor)}
+      {renderOutletsList()}
 
       {/* Register Selection Dropdown */}
       <Box sx={{ mb: 4 }}>
@@ -2419,14 +2493,14 @@ const GeneralSettings = () => {
           nothing toggled early is overwritten by, or mistaken for, the load. */}
       <Box
         component="fieldset"
-        disabled={loadingRegisterSettings}
-        aria-busy={loadingRegisterSettings}
+        disabled={registerFormLocked}
+        aria-busy={registerFormLocked}
         sx={{
           border: 0, p: 0, m: 0, minWidth: 0,
-          ...(loadingRegisterSettings && { pointerEvents: 'none', opacity: 0.55 }),
+          ...(registerFormLocked && { pointerEvents: 'none', opacity: 0.55 }),
         }}
       >
-      {loadingRegisterSettings && (
+      {registerFormLocked && (
         <Typography sx={{ fontSize: 14, color: '#676b72', mb: 1 }}>Loading register settings…</Typography>
       )}
       {/* Register Settings Title */}
@@ -3150,7 +3224,7 @@ const GeneralSettings = () => {
           saving={loading}
           disabled={!isDirty || anyLoadFailed
             || (activeTab === 1 && loadingOutletSettings)
-            || (activeTab === 2 && loadingRegisterSettings)}
+            || ((activeTab === 2 || dirty.register) && registerFormLocked)}
         />
 
         {/* Confirm Leaving - raised when navigating away with unsaved changes */}

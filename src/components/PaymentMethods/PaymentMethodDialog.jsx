@@ -10,8 +10,9 @@ import {
   Popper,
   ClickAwayListener,
 } from '@mui/material';
-import { Check as CheckIcon } from '@mui/icons-material';
+import { Check as CheckIcon, ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
 import CreatingForOutlet from '../Common/CreatingForOutlet';
+import { BLUE } from '../Common/refMenuProps';
 
 // Reference has no transitions anywhere.
 const INSTANT = 'all 0s ease';
@@ -29,13 +30,19 @@ const TYPE_GROUPS = [
   { label: 'External', options: ['Custom'] },
 ];
 
+// Reference list: ~5 rows visible then scroll, 1px black frame, rounded.
+const ROW_H = 48;
+
 /**
  * Searchable single-select combobox matching the reference Type dropdown:
- * type-to-filter, bold black group headers, selected option in sky-blue text.
+ * typed value + caret, opens below, bold non-selectable group headings with a
+ * rule under each, hovered row light blue, selected row in blue text.
+ * Arrow keys move over options only (headings are skipped), Enter picks.
  */
-export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959' }) => {
+export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959', square = false }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [active, setActive] = useState(-1);
   const anchorRef = useRef(null);
 
   const filteredGroups = useMemo(() => {
@@ -45,36 +52,64 @@ export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959
       options: q ? g.options.filter((o) => o.toLowerCase().includes(q)) : g.options,
     })).filter((g) => g.options.length > 0);
   }, [query]);
+  const flat = useMemo(() => filteredGroups.flatMap((g) => g.options), [filteredGroups]);
 
   const close = () => {
     setOpen(false);
     setQuery('');
+    setActive(-1);
+  };
+  const pick = (option) => {
+    onChange(option);
+    close();
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      setOpen(true);
+      if (!flat.length) return;
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      setActive((i) => (i < 0 ? (step > 0 ? 0 : flat.length - 1) : (i + step + flat.length) % flat.length));
+    } else if (e.key === 'Enter') {
+      if (!open) return;
+      e.preventDefault();
+      const option = flat[active] ?? (query.trim() ? flat[0] : undefined);
+      if (option) pick(option);
+    } else if (e.key === 'Escape' && open) {
+      e.stopPropagation();
+      close();
+    }
   };
 
   return (
     <ClickAwayListener onClickAway={close}>
-      <Box>
+      <Box sx={{ position: 'relative' }}>
         <Box
           ref={anchorRef}
           component="input"
           type="text"
           role="combobox"
           aria-expanded={open}
+          aria-label="Type"
           disabled={disabled}
           value={open ? query : value || ''}
           placeholder={open ? value || 'Select...' : 'Select...'}
           onChange={(e) => {
             setQuery(e.target.value);
+            setActive(-1);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
+          onKeyDown={onKeyDown}
           sx={{
             width: '100%',
             height: 42,
             border: `1px solid ${borderColor}`,
-            borderRadius: '8px',
-            px: 1.5,
+            borderRadius: square ? 0 : '8px',
+            pl: 1.5,
+            pr: 4.5,
             bgcolor: '#fff',
             fontFamily: 'inherit',
             fontSize: 16,
@@ -84,60 +119,71 @@ export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959
             '&::placeholder': { color: '#808080', opacity: 1 },
           }}
         />
+        <ArrowDropDownIcon
+          onClick={() => !disabled && (open ? close() : (setOpen(true), anchorRef.current?.focus()))}
+          sx={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#000', cursor: 'pointer' }}
+        />
         <Popper
           open={open}
           anchorEl={anchorRef.current}
           placement="bottom-start"
-          modifiers={[{ name: 'offset', options: { offset: [0, 6] } }]}
+          modifiers={[{ name: 'offset', options: { offset: [0, 2] } }, { name: 'flip', enabled: false }]}
           style={{ zIndex: 1400 }}
         >
           <Box
+            role="listbox"
             sx={{
               width: anchorRef.current ? anchorRef.current.offsetWidth : 'auto',
               bgcolor: '#fff',
-              border: '1px solid #d4d4d4',
+              border: '1px solid #000',
               borderRadius: '8px',
-              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-              maxHeight: 300,
+              boxShadow: 'none',
+              maxHeight: ROW_H * 5 + 45,
               overflow: 'auto',
-              py: 0.5,
               transition: INSTANT,
             }}
           >
             {filteredGroups.length === 0 ? (
-              <Box sx={{ px: 2, py: 1.5, fontSize: 16, color: '#0a0a0a' }}>No Options</Box>
+              <Box sx={{ px: 2, height: ROW_H, display: 'flex', alignItems: 'center', fontSize: 16, color: '#0a0a0a' }}>No Options</Box>
             ) : (
               filteredGroups.map((group) => (
-                <Box key={group.label}>
-                  <Box sx={{ px: 2, py: 1, fontSize: 16, fontWeight: 700, color: '#000' }}>{group.label}</Box>
-                  {group.options.map((option) => (
-                    <Box
-                      key={option}
-                      component="button"
-                      type="button"
-                      onClick={() => {
-                        onChange(option);
-                        close();
-                      }}
-                      sx={{
-                        display: 'block',
-                        width: '100%',
-                        px: 3,
-                        py: 1,
-                        border: 0,
-                        bgcolor: 'transparent',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontFamily: 'inherit',
-                        fontSize: 16,
-                        color: option === value ? '#38a8e8' : '#000',
-                        transition: INSTANT,
-                        '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
-                      }}
-                    >
-                      {option}
-                    </Box>
-                  ))}
+                <Box key={group.label} role="group" aria-label={group.label}>
+                  {/* Heading: plain text, not a button — cannot be picked. */}
+                  <Box
+                    aria-hidden="true"
+                    sx={{
+                      px: 2, height: 45, display: 'flex', alignItems: 'center', fontSize: 16, fontWeight: 700,
+                      color: '#000', borderBottom: '1px solid #000', cursor: 'default', userSelect: 'none',
+                    }}
+                  >
+                    {group.label}
+                  </Box>
+                  {group.options.map((option) => {
+                    const idx = flat.indexOf(option);
+                    return (
+                      <Box
+                        key={option}
+                        role="option"
+                        aria-selected={option === value}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onMouseEnter={() => setActive(idx)}
+                        onClick={() => pick(option)}
+                        sx={{
+                          px: 2,
+                          height: ROW_H,
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          fontSize: 16,
+                          color: option === value ? BLUE : '#000',
+                          bgcolor: idx === active ? '#6fd0ff' : 'transparent',
+                          transition: INSTANT,
+                        }}
+                      >
+                        {option}
+                      </Box>
+                    );
+                  })}
                 </Box>
               ))
             )}
@@ -168,7 +214,8 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name.trim()) {
+    const name = formData.name.trim();
+    if (!name) {
       setError('Payment method name is required');
       return;
     }
@@ -178,7 +225,7 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
     }
 
     try {
-      await onSave(formData);
+      await onSave({ ...formData, name });
       onClose();
     } catch (err) {
       setError(err.message || 'Failed to save payment method');
@@ -189,12 +236,12 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
     <Dialog
       open={open}
       onClose={onClose}
-      PaperProps={{ sx: { borderRadius: '8px', width: 512, maxWidth: '92vw', overflow: 'visible' } }}
+      PaperProps={{ sx: { borderRadius: '8px', width: 512, maxWidth: '92vw', overflow: 'visible', bgcolor: '#fff' } }}
     >
       {/* Light-green header, no close X — close = Cancel / Escape */}
       <Box
         sx={{
-          bgcolor: '#dcfce7',
+          bgcolor: '#b9f6ca',
           px: 3,
           py: 1.75,
           display: 'flex',
@@ -204,15 +251,15 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
           borderTopRightRadius: '8px',
         }}
       >
-        <CheckIcon sx={{ color: '#166534', fontSize: 20 }} />
-        <Typography sx={{ color: '#166534', fontSize: 18, fontWeight: 400 }}>
+        <CheckIcon sx={{ color: '#1b873f', fontSize: 22 }} />
+        <Typography sx={{ color: '#14532d', fontSize: 18, fontWeight: 700 }}>
           {paymentMethod ? 'Edit Payment Method' : 'Create Payment Method'}
         </Typography>
       </Box>
-      {/* This form sends no outletId: a global admin creates a global method. Say so. */}
+      {/* apiClient stamps the navbar outlet on this create; the pill says which. */}
       {!paymentMethod && <CreatingForOutlet sx={{ mx: 3, mt: 2, mb: 0 }} />}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <DialogContent sx={{ px: 3, py: 2.5, overflow: 'visible' }}>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -220,10 +267,13 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
             </Alert>
           )}
 
-          <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Name</Typography>
           <Box
             component="input"
             type="text"
+            placeholder="Name"
+            aria-label="Name"
+            maxLength={100}
+            autoFocus
             value={formData.name}
             disabled={loading}
             onChange={(e) => handleInputChange('name', e.target.value)}
@@ -233,17 +283,18 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
               border: '1px solid #595959',
               borderRadius: '8px',
               px: 1.5,
-              mb: 2.5,
+              mb: 2,
               bgcolor: '#fff',
               fontFamily: 'inherit',
               fontSize: 16,
               color: '#000',
               outline: 'none',
               boxSizing: 'border-box',
+              '&::placeholder': { color: '#808080', opacity: 1 },
             }}
           />
 
-          <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Type</Typography>
+          <Typography sx={{ fontSize: 13, color: '#000', mb: 0.5 }}>Type</Typography>
           <TypeCombobox
             value={formData.type}
             disabled={loading}

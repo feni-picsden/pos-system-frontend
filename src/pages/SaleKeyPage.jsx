@@ -101,6 +101,30 @@ import giftCardService from '../services/giftCardService';
 import priceListService from '../services/priceListService';
 import { priceSetService } from '../services/priceSetService';
 import { resolvePriceListLine } from '../utils/priceListEngine';
+import { roundTender, roundingAdjustment } from '../utils/paymentRounding';
+
+// The live Setup > Payment Methods record a payment sale key points at: by id
+// (pay-exact keys store {id, name}), then by name ignoring case (pay-amount keys
+// and legacy 'cash'), and only then the copy frozen into the key. Keys saved
+// before 05/11/2026 carry the whole method object; they keep working.
+const findKeyMethod = (methods, ref, fallbackName) => {
+  const list = methods || [];
+  const byId = ref?.id != null ? list.find((m) => m.id === ref.id) : null;
+  const wanted = String(ref?.name || fallbackName || '').trim().toLowerCase();
+  const byName = wanted ? list.find((m) => String(m.name || '').trim().toLowerCase() === wanted) : null;
+  return byId || byName || (ref && typeof ref === 'object' ? ref : null);
+};
+
+// Tender row(s) for a non-integrated payment key, with the method's "Use
+// Rounding" applied the way FinalizeSaleDialog's tenderRows does: the tender is
+// rounded, and when it settles the balance the difference is a Rounding row.
+const keyTenderRows = (tender, method, name, description, balance) => {
+  const rounded = Math.round(roundTender(tender, method) * 100) / 100;
+  const rows = rounded > 0 ? [{ amount: rounded, method: name, description }] : [];
+  const rounding = tender >= balance - 0.01 ? roundingAdjustment(balance, method) : 0;
+  if (rounding !== 0) rows.push({ amount: rounding, method: 'Rounding', description: 'Rounding' });
+  return rows;
+};
 import { lineSavings, itemsPerCase } from '../utils/saleTotals';
 import { allocateCriteriaSets, allocateSpendPromotion, RECEIVE_TYPES as SPEND_RECEIVE_TYPES } from '../utils/criteriaPromotion';
 import { allocateCrossPromotions } from '../utils/crossPromotion';
@@ -3750,7 +3774,9 @@ const SaleKeyPage = () => {
         // Card/EFTPOS methods must charge the PIN pad first; the payment is only
         // recorded in onApproved of the page-level PayByCardDialog. Resolve the
         // method record first so routing keys off its integration TYPE.
-        const payMethodRecord = availablePaymentMethods.find(x => x.name === saleKey.paymentMethod);
+        // Canonical record name goes on the tender ('cash' key -> 'Cash'), so print /
+        // drawer / cash-out / rounding lookups and the sale validator all match.
+        const payMethodRecord = findKeyMethod(availablePaymentMethods, null, saleKey.paymentMethod);
         if (isEftposMethod(payMethodRecord || saleKey.paymentMethod)) {
           const chargeAmount = Math.min(paymentAmount, calculateRemainingBalance());
           const methodRecord = payMethodRecord;
@@ -3763,7 +3789,7 @@ const SaleKeyPage = () => {
             }
             setSaleKeyCashOutPrompt({
               goodsCents,
-              methodName: saleKey.paymentMethod,
+              methodName: (payMethodRecord?.name || saleKey.paymentMethod),
               description: saleKey.name,
             });
             break;
@@ -3771,7 +3797,7 @@ const SaleKeyPage = () => {
           if (chargeAmount > 0) {
             setSaleKeyCardCharge({
               amountCents: Math.round(chargeAmount * 100),
-              methodName: saleKey.paymentMethod,
+              methodName: (payMethodRecord?.name || saleKey.paymentMethod),
               description: saleKey.name
             });
           }
@@ -3780,19 +3806,20 @@ const SaleKeyPage = () => {
         if (paymentAmount > 0) {
           // Only cash can be over-tendered (the difference is change). Any other method
           // is capped at what is still owed, the same as the card path above.
-          const keyMethod = saleKey.paymentMethod || 'cash';
+          const keyMethod = payMethodRecord?.name || saleKey.paymentMethod || 'Cash';
+          const keyBalance = Math.max(0, calculateRemainingBalance());
           const keyTender = isCashTender(keyMethod)
             ? paymentAmount
-            : Math.min(paymentAmount, Math.max(0, calculateRemainingBalance()));
+            : Math.min(paymentAmount, keyBalance);
           if (keyTender <= 0) break;
+          const keyRows = keyTenderRows(keyTender, payMethodRecord, keyMethod, saleKey.name, keyBalance);
+          if (keyRows.length === 0) break;
           setPayments(prev => {
-            const newPayments = [...prev, {
-            id: `payment-${crypto.randomUUID()}`,
-            amount: keyTender,
-            method: keyMethod,
-            timestamp: Date.now(),
-            description: saleKey.name
-            }];
+            const newPayments = [...prev, ...keyRows.map((row) => ({
+              id: `payment-${crypto.randomUUID()}`,
+              timestamp: Date.now(),
+              ...row,
+            }))];
             
             // Check if this payment completes the transaction
             const totalPayments = newPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
@@ -3817,11 +3844,8 @@ const SaleKeyPage = () => {
         // Card/EFTPOS methods must charge the PIN pad first; the payment is only
         // recorded in onApproved of the page-level PayByCardDialog. Resolve the
         // method record first so routing keys off its integration TYPE.
-        const exactName = saleKey.selectedPaymentMethod?.name || saleKey.paymentMethod;
-        const exactRecord =
-          saleKey.selectedPaymentMethod?.masterDatabaseRef !== undefined
-            ? saleKey.selectedPaymentMethod
-            : availablePaymentMethods.find(x => x.name === exactName);
+        const exactRecord = findKeyMethod(availablePaymentMethods, saleKey.selectedPaymentMethod, saleKey.paymentMethod);
+        const exactName = exactRecord?.name || saleKey.selectedPaymentMethod?.name || saleKey.paymentMethod;
         if (isEftposMethod(exactRecord || saleKey.selectedPaymentMethod || saleKey.paymentMethod)) {
           const name = exactName;
           const methodRecord = exactRecord;
@@ -3843,21 +3867,21 @@ const SaleKeyPage = () => {
           if (remainingBalance > 0) {
             setSaleKeyCardCharge({
               amountCents: Math.round(remainingBalance * 100),
-              methodName: saleKey.selectedPaymentMethod?.name || saleKey.paymentMethod || 'EFTPOS',
+              methodName: exactName || 'EFTPOS',
               description: saleKey.name || 'Pay Exact Amount'
             });
           }
           break;
         }
         if (remainingBalance > 0) {
+          const exactRows = keyTenderRows(remainingBalance, exactRecord, exactName || 'Cash',
+            saleKey.name || 'Pay Exact Amount', remainingBalance);
           setPayments(prev => {
-            const newPayments = [...prev, {
+            const newPayments = [...prev, ...exactRows.map((row) => ({
               id: `payment-${crypto.randomUUID()}`,
-              amount: remainingBalance,
-              method: saleKey.selectedPaymentMethod?.name || saleKey.paymentMethod || 'cash',
               timestamp: Date.now(),
-              description: saleKey.name || 'Pay Exact Amount'
-            }];
+              ...row,
+            }))];
             
             // This payment should complete the transaction exactly
             const cartTotal = calculateTotal();
@@ -5579,14 +5603,14 @@ const SaleKeyPage = () => {
     // be mounted first (printReceipt reuses its emotion styles), so print a tick after showing it.
     // Also honour the payment-method "Always Print Receipt" flag (Setup > Payment Methods).
     const methodAutoPrint = receiptPayments.some((p) => {
-      const rec = availablePaymentMethods.find((m) => m.name === (p.method || p.paymentMethod));
+      const rec = findKeyMethod(availablePaymentMethods, null, p.method || p.paymentMethod);
       return getPaymentMethodSettings(rec).alwaysPrintReceipt === true;
     });
 
     // "Always Open Cash Drawer" (Setup > Payment Methods): whether the drawer should
     // always open when this method is used during a sale. Was stored but never read.
     const methodOpensDrawer = receiptPayments.some((p) => {
-      const rec = availablePaymentMethods.find((m) => m.name === (p.method || p.paymentMethod));
+      const rec = findKeyMethod(availablePaymentMethods, null, p.method || p.paymentMethod);
       return getPaymentMethodSettings(rec).alwaysOpenCashDrawer === true;
     });
     if (methodOpensDrawer) {

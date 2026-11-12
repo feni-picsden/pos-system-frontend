@@ -63,6 +63,7 @@ const cancelButtonSx = {
  * @param {boolean}  saving     shows a spinner and blocks repeat clicks
  * @param {boolean}  disabled   blocks the save for a reason of the page's own
  * @param {string}   label      defaults to "Save"
+ * @param {node}     icon       optional start icon (e.g. a save glyph)
  * @param {function} onCancel   optional — renders a Cancel to the Save's left
  * @param {node}     children   optional extra controls, placed left of Cancel
  */
@@ -71,6 +72,7 @@ const PageSaveBar = ({
   saving = false,
   disabled = false,
   label = 'Save',
+  icon = null,
   onCancel,
   cancelLabel = 'Cancel',
   children,
@@ -102,7 +104,7 @@ const PageSaveBar = ({
       disableElevation
       onClick={onSave}
       disabled={saving || disabled}
-      startIcon={saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : null}
+      startIcon={saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : icon}
       sx={saveButtonSx}
     >
       {saving ? 'Saving' : label}

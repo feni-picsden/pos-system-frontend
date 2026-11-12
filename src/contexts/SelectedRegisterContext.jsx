@@ -313,7 +313,10 @@ export const SelectedRegisterProvider = ({ children }) => {
         setShowLocationSelector(false);
       }
     } catch (error) {
+      // Used to fail silently: "Yes" did nothing and the dialog just sat there
+      // (no change_register right, register deleted, outlet mismatch...).
       console.error('Error taking control:', error);
+      setRegisterError(error.response?.data?.error || 'Could not take control of that register. Please try again.');
     }
   };
 

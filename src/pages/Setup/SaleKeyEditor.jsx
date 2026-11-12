@@ -1452,7 +1452,9 @@ const SaleKeyEditor = () => {
                   isOptionEqualToValue={(option, value) => option.id === value?.id}
                   loading={loadingPaymentMethods}
                   onChange={(event, newValue) => {
-                    handlePropertyChange('selectedPaymentMethod', newValue);
+                    // Reference only ({id, name}): the sell screen looks the method up
+                    // live, so later Setup edits (colours, cash out...) apply to the key.
+                    handlePropertyChange('selectedPaymentMethod', newValue ? { id: newValue.id, name: newValue.name } : null);
                   }}
                   renderInput={(params) => (
                     <TextField
