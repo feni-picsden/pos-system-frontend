@@ -19,6 +19,12 @@ export const additionalFieldService = {
     return response.data;
   },
 
+  // Field order (reference: up/down arrows, saved with the page Save). ids in order.
+  async reorderFields(ids) {
+    const response = await apiClient.put('/additional-fields/reorder', { ids }, { skipOutletScope: true });
+    return response.data;
+  },
+
   async deleteField(id) {
     const response = await apiClient.delete(`/additional-fields/${id}`);
     return response.data;
