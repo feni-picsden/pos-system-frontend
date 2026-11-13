@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { criterionSummary } from "../../utils/promotionCriterionDisplay";
 import {
   Box,
   Typography,
@@ -223,29 +224,9 @@ const PromotionView = () => {
   const formatProfitPct = (v) => (v == null || isNaN(v) ? '0.00%' : `${v.toFixed(2)}%`);
   const profitColor = (v) => (v == null || isNaN(v) || v <= 0 ? '#e33430' : '#313439');
 
-  const getCriterionSummary = (criterion) => {
-    const optionalText = criterion.isOptional ? 'Optionally' : '';
-    const purchaseText = criterion.purchaseType === 'purchase' ? 'purchase' : 'spend';
-    
-    const receiveTextMap = {
-      'quantity_only': '(quantity only)',
-      'each_item_for': 'each item for',
-      'total_price': 'a total price of',
-      'discount_each_item': 'a discount on each item worth',
-      'discount_total': 'a discount off the total worth',
-      'percentage_discount': 'a percentage discount of',
-      'same_sell_rate': 'the same sell rate as if the quantity was',
-      'discount': 'a discount of',
-    };
-    
-    const receiveText = receiveTextMap[criterion.receiveType] || 'a total price of';
-    const amount = criterion.receiveType === 'percentage_discount'
-      ? `${criterion.receiveValue?.toFixed(2) || 0}%`
-      : `$${criterion.receiveValue?.toFixed(2) || 0}`;
-    // Reference sentence starts with a capital ("Purchase 10 to receive...").
-    const text = `${optionalText} ${purchaseText} ${criterion.purchaseValue} to receive ${receiveText} ${amount}`.trim();
-    return text.charAt(0).toUpperCase() + text.slice(1);
-  };
+  // Same wording as the editor's collapsed summary ("Spend $70.00 (amount only)",
+  // "Purchase 2 to receive a total price of $15.00").
+  const getCriterionSummary = (criterion) => criterionSummary(criterion);
 
   if (loading) {
     return <PageLoader />;

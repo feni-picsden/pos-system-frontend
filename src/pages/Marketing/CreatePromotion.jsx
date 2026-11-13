@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -320,6 +320,8 @@ const CreatePromotion = () => {
   const [itemQuery, setItemQuery] = useState('');
   const [itemOptions, setItemOptions] = useState([]);
   const [itemSearching, setItemSearching] = useState(false);
+  // Keystrokes fire overlapping searches; only the newest one may set the options.
+  const itemSearchSeq = useRef(0);
 
   // SKIP -> Express or Advanced (documented Shopfront behaviour)
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
@@ -375,8 +377,10 @@ const CreatePromotion = () => {
   // Products, classifications and product combos all match, grouped in the menu.
   const searchItems = async (term) => {
     const query = term.trim();
+    const seq = ++itemSearchSeq.current;
     if (query.length < 3) {
       setItemOptions([]);
+      setItemSearching(false);
       return;
     }
     setItemSearching(true);
@@ -384,6 +388,7 @@ const CreatePromotion = () => {
       productService.getProducts({ search: query, limit: 20, pick: 1 }).then((r) => r?.products || []).catch(() => []),
       classificationService.getClassifications({ search: query, lite: 1 }).then((r) => r?.classifications || []).catch(() => [])
     ]);
+    if (seq !== itemSearchSeq.current) return; // a newer search is in flight
     // Concatenated in group order — MUI groups consecutive options only. A Combo
     // Product is an ordinary product row, so it already arrives with the products.
     setItemOptions([

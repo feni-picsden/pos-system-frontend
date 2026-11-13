@@ -269,7 +269,15 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
                 whiteSpace: 'nowrap'
               }}
             >
-              {selectedOptions.map((o) => o.name).join(', ')}
+              {/* Same as the Products page filters: up to two name chips, three or
+                  more collapse to one "N Selected..." chip (full list in the tooltip). */}
+              <Box component="span" title={selectedOptions.map((o) => o.name).join(', ')} sx={{ display: 'inline-flex', gap: 0.5 }}>
+                {(selectedOptions.length > 2 ? [`${selectedOptions.length} Selected...`] : selectedOptions.map((o) => o.name)).map((label) => (
+                  <Box key={label} component="span" sx={{ px: 1, py: '2px', fontSize: 14, bgcolor: '#e5e5e5', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                    {label}
+                  </Box>
+                ))}
+              </Box>
             </Box>
           )}
           <Box
@@ -1230,7 +1238,8 @@ const Promotions = () => {
                 <TableCell sx={{ width: '20%' }}>Promotion</TableCell>
                 <TableCell sx={{ width: '20%' }}>Start</TableCell>
                 <TableCell sx={{ width: '20%' }}>End</TableCell>
-                <TableCell sx={{ width: '16.8%' }}>Outlets</TableCell>
+                {/* Outlet-wise rule: the owning outlet only matters on All Outlets. */}
+                {showOutletFilter && <TableCell sx={{ width: '16.8%' }}>Outlets</TableCell>}
                 {/* Centred, same as the row cell, so the label sits over the three buttons. */}
                 <TableCell align="center" sx={{ width: '20%' }}>Actions</TableCell>
               </TableRow>
@@ -1244,7 +1253,7 @@ const Promotions = () => {
             >
               {filteredPromotions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={showOutletFilter ? 6 : 5} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No results found. Try changing the search filters
                     </Typography>
@@ -1285,7 +1294,7 @@ const Promotions = () => {
                     </TableCell>
                     <TableCell>{formatDate(promotion.startDate)}</TableCell>
                     <TableCell>{formatDate(promotion.endDate)}</TableCell>
-                    <TableCell>
+                    {showOutletFilter && <TableCell>
                       {/* Reference shows the owning outlet as a pill; a promotion
                           with no outlet is global and shows nothing. */}
                       {promotion.outlet?.name && (
@@ -1305,7 +1314,7 @@ const Promotions = () => {
                           {promotion.outlet.name}
                         </Box>
                       )}
-                    </TableCell>
+                    </TableCell>}
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                         <Button

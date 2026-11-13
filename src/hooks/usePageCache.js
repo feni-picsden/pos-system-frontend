@@ -40,15 +40,21 @@ export function usePageCache(storeName, fetchFn, {
   fetchRef.current = fetchFn;
   const transformRef = useRef(transform);
   transformRef.current = transform;
+  // Bumped whenever storeName/deps change so a fetch started for the previous
+  // scope (e.g. "All Outlets") cannot overwrite the data of the current one when
+  // it resolves late.
+  const generationRef = useRef(0);
 
   const doSync = useCallback(
     async (silent = false) => {
+      const generation = generationRef.current;
       if (!silent) setSyncing(true);
       try {
         const raw = await fetchRef.current();
+        if (generation !== generationRef.current) return;
         const items = transformRef.current ? transformRef.current(raw) : (Array.isArray(raw) ? raw : []);
         await posLocalDb.putStoreAll(storeName, items);
-        if (mountedRef.current) setData([...items]);
+        if (mountedRef.current && generation === generationRef.current) setData([...items]);
       } catch (err) {
         console.warn(`[usePageCache] sync failed for "${storeName}":`, err);
       } finally {
@@ -60,6 +66,7 @@ export function usePageCache(storeName, fetchFn, {
 
   useEffect(() => {
     mountedRef.current = true;
+    generationRef.current += 1;
 
     async function load() {
       await posLocalDb.init();
