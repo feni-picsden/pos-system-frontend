@@ -42,6 +42,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import promotionService from '../../services/promotionService';
 import promotionCategoryService from '../../services/promotionCategoryService';
+import settingsService from '../../services/settingsService';
+import { createPageRuleSession } from '../../utils/pageRuleSandbox';
+import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
+import { resolveCustomPageRuleCode } from '../../utils/pageRuleDefaults';
+import PageRuleWizard from '../../components/Common/PageRuleWizard';
 import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
 
@@ -364,6 +369,26 @@ const CreatePromotion = () => {
   useEffect(() => {
     fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Setup > Page Rules: a valid custom Promotions rule replaces this built-in
+  // wizard (reference). Its answers are handed to the advanced editor as a draft.
+  const [ruleSession, setRuleSession] = useState(null);
+  useEffect(() => {
+    let session = null;
+    (async () => {
+      try {
+        const res = await settingsService.getSetting('page_rule_promotions');
+        const customCode = resolveCustomPageRuleCode('page_rule_promotions', res?.setting?.value);
+        if (customCode) {
+          session = await createPageRuleSession(customCode, {});
+          setRuleSession(session);
+        }
+      } catch {
+        /* no custom rule, or it failed to boot — the built-in wizard runs */
+      }
+    })();
+    return () => { session?.destroy(); };
   }, []);
 
   useEffect(() => {
@@ -1242,6 +1267,32 @@ const CreatePromotion = () => {
   // The reference centres its question block at ~468, so reserve this much at the
   // bottom of the centring region — half of it is the resulting 52px upward shift.
   const PAGES_BOTTOM_RESERVE = 104;
+
+  if (ruleSession) {
+    const idOf = (v) => (v && typeof v === 'object' ? v.value : v);
+    const ymd = (d) => (d ? formatDate(new Date(d), 'yyyy-MM-dd') : '');
+    const handOff = (fields) => {
+      const draft = {
+        name: String(fields.name || '').trim(),
+        categoryId: idOf(fields.promotion_category) || idOf(fields.categoryId) || '',
+        startDate: ymd(fields.start || fields.startDate),
+        endDate: ymd(fields.end || fields.endDate),
+        promotionType: 'Other',
+      };
+      navigate('/marketing/promotions/new/edit', { state: { draft } });
+    };
+    return (
+      <PageRuleWizard
+        session={ruleSession}
+        user={{ name: '', username: '', role: null, permissions: [] }}
+        location={{ outlet: null, register: null }}
+        dbFetch={fetchPageRuleDatabase}
+        onCancel={handleCancel}
+        onSkip={handOff}
+        onFinish={handOff}
+      />
+    );
+  }
 
   return (
     <Box

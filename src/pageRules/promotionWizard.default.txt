@@ -1,0 +1,377 @@
+async function entry(context) {
+    /**
+     * context is an object that contains the following information
+     * {
+     *     user: {
+     *         name       : string,
+     *         username   : string,
+     *         role       : ?{
+     *             id: string,
+     *         },
+     *         permissions: Array<string>,
+     *     },
+     *     answers: Array<{
+     *          question: string,
+     *          elements: Array<{
+     *              field: string,
+     *              value: string,
+     *          }>,
+     *          metaData?: mixed,
+     *     }>
+     * }
+     */
+
+    const TYPES = [{
+        type: 'buy x for $y',
+        label: "Buy 'X' for $Y",
+        description: 'Buy the item/s "X" and get it for the price of "Y"',
+    }, {
+        type: 'buy x get y% off',
+        label: "Buy 'X' get Y% off",
+        description: 'Buy the item/s "X" and get "Y" percent off of the price',
+    }, {
+        type: 'buy x get y',
+        label: "Buy 'X' get 'Y'",
+        description: 'Buy the item/s "X" and get item/s "Y" on promotion',
+    }, {
+        type: 'spend $x get y',
+        label: "Spend $X get 'Y'",
+        description: 'Spend "X" dollars on item/s and get item/s "Y" on promotion',
+    }, {
+        type: 'other',
+        label: "Other",
+        description: 'Every other type of promotion',
+    }];
+
+    const promotion = {
+        name    : context.answers[0] ? context.answers[0].elements[0].value : "",
+        start   : context.answers[1] ? context.answers[1].elements[0].value : "",
+        end     : context.answers[1] ? context.answers[1].elements[1].value : "",
+        category: context.answers[2] ? context.answers[2].elements[0].value : "",
+    };
+
+    let questions = [{
+        question     : `What is the promotion's name?`,
+        title        : "Create Promotion",
+        questionsLeft: 4,
+        elements     : [{
+            type       : 'text',
+            field      : 'name',
+            placeholder: 'Name (required)',
+            required   : true,
+            default    : promotion.name,
+        }],
+    }, {
+        question     : `When does the promotion run?`,
+        title        : "Create Promotion",
+        questionsLeft: 3,
+        elements     : [{
+            type       : 'calendar',
+            placeholder: 'Start Date',
+            field      : 'start',
+            time       : true,
+            isClearable: true,
+            default    : promotion.start,
+        }, {
+            type       : 'calendar',
+            placeholder: 'End Date',
+            field      : 'end',
+            time       : true,
+            end        : true,
+            isClearable: true,
+            default    : promotion.end,
+        }, {
+            type         : "custom",
+            field        : "footnote",
+            customElement: {
+                type      : 'p',
+                textNode  : 'To make the start or end date forever, leave the respective field empty.',
+                attributes: {
+                    style: {
+                        color: 'rgba(255, 255, 255, 0.9)',
+                    },
+                },
+            }
+        }],
+    }, {
+        question     : `What is the Promotion Category?`,
+        title        : "Create Promotion",
+        questionsLeft: 2,
+        elements     : [{
+            type             : 'select',
+            field            : 'promotion_category',
+            placeholder      : 'Promotion Category',
+            dataSource       : 'promotionCategories',
+            minimumSearchSize: 0,
+            creatable        : true,
+            default          : promotion.category ? promotion.category.value : null,
+            __label          : promotion.category ? promotion.category.label : null,
+        }],
+    }, {
+        question     : `What type of promotion do you wish to run?`,
+        title        : "Create Promotion",
+        questionsLeft: 1,
+        elements     : [{
+            type         : 'custom',
+            field        : 'type',
+            printName    : 'Promotion type',
+            required     : true,
+            customElement: {
+                type: 'div',
+                attributes: {
+                    style: {
+                        width: '100%',
+                        color: '#FFFFFF',
+                    }
+                },
+                children: TYPES.map((type) => ({
+                    type: 'div',
+                    attributes: {
+                        style: {
+                            marginTop: '0.5rem',
+                            padding: '0.25rem 1rem',
+                            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                            cursor: 'pointer',
+                        },
+                        'data-type': type.type,
+                    },
+                    children: [{
+                        type: 'h3',
+                        textNode: type.label,
+                        attributes: {
+                            style: {
+                                marginTop: '0.25rem',
+                                marginBottom: '0rem',
+                            }
+                        }
+                    }, {
+                        type: 'p',
+                        textNode: type.description,
+                        attributes: {
+                            style: {
+                                marginTop: '0.25rem',
+                                marginBottom: '0.25rem',
+                            }
+                        }
+                    }],
+                    events: ['click'],
+                })),
+                onEvent: (event) => {
+                    return {
+                        data: event.currentTarget.dataset.type,
+                        next: true,
+                    };
+                }
+            }
+        }],
+    }];
+
+    // Check to see if the specific type path should be built
+    if (context.answers.length > 3) {
+        const buildQuestions = (type) => {
+            const searchPage = (index, question, name) => ({
+                question     : question,
+                title        : "Create Promotion",
+                questionsLeft: 0,
+                elements     : [{
+                    type       : 'select',
+                    field      : `promotion.${name}`,
+                    placeholder: 'Search for Products, Brands, Families, Categories or Tags',
+                    dataSource : ['products', 'brands', 'families', 'categories', 'tags'],
+                    multiple   : true,
+                    required   : true,
+                    default    : context.answers[index] ? context.answers[index].elements[0].value : [],
+                }],
+            });
+
+            const quantityPage = (index, question, prefix = "", showOrMoreToggle = false) => {
+                let page = {
+                    question     : question,
+                    title        : "Create Promotion",
+                    questionsLeft: 0,
+                    elements     : [{
+                        type       : 'number',
+                        field      : `promotion.${prefix}quantity`,
+                        placeholder: 'Input quantity',
+                        required   : true,
+                        default    : context.answers[index] ? context.answers[index].elements[0].value : "",
+                    }],
+                };
+
+                if (showOrMoreToggle) {
+                    page.elements.push({
+                        type       : 'toggle',
+                        field      : `promotion.${prefix}more`,
+                        placeholder: 'Or more',
+                        default    : context.answers[index] ? context.answers[index].elements[1].value : false,
+                    });
+                }
+
+                return page;
+            };
+
+            const pricePage = (index, question, prefix = "", showSelect = false, defaultFree = true, required = true) => {
+                let page = {
+                    question     : question,
+                    title        : "Create Promotion",
+                    questionsLeft: 0,
+                    elements     : [],
+                };
+
+                if (showSelect) {
+                    page.elements.push({
+                        type       : 'select',
+                        field      : `promotion.${prefix}discount-type`,
+                        isClearable: false,
+                        default    : context.answers[index] ? context.answers[index].elements[0].value : 'price',
+                        required   : true,
+                        options    : [{
+                            label: 'Price',
+                            value: 'price',
+                        }, {
+                            label: 'Discount',
+                            value: 'discount',
+                        }],
+                    });
+                }
+
+                page.elements.push({
+                    type       : 'currency',
+                    field      : `promotion.${prefix}discount`,
+                    placeholder: 'Input price',
+                    default    : context.answers[index] ? context.answers[index].elements[(showSelect ? 1 : 0)].value : (showSelect && defaultFree ? '0' : ''),
+                    required   : required,
+                });
+
+                return page;
+            };
+
+            const percentagePage = (index, question, prefix = "") => ({
+                question     : question,
+                title        : "Create Promotion",
+                questionsLeft: 0,
+                elements     : [{
+                    type       : 'percentage',
+                    field      : `promotion.${prefix}price`,
+                    placeholder: 'Input percentage',
+                    required   : true,
+                    default    : context.answers[index] ? context.answers[index].elements[0].value : '',
+                }],
+            });
+
+            let pages = [];
+
+            switch (type) {
+                case "buy x for $y":
+                case "buy x get y% off":
+                    pages.push(
+                        searchPage(4, `What is 'x'?`, 'items'),
+                        quantityPage(5, `How much of 'x' should be sold?`, '', true)
+                    );
+
+                    if (type === "buy x for $y") {
+                        pages.push(
+                            pricePage(6, `What is $y?`)
+                        );
+                    } else {
+                        pages.push(
+                            percentagePage(6, `What is y%?`)
+                        );
+                    }
+
+                    if (context.answers.length > 4 && context.answers[4].elements[0].value.length > 1) {
+                        pages.push({
+                            question     : "",
+                            title        : "Create Promotion",
+                            questionsLeft: 0,
+                            elements     : [{
+                                type       : 'toggle',
+                                field      : `promotion.mix`,
+                                placeholder: "Should the products mix quantities?",
+                                default    : context.answers[7] ? context.answers[7].elements[0].value : false,
+                            }],
+                        });
+                    }
+
+                    return pages;
+                case "buy x get y":
+                    pages.push(
+                        searchPage(4, `What is 'x'?`, 'a-items'),
+                        quantityPage(5,`How much of 'x' should be sold?`, 'a-'),
+                        pricePage(6, `Does 'x' have a promotional price? (Leave empty if not)`, 'a-', true,  false, false),
+                        searchPage(7, `What is 'y'?`, 'b-items'),
+                        quantityPage(8, `How much of 'y' should be sold?`, 'b-'),
+                        pricePage(9, `Promotional price of 'y'?`, 'b-', true, false),
+                    );
+
+                    if (context.answers.length > 6 && String(context.answers[6].elements[1].value || '').trim()) {
+                        pages.push({
+                            question     : "",
+                            title        : "Create Promotion",
+                            questionsLeft: 0,
+                            elements     : [{
+                                type       : 'toggle',
+                                field      : `promotion.b-optional`,
+                                placeholder: "Should 'x' receive it's promotion without 'y'?",
+                                default    : context.answers[10] ? context.answers[10].elements[0].value : false,
+                            }],
+                        });
+                    }
+
+                    return pages;
+                case "spend $x get y":
+                    return [
+                        pricePage(4, `How much should the customer spend?`, 'a-'),
+                        searchPage(5, `What should the customer spend it on?`, 'a-items'),
+                        searchPage(6, `What is 'y'?`, 'b-items'),
+                        quantityPage(7, `What quantity of 'y'`),
+                        pricePage(8, `Price of 'y'?`, 'b-', true),
+                    ];
+                case "other":
+                default:
+                    window.ShopfrontAPI.finish();
+                    return [{
+                        question     : `Saving Promotion`,
+                        title        : "Create Promotion",
+                        questionsLeft: 0,
+                        elements     : [],
+                    }];
+            }
+        };
+
+        let typeQuestions = buildQuestions(context.answers[3].elements[0].value);
+        for (let i = 0, l = typeQuestions.length; i < l; i++) {
+            typeQuestions[i].questionsLeft = l - i - 1;
+        }
+
+        questions = [
+            ...questions,
+            ...typeQuestions,
+        ];
+    }
+
+    /**
+     * It is expected that the function returns an object with the following signature:
+     * {
+     *     question: string,
+     *     title?  : string,
+     *     elements: Array<{
+     *         type        : string,
+     *         field       : string,
+     *         placeholder?: string,
+     *         default?    : string,
+     *         creatable?  : boolean,
+     *         required?   : boolean,
+     *         time?       : boolean,
+     *         end?        : boolean,
+     *         options?    : Array<{
+     *             label: string,
+     *             value: string,
+     *         }> | string,
+     *     }>,
+     *     questionsLeft: number,
+     *     metaData?    : mixed,
+     * }
+     */
+    return questions[context.currentQuestion];
+}

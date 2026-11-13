@@ -1,131 +1,77 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import {
-  Box,
-  Typography,
-  Button,
-  Alert,
-  CircularProgress,
-  Chip,
-  TextField,
-  Divider,
-} from '@mui/material';
-import {
-  Code as CodeIcon,
-  RestartAlt as ResetIcon,
-  ArrowBack as BackIcon,
+  ChevronRight as ChevronRightIcon,
+  Close as CloseIcon,
+  SaveOutlined as SaveIcon,
+  AutoFixHighOutlined as ResetIcon,
 } from '@mui/icons-material';
 import settingsService from '../../services/settingsService';
 import { validatePageRule } from '../../utils/pageRuleSandbox';
-import { PAGE_RULE_DATABASES } from '../../utils/pageRuleDatabases';
+import { PAGE_RULES, isDefaultCode } from '../../utils/pageRuleDefaults';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useHasPermission } from '../../hooks/usePermissions';
-import PageSaveBar from '../../components/Common/PageSaveBar';
+import CodeEditor from '../../components/Common/CodeEditor';
 
-// Settings > Page Rules — customise the creation wizards with sandboxed
-// JavaScript (reference art. 360021629152). A rule defines entry(context) and
-// returns the next Question; an empty rule means the built-in wizard runs.
-
-const INSTANT = 'all 0s ease';
-
-const PILL_BUTTON_SX = {
-  color: '#fff',
-  textTransform: 'none',
-  boxShadow: 'none',
-  borderRadius: '12px',
-  fontWeight: 700,
-  fontSize: 16,
-  height: 42,
-  px: 3,
-  transition: INSTANT,
-  backgroundColor: '#22c55e',
-  '&:hover': { backgroundColor: '#4ade80', boxShadow: 'none' },
-};
-
-export const PAGE_RULES = [
-  {
-    key: 'page_rule_products',
-    label: 'Products',
-    description: 'The wizard shown when creating a new product',
-  },
-  {
-    key: 'page_rule_customers',
-    label: 'Customers',
-    description: 'The wizard shown when creating a new customer',
-  },
-];
-
-const STARTER = `// Page Rule — define entry(context) and return the next Question.
-// context: { user, answers, currentQuestion, currentLocation }
-// Elements: text | number | currency | percentage | toggle | calendar | select | custom
-// Select 'options' may name an internal database:
-//   ${PAGE_RULE_DATABASES.join(', ')}
-// ShopfrontAPI: storeVariable, hasVariable, getVariable, setField,
-//   back, next, finish, redirect, toast
-
-function entry(context) {
-  if (context.currentQuestion === 0) {
-    return {
-      title: 'New item',
-      question: 'What is it called?',
-      questionsLeft: 1,
-      elements: [
-        { type: 'text', field: 'name', placeholder: 'Name', required: true },
-      ],
-    };
-  }
-  return {
-    question: 'Which category does it belong to?',
-    questionsLeft: 0,
-    elements: [
-      { type: 'select', field: 'categoryId', placeholder: 'Category', options: 'categories' },
-    ],
-  };
-}
-`;
+// Setup > Page Rules — customise the creation wizards with sandboxed JavaScript
+// (reference art. 360021629152 + live-ref screenshots 13/11/2026). List:
+// "Creation Wizards" rows (Customers / Products / Promotions). Editor: the
+// wizard's script with line numbers; Reset Wizard (confirm, immediate), Cancel
+// (confirm when dirty), Save (validity test; an invalid rule can still be saved
+// and is then skipped by the wizard, which shows the full form instead).
 
 const PageRules = () => {
   const { alert, confirm, notify } = useAppDialogs();
   const canEdit = useHasPermission('settings.edit');
 
-  const [statuses, setStatuses] = useState({}); // key -> 'custom' | 'default'
-  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // rule definition being edited
   const [code, setCode] = useState('');
+  const [savedCode, setSavedCode] = useState('');
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const dirty = code !== savedCode;
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
 
-  const loadStatuses = async () => {
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  const openRule = async (rule) => {
     setLoading(true);
-    const next = {};
-    for (const rule of PAGE_RULES) {
-      try {
-        const res = await settingsService.getSetting(rule.key);
-        next[rule.key] = res?.setting?.value?.code ? 'custom' : 'default';
-      } catch {
-        next[rule.key] = 'default';
-      }
+    let current = rule.defaultCode;
+    try {
+      const res = await settingsService.getSetting(rule.key);
+      if (res?.setting?.value?.code) current = res.setting.value.code;
+    } catch {
+      /* no custom rule saved: the default script shows */
     }
-    setStatuses(next);
+    setCode(current);
+    setSavedCode(current);
+    setSelected(rule);
     setLoading(false);
   };
 
-  useEffect(() => { loadStatuses(); }, []);
+  const closeEditor = () => { setSelected(null); setCode(''); setSavedCode(''); };
 
-  const openRule = async (rule) => {
-    try {
-      const res = await settingsService.getSetting(rule.key);
-      setCode(res?.setting?.value?.code || STARTER);
-    } catch {
-      setCode(STARTER);
+  const handleCancel = async () => {
+    if (dirtyRef.current) {
+      const ok = await confirm('You have unsaved changes to this wizard. Leave without saving?', { title: 'Unsaved changes', confirmText: 'Leave', severity: 'warning' });
+      if (!ok) return;
     }
-    setSelected(rule);
+    closeEditor();
   };
 
   const handleSave = async () => {
+    if (!selected) return;
     setSaving(true);
     try {
-      // Reference behaviour: Save runs a quick validity test. An invalid rule can
-      // still be saved — the creation wizard then skips it and shows the full form.
-      const result = await validatePageRule(code);
+      const isDefault = isDefaultCode(selected.key, code);
+      // Reference: Save runs a quick validity test (syntax + an entry function).
+      const result = isDefault ? { ok: true } : await validatePageRule(code);
       if (!result.ok) {
         const proceed = await confirm(
           `The Page Rule failed validation:\n\n${result.error}\n\nSave anyway? The creation wizard will skip it and present the full form instead.`,
@@ -135,13 +81,12 @@ const PageRules = () => {
       }
       await settingsService.updateSetting(
         selected.key,
-        { code, valid: result.ok, updatedAt: new Date().toISOString() },
+        { code: isDefault ? null : code, valid: result.ok, updatedAt: new Date().toISOString() },
         'page_rules',
         `Page Rule for the ${selected.label} creation wizard`
       );
-      notify(result.ok ? 'Page Rule saved' : 'Page Rule saved (invalid — wizard will use the full form)');
-      setSelected(null);
-      await loadStatuses();
+      setSavedCode(code);
+      notify(result.ok ? 'Page Rule saved' : 'Page Rule saved — it is not valid, so the wizard will show the full form', result.ok ? 'success' : 'warning', { position: 'top' });
     } catch (e) {
       alert(e?.response?.data?.error || e?.message || 'Failed to save the Page Rule', 'error');
     } finally {
@@ -149,10 +94,13 @@ const PageRules = () => {
     }
   };
 
+  // Reference dialog: "Reset Wizard — Are you sure you wish to reset this wizard
+  // back to the default settings? This is not reversible." Cancel / Reset.
   const handleReset = async () => {
+    if (!selected) return;
     const ok = await confirm(
-      'Reset this wizard to the built-in default? Your custom Page Rule code will be removed.',
-      { title: 'Reset Wizard', confirmText: 'Reset Wizard', severity: 'warning' }
+      'Are you sure you wish to reset this wizard back to the default settings?\n\nThis is not reversible.',
+      { title: 'Reset Wizard', confirmText: 'Reset', severity: 'error' }
     );
     if (!ok) return;
     try {
@@ -162,9 +110,9 @@ const PageRules = () => {
         'page_rules',
         `Page Rule for the ${selected.label} creation wizard`
       );
-      notify('Wizard reset to default');
-      setSelected(null);
-      await loadStatuses();
+      setCode(selected.defaultCode);
+      setSavedCode(selected.defaultCode);
+      notify('Wizard reset to default', 'success', { position: 'top' });
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to reset the wizard', 'error');
     }
@@ -173,39 +121,26 @@ const PageRules = () => {
   // ── editor view ─────────────────────────────────────────────────────────────
   if (selected) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-          <Button disableRipple startIcon={<BackIcon />} onClick={() => setSelected(null)} sx={{ textTransform: 'none', color: '#0084d1', fontWeight: 600 }}>
-            Page Rules
-          </Button>
-          <Typography sx={{ color: '#676b72' }}>/</Typography>
-          <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700, color: '#000' }}>
-            {selected.label}
-          </Typography>
+      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', boxSizing: 'border-box' }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}>{selected.title}</Typography>
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <CodeEditor value={code} onChange={setCode} readOnly={!canEdit} height="100%" ariaLabel={`${selected.title} code`} />
         </Box>
-        <Typography sx={{ color: '#676b72', fontSize: 14, mb: 2, maxWidth: 720 }}>
-          Define a function named <code>entry(context)</code> that returns the next Question
-          (or a Promise of one). The code runs in a sandbox with no access to the rest of the
-          POS; use the <code>ShopfrontAPI</code> global for wizard control. Select elements can
-          load an internal database by name: {PAGE_RULE_DATABASES.join(', ')}.
-        </Typography>
-
-        <TextField
-          fullWidth
-          multiline
-          minRows={22}
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          spellCheck={false}
-          InputProps={{ sx: { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13.5, lineHeight: 1.55, bgcolor: '#0f172a', color: '#e2e8f0', '& textarea': { whiteSpace: 'pre' } } }}
-        />
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2.5 }}>
-          <Button disableRipple startIcon={<ResetIcon />} onClick={handleReset}
-            sx={{ textTransform: 'none', color: '#e33430', fontWeight: 600 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 2 }}>
+          <Button disableRipple startIcon={<ResetIcon />} onClick={handleReset} disabled={!canEdit || saving}
+            sx={{ textTransform: 'none', color: '#e33430', border: '1px solid #e33430', borderRadius: '6px', px: 2, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: '#fff0f0', borderColor: '#e33430' } }}>
             Reset Wizard
           </Button>
-          <PageSaveBar onSave={handleSave} saving={saving} />
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button disableRipple startIcon={<CloseIcon />} onClick={handleCancel} disabled={saving}
+              sx={{ textTransform: 'none', color: '#000', border: '1px solid #c7c7c7', borderRadius: '6px', px: 2, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: '#f3f3f3' } }}>
+              Cancel
+            </Button>
+            <Button disableRipple variant="contained" disableElevation startIcon={<SaveIcon />} onClick={handleSave} disabled={!canEdit || saving}
+              sx={{ textTransform: 'none', bgcolor: '#5ebbeb', color: '#fff', borderRadius: '6px', px: 2.5, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: '#4aa9dd' }, '&.Mui-disabled': { bgcolor: '#a9dcf3', color: '#fff' } }}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </Box>
         </Box>
       </Box>
     );
@@ -213,44 +148,20 @@ const PageRules = () => {
 
   // ── list view ───────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 1 }}>
-        Page Rules
-      </Typography>
-      <Typography sx={{ color: '#676b72', fontSize: 14, mb: 3, maxWidth: 720 }}>
-        Customise the creation wizards by running your own JavaScript. A custom rule replaces
-        the built-in wizard for everyone; an invalid rule is skipped and the full form is
-        shown instead. Programming experience is recommended.
-      </Typography>
-
+    <Box sx={{ p: 2 }}>
+      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}>Page Rules</Typography>
+      <Typography sx={{ fontSize: 22, fontWeight: 700, color: '#000', mb: 1.5 }}>Creation Wizards</Typography>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}><CircularProgress /></Box>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {PAGE_RULES.map((rule, index) => (
-            <React.Fragment key={rule.key}>
-              {index > 0 && <Divider />}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <CodeIcon sx={{ color: '#676b72' }} />
-                  <Box>
-                    <Typography sx={{ fontSize: 17, fontWeight: 600, color: '#313439' }}>{rule.label}</Typography>
-                    <Typography sx={{ fontSize: 13.5, color: '#676b72' }}>{rule.description}</Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  {statuses[rule.key] === 'custom'
-                    ? <Chip label="Custom" size="small" color="info" />
-                    : <Chip label="Default" size="small" variant="outlined" />}
-                  {canEdit && (
-                    <Button disableRipple onClick={() => openRule(rule)}
-                      sx={{ textTransform: 'none', color: '#0084d1', fontWeight: 600 }}>
-                      Edit
-                    </Button>
-                  )}
-                </Box>
-              </Box>
-            </React.Fragment>
+        <Box sx={{ border: '1px solid #000', borderRadius: '2px' }}>
+          {PAGE_RULES.map((rule, i) => (
+            <Box key={rule.key} data-testid={`page-rule-${rule.key}`} onClick={() => openRule(rule)} role="button"
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, height: 66, cursor: 'pointer', bgcolor: '#f5f5f5',
+                borderTop: i > 0 ? '1px solid #000' : 0, '&:hover': { bgcolor: '#e9e9e9' } }}>
+              <Typography sx={{ fontSize: 16, color: '#000' }}>{rule.label}</Typography>
+              <ChevronRightIcon sx={{ color: '#000' }} />
+            </Box>
           ))}
         </Box>
       )}

@@ -31,6 +31,7 @@ import { createPageRuleSession } from '../../utils/pageRuleSandbox';
 import CreatableAutocomplete from '../Common/CreatableAutocomplete';
 import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
 import PageRuleWizard from '../Common/PageRuleWizard';
+import { resolveCustomPageRuleCode } from '../../utils/pageRuleDefaults';
 
 const steps = [
   { label: 'Name', icon: <PersonIcon /> },
@@ -55,9 +56,9 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
     (async () => {
       try {
         const res = await settingsService.getSetting('page_rule_customers');
-        const value = res?.setting?.value;
-        if (value?.code && value?.valid !== false) {
-          session = await createPageRuleSession(value.code, {});
+        const customCode = resolveCustomPageRuleCode('page_rule_customers', res?.setting?.value);
+        if (customCode) {
+          session = await createPageRuleSession(customCode, {});
           setRuleSession(session);
         }
       } catch {
@@ -394,27 +395,34 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
   // A valid custom Page Rule replaces the built-in wizard; its fields overlay
   // the default customer shape and hand off to the details modal as usual.
   if (ruleSession) {
+    // Default-script field names (firstName, lastName, customerGroup, code,
+    // emails[]) map onto the built-in form; unknown custom fields ride along.
+    const handOff = (fields) => {
+      const idOf = (v) => (v && typeof v === 'object' ? v.value : v);
+      const emails = Array.isArray(fields.emails) ? fields.emails.filter(Boolean) : (fields.email ? [fields.email] : []);
+      onClose();
+      onOpenDetailsModal?.({
+        ...formData,
+        ...fields,
+        customerGroupId: idOf(fields.customerGroup) || fields.customerGroupId || '',
+        emails: emails.length ? emails : [''],
+      });
+    };
     return (
-      <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-        <Box sx={{ p: 4 }}>
-          <PageRuleWizard
-            session={ruleSession}
-            user={{
-              name: user?.name || '',
-              username: user?.name || '',
-              role: user?.roleId != null ? { id: String(user.roleId) } : null,
-              permissions: [],
-            }}
-            location={{ outlet: null, register: null }}
-            dbFetch={fetchPageRuleDatabase}
-            onCancel={handleCancel}
-            onFinish={(fields) => {
-              onClose();
-              onOpenDetailsModal?.({ ...formData, ...fields });
-            }}
-          />
-        </Box>
-      </Dialog>
+      <PageRuleWizard
+        session={ruleSession}
+        user={{
+          name: user?.name || '',
+          username: user?.name || '',
+          role: user?.roleId != null ? { id: String(user.roleId) } : null,
+          permissions: [],
+        }}
+        location={{ outlet: null, register: null }}
+        dbFetch={fetchPageRuleDatabase}
+        onCancel={handleCancel}
+        onSkip={handOff}
+        onFinish={handOff}
+      />
     );
   }
 

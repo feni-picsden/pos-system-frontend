@@ -11,6 +11,26 @@
 //   session.destroy();
 
 const CALL_TIMEOUT_MS = 5000;
+// A question may await a data lookup (findByField / sendInternalRequest) on the
+// remote DB, so entry() gets longer than a plain call.
+const ASK_TIMEOUT_MS = 20000;
+
+import apiClient from '../services/apiClient';
+import { findByField } from './pageRuleDatabases';
+
+// Data requests a rule may make through ShopfrontAPI (the reference's default
+// scripts use these). Both go through the logged-in user's API session.
+const hostRequestHandler = async (action, payload) => {
+  if (action === 'findByField') return findByField(payload.database, payload.field, payload.value);
+  if (action === 'sendInternalRequest') {
+    const method = String(payload.method || 'GET').toLowerCase();
+    const path = String(payload.path || '');
+    if (!path.startsWith('/')) throw new Error('sendInternalRequest path must start with /');
+    const res = await apiClient.request({ url: path, method, data: payload.body, noCache: true });
+    return res.data;
+  }
+  throw new Error(`Unknown host request "${action}"`);
+};
 
 // The bootstrap that runs inside the iframe. Kept as a plain string so the
 // rule code can be delivered by postMessage (no srcdoc escaping games).
@@ -25,10 +45,26 @@ const BOOTSTRAP = `
     parent.postMessage({ __pageRule: true, type: 'host-action', action: action, payload: payload || {} }, '*');
   }
 
+  // Request/response calls to the host (data lookups the reference's default
+  // scripts make: findByField, sendInternalRequest).
+  var reqSeq = 0;
+  var reqPending = {};
+  function hostRequest(action, payload) {
+    return new Promise(function (resolve, reject) {
+      var id = ++reqSeq;
+      reqPending[id] = { resolve: resolve, reject: reject };
+      parent.postMessage({ __pageRule: true, type: 'host-request', id: id, action: action, payload: payload || {} }, '*');
+    });
+  }
+
   // The reference ShopfrontAPI surface. queryGraphQL exists on the reference but
   // this POS has no GraphQL endpoint — it rejects with a clear message instead
   // of failing silently.
   var ShopfrontAPI = {
+    // findByField(database, field, value) -> { data: [...] } rows whose field equals value
+    findByField: function (database, field, value) { return hostRequest('findByField', { database: database, field: field, value: value }); },
+    // sendInternalRequest(path, method, body) -> the API's JSON response
+    sendInternalRequest: function (path, method, body) { return hostRequest('sendInternalRequest', { path: path, method: method || 'GET', body: body }); },
     storeVariable: function (name, data) { vars[name] = data; },
     hasVariable: function (name) { return Object.prototype.hasOwnProperty.call(vars, name); },
     getVariable: function (name) {
@@ -87,6 +123,14 @@ const BOOTSTRAP = `
     var msg = e.data;
     if (!msg || !msg.__pageRule) return;
 
+    if (msg.type === 'host-response') {
+      var p = reqPending[msg.id];
+      if (!p) return;
+      delete reqPending[msg.id];
+      if (msg.ok) p.resolve(msg.result); else p.reject(new Error(msg.error || 'Request failed'));
+      return;
+    }
+
     if (msg.type === 'init') {
       try {
         // Wrapping with new Function keeps helper functions in the rule's own
@@ -124,8 +168,8 @@ const BOOTSTRAP = `
           // sandbox boundary we reconstruct type/target value.
           var synthetic = {
             type: msg.event.type,
-            target: { value: msg.event.value },
-            currentTarget: { value: msg.event.value },
+            target: { value: msg.event.value, dataset: msg.event.dataset || {} },
+            currentTarget: { value: msg.event.value, dataset: msg.event.dataset || {} },
           };
           return handler(synthetic);
         })
@@ -140,7 +184,7 @@ const BOOTSTRAP = `
 
   parent.postMessage({ __pageRule: true, type: 'ready' }, '*');
 })();
-<\/script>`;
+</scr${'ipt'}>`;
 
 export const createPageRuleSession = (code, { onHostAction } = {}) =>
   new Promise((resolve, reject) => {
@@ -155,13 +199,13 @@ export const createPageRuleSession = (code, { onHostAction } = {}) =>
 
     const send = (msg) => iframe.contentWindow?.postMessage({ __pageRule: true, ...msg }, '*');
 
-    const call = (msg) => {
+    const call = (msg, timeoutMs = CALL_TIMEOUT_MS) => {
       const id = ++seq;
       const promise = new Promise((res, rej) => {
         const timer = setTimeout(() => {
           pending.delete(id);
           rej(new Error('The Page Rule took too long to respond'));
-        }, CALL_TIMEOUT_MS);
+        }, timeoutMs);
         pending.set(id, { resolve: res, reject: rej, timer });
         send({ ...msg, id });
       });
@@ -199,6 +243,13 @@ export const createPageRuleSession = (code, { onHostAction } = {}) =>
         // hostActionHandler is late-bound by the wizard component; the creation
         // option stays as a fallback for non-UI callers (validation probes).
         (session.hostActionHandler || onHostAction)?.(msg.action, msg.payload || {});
+        return;
+      }
+      if (msg.type === 'host-request') {
+        Promise.resolve()
+          .then(() => hostRequestHandler(msg.action, msg.payload || {}))
+          .then((result) => send({ type: 'host-response', id: msg.id, ok: true, result }))
+          .catch((err) => send({ type: 'host-response', id: msg.id, ok: false, error: err?.message || String(err) }));
       }
     };
 
@@ -214,7 +265,7 @@ export const createPageRuleSession = (code, { onHostAction } = {}) =>
     const session = {
       // context -> serialized Question (custom-element handlers addressable by askId+path)
       ask: (context) => {
-        const { id, promise } = call({ type: 'ask', context });
+        const { id, promise } = call({ type: 'ask', context }, ASK_TIMEOUT_MS);
         return promise.then((question) => ({ ...question, askId: id }));
       },
       // askId + element path + {type, value} -> onEvent result ({data, next} | null)

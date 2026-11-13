@@ -27,6 +27,7 @@ import { taxRateService } from '../../services/taxRateService';
 import { createPageRuleSession } from '../../utils/pageRuleSandbox';
 import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
 import PageRuleWizard from '../../components/Common/PageRuleWizard';
+import { resolveCustomPageRuleCode } from '../../utils/pageRuleDefaults';
 import { useAuth } from '../../contexts/AuthContext';
 
 // A new product starts on the outlet's DEFAULT tax rate (Setup > Tax Rates ->
@@ -185,9 +186,9 @@ const CreateProductWizard = () => {
     (async () => {
       try {
         const res = await settingsService.getSetting('page_rule_products');
-        const value = res?.setting?.value;
-        if (value?.code && value?.valid !== false) {
-          const session = await createPageRuleSession(value.code, {});
+        const customCode = resolveCustomPageRuleCode('page_rule_products', res?.setting?.value);
+        if (customCode) {
+          const session = await createPageRuleSession(customCode, {});
           ruleSessionRef.current = session;
           setRuleSession(session);
         }
@@ -623,35 +624,45 @@ const CreateProductWizard = () => {
   // product form hydrates identically; unknown custom fields ride along and are
   // ignored by the editor.
   if (ruleSession) {
+    // Fields from the default-script shape (barcode, name, category, tags,
+    // caseQuantity, prices[]) land where the built-in wizard puts them; unknown
+    // custom fields ride along and are ignored by the editor.
+    const handOff = async (fields) => {
+      const idOf = (v) => (v && typeof v === 'object' ? v.value : v);
+      const prices = Array.isArray(fields.prices)
+        ? fields.prices.filter((p) => p && p.price !== '' && p.price != null).map((p) => ({ quantity: Number(p.quantity) || 1, price: Number(p.price) || 0, cost: 0 }))
+        : [];
+      const wizardData = {
+        type: 'Normal Product',
+        status: 'Active',
+        retailTaxRate: await defaultTaxRateName(),
+        purchaseTaxRate: 'Inherit',
+        trackInventory: true,
+        ...fields,
+        categoryId: idOf(fields.category) || fields.categoryId || '',
+        caseQuantity: fields.caseQuantity !== '' && fields.caseQuantity != null ? Number(fields.caseQuantity) : 1,
+        prices,
+        barcodes: Array.isArray(fields.barcodes) ? fields.barcodes.map((b) => (typeof b === 'string' ? b : b?.code)).filter(Boolean) : (fields.barcode ? [fields.barcode] : []),
+        tagIds: Array.isArray(fields.tags) ? fields.tags.map(idOf).filter(Boolean) : [],
+      };
+      localStorage.setItem('productWizardData', JSON.stringify(wizardData));
+      navigate('/products/new');
+    };
     return (
-      <Box sx={{ p: 4 }}>
-        <PageRuleWizard
-          session={ruleSession}
-          user={{
-            name: user?.name || '',
-            username: user?.name || '',
-            role: user?.roleId != null ? { id: String(user.roleId) } : null,
-            permissions: [],
-          }}
-          location={{ outlet: null, register: null }}
-          dbFetch={fetchPageRuleDatabase}
-          onCancel={() => navigate('/products')}
-          onFinish={async (fields) => {
-            const wizardData = {
-              type: 'Normal Product',
-              status: 'Active',
-              retailTaxRate: await defaultTaxRateName(),
-              purchaseTaxRate: 'Inherit',
-              trackInventory: true,
-              ...fields,
-              barcodes: fields.barcode ? [fields.barcode] : [],
-              tagIds: Array.isArray(fields.tags) ? fields.tags : [],
-            };
-            localStorage.setItem('productWizardData', JSON.stringify(wizardData));
-            navigate('/products/new');
-          }}
-        />
-      </Box>
+      <PageRuleWizard
+        session={ruleSession}
+        user={{
+          name: user?.name || '',
+          username: user?.name || '',
+          role: user?.roleId != null ? { id: String(user.roleId) } : null,
+          permissions: [],
+        }}
+        location={{ outlet: null, register: null }}
+        dbFetch={fetchPageRuleDatabase}
+        onCancel={() => navigate('/products')}
+        onSkip={handOff}
+        onFinish={handOff}
+      />
     );
   }
 

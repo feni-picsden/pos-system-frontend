@@ -2,41 +2,86 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Typography,
-  Button,
   TextField,
-  MenuItem,
-  Switch,
   CircularProgress,
-  Alert,
   Autocomplete,
   InputAdornment,
+  Checkbox,
 } from '@mui/material';
+import {
+  RadioButtonChecked,
+  RadioButtonUnchecked,
+  Close as CloseIcon,
+  ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon,
+  Check as CheckIcon,
+} from '@mui/icons-material';
+import ShopfrontSwitch from './ShopfrontSwitch';
 import { useAppDialogs } from './AppDialogProvider';
+import { SEARCHED_DATABASES } from '../../utils/pageRuleDatabases';
 
-// Renders a custom Page Rule's questions (Settings > Page Rules; reference
-// art. 360021629152). The rule itself runs in the sandbox (utils/pageRuleSandbox);
-// this component drives the ask/answer loop and renders each Question's elements.
+// Renders a custom Page Rule's questions (Setup > Page Rules; reference art.
+// 360021629152) in the reference creation-wizard chrome: full-screen gradient,
+// dot rail + CANCEL on top, title, question, white fields, PREVIOUS / SKIP /
+// NEXT (FINISH) footer. The rule itself runs in the sandbox
+// (utils/pageRuleSandbox); this component drives the ask/answer loop.
 //
 // props:
-//   session      — a createPageRuleSession() result
-//   user         — { name, username, role, permissions } for the rule context
-//   location     — { outlet, register } for the rule context
-//   dbFetch      — async (databaseName) => [{ label, value }] for select elements
-//   onFinish     — (fields, answers) => void; fields = { field: value } accumulated
-//   onCancel     — () => void
-//   title        — fallback heading while the first question loads
+//   session   — a createPageRuleSession() result
+//   user      — { name, username, role, permissions } for the rule context
+//   location  — { outlet, register } for the rule context
+//   dbFetch   — async (databaseName, search) => [{ label, value }] for select elements
+//   onFinish  — (fields, answers) => void; fields = { field: value } accumulated
+//   onSkip    — (fields, answers) => void; leave the wizard for the full form now
+//   onCancel  — () => void
 
-const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }) => {
+const GRADIENT = 'linear-gradient(to bottom right,#5da2ba,#2193b0,#283c86,#4bc0c8,#283c86,#2193b0)';
+const NEAR_WHITE = '#f8f8f8';
+const INVALID = 'rgba(248,248,248,0.55)';
+const MIN_SEARCH = 3;
+
+const fieldSx = {
+  '& .MuiOutlinedInput-root': {
+    bgcolor: '#fff',
+    borderRadius: '6px',
+    minHeight: 52,
+    fontSize: 18,
+    '& fieldset': { borderColor: '#404040', borderWidth: 1 },
+    '&:hover fieldset': { borderColor: '#000' },
+    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 2 },
+  },
+  '& input::placeholder': { color: '#6b6b6b', opacity: 1 },
+};
+
+// Dotted field names ("prices.0.price", "emails.0") set nested values.
+const setPath = (target, path, value) => {
+  const parts = String(path).split('.');
+  let cur = target;
+  parts.forEach((part, i) => {
+    if (i === parts.length - 1) { cur[part] = value; return; }
+    if (cur[part] == null || typeof cur[part] !== 'object') cur[part] = /^\d+$/.test(parts[i + 1]) ? [] : {};
+    cur = cur[part];
+  });
+  return target;
+};
+
+const styleOf = (attrs) => {
+  const style = attrs?.style;
+  return style && typeof style === 'object' ? style : undefined;
+};
+
+const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onSkip, onCancel }) => {
   const { notify, alert } = useAppDialogs();
   const [question, setQuestion] = useState(null);
   const [values, setValues] = useState({});
-  const [dbOptions, setDbOptions] = useState({});
+  const [dbOptions, setDbOptions] = useState({}); // key -> options
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const answersRef = useRef([]); // [{question, elements:[{field,value}], metaData}]
   const fieldsRef = useRef({}); // accumulated field -> value (answers + setField)
   const questionIndexRef = useRef(0);
   const finishedRef = useRef(false);
+  const searchSeq = useRef(0);
 
   const buildContext = () => ({
     user: {
@@ -53,10 +98,34 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
     },
   });
 
+  // Field values as the callers read them: nested objects for dotted names.
+  const collectFields = () => {
+    const out = {};
+    Object.entries(fieldsRef.current).forEach(([k, v]) => setPath(out, k, v));
+    return out;
+  };
+
   const finish = () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    onFinish(fieldsRef.current, answersRef.current);
+    onFinish(collectFields(), answersRef.current);
+  };
+
+  const sourcesOf = (el) => {
+    const src = el.dataSource ?? el.options;
+    if (typeof src === 'string') return [src];
+    if (Array.isArray(src) && src.every((s) => typeof s === 'string')) return src;
+    return [];
+  };
+  const dbKey = (el) => sourcesOf(el).join('+');
+  const isSearched = (el) => sourcesOf(el).some((s) => SEARCHED_DATABASES.includes(s));
+
+  const loadOptions = async (el, search) => {
+    const names = sourcesOf(el);
+    const lists = await Promise.all(names.map(async (name) => {
+      try { return (await dbFetch(name, search)).map((o) => ({ ...o, group: names.length > 1 ? name : undefined })); } catch { return []; }
+    }));
+    return lists.flat();
   };
 
   const askCurrent = async () => {
@@ -64,24 +133,16 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
       setLoading(true);
       setError('');
       const q = await session.ask(buildContext());
-      // Load any internal-database select options this question references.
       const loads = {};
       for (const el of q.elements || []) {
-        if (el.type === 'select' && typeof el.options === 'string') {
-          try {
-            loads[el.options] = await dbFetch(el.options);
-          } catch {
-            loads[el.options] = [];
-          }
-        }
+        if (el.type === 'select' && sourcesOf(el).length && !isSearched(el)) loads[dbKey(el)] = await loadOptions(el, '');
       }
       setDbOptions(loads);
-      // Seed defaults.
       const seeded = {};
       for (const el of q.elements || []) {
         if (el.field) {
-          seeded[el.field] =
-            fieldsRef.current[el.field] ?? el.default ?? (el.type === 'toggle' ? false : el.multiple ? [] : '');
+          const d = el.default;
+          seeded[el.field] = d !== undefined && d !== null ? d : (el.type === 'toggle' ? false : el.multiple ? [] : '');
         }
       }
       setValues(seeded);
@@ -93,18 +154,19 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
     }
   };
 
-  useEffect(() => { askCurrent(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    askCurrent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Host actions raised by the rule via ShopfrontAPI.
   useEffect(() => {
-    // The session's onHostAction was bound at creation by the caller; this
-    // component receives them through the sessionActions ref the caller wires.
     if (!session) return undefined;
     session.hostActionHandler = (action, payload) => {
       switch (action) {
         case 'toast': {
-          const kind = payload.toastType === 'information' ? 'info' : payload.toastType;
-          if (kind === 'success') notify(payload.toastMessage, 'success');
+          const kind = payload.toastType === 'information' || payload.toastType === 'info' ? 'info' : payload.toastType;
+          if (kind === 'success' || kind === 'info') notify(payload.toastMessage, kind, { position: 'top' });
           else alert(payload.toastMessage, kind || 'info');
           break;
         }
@@ -129,7 +191,7 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
     };
     return () => { session.hostActionHandler = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, question]);
+  }, [session, question, values]);
 
   const recordAnswer = () => {
     const elements = (question?.elements || [])
@@ -137,37 +199,44 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
       .map((el) => ({ field: el.field, value: values[el.field] }));
     elements.forEach((el) => { fieldsRef.current[el.field] = el.value; });
     answersRef.current = [
-      ...answersRef.current,
+      ...answersRef.current.slice(0, questionIndexRef.current),
       { question: question?.question || '', elements, metaData: question?.metaData },
     ];
   };
 
+  const isEmpty = (v) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+  const requiredOk = () => (question?.elements || []).every((el) => !(el.required && el.field) || !isEmpty(values[el.field]));
+
   const goNext = () => {
-    // Required check per element.
-    for (const el of question?.elements || []) {
-      if (el.required && el.field) {
-        const v = values[el.field];
-        const empty = v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
-        if (empty) {
-          setError(`"${el.placeholder || el.field}" is required`);
-          return;
-        }
-      }
-    }
-    recordAnswer();
-    if ((question?.questionsLeft ?? 1) <= 0) {
-      finish();
+    if (loading) return;
+    if (!requiredOk()) {
+      const missing = (question?.elements || []).find((el) => el.required && el.field && isEmpty(values[el.field]));
+      setError(`"${missing?.printName || missing?.placeholder || missing?.field}" is required`);
       return;
     }
+    recordAnswer();
+    if ((question?.questionsLeft ?? 1) <= 0) { finish(); return; }
     questionIndexRef.current += 1;
     askCurrent();
   };
 
+  // PREVIOUS keeps the later answers in context (the rule reads its defaults
+  // from them, so the values stay filled); NEXT re-records from that index on.
   const goBack = () => {
     if (questionIndexRef.current === 0) { onCancel?.(); return; }
-    answersRef.current = answersRef.current.slice(0, -1);
     questionIndexRef.current -= 1;
     askCurrent();
+  };
+
+  // SKIP (reference): leave the wizard now, carrying what was answered so far.
+  const skip = () => {
+    if (loading) return;
+    if (question?.elements?.length) {
+      (question.elements || []).filter((el) => el.field && !isEmpty(values[el.field])).forEach((el) => { fieldsRef.current[el.field] = values[el.field]; });
+    }
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    (onSkip || onFinish)(collectFields(), answersRef.current);
   };
 
   const setValue = (field, value) => setValues((prev) => ({ ...prev, [field]: value }));
@@ -179,46 +248,77 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
       node.textNode,
       ...(node.children || []).map((child, i) => renderCustom(child, elementIndex, `${path}.${i}`, false)),
     ].filter((c) => c !== undefined && c !== null);
-    const props = { key: path, ...(node.attributes || {}) };
-    // Events are honoured on the first parent only, per the reference.
-    if (isRoot) {
-      for (const eventName of node.events || []) {
-        const reactEvent = eventName === 'change' ? 'onChange' : eventName === 'click' ? 'onClick' : null;
-        if (!reactEvent) continue;
-        props[reactEvent] = async (e) => {
-          try {
-            const result = await session.fireEvent(question.askId, path, {
-              type: eventName,
-              value: e?.target?.value ?? null,
-            });
-            if (result && question.elements[elementIndex]?.field !== undefined) {
-              setValue(question.elements[elementIndex].field, result.data);
-              fieldsRef.current[question.elements[elementIndex].field] = result.data;
+    const attrs = { ...(node.attributes || {}) };
+    const props = { key: path };
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'style') props.style = styleOf(attrs);
+      else if (k === 'class') props.className = v;
+      else if (k === 'autoFocus') props.autoFocus = Boolean(v);
+      else props[k] = v;
+    });
+    // Reference: an event on any node bubbles to the first parent's onEvent
+    // with that node as currentTarget (dataset + value available to the rule).
+    const rootHasHandler = question?.elements?.[elementIndex]?.customElement?.hasOnEvent;
+    for (const eventName of node.events || []) {
+      const reactEvent = eventName === 'change' ? 'onChange' : eventName === 'click' ? 'onClick' : null;
+      if (!reactEvent || !rootHasHandler) continue;
+      props[reactEvent] = async (e) => {
+        e.stopPropagation?.();
+        const ds = {};
+        Object.entries(attrs).forEach(([k, v]) => { if (k.startsWith('data-')) ds[k.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = v; });
+        try {
+          const result = await session.fireEvent(question.askId, String(elementIndex), {
+            type: eventName,
+            value: e?.target?.value ?? null,
+            dataset: ds,
+          });
+          const field = question.elements[elementIndex]?.field;
+          if (result && field !== undefined) {
+            setValue(field, result.data);
+            fieldsRef.current[field] = result.data;
+            if (result.next) {
+              // Commit this answer with the handler's data before moving on.
+              const elements = (question.elements || []).filter((el) => el.field).map((el) => ({ field: el.field, value: el.field === field ? result.data : values[el.field] }));
+              answersRef.current = [...answersRef.current.slice(0, questionIndexRef.current), { question: question.question || '', elements, metaData: question.metaData }];
+              if ((question.questionsLeft ?? 1) <= 0) { finish(); return; }
+              questionIndexRef.current += 1;
+              askCurrent();
             }
-            if (result?.next) goNext();
-          } catch (err) {
-            setError(err?.message || 'The Page Rule element failed');
+          } else if (result?.next) {
+            goNext();
           }
-        };
-      }
+        } catch (err) {
+          setError(err?.message || 'The Page Rule element failed');
+        }
+      };
     }
+    if (isRoot && !props.style) props.style = undefined;
     return React.createElement(node.type || 'div', props, ...children);
   };
 
   // ── standard element renderers ─────────────────────────────────────────────
   const renderElement = (el, index) => {
     const value = values[el.field];
+    const label = el.placeholder || '';
     switch (el.type) {
       case 'toggle':
         return (
-          <Box key={el.field || index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Switch checked={value === true} onChange={(e) => setValue(el.field, e.target.checked)} />
-            <Typography>{el.placeholder || el.field}</Typography>
+          <Box key={el.field || index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <ShopfrontSwitch checked={value === true} onChange={(e) => setValue(el.field, e.target.checked)} inputProps={{ 'aria-label': label || el.field }} />
+            <Typography sx={{ fontSize: 18, color: NEAR_WHITE }}>{label || el.field}</Typography>
           </Box>
         );
       case 'select': {
-        const options = Array.isArray(el.options) ? el.options : dbOptions[el.options] || [];
-        const byValue = (v) => options.find((o) => o.value === v) || (v ? { label: String(v), value: v } : null);
+        const key = dbKey(el);
+        const options = Array.isArray(el.options) && typeof el.options[0] !== 'string' ? el.options : dbOptions[key] || [];
+        const byValue = (v) => {
+          if (v && typeof v === 'object' && 'value' in v) return v;
+          const found = options.find((o) => o.value === v || o.value === String(v));
+          if (found) return found;
+          if (v === null || v === undefined || v === '') return null;
+          return { label: el.__label || String(v), value: v };
+        };
+        const searched = isSearched(el);
         return (
           <Autocomplete
             key={el.field || index}
@@ -226,42 +326,45 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
             freeSolo={el.creatable === true}
             disableClearable={el.isClearable === false}
             options={options}
+            groupBy={options.some((o) => o.group) ? (o) => o.group : undefined}
             getOptionLabel={(o) => (typeof o === 'string' ? o : o?.label || '')}
-            isOptionEqualToValue={(o, v) => o?.value === (v?.value ?? v)}
-            value={el.multiple ? (value || []).map(byValue).filter(Boolean) : byValue(value)}
+            isOptionEqualToValue={(o, v) => String(o?.value) === String(v?.value ?? v)}
+            value={el.multiple ? (Array.isArray(value) ? value : []).map(byValue).filter(Boolean) : byValue(value)}
             onChange={(e, next) => {
-              const pick = (o) => (typeof o === 'string' ? o : o?.value);
-              setValue(el.field, el.multiple ? (next || []).map(pick) : pick(next));
+              const pick = (o) => (typeof o === 'string' ? { label: o, value: o, __new: true } : o);
+              setValue(el.field, el.multiple ? (next || []).map(pick) : (next ? pick(next) : null));
             }}
-            renderInput={(params) => <TextField {...params} label={el.placeholder || el.field} />}
+            onInputChange={async (e, text, reason) => {
+              if (!searched || reason !== 'input') return;
+              if (String(text).trim().length < MIN_SEARCH) { setDbOptions((p) => ({ ...p, [key]: [] })); return; }
+              const seq = ++searchSeq.current;
+              const list = await loadOptions(el, text.trim());
+              if (seq === searchSeq.current) setDbOptions((p) => ({ ...p, [key]: list }));
+            }}
+            noOptionsText={searched ? 'Keep Typing to Search...' : 'No Options'}
+            renderOption={el.multiple ? (props, option, { selected }) => (
+              <li {...props}><Checkbox size="small" checked={selected} sx={{ mr: 1 }} />{option.label}</li>
+            ) : undefined}
+            renderInput={(params) => <TextField {...params} placeholder={label} inputProps={{ ...params.inputProps, 'aria-label': label || el.field }} sx={fieldSx} />}
           />
         );
       }
       case 'calendar':
         return (
-          <Box key={el.field || index} sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              fullWidth
-              type={el.time ? 'datetime-local' : 'date'}
-              label={el.placeholder || el.field}
-              InputLabelProps={{ shrink: true }}
-              value={el.end ? value?.start || '' : value || ''}
-              onChange={(e) => setValue(el.field, el.end ? { ...(value || {}), start: e.target.value } : e.target.value)}
-            />
-            {el.end && (
-              <TextField
-                fullWidth
-                type={el.time ? 'datetime-local' : 'date'}
-                label="End"
-                InputLabelProps={{ shrink: true }}
-                value={value?.end || ''}
-                onChange={(e) => setValue(el.field, { ...(value || {}), end: e.target.value })}
-              />
-            )}
-          </Box>
+          <TextField
+            key={el.field || index}
+            fullWidth
+            type={el.time ? 'datetime-local' : 'date'}
+            value={value || ''}
+            onChange={(e) => setValue(el.field, e.target.value)}
+            inputProps={{ 'aria-label': label || el.field }}
+            helperText={label}
+            FormHelperTextProps={{ sx: { color: NEAR_WHITE, fontSize: 14, ml: 0 } }}
+            sx={fieldSx}
+          />
         );
       case 'custom':
-        return <Box key={el.field || index}>{renderCustom(el.customElement, index)}</Box>;
+        return <Box key={el.field || index} sx={{ color: NEAR_WHITE }}>{renderCustom(el.customElement, index)}</Box>;
       case 'number':
       case 'currency':
       case 'percentage':
@@ -270,13 +373,15 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
             key={el.field || index}
             fullWidth
             type="number"
-            label={el.placeholder || el.field}
+            placeholder={label}
             value={value ?? ''}
             onChange={(e) => setValue(el.field, e.target.value === '' ? '' : Number(e.target.value))}
+            inputProps={{ 'aria-label': label || el.field, step: el.step ?? 'any', min: el.min, max: el.max }}
             InputProps={{
               startAdornment: el.type === 'currency' ? <InputAdornment position="start">$</InputAdornment> : undefined,
               endAdornment: el.type === 'percentage' ? <InputAdornment position="end">%</InputAdornment> : undefined,
             }}
+            sx={fieldSx}
           />
         );
       default:
@@ -284,46 +389,91 @@ const PageRuleWizard = ({ session, user, location, dbFetch, onFinish, onCancel }
           <TextField
             key={el.field || index}
             fullWidth
-            label={el.placeholder || el.field}
+            autoFocus={index === 0}
+            placeholder={label}
             value={value ?? ''}
             onChange={(e) => setValue(el.field, e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') goNext(); }}
+            inputProps={{ 'aria-label': label || el.field }}
+            sx={fieldSx}
           />
         );
     }
   };
 
-  if (loading && !question) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>
-    );
-  }
+  const index = questionIndexRef.current;
+  const left = Number(question?.questionsLeft) > 0 ? Number(question.questionsLeft) : 0;
+  const totalDots = index + left + 1;
+  const isLast = left <= 0;
+  const valid = !loading && requiredOk();
+
+  const controlSx = (align, fontSize) => ({
+    display: 'flex', alignItems: 'center', justifyContent: align, gap: '0.5rem', fontSize, fontWeight: 400,
+    color: NEAR_WHITE, cursor: 'pointer', userSelect: 'none', textTransform: 'uppercase',
+  });
+  const columnSx = { width: '100%', maxWidth: 900, mx: 'auto', padding: '1rem' };
 
   return (
-    <Box sx={{ maxWidth: 560, mx: 'auto' }}>
-      {question?.title && (
-        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 1 }}>{question.title}</Typography>
-      )}
-      <Typography sx={{ fontSize: 18, color: '#313439', mb: 3 }}>{question?.question}</Typography>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-        {(question?.elements || []).map(renderElement)}
+    <Box
+      data-testid="page-rule-wizard"
+      sx={{
+        position: 'fixed', inset: 0, zIndex: 1300,
+        display: 'grid', gridTemplateRows: '71px 60px 1fr 60px', overflow: 'hidden',
+        color: NEAR_WHITE, background: `${GRADIENT} 0 0/1400% 1400%`,
+        '@keyframes cwBgChange': { '0%': { backgroundPosition: '0 0' }, '50%': { backgroundPosition: '100% 100%' }, '100%': { backgroundPosition: '0 0' } },
+        animation: 'cwBgChange 300s linear infinite',
+      }}
+    >
+      {/* Top: dot rail + cancel */}
+      <Box sx={{ ...columnSx, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+        <Box sx={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', display: 'flex', alignItems: 'center', fontSize: 16 }} data-testid="wizard-dots">
+          {Array.from({ length: totalDots }).map((_, idx) => {
+            const Dot = idx === index ? RadioButtonChecked : RadioButtonUnchecked;
+            return (
+              <Box key={idx} sx={{ width: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Dot sx={{ fontSize: idx === index ? '1.3em' : '1em' }} />
+              </Box>
+            );
+          })}
+        </Box>
+        <Box onClick={onCancel} sx={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: 19.2, textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+          <CloseIcon sx={{ fontSize: 19.2 }} />
+          Cancel
+        </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 4 }}>
-        <Button disableRipple onClick={goBack} sx={{ textTransform: 'none' }}>
-          {questionIndexRef.current === 0 ? 'Cancel' : 'Back'}
-        </Button>
-        <Typography sx={{ fontSize: 13, color: '#676b72' }}>
-          {Number(question?.questionsLeft) > 0 ? `${question.questionsLeft} question${question.questionsLeft === 1 ? '' : 's'} left` : 'Last question'}
-        </Typography>
-        <Button
-          variant="contained" disableElevation disableRipple onClick={goNext} disabled={loading}
-          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '12px', px: 3, backgroundColor: '#5ebbeb', '&:hover': { backgroundColor: '#7ecbf2' } }}
-        >
-          {(question?.questionsLeft ?? 1) <= 0 ? 'Finish' : 'Next'}
-        </Button>
+      {/* Title */}
+      <Box sx={{ textAlign: 'center', padding: '0.5rem', paddingTop: '12px' }}>
+        <Typography component="p" sx={{ fontSize: 20.8, color: NEAR_WHITE }}>{question?.title || ''}</Typography>
+      </Box>
+
+      {/* Question + elements */}
+      <Box sx={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', justifyContent: 'safe center', pb: '104px' }}>
+        <Box sx={{ ...columnSx, flexShrink: 0 }}>
+          {loading && !question ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress sx={{ color: NEAR_WHITE }} /></Box>
+          ) : (
+            <>
+              <Typography sx={{ fontSize: 32, fontWeight: 400, color: NEAR_WHITE, mb: 1.5 }}>{question?.question}</Typography>
+              {error && <Typography sx={{ color: '#ffd1d1', mb: 1.5 }} role="alert">{error}</Typography>}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, opacity: loading ? 0.6 : 1 }}>
+                {(question?.elements || []).map(renderElement)}
+              </Box>
+            </>
+          )}
+        </Box>
+      </Box>
+
+      {/* Controls */}
+      <Box sx={{ ...columnSx, display: 'grid', gridTemplateColumns: '1fr 60px 1fr', alignItems: 'center' }}>
+        {index > 0 ? (
+          <Box onClick={goBack} sx={controlSx('flex-start', 21.12)}><ArrowBackIcon sx={{ fontSize: 21.12 }} />Previous</Box>
+        ) : <Box />}
+        <Box onClick={skip} sx={controlSx('center', 17.6)}>Skip</Box>
+        <Box onClick={goNext} sx={{ ...controlSx('flex-end', 21.12), color: valid ? NEAR_WHITE : INVALID, cursor: valid ? 'pointer' : 'not-allowed' }}>
+          {isLast ? 'Finish' : 'Next'}
+          {isLast ? <CheckIcon sx={{ fontSize: 21.12 }} /> : <ArrowForwardIcon sx={{ fontSize: 21.12 }} />}
+        </Box>
       </Box>
     </Box>
   );
