@@ -52,6 +52,12 @@ const SURCHARGE_TYPES = [
 // Reference: the Applies To picker only searches once two characters are typed.
 const MIN_SEARCH_CHARS = 2;
 
+// Applies To options, remembered for the page's lifetime (per navbar outlet).
+// The picker only needs names, so it asks for the lite rows (no per-row product
+// counts) and reuses them on every later open instead of reloading each time.
+const appliesToMemo = new Map();
+const appliesToKey = () => localStorage.getItem('selectedOutletId') || '';
+
 const isAllDay = (startTime, endTime) =>
   timeToSeconds(startTime) === 0 && endTimeToSeconds(endTime) === 24 * 60 * 60;
 
@@ -161,7 +167,11 @@ const AddScheduleDialog = ({
   const loadTaxRates = async () => {
     try {
       const response = await taxRateService.getTaxRates();
-      const rates = response.taxRates || [];
+      // Reference: the locked system "No Tax" rate is not offered for a
+      // surcharge (surcharging attracts tax); same lock rule as the Tax Rates page.
+      const rates = (response.taxRates || []).filter(
+        (t) => !(Boolean(t.isLocked) || (t.name === 'No Tax' && t.outletId == null))
+      );
       setTaxRates(rates);
       // Default new surcharges to the store default tax rate (e.g. GST)
       if (!isEditMode) {
@@ -178,12 +188,18 @@ const AddScheduleDialog = ({
 
   const loadClassifications = async () => {
     try {
-      const [categoriesRes, tagsRes] = await Promise.all([
-        classificationService.getClassifications({ type: 'CATEGORY' }),
-        classificationService.getClassifications({ type: 'TAG' })
-      ]);
-      setCategories(categoriesRes.classifications || []);
-      setTags(tagsRes.classifications || []);
+      const key = appliesToKey();
+      let memo = appliesToMemo.get(key);
+      if (!memo) {
+        const [categoriesRes, tagsRes] = await Promise.all([
+          classificationService.getClassifications({ type: 'CATEGORY', lite: true }),
+          classificationService.getClassifications({ type: 'TAG', lite: true })
+        ]);
+        memo = { categories: categoriesRes.classifications || [], tags: tagsRes.classifications || [] };
+        appliesToMemo.set(key, memo);
+      }
+      setCategories(memo.categories);
+      setTags(memo.tags);
     } catch (err) {
       console.error('Error loading classifications:', err);
       setCategories([]);
@@ -423,12 +439,20 @@ const AddScheduleDialog = ({
                   }}
                   onClick={() => setShowAppliesToDropdown(true)}
                 >
-                  {getSelectedItems().map((item) => (
+                  {/* Same as the Promotions / Products filters: up to two name chips,
+                      three or more collapse to one "N Selected..." chip (full list in
+                      the tooltip; its x clears them all). */}
+                  {(getSelectedItems().length > 2
+                    ? [{ type: 'all', id: 'all', name: `${getSelectedItems().length} Selected...`, title: getSelectedItems().map((i) => i.name).join(', ') }]
+                    : getSelectedItems()
+                  ).map((item) => (
                     <Chip
                       key={`${item.type}-${item.id}`}
                       label={item.name}
+                      title={item.title}
                       onDelete={() => {
-                        if (item.type === 'category') handleRemoveCategory(item.id);
+                        if (item.type === 'all') setFormData((prev) => ({ ...prev, selectedCategories: [], selectedTags: [] }));
+                        else if (item.type === 'category') handleRemoveCategory(item.id);
                         else handleRemoveTag(item.id);
                       }}
                       deleteIcon={<CloseIcon sx={{ fontSize: 16, color: '#000000' }} />}
@@ -486,7 +510,7 @@ const AddScheduleDialog = ({
                       right: 0,
                       zIndex: 1000,
                       mt: 0.5,
-                      maxHeight: 300,
+                      maxHeight: 200,
                       overflow: 'auto',
                       border: '1px solid #c7c7c7',
                       borderRadius: '8px',

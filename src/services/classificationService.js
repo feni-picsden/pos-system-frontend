@@ -12,7 +12,9 @@ const classificationService = {
     // covers every caller except free-text search, which still goes to the API.
     // An explicit outletId (a global admin narrowing to one outlet) bypasses the
     // cache, which holds the navbar scope's list.
-    if (!filters.search && !filters.categoryFilter && !filters.outletId) {
+    // lite callers skip this cache too: the cached rows carry product counts the
+    // caller does not want to pay for on a cold cache.
+    if (!filters.search && !filters.categoryFilter && !filters.outletId && !filters.lite) {
       const all = await cachedList('classifications', async () => {
         const response = await apiClient.get('/classifications');
         return response.data?.classifications || [];
