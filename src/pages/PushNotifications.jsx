@@ -23,9 +23,11 @@ import PageSaveBar from '../components/Common/PageSaveBar';
 // Reference has no transitions on row actions.
 const INSTANT = 'all 0s ease';
 
-const PRIMARY_BUTTON_SX = {
-  bgcolor: '#5ebbeb',
-  color: '#fff',
+// Reference list header button: white pill, light-blue border + text, bold.
+const OUTLINED_BUTTON_SX = {
+  bgcolor: '#fff',
+  color: '#5ebbeb',
+  border: '1px solid #5ebbeb',
   textTransform: 'none',
   boxShadow: 'none',
   borderRadius: '12px',
@@ -34,7 +36,7 @@ const PRIMARY_BUTTON_SX = {
   height: 42,
   px: 3,
   transition: INSTANT,
-  '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+  '&:hover': { bgcolor: '#f0f9ff', borderColor: '#5ebbeb', boxShadow: 'none' },
 };
 
 const rowActionSx = (color) => ({
@@ -53,9 +55,12 @@ const rowActionSx = (color) => ({
 const FIELD_LABEL_SX = { fontWeight: 700, fontSize: 16, color: '#000' };
 const HELPER_SX = { fontSize: 14, color: '#676b72', mt: 0.25 };
 
+// Reference edit page: content column ~766px wide, centred.
+const EDIT_COLUMN_SX = { maxWidth: 766, mx: 'auto', width: '100%', boxSizing: 'border-box' };
+
 const TEXT_INPUT_SX = {
   width: '100%',
-  maxWidth: 420,
+  boxSizing: 'border-box',
   height: 42,
   border: '1px solid #595959',
   borderRadius: '8px',
@@ -74,30 +79,32 @@ const TOGGLE_FIELDS = [
   {
     field: 'registerClosureEnabled',
     label: 'Register Closure Summary',
-    helper: 'Notify when a register is closed with the closure totals',
-    onText: 'Register closures will be sent to this device',
+    helper: 'A notification that summarises the sales for the duration of when a register closure occurs',
+    onText: 'This device will receive the register closure summary',
     offText: 'No register closures will be sent to this device',
   },
   {
     field: 'allLoginEventsEnabled',
     label: 'All Login Events',
-    helper: 'Notify about every login event',
-    onText: 'All login events will be sent to this device',
-    offText: 'No login events will be sent to this device',
+    helper: 'A notification will be sent every time a user logs in',
+    onText: 'This device will receive all user login notifications',
+    offText: 'Not all login events will be sent to this device',
   },
   {
     field: 'mainLoginEnabled',
     label: 'Main Login',
-    helper: 'Notify about the main login, typically the first login of the day',
-    onText: 'Main logins will be sent to this device',
-    offText: 'No main logins will be sent to this device',
+    helper: 'A notification for the first time a user logs in for that day',
+    onText: 'This device will receive a notification for the first login of each user for a given day',
+    offText: 'No login events will be sent to this device',
+    // Reference: every login already covers the first one, so this section disappears
+    hiddenWhen: (f) => !!f.allLoginEventsEnabled,
   },
   {
     field: 'promotionDownloadEnabled',
     label: 'New Promotions Downloaded',
-    helper: 'Notify when new external promotions are downloaded',
-    onText: 'New promotions will be sent to this device',
-    offText: 'No new promotions will be sent to this device',
+    helper: 'A notification for when new promotions have been downloaded',
+    onText: 'This device will receive notifications for promotion downloads',
+    offText: 'No promotion download notifications will be sent to this device',
   },
 ];
 
@@ -219,12 +226,18 @@ export default function PushNotifications() {
   // ---- Edit view (reference: dedicated /settings/push/:id page) ----
   if (editingDevice && editForm) {
     return (
-      <Box sx={{ p: 3, pb: 12 }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 3 }}>
-          Editing {editingDevice.deviceName}
-          {isCurrentDevice(editingDevice) && <CurrentDeviceTag />}
-        </Typography>
+      <Box sx={{ pb: 12 }}>
+        {/* Reference: pale blue-grey header band, grey "Editing" + bold device name, centred column */}
+        <Box sx={{ bgcolor: '#e2e8f0', px: 3, py: 4 }}>
+          <Typography component="h1" sx={{ ...EDIT_COLUMN_SX, fontSize: 20, fontWeight: 700, color: '#000' }}>
+            <Box component="span" sx={{ color: '#676b72', mr: 0.5 }}>Editing</Box>
+            {' '}
+            {editingDevice.deviceName}
+            {isCurrentDevice(editingDevice) && <CurrentDeviceTag />}
+          </Typography>
+        </Box>
 
+        <Box sx={{ ...EDIT_COLUMN_SX, px: 3, pt: 4 }}>
         <Box sx={{ mb: 3 }}>
           <Typography sx={{ ...FIELD_LABEL_SX, mb: 0.5 }}>Name</Typography>
           <Box
@@ -246,7 +259,6 @@ export default function PushNotifications() {
               display: 'flex',
               alignItems: 'center',
               width: '100%',
-              maxWidth: 420,
               height: 42,
               border: '1px solid #595959',
               borderRadius: '8px',
@@ -254,21 +266,8 @@ export default function PushNotifications() {
               overflow: 'hidden',
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                px: 1.5,
-                height: '100%',
-                fontSize: 16,
-                color: '#000',
-                borderRight: '1px solid #595959',
-                bgcolor: '#f5f5f5',
-              }}
-            >
-              $
-            </Box>
+            {/* Reference: plain "$" prefix inside the same box */}
+            <Box sx={{ pl: 1.5, fontSize: 16, color: '#000' }}>$</Box>
             <Box
               component="input"
               type="number"
@@ -286,7 +285,7 @@ export default function PushNotifications() {
                 height: '100%',
                 border: 0,
                 outline: 'none',
-                px: 1.5,
+                px: 1,
                 fontFamily: 'inherit',
                 fontSize: 16,
                 color: '#000',
@@ -295,7 +294,7 @@ export default function PushNotifications() {
           </Box>
         </Box>
 
-        {TOGGLE_FIELDS.map((t) => (
+        {TOGGLE_FIELDS.filter((t) => !(t.hiddenWhen && t.hiddenWhen(editForm))).map((t) => (
           <Box key={t.field} sx={{ mb: 3 }}>
             <Typography sx={FIELD_LABEL_SX}>{t.label}</Typography>
             <Typography sx={{ ...HELPER_SX, mb: 0.75 }}>{t.helper}</Typography>
@@ -311,6 +310,7 @@ export default function PushNotifications() {
             </Box>
           </Box>
         ))}
+        </Box>
 
         <PageSaveBar onSave={handleSave} saving={saving} />
       </Box>
@@ -320,34 +320,21 @@ export default function PushNotifications() {
   // ---- List view ----
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      {/* Reference: title with the outlined light-blue "+ Add Current Device" pill right beside it */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
         <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
           Push Notifications
         </Typography>
         <Button
-          variant="contained"
+          variant="outlined"
           disableRipple
           disableElevation
           startIcon={<AddIcon />}
           onClick={() => setModalOpen(true)}
-          sx={PRIMARY_BUTTON_SX}
+          sx={OUTLINED_BUTTON_SX}
         >
           Add Current Device
         </Button>
-      </Box>
-
-      {/* Reference: single full-width blue pill header bar with 'Name' only */}
-      <Box
-        sx={{
-          height: 51,
-          bgcolor: '#5ebbeb',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          pl: '20px',
-        }}
-      >
-        <Typography sx={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Name</Typography>
       </Box>
 
       {loading ? (
@@ -356,14 +343,26 @@ export default function PushNotifications() {
           <Typography sx={{ fontSize: 16, color: '#737373' }}>Loading devices...</Typography>
         </Box>
       ) : devices.length === 0 ? (
-        <Box sx={{ py: 6, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 16, color: '#676b72' }}>No devices registered yet.</Typography>
-          <Typography sx={{ fontSize: 14, color: '#676b72', mt: 1 }}>
-            Click &quot;Add Current Device&quot; to register this browser for push notifications.
-          </Typography>
+        /* Reference: no header bar, just the centred grey sentence */
+        <Box sx={{ pt: '20vh', textAlign: 'center' }}>
+          <Typography sx={{ fontSize: 24, color: '#404040' }}>No Push Devices found.</Typography>
         </Box>
       ) : (
-        devices.map((d) => (
+        <>
+          {/* Reference: single full-width blue pill header bar with 'Name' only */}
+          <Box
+            sx={{
+              height: 51,
+              bgcolor: '#5ebbeb',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              pl: '20px',
+            }}
+          >
+            <Typography sx={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Name</Typography>
+          </Box>
+          {devices.map((d) => (
           <Box
             key={d.id}
             sx={{
@@ -399,7 +398,8 @@ export default function PushNotifications() {
               </Button>
             </Box>
           </Box>
-        ))
+          ))}
+        </>
       )}
 
       <RegisterDeviceModal
