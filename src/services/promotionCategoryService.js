@@ -31,8 +31,12 @@ const promotionCategoryService = {
   },
 
   // Update promotion category
+  // skipOutletScope: an edit keeps the category's own outlet. Without it a global
+  // admin working "in Outlet A" had the navbar outlet stamped onto the PUT, which
+  // re-homed a GLOBAL category into Outlet A (duplicate name -> 500). The All
+  // Outlets picker still changes the outlet because the dialog sends it then.
   async updatePromotionCategory(id, promotionCategoryData) {
-    const response = await apiClient.put(`/promotion-categories/${id}`, promotionCategoryData);
+    const response = await apiClient.put(`/promotion-categories/${id}`, promotionCategoryData, { skipOutletScope: true });
     apiClient.bustCache('/promotion-categories');
     return response.data;
   },

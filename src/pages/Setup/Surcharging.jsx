@@ -702,6 +702,9 @@ const Surcharging = () => {
                         )}
                       >
                         <Box
+                          data-testid="surcharge-bar"
+                          data-day={day}
+                          data-applies={isAllProducts ? 'all' : 'limited'}
                           sx={{
                             position: 'absolute',
                             // Reference: lines sit at the left beside the time labels, one

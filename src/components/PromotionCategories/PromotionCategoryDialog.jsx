@@ -230,12 +230,6 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
             ))}
           </Box>
         )}
-        {!showOutletFilter && scopedOutletId && !isEditMode && (
-          <Typography sx={{ fontSize: 13, color: '#676b72', textAlign: 'center', mt: 1.5 }}>
-            Promotions in this category go to your current outlet.
-          </Typography>
-        )}
-
         <SwitchRow label="Active" checked={formData.isActive} onChange={(v) => set('isActive', v)} />
 
         <Box sx={{ display: 'flex', gap: 2, mt: 2.5 }}>

@@ -592,7 +592,7 @@ const AddScheduleDialog = ({
               <TextField
                 fullWidth
                 type="number"
-                placeholder="Amount"
+                placeholder="Surcharge Amount"
                 value={formData.surchargeAmount}
                 onChange={(e) => handleInputChange('surchargeAmount', e.target.value)}
                 inputProps={{ autoComplete: 'off', min: 0, step: 'any' }}
