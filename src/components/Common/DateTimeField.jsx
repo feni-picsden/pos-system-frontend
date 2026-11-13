@@ -188,8 +188,12 @@ const DateTimeField = ({
   error = false,
   // e.g. "..." - a bold opener shown at the right while the field is empty
   suffix = null,
+  // Date only (Additional Information default date): DD/MM/YYYY mask, no Time tab.
+  dateOnly = false,
   sx,
 }) => {
+  const fmt = dateOnly ? 'dd/MM/yyyy' : DT_FORMAT;
+  const mask = dateOnly ? 'DD/MM/YYYY' : DT_MASK;
   const [focused, setFocused] = useState(false);
   const [invalid, setInvalid] = useState(false);
   const [open, setOpen] = useState(false);
@@ -203,8 +207,8 @@ const DateTimeField = ({
   const minDay = disablePast ? startOfDay(new Date()) : null;
 
   useEffect(() => {
-    setStripText(value ? format(value, DT_FORMAT) : '');
-  }, [value]);
+    setStripText(value ? format(value, fmt) : '');
+  }, [value, fmt]);
 
   useEffect(() => {
     if (disabled) setOpen(false);
@@ -235,8 +239,8 @@ const DateTimeField = ({
     const parsed = parseDateTimeText(current);
     if (value && parsed && parsed.getTime() === value.getTime()) return;
     if (!value && !parsed) return;
-    writeText(value ? format(value, DT_FORMAT) : '');
-  }, [value, writeText]);
+    writeText(value ? format(value, fmt) : '');
+  }, [value, writeText, fmt]);
 
   const handleText = (e) => {
     const next = e.target.value;
@@ -296,12 +300,12 @@ const DateTimeField = ({
             component="input"
             ref={inputRef}
             disabled={disabled}
-            defaultValue={value ? format(value, DT_FORMAT) : ''}
+            defaultValue={value ? format(value, fmt) : ''}
             onChange={handleText}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             onClick={() => { if (!disabled) setOpen(true); }}
-            placeholder={active ? DT_MASK : placeholder}
+            placeholder={active ? mask : placeholder}
             sx={{
               flex: 1,
               minWidth: 0,
@@ -367,7 +371,7 @@ const DateTimeField = ({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') commitStrip();
                 }}
-                placeholder="dd/mm/yyyy, hh:mm:ss"
+                placeholder={dateOnly ? 'dd/mm/yyyy' : 'dd/mm/yyyy, hh:mm:ss'}
                 aria-label="Date and time"
                 sx={{
                   flex: 1,
@@ -397,7 +401,7 @@ const DateTimeField = ({
               {[
                 { key: 'calendar', icon: <CalendarIcon sx={{ fontSize: 18 }} />, name: 'Calendar' },
                 { key: 'clock', icon: <ClockIcon sx={{ fontSize: 18 }} />, name: 'Time' },
-              ].map(({ key, icon, name }) => (
+              ].filter(({ key }) => !(dateOnly && key === 'clock')).map(({ key, icon, name }) => (
                 <Box
                   key={key}
                   component="button"

@@ -20,7 +20,9 @@ import {
   DragIndicator as DragIcon,
   SortByAlpha as SortIcon,
 } from '@mui/icons-material';
+import { format, isValid, parseISO } from 'date-fns';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import DateTimeField from '../../components/Common/DateTimeField';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useHasPermission } from '../../hooks/usePermissions';
@@ -69,6 +71,33 @@ const fieldSx = {
   '& input::placeholder, & textarea::placeholder': { color: '#808080', opacity: 1 },
 };
 const labelSx = { fontSize: 13, color: '#000', mb: 0.25 };
+
+// Reference dropdown: white rounded panel under the box, plain rows, the chosen
+// row on a light-blue band with a blue line above and below.
+const MENU_PROPS = {
+  anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+  transformOrigin: { vertical: 'top', horizontal: 'left' },
+  PaperProps: {
+    sx: {
+      mt: 0,
+      borderRadius: '0 0 8px 8px',
+      boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
+      '& .MuiMenuItem-root': { fontSize: 16, color: '#000', minHeight: 36, px: 2, borderTop: '1px solid transparent', borderBottom: '1px solid transparent' },
+      '& .MuiMenuItem-root:hover': { bgcolor: '#f1f1f1' },
+      '& .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#e8f3fb', borderTop: '1px solid #5ebbeb', borderBottom: '1px solid #5ebbeb' },
+    },
+  },
+  MenuListProps: { sx: { py: 1.5 } },
+};
+
+// Reference: a field's name floats in above the box (smoothly) while it is
+// focused or holds a value; otherwise the name is only the placeholder.
+const FloatingLabel = ({ show, children }) => (
+  <Typography sx={{ ...labelSx, fontSize: 12, height: 18, lineHeight: '18px', opacity: show ? 1 : 0,
+    transform: show ? 'translateY(0)' : 'translateY(10px)', transition: 'opacity 150ms ease, transform 150ms ease' }}>
+    {children}
+  </Typography>
+);
 const GREEN = '#22c55e';
 
 let tempSeq = 0;
@@ -172,8 +201,13 @@ const AdditionalInformation = () => {
     });
   };
 
-  const handleNameChange = (name) =>
-    patchSelected({ name, safeName: selected?.safeNameTouched ? selected.safeName : suggestSafeName(name) });
+  // Reference: the safe name is suggested when the Name field is LEFT (blur),
+  // not per keystroke, and only until the user edits the safe name themselves.
+  const handleNameChange = (name) => patchSelected({ name });
+  const suggestOnBlur = () => {
+    setFocusedName(null);
+    if (selected && !selected.safeNameTouched) patchSelected({ safeName: suggestSafeName(selected.name) });
+  };
 
   const changeType = (type) => {
     // The default value only carries over between types that store it the same way.
@@ -195,19 +229,22 @@ const AdditionalInformation = () => {
     if (selected?.type === 'multi_select') defaultValue = (Array.isArray(defaultValue) ? defaultValue : []).filter((v) => valid.includes(v));
     patchSelected({ options, defaultValue });
   };
-  // Reference: a new option arrives as "Option N", focused with its text selected
-  // so typing replaces it.
+  // Reference: a new option arrives empty with the "Option N" placeholder and
+  // focused; the "Option N" label floats in above the box while it is focused
+  // or holds a value.
   const focusOption = useRef(null);
+  const [focusedOption, setFocusedOption] = useState(null);
+  const [focusedName, setFocusedName] = useState(null);
   const addOption = () => {
     const list = selected?.options || [];
     focusOption.current = list.length;
-    setOptions([...list, `Option ${list.length + 1}`]);
+    setOptions([...list, '']);
   };
   useEffect(() => {
     if (focusOption.current == null) return;
     const el = document.querySelector(`input[aria-label="Option ${focusOption.current + 1}"]`);
     focusOption.current = null;
-    if (el) { el.focus(); el.select(); }
+    if (el) el.focus();
   });
   const changeOption = (i, value) => setOptions((selected?.options || []).map((o, idx) => (idx === i ? value : o)));
   const removeOption = (i) => setOptions((selected?.options || []).filter((_, idx) => idx !== i));
@@ -237,7 +274,7 @@ const AdditionalInformation = () => {
     if (!ok) return;
     try {
       await additionalFieldService.deleteField(selected.id);
-      notify('Field deleted');
+      notify('Field deleted', 'success', { position: 'top' });
       setFields((prev) => {
         const next = prev.filter((f) => keyOf(f) !== selectedKey);
         setSavedOrder(next.filter((f) => f.id != null).map(keyOf).join(','));
@@ -251,6 +288,7 @@ const AdditionalInformation = () => {
 
   // ---- save everything: new fields, changed fields, then the order ----
   const handleSave = async () => {
+    if (!dirty) { notify('No changes to save', 'info', { position: 'top' }); return; }
     for (const f of fields) {
       const problem = validateField(f);
       if (problem) {
@@ -288,7 +326,7 @@ const AdditionalInformation = () => {
         const again = rows.find((r) => r.id === id);
         setSelectedKey(again ? keyOf(again) : null);
       }
-      notify('Additional information saved');
+      notify('Additional information saved', 'success', { position: 'top' });
     } catch (e) {
       // A field saved before the failure stays saved; reload so the list is honest.
       const msg = e?.response?.data?.error || 'Failed to save additional information';
@@ -311,14 +349,18 @@ const AdditionalInformation = () => {
             <ShopfrontSwitch checked={dv === true} onChange={(e) => patchSelected({ defaultValue: e.target.checked })} inputProps={{ 'aria-label': 'Default Value' }} />
           </Box>
         );
-      case 'date':
+      case 'date': {
+        // Stored as YYYY-MM-DD (what the product edit screen reads); shown DD/MM/YYYY.
+        const asDate = typeof dv === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dv) ? parseISO(dv) : null;
         return (
           <Box>
             <Typography sx={labelSx}>Default Value</Typography>
-            <TextField type="date" fullWidth size="small" value={dv ?? ''} onChange={(e) => patchSelected({ defaultValue: e.target.value || null })}
-              inputProps={{ 'aria-label': 'Default Value' }} sx={fieldSx} />
+            <DateTimeField dateOnly showLabel={false} placeholder="DD/MM/YYYY" value={asDate && isValid(asDate) ? asDate : null}
+              onChange={(d) => patchSelected({ defaultValue: d && isValid(d) ? format(d, 'yyyy-MM-dd') : null })}
+              disabled={!canEdit} sx={{ '& input': { fontSize: 16 } }} />
           </Box>
         );
+      }
       case 'select':
         return (
           <Box>
@@ -396,16 +438,19 @@ const AdditionalInformation = () => {
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 4, rowGap: 2 }}>
             {options.map((o, i) => (
               <Box key={i} data-testid="select-option-row"
-                draggable={canEdit}
-                onDragStart={() => { dragFrom.current = i; }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => dropOption(i)}
                 sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <DragIcon sx={{ color: '#000', cursor: 'grab', fontSize: 22, mt: 2.5 }} aria-label="Drag option" />
+                {/* Only the handle starts a drag (reference); the row is the drop target. */}
+                <Box component="span" draggable={canEdit} onDragStart={(e) => { dragFrom.current = i; e.dataTransfer.effectAllowed = 'move'; }}
+                  aria-label="Drag option" sx={{ display: 'inline-flex', cursor: 'grab', mt: 2.5 }}>
+                  <DragIcon sx={{ color: '#000', fontSize: 22 }} />
+                </Box>
                 <Box sx={{ flex: 1 }}>
-                <Typography sx={{ ...labelSx, fontSize: 12, color: '#333' }}>{`Option ${i + 1}`}</Typography>
+                <FloatingLabel show={focusedOption === i || Boolean(String(o).trim())}>{`Option ${i + 1}`}</FloatingLabel>
                 <Box sx={{ display: 'flex' }}>
                   <TextField fullWidth placeholder={`Option ${i + 1}`} value={o} onChange={(e) => changeOption(i, e.target.value)}
+                    onFocus={() => setFocusedOption(i)} onBlur={() => setFocusedOption((cur) => (cur === i ? null : cur))}
                     inputProps={{ 'aria-label': `Option ${i + 1}` }}
                     sx={{ ...fieldSx, '& .MuiOutlinedInput-root': { ...fieldSx['& .MuiOutlinedInput-root'], borderTopRightRadius: 0, borderBottomRightRadius: 0 } }} />
                   <IconButton onClick={() => removeOption(i)} aria-label={`Remove option ${i + 1}`} disabled={!canEdit}
@@ -423,7 +468,9 @@ const AdditionalInformation = () => {
   };
 
   return (
-    <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 64px)' }}>
+    // Fixed to the viewport (reference): the field list scrolls inside the left
+    // column with its own scrollbar while Save and the editor panel stay put.
+    <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', boxSizing: 'border-box', overflow: 'hidden' }}>
       <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}>
         Edit Additional Information
       </Typography>
@@ -433,7 +480,7 @@ const AdditionalInformation = () => {
       <Box sx={{ display: 'flex', gap: 2, flex: 1, minHeight: 0 }}>
         {/* ---- left: field list ---- */}
         <Box sx={{ width: 500, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, overflowY: 'auto' }} data-testid="field-list">
+          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 1 }} data-testid="field-list">
           {canEdit && (
             <Button variant="contained" disableElevation disableRipple startIcon={<AddIcon />} onClick={addField}
               sx={{ bgcolor: GREEN, color: '#fff', textTransform: 'none', fontWeight: 600, borderRadius: '4px', px: 1.5, py: 0.25, mb: 1.5, '&:hover': { bgcolor: '#16a34a' } }}>
@@ -458,7 +505,7 @@ const AdditionalInformation = () => {
                     <Typography sx={{ fontSize: 16, color: unnamed ? '#9a9a9a' : '#000', fontWeight: 600 }}>
                       {unnamed ? 'Unnamed Field' : f.name}
                       <Box component="span" sx={{ color: '#000', fontWeight: 400 }}> - </Box>
-                      <Box component="span" sx={{ color: unnamed ? '#9a9a9a' : '#000', fontWeight: 600 }}>{f.safeName || suggestSafeName(f.name) || 'unnamed_field'}</Box>
+                      <Box component="span" sx={{ color: f.safeName ? '#000' : '#9a9a9a', fontWeight: 600 }}>{f.safeName || 'unnamed_field'}</Box>
                     </Typography>
                     <Typography sx={{ fontSize: 14, color: '#000' }}>{typeShort(f.type)}</Typography>
                     <Typography sx={{ fontSize: 14, color: '#000' }}>{f.required ? 'Required' : 'Not required'}</Typography>
@@ -477,7 +524,7 @@ const AdditionalInformation = () => {
         </Box>
 
         {/* ---- right: editor panel ---- */}
-        <Box sx={{ flex: 1, bgcolor: '#f5f5f5', borderRadius: '6px', p: 2, minHeight: 500 }} data-testid="field-panel">
+        <Box sx={{ flex: 1, bgcolor: '#f5f5f5', borderRadius: '6px', p: 2, minHeight: 0, overflowY: 'auto' }} data-testid="field-panel">
           {!selected ? (
             <Box sx={{ height: '100%', minHeight: 460, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#555' }}>No additional field selected</Typography>
@@ -495,17 +542,25 @@ const AdditionalInformation = () => {
                 )}
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 2, rowGap: 1.5 }}>
-                <TextField fullWidth placeholder="Name" value={selected.name} onChange={(e) => handleNameChange(e.target.value)}
-                  inputProps={{ 'aria-label': 'Name' }} sx={fieldSx} disabled={!canEdit} />
-                <TextField fullWidth placeholder="Safe Name" value={selected.safeName}
-                  onChange={(e) => patchSelected({ safeName: e.target.value, safeNameTouched: true })}
-                  error={Boolean(selected.safeName) && !SAFE_NAME_RE.test(selected.safeName)}
-                  helperText={Boolean(selected.safeName) && !SAFE_NAME_RE.test(selected.safeName) ? 'Only lowercase letters, numbers and the underscore (_) character' : ''}
-                  inputProps={{ 'aria-label': 'Safe Name' }} sx={fieldSx} disabled={!canEdit} />
+                <Box>
+                  <FloatingLabel show={focusedName === 'name' || Boolean(selected.name)}>Name</FloatingLabel>
+                  <TextField fullWidth placeholder="Name" value={selected.name} onChange={(e) => handleNameChange(e.target.value)}
+                    onFocus={() => setFocusedName('name')} onBlur={suggestOnBlur}
+                    inputProps={{ 'aria-label': 'Name' }} sx={fieldSx} disabled={!canEdit} />
+                </Box>
+                <Box>
+                  <FloatingLabel show={focusedName === 'safe' || Boolean(selected.safeName)}>Safe Name</FloatingLabel>
+                  <TextField fullWidth placeholder="Safe Name" value={selected.safeName}
+                    onChange={(e) => patchSelected({ safeName: e.target.value, safeNameTouched: true })}
+                    onFocus={() => setFocusedName('safe')} onBlur={() => setFocusedName(null)}
+                    error={Boolean(selected.safeName) && !SAFE_NAME_RE.test(selected.safeName)}
+                    helperText={Boolean(selected.safeName) && !SAFE_NAME_RE.test(selected.safeName) ? 'Only lowercase letters, numbers and the underscore (_) character' : ''}
+                    inputProps={{ 'aria-label': 'Safe Name' }} sx={fieldSx} disabled={!canEdit} />
+                </Box>
                 <Box>
                   <Typography sx={labelSx}>Field Type</Typography>
                   <TextField select fullWidth value={selected.type} onChange={(e) => changeType(e.target.value)}
-                    SelectProps={{ 'aria-label': 'Field Type' }} sx={fieldSx} disabled={!canEdit}>
+                    SelectProps={{ 'aria-label': 'Field Type', MenuProps: MENU_PROPS }} sx={fieldSx} disabled={!canEdit}>
                     {FIELD_TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
                   </TextField>
                 </Box>

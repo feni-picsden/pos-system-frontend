@@ -86,6 +86,9 @@ export const AppDialogProvider = ({ children }) => {
   const [request, setRequest] = useState(null);
   const [value, setValue] = useState('');
   const [toast, setToast] = useState(null);
+  // Closing only hides the toast; its text is dropped after the exit animation,
+  // so the box never flashes empty while it slides away.
+  const [toastOpen, setToastOpen] = useState(false);
   // Two alerts fired back to back (a validation message then a failure) must
   // both be seen, so queue instead of letting the second overwrite the first.
   const queue = useRef([]);
@@ -125,6 +128,7 @@ export const AppDialogProvider = ({ children }) => {
   // toasts, e.g. "The surcharge amount is not valid"); default stays bottom.
   const notify = useCallback((message, severity = 'success', options = {}) => {
     setToast({ message: String(message ?? ''), severity, position: options.position || 'bottom' });
+    setToastOpen(true);
   }, []);
 
   const api = useMemo(() => ({
@@ -231,16 +235,17 @@ export const AppDialogProvider = ({ children }) => {
       </Dialog>
 
       <Snackbar
-        open={Boolean(toast)}
+        open={toastOpen && Boolean(toast)}
         autoHideDuration={AUTO_CLOSE_MS}
-        onClose={() => setToast(null)}
+        onClose={() => setToastOpen(false)}
+        TransitionProps={{ onExited: () => setToast(null) }}
         anchorOrigin={{ vertical: toast?.position === 'top' ? 'top' : 'bottom', horizontal: 'center' }}
         sx={{ zIndex: 2100 }}
       >
         <Alert
           severity={toast?.severity || 'success'}
           variant="filled"
-          onClose={() => setToast(null)}
+          onClose={() => setToastOpen(false)}
           sx={{ borderRadius: 0, fontSize: 15, fontWeight: 600, alignItems: 'center' }}
         >
           {toast?.message}
