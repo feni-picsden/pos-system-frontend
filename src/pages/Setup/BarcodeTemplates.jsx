@@ -83,17 +83,20 @@ const FIELD_INPUT_SX = {
   '&:focus': { border: '2px solid #000' },
 };
 
+// Dialog footer buttons: compact, right-aligned (user 16/11/2026).
 const DIALOG_BTN_SX = {
   textTransform: 'none',
-  fontSize: 28,
-  fontWeight: 400,
+  fontSize: 16,
+  fontWeight: 600,
   lineHeight: 1,
-  height: 50,
+  height: 38,
+  minWidth: 88,
   px: 2,
-  borderRadius: '4px',
+  borderRadius: '8px',
   boxShadow: 'none',
   transition: INSTANT,
 };
+const DIALOG_ACTIONS_SX = { display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 2.5 };
 
 /** Small dialog with the blue question-mark badge (same chrome as Price Sets). */
 const BadgeDialog = ({ open, onClose, title, children }) => (
@@ -188,7 +191,7 @@ const NameDialog = ({ open, onClose, onSubmit, saving }) => {
       />
       <CreatingForOutlet sx={{ mt: 1, textAlign: 'left' }} />
       {error && <Typography sx={{ mt: 1, fontSize: 14, color: '#dc2626' }}>{error}</Typography>}
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
+      <Box sx={DIALOG_ACTIONS_SX}>
         <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: '#676b72', borderColor: '#d4d4d4', bgcolor: '#f3f4f6', '&:hover': { bgcolor: '#e5e7eb', borderColor: '#d4d4d4' } }}>
           Cancel
         </Button>
@@ -248,7 +251,7 @@ const TemplateDialog = ({ open, onClose, template, onSubmit, saving }) => {
         </Box>
       </Box>
       {error && <Typography sx={{ mt: 1, fontSize: 14, color: '#dc2626' }}>{error}</Typography>}
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
+      <Box sx={DIALOG_ACTIONS_SX}>
         <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: '#676b72', borderColor: '#d4d4d4', bgcolor: '#f3f4f6', '&:hover': { bgcolor: '#e5e7eb', borderColor: '#d4d4d4' } }}>
           Cancel
         </Button>
@@ -283,7 +286,7 @@ const RenameDialog = ({ open, onClose, template, onSubmit, saving }) => {
         sx={FIELD_INPUT_SX}
       />
       {error && <Typography sx={{ mt: 1, fontSize: 14, color: '#dc2626' }}>{error}</Typography>}
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
+      <Box sx={DIALOG_ACTIONS_SX}>
         <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: '#676b72', borderColor: '#d4d4d4', bgcolor: '#f3f4f6', '&:hover': { bgcolor: '#e5e7eb', borderColor: '#d4d4d4' } }}>
           Cancel
         </Button>
