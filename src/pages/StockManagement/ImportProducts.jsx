@@ -4,7 +4,6 @@ import {
   Paper,
   Typography,
   Button,
-  Alert,
   CircularProgress,
   Dialog,
   DialogTitle,
@@ -18,300 +17,339 @@ import {
   TableHead,
   TableRow,
   IconButton,
-  Divider
+  Link,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
-  CloudUpload as UploadIcon,
+  ArrowRightAltOutlined,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  FileUpload as UploadIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import productService from '../../services/productService';
+import ProductImportHelpDrawer from '../../components/Products/ProductImportHelpDrawer';
+
+// Reference (Stock Management > Products > Import Products, 16/11/2026): one page
+// for both importers. Blue "<- Back" + title + "Looking for the file format?
+// There is the Simple or Advanced file format" (links open the help article in a
+// drawer), an "Import Mode" Simple / Advanced dropdown top-right, and a full-page
+// dashed drop zone "Upload a file or drag and drop". Choosing a file shows it
+// with Import / Cancel; results come back in the same dialog as before.
+
+const backButtonSx = {
+  minWidth: 120,
+  height: 44,
+  px: 2,
+  gap: '6px',
+  borderRadius: '12px',
+  bgcolor: '#1c86f2',
+  color: '#f8f8f8',
+  boxShadow: 'none',
+  fontSize: 17,
+  fontWeight: 700,
+  lineHeight: 1,
+  textTransform: 'none',
+  '&:hover': { bgcolor: '#1a78d8', boxShadow: 'none' },
+};
+
+const linkSx = {
+  fontSize: 16,
+  color: 'rgb(0,0,238)',
+  textDecoration: 'underline',
+  verticalAlign: 'baseline',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  '&:hover': { color: 'rgb(0,0,238)' },
+};
+
+const selectSx = {
+  width: 216,
+  height: 40,
+  bgcolor: '#fff',
+  borderRadius: '8px',
+  fontSize: 16,
+  textAlign: 'left',
+  '& .MuiSelect-select': { py: 1, pl: 1.5, textAlign: 'left' },
+  '& .MuiSelect-icon': { fontSize: 18, color: '#000' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 },
+};
+
+const MENU_PROPS = {
+  PaperProps: {
+    sx: {
+      mt: 0.5, borderRadius: '8px', border: '1px solid #000', boxShadow: 'none',
+      // Reference: selected option is blue text on white, no fill.
+      '& .MuiMenuItem-root': {
+        fontSize: 16, py: 2, px: 2,
+        '&.Mui-selected, &.Mui-selected.Mui-focusVisible, &.Mui-focusVisible': { bgcolor: 'transparent', color: '#1c86f2', outline: 'none', boxShadow: 'none' },
+        '&:focus, &:focus-visible': { outline: 'none', boxShadow: 'none' },
+        '&:hover, &.Mui-selected:hover': { bgcolor: '#f5f5f5' },
+      },
+    },
+  },
+};
+
+const primaryBtnSx = {
+  height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none',
+  bgcolor: '#5ebbeb', color: '#fff', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: '#cfe9f7', color: '#fff' },
+};
+const cancelBtnSx = {
+  height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none',
+  bgcolor: '#dddddd', color: '#000', '&:hover': { bgcolor: '#cccccc', boxShadow: 'none' },
+};
+
+const isCsv = (file) => file && (file.type === 'text/csv' || /\.csv$/i.test(file.name));
+
+// Browser-side CSV read (same rules as the server: quotes, commas in quotes, CRLF, BOM).
+const parseCsv = (text) => {
+  const src = String(text || '').replace(/^\uFEFF/, '');
+  const records = []; let row = []; let field = ''; let quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) { if (ch === '"') { if (src[i + 1] === '"') { field += '"'; i++; } else quoted = false; } else field += ch; }
+    else if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === '\r') { /* skip */ }
+    else if (ch === '\n') { row.push(field); field = ''; records.push(row); row = []; }
+    else field += ch;
+  }
+  if (field !== '' || row.length) { row.push(field); records.push(row); }
+  const nonBlank = records.filter((r) => r.some((v) => String(v).trim() !== ''));
+  if (!nonBlank.length) return { headers: [], rows: [] };
+  return { headers: nonBlank[0].map((h) => h.trim().toLowerCase()), rows: nonBlank.slice(1).map((r) => r.map((v) => v.trim())) };
+};
+
+// Reference validates the whole file on upload and shows one toast, e.g. "One or
+// more rows has an invalid case quantity, ensure all the case quantities are
+// whole numbers". Returns the message or null.
+const validateCsv = (text, mode) => {
+  const { headers, rows } = parseCsv(text);
+  if (!headers.length || !rows.length) return 'The file must contain a header row and at least one product row';
+  const required = mode === 'advanced' ? ['name'] : ['name', 'cost', 'sell_price'];
+  const missing = required.filter((c) => !headers.includes(c));
+  if (missing.length) return `Missing required column${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`;
+  const whole = (v) => v === '' || /^\d+$/.test(v);
+  const col = (name) => headers.indexOf(name);
+  const cq = col('case_quantity');
+  if (cq !== -1 && rows.some((r) => !whole(r[cq] ?? ''))) return 'One or more rows has an invalid case quantity, ensure all the case quantities are whole numbers';
+  const qtyCols = headers.map((h, i) => (/^(price_qty_|barcode_qty_)\d+$/.test(h) ? i : -1)).filter((i) => i !== -1);
+  if (qtyCols.some((i) => rows.some((r) => !whole(r[i] ?? '')))) return 'One or more rows has an invalid quantity, ensure all the price and barcode quantities are whole numbers';
+  if (rows.some((r) => r.length !== headers.length)) return 'One or more rows has a different number of columns to the header row';
+  return null;
+};
+
+const TOAST_MS = 6000;
+// Reference toast: pink "!" block, message, countdown ring, top centre.
+const ImportToast = ({ message, onClose }) => {
+  const [left, setLeft] = useState(100);
+  React.useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => {
+      const pct = Math.max(0, 100 - ((Date.now() - start) / TOAST_MS) * 100);
+      setLeft(pct);
+      if (pct <= 0) { clearInterval(id); onClose(); }
+    }, 100);
+    return () => clearInterval(id);
+  }, [onClose]);
+  return (
+    <Box role="alert" data-testid="import-toast" sx={{ position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 1500, display: 'flex', alignItems: 'stretch', width: 'min(752px, calc(100vw - 32px))', bgcolor: '#fff', borderRadius: '0 0 8px 8px', boxShadow: '0 2px 12px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+      <Box sx={{ width: 52, bgcolor: '#f9c7cf', color: '#c62828', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700 }}>!</Box>
+      <Typography sx={{ flex: 1, fontSize: 16, color: '#000', px: 2, py: 1.5, lineHeight: 1.3 }}>{message}</Typography>
+      <Box onClick={onClose} sx={{ width: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} aria-label="Dismiss">
+        <CircularProgress variant="determinate" value={left} size={24} thickness={3} sx={{ color: '#9e9e9e' }} />
+      </Box>
+    </Box>
+  );
+};
 
 const ImportProducts = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const mode = searchParams.get('mode') === 'advanced' ? 'advanced' : 'simple';
   const [dragActive, setDragActive] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResults, setImportResults] = useState(null);
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
   const [error, setError] = useState('');
+  const [helpArticle, setHelpArticle] = useState(null); // 'simple' | 'advanced' | null
+  const clearError = React.useCallback(() => setError(''), []);
+
+  const setMode = (m) => {
+    setError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setSearchParams(m === 'advanced' ? { mode: 'advanced' } : {}, { replace: true });
+  };
+
+  // Reference: the file is checked and imported as soon as it is dropped / chosen.
+  const takeFile = async (file) => {
+    if (!file || importing) return;
+    setError('');
+    if (!isCsv(file)) { setError('Please upload a CSV file'); return; }
+    let text = '';
+    try { text = await file.text(); } catch { setError('The file could not be read'); return; }
+    const problem = validateCsv(text, mode);
+    if (problem) { setError(problem); if (fileInputRef.current) fileInputRef.current.value = ''; return; }
+    try {
+      setImporting(true);
+      const result = mode === 'advanced'
+        ? await productService.importAdvancedProducts(file)
+        : await productService.importProducts(file);
+      setImportResults(result);
+      setResultsDialogOpen(true);
+    } catch (err) {
+      console.error('Error importing products:', err);
+      setError(err.response?.data?.error || 'Failed to import products');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-        setSelectedFile(file);
-        setError('');
-      } else {
-        setError('Please select a CSV file');
-      }
-    }
+    takeFile(e.dataTransfer.files && e.dataTransfer.files[0]);
   };
 
-  const handleFileSelect = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-        setSelectedFile(file);
-        setError('');
-      } else {
-        setError('Please select a CSV file');
-      }
-    }
-  };
-
-  const handleImport = async () => {
-    if (!selectedFile) {
-      setError('Please select a CSV file to import');
-      return;
-    }
-
-    try {
-      setImporting(true);
-      setError('');
-      
-      const result = await productService.importProducts(selectedFile);
-      setImportResults(result);
-      setResultsDialogOpen(true);
-      
-      // Clear the selected file after successful import
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      
-    } catch (error) {
-      console.error('Error importing products:', error);
-      setError(error.response?.data?.error || 'Failed to import products');
-    } finally {
-      setImporting(false);
-    }
-  };
+  const handleFileSelect = (e) => takeFile(e.target.files && e.target.files[0]);
 
   const handleCloseResults = () => {
     setResultsDialogOpen(false);
     setImportResults(null);
   };
 
-  const handleGoBack = () => {
-    navigate('/products');
-  };
+  const handleGoBack = () => navigate('/products');
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Paper sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={handleGoBack} sx={{ mr: 2 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h4" component="h1">
+    <Box sx={{ minHeight: 'calc(100vh - 50px)', bgcolor: '#f5f5f5', px: '8px', pb: '8px', display: 'flex', flexDirection: 'column' }}>
+      {/* Header: Back + title/subtitle on the left, Import Mode on the right */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: '16px', m: '20px 0 16px' }}>
+        <Button data-testid="back-button" onClick={handleGoBack} disableRipple disableElevation sx={backButtonSx}>
+          <ArrowRightAltOutlined sx={{ fontSize: 22, transform: 'scaleX(-1)' }} />
+          Back
+        </Button>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', lineHeight: 1.1, m: 0 }}>
             Import Products
           </Typography>
-        </Box>
-
-        {/* Instructions */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            You can import new products via a CSV file. This does not merge products together and it does not allow multiple prices or barcodes to be set.
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Your CSV file should contain the following columns:
-          </Typography>
-          
-          <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>Column</strong></TableCell>
-                  <TableCell><strong>Description</strong></TableCell>
-                  <TableCell><strong>Required</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow>
-                  <TableCell>name</TableCell>
-                  <TableCell>The name of the product</TableCell>
-                  <TableCell><Chip label="Yes" color="error" size="small" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>cost</TableCell>
-                  <TableCell>The cost of the product (including tax if applicable)</TableCell>
-                  <TableCell><Chip label="Yes" color="error" size="small" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>sell_price</TableCell>
-                  <TableCell>The retail sell price of the product (including tax if applicable)</TableCell>
-                  <TableCell><Chip label="Yes" color="error" size="small" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>description</TableCell>
-                  <TableCell>The description of the product</TableCell>
-                  <TableCell><Chip label="No" color="default" size="small" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>category_id</TableCell>
-                  <TableCell>The UUID of the Category this product belongs to</TableCell>
-                  <TableCell><Chip label="No" color="default" size="small" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>brand_id</TableCell>
-                  <TableCell>The UUID of the Brand this product belongs to</TableCell>
-                  <TableCell><Chip label="No" color="default" size="small" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>supplier_id</TableCell>
-                  <TableCell>The UUID of the Supplier this product belongs to</TableCell>
-                  <TableCell><Chip label="No" color="default" size="small" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>case_quantity</TableCell>
-                  <TableCell>The amount of items that come in a case</TableCell>
-                  <TableCell><Chip label="No" color="default" size="small" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>barcode</TableCell>
-                  <TableCell>The barcode of the product</TableCell>
-                  <TableCell><Chip label="No" color="default" size="small" /></TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <Typography variant="body2" color="text.secondary">
-            <strong>Notes:</strong>
-            <br />• Column order does not matter
-            <br />• Columns are case sensitive
-            <br />• Sell price can include currency symbols (e.g., "$" and "€")
-            <br />• All other columns present will be ignored
+          <Typography component="p" sx={{ fontSize: 16, color: '#000', mt: 0.5 }}>
+            Looking for the file format? There is the{' '}
+            <Link component="button" type="button" data-testid="help-simple" onClick={() => setHelpArticle('simple')} sx={linkSx}>Simple</Link>
+            {' '}or{' '}
+            <Link component="button" type="button" data-testid="help-advanced" onClick={() => setHelpArticle('advanced')} sx={linkSx}>Advanced</Link>
+            {' '}file format
           </Typography>
         </Box>
-
-        {/* File Upload Area */}
-        <Box
-          sx={{
-            border: `2px dashed ${dragActive ? '#1976d2' : '#ccc'}`,
-            borderRadius: 2,
-            p: 4,
-            textAlign: 'center',
-            backgroundColor: dragActive ? '#f5f5f5' : 'transparent',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              borderColor: '#1976d2',
-              backgroundColor: '#f5f5f5',
-            }
-          }}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
-          
-          <UploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-          
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            {selectedFile ? selectedFile.name : 'Drop in a file or click to select a file'}
+        <Box sx={{ textAlign: 'right' }}>
+          <Typography component="label" htmlFor="import-mode-select" sx={{ display: 'block', fontSize: 16, color: '#000', mb: 0.5 }}>
+            Import Mode
           </Typography>
-          
-          <Typography variant="body2" color="text.secondary">
-            CSV files only, up to 10MB
-          </Typography>
+          <Select
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            disabled={importing}
+            MenuProps={MENU_PROPS}
+            inputProps={{ id: 'import-mode-select', 'aria-label': 'Import Mode' }}
+            SelectDisplayProps={{ 'data-testid': 'import-mode' }}
+            sx={selectSx}
+          >
+            <MenuItem value="simple">Simple</MenuItem>
+            <MenuItem value="advanced">Advanced</MenuItem>
+          </Select>
         </Box>
+      </Box>
 
-        {/* Error Display */}
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
+      {error && <ImportToast message={error} onClose={clearError} />}
+
+      {/* Drop zone fills the page (reference) */}
+      <Box
+        data-testid="import-dropzone"
+        role="button"
+        tabIndex={0}
+        sx={{
+          flex: 1,
+          minHeight: 420,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 1,
+          border: '2px dashed',
+          borderColor: dragActive ? '#676b72' : '#bdbdbd',
+          bgcolor: dragActive ? '#eeeeee' : 'transparent',
+          color: '#9e9e9e',
+          cursor: 'pointer',
+          textAlign: 'center',
+          transition: 'background 200ms ease, color 200ms ease',
+          '&:hover': { color: '#676b72', borderColor: '#9e9e9e' },
+        }}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => !importing && fileInputRef.current?.click()}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleFileSelect}
+          data-testid="import-file-input"
+          style={{ display: 'none' }}
+        />
+        {importing ? (
+          <>
+            <CircularProgress size={40} sx={{ color: '#5ebbeb' }} />
+            <Typography sx={{ fontSize: 16, color: '#676b72', mt: 1 }}>Importing products...</Typography>
+          </>
+        ) : (
+          <>
+            <UploadIcon sx={{ fontSize: 56 }} />
+            <Typography sx={{ fontSize: 15, color: '#000' }}>
+              <Box component="span" sx={{ color: '#5ebbeb' }}>Upload a file</Box> or drag and drop
+            </Typography>
+          </>
         )}
+      </Box>
 
-        {/* Action Buttons */}
-        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-          <Button
-            variant="contained"
-            onClick={handleImport}
-            disabled={!selectedFile || importing}
-            startIcon={importing ? null : <UploadIcon />}
-          >
-            {importing ? 'Importing...' : 'Import Products'}
-          </Button>
-          
-          <Button
-            variant="outlined"
-            onClick={handleGoBack}
-          >
-            Cancel
-          </Button>
-        </Box>
-      </Paper>
+      <ProductImportHelpDrawer open={Boolean(helpArticle)} article={helpArticle || 'simple'} onClose={() => setHelpArticle(null)} />
 
       {/* Import Results Dialog */}
-      <Dialog open={resultsDialogOpen} onClose={handleCloseResults} maxWidth="md" fullWidth>
-        <DialogTitle>
+      <Dialog open={resultsDialogOpen} onClose={handleCloseResults} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>
           Import Results
-          <IconButton
-            onClick={handleCloseResults}
-            sx={{ position: 'absolute', right: 8, top: 8 }}
-          >
+          <IconButton onClick={handleCloseResults} sx={{ position: 'absolute', right: 8, top: 8 }} aria-label="Close">
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent>
           {importResults && (
-            <Box>
-              <Typography variant="body1" gutterBottom>
-                {importResults.message}
-              </Typography>
-              
+            <Box data-testid="import-results">
+              <Typography variant="body1" gutterBottom>{importResults.message}</Typography>
               <Box sx={{ display: 'flex', gap: 2, my: 2 }}>
-                <Chip 
-                  icon={<CheckCircleIcon />}
-                  label={`Successful: ${importResults.results.successful}`} 
-                  color="success" 
-                />
-                <Chip 
-                  icon={<ErrorIcon />}
-                  label={`Failed: ${importResults.results.failed}`} 
-                  color="error" 
-                />
-                <Chip 
-                  label={`Total: ${importResults.results.total}`} 
-                  color="default" 
-                />
+                <Chip icon={<CheckCircleIcon />} label={`Successful: ${importResults.results.successful}`} color="success" />
+                <Chip icon={<ErrorIcon />} label={`Failed: ${importResults.results.failed}`} color="error" />
+                <Chip label={`Total: ${importResults.results.total}`} color="default" />
               </Box>
-
               {importResults.results.errors && importResults.results.errors.length > 0 && (
                 <Box>
-                  <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                    Errors:
-                  </Typography>
+                  <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>Errors:</Typography>
                   <TableContainer component={Paper} variant="outlined">
                     <Table size="small">
                       <TableHead>
@@ -321,10 +359,10 @@ const ImportProducts = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {importResults.results.errors.map((error, index) => (
+                        {importResults.results.errors.map((er, index) => (
                           <TableRow key={index}>
-                            <TableCell>{error.row}</TableCell>
-                            <TableCell>{error.error}</TableCell>
+                            <TableCell>{er.row}</TableCell>
+                            <TableCell>{er.error}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -335,11 +373,9 @@ const ImportProducts = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseResults}>Close</Button>
-          <Button onClick={handleGoBack} variant="contained">
-            View Products
-          </Button>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={handleCloseResults} disableElevation sx={cancelBtnSx}>Close</Button>
+          <Button onClick={handleGoBack} variant="contained" disableElevation sx={primaryBtnSx}>View Products</Button>
         </DialogActions>
       </Dialog>
     </Box>

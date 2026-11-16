@@ -140,7 +140,6 @@ import ExternalStocktake from './pages/StockManagement/ExternalStocktake';
 import ExternalStocktakeMatch from './pages/StockManagement/ExternalStocktakeMatch';
 import BulkPriceEdit from './pages/StockManagement/BulkPriceEdit';
 import ImportProducts from './pages/StockManagement/ImportProducts';
-import AdvancedProductImporter from './pages/StockManagement/AdvancedProductImporter';
 import ProductMerge from './pages/StockManagement/ProductMerge';
 import CappedPricing from './pages/StockManagement/CappedPricing';
 import ImportSupplierProducts from './pages/StockManagement/ImportSupplierProducts';
@@ -888,15 +887,11 @@ function App() {
             </PermissionProtectedRoute>
           }
         />
+        {/* Reference has one Import Products page with an "Import Mode" (Simple /
+            Advanced) dropdown; the old Advanced URL keeps working via redirect. */}
         <Route
           path="/stock-management/advanced-product-importer"
-          element={
-            <PermissionProtectedRoute
-              requiredPermissions={["products.add"]}
-            >
-              <AdvancedProductImporter />
-            </PermissionProtectedRoute>
-          }
+          element={<Navigate to="/stock-management/import-products?mode=advanced" replace />}
         />
         <Route
           path="/stock-management/product-merge"
