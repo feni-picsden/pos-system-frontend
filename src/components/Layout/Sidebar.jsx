@@ -261,7 +261,8 @@ const menuItems = [
         title: "Shelf Tickets",
         icon: <ConfirmationNumberOutlined />,
         path: "/marketing/shelf-tickets",
-        permissions: ["promotions.view"],
+        // Same permission the /api/shelf-tickets routes enforce ("See Shelf Tickets").
+        permissions: ["see_shelf_tickets"],
       },
       {
         id: "media",

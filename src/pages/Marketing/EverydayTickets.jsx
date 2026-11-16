@@ -37,6 +37,7 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import useResultKeys from '../../components/Common/useResultKeys';
 import { SquareCheckButton, TicketCounter } from '../../components/ShelfTickets/TicketControls';
 import TicketSelect from '../../components/ShelfTickets/TicketSelect';
+import PrintTicketsDialog from '../../components/ShelfTickets/PrintTicketsDialog';
 import {
   INSTANT,
   TICKET_BAR_SX,
@@ -587,6 +588,15 @@ const EverydayTickets = () => {
     }
   };
 
+  // In-app printing (our extra over the reference, which prints from DesignPro):
+  // the selected rows go to the Print Shelf Tickets dialog - pick one of the
+  // Setup > Shelf Ticket Templates designs, copies, then the browser print dialog.
+  const [printOpen, setPrintOpen] = useState(false);
+  const printRows = useMemo(
+    () => visibleTickets.filter((t) => selectedTickets.includes(t.id)),
+    [visibleTickets, selectedTickets]
+  );
+
   // Reference 'Export': hands the selected products to DesignPro as a data file. In the
   // browser that is a download of the same field set (NAME/BARCODE/QUANTITY/prices/C_GROUP).
   const handleExport = () => {
@@ -979,7 +989,18 @@ const EverydayTickets = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TicketCounter count={selectedTickets.length} />
-          {/* Reference bar: Export only - printing is done from the exported file. */}
+          {/* Reference bar has Export only (printing happens in DesignPro). Print is our
+              in-app equivalent: the selected rows on a Shelf Ticket Template. */}
+          <Button
+            disableRipple
+            disableElevation
+            onClick={() => setPrintOpen(true)}
+            disabled={selectedTickets.length === 0}
+            data-testid="tickets-print"
+            sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#fff', borderColor: '#d4d4d4', opacity: 1 } }}
+          >
+            Print
+          </Button>
           {/* Nothing selected = nothing to export: the button is disabled rather than warning. */}
           <Button
             disableRipple
@@ -992,6 +1013,13 @@ const EverydayTickets = () => {
           </Button>
         </Box>
       </Box>
+
+      <PrintTicketsDialog
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        tickets={printRows}
+        ticketType="Everyday"
+      />
 
       <Dialog
         open={addAllOpen}

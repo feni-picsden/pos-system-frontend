@@ -1667,7 +1667,7 @@ function App() {
                           path="/marketing/shelf-tickets"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["promotions.view"]}
+                              requiredPermissions={["see_shelf_tickets"]}
                             >
                               <ShelfTickets />
                             </PermissionProtectedRoute>
@@ -1677,7 +1677,7 @@ function App() {
                           path="/marketing/shelf-tickets/everyday"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["promotions.view"]}
+                              requiredPermissions={["see_shelf_tickets"]}
                             >
                               <EverydayTickets />
                             </PermissionProtectedRoute>
@@ -1687,7 +1687,7 @@ function App() {
                           path="/marketing/shelf-tickets/promotional"
                           element={
                             <PermissionProtectedRoute
-                              requiredPermissions={["promotions.view"]}
+                              requiredPermissions={["see_shelf_tickets"]}
                             >
                               <PromotionalTickets />
                             </PermissionProtectedRoute>

@@ -89,7 +89,7 @@ export const renderPrintElement = (el, data = {}) => {
           textDecoration: el.textDecoration || 'none', color: el.color || '#000',
           textAlign: el.textAlign || 'left',
           backgroundColor: el.backgroundColor !== 'transparent' ? (el.backgroundColor || '') : '',
-          display: 'flex', alignItems: 'center', padding: '0 1mm', lineHeight: 1.2, wordBreak: 'break-word',
+          display: 'flex', alignItems: 'center', justifyContent: justifyMap[el.textAlign] || 'flex-start', padding: '0 1mm', lineHeight: 1.2, wordBreak: 'break-word',
         }}>
           {rv(el.content)}
         </div>
@@ -158,7 +158,7 @@ const elToHtml = (el, data) => {
   let inner = '';
   if (el.type === 'text') {
     const bg = el.backgroundColor && el.backgroundColor !== 'transparent' ? `background-color:${el.backgroundColor};` : '';
-    inner = `<div style="width:100%;height:100%;overflow:hidden;box-sizing:border-box;font-size:${el.fontSize || 10}pt;font-family:${el.fontFamily || 'Arial'};font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};text-decoration:${el.textDecoration || 'none'};color:${el.color || '#000'};text-align:${el.textAlign || 'left'};${bg}display:flex;align-items:center;padding:0 1mm;line-height:1.2;word-break:break-word;">${rv(el.content)}</div>`;
+    inner = `<div style="width:100%;height:100%;overflow:hidden;box-sizing:border-box;font-size:${el.fontSize || 10}pt;font-family:${el.fontFamily || 'Arial'};font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};text-decoration:${el.textDecoration || 'none'};color:${el.color || '#000'};text-align:${el.textAlign || 'left'};${bg}display:flex;align-items:center;justify-content:${justifyMap[el.textAlign] || 'flex-start'};padding:0 1mm;line-height:1.2;word-break:break-word;">${rv(el.content)}</div>`;
   } else if (el.type === 'price') {
     const { value: val, blank } = priceValueFor(el, data);
     inner = blank

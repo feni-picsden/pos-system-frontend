@@ -6,6 +6,7 @@ import promotionService from '../../services/promotionService';
 import promotionCategoryService from '../../services/promotionCategoryService';
 import { SquareCheckButton, TicketCounter } from '../../components/ShelfTickets/TicketControls';
 import TicketSelect from '../../components/ShelfTickets/TicketSelect';
+import PrintTicketsDialog from '../../components/ShelfTickets/PrintTicketsDialog';
 import {
   INSTANT,
   TICKET_BAR_SX,
@@ -182,6 +183,29 @@ const PromotionalTickets = () => {
   const toggleExpanded = (id) =>
     setExpanded((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  // In-app printing of the ticked products: the template's {price} is the normal
+  // price and {salePrice} the promotion price, so a "Promotional Ticket" design
+  // shows both; the promotion name rides along as the category line.
+  const [printOpen, setPrintOpen] = useState(false);
+  const printRows = useMemo(
+    () =>
+      tree
+        .flatMap((promotion) => promotion.products)
+        .filter((product) => isSelected(product.key))
+        .map((product) => ({
+          productId: product.productId,
+          name: product.name,
+          barcode: product.barcode || '',
+          sku: product.sku || '',
+          price: product.normalPrice,
+          salePrice: product.promoPrice,
+          category: product.promotionName,
+          priceBreaks: [],
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tree, selected]
+  );
+
   // 'Tick the Promotions or the Products you wish to export, then press Export' — the
   // reference hands the ticked rows to DesignPro as a data file; here that is a download.
   const handleExport = () => {
@@ -333,7 +357,19 @@ const PromotionalTickets = () => {
 
       <Box sx={{ ...TICKET_BAR_SX, justifyContent: 'flex-end', gap: 2 }}>
         <TicketCounter count={visibleSelected.length} />
-        {/* Reference bar: Export only - printing is done from the exported file. */}
+        {/* Reference bar has Export only (printing happens in DesignPro). Print is our
+            in-app equivalent: the ticked products on a Shelf Ticket Template, with the
+            promo price as the sale price. */}
+        <Button
+          disableRipple
+          disableElevation
+          onClick={() => setPrintOpen(true)}
+          disabled={visibleSelected.length === 0}
+          data-testid="tickets-print"
+          sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#fff', borderColor: '#d4d4d4', opacity: 1 } }}
+        >
+          Print
+        </Button>
         <Button
           disableRipple
           disableElevation
@@ -344,6 +380,13 @@ const PromotionalTickets = () => {
           Export
         </Button>
       </Box>
+
+      <PrintTicketsDialog
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        tickets={printRows}
+        ticketType="Promotional"
+      />
 
       <Snackbar
         open={snackbar.open}

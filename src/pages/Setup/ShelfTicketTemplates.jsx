@@ -1,6 +1,4 @@
-import React, { useState, useRef } from 'react';
-import { spinSx } from '../../utils/spinSx';
-import useSpinOnce from '../../hooks/useSpinOnce';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, Snackbar, Card, CardContent, CardActions,
@@ -11,17 +9,77 @@ import {
   EditOutlined as EditIcon,
   DeleteOutline as DeleteIcon,
   LocalOffer as TicketIcon,
-  ArrowBack as ArrowBackIcon,
   ContentCopy as DuplicateIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import shelfTicketTemplateService from '../../services/shelfTicketTemplateService';
 import usePageCache from '../../hooks/usePageCache';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
+import { renderPrintElement } from '../../utils/shelfTicketPrint.jsx';
+
+// Sample data for the card thumbnail (same figures the editor's Preview uses).
+const THUMB_SAMPLE = {
+  productName: 'Sample Product', name: 'Sample Product', price: '9.99', salePrice: '7.49',
+  barcode: '5901234123457', category: 'Category', brand: 'Brand', sku: 'SKU001',
+  description: 'Product description', unit: 'EA', qty2: '6', price2: '36.00', qty3: '', price3: '',
+  caseQty: '24', casePrice: '120.00', unitPrice2: '6.00', unitPriceCase: '5.00',
+  multiBuy: '6 for $36.00 · 24 for $120.00', priceBreaks: [],
+};
+const MM_TO_PX = 3.7795275591;
+
+// Real thumbnail: the template's elements rendered with sample data and scaled
+// to the card (was a placeholder tag icon - you could not tell designs apart).
+const TemplateThumbnail = ({ template }) => {
+  const boxRef = useRef(null);
+  const [scale, setScale] = useState(0);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      if (w && h) setScale(Math.min(w / (template.width * MM_TO_PX), h / (template.height * MM_TO_PX)));
+    };
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [template.width, template.height]);
+  const elements = Array.isArray(template.elements) ? template.elements : [];
+  return (
+    <Box ref={boxRef} data-testid="template-thumb" sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {elements.length === 0 ? (
+        <TicketIcon sx={{ fontSize: 40, color: '#e0e0e0' }} />
+      ) : scale > 0 && (
+        <Box
+          sx={{
+            position: 'relative',
+            width: `${template.width}mm`,
+            height: `${template.height}mm`,
+            backgroundColor: template.backgroundColor || '#fff',
+            transform: `scale(${scale})`,
+            transformOrigin: 'center center',
+            flexShrink: 0,
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}
+        >
+          {elements.map((el) => (
+            <Box key={el.id} sx={{ position: 'absolute', left: `${el.x}mm`, top: `${el.y}mm`, width: `${el.width}mm`, height: `${el.height}mm`, overflow: 'hidden' }}>
+              {renderPrintElement(el, THUMB_SAMPLE)}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 const ShelfTicketTemplates = () => {
   const navigate = useNavigate();
+  // Outlet chip on a card only in All Outlets mode (user 16/11/2026: with an outlet
+  // picked in the header every card is that outlet's, so the chip says nothing).
+  const { globalMode } = useGlobalOutlet();
   // Auto-seeding the defaults must happen at most once per mount, otherwise a
   // refresh right after deleting the last template would recreate them.
   const seededRef = useRef(false);
@@ -41,8 +99,6 @@ const ShelfTicketTemplates = () => {
     return list;
   });
 
-  // Refresh icon turns a full circle on every click, and keeps turning while loading.
-  const [templatesSpinning, spinTemplates] = useSpinOnce(loading);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, template: null });
   const [newTemplateDialog, setNewTemplateDialog] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
@@ -96,7 +152,7 @@ const ShelfTicketTemplates = () => {
   };
 
   const TemplateCardSkeleton = () => (
-    <Grid item xs={12} sm={6} md={4}>
+    <Grid item xs={12} sm={6} md={4} lg={3}>
       <Card>
         <CardContent>
           <Skeleton variant="rectangular" height={100} sx={{ mb: 2, borderRadius: 1 }} />
@@ -117,40 +173,27 @@ const ShelfTicketTemplates = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
-        <IconButton component={RouterLink} to={'/setup'} size="small">
-          <ArrowBackIcon />
-        </IconButton>
         <Box sx={{ flexGrow: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="h4" fontWeight="bold">Shelf Ticket Templates</Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setNewTemplateDialog(true)}
-              sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
-            >
-              New Template
-            </Button>
-          </Box>
+          <Typography variant="h4" fontWeight="bold">Shelf Ticket Templates</Typography>
           <Typography variant="body2" color="text.secondary">
             Design and manage ticket templates for printing shelf price labels — stored per outlet
           </Typography>
         </Box>
-        <Tooltip title="Refresh">
-
-          <span>
-            <IconButton onClick={() => { spinTemplates(); loadTemplates(false); }} disabled={loading}>
-              <RefreshIcon sx={spinSx(templatesSpinning)} />
-            </IconButton>
-          </span>
-        </Tooltip>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setNewTemplateDialog(true)}
+          sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42, flexShrink: 0 }}
+        >
+          New Template
+        </Button>
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2.5}>
         {loading
           ? [0, 1, 2].map(i => <TemplateCardSkeleton key={i} />)
           : templates.map((template) => (
-            <Grid item xs={12} sm={6} md={4} key={template.id}>
+            <Grid item xs={12} sm={6} md={4} lg={3} key={template.id}>
               <Card
                 sx={{
                   height: '100%',
@@ -178,7 +221,7 @@ const ShelfTicketTemplates = () => {
                       justifyContent: 'center',
                     }}
                   >
-                    <TicketIcon sx={{ fontSize: 40, color: '#e0e0e0' }} />
+                    <TemplateThumbnail template={template} />
                     <Typography
                       variant="caption"
                       sx={{
@@ -210,10 +253,10 @@ const ShelfTicketTemplates = () => {
                   <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1 }}>
                     <Chip label={`${template.elements?.length || 0} elements`} size="small" variant="outlined" />
                     <Chip label={`${template.width}×${template.height}mm`} size="small" variant="outlined" color="primary" />
-                    {template.outlet && (
+                    {globalMode && template.outlet && (
                       <Chip label={template.outlet.name} size="small" variant="outlined" color="success" />
                     )}
-                    {!template.outletId && (
+                    {globalMode && !template.outletId && (
                       <Chip label="Global" size="small" variant="outlined" color="warning" />
                     )}
                   </Box>
@@ -276,37 +319,55 @@ const ShelfTicketTemplates = () => {
       </Grid>
 
       {/* New Template Dialog */}
-      <Dialog open={newTemplateDialog} onClose={() => setNewTemplateDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New Shelf Ticket Template</DialogTitle>
-        <DialogContent>
+      <Dialog
+        open={newTemplateDialog}
+        onClose={() => setNewTemplateDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontSize: 20, fontWeight: 700, px: 3, pt: 3, pb: 1 }}>New Shelf Ticket Template</DialogTitle>
+        <DialogContent sx={{ px: 3 }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#344054', mb: 0.75 }}>Template Name</Typography>
           <TextField
             autoFocus
             fullWidth
-            label="Template Name"
+            size="small"
+            placeholder="e.g. Shelf Edge 100×70"
             value={newTemplateName}
             onChange={(e) => setNewTemplateName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreateTemplate()}
-            helperText="You'll be taken to the designer to build the template layout"
+            inputProps={{ 'aria-label': 'Template Name' }}
             sx={{
-              mt: 1,
               '& .MuiOutlinedInput-root': {
                 borderRadius: '8px',
                 fontSize: 16,
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' }
-              }
+                bgcolor: '#fff',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d0d5dd' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#98a2b3' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#5ebbeb', borderWidth: '1px' },
+              },
             }}
           />
+          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 1 }}>
+            You'll be taken to the designer to build the template layout
+          </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setNewTemplateDialog(false); setNewTemplateName(''); }}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1 }}>
+          <Button
+            disableElevation
+            onClick={() => { setNewTemplateDialog(false); setNewTemplateName(''); }}
+            sx={{ bgcolor: '#d4d4d4', color: '#000', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' } }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
+            disableElevation
             onClick={handleCreateTemplate}
             disabled={!newTemplateName.trim() || creating}
-            startIcon={creating ? <CircularProgress size={16} /> : null}
-            sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
+            startIcon={creating ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : null}
+            sx={{ bgcolor: '#5ebbeb', color: '#fff', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#cfe9f7', color: '#fff' } }}
           >
             Create & Design
           </Button>

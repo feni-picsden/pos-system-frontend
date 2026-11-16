@@ -38,12 +38,39 @@ import {
   GridOn as GridIcon,
   ArrowUpward as BringForwardIcon,
   ArrowDownward as SendBackwardIcon,
+  AlignHorizontalLeft as AlignTicketLeftIcon,
+  AlignHorizontalCenter as AlignTicketCenterIcon,
+  AlignHorizontalRight as AlignTicketRightIcon,
+  AlignVerticalTop as AlignTicketTopIcon,
+  AlignVerticalCenter as AlignTicketMiddleIcon,
+  AlignVerticalBottom as AlignTicketBottomIcon,
   PermMedia as PermMediaIcon,
 } from '@mui/icons-material';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import shelfTicketTemplateService from '../../services/shelfTicketTemplateService';
 import { handlePrintPreview, renderPrintElement } from '../../utils/shelfTicketPrint.jsx';
 import MediaDialog from '../../components/Common/MediaDialog';
+import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { ChromePicker } from 'react-color';
+
+// One menu look for every dropdown in the designer (same as Setup > Price Sets):
+// 8px radius, grey border, no shadow, compact rows, blue selected/hover, and no
+// global focus outline on the items.
+// Preview dialog buttons (PrintTicketsDialog palette).
+const PREVIEW_BTN_SX = { bgcolor: '#5ebbeb', color: '#fff', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' } };
+
+const MENU_PROPS = {
+  marginThreshold: 0,
+  PaperProps: {
+    sx: {
+      borderRadius: '8px', border: '1px solid #d0d5dd', boxShadow: 'none', mt: '2px', maxHeight: 280,
+      '& li': { fontSize: 14, minHeight: 36 },
+      '& li.Mui-selected': { bgcolor: '#dbeafe !important' },
+      '& li:hover': { bgcolor: '#eff6ff' },
+      '& li:focus-visible': { outline: 'none' },
+    },
+  },
+};
 
 // ------- Constants -------
 
@@ -167,7 +194,10 @@ const renderContent = (el, zoom, data = PREVIEW_VALUES) => {
           fontStyle: el.fontStyle, textDecoration: el.textDecoration,
           color: el.color, textAlign: el.textAlign,
           backgroundColor: el.backgroundColor !== 'transparent' ? el.backgroundColor : undefined,
+          // A flex box ignores text-align for its single text child - justify it too
+          // (user 16/11/2026: "align center why not center").
           display: 'flex', alignItems: 'center',
+          justifyContent: { left: 'flex-start', center: 'center', right: 'flex-end' }[el.textAlign] || 'flex-start',
           px: `${toPixels(1, zoom)}px`,
           lineHeight: 1.2,
           whiteSpace: 'pre-wrap',
@@ -252,20 +282,46 @@ const getHandleStyle = (handle, zoom) => {
 
 // ------- Color Picker Button -------
 
-const ColorPickerButton = ({ color, onChange, label }) => {
+// In-app picker (react-color Chrome, same as Sale Keys) instead of the browser's
+// native colour dialog. While the popover is open the colour is applied live via
+// `onLive` (no undo entry); the final value is committed with `onChange` once,
+// when the popover closes / Done is pressed.
+const ColorPickerButton = ({ color, onChange, onLive, label }) => {
   const [anchorEl, setAnchorEl] = useState(null);
-  const normalizedColor = (!color || color === 'transparent') ? '#000000' : color;
+  const [draft, setDraft] = useState('#000000');
+  const dirty = useRef(false);
+  const isTransparent = !color || color === 'transparent';
+
+  const open = (e) => {
+    dirty.current = false;
+    setDraft(isTransparent ? '#000000' : color);
+    setAnchorEl(e.currentTarget);
+  };
+  const live = (hex) => {
+    dirty.current = true;
+    setDraft(hex);
+    (onLive || onChange)(hex);
+  };
+  const close = () => {
+    setAnchorEl(null);
+    // Commit once (creates the undo entry) only if the colour was changed.
+    if (onLive && dirty.current) onChange(draft);
+  };
+
   return (
     <>
       <Box>
         {label && <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>{label}</Typography>}
         <Box
-          onClick={(e) => setAnchorEl(e.currentTarget)}
+          role="button"
+          aria-label={label ? `${label} colour` : 'Pick colour'}
+          data-testid="color-swatch"
+          onClick={open}
           sx={{
             width: 36, height: 24, borderRadius: 1, cursor: 'pointer',
             backgroundColor: color || 'transparent',
             border: '2px solid #ccc',
-            backgroundImage: !color || color === 'transparent'
+            backgroundImage: isTransparent
               ? 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0 / 12px 12px'
               : 'none',
           }}
@@ -274,36 +330,29 @@ const ColorPickerButton = ({ color, onChange, label }) => {
       <Popover
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        onClose={close}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{ sx: { borderRadius: '8px', border: '1px solid #d0d5dd', boxShadow: 'none' } }}
       >
-        <Box sx={{ p: 1.5, minWidth: 220 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <TextField
-              type="color"
+        <Box sx={{ p: 1.5, width: 250 }} data-testid="color-popover">
+          <ChromePicker
+            color={draft}
+            disableAlpha
+            onChange={(c) => live(c.hex.toLowerCase())}
+            styles={{ default: { picker: { width: '100%', boxShadow: 'none', fontFamily: 'inherit' } } }}
+          />
+          <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+            <Button
               size="small"
-              value={normalizedColor}
-              onChange={(e) => onChange(e.target.value)}
-              sx={{ width: 72 }}
-              inputProps={{ 'aria-label': 'Choose color' }}
-            />
-            <TextField
-              size="small"
-              label="Hex"
-              value={color || ''}
-              placeholder="#000000"
-              onChange={(e) => onChange(e.target.value)}
-              sx={{ flex: 1 }}
-            />
+              fullWidth
+              onClick={() => { setAnchorEl(null); onChange('transparent'); }}
+              sx={{ textTransform: 'none', height: 36, borderRadius: '12px', border: '1px solid #d0d5dd', color: '#344054', fontWeight: 600 }}
+            >
+              Transparent
+            </Button>
+            <Button fullWidth variant="contained" onClick={close} sx={{ ...PREVIEW_BTN_SX, height: 36, px: 2, fontSize: 14 }}>Done</Button>
           </Stack>
-          <Button
-            size="small"
-            fullWidth
-            onClick={() => { onChange('transparent'); setAnchorEl(null); }}
-            sx={{ mt: 1 }}
-          >
-            Transparent
-          </Button>
         </Box>
       </Popover>
     </>
@@ -335,6 +384,8 @@ const ShelfTicketEditor = () => {
   const [nameEdit, setNameEdit] = useState(false);
 
   const canvasRef = useRef(null);
+  // The scrolling area around the ticket - "Fit to screen" sizes the zoom to it.
+  const canvasAreaRef = useRef(null);
   const isDragging = useRef(false);
   const isResizing = useRef(false);
   const dragData = useRef({});
@@ -364,6 +415,9 @@ const ShelfTicketEditor = () => {
         setTemplate(t);
         setHistory([JSON.stringify(t.elements || [])]);
         setHistoryIndex(0);
+        // Open at the largest zoom that still shows the whole ticket (user
+        // 16/11/2026: a 70x40 label at 100% is a postage stamp on a desktop).
+        setTimeout(() => setZoom(fitZoom(t.width, t.height)), 0);
       } catch (err) {
         console.error('Failed to load template:', err);
         setSnackbar({ open: true, message: 'Failed to load template', severity: 'error' });
@@ -717,6 +771,17 @@ const ShelfTicketEditor = () => {
     setZoom(z => Math.max(0.5, Math.min(3, z + delta)));
   };
 
+  // Largest zoom (0.5..3, quarter steps) at which the whole ticket fits the canvas
+  // area with a margin. Falls back to 100% before the area is laid out.
+  const fitZoom = (w = template.width, h = template.height) => {
+    const area = canvasAreaRef.current;
+    const availW = (area ? area.clientWidth : window.innerWidth - 600) - 64;
+    const availH = (area ? area.clientHeight : window.innerHeight - 120) - 56;
+    if (availW <= 0 || availH <= 0) return 1;
+    const raw = Math.min(availW / toPixels(w, 1), availH / toPixels(h, 1));
+    return Math.max(0.5, Math.min(3, Math.floor(raw * 4) / 4));
+  };
+
   const canvasW = toPixels(template.width, zoom);
   const canvasH = toPixels(template.height, zoom);
 
@@ -783,7 +848,7 @@ const ShelfTicketEditor = () => {
 
     const textControls = (
       <>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>Content</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mt: 2, mb: 1 }}>Content</Typography>
         <TextField
           fullWidth
           multiline
@@ -806,17 +871,17 @@ const ShelfTicketEditor = () => {
               size="small"
               variant="outlined"
               onClick={() => updateEl({ content: (el.content || '') + fv.key })}
-              sx={{ fontSize: 10, cursor: 'pointer' }}
+              sx={{ fontSize: 12, cursor: 'pointer' }}
             />
           ))}
         </Box>
 
         <Divider sx={{ my: 1 }} />
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>Typography</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mb: 1 }}>Typography</Typography>
 
         <FormControl fullWidth size="small" sx={{ mb: 1 }}>
           <InputLabel>Font Family</InputLabel>
-          <Select value={el.fontFamily || 'Arial'} label="Font Family"
+          <Select MenuProps={MENU_PROPS} value={el.fontFamily || 'Arial'} label="Font Family"
             onChange={(e) => updateElHistory({ fontFamily: e.target.value })}>
             {FONT_FAMILIES.map(f => <MenuItem key={f} value={f} sx={{ fontFamily: f }}>{f}</MenuItem>)}
           </Select>
@@ -857,18 +922,19 @@ const ShelfTicketEditor = () => {
         </ToggleButtonGroup>
 
         <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-          <ColorPickerButton label="Text Color" color={el.color} onChange={(c) => updateElHistory({ color: c })} />
-          <ColorPickerButton label="Background" color={el.backgroundColor} onChange={(c) => updateElHistory({ backgroundColor: c })} />
+          <ColorPickerButton label="Text Color" color={el.color} onLive={(c) => updateEl({ color: c })} onChange={(c) => updateElHistory({ color: c })} />
+          <ColorPickerButton label="Background" color={el.backgroundColor} onLive={(c) => updateEl({ backgroundColor: c })} onChange={(c) => updateElHistory({ backgroundColor: c })} />
         </Box>
       </>
     );
 
     const priceControls = (
       <>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>Price Field</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mt: 2, mb: 1 }}>Price Field</Typography>
         <FormControl fullWidth size="small" sx={{ mb: 1 }}>
           <InputLabel>Price Type</InputLabel>
           <Select
+            MenuProps={MENU_PROPS}
             label="Price Type"
             value={
               ['{salePrice}', '{price2}', '{price3}', '{casePrice}'].find((t) => el.content?.includes(t)) || '{price}'
@@ -887,10 +953,10 @@ const ShelfTicketEditor = () => {
           <TextField size="small" label="Suffix" value={el.suffix || ''} onChange={(e) => updateEl({ suffix: e.target.value })} onBlur={(e) => updateElHistory({ suffix: e.target.value })} sx={{ width: '50%' }} />
         </Box>
         <Divider sx={{ my: 1 }} />
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>Typography</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mb: 1 }}>Typography</Typography>
         <FormControl fullWidth size="small" sx={{ mb: 1 }}>
           <InputLabel>Font Family</InputLabel>
-          <Select value={el.fontFamily || 'Arial'} label="Font Family" onChange={(e) => updateElHistory({ fontFamily: e.target.value })}>
+          <Select MenuProps={MENU_PROPS} value={el.fontFamily || 'Arial'} label="Font Family" onChange={(e) => updateElHistory({ fontFamily: e.target.value })}>
             {FONT_FAMILIES.map(f => <MenuItem key={f} value={f} sx={{ fontFamily: f }}>{f}</MenuItem>)}
           </Select>
         </FormControl>
@@ -908,16 +974,16 @@ const ShelfTicketEditor = () => {
           <ToggleButton value="center"><AlignCenterIcon fontSize="small" /></ToggleButton>
           <ToggleButton value="right"><AlignRightIcon fontSize="small" /></ToggleButton>
         </ToggleButtonGroup>
-        <ColorPickerButton label="Color" color={el.color} onChange={(c) => updateElHistory({ color: c })} />
+        <ColorPickerButton label="Color" color={el.color} onLive={(c) => updateEl({ color: c })} onChange={(c) => updateElHistory({ color: c })} />
       </>
     );
 
     const barcodeControls = (
       <>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>Barcode Settings</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mt: 2, mb: 1 }}>Barcode Settings</Typography>
         <FormControl fullWidth size="small" sx={{ mb: 1 }}>
           <InputLabel>Data Field</InputLabel>
-          <Select value={el.field || 'barcode'} label="Data Field" onChange={(e) => updateElHistory({ field: e.target.value })}>
+          <Select MenuProps={MENU_PROPS} value={el.field || 'barcode'} label="Data Field" onChange={(e) => updateElHistory({ field: e.target.value })}>
             <MenuItem value="barcode">Barcode / EAN</MenuItem>
             <MenuItem value="sku">SKU</MenuItem>
             <MenuItem value="productName">Product Name</MenuItem>
@@ -925,30 +991,30 @@ const ShelfTicketEditor = () => {
         </FormControl>
         <FormControl fullWidth size="small" sx={{ mb: 1 }}>
           <InputLabel>Format</InputLabel>
-          <Select value={el.format || 'CODE128'} label="Format" onChange={(e) => updateElHistory({ format: e.target.value })}>
+          <Select MenuProps={MENU_PROPS} value={el.format || 'CODE128'} label="Format" onChange={(e) => updateElHistory({ format: e.target.value })}>
             <MenuItem value="CODE128">Code 128</MenuItem>
             <MenuItem value="EAN13">EAN-13</MenuItem>
             <MenuItem value="EAN8">EAN-8</MenuItem>
             <MenuItem value="CODE39">Code 39</MenuItem>
           </Select>
         </FormControl>
-        <FormControlLabel control={<Switch checked={el.showText !== false} onChange={(e) => updateElHistory({ showText: e.target.checked })} />} label="Show barcode number" />
+        <FormControlLabel control={<ShopfrontSwitch checked={el.showText !== false} onChange={(e) => updateElHistory({ showText: e.target.checked })} inputProps={{ 'aria-label': 'Show barcode number' }} />} label={<Typography sx={{ fontSize: 14 }}>Show barcode number</Typography>} sx={{ ml: 0, mr: 0, display: 'flex', alignItems: 'center', gap: 1 }} />
       </>
     );
 
     const shapeControls = (
       <>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>Shape Style</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mt: 2, mb: 1 }}>Shape Style</Typography>
         <FormControl fullWidth size="small" sx={{ mb: 1 }}>
           <InputLabel>Shape</InputLabel>
-          <Select value={el.shape || 'rectangle'} label="Shape" onChange={(e) => updateElHistory({ shape: e.target.value })}>
+          <Select MenuProps={MENU_PROPS} value={el.shape || 'rectangle'} label="Shape" onChange={(e) => updateElHistory({ shape: e.target.value })}>
             <MenuItem value="rectangle">Rectangle</MenuItem>
             <MenuItem value="circle">Circle / Ellipse</MenuItem>
           </Select>
         </FormControl>
         <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <ColorPickerButton label="Fill Color" color={el.backgroundColor} onChange={(c) => updateElHistory({ backgroundColor: c })} />
-          <ColorPickerButton label="Border Color" color={el.borderColor} onChange={(c) => updateElHistory({ borderColor: c })} />
+          <ColorPickerButton label="Fill Color" color={el.backgroundColor} onLive={(c) => updateEl({ backgroundColor: c })} onChange={(c) => updateElHistory({ backgroundColor: c })} />
+          <ColorPickerButton label="Border Color" color={el.borderColor} onLive={(c) => updateEl({ borderColor: c })} onChange={(c) => updateElHistory({ borderColor: c })} />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField size="small" label="Border Width (px)" type="number" inputProps={{ min: 0, max: 20, step: 0.5 }}
@@ -963,8 +1029,8 @@ const ShelfTicketEditor = () => {
 
     const lineControls = (
       <>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>Line Style</Typography>
-        <ColorPickerButton label="Line Color" color={el.color} onChange={(c) => updateElHistory({ color: c })} />
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mt: 2, mb: 1 }}>Line Style</Typography>
+        <ColorPickerButton label="Line Color" color={el.color} onLive={(c) => updateEl({ color: c })} onChange={(c) => updateElHistory({ color: c })} />
         <TextField size="small" label="Thickness (mm)" type="number" inputProps={{ min: 0.1, max: 5, step: 0.1 }}
           value={el.height || 0.5} onChange={(e) => updateEl({ height: parseFloat(e.target.value) })}
           onBlur={(e) => updateElHistory({ height: parseFloat(e.target.value) })} sx={{ mt: 1, display: 'block', width: '100%' }} />
@@ -973,7 +1039,7 @@ const ShelfTicketEditor = () => {
 
     const imageControls = (
       <>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>Image</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mt: 2, mb: 1 }}>Image</Typography>
         <Button
           fullWidth
           variant="outlined"
@@ -994,7 +1060,7 @@ const ShelfTicketEditor = () => {
         />
         <FormControl fullWidth size="small" sx={{ mb: 1 }}>
           <InputLabel>Fit</InputLabel>
-          <Select value={el.fit || 'contain'} label="Fit" onChange={(e) => updateElHistory({ fit: e.target.value })}>
+          <Select MenuProps={MENU_PROPS} value={el.fit || 'contain'} label="Fit" onChange={(e) => updateElHistory({ fit: e.target.value })}>
             <MenuItem value="contain">Contain</MenuItem>
             <MenuItem value="cover">Cover</MenuItem>
             <MenuItem value="fill">Stretch</MenuItem>
@@ -1006,10 +1072,11 @@ const ShelfTicketEditor = () => {
     return (
       <Box sx={{ p: 2, overflowY: 'auto', height: '100%' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: 'capitalize' }}>
+          {/* One line, never wrapped ("Text" / "Element" on two rows read as two things). */}
+          <Typography sx={{ fontSize: 18, fontWeight: 700, textTransform: 'capitalize', whiteSpace: 'nowrap', mr: 1 }}>
             {el.type} Element
           </Typography>
-          <Box>
+          <Box sx={{ display: 'flex', flexShrink: 0 }}>
             <Tooltip title={el.locked ? 'Unlock' : 'Lock'}>
               <span>
                 <IconButton size="small" onClick={() => updateElHistory({ locked: !el.locked })}>
@@ -1043,7 +1110,7 @@ const ShelfTicketEditor = () => {
         <Divider />
 
         {/* Position & Size */}
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 2, mb: 1 }}>Position & Size</Typography>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, mt: 2, mb: 1 }}>Position & Size</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1 }}>
           <NumberField size="small" label="X (mm)" inputProps={{ step: 0.5 }}
             value={Math.round(el.x * 10) / 10}
@@ -1061,6 +1128,28 @@ const ShelfTicketEditor = () => {
             value={Math.round(el.height * 10) / 10}
             onCommit={(n) => updateEl({ height: n })}
             onBlur={(e) => updateElHistory({ height: parseFloat(e.target.value) || 0.5 })} />
+        </Box>
+
+        {/* Align the element to the ticket edges / centre (user 16/11/2026: elements
+            placed by hand sat at mixed offsets). One click, undoable. */}
+        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.secondary', mb: 0.5 }}>Align to ticket</Typography>
+        <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
+          {[
+            ['Align left', <AlignTicketLeftIcon fontSize="small" />, () => ({ x: 0 })],
+            ['Align centre', <AlignTicketCenterIcon fontSize="small" />, () => ({ x: Math.max(0, (template.width - el.width) / 2) })],
+            ['Align right', <AlignTicketRightIcon fontSize="small" />, () => ({ x: Math.max(0, template.width - el.width) })],
+            ['Align top', <AlignTicketTopIcon fontSize="small" />, () => ({ y: 0 })],
+            ['Align middle', <AlignTicketMiddleIcon fontSize="small" />, () => ({ y: Math.max(0, (template.height - el.height) / 2) })],
+            ['Align bottom', <AlignTicketBottomIcon fontSize="small" />, () => ({ y: Math.max(0, template.height - el.height) })],
+          ].map(([title, icon, calc]) => (
+            <Tooltip key={title} title={title}>
+              <span>
+                <IconButton size="small" disabled={el.locked} onClick={() => updateElHistory(calc())} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, '&:focus-visible': { outline: 'none' } }}>
+                  {icon}
+                </IconButton>
+              </span>
+            </Tooltip>
+          ))}
         </Box>
 
         {/* Type-specific controls */}
@@ -1162,7 +1251,7 @@ const ShelfTicketEditor = () => {
         </Tooltip>
         <Tooltip title="Fit to screen">
           <span>
-            <IconButton size="small" onClick={() => setZoom(1)}><ZoomFitIcon /></IconButton>
+            <IconButton size="small" onClick={() => setZoom(fitZoom())}><ZoomFitIcon /></IconButton>
           </span>
         </Tooltip>
 
@@ -1188,9 +1277,9 @@ const ShelfTicketEditor = () => {
 
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
         {/* Left Panel - Palette */}
-        <Paper elevation={1} sx={{ width: 200, display: 'flex', flexDirection: 'column', borderRadius: 0, overflowY: 'auto', flexShrink: 0, borderRight: '1px solid #e0e0e0' }}>
+        <Paper elevation={1} sx={{ width: 240, display: 'flex', flexDirection: 'column', borderRadius: 0, overflowY: 'auto', flexShrink: 0, borderRight: '1px solid #e0e0e0' }}>
           <Box sx={{ p: 1.5 }}>
-            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 1, textTransform: 'uppercase', fontSize: 11, letterSpacing: 0.5 }}>
+            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 1, textTransform: 'uppercase', fontSize: 12, letterSpacing: 0.5 }}>
               Elements
             </Typography>
 
@@ -1208,7 +1297,7 @@ const ShelfTicketEditor = () => {
                 variant="outlined"
                 startIcon={item.icon}
                 onClick={() => handleAddElement(item.type)}
-                sx={{ mb: 0.75, justifyContent: 'flex-start', textTransform: 'none', py: 0.75, borderStyle: 'dashed' }}
+                sx={{ mb: 0.75, justifyContent: 'flex-start', textTransform: 'none', py: 0.9, fontSize: 15, borderStyle: 'dashed' }}
               >
                 {item.label}
               </Button>
@@ -1216,13 +1305,14 @@ const ShelfTicketEditor = () => {
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 1, textTransform: 'uppercase', fontSize: 11, letterSpacing: 0.5 }}>
+            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 1, textTransform: 'uppercase', fontSize: 12, letterSpacing: 0.5 }}>
               Canvas
             </Typography>
 
             <FormControl fullWidth size="small" sx={{ mb: 1 }}>
               <InputLabel>Ticket Size</InputLabel>
               <Select
+                MenuProps={MENU_PROPS}
                 label="Ticket Size"
                 value={TICKET_SIZES.find(s => s.width === template.width && s.height === template.height)?.label || 'Custom'}
                 onChange={(e) => {
@@ -1250,14 +1340,14 @@ const ShelfTicketEditor = () => {
             />
 
             <FormControlLabel
-              control={<Switch size="small" checked={snapToGrid} onChange={(e) => setSnapToGrid(e.target.checked)} />}
-              label={<Typography variant="caption">Snap to grid</Typography>}
-              sx={{ mt: 1, display: 'block' }}
+              control={<ShopfrontSwitch checked={snapToGrid} onChange={(e) => setSnapToGrid(e.target.checked)} inputProps={{ 'aria-label': 'Snap to grid' }} />}
+              label={<Typography sx={{ fontSize: 13 }}>Snap to grid</Typography>}
+              sx={{ mt: 1.5, ml: 0, mr: 0, display: 'flex', alignItems: 'center', gap: 1 }}
             />
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 1, textTransform: 'uppercase', fontSize: 11, letterSpacing: 0.5 }}>
+            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 1, textTransform: 'uppercase', fontSize: 12, letterSpacing: 0.5 }}>
               Layers
             </Typography>
             <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
@@ -1272,10 +1362,10 @@ const ShelfTicketEditor = () => {
                     display: 'flex', alignItems: 'center', gap: 1,
                   }}
                 >
-                  <Typography variant="caption" sx={{ textTransform: 'capitalize', color: selectedId === el.id ? 'primary.contrastText' : 'text.primary', fontSize: 11 }}>
+                  <Typography variant="caption" sx={{ textTransform: 'capitalize', color: selectedId === el.id ? 'primary.contrastText' : 'text.primary', fontSize: 13 }}>
                     {el.type}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: selectedId === el.id ? 'primary.contrastText' : 'text.secondary', fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexGrow: 1 }}>
+                  <Typography variant="caption" sx={{ color: selectedId === el.id ? 'primary.contrastText' : 'text.secondary', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexGrow: 1 }}>
                     {el.content || el.field || ''}
                   </Typography>
                   {el.locked && <LockIcon sx={{ fontSize: 10, opacity: 0.6 }} />}
@@ -1287,11 +1377,13 @@ const ShelfTicketEditor = () => {
 
         {/* Canvas Area */}
         <Box
+          ref={canvasAreaRef}
           sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', p: 4, pt: 3 }}
           onClick={() => setSelectedId(null)}
         >
           <Box
             ref={canvasRef}
+            data-testid="ticket-canvas"
             sx={{
               position: 'relative',
               width: canvasW,
@@ -1312,19 +1404,27 @@ const ShelfTicketEditor = () => {
         </Box>
 
         {/* Right Panel - Properties */}
-        <Paper elevation={1} sx={{ width: 280, display: 'flex', flexDirection: 'column', borderRadius: 0, overflowY: 'auto', flexShrink: 0, borderLeft: '1px solid #e0e0e0' }}>
+        <Paper elevation={1} sx={{ width: 360, display: 'flex', flexDirection: 'column', borderRadius: 0, overflowY: 'auto', flexShrink: 0, borderLeft: '1px solid #e0e0e0' }}>
           {renderPropertiesPanel()}
         </Paper>
       </Box>
 
       {/* Preview Dialog */}
-      <Dialog open={previewDialog} onClose={() => setPreviewDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Ticket Preview
-          <Typography variant="body2" color="text.secondary">
-            Shown with sample product data at actual size
-          </Typography>
+      {/* Same chrome as the Print Shelf Tickets dialog: 12px radius, sized to the
+          ticket, grey Close + sky Print Sample pills. */}
+      <Dialog open={previewDialog} onClose={() => setPreviewDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PreviewIcon sx={{ color: '#5ebbeb' }} />
+            <Box>
+              <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1.2 }}>Ticket Preview</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Shown with sample product data at actual size
+              </Typography>
+            </Box>
+          </Box>
         </DialogTitle>
+        <Divider />
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, py: 2 }}>
             <Typography variant="caption" color="text.secondary">
@@ -1361,9 +1461,11 @@ const ShelfTicketEditor = () => {
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewDialog(false)}>Close</Button>
-          <Button variant="contained" startIcon={<PrintIcon />} onClick={() => { setPreviewDialog(false); handlePrintPreview(template, [PREVIEW_VALUES]); }}>
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button disableElevation onClick={() => setPreviewDialog(false)} sx={{ ...PREVIEW_BTN_SX, bgcolor: '#d4d4d4', color: '#000', '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' } }}>Close</Button>
+          <Box sx={{ flexGrow: 1 }} />
+          <Button variant="contained" disableElevation startIcon={<PrintIcon />} onClick={() => { setPreviewDialog(false); handlePrintPreview(template, [PREVIEW_VALUES]); }} sx={PREVIEW_BTN_SX}>
             Print Sample
           </Button>
         </DialogActions>
