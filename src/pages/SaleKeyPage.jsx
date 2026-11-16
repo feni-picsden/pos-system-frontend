@@ -5369,7 +5369,10 @@ const SaleKeyPage = () => {
   // Parked Sales list (reference): a click opens the sale's card with Load Sale /
   // Reprint Receipt / Email Receipt / Add Sale Note / Add Internal Note / Remove
   // Parked Sale instead of loading it straight away.
-  const [openParkedId, setOpenParkedId] = useState(null);
+  // Several cards can be open at once (like Sales History) - user 16/11/2026.
+  const [openParkedIds, setOpenParkedIds] = useState([]);
+  const openParked = (id) => setOpenParkedIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  const closeParked = (id) => setOpenParkedIds((ids) => ids.filter((x) => x !== id));
   const [parkedPrintSale, setParkedPrintSale] = useState(null);
   const [parkedEmailSale, setParkedEmailSale] = useState(null);
 
@@ -5397,7 +5400,7 @@ const SaleKeyPage = () => {
     if (!ok) return;
     try {
       await salesService.updateSale(parkedSale.id, { status: 'CANCELLED' });
-      setOpenParkedId((id) => (id === parkedSale.id ? null : id));
+      closeParked(parkedSale.id);
       await loadParkedSales();
       notify(`Parked sale ${parkedSale.saleNumber} removed`);
     } catch (error) {
@@ -9444,7 +9447,11 @@ const SaleKeyPage = () => {
                     const formattedAmount = formatMoney(totalAmount);
                     // Reference rows: 89px, 16px padding, zebra #f8f8f8/#fff.
                     const rowBgColor = index % 2 === 0 ? '#f8f8f8' : '#ffffff';
-                    if (openParkedId === sale.id) {
+                    const isOpen = openParkedIds.includes(sale.id);
+                    // Row <-> detail card swap is animated (Collapse) so the card
+                    // opens/closes smoothly instead of jumping (user 16/11/2026).
+                    const detailCard = (() => {
+                      if (!isOpen) return null;
                       const actionSx = (primary) => ({
                         width: '100%', height: 42, borderRadius: 0, fontSize: 14, fontWeight: 400, textTransform: 'none', boxShadow: 'none', mb: '8px',
                         bgcolor: primary ? '#1c86f2' : '#f8f8f8', color: primary ? '#f8f8f8' : '#313439',
@@ -9452,7 +9459,7 @@ const SaleKeyPage = () => {
                         '&:hover': { boxShadow: 'none', bgcolor: primary ? '#1c86f2' : '#f8f8f8' },
                       });
                       const parkedActions = [
-                        ['Load Sale', () => { setOpenParkedId(null); resumeParkedSale(sale); }],
+                        ['Load Sale', () => { closeParked(sale.id); resumeParkedSale(sale); }],
                         ['Reprint Receipt', () => setParkedPrintSale(sale)],
                         ['Email Receipt', () => setParkedEmailSale(sale)],
                         ['Add Sale Note', () => editParkedNote(sale, 'notes')],
@@ -9462,7 +9469,7 @@ const SaleKeyPage = () => {
                         ['Remove Parked Sale', () => removeParkedSale(sale)],
                       ];
                       return (
-                        <Box key={sale.id} sx={{ bgcolor: '#f8f8f8' }}>
+                        <Box sx={{ bgcolor: '#f8f8f8' }}>
                           <SaleDetailCard
                             sale={sale}
                             formatDate={(d) => formatAppDate(d)}
@@ -9471,7 +9478,7 @@ const SaleKeyPage = () => {
                             actionsWidth={260}
                             actions={
                               <>
-                                <Button disableElevation onClick={() => setOpenParkedId(null)} sx={{ ...actionSx(true), mb: '24px' }}>
+                                <Button disableElevation onClick={() => closeParked(sale.id)} sx={{ ...actionSx(true), mb: '24px' }}>
                                   ✕ Close
                                 </Button>
                                 {parkedActions.map(([label, onClick]) => (
@@ -9484,11 +9491,12 @@ const SaleKeyPage = () => {
                           />
                         </Box>
                       );
-                    }
+                    })();
                     return (
+                      <Box key={sale.id}>
+                      <Collapse in={!isOpen} timeout={220}>
                       <Box
-                        key={sale.id}
-                        onClick={() => setOpenParkedId(sale.id)}
+                        onClick={() => openParked(sale.id)}
                         sx={{
                           display: 'flex',
                           alignItems: 'center',
@@ -9621,6 +9629,11 @@ const SaleKeyPage = () => {
                             </Typography>
                           )}
                         </Box>
+                      </Box>
+                      </Collapse>
+                      <Collapse in={isOpen} timeout={220} unmountOnExit>
+                        {detailCard}
+                      </Collapse>
                       </Box>
                     );
                   })}
