@@ -168,7 +168,7 @@ const LinklySettings = () => {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 720 }}>
+    <Box sx={{ p: 3, maxWidth: 960 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <CardIcon color="primary" />
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
@@ -283,9 +283,9 @@ const LinklySettings = () => {
 
       {/* Transaction journal — every terminal integration needs one for
           end-of-day reconciliation and card disputes. Read-only. */}
-      {/* The 720px column suits the pairing form but crushes a 7-column table,
-          so the journal breaks out to the full page width. */}
-      <Paper variant="outlined" sx={{ p: 3, mt: 3, width: 'calc(100vw - 48px)', maxWidth: 1200 }}>
+      {/* Same column as the cards above (960px keeps the 8-column table readable;
+          it scrolls sideways on narrower screens). */}
+      <Paper variant="outlined" sx={{ p: 3, mt: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
             Transaction journal
