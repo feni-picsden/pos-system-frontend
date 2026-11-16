@@ -153,6 +153,7 @@ import FinalizeSaleDialog from '../components/FinalizeSale/FinalizeSaleDialog';
 import PayByCardDialog from '../components/Payment/PayByCardDialog';
 import CashOutDialog from '../components/Payment/CashOutDialog';
 import { isEftposMethod } from '../services/linklyService';
+import drawerService from '../services/drawerService';
 import paymentMethodService, { allowsCashOut, getPaymentMethodSettings } from '../services/paymentMethodService';
 import loyaltyService from '../services/loyaltyService';
 import cashManagementService from '../services/cashManagementService';
@@ -4088,13 +4089,21 @@ const SaleKeyPage = () => {
           drawerReason = picked;
         }
         try {
+          // Reference: the key pops the physical drawer (Hardware Connect ->
+          // receipt printer kick) AND logs the open. Hardware trouble (no QZ
+          // Tray / printer) must not block the log; "Never Open Cash Drawer"
+          // on the register throws and stops both.
+          const kick = await drawerService.kickDrawerQuietly({ registerId: parseInt(drawerRegisterId) });
           await cashManagementService.openDrawer({
             registerId: parseInt(drawerRegisterId),
             reason: drawerReason,
           });
+          if (!kick.kicked && !kick.skipped) {
+            console.warn('[CashDrawer] sale key: logged only, no hardware kick:', kick.code);
+          }
         } catch (error) {
           console.error('Error opening cash drawer from sale key:', error);
-          alert(error?.error || 'Failed to open cash drawer');
+          alert(error?.error || error?.message || 'Failed to open cash drawer');
         }
         break;
       }
@@ -5721,8 +5730,12 @@ const SaleKeyPage = () => {
     if (methodOpensDrawer) {
       const registerId = parseInt(localStorage.getItem('selectedRegisterId'), 10);
       if (registerId) {
-        cashManagementService
-          .openDrawer({ registerId, reason: 'Payment method setting' })
+        // Reference: the drawer physically opens (printer kick) and the open is
+        // logged. Hardware trouble never blocks the sale (kickDrawerQuietly);
+        // "Never Open Cash Drawer" on the register throws and skips the log too.
+        drawerService
+          .kickDrawerQuietly({ registerId })
+          .then(() => cashManagementService.openDrawer({ registerId, reason: 'Payment method setting' }))
           .catch((e) => console.warn('[CashDrawer] auto-open failed:', e?.message || e));
       }
     }

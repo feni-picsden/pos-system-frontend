@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { spinSx } from '../../utils/spinSx';
-import useSpinOnce from '../../hooks/useSpinOnce';
 import {
   Box,
   Typography,
@@ -15,20 +13,116 @@ import {
   CircularProgress,
   Tooltip,
 } from '@mui/material';
-import { Save as SaveIcon, PointOfSale as DrawerIcon, Refresh as RefreshIcon, CreditCard as CardIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Refresh as RefreshIcon, CreditCard as CardIcon, Replay as RetryIcon } from '@mui/icons-material';
 import drawerService from '../../services/drawerService';
 import tyroService from '../../services/tyroService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
-import PageSaveBar from '../../components/Common/PageSaveBar';
+import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { formatDate as formatAppDate } from '../../utils/appDateTime';
+import {
+  NICE_ERROR_SX,
+  NICE_ERROR_ICON_SX,
+  NICE_ERROR_REASON_SX,
+  NICE_ERROR_HEADING_SX,
+  NICE_ERROR_BODY_SX,
+} from '../../components/StockManagement/productViewStyles';
 
 const BRANDS = ['Epson', 'Star', 'Generic ESC/POS'];
+
+// Reference Hardware Connect Settings chrome: square 50px fields with a 1px
+// #000 border and the field name as a small label ABOVE the box; header
+// buttons are square, 16px, no shadow. Dropdown papers are square, black
+// bordered, no shadow, and the global focus outline is suppressed on items.
+const REF_FIELD_SX = {
+  '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: '#fff', height: 50, fontSize: 16, py: 0 },
+  '& .MuiOutlinedInput-input, & .MuiAutocomplete-input': { py: '0 !important' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 },
+};
+const REF_MENU_SX = {
+  borderRadius: 0,
+  border: '1px solid #000',
+  boxShadow: 'none',
+  mt: '2px',
+  '& li': { fontSize: 16, minHeight: 44 },
+  '& li.Mui-selected, & li[aria-selected="true"]': { bgcolor: '#dbeafe !important' },
+  '& li:hover': { bgcolor: '#eff6ff' },
+  '& li:focus-visible': { outline: 'none' },
+};
+const REF_BTN_SX = { borderRadius: 0, textTransform: 'none', fontSize: 16, fontWeight: 400, px: 2.5, py: 1, boxShadow: 'none' };
+const RefLabel = ({ children }) => (
+  <Typography component="label" sx={{ display: 'block', fontSize: 12, color: '#333', mb: '4px', ml: '2px' }}>
+    {children}
+  </Typography>
+);
+
+// Where the local print agent (QZ Tray — our Hardware Connect) is downloaded from.
+const AGENT_DOWNLOAD_URL = 'https://qz.io/download/';
+
+// Reference ".nice-error" neutral face: a 160px ring, two dots and a flat mouth,
+// drawn inline so the stroke weight matches the reference glyph.
+const NeutralFace = () => (
+  <svg width="160" height="160" viewBox="0 0 160 160" aria-hidden="true" style={{ display: 'inline-block' }}>
+    <circle cx="80" cy="80" r="72" fill="none" stroke="#000" strokeWidth="8" />
+    <circle cx="57" cy="62" r="7" fill="#000" />
+    <circle cx="103" cy="62" r="7" fill="#000" />
+    <line x1="50" y1="106" x2="110" y2="106" stroke="#000" strokeWidth="8" strokeLinecap="round" />
+  </svg>
+);
+
+// Reference: when Hardware Connect cannot be reached the page shows only this
+// block (no settings form) — heading, a sentence with an "installing" link, and
+// a green Retry.
+const AgentError = ({ onRetry, retrying }) => (
+  <Box sx={{ ...NICE_ERROR_SX, p: '32px 16px' }} data-testid="hardware-connect-error">
+    <Box sx={{ ...NICE_ERROR_ICON_SX, width: 'auto', mr: '24px' }}>
+      <NeutralFace />
+    </Box>
+    <Box sx={NICE_ERROR_REASON_SX}>
+      <Typography component="h2" sx={NICE_ERROR_HEADING_SX}>
+        Hardware Connect error
+      </Typography>
+      <Typography component="p" sx={{ ...NICE_ERROR_BODY_SX, m: '0 0 8px' }}>
+        Error trying to get Hardware Connect settings. Try{' '}
+        <a href={AGENT_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#1a0dab' }}>
+          installing
+        </a>{' '}
+        or restarting Hardware Connect (QZ Tray) and try again
+      </Typography>
+      <Box>
+        <Button
+          variant="contained"
+          disableElevation
+          startIcon={retrying ? <CircularProgress size={16} color="inherit" /> : <RetryIcon />}
+          onClick={onRetry}
+          disabled={retrying}
+          sx={{
+            bgcolor: '#2fb344',
+            color: '#fff',
+            borderRadius: 0,
+            textTransform: 'none',
+            fontSize: 16,
+            px: 3,
+            py: 1.25,
+            '&:hover': { bgcolor: '#28a03c' },
+          }}
+        >
+          Retry
+        </Button>
+      </Box>
+    </Box>
+  </Box>
+);
 
 const HardwareSettings = () => {
   const { confirm } = useAppDialogs();
   const [printer, setPrinter] = useState(drawerService.getDrawerPrinter());
   const [brand, setBrand] = useState(drawerService.getPrinterBrand());
   const [kickCode, setKickCode] = useState(drawerService.getKickCode());
+  // Reference "Ignore Kick": on = never send the drawer command (no drawer, or
+  // a printer with nothing plugged into its drawer port).
+  const [ignoreKick, setIgnoreKick] = useState(drawerService.getIgnoreKick());
   const [tyroPairing, setTyroPairing] = useState(tyroService.getPairing());
 
   const [printers, setPrinters] = useState([]);
@@ -40,10 +134,8 @@ const HardwareSettings = () => {
   const showSuccess = (message) => setSnackbar({ open: true, message, severity: 'success' });
   const showError = (message) => setSnackbar({ open: true, message, severity: 'error' });
 
-  const [printersSpinning, spinPrinters] = useSpinOnce(loadingPrinters);
   const loadPrinters = async () => {
 
-    spinPrinters();
     setLoadingPrinters(true);
     try {
       const available = await drawerService.isQzAvailable();
@@ -70,14 +162,19 @@ const HardwareSettings = () => {
     drawerService.setDrawerPrinter(printer);
     drawerService.setPrinterBrand(brand);
     drawerService.setKickCode(kickCode);
+    drawerService.setIgnoreKick(ignoreKick);
     showSuccess('Hardware settings saved');
   };
 
   const handleTest = async () => {
     setTesting(true);
     try {
-      const res = await drawerService.kickDrawer({ printerName: printer, kickCode });
-      showSuccess(`Drawer command sent to "${res.printer}" (hex ${res.hex})`);
+      const res = await drawerService.kickDrawer({ printerName: printer, kickCode, ignoreKick });
+      if (res.skipped) {
+        showSuccess('Ignore Kick is on — no drawer command was sent');
+      } else {
+        showSuccess(`Drawer command sent to "${res.printer}" (hex ${res.hex})`);
+      }
     } catch (err) {
       if (err.code === 'QZ_UNAVAILABLE') {
         showError('QZ Tray is not running on this terminal. Start QZ Tray and try again.');
@@ -94,98 +191,111 @@ const HardwareSettings = () => {
   // Hex preview of the entered kick code (so the user can confirm it's valid).
   const kickHexPreview = drawerService.parseKickToHex(kickCode);
 
+  // Reference: no agent = no settings form, only the error block + Retry.
+  if (qzAvailable === false) {
+    return <AgentError onRetry={loadPrinters} retrying={loadingPrinters} />;
+  }
+
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+      {/* Reference header: title left, "Test Open Cash Drawer" (grey outline) + blue Save right. */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>Hardware Connect Settings</Typography>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, lineHeight: 1.2 }}>Hardware Connect Settings</Typography>
           <Typography variant="body2" color="text.secondary">
-            Configure the receipt printer that triggers the cash drawer. Requires QZ Tray running on this terminal.
+            Hardware Connect (QZ Tray) running on this terminal
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant="outlined"
-            startIcon={testing ? <CircularProgress size={16} /> : <DrawerIcon />}
+            startIcon={testing ? <CircularProgress size={16} /> : null}
             onClick={handleTest}
             disabled={testing}
+            sx={{ ...REF_BTN_SX, color: '#555', borderColor: '#ccc', bgcolor: '#fff', '&:hover': { borderColor: '#999', bgcolor: '#fafafa' } }}
           >
             Test Open Cash Drawer
           </Button>
-          <PageSaveBar onSave={handleSave} saving={false} />
+          <Button
+            variant="contained"
+            disableElevation
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            sx={{ ...REF_BTN_SX, bgcolor: '#1e88e5', '&:hover': { bgcolor: '#1976d2' } }}
+          >
+            Save
+          </Button>
         </Box>
       </Box>
 
-      {qzAvailable === false && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          QZ Tray was not detected. Install/launch QZ Tray on this terminal to select a printer and open the drawer.
-          You can still enter settings now; they'll apply once QZ Tray is running.
-        </Alert>
-      )}
-
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Receipt Printer</Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={5}>
-            <Autocomplete
-              freeSolo
-              options={printers}
-              value={printer}
-              onChange={(_e, val) => setPrinter(val || '')}
-              onInputChange={(_e, val) => setPrinter(val || '')}
-              loading={loadingPrinters}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Printer"
-                  placeholder="Select or type the receipt printer name"
-                  helperText="The printer the cash drawer is plugged into (leave blank to use the system default)."
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        <Tooltip title="Refresh printer list">
-                          <span>
-                            <Button size="small" onClick={loadPrinters} disabled={loadingPrinters} sx={{ minWidth: 0, px: 1 }}>
-                              <RefreshIcon fontSize="small" sx={spinSx(printersSpinning)} />
-                            </Button>
-                          </span>
-                        </Tooltip>
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <TextField
-              select
-              fullWidth
-              label="Receipt Printer Brand"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-            >
-              {BRANDS.map((b) => (
-                <MenuItem key={b} value={b}>{b}</MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              label="Cash Drawer Kick Code"
-              value={kickCode}
-              onChange={(e) => setKickCode(e.target.value)}
-              placeholder="27,112,0,25,250"
-              helperText={`Decimal (e.g. 27,112,0,25,250) or hex. Sent as: ${kickHexPreview}`}
-            />
-          </Grid>
+      {/* Reference section: "Receipt Printer" heading, labels ABOVE square fields, 3 per row. */}
+      <Typography component="h2" sx={{ fontSize: 20, fontWeight: 700, mb: 1 }}>Receipt Printer</Typography>
+      <Grid container spacing={3} sx={{ px: 1.5 }}>
+        <Grid item xs={12} md={4}>
+          <RefLabel>Printer</RefLabel>
+          {/* Reference: a plain dropdown of the agent's printers (arrow only - no
+              clear / refresh icons; the list refreshes on load and on Retry). */}
+          <Autocomplete
+            options={printers}
+            value={printer || null}
+            onChange={(_e, val) => setPrinter(val || '')}
+            loading={loadingPrinters}
+            disableClearable
+            slotProps={{ paper: { sx: REF_MENU_SX } }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Select the receipt printer"
+                inputProps={{ ...params.inputProps, 'aria-label': 'Printer' }}
+                sx={REF_FIELD_SX}
+              />
+            )}
+          />
         </Grid>
-      </Paper>
+
+        <Grid item xs={12} md={4}>
+          <RefLabel>Receipt Printer Brand</RefLabel>
+          <TextField
+            select
+            fullWidth
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            sx={REF_FIELD_SX}
+            SelectProps={{
+              SelectDisplayProps: { 'aria-label': 'Receipt Printer Brand', 'data-testid': 'brand-select' },
+              MenuProps: { marginThreshold: 0, PaperProps: { sx: REF_MENU_SX } },
+            }}
+          >
+            {BRANDS.map((b) => (
+              <MenuItem key={b} value={b}>{b}</MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <RefLabel>Cash Drawer Kick Code</RefLabel>
+          <TextField
+            fullWidth
+            value={kickCode}
+            onChange={(e) => setKickCode(e.target.value)}
+            placeholder="27,112,0,25,250"
+            inputProps={{ 'aria-label': 'Cash Drawer Kick Code', title: `Sent as hex ${kickHexPreview}` }}
+            sx={REF_FIELD_SX}
+          />
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          {/* Reference "Ignore Kick" toggle: switch + label, vertically centred like a field row. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minHeight: 50 }}>
+            <ShopfrontSwitch
+              checked={ignoreKick}
+              onChange={(e) => setIgnoreKick(e.target.checked)}
+              inputProps={{ 'aria-label': 'Ignore Kick' }}
+            />
+            <Typography sx={{ fontSize: 16 }}>Ignore Kick</Typography>
+          </Box>
+        </Grid>
+      </Grid>
 
       {/* Tyro terminal pairing — stored per browser device (reference model:
           the pairing lives in the browser). Replacement terminal = clear here,

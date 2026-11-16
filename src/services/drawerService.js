@@ -13,6 +13,8 @@
 const PRINTER_KEY = 'drawerPrinterName';
 const KICK_KEY = 'drawerKickCode';
 const BRAND_KEY = 'drawerPrinterBrand';
+// Reference "Ignore Kick" (Hardware Connect Settings): never send the command.
+const IGNORE_KEY = 'drawerIgnoreKick';
 
 // Standard ESC/POS drawer-kick: ESC p m=0 t1=25 t2=250.
 // Decimal "27,112,0,25,250"  ==  hex "1B700019FA"  (Epson + most generic printers).
@@ -22,6 +24,7 @@ const DEFAULT_KICK_HEX = '1B700019FA';
 let qzPromise = null;
 let connecting = null;
 let securityConfigured = false;
+const CONNECT_TIMEOUT_MS = 3000;
 
 async function getQz() {
   if (!qzPromise) {
@@ -63,6 +66,14 @@ export function setPrinterBrand(brand) {
   else localStorage.removeItem(BRAND_KEY);
 }
 
+export function getIgnoreKick() {
+  return localStorage.getItem(IGNORE_KEY) === '1';
+}
+export function setIgnoreKick(on) {
+  if (on) localStorage.setItem(IGNORE_KEY, '1');
+  else localStorage.removeItem(IGNORE_KEY);
+}
+
 /**
  * Convert a kick code to a hex string for QZ Tray.
  * Accepts decimal CSV ("27,112,0,25,250") or hex ("1B700019FA" / "1B 70 00 19 FA").
@@ -89,7 +100,17 @@ async function ensureConnected() {
   await configureSecurity(qz);
   if (qz.websocket.isActive()) return qz;
   if (!connecting) {
-    connecting = Promise.resolve(qz.websocket.connect()).finally(() => {
+    // QZ Tray listens on 8181 (wss) and 8182 (ws) on this machine. The library
+    // default walks two hosts x eight ports, which takes ~20s to give up when
+    // the agent is not running - far too long for an Open Drawer key. Try the
+    // two real ports on localhost only, and cap the whole attempt at 5s.
+    const attempt = Promise.resolve(
+      qz.websocket.connect({ host: 'localhost', port: { secure: [8181], insecure: [8182] }, retries: 0 })
+    );
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('QZ Tray connection timed out')), CONNECT_TIMEOUT_MS)
+    );
+    connecting = Promise.race([attempt, timeout]).finally(() => {
       connecting = null;
     });
   }
@@ -121,13 +142,20 @@ export async function listPrinters() {
 export const DRAWER_DISABLED_MESSAGE =
   'The cash drawer is disabled for this register (Settings > Registers > Never Open Cash Drawer).';
 
-export async function kickDrawer({ printerName, kickCode, registerId } = {}) {
+export async function kickDrawer({ printerName, kickCode, registerId, ignoreKick } = {}) {
   // Register setting wins over hardware: never send the kick when disabled.
   const { default: settingsService } = await import('./settingsService');
   if (await settingsService.isCashDrawerDisabled(registerId)) {
     const err = new Error(DRAWER_DISABLED_MESSAGE);
     err.code = 'DRAWER_DISABLED';
     throw err;
+  }
+
+  // Hardware "Ignore Kick": the open is still logged by the caller, the
+  // printer just never receives the command (no drawer on this terminal).
+  const ignore = ignoreKick != null ? Boolean(ignoreKick) : getIgnoreKick();
+  if (ignore) {
+    return { printer: null, hex: parseKickToHex(kickCode != null ? kickCode : getKickCode()), skipped: true };
   }
 
   let qz;
@@ -159,10 +187,31 @@ export async function kickDrawer({ printerName, kickCode, registerId } = {}) {
   }
 }
 
+/**
+ * Pop the physical drawer from a sale-flow action (Open Drawer sale key,
+ * "Always Open Cash Drawer" payment method). Hardware problems must never
+ * block the sale, so QZ-unavailable / no-printer / print errors are swallowed
+ * and reported in the result; only DRAWER_DISABLED (register setting) throws,
+ * because then the open must not be logged either.
+ * @returns {Promise<{kicked:boolean, skipped:boolean, printer:string|null, code:string|null}>}
+ */
+export async function kickDrawerQuietly({ registerId } = {}) {
+  try {
+    const res = await kickDrawer({ registerId });
+    return { kicked: !res.skipped, skipped: Boolean(res.skipped), printer: res.printer, code: null };
+  } catch (e) {
+    if (e?.code === 'DRAWER_DISABLED') throw e;
+    return { kicked: false, skipped: false, printer: null, code: e?.code || 'PRINT_FAILED' };
+  }
+}
+
 export default {
   isQzAvailable,
   listPrinters,
   kickDrawer,
+  kickDrawerQuietly,
+  getIgnoreKick,
+  setIgnoreKick,
   getDrawerPrinter,
   setDrawerPrinter,
   getKickCode,
