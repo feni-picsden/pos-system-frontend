@@ -8,12 +8,14 @@ export const priceSetService = {
     return response.data;
   },
 
-  // Products still carrying prices in the set — the deletion-guard view.
+  // The set's View page data: every price row (product, category, ex/inc tax)
+  // plus the per-product deletion-guard list.
   async getPriceSetProducts(id) {
-    const response = await apiClient.get(`/price-sets/${id}/products`);
+    const response = await apiClient.get(`/price-sets/${id}/products`, { noCache: true });
     return response.data;
   },
 
+  // { name, inheritFromId: null (Default Price) | setId }
   async createPriceSet(data) {
     const response = await apiClient.post('/price-sets', data);
     return response.data;
@@ -21,6 +23,12 @@ export const priceSetService = {
 
   async updatePriceSet(id, data) {
     const response = await apiClient.put(`/price-sets/${id}`, data);
+    return response.data;
+  },
+
+  // A copy of the set (all its prices) under a new name.
+  async clonePriceSet(id, name) {
+    const response = await apiClient.post(`/price-sets/${id}/clone`, { name });
     return response.data;
   },
 

@@ -896,16 +896,38 @@ const SaleKeyPage = () => {
     activePriceSetRef.current = id ? Number(id) : null;
     setActivePriceSetId(activePriceSetRef.current);
   };
+  // Switching the active set (register switch, or the Change Price Set key)
+  // re-prices the products already in the cart through the new set, the way the
+  // key always did — otherwise a line added on a register with a Wholesale set
+  // kept its wholesale price after moving to a register that sells at default.
+  // Combos, gift cards and return (negative) lines keep their prices.
+  const repriceCartForActiveSet = () => {
+    setCart(prev => prev.map(item => {
+      if (item.isCombo || item.giftCardId || !item.productId) return item;
+      const qty = parseFloat(item.quantity) || 0;
+      if (qty <= 0) return item;
+      const product = resolveProductLocal(item.productId, item.name);
+      if (!product) return item;
+      const base = calculateBasePriceForQuantity(product, qty);
+      return { ...item, price: computePriceListTotal(product, qty, base) };
+    }));
+  };
+  const switchActivePriceSet = (id) => {
+    const next = id ? Number(id) : null;
+    const changed = next !== activePriceSetRef.current;
+    applyActivePriceSet(next);
+    if (changed) repriceCartForActiveSet();
+  };
   useEffect(() => {
     const loadRegisterDefaultPriceSet = async () => {
-      if (!selectedRegister?.id) { applyActivePriceSet(null); return; }
+      if (!selectedRegister?.id) { switchActivePriceSet(null); return; }
       try {
         const res = await settingsService.getRegisterSettings(selectedRegister.id);
-        applyActivePriceSet(res?.settings?.defaultPriceSetId || null);
+        switchActivePriceSet(res?.settings?.defaultPriceSetId || null);
         // Setup > General > Registers > Default Payment Method (Enter on finalise)
         setRegisterDefaultPaymentId(res?.settings?.defaultPaymentMethodId || null);
       } catch {
-        applyActivePriceSet(null); // no register settings saved yet — default prices
+        switchActivePriceSet(null); // no register settings saved yet — default prices
         setRegisterDefaultPaymentId(null);
       }
     };
@@ -4400,20 +4422,11 @@ const SaleKeyPage = () => {
               // sale to the products' Default Price Set. Without this there is no
               // way back to default short of clearing the sale.
               const wasActive = activePriceSetRef.current === Number(match.id);
-              applyActivePriceSet(wasActive ? null : match.id);
-              // Combos, gift cards and return (negative) lines keep their prices.
               // ponytail: reprice = base price through the new set (+ the sale's
               // current price-list layer); the promotion best-of re-check is
               // skipped here (next add applies it as usual).
-              setCart(prev => prev.map(item => {
-                if (item.isCombo || item.giftCardId || !item.productId) return item;
-                const qty = parseFloat(item.quantity) || 0;
-                if (qty <= 0) return item;
-                const product = resolveProductLocal(item.productId, item.name);
-                if (!product) return item;
-                const base = calculateBasePriceForQuantity(product, qty);
-                return { ...item, price: computePriceListTotal(product, qty, base) };
-              }));
+              applyActivePriceSet(wasActive ? null : match.id);
+              repriceCartForActiveSet();
               setSelectedCartItem(null);
               notify(wasActive ? 'Price set: Default' : `Price set: ${match.name}`);
               return;

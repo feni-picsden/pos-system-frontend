@@ -177,6 +177,8 @@ const ProductView = () => {
   // column needs the set list to name one. Optional: it falls back to generic
   // wording if the list can't be loaded.
   const [priceSets, setPriceSets] = useState([]);
+  // Reference: rows of other price sets are collapsed under "Show Other Prices".
+  const [showOtherPrices, setShowOtherPrices] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -890,9 +892,13 @@ const ProductView = () => {
                 </TableCell>
               </TableRow>
               {Array.isArray(product?.prices) && product.prices.length > 0 ? (
-                [...product.prices]
-                  .sort((a, b) => (a.quantity || 0) - (b.quantity || 0))
-                  .map((p, idx) => {
+                (() => {
+                  // Reference: Default Price Set rows under "Relevant Prices"; rows of
+                  // other price sets behind a grey "Show Other Prices" row.
+                  const sorted = [...product.prices].sort((a, b) => (a.quantity || 0) - (b.quantity || 0));
+                  const relevant = sorted.filter((p) => (p.priceSetId ?? null) == null);
+                  const other = sorted.filter((p) => (p.priceSetId ?? null) != null);
+                  const renderRow = (p, idx) => {
                     const qty = p.quantity || 1;
                     const price = Number(p.price) || 0;
                     // Reference: the Cost column is the product's CURRENT cost (per
@@ -928,7 +934,25 @@ const ProductView = () => {
                         </TableCell>
                       </TableRow>
                     );
-                  })
+                  };
+                  return (
+                    <>
+                      {relevant.map((p, idx) => renderRow(p, `r${idx}`))}
+                      {other.length > 0 && (
+                        <TableRow
+                          data-testid="other-prices-toggle"
+                          onClick={() => setShowOtherPrices((v) => !v)}
+                          sx={{ backgroundColor: "#ebebeb", cursor: "pointer" }}
+                        >
+                          <TableCell colSpan={5} sx={{ fontSize: "19.2px !important", padding: "16px !important" }}>
+                            {showOtherPrices ? "Hide Other Prices" : "Show Other Prices"}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {showOtherPrices && other.map((p, idx) => renderRow(p, `o${idx}`))}
+                    </>
+                  );
+                })()
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} sx={{ padding: "16px !important" }}>

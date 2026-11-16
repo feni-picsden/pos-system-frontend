@@ -2735,14 +2735,15 @@ const EditOrder = () => {
                   {/* Reference last column: cost change arrow + % (grey) */}
                   <Grid item xs={6} sm={inline ? 0.5 : 0.8} sx={{ textAlign: 'center' }}>
                     {costChangePct !== 0 && !landedPending && (
-                      <>
-                        <Typography sx={{ fontSize: 18, lineHeight: 1, color: '#676b72' }}>
+                      /* Cost went up: green; cost went down: red. Arrow + % side by side. */
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: costChangePct > 0 ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
+                        <Typography component="span" sx={{ fontSize: 14, lineHeight: 1 }}>
                           {costChangePct > 0 ? '↑' : '↓'}
                         </Typography>
-                        <Typography sx={{ fontSize: 12, color: '#676b72' }}>
+                        <Typography component="span" sx={{ fontSize: 14, lineHeight: 1 }}>
                           {Math.abs(costChangePct).toFixed(2)}%
                         </Typography>
-                      </>
+                      </Box>
                     )}
                   </Grid>
                 </Grid>

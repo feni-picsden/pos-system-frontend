@@ -1482,6 +1482,17 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
+                        {/* Reference: a price set's View is its own page */}
+                        <Route
+                          path="/settings/pricesets/:id"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["settings.view"]}
+                            >
+                              <PriceSets />
+                            </PermissionProtectedRoute>
+                          }
+                        />
                         <Route
                           path="/settings/rules"
                           element={

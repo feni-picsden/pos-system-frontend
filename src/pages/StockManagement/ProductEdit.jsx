@@ -588,6 +588,8 @@ const ProductEdit = () => {
   const [familyPick, setFamilyPick] = useState(null);
   // Price row being typed in: shown raw; every other row shows 2 decimals (reference).
   const [editingPriceRow, setEditingPriceRow] = useState(null);
+  // Reference: price rows in other price sets are collapsed under "Show Other Prices".
+  const [showOtherPrices, setShowOtherPrices] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -2768,8 +2770,12 @@ const ProductEdit = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {formData.prices.map((price, index) => (
-                        <TableRow key={index} sx={dataTableRowSx(index)}>
+                      {(() => {
+                      // Reference: the Default Price Set rows are the "Relevant
+                      // Prices"; rows in other price sets sit under a collapsible
+                      // "+ Show Other Prices" / "− Hide Other Prices" row.
+                      const renderPriceRow = (price, index) => (
+                        <TableRow key={index} sx={dataTableRowSx(index)} data-testid={isDefaultPriceRow(price) ? 'price-row-relevant' : 'price-row-other'}>
                           <TableCell>
                             {/* Each price point belongs to a Price Set; no set = the
                                 default one, which Setup names. A default row reads as
@@ -2788,12 +2794,13 @@ const ProductEdit = () => {
                                     ...newPrices[index],
                                     priceSetId: e.target.value === '' ? null : Number(e.target.value),
                                   };
+                                  // A row moved into a set lands under "Other Prices":
+                                  // open that group so the row does not vanish.
+                                  if (e.target.value !== '') setShowOtherPrices(true);
                                   handleInputChange('prices', newPrices);
                                 }}
-                                variant={isDefaultPriceRow(price) ? 'standard' : 'outlined'}
-                                InputProps={
-                                  isDefaultPriceRow(price) ? { disableUnderline: true } : undefined
-                                }
+                                variant="standard"
+                                InputProps={{ disableUnderline: true }}
                                 // An empty value is a real choice here (the base
                                 // price row), not "nothing picked", so the cell has
                                 // to render text for it rather than sit blank.
@@ -2933,7 +2940,28 @@ const ProductEdit = () => {
                             </IconButton>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      );
+                      const relevant = [];
+                      const other = [];
+                      formData.prices.forEach((p, i) => (isDefaultPriceRow(p) ? relevant : other).push([p, i]));
+                      return (
+                        <>
+                          {relevant.map(([p, i]) => renderPriceRow(p, i))}
+                          {other.length > 0 && (
+                            <TableRow
+                              data-testid="other-prices-toggle"
+                              onClick={() => setShowOtherPrices((v) => !v)}
+                              sx={{ cursor: 'pointer', '& td': { fontSize: 18, color: '#000', py: 1.5, border: '1px solid #000' } }}
+                            >
+                              <TableCell colSpan={6}>
+                                {showOtherPrices ? '−  Hide Other Prices' : '+  Show Other Prices'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {showOtherPrices && other.map(([p, i]) => renderPriceRow(p, i))}
+                        </>
+                      );
+                      })()}
                     </TableBody>
                   </Table>
                 </TableContainer>

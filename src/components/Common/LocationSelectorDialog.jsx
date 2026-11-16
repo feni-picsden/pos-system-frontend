@@ -263,6 +263,9 @@ const LocationSelectorDialog = () => {
         <Typography sx={{ fontSize: 16, fontWeight: 400, mb: '8px' }}>
           Which register are you currently using at {getOutletName()}?
         </Typography>
+        {/* Whole list (registers + "Not using a register") scrolls only when it is
+            longer than 8 rows; each row is 57px + 16px gap. */}
+        <Box sx={{ maxHeight: availableRegisters.length > 8 ? 'min(584px, 70vh)' : 'none', overflowY: 'auto', pr: '4px', mr: '-4px' }}>
         {availableRegisters.map((register) => {
           // Check if register is in use by current user
           const isInUseByCurrentUser = register.currentUser &&
@@ -317,6 +320,7 @@ const LocationSelectorDialog = () => {
           <Typography component="span" sx={{ fontSize: 16, fontWeight: 400 }}>
             Not using a register
           </Typography>
+        </Box>
         </Box>
         </>
         )}
