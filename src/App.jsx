@@ -107,6 +107,7 @@ import AccountBilling from './pages/Setup/AccountBilling';
 import GeneralSettings from './pages/Setup/GeneralSettings';
 import AdditionalInformation from './pages/Setup/AdditionalInformation';
 import PriceSets from './pages/Setup/PriceSets';
+import BarcodeTemplates from './pages/Setup/BarcodeTemplates';
 import PageRules from './pages/Setup/PageRules';
 import EnterprisePolicies from './pages/Setup/EnterprisePolicies';
 import Integrations from './pages/Setup/Integrations';
@@ -1764,9 +1765,20 @@ function App() {
                             </PermissionProtectedRoute>
                           }
                         />
-                        {/* Barcode Templates — now under Settings (reference parity); Utilities path kept */}
+                        {/* Settings > Barcode Templates (reference /settings/barcodes). The
+                            older product-barcodes report keeps its Utilities path. */}
                         <Route
                           path="/settings/barcodes"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredPermissions={["modify_barcode_templates"]}
+                            >
+                              <BarcodeTemplates />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/utilities/barcodes"
                           element={
                             <PermissionProtectedRoute
                               requiredPermissions={["modify_barcode_templates"]}
@@ -1774,10 +1786,6 @@ function App() {
                               <Barcodes />
                             </PermissionProtectedRoute>
                           }
-                        />
-                        <Route
-                          path="/utilities/barcodes"
-                          element={<Navigate to="/settings/barcodes" replace />}
                         />
 
                         {/* Any remaining old /setup/* deep link → /settings/* equivalent */}

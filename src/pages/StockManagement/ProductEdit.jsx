@@ -89,6 +89,7 @@ import {
   ArrowDropDown as ArrowDropDownIcon,
   WarningAmberOutlined as WarningAmberIcon,
   AccessTimeOutlined as FuturePriceClockIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import productService from '../../services/productService';
@@ -106,6 +107,7 @@ import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete
 import { taxRateService } from '../../services/taxRateService';
 import { additionalFieldService } from '../../services/additionalFieldService';
 import { priceSetService } from '../../services/priceSetService';
+import { barcodeTemplateService } from '../../services/barcodeTemplateService';
 import futurePriceService from '../../services/futurePriceService';
 import { syncPriceRows, rowQuantity } from '../../utils/priceRowSync';
 import { priceSourceLabel, isDefaultPriceRow } from '../../utils/priceSourceLabel';
@@ -727,6 +729,11 @@ const ProductEdit = () => {
 
   // Settings > Price Sets — options for assigning a price point to a set.
   const [priceSets, setPriceSets] = useState([]);
+  // Barcode Templates (Setup > Barcode Templates). The product's "Use Barcode
+  // Templates" toggle reveals the Template column; it is derived from the rows
+  // (on when any row carries a template) and can be switched on by hand.
+  const [barcodeTemplates, setBarcodeTemplates] = useState([]);
+  const [useBarcodeTemplatesOn, setUseBarcodeTemplatesOn] = useState(false);
 
   // Utilities > Future Prices still pending for this product (reference: a clock
   // icon beside the sell price; clicking it offers "Apply Price" now).
@@ -834,6 +841,13 @@ const ProductEdit = () => {
     priceSetService.getPriceSets()
       .then(({ priceSets: sets }) => setPriceSets(sets || []))
       .catch((e) => console.error('Error loading price sets:', e));
+    // Barcode templates — the Template column on the Barcodes tab (only when
+    // Setup > General > Use Barcode Templates is on).
+    if (generalSettingsRef.current?.useBarocodeTemplates) {
+      barcodeTemplateService.getTemplates()
+        .then(({ templates }) => setBarcodeTemplates(templates || []))
+        .catch((e) => console.error('Error loading barcode templates:', e));
+    }
     loadPendingFuturePrices(id);
   }, [id, isTrueSuperAdmin, getOutletId]);
 
@@ -944,10 +958,10 @@ const ProductEdit = () => {
         maxOnHandCases: response.product.maxOnHandCases || '',
         maxOnHandItems: response.product.maxOnHandItems || '',
         reorderRounding: response.product.reorderRounding || 'No Rounding',
-        barcodes: (response.product.barcodes || []).map(barcode => 
-          typeof barcode === 'string' 
-            ? { quantity: 1, code: barcode }
-            : barcode
+        barcodes: (response.product.barcodes || []).map(barcode =>
+          typeof barcode === 'string'
+            ? { quantity: 1, code: barcode, templateId: null }
+            : { templateId: null, ...barcode }
         ),
         orderNotes: response.product.orderNotes || '',
         invoiceNotes: response.product.invoiceNotes || '',
@@ -1759,9 +1773,17 @@ const ProductEdit = () => {
       ...prev,
       // Reference: a new barcode row's Quantity starts blank; the server stores
       // a blank pack quantity as 1 (sanitizeBarcodesForStore).
-      barcodes: [...prev.barcodes, { quantity: '', code: '' }]
+      barcodes: [...prev.barcodes, { quantity: '', code: '', templateId: null }]
     }));
   };
+
+  // "Use Barcode Templates" follows the rows: a loaded product with a templated
+  // row shows the Template column straight away.
+  useEffect(() => {
+    if ((formData.barcodes || []).some((b) => b && b.templateId != null)) setUseBarcodeTemplatesOn(true);
+  }, [formData.barcodes]);
+  const barcodeTemplatesFeatureOn = generalSettings?.useBarocodeTemplates === true;
+  const showTemplateColumn = barcodeTemplatesFeatureOn && useBarcodeTemplatesOn;
 
   const removeBarcode = (index) => {
     setFormData(prev => ({
@@ -3198,16 +3220,51 @@ const ProductEdit = () => {
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Barcodes</Typography>
           </Box>
           
+          {/* Reference (art. 360060962031): "Enable the Use Barcode Templates toggle"
+              then pick a template per barcode row. Only offered once Setup >
+              General > Use Barcode Templates is on. */}
+          {barcodeTemplatesFeatureOn && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Use Barcode Templates <FavoriteStar field="Use Barcode Templates" />
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <ShopfrontSwitch
+                  checked={useBarcodeTemplatesOn}
+                  inputProps={{ 'aria-label': 'Use Barcode Templates' }}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setUseBarcodeTemplatesOn(on);
+                    if (!on) {
+                      // Off: rows drop their template (and a prize row's negative quantity).
+                      handleInputChange('barcodes', (formData.barcodes || []).map((b) => ({
+                        ...b,
+                        templateId: null,
+                        quantity: b.quantity === '' ? '' : Math.max(1, parseInt(b.quantity, 10) || 1),
+                      })));
+                    }
+                  }}
+                />
+                <Typography variant="body2" sx={{ ml: 2, color: '#404040' }}>
+                  {useBarcodeTemplatesOn
+                    ? 'Barcodes on this product can use a Barcode Template (deli scales, lotto)'
+                    : "This product's barcodes don't use Barcode Templates"}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
           <Typography variant="subtitle1" sx={{ mb: 2 }}>
             Barcodes <FavoriteStar field="Barcodes" />
           </Typography>
-          
+
           <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>
             <Table>
               <TableHead>
                 <TableRow sx={dataTableHeadSx}>
                   <TableCell>Quantity</TableCell>
                   <TableCell>Code</TableCell>
+                  {showTemplateColumn && <TableCell>Template</TableCell>}
                   <TableCell></TableCell>
                 </TableRow>
               </TableHead>
@@ -3278,12 +3335,21 @@ const ProductEdit = () => {
                           // Units one scan adds: a whole number, at least 1 (the
                           // register ignores anything less, so never store it).
                           // A cleared box stays blank (saved as 1 by the server).
-                          newBarcodes[index].quantity = e.target.value === ''
-                            ? ''
-                            : Math.max(1, parseInt(e.target.value, 10) || 1);
+                          // A templated row may be negative: a lotto PRIZE row is
+                          // -1 so the scanned amount comes off the sale.
+                          const templated = showTemplateColumn && barcode.templateId != null;
+                          const raw = e.target.value;
+                          if (raw === '' || (templated && raw === '-')) {
+                            newBarcodes[index].quantity = raw;
+                          } else {
+                            const n = parseInt(raw, 10);
+                            newBarcodes[index].quantity = templated
+                              ? (Number.isFinite(n) && n !== 0 ? n : 1)
+                              : Math.max(1, n || 1);
+                          }
                           handleInputChange('barcodes', newBarcodes);
                         }}
-                        inputProps={{ min: 1, step: 1 }}
+                        inputProps={{ min: showTemplateColumn && barcode.templateId != null ? undefined : 1, step: 1 }}
                         size="small"
                       />
                     </TableCell>
@@ -3319,6 +3385,54 @@ const ProductEdit = () => {
                         } : undefined}
                       />
                     </TableCell>
+                    {showTemplateColumn && (
+                      <TableCell sx={{ minWidth: 190 }}>
+                        {/* Reference: "Lotto  ✕ ▾" - the template, clearable */}
+                        <Select
+                          size="small"
+                          fullWidth
+                          displayEmpty
+                          value={barcode.templateId ?? ''}
+                          inputProps={{ 'aria-label': 'Template' }}
+                          renderValue={(v) => (v === '' || v == null
+                            ? <Box component="span" sx={{ color: '#808080' }}>No template</Box>
+                            : (barcodeTemplates.find((t) => t.id === Number(v))?.name || `Template #${v}`))}
+                          onChange={(e) => {
+                            const newBarcodes = [...formData.barcodes];
+                            const v = e.target.value;
+                            newBarcodes[index] = { ...newBarcodes[index], templateId: v === '' ? null : Number(v) };
+                            if (v === '') {
+                              const q = parseInt(newBarcodes[index].quantity, 10);
+                              newBarcodes[index].quantity = Number.isFinite(q) ? Math.max(1, q) : '';
+                            }
+                            handleInputChange('barcodes', newBarcodes);
+                          }}
+                          endAdornment={barcode.templateId != null ? (
+                            <InputAdornment position="end" sx={{ mr: 2 }}>
+                              <IconButton
+                                size="small"
+                                aria-label="Clear template"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newBarcodes = [...formData.barcodes];
+                                  const q = parseInt(newBarcodes[index].quantity, 10);
+                                  newBarcodes[index] = { ...newBarcodes[index], templateId: null, quantity: Number.isFinite(q) ? Math.max(1, q) : '' };
+                                  handleInputChange('barcodes', newBarcodes);
+                                }}
+                              >
+                                <CloseIcon fontSize="small" />
+                              </IconButton>
+                            </InputAdornment>
+                          ) : null}
+                        >
+                          <MenuItem value="">No template</MenuItem>
+                          {barcodeTemplates.map((t) => (
+                            <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                          ))}
+                        </Select>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <IconButton
                         onClick={() => removeBarcode(index)}

@@ -15,22 +15,19 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
  *    that is shown regardless.
  */
 const CreatingForOutlet = ({ outletId, sx }) => {
-  const { outlets, selectedOutlet, isTrueSuperAdmin } = useSelectedOutlet();
+  const { selectedOutlet, isTrueSuperAdmin } = useSelectedOutlet();
 
-  let label;
-  let global = false;
-  if (!isTrueSuperAdmin) {
-    // Pinned user: the server stores their outlet whatever the form sends.
-    label = selectedOutlet?.name || 'your outlet';
-  } else if (outletId != null) {
-    label = outlets.find((o) => o.id === Number(outletId))?.name || `Outlet #${outletId}`;
-  } else if (selectedOutlet) {
-    // Navbar outlet selected: apiClient stamps it on the create/update call.
-    label = selectedOutlet.name;
-  } else {
-    label = 'All Outlets';
-    global = true;
-  }
+  // Pinned (outlet-bound) user: there is no outlet to choose, the server stores
+  // their outlet whatever the form sends - nothing to warn about, so no caption
+  // (user 16/11/2026: "main outlet select to not show").
+  if (!isTrueSuperAdmin) return null;
+  // An outlet is picked (navbar / register, or the form carries one): the record
+  // lands there, which is what the header already shows - no caption. Only the
+  // All Outlets case warns, because that record goes to EVERY outlet.
+  if (outletId != null || selectedOutlet) return null;
+
+  const label = 'All Outlets';
+  const global = true;
 
   // A quiet, centred caption under the dialog title — a small pill, not a
   // banner, so it reads as context rather than as a warning box. The global

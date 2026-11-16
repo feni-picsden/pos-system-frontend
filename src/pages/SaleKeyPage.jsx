@@ -100,6 +100,7 @@ import { claimTakeoverUI } from '../services/registerControl';
 import giftCardService from '../services/giftCardService';
 import priceListService from '../services/priceListService';
 import { priceSetService } from '../services/priceSetService';
+import { barcodeTemplateService } from '../services/barcodeTemplateService';
 import { resolvePriceListLine } from '../utils/priceListEngine';
 import { roundTender, roundingAdjustment } from '../utils/paymentRounding';
 
@@ -2426,8 +2427,9 @@ const SaleKeyPage = () => {
       if (asked == null || asked <= 0) return false;
       promotionQuantity = asked;
     }
-    let priceOverride = null;
-    if (product.requestPrice) {
+    // A Barcode Template scan already knows the price (deli scale / lotto ticket).
+    let priceOverride = Number.isFinite(options?.priceOverride) ? Number(options.priceOverride) : null;
+    if (priceOverride == null && product.requestPrice) {
       const asked = await askValue({ title: `Price — ${product.name}`, mode: 'price', initial: '' });
       if (asked == null || asked < 0) return false;
       priceOverride = asked;
@@ -2515,7 +2517,11 @@ const SaleKeyPage = () => {
           price: newPrice,
           // Pre-promotion total: what the footer Savings line and the receipt
           // subtract the charged price from.
-          normalPrice: calculateNormalPriceForQuantity(product, promotionQuantity),
+          // A Barcode Template scan IS the product's price for this line (lotto
+          // ticket / deli label): no "saving" against the ladder price.
+          normalPrice: options?.fromBarcodeTemplate && priceOverride != null
+            ? newPrice
+            : calculateNormalPriceForQuantity(product, promotionQuantity),
           unitCost: unitCost,
           retailTaxRate: product.retailTaxRate,
           taxPercent: getTaxRatePercent(product.retailTaxRate),
@@ -2806,6 +2812,15 @@ const SaleKeyPage = () => {
       }
     }
 
+    // Barcode Templates (Setup > General > Use Barcode Templates): a deli-scale
+    // or lotto barcode carries the product identifier AND the price, so no
+    // product owns the whole code. Match it against the templates and add the
+    // product at the scanned price (quantity from the row: 1, or -1 for a prize).
+    if (settingsService.getCachedGeneralSettings().useBarocodeTemplates === true) {
+      const handled = await addFromBarcodeTemplate(code);
+      if (handled) return true;
+    }
+
     // No product anywhere owns this code. A long all-digit code at this point is
     // a receipt barcode (sale number) — recall it as a return.
     if (!productOnly && mayBeSaleNumber) {
@@ -2813,6 +2828,66 @@ const SaleKeyPage = () => {
     }
 
     return false;
+  };
+
+  // Resolve a scanned code through the Barcode Templates; true when a line was added.
+  const addFromBarcodeTemplate = async (code) => {
+    let matches = [];
+    try {
+      const resp = await barcodeTemplateService.scan(code, getEffectiveOutletId());
+      matches = Array.isArray(resp?.matches) ? resp.matches : [];
+    } catch (err) {
+      if (err?.response?.status !== 404) console.error('Barcode template lookup failed:', err);
+      return false;
+    }
+    if (!matches.length) return false;
+    const hit = matches[0];
+    const product = resolveProductLocal(hit.productId, hit.productName)
+      || (await productService.getProduct(hit.productId).catch(() => null))?.product;
+    if (!product) return false;
+    const sign = Number(hit.quantity) < 0 ? -1 : 1;
+    let qty = Math.abs(Number(hit.quantity)) || 1;
+    let price = hit.price;
+    if (price == null) {
+      // Template carries no price ($/C): sell the row quantity off the ladder.
+      const result = await handleAddProductFromSearch(product, qty * sign, { barcodeQuantity: qty });
+      return !!result;
+    }
+    if (hit.recalculateQuantity) {
+      // Reference: price point 1 for $4, scanned $8 -> quantity 2 (price stays the scanned $8).
+      const unit = calculateBasePriceForQuantity(product, 1);
+      if (unit > 0) qty = Math.round((price / unit) * 1000) / 1000 || qty;
+    }
+    // Line total = scanned price; per-unit override = price / qty.
+    const result = await handleAddProductFromSearch(product, qty, {
+      barcodeQuantity: qty,
+      priceOverride: qty > 0 ? price / qty : price,
+      fromBarcodeTemplate: true,
+    });
+    if (!result || result === 'blocked') return false;
+    if (sign < 0) {
+      // A PRIZE row (quantity -1): the scanned amount comes OFF the sale, so the
+      // line just added is turned into a negative (refund) line.
+      setCart((prev) => {
+        const next = [...prev];
+        for (let i = next.length - 1; i >= 0; i -= 1) {
+          const it = next[i];
+          if ((it.productId === product.id || it.id === product.id) && (parseFloat(it.quantity) || 0) > 0
+            && Math.abs((parseFloat(it.price) || 0) - price) < 0.005) {
+            next[i] = {
+              ...it,
+              quantity: -Math.abs(parseFloat(it.quantity) || qty),
+              price: -Math.abs(parseFloat(it.price) || price),
+              normalPrice: -Math.abs(parseFloat(it.normalPrice) || price),
+            };
+            break;
+          }
+        }
+        return next;
+      });
+    }
+    if (hit.templateName) notify(`${hit.templateName}: ${product.name} ${sign < 0 ? '-' : ''}$${Number(price).toFixed(2)}`);
+    return true;
   };
 
   // Shared by the Enter-key scan path and the auto-scan debounce: dedupes

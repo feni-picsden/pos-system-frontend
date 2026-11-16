@@ -444,7 +444,7 @@ const fmtMoney = (n) => { const v = Number(n || 0); return `${v < 0 ? '-' : ''}$
 const RegisterClosures = () => {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
-  const [, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   // Single source of truth for both ends so neither handler can ship a stale sibling value.
   const [range, setRange] = useState({ start: null, end: null });
   // Reference filter row: Outlets / Registers / Date Range.
@@ -619,6 +619,13 @@ const RegisterClosures = () => {
           </TableRow>
         </TableHead>
         <TableBody>
+          {!loading && rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={7} sx={{ ...cellSx, textAlign: 'center', color: '#676b72', py: 4 }} data-testid="closures-empty">
+                No register closures found for this date range.
+              </TableCell>
+            </TableRow>
+          )}
           {rows.map((rc, i) => (
             <TableRow key={rc.id} sx={{ bgcolor: i % 2 ? '#f8f8f8' : '#fff' }}>
               <TableCell sx={cellSx}>{rc.register?.name || rc.registerId}</TableCell>
