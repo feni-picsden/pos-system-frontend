@@ -54,7 +54,7 @@ import EditReasonsSlideOver from '../../components/Settings/EditReasonsSlideOver
 import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS, COMPANY_CONSTRAINTS, validateCompanyNumbers } from './generalSettingsFields';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 import { formatDateValueInZone } from '../../utils/dateFormat';
-import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { formatSettingsDate, formatSettingsTime } from '../../utils/appDateTime';
 import saleKeyService from '../../services/saleKeyService';
 import settingsService, { GENERAL_DEFAULTS } from '../../services/settingsService';
 import outletService from '../../services/outletService';
@@ -598,8 +598,14 @@ const GeneralSettings = () => {
   };
 
   // "Last updated" on the store's clock (reference: Melbourne time on a
-  // Melbourne store, whatever the browser's zone).
-  const formatStamp = (iso) => formatAppDateTime(iso) || null;
+  // Melbourne store, whatever the browser's zone), laid out with the company's
+  // own Date Format / Time Format so the stamps follow the setting picked here.
+  const formatStamp = (iso) => {
+    if (!iso) return null;
+    const d = formatSettingsDate(iso);
+    const t = formatSettingsTime(iso);
+    return d ? `${d}${t ? ' ' + t : ''}` : null;
+  };
 
   // Per-key stamp, falling back to the row-level updatedAt, else an em dash -
   // never a hardcoded date.
@@ -1399,10 +1405,12 @@ const GeneralSettings = () => {
           document.getElementById(`setting-${slugify(label || '')}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return;
         }
-        await settingsService.updateGeneralSettings(companySettings);
+        // The PUT answers with the fresh per-key stamps: show them now, not on
+        // the next reload ("- Last updated" used to keep the old time after Save).
+        captureStamps('company', await settingsService.updateGeneralSettings(companySettings));
       }
       if (dirty.outlet) {
-        await settingsService.updateOutletSettings(outletSettings, selectedOutlet);
+        captureStamps('outlet', await settingsService.updateOutletSettings(outletSettings, selectedOutlet));
         // Every consumer of the outlet's email (receipts, statements) reads the
         // Outlet record, not this blob - keep the record in step or the edit is
         // invisible everywhere but this page.
@@ -1419,7 +1427,7 @@ const GeneralSettings = () => {
       // No register selected (outlet without registers): nothing to write - an
       // id-less PUT would land on the legacy shared register row.
       if (dirty.register && selectedRegister) {
-        await settingsService.updateRegisterSettings(registerSettings, selectedRegister);
+        captureStamps('register', await settingsService.updateRegisterSettings(registerSettings, selectedRegister));
         if (selectedRegister) {
           await customerDisplayService.updateRegisterConfig(Number(selectedRegister), {
             templateId: registerCustomerDisplaySettings.templateId || null,
@@ -1434,7 +1442,9 @@ const GeneralSettings = () => {
         for (const name of selectedUsers) {
           const target = users.find(u => u.name === name);
           if (target) {
-            await settingsService.updateUserSettings(target.id, userSettings);
+            const res = await settingsService.updateUserSettings(target.id, userSettings);
+            // the first picked user is the one whose stamps the form shows
+            if (name === selectedUsers[0]) captureStamps('user', res);
           }
         }
       }
@@ -2096,6 +2106,7 @@ const GeneralSettings = () => {
             </SettingRow>
             <SettingRow
               label="Default Expiry Amount"
+              updated={stampFor('outlet', 'defaultExpiryAmount')}
               description={renderRichText('The default amount of time until the gift card expires. Used with **Default expiry period** to determine the default expiry date.')}
             >
               <TextField
@@ -2109,6 +2120,7 @@ const GeneralSettings = () => {
             </SettingRow>
             <SettingRow
               label="Default Expiry Period"
+              updated={stampFor('outlet', 'defaultExpiryPeriod')}
               description={renderRichText('The default period until the gift card expires. Used with **Default expiry amount** to determine the default expiry date.')}
             >
               <FormControl fullWidth size="small">
