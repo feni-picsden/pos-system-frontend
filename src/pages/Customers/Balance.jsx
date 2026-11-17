@@ -32,6 +32,7 @@ import {
   Avatar,
   Snackbar,
 } from "@mui/material";
+import { EmptyBlock } from "../../components/Common/EmptyResults";
 import { DateCalendar } from "@mui/x-date-pickers/DateCalendar";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -1246,6 +1247,10 @@ const Balance = () => {
         </Alert>
       </Snackbar>
 
+      {/* Reference: nothing matched = no table, the big "No Customers" block. */}
+      {!loading && filteredCustomers.length === 0 ? (
+        <EmptyBlock title="No Customers" subtitle="No customers were found." testId="statements-empty" />
+      ) : (
       <TableContainer sx={{ mt: 1 }}>
         <Table
           sx={{
@@ -1331,24 +1336,6 @@ const Balance = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {filteredCustomers.length === 0 && !loading && (
-              <TableRow>
-                <TableCell
-                  colSpan={3}
-                  align="center"
-                  sx={{ py: 4 }}
-                >
-                  <Typography color="text.secondary">
-                    {searchTerm ||
-                    appliedCustomerGroup ||
-                    appliedMinBalance ||
-                    appliedMaxBalance
-                      ? "No customers found matching your filters"
-                      : "No customers found"}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
           <TableFooter>
             <TableRow
@@ -1369,6 +1356,7 @@ const Balance = () => {
           </TableFooter>
         </Table>
       </TableContainer>
+      )}
 
       <Dialog 
         open={viewStatementDialogOpen}

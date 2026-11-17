@@ -21,6 +21,7 @@ import {
   DialogActions,
   InputAdornment
 } from '@mui/material';
+import { NoResults } from '../../components/Common/EmptyResults';
 import {
   Add as AddIcon,
   Remove as RemoveIcon,
@@ -1219,6 +1220,9 @@ const Promotions = () => {
           <CircularProgress size={22} sx={{ color: '#737373' }} />
           <Typography sx={{ fontSize: 16, color: '#737373' }}>Loading results...</Typography>
         </Box>
+      ) : filteredPromotions.length === 0 ? (
+        // reference: nothing matched = no table, just the centred message
+        <NoResults />
       ) : (
         <TableContainer sx={{ mt: 1 }}>
           <Table sx={{ borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>

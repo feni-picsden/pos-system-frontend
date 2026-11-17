@@ -27,8 +27,8 @@ import {
   DeleteOutline as DeleteIcon,
   CheckCircleOutline as CheckCircleIcon,
   SearchOutlined as SearchIcon,
-  BlockOutlined as BlockIcon,
 } from '@mui/icons-material';
+import { EmptySetGlyph } from '../../components/Common/EmptyResults';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
@@ -454,9 +454,9 @@ const FutureCosts = () => {
 
       {!loadedOnce ? null : rows.length === 0 && !filtersActive ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, py: 8 }}>
-          <BlockIcon sx={{ width: 200, height: 160, color: '#000' }} />
+          <EmptySetGlyph />
           <Box>
-            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000', mb: 1 }}>
+            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000', mb: 3 }}>
               No Future Costs
             </Typography>
             <Typography sx={{ color: '#000', fontSize: 16 }}>There are no costs set to be activated in the future.</Typography>

@@ -20,6 +20,7 @@ import {
   Snackbar,
   SvgIcon,
 } from "@mui/material";
+import { NoResults } from "../../components/Common/EmptyResults";
 import {
   Add as AddIcon,
   Remove as RemoveIcon,
@@ -924,6 +925,8 @@ const Products = () => {
 
       {/* Products Table */}
       <Box>
+        {/* Reference: nothing matched = no table, just the centred message. */}
+        {!loading && products.length === 0 ? <NoResults /> : (
         <TableContainer sx={{ mt: 1 }}>
           <Table sx={{ borderCollapse: "separate", borderSpacing: 0 }}>
             <TableHead>
@@ -1100,6 +1103,7 @@ const Products = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        )}
 
         {/* Pagination Controls */}
         {totalPages > 1 && (

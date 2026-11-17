@@ -259,6 +259,9 @@ const SalesHistory = () => {
 
   // Reference keeps the date range in one control (dd/MM/yyyy HH:mm:ss both ends).
   const [dateRange, setDateRange] = useState(defaultDateRange);
+  // Did the last search send a date range? Drives the reference's
+  // "Would you like to search without the date period?" link.
+  const [searchedWithDate, setSearchedWithDate] = useState(false);
 
   // State for advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -344,11 +347,14 @@ const SalesHistory = () => {
     setError(null);
 
     try {
+      // ignoreDates: the "search without the date period?" link (reference) -
+      // setDateRange is async, so this run must skip the old range itself.
+      const { ignoreDates, ...rest } = overrides;
       const filterParams = {
         page: pagination.page,
         limit: pagination.limit,
         ...filters,
-        ...overrides,
+        ...rest,
       };
 
       // Hidden in-page filters follow the header: outlet comes from apiClient's
@@ -362,12 +368,13 @@ const SalesHistory = () => {
       if (!filters.isDiscounted) delete filterParams.isDiscounted;
 
       // Date range is inclusive of both boundary datetimes (documented behaviour)
-      if (dateRange?.startDate) {
+      if (!ignoreDates && dateRange?.startDate) {
         filterParams.startDate = dateRange.startDate.toISOString();
       }
-      if (dateRange?.endDate) {
+      if (!ignoreDates && dateRange?.endDate) {
         filterParams.endDate = dateRange.endDate.toISOString();
       }
+      setSearchedWithDate(Boolean(filterParams.startDate || filterParams.endDate));
 
       // Linked sale: only that sale, whatever the date range would return.
       const linkedSaleId = linkedSaleIdRef.current;
@@ -1093,13 +1100,30 @@ const SalesHistory = () => {
             {/* A failed load already shows its error above; "No sales found" would
                 read as "there were no sales" (reference shows only the error). */}
             {sales.length === 0 && !loading && !error && (
-              <Box sx={{ textAlign: "center", p: 4 }}>
-                <Typography variant="h6" color="text.secondary">
-                  No sales found
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Try adjusting your filters to see more results
-                </Typography>
+              // Reference: big black "No sales found", plus a link that re-runs the
+              // search without the date range when one was used.
+              <Box data-testid="sales-empty" sx={{ display: "flex", justifyContent: "center", py: 20 }}>
+                <Box>
+                  <Typography sx={{ fontSize: 32, color: "#000", lineHeight: 1.25 }}>
+                    No sales found
+                  </Typography>
+                  {searchedWithDate && (
+                    <Box
+                      component="a"
+                      href="#"
+                      data-testid="sales-search-without-date"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDateRange({ startDate: null, endDate: null, preset: "custom" });
+                        setPagination((prev) => ({ ...prev, page: 1 }));
+                        loadSales({ ignoreDates: true, page: 1 });
+                      }}
+                      sx={{ display: "block", fontSize: 32, color: "#0000ee", textDecoration: "underline", lineHeight: 1.25 }}
+                    >
+                      Would you like to search without the date period?
+                    </Box>
+                  )}
+                </Box>
               </Box>
             )}
           </CardContent>

@@ -25,7 +25,6 @@ import {
   CheckBoxOutlineBlankOutlined as SquareIcon,
   CheckBoxOutlined as CheckSquareIcon,
   IndeterminateCheckBoxOutlined as IndeterminateSquareIcon,
-  FindInPageOutlined as NoResultsIcon,
   Close as CloseIcon,
   QuestionMarkRounded as QuestionIcon,
 } from '@mui/icons-material';
@@ -35,6 +34,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { FileSearchGlyph } from '../../components/Common/EmptyResults';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
@@ -885,7 +885,7 @@ const ProductUtilities = () => {
             and shows a centred icon + hint instead */}
         {!loading && products.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 5, gap: 1.5 }}>
-            <NoResultsIcon sx={{ fontSize: 60, color: '#000' }} />
+            <FileSearchGlyph />
             <Typography sx={{ fontSize: 16, color: '#000' }}>
               No results found. Change search filters and try again.
             </Typography>

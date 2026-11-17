@@ -25,13 +25,13 @@ import {
   CheckBoxOutlined as CheckSquareIcon,
   CheckBox as CheckSquareSolidIcon,
   IndeterminateCheckBox as IndeterminateSolidIcon,
-  FindInPageOutlined as NoResultsIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { startOfDay, endOfDay } from 'date-fns';
 import customerService from '../../services/customerService';
 import customerGroupService from '../../services/customerGroupService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { FileSearchGlyph } from '../../components/Common/EmptyResults';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
@@ -449,7 +449,7 @@ const CustomerUtilities = () => {
             centred icon + hint (same as Product Utilities) */}
         {!loading && customers.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 5, gap: 1.5 }}>
-            <NoResultsIcon sx={{ fontSize: 60, color: '#000' }} />
+            <FileSearchGlyph />
             <Typography sx={{ fontSize: 16, color: '#000' }}>
               No results found. Change search filters and try again.
             </Typography>

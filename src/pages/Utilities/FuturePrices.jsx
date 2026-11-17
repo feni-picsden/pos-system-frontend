@@ -30,7 +30,6 @@ import {
   CheckCircleOutline as CheckCircleIcon,
   SearchOutlined as SearchIcon,
   AddOutlined as AddIcon,
-  BlockOutlined as BlockIcon,
   PriorityHighOutlined as PriorityHighIcon,
   QuestionMarkOutlined as QuestionMarkIcon,
   CheckBoxOutlineBlankOutlined as SquareIcon,
@@ -48,6 +47,7 @@ const SortGlyph = ({ active }) => (
   </svg>
 );
 import DateTimeField, { FloatLabel } from '../../components/Common/DateTimeField';
+import { EmptySetGlyph } from '../../components/Common/EmptyResults';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
@@ -957,9 +957,9 @@ const FuturePrices = () => {
         /* Reference replaces the whole table with this block when there are no rows. */
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, py: 8 }}>
           {/* Reference: 200x160 black empty-set icon, 24px black H2, black subtitle. */}
-          <BlockIcon sx={{ width: 200, height: 160, color: '#000' }} />
+          <EmptySetGlyph />
           <Box>
-            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000', mb: 1 }}>
+            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000', mb: 3 }}>
               No Future Prices
             </Typography>
             <Typography sx={{ color: '#000', fontSize: 16 }}>

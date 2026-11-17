@@ -43,7 +43,6 @@ import {
   LocalOfferOutlined as TagIcon,
   KeyboardOutlined as SaleKeysIcon,
   StyleOutlined as PromotionCategoryIcon,
-  FindInPageOutlined as NoTrashIcon,
   StackedLineChartOutlined as ReportIcon,
 } from '@mui/icons-material';
 import {
@@ -59,6 +58,7 @@ import {
 } from 'date-fns';
 import trashedItemsService from '../../services/trashedItemsService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { FileSearchGlyph } from '../../components/Common/EmptyResults';
 
 const FILTER_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' };
 
@@ -527,17 +527,42 @@ const TrashedItems = () => {
             // Reference panel is attached under the input (no elevation shadow, no border),
             // ~230px visible and scrollable.
             MenuProps={{
+              // The field sits 8px from the page edge; MUI's default 16px edge
+              // margin pushed the list 8px right of it (user 18/11/2026).
+              marginThreshold: 0,
               anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
               transformOrigin: { vertical: 'top', horizontal: 'left' },
+              // Same list look as the other app dropdowns (Settings > General):
+              // 1px frame, 46px rows, #5ebbeb hover band, picked row in sky text,
+              // no focus underline (user 18/11/2026).
+              transitionDuration: 0,
               PaperProps: {
-                sx: { maxHeight: 230, borderRadius: '8px', boxShadow: 'none', border: 0, bgcolor: '#fff' },
+                elevation: 0,
+                sx: {
+                  mt: '2px',
+                  maxHeight: 236,
+                  borderRadius: '8px',
+                  border: '1px solid #404040',
+                  boxShadow: 'none',
+                  bgcolor: '#fff',
+                  '&& .MuiMenuItem-root': { minHeight: 46, height: 46, px: 2, fontSize: 16, color: '#313439', borderBottom: 0, outline: 'none' },
+                  '&& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#38bdf8' },
+                  '&& .MuiMenuItem-root:hover, && .MuiMenuItem-root.Mui-focusVisible, && .MuiMenuItem-root.Mui-selected:hover': {
+                    bgcolor: '#5ebbeb',
+                    color: '#f8f8f8',
+                  },
+                  // Opening focuses the first row; once the mouse is in the list
+                  // only the hovered row carries the band (two blue rows looked odd).
+                  '&&:hover .MuiMenuItem-root.Mui-focusVisible:not(:hover)': { bgcolor: 'transparent', color: '#313439' },
+                  '&&:hover .MuiMenuItem-root.Mui-focusVisible.Mui-selected:not(:hover)': { color: '#38bdf8' },
+                },
               },
               MenuListProps: { sx: { py: 0 } },
             }}
           >
             {/* Reference lists the 16 types only — 'Select Type...' is the placeholder, not a row. */}
             {ITEM_TYPES.map((type) => (
-              <MenuItem key={type.value} value={type.value} sx={{ height: 56, p: '16px', fontSize: 16 }}>
+              <MenuItem key={type.value} value={type.value} disableRipple>
                 {type.label}
               </MenuItem>
             ))}
@@ -770,7 +795,7 @@ const TrashedItems = () => {
               <TableRow sx={{ bgcolor: 'transparent !important' }}>
                 <TableCell colSpan={5} align="center" sx={{ py: 4, bgcolor: 'transparent !important' }}>
                   {/* Reference empty state: document-search icon above the text */}
-                  <NoTrashIcon sx={{ fontSize: 44, color: '#000', display: 'block', mx: 'auto', mb: 0.5 }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mb: 0.5 }}><FileSearchGlyph /></Box>
                   <Typography sx={{ color: '#000', fontSize: 16 }}>No trash found.</Typography>
                 </TableCell>
               </TableRow>

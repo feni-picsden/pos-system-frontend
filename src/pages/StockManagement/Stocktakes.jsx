@@ -29,8 +29,8 @@ import {
   VisibilityOutlined,
   Close,
   ArrowDropDown,
-  Search,
 } from '@mui/icons-material';
+import { SearchGlyph } from '../../components/Common/EmptyResults';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import stocktakeService from '../../services/stocktakeService';
@@ -407,7 +407,7 @@ export default function Stocktakes() {
       {/* Table - reference hides it entirely when the filters match nothing */}
       {rows.length === 0 ? (
         <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ py: 6, color: '#676b72' }}>
-          <Search />
+          <SearchGlyph />
           <Typography sx={{ fontSize: 19, color: '#676b72' }}>No results found. Try changing the search filters</Typography>
         </Stack>
       ) : (

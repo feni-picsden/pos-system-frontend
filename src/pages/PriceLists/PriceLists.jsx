@@ -23,6 +23,7 @@ import {
   VisibilityOutlined as ViewIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
+import { SearchGlyph } from '../../components/Common/EmptyResults';
 import { Link as RouterLink } from 'react-router-dom';
 import PriceListDialog from '../../components/PriceLists/PriceListDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -216,8 +217,8 @@ const PriceLists = () => {
       {/* reference: no rows = no table at all, just the centred message */}
       {filteredLists.length === 0 ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 6, color: '#6b7280', fontSize: 20 }}>
-          <SearchIcon sx={{ fontSize: 26 }} />
-          {searchTerm ? 'No results found. Try changing the search filters' : 'No price lists found'}
+          <SearchGlyph />
+          No results found. Try changing the search filters
         </Box>
       ) : (
       <TableContainer sx={{ mt: 1 }}>

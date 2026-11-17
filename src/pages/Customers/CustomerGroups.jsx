@@ -13,6 +13,7 @@ import {
   Alert,
   TextField,
 } from '@mui/material';
+import { NoResults } from '../../components/Common/EmptyResults';
 import {
   EditOutlined as EditIcon,
   DeleteOutline as DeleteIcon,
@@ -194,7 +195,7 @@ const CustomerGroups = () => {
         </Alert>
       )}
 
-        {loading ? null: (
+        {loading ? null : filteredGroups.length === 0 ? <NoResults /> : (
         <TableContainer sx={{ mt: 1 }}>
           <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <TableHead>
@@ -267,15 +268,6 @@ const CustomerGroups = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredGroups.length === 0 && !loading && (
-                <TableRow>
-                  <TableCell colSpan={globalMode ? 4 : 3} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">
-                      {searchTerm ? 'No customer groups found matching your search' : 'No customer groups found'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </TableContainer>

@@ -14,6 +14,7 @@ import {
   InputAdornment,
   IconButton
 } from '@mui/material';
+import { NoResults } from '../../components/Common/EmptyResults';
 import {
   VisibilityOutlined as ViewIcon,
   Remove as RemoveIcon,
@@ -606,6 +607,8 @@ const RegisterClosures = () => {
       </Box>
 
 
+      {/* Reference: nothing matched = no table, just the centred message. */}
+      {!loading && rows.length === 0 ? <Box data-testid="closures-empty"><NoResults /></Box> : (
       <Table sx={{ borderCollapse: 'collapse' }}>
         <TableHead>
           <TableRow>
@@ -619,13 +622,6 @@ const RegisterClosures = () => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {!loading && rows.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={7} sx={{ ...cellSx, textAlign: 'center', color: '#676b72', py: 4 }} data-testid="closures-empty">
-                No register closures found for this date range.
-              </TableCell>
-            </TableRow>
-          )}
           {rows.map((rc, i) => (
             <TableRow key={rc.id} sx={{ bgcolor: i % 2 ? '#f8f8f8' : '#fff' }}>
               <TableCell sx={cellSx}>{rc.register?.name || rc.registerId}</TableCell>
@@ -664,6 +660,7 @@ const RegisterClosures = () => {
           ))}
         </TableBody>
       </Table>
+      )}
       {rows.length < total && <Box ref={sentinelRef} data-sentinel sx={{ height: 1 }} />}
     </Box>
   );

@@ -2029,18 +2029,29 @@ const SaleKeyPage = () => {
     // the search, that new product stayed invisible until the next sync. Asking
     // both and merging makes it sellable straight away, while a failed API call
     // still leaves the cached results standing (offline keeps working).
-    const [localProducts, localCustomers, apiProducts, apiCustomers] = await Promise.all([
+    //
+    // The cache answers in a few ms and the API in 1-6s on the remote DB, so the
+    // cached rows are shown FIRST and the API rows merged in when they land
+    // (user 17/11/2026: results took seconds to appear). Same merge, same
+    // ranking - only the wait moved.
+    const apiProductsP = productService
+      .getProducts({ search: term, limit: 10 })
+      .then((r) => r?.products || [])
+      .catch(() => []);
+    const apiCustomersP = levels.customer === 'offload'
+      ? customerService.getCustomers({ search: term, limit: 10 }, { skipOutletScope: true, silent: true })
+        .then((r) => r?.customers || []).catch(() => [])
+      : Promise.resolve([]);
+    const [localProducts, localCustomers] = await Promise.all([
       levels.product === 'offload' ? Promise.resolve([]) : posLocalDb.searchProductsAsync(term, 10, outletId),
       levels.customer === 'offload' ? Promise.resolve([]) : posLocalDb.searchCustomersAsync(term, 10, outletId),
-      productService
-        .getProducts({ search: term, limit: 10 })
-        .then((r) => r?.products || [])
-        .catch(() => []),
-      levels.customer === 'offload'
-        ? customerService.getCustomers({ search: term, limit: 10 }, { skipOutletScope: true, silent: true })
-          .then((r) => r?.customers || []).catch(() => [])
-        : Promise.resolve([]),
     ]);
+    if (seq !== searchSeqRef.current) return false;
+    if (localProducts.length || localCustomers.length) {
+      setSearchResults({ products: rankProducts(localProducts, term), customers: localCustomers });
+      setShowSearchResults(true);
+    }
+    const [apiProducts, apiCustomers] = await Promise.all([apiProductsP, apiCustomersP]);
     if (seq !== searchSeqRef.current) return false;
     // Offloaded searches: the server's answer IS the result; offline (API down)
     // the local catalog still answers so the register keeps working.

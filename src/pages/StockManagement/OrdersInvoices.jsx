@@ -21,6 +21,7 @@ import {
   IconButton,
   InputAdornment,
 } from '@mui/material';
+import { EmptyBlock } from '../../components/Common/EmptyResults';
 import {
   VisibilityOutlined as ViewIcon,
   EditOutlined as EditIcon,
@@ -670,7 +671,15 @@ const OrdersInvoices = () => {
         </Alert>
       )}
 
-      {/* Orders & Invoices Table */}
+      {/* Orders & Invoices Table - reference: nothing matched = no table; the
+          Outstanding view says "Good job!", any other filter "No results found". */}
+      {!loading && filteredOrdersInvoices.length === 0 ? (
+        appliedFilters.status === 'Outstanding' ? (
+          <EmptyBlock icon="tick" title="No outstanding orders & invoices" subtitle="Good job! There is nothing left outstanding." testId="orders-empty" />
+        ) : (
+          <EmptyBlock title="No results found" subtitle="We could not find any results that matched the filters." testId="orders-empty" />
+        )
+      ) : (
       <TableContainer sx={{ mt: 1 }}>
         <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
           <TableHead>
@@ -818,18 +827,10 @@ const OrdersInvoices = () => {
                 </TableRow>
               );
             })}
-            {filteredOrdersInvoices.length === 0 && !loading && (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
-                    No orders or invoices found matching your filters
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </TableContainer>
+      )}
 
       <TransferReceiveDialog
         open={receiveTransferId != null}

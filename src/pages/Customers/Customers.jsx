@@ -22,6 +22,7 @@ import {
   Autocomplete,
   Snackbar,
 } from '@mui/material';
+import { NoResults } from '../../components/Common/EmptyResults';
 import {
   PersonAddAltOutlined as AddIcon,
   EditOutlined as EditIcon,
@@ -652,6 +653,9 @@ const Customers = () => {
 
       {loading && customers.length === 0 ? (
         <PageLoader />
+      ) : !loading && filteredCustomers.length === 0 ? (
+        // reference: nothing matched = no table, just the message
+        <NoResults />
       ) : (
         <TableContainer sx={{ mt: 1 }}>
           <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -748,15 +752,6 @@ const Customers = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredCustomers.length === 0 && !loading && (
-                <TableRow>
-                  <TableCell colSpan={globalMode ? 6 : 5} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">
-                      {searchTerm ? 'No customers found matching your search' : 'No customers found'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </TableContainer>

@@ -27,6 +27,7 @@ import {
   KeyboardArrowDown as ArrowDropDownIcon,
   CloseOutlined as CloseIcon,
 } from '@mui/icons-material';
+import { SearchGlyph } from '../../components/Common/EmptyResults';
 import { useNavigate } from 'react-router-dom';
 import giftCardService from '../../services/giftCardService';
 import usePageCache from '../../hooks/usePageCache';
@@ -343,7 +344,7 @@ const GiftCards = () => {
       {loading ? null : filteredGiftCards.length === 0 ? (
         // reference: no table, just the centred search icon + message
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 6, color: '#6b7280', fontSize: 20 }}>
-          <SearchIcon sx={{ fontSize: 26 }} />
+          <SearchGlyph />
           No results found. Try changing the search filters
         </Box>
       ) : (

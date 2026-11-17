@@ -23,8 +23,16 @@ import supplierService from './supplierService';
 
 const CATALOG_MAX_AGE_MS = 5 * 60 * 1000;
 const AUX_MAX_AGE_MS = 10 * 60 * 1000;
+// Lists the sell screen does not need are pulled this long after the essential
+// sync, one at a time, so a product search typed right after the screen opens
+// is not queued behind 20 background requests (user request 17/11/2026). Pages
+// that need one of them sooner fetch it on demand (usePageCache / cachedList
+// both fetch when their store is empty), so nothing waits on this timer.
+const DEFERRED_DELAY_MS = 10 * 1000;
 
 let syncPromise = null;
+let deferredTimer = null;
+let deferredPromise = null;
 
 /**
  * Load IndexedDB into memory immediately — no network, no loader.
@@ -58,17 +66,22 @@ const AUX_STORES = [
   // first 10 promotions.
   ['promotions', (o) => promotionService.getPromotions({ outletId: o, limit: 1000 })
     .then((r) => extractList(r, 'promotions'))],
+  ['customerDisplays', () => customerDisplayTemplateService.listTemplates()
+    .then((r) => extractList(r, 'templates'))],
+  ['receiptTemplates', () => receiptTemplateService.getTemplates().then((r) => extractList(r, 'templates'))],
+];
+
+// Not used by the sell screen: synced later, one at a time (see DEFERRED_DELAY_MS).
+const DEFERRED_AUX_STORES = [
   // showRedeemedExpired is either/or on the API, so cache both halves; the page
-  // filters status/outlet locally.
+  // filters status/outlet locally. (Sell screen tenders gift cards by code via
+  // the API, it never reads this store.)
   ['giftCards', () => Promise.all([
     giftCardService.getGiftCards({ showRedeemedExpired: false, limit: 1000 }),
     giftCardService.getGiftCards({ showRedeemedExpired: true, limit: 1000 }),
   ]).then(([active, past]) => Array.from(new Map(
     [...extractList(active, 'giftCards'), ...extractList(past, 'giftCards')].map((c) => [c.id, c])
   ).values()))],
-  ['customerDisplays', () => customerDisplayTemplateService.listTemplates()
-    .then((r) => extractList(r, 'templates'))],
-  ['receiptTemplates', () => receiptTemplateService.getTemplates().then((r) => extractList(r, 'templates'))],
   ['shelfTicketTemplates', () => shelfTicketTemplateService.getTemplates()
     .then((r) => extractList(r, 'templates'))],
   ['transferees', () => transfereeService.getTransferees().then((r) => extractList(r, 'transferees'))],
@@ -86,21 +99,68 @@ const SELF_CACHING_WARMUPS = [
   () => paymentMethodService.getPaymentMethods(),
   (o) => customerGroupService.getCustomerGroups(o),
   () => priceListService.getPriceLists(),
-  () => classificationService.getClassifications(),
-  () => supplierService.getSuppliers(),
-  () => roleService.getRoles(),
   (o) => loyaltyProgramService.getLoyaltyPrograms({ outletId: o }),
   () => surchargeService.getSurcharges(),
 ];
 
+const DEFERRED_SELF_CACHING_WARMUPS = [
+  () => classificationService.getClassifications(),
+  () => supplierService.getSuppliers(),
+  () => roleService.getRoles(),
+];
+
+// Run tasks with at most `limit` in flight. The server serialises DB work on a
+// few connections, so 10 parallel pulls made every other request (a product
+// search) wait for all of them.
+async function runPool(tasks, limit) {
+  const queue = [...tasks];
+  const worker = async () => { while (queue.length) await queue.shift()(); };
+  await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, worker));
+}
+
 async function syncAuxiliaryStores(outletId) {
   // One failing endpoint must not stop the rest of the sync.
-  await Promise.all([
-    ...AUX_STORES.map(([store, fetchFn]) =>
+  await runPool([
+    ...AUX_STORES.map(([store, fetchFn]) => () =>
       syncStoreIfStale(store, AUX_MAX_AGE_MS, () => fetchFn(outletId)).catch(() => false)
     ),
-    ...SELF_CACHING_WARMUPS.map((warm) => warm(outletId).catch(() => null)),
-  ]);
+    ...SELF_CACHING_WARMUPS.map((warm) => () => warm(outletId).catch(() => null)),
+  ], 2);
+}
+
+// Sequential on purpose: one request in flight keeps the server free for
+// whatever the user is doing. A store a page already pulled on demand is
+// fresh by now and is skipped by syncStoreIfStale / cachedList.
+async function syncDeferredStores(outletId) {
+  for (const [store, fetchFn] of DEFERRED_AUX_STORES) {
+    await syncStoreIfStale(store, AUX_MAX_AGE_MS, () => fetchFn(outletId)).catch(() => false);
+  }
+  for (const warm of DEFERRED_SELF_CACHING_WARMUPS) {
+    await warm(outletId).catch(() => null);
+  }
+}
+
+let deferredOutletId = null;
+function runDeferredNow() {
+  deferredTimer = null;
+  deferredPromise = syncDeferredStores(deferredOutletId).finally(() => { deferredPromise = null; });
+  return deferredPromise;
+}
+
+function scheduleDeferredSync(outletId) {
+  deferredOutletId = outletId;
+  if (deferredTimer) clearTimeout(deferredTimer);
+  deferredTimer = setTimeout(runDeferredNow, DEFERRED_DELAY_MS);
+}
+
+/** Diagnostic hook: run any pending deferred sync now and wait for it. */
+export async function flushDeferredSync() {
+  if (deferredTimer) {
+    clearTimeout(deferredTimer);
+    await runDeferredNow();
+    return;
+  }
+  if (deferredPromise) await deferredPromise;
 }
 
 /**
@@ -124,6 +184,7 @@ export async function syncAppDataInBackground(outletId, { force = false } = {}) 
       }
 
       await syncAuxiliaryStores(outletId);
+      scheduleDeferredSync(outletId);
     } catch (err) {
       console.warn('[AppDataSync] background sync failed:', err);
     } finally {
@@ -151,4 +212,6 @@ export async function refreshPromotionsStore(outletId) {
   }
 }
 
-export default { warmAppCache, syncAppDataInBackground, refreshPromotionsStore };
+if (typeof window !== 'undefined') window.__flushDeferredSync = flushDeferredSync;
+
+export default { warmAppCache, syncAppDataInBackground, refreshPromotionsStore, flushDeferredSync };

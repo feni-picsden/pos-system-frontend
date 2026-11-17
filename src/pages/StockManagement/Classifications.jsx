@@ -19,6 +19,7 @@ import {
   ListItemText,
   Tooltip,
 } from '@mui/material';
+import { NoResults } from '../../components/Common/EmptyResults';
 import {
   Add as AddIcon,
   VisibilityOutlined as ViewIcon,
@@ -398,7 +399,8 @@ const Classifications = () => {
         </Alert>
       )}
 
-      {/* Classifications Table */}
+      {/* Classifications Table - reference: nothing matched = no table, just the message */}
+      {!loading && filteredClassifications.length === 0 ? <NoResults /> : (
       <TableContainer sx={{ mt: 1 }}>
         <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
           <TableHead>
@@ -541,20 +543,10 @@ const Classifications = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {filteredClassifications.length === 0 && !loading && (
-              <TableRow>
-                <TableCell colSpan={globalMode ? 6 : 5} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
-                    {searchTerm || categoryFilter.length > 0
-                      ? 'No classifications found matching your filters'
-                      : 'No classifications found'}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </TableContainer>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDeleteDialog

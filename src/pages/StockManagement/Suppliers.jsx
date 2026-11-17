@@ -18,6 +18,7 @@ import {
   ListItemText,
   IconButton,
 } from '@mui/material';
+import { NoResults } from '../../components/Common/EmptyResults';
 import {
   Add as AddIcon,
   EditOutlined as EditIcon,
@@ -710,8 +711,8 @@ const Suppliers = () => {
       )}
 
       {/* Loading - use global loader only */}
-      {loading ? null : (
-        /* Suppliers Table */
+      {loading ? null : filteredSuppliers.length === 0 ? <NoResults /> : (
+        /* Suppliers Table - reference: nothing matched = no table, just the message */
         <TableContainer>
           <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <TableHead>
@@ -790,15 +791,6 @@ const Suppliers = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredSuppliers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={globalMode ? 5 : 4} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">
-                      No suppliers found
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </TableContainer>
