@@ -1,1783 +1,539 @@
-import React, { useState, useEffect } from 'react';
-import NumberField from '../../components/Common/NumberField';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   Button,
-  Alert,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   IconButton,
-  TextField,
-  FormControl,
-  InputLabel,
+  InputBase,
   Select,
   MenuItem,
-  Card,
-  CardContent,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
-  Grid,
-  Chip,
-  Checkbox,
-  FormControlLabel,
   Autocomplete,
-  InputAdornment,
-  Switch
+  TextField,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
+  DeleteOutline as DeleteOutlineIcon,
+  CheckCircleOutline as TickIcon,
   Close as CloseIcon,
   Add as AddIcon,
-  Delete as DeleteIcon,
-  DeleteOutline as DeleteOutlineIcon,
-  Check as CheckIcon,
-  Clear as ClearIcon,
-  Search as SearchIcon
+  CheckBoxOutlineBlank as UncheckedIcon,
+  CheckBox as CheckedIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import productService from '../../services/productService';
 import { taxRateService } from '../../services/taxRateService';
-import { searchProducts } from '../../utils/productSearch.js';
 import { stripHtml } from '../../services/posLocalDb';
 import { useAuth } from '../../contexts/AuthContext';
+import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 
+// Reference (Stock Management > Products > Functions > Merge Products, help-centre
+// article 16344728041869, screenshots 16/11/2026): "Product Merge" page. A grey
+// "Results" column on the left holds the new product, one grey column per added
+// product beside it, then a dashed "+ Click to add a new product to merge" card.
+// Every column is split into the same sections; a product section's "Select
+// Section" copies that section into Results (the chosen section turns blue with
+// a dark button and ticks on its fields; Results' own section goes white). Results
+// fields can also be typed; "Clear" empties a picked value. "Complete Merge" at
+// the bottom asks to confirm, then the sources go to Trashed Items and their
+// sales / purchase history moves to the new product (backend POST /products/merge).
+
+const BLUE = '#b3e5fc';
+const GREY = '#d9d9d9';
+const DARK = '#313439';
+const NO_VALUE = 'No Value';
+
+const EMPTY = {
+  name: '', type: 'Normal Product', status: 'Active', description: '', caseQuantity: 1,
+  categoryId: null, categoryName: '', brandId: null, brandName: '', familyId: null, familyName: '', tags: [],
+  retailTaxRate: '', costPercentage: false, averageCaseCost: '', caseCost: '',
+  requestPrice: false, requestQuantity: false, preventManualDiscounts: false, prices: [],
+  trackInventory: true, currentStockCases: '', currentStockItems: '',
+  barcodes: [], orderNotes: '', images: [], loyaltyRows: [],
+};
+
+const money = (v) => (v === '' || v === null || v === undefined || Number.isNaN(Number(v)) ? '' : `$${Number(v).toFixed(2)}`);
+const tagNames = (tags) => (Array.isArray(tags) ? tags.map((t) => t?.tag?.name || t?.name).filter(Boolean) : []);
+const priceText = (prices) => (Array.isArray(prices) && prices.length ? prices.map((p) => `${p.quantity || 1} for $${Number(p.price || 0).toFixed(2)}`).join(', ') : '');
+const barcodeText = (bcs) => (Array.isArray(bcs) && bcs.length ? bcs.filter((b) => b?.code).map((b) => `${b.quantity || 1} x ${b.code}`).join(', ') : '');
+const loyaltyText = (rows) => (Array.isArray(rows) && rows.length ? rows.map((r) => `${r.quantity} = ${r.earnRate} pts`).join(', ') : '');
+const stockText = (p) => (p ? `${Number(p.currentStockCases || 0)} cases, ${Number(p.currentStockItems || 0)} items` : '');
+
+// Section -> the Results fields it owns (what "Select Section" copies).
+const pickSection = (section, p) => {
+  switch (section) {
+    case 'general':
+      return { name: p.name || '', type: p.type || 'Normal Product', status: p.status || 'Active', description: stripHtml(p.description || ''), caseQuantity: p.caseQuantity || 1 };
+    case 'classifications':
+      return { categoryId: p.categoryId ?? null, categoryName: p.category?.name || '', brandId: p.brandId ?? null, brandName: p.brand?.name || '', familyId: p.familyId ?? null, familyName: p.family?.name || '', tags: tagNames(p.tags) };
+    case 'sellCost':
+      return {
+        retailTaxRate: p.retailTaxRate || '', costPercentage: !!p.costPercentage,
+        averageCaseCost: p.averageCaseCost ?? '', caseCost: p.caseCost ?? '',
+        requestPrice: !!p.requestPrice, requestQuantity: !!p.requestQuantity, preventManualDiscounts: !!p.preventManualDiscounts,
+        prices: (p.prices || []).map((x) => ({ quantity: x.quantity || 1, price: Number(x.price) || 0, cost: Number(x.cost) || 0 })),
+      };
+    case 'inventory':
+      return { trackInventory: p.trackInventory !== false, currentStockCases: p.currentStockCases ?? 0, currentStockItems: p.currentStockItems ?? 0 };
+    case 'barcodes':
+      return { barcodes: (p.barcodes || []).filter((b) => b?.code).map((b) => ({ code: b.code, quantity: b.quantity || 1, ...(b.templateId ? { templateId: b.templateId } : {}) })) };
+    case 'suppliers':
+      return { orderNotes: p.orderNotes || '' };
+    case 'images':
+      return { images: (p.images || []).map((i) => ({ imageUrl: i.imageUrl, isMain: !!i.isMain, altText: i.altText || '', sortOrder: i.sortOrder ?? 0 })) };
+    case 'loyalty':
+      return { loyaltyRows: (p.loyaltyRows || []).map((r) => ({ quantity: r.quantity, earnRate: r.earnRate, redeemRate: r.redeemRate })) };
+    default:
+      return {};
+  }
+};
+
+// ---------- small building blocks ----------
+const FieldLabel = ({ label, tick, required, action }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', minHeight: 36, mb: 0.5 }}>
+    <Typography sx={{ fontSize: 16, color: '#000' }}>{label}{required ? '*' : ''}</Typography>
+    {tick && <TickIcon data-testid="field-tick" sx={{ fontSize: 16, color: '#1c86f2', ml: 0.75 }} />}
+    <Box sx={{ flex: 1 }} />
+    {action}
+  </Box>
+);
+const ValueText = ({ value }) => (
+  <Typography sx={{ fontSize: 16, color: value ? '#000' : '#8a8d91', px: 1, py: 0.5, mb: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+    {value || NO_VALUE}
+  </Typography>
+);
+const inputSx = { width: '100%', border: '1px solid #000', borderRadius: '4px', bgcolor: '#fff', px: 1.5, fontSize: 16, minHeight: 50, mb: 1.5, fontFamily: 'inherit', '& input::placeholder': { color: '#9e9e9e' } };
+const selectSx = { width: '100%', mb: 1.5, bgcolor: '#fff', borderRadius: '8px', fontSize: 16, minHeight: 42, '& .MuiSelect-select': { py: 1 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 } };
+const ClearBtn = ({ onClick, testid }) => (
+  <Button data-testid={testid} onClick={onClick} startIcon={<CloseIcon sx={{ fontSize: 16 }} />} sx={{ color: DARK, border: '1px solid #313439', borderRadius: '2px', bgcolor: '#f8f8f8', fontSize: 15, textTransform: 'none', px: 1.25, py: 0.25, minWidth: 0, '&:hover': { bgcolor: '#eee' } }}>
+    Clear
+  </Button>
+);
+const SectionCard = ({ title, selected, dark, onSelect, children, testid }) => (
+  <Box data-testid={testid} data-selected={selected ? '1' : '0'} sx={{ bgcolor: selected ? BLUE : '#fff', p: 2, mb: 2, borderRadius: 0 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+      <Typography sx={{ fontSize: 20, color: '#000' }}>{title}</Typography>
+      <Button
+        onClick={onSelect}
+        sx={{ fontSize: 18, textTransform: 'none', borderRadius: '2px', px: 1.25, py: 0.5, border: `1px solid ${dark ? DARK : '#9e9e9e'}`, bgcolor: dark ? DARK : '#f3f3f3', color: dark ? '#fff' : '#555', fontWeight: 400, '&:hover': { bgcolor: dark ? DARK : '#e6e6e6' } }}
+      >
+        Select Section
+      </Button>
+    </Box>
+    {children}
+  </Box>
+);
+const BadgeDialog = ({ open, onClose, title, subtitle, children, actions, testid }) => (
+  <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 480, maxWidth: 'calc(100vw - 32px)', overflow: 'visible', borderRadius: 0, mt: 8 }, 'data-testid': testid }}>
+    <Box aria-hidden sx={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 118, height: 118, borderRadius: '50%', bgcolor: '#2d8ff5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 72, fontWeight: 700, lineHeight: 1 }}>?</Box>
+    <Box sx={{ pt: 8.5, px: 2, pb: 2, textAlign: 'center' }}>
+      <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 1 }}>{title}</Typography>
+      {subtitle && <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>{subtitle}</Typography>}
+      {children}
+      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>{actions}</Box>
+    </Box>
+  </Dialog>
+);
+const dlgBtn = (primary) => ({ flex: 1, height: 48, fontSize: 24, fontWeight: 400, textTransform: 'none', borderRadius: '4px', boxShadow: 'none', bgcolor: primary ? '#32b643' : '#f3f4f6', color: primary ? '#fff' : '#676b72', border: `1px solid ${primary ? '#32b643' : '#d4d4d4'}`, '&:hover': { bgcolor: primary ? '#2a9c39' : '#e5e7eb', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: primary ? '#a5d9ad' : '#f3f4f6', color: primary ? '#fff' : '#bbb' } });
+
+// ---------- page ----------
 const ProductMerge = () => {
   const navigate = useNavigate();
-  const { user, getOutletName } = useAuth();
-  
-  // State for selected products to merge
-  const [productsToMerge, setProductsToMerge] = useState([]);
-  const [availableProducts, setAvailableProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  
-  // State for merged product definition
-  const [mergedProduct, setMergedProduct] = useState({
-    name: '',
-    type: 'Normal Product',
-    status: 'Active',
-    description: '',
-    caseQuantity: 1,
-    category: '',
-    categoryId: null,
-    brand: '',
-    brandId: null,
-    family: '',
-    familyId: null,
-    retailTaxRate: 'GST',
-    purchaseTaxRate: 'Inherit',
-    itemCost: 0,
-    caseCost: 0,
-    averageItemCost: 0,
-    averageCaseCost: 0,
-    tags: [],
-    costPercentage: false,
-    preventManualDiscounts: false,
-    requestPrice: false,
-    requestQuantity: false,
-    trackInventory: true,
-    currentStockCases: 0,
-    currentStockItems: 0,
-    reorderLevelCases: 0,
-    reorderLevelItems: 0,
-    reorderAmountCases: 0,
-    reorderAmountItems: 0,
-    reorderLimitCases: 0,
-    reorderLimitItems: 0,
-    maxOnHandCases: 0,
-    maxOnHandItems: 0,
-    reorderRounding: 'No Rounding',
-    orderNotes: '',
-    invoiceNotes: '',
-    sellOnShopMyLocal: false,
-    prices: []
-  });
+  const { getOutletName } = useAuth();
+  const outletName = (typeof getOutletName === 'function' && getOutletName()) || 'Outlet';
 
-  const [fieldSelections, setFieldSelections] = useState({});
-  
-  // State for dialogs
-  const [productSelectDialogOpen, setProductSelectDialogOpen] = useState(false);
-  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
-  const [confirmMergeOpen, setConfirmMergeOpen] = useState(false);
-  const [mergeResults, setMergeResults] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Helpers
-  const formatTags = (tags) => {
-    if (!Array.isArray(tags) || tags.length === 0) return 'No Value';
-    const names = tags.map((t) => t?.tag?.name || t?.name).filter(Boolean);
-    return names.length ? names.join(', ') : 'No Value';
-  };
-
-  // Last cost is entered per CASE (as the reference shows it); keep the item
-  // cost the backend stores in step so the merged product is not costed at a
-  // stale per-item figure.
-  const handleCaseCostChange = (value) => {
-    const caseCost = parseFloat(value) || 0;
-    setMergedProduct((prev) => {
-      const caseQty = Number(prev.caseQuantity) > 0 ? Number(prev.caseQuantity) : 1;
-      return { ...prev, caseCost, itemCost: Math.round((caseCost / caseQty) * 100) / 100 };
-    });
-  };
-
-  const formatPrices = (prices) => {
-    if (!prices || prices.length === 0) return 'No Value';
-    try {
-      return prices
-        .map((p) => `${p.quantity || 1} x $${Number(p.price || 0).toFixed(2)}`)
-        .join('  |  ');
-    } catch {
-      return 'No Value';
-    }
-  };
-
-  // Price handlers
-  const addPriceRow = () => {
-    setMergedProduct((prev) => ({
-      ...prev,
-      prices: [...(prev.prices || []), { quantity: 1, price: 0 }]
-    }));
-  };
-
-  const removePriceRow = (index) => {
-    setMergedProduct((prev) => ({
-      ...prev,
-      prices: (prev.prices || []).filter((_, i) => i !== index)
-    }));
-  };
-
-  const handlePriceChange = (index, field, value) => {
-    setMergedProduct((prev) => {
-      const next = [...(prev.prices || [])];
-      const numeric = field === 'quantity' ? Math.max(1, parseInt(value || 0, 10)) : parseFloat(value || 0);
-      next[index] = { ...next[index], [field]: isNaN(numeric) ? 0 : numeric };
-      return { ...prev, prices: next };
-    });
-  };
-
-  // Classification options
+  const [products, setProducts] = useState([]); // full detail records
+  const [sources, setSources] = useState({}); // sectionId -> productId | null (null = Results / manual)
+  const [merged, setMerged] = useState(EMPTY);
+  const [taxRates, setTaxRates] = useState([]);
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [families, setFamilies] = useState([]);
-  // Setup > Tax Rates for this outlet (the Tax Rate select used to be a fixed
-  // GST / No Tax / Inherit list, so a store's own rates could not be picked).
-  const [taxRates, setTaxRates] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Load available products and classification options
+  // add dialog
+  const [addOpen, setAddOpen] = useState(false);
+  const [addInput, setAddInput] = useState('');
+  const [addOptions, setAddOptions] = useState([]);
+  const [addPicked, setAddPicked] = useState([]);
+  const [addSearching, setAddSearching] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const searchTimer = useRef(null);
+
+  // confirm + result
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [result, setResult] = useState(null);
+
   useEffect(() => {
-    loadProducts();
-    loadClassificationOptions();
+    (async () => {
+      try {
+        const [c, b, f, t] = await Promise.all([
+          productService.getCategories(), productService.getBrands(), productService.getFamilies(),
+          taxRateService.getTaxRates().catch(() => ({ taxRates: [] })),
+        ]);
+        setCategories(Array.isArray(c) ? c : []); setBrands(Array.isArray(b) ? b : []); setFamilies(Array.isArray(f) ? f : []);
+        setTaxRates(Array.isArray(t?.taxRates) ? t.taxRates : []);
+      } catch (e) { console.error('merge options', e); }
+    })();
   }, []);
 
-  const loadProducts = async () => {
+  // ---- search (server side, debounced) ----
+  useEffect(() => {
+    if (!addOpen) return undefined;
+    const q = addInput.trim();
+    if (!q) { setAddOptions([]); return undefined; }
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        setAddSearching(true);
+        const r = await productService.getProducts({ search: q, limit: 50 });
+        const list = (r?.products || []).filter((p) => !products.some((x) => x.id === p.id));
+        setAddOptions(list);
+      } catch { setAddOptions([]); }
+      finally { setAddSearching(false); }
+    }, 250);
+    return () => clearTimeout(searchTimer.current);
+  }, [addInput, addOpen, products]);
+
+  const openAdd = () => { setAddPicked([]); setAddInput(''); setAddOptions([]); setAddOpen(true); };
+
+  const confirmAdd = async () => {
+    if (!addPicked.length) return;
     try {
-      setLoading(true);
-      const response = await productService.getProducts({ limit: 10000 });
-      setAvailableProducts(response.products || []);
-    } catch (err) {
-      setError('Failed to load products');
-      console.error('Error loading products:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadClassificationOptions = async () => {
-    try {
-      const [categoriesResponse, brandsResponse, familiesResponse, taxRatesResponse] = await Promise.all([
-        productService.getCategories(),
-        productService.getBrands(),
-        productService.getFamilies(),
-        taxRateService.getTaxRates().catch(() => ({ taxRates: [] })),
-      ]);
-
-      setCategories(Array.isArray(categoriesResponse) ? categoriesResponse : []);
-      setBrands(Array.isArray(brandsResponse) ? brandsResponse : []);
-      setFamilies(Array.isArray(familiesResponse) ? familiesResponse : []);
-      setTaxRates(Array.isArray(taxRatesResponse?.taxRates) ? taxRatesResponse.taxRates : []);
-    } catch (error) {
-      console.error('Error loading classification options:', error);
-    }
-  };
-
-  const handleAddProduct = () => {
-    setProductSelectDialogOpen(true);
-  };
-
-  const handleProductSelect = (product) => {
-    if (!productsToMerge.find(p => p.id === product.id)) {
-      const newProduct = {
-        ...product,
-        // Ensure we have the name fields for display
-        category: product.category?.name || product.category || '',
-        brand: product.brand?.name || product.brand || '',
-        family: product.family?.name || product.family || '',
-      };
-      
-      setProductsToMerge([...productsToMerge, newProduct]);
-      setProductSelectDialogOpen(false);
-      setSearchTerm('');
-      
-      // Auto-select fields from the first product
-      if (productsToMerge.length === 0) {
-        autoSelectFields(newProduct);
-      }
-    }
-  };
-
-  const autoSelectFields = (firstProduct) => {
-    const newSelections = {};
-    const productIndex = 0; // First product index
-    
-    // Auto-select basic fields from first product
-    const basicFields = ['name', 'type', 'status', 'description', 'caseQuantity', 'category', 'brand', 'family'];
-    basicFields.forEach(field => {
-      if (firstProduct[field] !== undefined && firstProduct[field] !== null && firstProduct[field] !== '') {
-        newSelections[field] = productIndex;
-      }
-    });
-    
-    setFieldSelections(newSelections);
-    
-    // Update merged product with selected values
-    updateMergedProduct(newSelections);
-  };
-
-  const handleRemoveProduct = (productId) => {
-    const productIndex = productsToMerge.findIndex(p => p.id === productId);
-    setProductsToMerge(productsToMerge.filter(p => p.id !== productId));
-    
-    // Update field selections to remove references to deleted product
-    const newSelections = {};
-    Object.keys(fieldSelections).forEach(field => {
-      const selectedIndex = fieldSelections[field];
-      if (selectedIndex < productIndex) {
-        newSelections[field] = selectedIndex;
-      } else if (selectedIndex > productIndex) {
-        newSelections[field] = selectedIndex - 1;
-      }
-      // Skip if selectedIndex === productIndex (deleted product)
-    });
-    
-    setFieldSelections(newSelections);
-    updateMergedProduct(newSelections);
-  };
-
-  const handleFieldSelection = (field, productIndex) => {
-    const newSelections = {
-      ...fieldSelections,
-      [field]: productIndex
-    };
-    
-    setFieldSelections(newSelections);
-    updateMergedProduct(newSelections);
-  };
-
-  const handleSectionSelection = (section, productIndex) => {
-    const selectedProduct = productsToMerge[productIndex];
-    const newSelections = { ...fieldSelections };
-    
-    // Define which fields belong to each section
-    const sectionFields = {
-      general: ['name', 'type', 'status', 'description', 'caseQuantity'],
-      classifications: ['category', 'brand', 'family', 'tags'],
-      sellCost: ['retailTaxRate', 'purchaseTaxRate', 'costPercentage', 'itemCost', 'caseCost', 'averageItemCost', 'averageCaseCost', 'requestPrice', 'requestQuantity', 'preventManualDiscounts', 'prices'],
-      inventory: ['trackInventory', 'currentStockCases', 'currentStockItems', 'reorderLevelCases', 'reorderLevelItems', 'reorderAmountCases', 'reorderAmountItems', 'reorderLimitCases', 'reorderLimitItems', 'maxOnHandCases', 'maxOnHandItems', 'reorderRounding'],
-      suppliers: ['orderNotes', 'invoiceNotes', 'suppliers'],
-      barcodes: ['barcodes'],
-      images: ['mainImage', 'images'],
-      loyalty: ['loyaltyRows', 'sellOnShopMyLocal']
-    };
-    
-    // Select all fields in the section from the chosen product
-    if (sectionFields[section]) {
-      sectionFields[section].forEach(field => {
-        newSelections[field] = productIndex;
+      setAdding(true);
+      const details = await Promise.all(addPicked.map(async (p) => {
+        try { const d = await productService.getProduct(p.id); return d?.product || d || p; } catch { return p; }
+      }));
+      setProducts((prev) => {
+        const next = [...prev, ...details.filter((d) => !prev.some((x) => x.id === d.id))];
+        return next;
       });
-    }
-    
-    setFieldSelections(newSelections);
-    updateMergedProduct(newSelections);
+      setAddOpen(false);
+    } finally { setAdding(false); }
   };
 
-  const updateMergedProduct = (selections) => {
-    const updated = { ...mergedProduct };
-    
-    Object.keys(selections).forEach(field => {
-      const productIndex = selections[field];
-      if (productIndex >= 0 && productIndex < productsToMerge.length) {
-        const selectedProduct = productsToMerge[productIndex];
-        updated[field] = selectedProduct[field];
-        
-        // Handle classification IDs
-        if (field === 'category' && selectedProduct.categoryId) {
-          updated.categoryId = selectedProduct.categoryId;
-        }
-        if (field === 'brand' && selectedProduct.brandId) {
-          updated.brandId = selectedProduct.brandId;
-        }
-        if (field === 'family' && selectedProduct.familyId) {
-          updated.familyId = selectedProduct.familyId;
-        }
-        // Deep copy prices to avoid mutating source array
-        if (field === 'prices' && Array.isArray(selectedProduct.prices)) {
-          updated.prices = selectedProduct.prices.map((p) => ({
-            quantity: p.quantity || 1,
-            price: p.price || 0,
-          }));
-        }
-        // Tags are shown for the chosen product only; the merge itself keeps
-        // every source's tags (the backend unions them).
-        if (field === 'tags') {
-          updated.tags = Array.isArray(selectedProduct.tags) ? [...selectedProduct.tags] : [];
-        }
-
-        // Inventory fields
-        if (field === 'currentStockCases' && selectedProduct.currentStockCases !== undefined) {
-          updated.currentStockCases = selectedProduct.currentStockCases;
-        }
-        if (field === 'currentStockItems' && selectedProduct.currentStockItems !== undefined) {
-          updated.currentStockItems = selectedProduct.currentStockItems;
-        }
-        if (field === 'reorderLevelCases' && selectedProduct.reorderLevelCases !== undefined) {
-          updated.reorderLevelCases = selectedProduct.reorderLevelCases;
-        }
-        if (field === 'reorderLevelItems' && selectedProduct.reorderLevelItems !== undefined) {
-          updated.reorderLevelItems = selectedProduct.reorderLevelItems;
-        }
-        if (field === 'reorderAmountCases' && selectedProduct.reorderAmountCases !== undefined) {
-          updated.reorderAmountCases = selectedProduct.reorderAmountCases;
-        }
-        if (field === 'reorderAmountItems' && selectedProduct.reorderAmountItems !== undefined) {
-          updated.reorderAmountItems = selectedProduct.reorderAmountItems;
-        }
-        if (field === 'reorderLimitCases' && selectedProduct.reorderLimitCases !== undefined) {
-          updated.reorderLimitCases = selectedProduct.reorderLimitCases;
-        }
-        if (field === 'reorderLimitItems' && selectedProduct.reorderLimitItems !== undefined) {
-          updated.reorderLimitItems = selectedProduct.reorderLimitItems;
-        }
-        if (field === 'maxOnHandCases' && selectedProduct.maxOnHandCases !== undefined) {
-          updated.maxOnHandCases = selectedProduct.maxOnHandCases;
-        }
-        if (field === 'maxOnHandItems' && selectedProduct.maxOnHandItems !== undefined) {
-          updated.maxOnHandItems = selectedProduct.maxOnHandItems;
-        }
-      }
+  const removeProduct = (id) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setSources((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => { if (next[k] === id) next[k] = null; });
+      return next;
     });
-    
-    setMergedProduct(updated);
   };
 
-  const handleInputChange = (field, value) => {
-    setMergedProduct(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  // ---- selection ----
+  const selectFromProduct = (section, product) => {
+    setSources((prev) => ({ ...prev, [section]: product.id }));
+    setMerged((prev) => ({ ...prev, ...pickSection(section, product) }));
   };
+  const selectResults = (section) => setSources((prev) => ({ ...prev, [section]: null })); // keep typed values
+  const edit = (patch) => setMerged((prev) => ({ ...prev, ...patch }));
+  const sectionOf = (section) => sources[section] ?? null;
+  const isResults = (section) => sectionOf(section) === null;
+  const isFrom = (section, id) => sectionOf(section) === id;
+  // ticks: on Results fields while the section is manual, on the chosen product's fields otherwise
+  const tickR = (section) => isResults(section);
 
-  const handleMerge = async () => {
-    if (productsToMerge.length < 2) {
-      setError('Please select at least 2 products to merge');
-      return;
-    }
+  const canMerge = products.length >= 2 && String(merged.name || '').trim() !== '' && !loading;
 
-    if (!mergedProduct.name.trim()) {
-      setError('Please enter a name for the merged product');
-      return;
-    }
-
+  const doMerge = async () => {
+    setConfirmOpen(false);
     try {
-      setLoading(true);
-      setError('');
-      
-      const mergeData = {
-        productsToMerge: productsToMerge.map(p => p.id),
-        mergedProduct: mergedProduct
+      setLoading(true); setError('');
+      const payload = {
+        name: merged.name.trim(), type: merged.type, status: merged.status, description: merged.description || '',
+        caseQuantity: Number(merged.caseQuantity) > 0 ? Number(merged.caseQuantity) : 1,
+        categoryId: merged.categoryId ?? null, brandId: merged.brandId ?? null, familyId: merged.familyId ?? null,
+        retailTaxRate: merged.retailTaxRate || undefined, costPercentage: !!merged.costPercentage,
+        requestPrice: !!merged.requestPrice, requestQuantity: !!merged.requestQuantity, preventManualDiscounts: !!merged.preventManualDiscounts,
+        trackInventory: !!merged.trackInventory,
+        orderNotes: merged.orderNotes || '',
       };
-      
-      const result = await productService.mergeProducts(mergeData);
-      setMergeResults(result);
-      setMergeDialogOpen(true);
-      
-      // Clear the form
-      setProductsToMerge([]);
-      setFieldSelections({});
-      setMergedProduct({
-        name: '',
-        type: 'Normal Product',
-        status: 'Active',
-        description: '',
-        caseQuantity: 1,
-        category: '',
-        categoryId: null,
-        brand: '',
-        brandId: null,
-        family: '',
-        familyId: null,
-        retailTaxRate: 'GST',
-        purchaseTaxRate: 'Inherit',
-        itemCost: 0,
-        caseCost: 0,
-        averageItemCost: 0,
-        averageCaseCost: 0,
-        tags: [],
-        costPercentage: false,
-        preventManualDiscounts: false,
-        requestPrice: false,
-        requestQuantity: false,
-        trackInventory: true,
-        currentStockCases: 0,
-        currentStockItems: 0,
-        reorderLevelCases: 0,
-        reorderLevelItems: 0,
-        reorderAmountCases: 0,
-        reorderAmountItems: 0,
-        reorderRounding: 'No Rounding',
-        orderNotes: '',
-        invoiceNotes: '',
-        sellOnShopMyLocal: false
-      });
-      
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to merge products');
-      console.error('Error merging products:', err);
-    } finally {
-      setLoading(false);
-    }
+      if (merged.caseCost !== '' && merged.caseCost !== null && merged.caseCost !== undefined) {
+        payload.caseCost = Number(merged.caseCost) || 0;
+        payload.itemCost = Math.round(((Number(merged.caseCost) || 0) / payload.caseQuantity) * 100) / 100;
+      }
+      if (merged.currentStockCases !== '' && merged.currentStockCases !== null) payload.currentStockCases = Number(merged.currentStockCases) || 0;
+      if (merged.currentStockItems !== '' && merged.currentStockItems !== null) payload.currentStockItems = Number(merged.currentStockItems) || 0;
+      if (Array.isArray(merged.prices) && merged.prices.length) payload.prices = merged.prices.map((p) => ({ quantity: Number(p.quantity) || 1, price: Number(p.price) || 0, cost: Number(p.cost) || 0 }));
+      if (!isResults('barcodes') || merged.barcodes.length) payload.barcodes = merged.barcodes;
+      if (!isResults('images')) payload.images = merged.images;
+      if (!isResults('loyalty')) payload.loyaltyRows = merged.loyaltyRows;
+      const r = await productService.mergeProducts({ productsToMerge: products.map((p) => p.id), mergedProduct: payload });
+      setResult(r);
+      setProducts([]); setSources({}); setMerged(EMPTY);
+    } catch (e) {
+      setError(e.response?.data?.error || 'Failed to merge products');
+    } finally { setLoading(false); }
   };
 
-  const handleCloseMergeDialog = () => {
-    setMergeDialogOpen(false);
-    setMergeResults(null);
-  };
-
-  const handleGoBack = () => {
-    navigate('/products');
-  };
-
-  const renderProductColumn = (product, index) => (
-    <Card 
-      key={product.id} 
-      sx={{ 
-        minHeight: 600,
-        backgroundColor: 'oklch(87% 0 0);',
-        border: '1px solid #e0e0e0'
-      }}
-    >
-      <CardContent sx={{ p: 2 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            {product.name}
-          </Typography>
-          <IconButton
-            onClick={() => handleRemoveProduct(product.id)}
-            color="error"
-            size="small"
-          >
-            <DeleteIcon />
-          </IconButton>
-        </Box>
-
-        {/* General Section */}
-        <Box sx={{ 
-          mb: 3, 
-          p: 2, 
-          borderRadius: 1,
-          backgroundColor: fieldSelections.name === index || fieldSelections.type === index || fieldSelections.status === index || fieldSelections.description === index || fieldSelections.caseQuantity === index ? '#e3f2fd' : '#fff',
-          border: fieldSelections.name === index || fieldSelections.type === index || fieldSelections.status === index || fieldSelections.description === index || fieldSelections.caseQuantity === index ? '2px solid #1976d2' : '1px solid transparent'
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              General
-            </Typography>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={() => handleSectionSelection('general', index)}
-              sx={{ 
-                backgroundColor: fieldSelections.name === index || fieldSelections.type === index || fieldSelections.status === index || fieldSelections.description === index || fieldSelections.caseQuantity === index ? '#e3f2fd' : 'white'
-              }}
-            >
-              Select Section
-            </Button>
-          </Box>
-          
-          <Grid container spacing={1}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 ,fontWeight: 400 }}>
-                  Name
-                </Typography>
-                {fieldSelections.name === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.name === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.name === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.name}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 ,fontWeight: 400 }}>
-                  Type
-                </Typography>
-                {fieldSelections.type === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.type === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.type === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.type || 'Normal Product'}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 ,fontWeight: 400 }}>
-                  Status
-                </Typography>
-                {fieldSelections.status === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.status === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.status === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.status || 'Active'}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Description
-                </Typography>
-                {fieldSelections.description === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.description === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.description === index ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                minHeight: 40
-              }}>
-                {stripHtml(product.description)}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Case Quantity
-                </Typography>
-                {fieldSelections.caseQuantity === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.caseQuantity === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.caseQuantity === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.caseQuantity || 1}
-              </Typography>
-            </Grid>
-          </Grid>
-        </Box>
-
-        {/* Classifications Section */}
-        <Box sx={{ 
-          mb: 3, 
-          p: 2, 
-          borderRadius: 1,
-          backgroundColor: fieldSelections.category === index || fieldSelections.brand === index || fieldSelections.family === index ? '#e3f2fd' : '#fff',
-          border: fieldSelections.category === index || fieldSelections.brand === index || fieldSelections.family === index ? '2px solid #1976d2' : '1px solid transparent'
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Classifications
-            </Typography>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={() => handleSectionSelection('classifications', index)}
-              sx={{ 
-                backgroundColor: fieldSelections.category === index || fieldSelections.brand === index || fieldSelections.family === index ? '#e3f2fd' : 'white'
-              }}
-            >
-              Select Section
-            </Button>
-          </Box>
-          
-          <Grid container spacing={1}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Category
-                </Typography>
-                {fieldSelections.category === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.category === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.category === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.category || 'No Value'}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Brand
-                </Typography>
-                {fieldSelections.brand === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.brand === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.brand === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.brand || 'No Value'}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Family
-                </Typography>
-                {fieldSelections.family === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.family === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.family === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.family || 'No Value'}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Tags
-                </Typography>
-                {fieldSelections.tags === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{
-                p: 1,
-                backgroundColor: fieldSelections.tags === index ? '#e3f2fd' : '#f5f5f5',
-                borderRadius: 1,
-                border: fieldSelections.tags === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {formatTags(product.tags)}
-              </Typography>
-            </Grid>
-          </Grid>
-        </Box>
-
-        {/* Sell & Cost Prices Section */}
-        <Box sx={{
-          mb: 3,
-          p: 2,
-          borderRadius: 1,
-          backgroundColor: fieldSelections.retailTaxRate === index || fieldSelections.purchaseTaxRate === index || fieldSelections.costPercentage === index || fieldSelections.itemCost === index || fieldSelections.caseCost === index || fieldSelections.requestPrice === index || fieldSelections.requestQuantity === index ? '#e3f2fd' : '#fff',
-          border: fieldSelections.retailTaxRate === index || fieldSelections.purchaseTaxRate === index || fieldSelections.costPercentage === index || fieldSelections.itemCost === index || fieldSelections.caseCost === index || fieldSelections.requestPrice === index || fieldSelections.requestQuantity === index ? '2px solid #1976d2' : '1px solid transparent'
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Sell & Cost Prices
-            </Typography>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={() => handleSectionSelection('sellCost', index)}
-              sx={{ 
-                backgroundColor: fieldSelections.retailTaxRate === index || fieldSelections.purchaseTaxRate === index || fieldSelections.costPercentage === index || fieldSelections.itemCost === index || fieldSelections.caseCost === index || fieldSelections.requestPrice === index || fieldSelections.requestQuantity === index ? '#e3f2fd' : 'white'
-              }}
-            >
-              Select Section
-            </Button>
-          </Box>
-          
-          <Grid container spacing={1}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Tax Rate
-                </Typography>
-                {fieldSelections.retailTaxRate === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.retailTaxRate === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.retailTaxRate === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.retailTaxRate || 'GST'}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Global Average Cost
-                </Typography>
-                {fieldSelections.averageCaseCost === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              {/* Both cost rows are CASE costs, as the reference shows them; the
-                  running average falls back to the last cost on a product that
-                  has never been received. */}
-              <Typography variant="body2" sx={{
-                p: 1,
-                backgroundColor: fieldSelections.averageCaseCost === index ? '#e3f2fd' : '#f5f5f5',
-                borderRadius: 1,
-                border: fieldSelections.averageCaseCost === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                ${Number(product.averageCaseCost || product.caseCost || 0).toFixed(2)}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Global Last Cost
-                </Typography>
-                {fieldSelections.caseCost === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.caseCost === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.caseCost === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                ${Number(product.caseCost || 0).toFixed(2)}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Prices
-                </Typography>
-              </Box>
-              <Typography variant="body2" sx={{ p: 1, backgroundColor: '#f5f5f5', borderRadius: 1, border: '1px solid #e0e0e0' }}>
-                {formatPrices(product.prices)}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Request Price
-                </Typography>
-                {fieldSelections.requestPrice === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.requestPrice === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.requestPrice === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.requestPrice ? '✓ On' : '× Off'}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Prevent Manual Discounts
-                </Typography>
-                {fieldSelections.preventManualDiscounts === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{
-                p: 1,
-                backgroundColor: fieldSelections.preventManualDiscounts === index ? '#e3f2fd' : '#f5f5f5',
-                borderRadius: 1,
-                border: fieldSelections.preventManualDiscounts === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.preventManualDiscounts ? '✓ On' : '× Off'}
-              </Typography>
-            </Grid>
-          </Grid>
-        </Box>
-
-        {/* Inventory Section */}
-        <Box sx={{ 
-          mb: 3, 
-          p: 2, 
-          borderRadius: 1,
-          backgroundColor: fieldSelections.trackInventory === index || fieldSelections.currentStockCases === index || fieldSelections.currentStockItems === index || fieldSelections.reorderLevelCases === index || fieldSelections.reorderLevelItems === index || fieldSelections.reorderAmountCases === index || fieldSelections.reorderAmountItems === index || fieldSelections.reorderRounding === index ? '#e3f2fd' : '#fff',
-          border: fieldSelections.trackInventory === index || fieldSelections.currentStockCases === index || fieldSelections.currentStockItems === index || fieldSelections.reorderLevelCases === index || fieldSelections.reorderLevelItems === index || fieldSelections.reorderAmountCases === index || fieldSelections.reorderAmountItems === index || fieldSelections.reorderRounding === index ? '2px solid #1976d2' : '1px solid transparent'
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Inventory
-            </Typography>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={() => handleSectionSelection('inventory', index)}
-              sx={{ 
-                backgroundColor: fieldSelections.trackInventory === index || fieldSelections.currentStockCases === index || fieldSelections.currentStockItems === index || fieldSelections.reorderLevelCases === index || fieldSelections.reorderLevelItems === index || fieldSelections.reorderAmountCases === index || fieldSelections.reorderAmountItems === index || fieldSelections.reorderRounding === index ? '#e3f2fd' : 'white'
-              }}
-            >
-              Select Section
-            </Button>
-          </Box>
-          
-          <Grid container spacing={1}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Track Inventory
-                </Typography>
-                {fieldSelections.trackInventory === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.trackInventory === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.trackInventory === index ? '2px solid #1976d2' : '1px solid #e0e0e0'
-              }}>
-                {product.trackInventory ? '✓ On' : '× Off'}
-              </Typography>
-            </Grid>
-
-            {/* Inventory Table (read-only) */}
-            <Grid item xs={12}>
-              <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, overflow: 'hidden' }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', backgroundColor: '#f7f7f7', fontWeight: 600 }}> </Box>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', backgroundColor: '#f7f7f7', fontWeight: 600, textAlign: 'center' }}>Case</Box>
-                  <Box sx={{ p: 1, backgroundColor: '#f7f7f7', fontWeight: 600, textAlign: 'center' }}>Item</Box>
-                </Box>
-
-                {/* Current Stock */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Current Stock</Box>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>{product.currentStockCases ?? 0}</Box>
-                  <Box sx={{ p: 1, textAlign: 'center' }}>{product.currentStockItems ?? 0}</Box>
-                </Box>
-
-                {/* Reorder Level */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Level</Box>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>{product.reorderLevelCases ?? 0}</Box>
-                  <Box sx={{ p: 1, textAlign: 'center' }}>{product.reorderLevelItems ?? 0}</Box>
-                </Box>
-
-                {/* Reorder Amount */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Amount</Box>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>{product.reorderAmountCases ?? 0}</Box>
-                  <Box sx={{ p: 1, textAlign: 'center' }}>{product.reorderAmountItems ?? 0}</Box>
-                </Box>
-
-                {/* Reorder Limit */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Limit</Box>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>{product.reorderLimitCases ?? 'No Value'}</Box>
-                  <Box sx={{ p: 1, textAlign: 'center' }}>{product.reorderLimitItems ?? 'No Value'}</Box>
-                </Box>
-
-                {/* Max On Hand */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Max On Hand</Box>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>{product.maxOnHandCases ?? 'No Value'}</Box>
-                  <Box sx={{ p: 1, textAlign: 'center' }}>{product.maxOnHandItems ?? 'No Value'}</Box>
-                </Box>
-
-                {/* Reorder Rounding */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                  <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Rounding</Box>
-                  <Box sx={{ p: 1, gridColumn: 'span 2' }}>{product.reorderRounding || 'No Rounding'}</Box>
-                </Box>
-              </Box>
-            </Grid>
-          </Grid>
-        </Box>
-
-        <Box sx={{ 
-          mb: 3, 
-          p: 2, 
-          borderRadius: 1,
-          backgroundColor: fieldSelections.barcodes === index ? '#e3f2fd' : '#fff',
-          border: fieldSelections.barcodes === index ? '2px solid #1976d2' : '1px solid transparent'
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Barcodes
-            </Typography>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={() => handleSectionSelection('barcodes', index)}
-              sx={{ 
-                backgroundColor: fieldSelections.barcodes === index ? '#e3f2fd' : 'white'
-              }}
-            >
-              Select Section
-            </Button>
-          </Box>
-          
-          <Typography variant="body2" sx={{ 
-            p: 1, 
-            backgroundColor: fieldSelections.barcodes === index ? '#e3f2fd' : '#f5f5f5', 
-            borderRadius: 1,
-            border: fieldSelections.barcodes === index ? '2px solid #1976d2' : '1px solid #e0e0e0',
-            minHeight: 40
-          }}>
-            {product.barcodes && product.barcodes.length > 0 
-              ? product.barcodes.map(barcode => `${barcode.quantity} x ${barcode.code}`).join(', ')
-              : 'No Value'
-            }
-          </Typography>
-        </Box>
-
-        <Box sx={{ 
-          mb: 3, 
-          p: 2, 
-          borderRadius: 1,
-          backgroundColor: fieldSelections.orderNotes === index || fieldSelections.invoiceNotes === index || fieldSelections.suppliers === index ? '#e3f2fd' : '#fff',
-          border: fieldSelections.orderNotes === index || fieldSelections.invoiceNotes === index || fieldSelections.suppliers === index ? '2px solid #1976d2' : '1px solid transparent'
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Suppliers
-            </Typography>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={() => handleSectionSelection('suppliers', index)}
-              sx={{ 
-                backgroundColor: fieldSelections.orderNotes === index || fieldSelections.invoiceNotes === index || fieldSelections.suppliers === index ? '#e3f2fd' : 'white'
-              }}
-            >
-              Select Section
-            </Button>
-          </Box>
-          
-          <Grid container spacing={1}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Order Notes
-                </Typography>
-                {fieldSelections.orderNotes === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.orderNotes === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.orderNotes === index ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                minHeight: 40
-              }}>
-                {product.orderNotes || 'No Value'}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Invoice Notes
-                </Typography>
-                {fieldSelections.invoiceNotes === index && <CheckIcon color="primary" sx={{ ml: 1 }} />}
-              </Box>
-              <Typography variant="body2" sx={{ 
-                p: 1, 
-                backgroundColor: fieldSelections.invoiceNotes === index ? '#e3f2fd' : '#f5f5f5', 
-                borderRadius: 1,
-                border: fieldSelections.invoiceNotes === index ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                minHeight: 40
-              }}>
-                {product.invoiceNotes || 'No Value'}
-              </Typography>
-            </Grid>
-          </Grid>
-        </Box>
-      </CardContent>
-    </Card>
+  // ---------- renderers ----------
+  const colSx = { width: 400, flexShrink: 0, bgcolor: GREY, p: 2, pt: 1.5, alignSelf: 'flex-start' };
+  const rowInput = (field, { type = 'text', placeholder = '', testid } = {}) => (
+    <InputBase value={merged[field] ?? ''} type={type} placeholder={placeholder} onChange={(e) => edit({ [field]: e.target.value })} inputProps={{ 'aria-label': field, 'data-testid': testid }} sx={inputSx} />
+  );
+  const optList = (items) => [{ id: '', name: 'No Value' }, ...items.map((x) => ({ id: x.id, name: x.name }))];
+  const classSelect = (idField, nameField, items, label) => (
+    <>
+      <FieldLabel label={label} tick={tickR('classifications')} action={<ClearBtn testid={`clear-${idField}`} onClick={() => edit({ [idField]: null, [nameField]: '' })} />} />
+      {merged[idField] ? (
+        <ValueText value={merged[nameField] || items.find((x) => x.id === merged[idField])?.name || ''} />
+      ) : (
+        <Select displayEmpty value="" onChange={(e) => { const it = items.find((x) => x.id === e.target.value); edit({ [idField]: it?.id ?? null, [nameField]: it?.name || '' }); }} inputProps={{ 'aria-label': label }} sx={selectSx} renderValue={() => <span style={{ color: '#9e9e9e' }}>{NO_VALUE}</span>}>
+          {optList(items).map((o) => <MenuItem key={o.id || 'none'} value={o.id} sx={{ fontSize: 16 }}>{o.name}</MenuItem>)}
+        </Select>
+      )}
+    </>
   );
 
-  const renderAddProductColumn = () => (
-    <Card sx={{ 
-      minHeight: 600,
-      border: '2px dashed #ccc',
-      backgroundColor: '#fafafa',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'pointer',
-      transition: 'all 0.2s ease-in-out',
-      '&:hover': {
-        borderColor: '#1976d2',
-        backgroundColor: '#e3f2fd'
-      }
-    }}
-    onClick={handleAddProduct}
-    >
-      <CardContent sx={{ textAlign: 'center', p: 4 }}>
-        <Typography variant="h6" sx={{ mb: 2, color: '#1976d2' }}>
-          + Click to add a new product to merge
-        </Typography>
-      </CardContent>
-    </Card>
+  const renderResults = () => (
+    <Box data-testid="merge-results-column" sx={colSx}>
+      <Typography sx={{ fontSize: 20, color: '#000', mb: 1.5, px: 0 }}>Results</Typography>
+
+      <SectionCard testid="results-general" title="General" selected={isResults('general')} onSelect={() => selectResults('general')}>
+        <FieldLabel label="Name" required tick={tickR('general')} />
+        {rowInput('name', { testid: 'merged-name' })}
+        <FieldLabel label="Type" required tick={tickR('general')} />
+        <ValueText value={merged.type} />
+        <FieldLabel label="Status" required tick={tickR('general')} />
+        <Select value={merged.status || ''} displayEmpty onChange={(e) => edit({ status: e.target.value })} inputProps={{ 'aria-label': 'Status' }} sx={selectSx} renderValue={(v) => v || <span style={{ color: '#9e9e9e' }}>Select...</span>}>
+          {['Active', 'Not Selling', 'Discontinued'].map((s) => <MenuItem key={s} value={s} sx={{ fontSize: 16 }}>{s}</MenuItem>)}
+        </Select>
+        <FieldLabel label="Description" tick={tickR('general')} />
+        {rowInput('description')}
+        <FieldLabel label="Case Quantity" required tick={tickR('general')} />
+        {rowInput('caseQuantity', { type: 'number', testid: 'merged-case-qty' })}
+      </SectionCard>
+
+      <SectionCard testid="results-classifications" title="Classifications" selected={isResults('classifications')} onSelect={() => selectResults('classifications')}>
+        {classSelect('categoryId', 'categoryName', categories, 'Category')}
+        {classSelect('brandId', 'brandName', brands, 'Brand')}
+        {classSelect('familyId', 'familyName', families, 'Family')}
+        <FieldLabel label="Tags" tick={tickR('classifications')} action={<ClearBtn testid="clear-tags" onClick={() => edit({ tags: [] })} />} />
+        <ValueText value={(merged.tags || []).join(', ')} />
+      </SectionCard>
+
+      <SectionCard testid="results-sellCost" title="Sell & Cost Prices" selected={isResults('sellCost')} onSelect={() => selectResults('sellCost')}>
+        <FieldLabel label="Tax Rate" tick={tickR('sellCost')} action={<ClearBtn testid="clear-tax" onClick={() => edit({ retailTaxRate: '' })} />} />
+        <Select value={merged.retailTaxRate || ''} displayEmpty onChange={(e) => edit({ retailTaxRate: e.target.value })} inputProps={{ 'aria-label': 'Tax Rate' }} sx={selectSx} renderValue={(v) => v || <span style={{ color: '#9e9e9e' }}>Select...</span>}>
+          {taxRates.map((t) => <MenuItem key={t.id} value={t.name} sx={{ fontSize: 16 }}>{t.name}</MenuItem>)}
+        </Select>
+        <FieldLabel label="Cost is a percentage of sell price" tick={tickR('sellCost')} />
+        <Box sx={{ mb: 1.5 }}><ShopfrontSwitch checked={!!merged.costPercentage} onChange={(e) => edit({ costPercentage: e.target.checked })} inputProps={{ 'aria-label': 'Cost is a percentage of sell price' }} /></Box>
+        <FieldLabel label="Global Average Cost" tick={tickR('sellCost')} />
+        <InputBase value={merged.averageCaseCost ?? ''} onChange={(e) => edit({ averageCaseCost: e.target.value })} startAdornment={<span style={{ color: '#9e9e9e', marginRight: 6 }}>$</span>} inputProps={{ 'aria-label': 'Global Average Cost' }} sx={inputSx} />
+        <FieldLabel label="Global Last Cost" tick={tickR('sellCost')} />
+        <InputBase value={merged.caseCost ?? ''} onChange={(e) => edit({ caseCost: e.target.value })} startAdornment={<span style={{ color: '#9e9e9e', marginRight: 6 }}>$</span>} inputProps={{ 'aria-label': 'Global Last Cost', 'data-testid': 'merged-last-cost' }} sx={inputSx} />
+        {[['requestPrice', 'Request Price'], ['requestQuantity', 'Request Quantity'], ['preventManualDiscounts', 'Prevent Manual Discounts']].map(([k, l]) => (
+          <React.Fragment key={k}>
+            <FieldLabel label={l} tick={tickR('sellCost')} />
+            <Box sx={{ mb: 1.5 }}><ShopfrontSwitch checked={!!merged[k]} onChange={(e) => edit({ [k]: e.target.checked })} inputProps={{ 'aria-label': l }} /></Box>
+          </React.Fragment>
+        ))}
+        <FieldLabel label="Prices" tick={tickR('sellCost')} action={<ClearBtn testid="clear-prices" onClick={() => edit({ prices: [] })} />} />
+        {(merged.prices || []).length ? (
+          <Box sx={{ mb: 1 }}>
+            {merged.prices.map((p, i) => (
+              <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                <InputBase type="number" value={p.quantity} onChange={(e) => { const n = [...merged.prices]; n[i] = { ...n[i], quantity: Math.max(1, parseInt(e.target.value || 1, 10)) }; edit({ prices: n }); }} inputProps={{ 'aria-label': `Price ${i + 1} quantity`, min: 1 }} sx={{ ...inputSx, width: 90, mb: 0 }} />
+                <Typography sx={{ fontSize: 16 }}>for $</Typography>
+                <InputBase type="number" value={p.price} onChange={(e) => { const n = [...merged.prices]; n[i] = { ...n[i], price: parseFloat(e.target.value || 0) }; edit({ prices: n }); }} inputProps={{ 'aria-label': `Price ${i + 1} amount`, step: 0.01 }} sx={{ ...inputSx, flex: 1, mb: 0 }} />
+                <IconButton size="small" aria-label={`Remove price ${i + 1}`} onClick={() => edit({ prices: merged.prices.filter((_, j) => j !== i) })} sx={{ color: '#e3342f' }}><DeleteOutlineIcon /></IconButton>
+              </Box>
+            ))}
+          </Box>
+        ) : <ValueText value="" />}
+        <Button startIcon={<AddIcon />} onClick={() => edit({ prices: [...(merged.prices || []), { quantity: 1, price: 0, cost: 0 }] })} sx={{ textTransform: 'none', color: DARK, fontSize: 15, mb: 0.5 }}>Add Price</Button>
+      </SectionCard>
+
+      <SectionCard testid="results-inventory" title="Inventory" selected={isResults('inventory')} onSelect={() => selectResults('inventory')}>
+        <FieldLabel label="Track Inventory" tick={tickR('inventory')} />
+        <Box sx={{ mb: 1.5 }}><ShopfrontSwitch checked={!!merged.trackInventory} onChange={(e) => edit({ trackInventory: e.target.checked })} inputProps={{ 'aria-label': 'Track Inventory' }} /></Box>
+        <FieldLabel label={outletName} tick={tickR('inventory')} />
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+          <InputBase type="number" placeholder="Cases" value={merged.currentStockCases ?? ''} onChange={(e) => edit({ currentStockCases: e.target.value })} inputProps={{ 'aria-label': 'Stock cases', 'data-testid': 'merged-stock-cases' }} sx={{ ...inputSx, mb: 0 }} />
+          <InputBase type="number" placeholder="Items" value={merged.currentStockItems ?? ''} onChange={(e) => edit({ currentStockItems: e.target.value })} inputProps={{ 'aria-label': 'Stock items', 'data-testid': 'merged-stock-items' }} sx={{ ...inputSx, mb: 0 }} />
+        </Box>
+        <Typography sx={{ fontSize: 13, color: '#555', mb: 0.5 }}>Leave blank to add the stock of all merged products together.</Typography>
+      </SectionCard>
+
+      <SectionCard testid="results-barcodes" title="Barcodes" selected={isResults('barcodes')} onSelect={() => selectResults('barcodes')}>
+        <FieldLabel label="Barcodes" tick={tickR('barcodes')} action={<ClearBtn testid="clear-barcodes" onClick={() => edit({ barcodes: [] })} />} />
+        <ValueText value={barcodeText(merged.barcodes)} />
+      </SectionCard>
+
+      <SectionCard testid="results-suppliers" title="Suppliers" selected={isResults('suppliers')} onSelect={() => selectResults('suppliers')}>
+        <FieldLabel label="Order Notes" tick={tickR('suppliers')} />
+        {rowInput('orderNotes')}
+      </SectionCard>
+
+      <SectionCard testid="results-images" title="Images" selected={isResults('images')} onSelect={() => selectResults('images')}>
+        <FieldLabel label="Main Image" tick={tickR('images')} action={<ClearBtn testid="clear-images" onClick={() => edit({ images: [] })} />} />
+        {merged.images.find((i) => i.isMain) ? <Box component="img" src={merged.images.find((i) => i.isMain).imageUrl} alt="" sx={{ maxHeight: 80, mb: 1 }} /> : <ValueText value="" />}
+        <FieldLabel label="Alternate Images" tick={tickR('images')} />
+        <ValueText value={merged.images.filter((i) => !i.isMain).length ? `${merged.images.filter((i) => !i.isMain).length} image(s)` : ''} />
+      </SectionCard>
+
+      <SectionCard testid="results-loyalty" title="Loyalty" selected={isResults('loyalty')} onSelect={() => selectResults('loyalty')}>
+        <FieldLabel label={`${outletName} Loyalty`} tick={tickR('loyalty')} action={<ClearBtn testid="clear-loyalty" onClick={() => edit({ loyaltyRows: [] })} />} />
+        <ValueText value={loyaltyText(merged.loyaltyRows)} />
+      </SectionCard>
+    </Box>
   );
+
+  const renderProduct = (p) => {
+    const sec = (id, title, rows) => (
+      <SectionCard key={id} testid={`product-${p.id}-${id}`} title={title} selected={isFrom(id, p.id)} dark={isFrom(id, p.id)} onSelect={() => selectFromProduct(id, p)}>
+        {rows.map(([label, value]) => (
+          <React.Fragment key={label}>
+            <FieldLabel label={label} tick={isFrom(id, p.id)} />
+            <ValueText value={value} />
+          </React.Fragment>
+        ))}
+      </SectionCard>
+    );
+    const mainImg = (p.images || []).find((i) => i.isMain);
+    return (
+      <Box key={p.id} data-testid={`merge-product-column`} data-product-id={p.id} sx={colSx}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+          <Typography sx={{ fontSize: 20, color: '#000', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</Typography>
+          <IconButton aria-label={`Remove ${p.name}`} onClick={() => removeProduct(p.id)} sx={{ color: '#e3342f' }}><DeleteOutlineIcon /></IconButton>
+        </Box>
+        {sec('general', 'General', [['Name', p.name], ['Type', p.type], ['Status', p.status], ['Description', stripHtml(p.description || '')], ['Case Quantity', String(p.caseQuantity ?? 1)]])}
+        {sec('classifications', 'Classifications', [['Category', p.category?.name], ['Brand', p.brand?.name], ['Family', p.family?.name], ['Tags', tagNames(p.tags).join(', ')]])}
+        {sec('sellCost', 'Sell & Cost Prices', [['Tax Rate', p.retailTaxRate], ['Cost is a percentage of sell price', p.costPercentage ? 'Yes' : 'No'], ['Global Average Cost', money(p.averageCaseCost)], ['Global Last Cost', money(p.caseCost)], ['Request Price', p.requestPrice ? 'Yes' : 'No'], ['Request Quantity', p.requestQuantity ? 'Yes' : 'No'], ['Prevent Manual Discounts', p.preventManualDiscounts ? 'Yes' : 'No'], ['Prices', priceText(p.prices)]])}
+        {sec('inventory', 'Inventory', [['Track Inventory', p.trackInventory === false ? 'No' : 'Yes'], [p.outlet?.name || outletName, stockText(p)]])}
+        {sec('barcodes', 'Barcodes', [['Barcodes', barcodeText(p.barcodes)]])}
+        {sec('suppliers', 'Suppliers', [['Order Notes', p.orderNotes]])}
+        {sec('images', 'Images', [['Main Image', mainImg ? mainImg.imageUrl : ''], ['Alternate Images', (p.images || []).filter((i) => !i.isMain).length ? `${(p.images || []).filter((i) => !i.isMain).length} image(s)` : '']])}
+        {sec('loyalty', 'Loyalty', [[`${p.outlet?.name || outletName} Loyalty`, loyaltyText(p.loyaltyRows)]])}
+      </Box>
+    );
+  };
+
+  const pickedLabel = useMemo(() => (addPicked.length ? `${addPicked.length} Selected...` : ''), [addPicked]);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Paper sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={handleGoBack} sx={{ mr: 2 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h4" component="h1">
-            Product Merge
-          </Typography>
-        </Box>
+    <Box sx={{ minHeight: 'calc(100vh - 50px)', bgcolor: '#f5f5f5', px: '8px', pb: '8px' }}>
+      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: '20px 0 24px' }}>Product Merge</Typography>
+      {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
 
-        {/* Description */}
-        <Alert severity="info" sx={{ mb: 3 }}>
-          This is a handy function if duplicate products exist. This function will merge all of the sales history and purchase history from the merged products into a new product.
-        </Alert>
-
-        {/* Error/Success Messages */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
-
-        {/* Main Content - Columns */}
-        <Grid container spacing={3}>
-          {/* Results Column */}
-          <Grid item xs={12} md={3}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Results
-            </Typography>
-            
-            <Card sx={{ backgroundColor: '#f0f8ff' }}>
-              <CardContent sx={{ p: 2 }}>
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                    General
-                  </Typography>
-                  
-                  <Grid container spacing={1}>
-                    <Grid item xs={12}>
-                       <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Name *
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={mergedProduct.name}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
-                        required
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Type *
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={mergedProduct.type}
-                        InputProps={{ readOnly: true }}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Status
-                      </Typography>
-                      <FormControl fullWidth size="small">
-                        <Select
-                          value={mergedProduct.status}
-                          onChange={(e) => handleInputChange('status', e.target.value)}
-                        >
-                          <MenuItem value="Active">Active</MenuItem>
-                          <MenuItem value="Not Selling">Not Selling</MenuItem>
-                          <MenuItem value="Not Purchasing">Not Purchasing</MenuItem>
-                          <MenuItem value="Inactive">Inactive</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12}> 
-                        <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Description
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        multiline
-                        rows={2}
-                        value={mergedProduct.description} 
-                        onChange={(e) => handleInputChange('description', e.target.value)}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Case Quantity
-                      </Typography>
-                      <NumberField
-                        fullWidth
-                        size="small"
-                        int
-                        fallback={1}
-                        value={mergedProduct.caseQuantity}
-                        onCommit={(n) => handleInputChange('caseQuantity', n)}
-                        required
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
-
-                {/* Classifications Section */}
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      Classifications
-                    </Typography>
-                    <Button size="small" variant="outlined">
-                      Select Section
-                    </Button>
-                  </Box>
-                  
-                  <Grid container spacing={1}>
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Category
-                      </Typography>
-                      <FormControl fullWidth size="small">
-                        <Select
-                          value={mergedProduct.categoryId || ''}
-                          onChange={(e) => {
-                            const selectedCategory = categories.find(c => c.id === e.target.value);
-                            handleInputChange('category', selectedCategory?.name || '');
-                            handleInputChange('categoryId', e.target.value);
-                          }}
-                        >
-                          <MenuItem value="">
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                              <span>No Value</span>
-                              <ClearIcon fontSize="small" />
-                            </Box>
-                          </MenuItem>
-                          {categories.map((category) => (
-                            <MenuItem key={category.id} value={category.id}>
-                              {category.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Brand
-                      </Typography>
-                      <FormControl fullWidth size="small">
-                        <Select
-                          value={mergedProduct.brandId || ''}
-                          onChange={(e) => {
-                            const selectedBrand = brands.find(b => b.id === e.target.value);
-                            handleInputChange('brand', selectedBrand?.name || '');
-                            handleInputChange('brandId', e.target.value);
-                          }}
-                        >
-                          <MenuItem value="">
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                              <span>No Value</span>
-                              <ClearIcon fontSize="small" />
-                            </Box>
-                          </MenuItem>
-                          {brands.map((brand) => (
-                            <MenuItem key={brand.id} value={brand.id}>
-                              {brand.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Family
-                      </Typography>
-                      <FormControl fullWidth size="small">
-                        <Select
-                          value={mergedProduct.familyId || ''}
-                          onChange={(e) => {
-                            const selectedFamily = families.find(f => f.id === e.target.value);
-                            handleInputChange('family', selectedFamily?.name || '');
-                            handleInputChange('familyId', e.target.value);
-                          }}
-                        >
-                          <MenuItem value="">
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                              <span>No Value</span>
-                              <ClearIcon fontSize="small" />
-                            </Box>
-                          </MenuItem>
-                          {families.map((family) => (
-                            <MenuItem key={family.id} value={family.id}>
-                              {family.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Tags
-                      </Typography>
-                      <Typography variant="body2" sx={{ p: 1, backgroundColor: '#fff', borderRadius: 1, border: '1px solid #e0e0e0' }}>
-                        {formatTags(mergedProduct.tags)}
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Box>
-
-                {/* Sell & Cost Prices Section */}
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      Sell & Cost Prices
-                    </Typography>
-                    <Button size="small" variant="outlined">
-                      Select Section
-                    </Button>
-                  </Box>
-                  
-                  <Grid container spacing={1}>
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Tax Rate
-                      </Typography>
-                      <FormControl fullWidth size="small">
-                        <Select
-                          value={mergedProduct.retailTaxRate}
-                          onChange={(e) => handleInputChange('retailTaxRate', e.target.value)}
-                        >
-                          {/* The outlet's rates by name ("No Tax" is a row of that table).
-                              A value no longer in the list stays so the select never
-                              renders blank. "Inherit" is a purchase-tax value only. */}
-                          {(() => {
-                            const names = taxRates.map((t) => t.name).filter((n, i, all) => all.indexOf(n) === i);
-                            if (!names.includes('No Tax')) names.push('No Tax');
-                            const current = mergedProduct.retailTaxRate;
-                            if (current && !names.includes(current)) names.push(current);
-                            return names.map((n) => (
-                              <MenuItem key={n} value={n}>{n}</MenuItem>
-                            ));
-                          })()}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={mergedProduct.costPercentage}
-                            onChange={(e) => handleInputChange('costPercentage', e.target.checked)}
-                          />
-                        }
-                        label="Cost is a percentage of sell price"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Global Average Cost
-                      </Typography>
-                      {/* Read-only: the merge recomputes the average from the
-                          sources' stock-weighted costs; only the last (case)
-                          cost below is taken from the form. */}
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={Number(mergedProduct.averageCaseCost || mergedProduct.caseCost || 0).toFixed(2)}
-                        InputProps={{
-                          readOnly: true,
-                          startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
-                        }}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Global Last Cost
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        type="number"
-                        value={mergedProduct.caseCost}
-                        onChange={(e) => handleCaseCostChange(e.target.value)}
-                        InputProps={{
-                          startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
-                        }}
-                      />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={!!mergedProduct.preventManualDiscounts}
-                            onChange={(e) => handleInputChange('preventManualDiscounts', e.target.checked)}
-                          />
-                        }
-                        label="Prevent Manual Discounts"
-                      />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={mergedProduct.requestPrice}
-                            onChange={(e) => handleInputChange('requestPrice', e.target.checked)}
-                          />
-                        }
-                        label="Request Price"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={mergedProduct.requestQuantity}
-                            onChange={(e) => handleInputChange('requestQuantity', e.target.checked)}
-                          />
-                        }
-                        label="Request Quantity"
-                      />
-                    </Grid>
-
-                    {/* Prices box */}
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}>
-                        Prices
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {(mergedProduct.prices || []).map((row, idx) => (
-                          <Box key={idx} sx={{ display: 'flex', gap: 1 }}>
-                            <TextField
-                              size="small"
-                              type="number"
-                              value={row.quantity}
-                              onChange={(e) => handlePriceChange(idx, 'quantity', e.target.value)}
-                              sx={{ width: 100 }}
-                              InputProps={{
-                                startAdornment: <Typography sx={{ mr: 0.5 }}>Qty</Typography>
-                              }}
-                            />
-                            <TextField
-                              size="small"
-                              type="number"
-                              value={row.price}
-                              onChange={(e) => handlePriceChange(idx, 'price', e.target.value)}
-                              sx={{ maxWidth: 200 }}
-                              InputProps={{
-                                startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
-                              }}
-                            />
-                            {/* Same red bin as the Product Edit price/barcode rows */}
-                            <IconButton size="small" color="error" title="Remove price" onClick={() => removePriceRow(idx)}>
-                              <DeleteOutlineIcon />
-                            </IconButton>
-                          </Box>
-                        ))}
-                        <Box>
-                          <Button size="small" variant="outlined" onClick={addPriceRow}>Add Price</Button>
-                        </Box>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Box>
-
-                {/* Inventory Section */}
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      Inventory
-                    </Typography>
-                    <Button size="small" variant="outlined">
-                      Select Section
-                    </Button>
-                  </Box>
-                  
-                  <Grid container spacing={1}>
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={mergedProduct.trackInventory}
-                            onChange={(e) => handleInputChange('trackInventory', e.target.checked)}
-                          />
-                        }
-                        label="Track Inventory"
-                      />
-                    </Grid>
-                    
-                    {/* Outlet inventory table */}
-                    <Grid item xs={12}>
-                      <Typography variant="body2" sx={{ mb: 1 }}>{user?.isSuperAdmin ? 'Global' : (getOutletName() || 'N/A')}</Typography>
-                      <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, overflow: 'hidden' }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
-                          <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', backgroundColor: '#f7f7f7', fontWeight: 600 }}> </Box>
-                          <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0', backgroundColor: '#f7f7f7', fontWeight: 600, textAlign: 'center' }}>Case</Box>
-                          <Box sx={{ p: 1, backgroundColor: '#f7f7f7', fontWeight: 600, textAlign: 'center' }}>Item</Box>
-                        </Box>
-
-                        {/* Current Stock */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                          <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Current Stock</Box>
-                          <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.currentStockCases}
-                              onCommit={(n) => handleInputChange('currentStockCases', n)} />
-                          </Box>
-                          <Box sx={{ p: 0.5 }}>
-                            {/* Loose items are held to two decimal places (a basket
-                                can spend 0.04 of a component), so parseInt here
-                                would drop the fraction on merge. */}
-                            <NumberField size="small" fullWidth value={mergedProduct.currentStockItems}
-                              inputProps={{ step: 'any' }}
-                              onCommit={(n) => handleInputChange('currentStockItems', n)} />
-                          </Box>
-                        </Box>
-
-                        {/* Reorder Level */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                          <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Level</Box>
-                          <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.reorderLevelCases || 0}
-                              onCommit={(n) => handleInputChange('reorderLevelCases', n)} />
-                          </Box>
-                          <Box sx={{ p: 0.5 }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.reorderLevelItems || 0}
-                              onCommit={(n) => handleInputChange('reorderLevelItems', n)} />
-                          </Box>
-                        </Box>
-
-                        {/* Reorder Amount */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                          <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Amount</Box>
-                          <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.reorderAmountCases || 0}
-                              onCommit={(n) => handleInputChange('reorderAmountCases', n)} />
-                          </Box>
-                          <Box sx={{ p: 0.5 }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.reorderAmountItems || 0}
-                              onCommit={(n) => handleInputChange('reorderAmountItems', n)} />
-                          </Box>
-                        </Box>
-
-                        {/* Reorder Limit */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                          <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Limit</Box>
-                          <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.reorderLimitCases || ''}
-                              onCommit={(n) => handleInputChange('reorderLimitCases', n)} placeholder="No Value" />
-                          </Box>
-                          <Box sx={{ p: 0.5 }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.reorderLimitItems || ''}
-                              onCommit={(n) => handleInputChange('reorderLimitItems', n)} placeholder="No Value" />
-                          </Box>
-                        </Box>
-
-                        {/* Max On Hand */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                          <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Max On Hand</Box>
-                          <Box sx={{ p: 0.5, borderRight: '1px solid #e0e0e0' }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.maxOnHandCases || ''}
-                              onCommit={(n) => handleInputChange('maxOnHandCases', n)} placeholder="No Value" />
-                          </Box>
-                          <Box sx={{ p: 0.5 }}>
-                            <NumberField int size="small" fullWidth value={mergedProduct.maxOnHandItems || ''}
-                              onCommit={(n) => handleInputChange('maxOnHandItems', n)} placeholder="No Value" />
-                          </Box>
-                        </Box>
-
-                        {/* Reorder Rounding */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid #e0e0e0' }}>
-                          <Box sx={{ p: 1, borderRight: '1px solid #e0e0e0' }}>Reorder Rounding</Box>
-                          <Box sx={{ p: 1, gridColumn: 'span 2' }}>
-                            <FormControl fullWidth size="small">
-                              <Select
-                                value={mergedProduct.reorderRounding || 'No Rounding'}
-                                onChange={(e) => handleInputChange('reorderRounding', e.target.value)}
-                              >
-                                <MenuItem value="No Rounding">No Rounding</MenuItem>
-                                <MenuItem value="Round Up">Round Up</MenuItem>
-                                <MenuItem value="Round Down">Round Down</MenuItem>
-                              </Select>
-                            </FormControl>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </Box>
-
-                {/* Barcodes Section */}
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      Barcodes
-                    </Typography>
-                    <Button size="small" variant="outlined">
-                      Select Section
-                    </Button>
-                  </Box>
-                  
-                  <TextField
-                    fullWidth
-                    size="small"
-                    multiline
-                    rows={3}
-                    value={mergedProduct.barcodes ? mergedProduct.barcodes.map(b => `${b.quantity} x ${b.code}`).join('\n') : ''}
-                    onChange={(e) => {
-                      // Parse barcodes from text input
-                      const lines = e.target.value.split('\n').filter(line => line.trim());
-                      const barcodes = lines.map(line => {
-                        const match = line.match(/(\d+)\s*x\s*(.+)/);
-                        if (match) {
-                          return { quantity: parseInt(match[1]), code: match[2].trim() };
-                        }
-                        return { quantity: 1, code: line.trim() };
-                      });
-                      handleInputChange('barcodes', barcodes);
-                    }}
-                    placeholder="Enter barcodes in format: quantity x code"
-                  />
-                </Box>
-
-                {/* Suppliers Section */}
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      Suppliers
-                    </Typography>
-                    <Button size="small" variant="outlined">
-                      Select Section
-                    </Button>
-                  </Box>
-                  
-                  <Grid container spacing={1}>
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}> Order Notes </Typography>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        multiline
-                        rows={2}
-                        value={mergedProduct.orderNotes}
-                        onChange={(e) => handleInputChange('orderNotes', e.target.value)}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 400, mb: 1 }}> Invoice Notes </Typography>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        multiline
-                        rows={2}
-                        value={mergedProduct.invoiceNotes}
-                        onChange={(e) => handleInputChange('invoiceNotes', e.target.value)}
-                      />
-                    </Grid>
-                  </Grid>
-                </Box>
-
-                {/* Complete Merge Button */}
-                <Button
-                  variant="contained"
-                  size="large"
-                  fullWidth
-                  onClick={() => setConfirmMergeOpen(true)}
-                  disabled={productsToMerge.length < 2 || !mergedProduct.name.trim() || loading}
-                >
-                  {loading ? 'Merging...' : 'Complete Merge'}
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Product Columns */}
-          {productsToMerge.map((product, index) => (
-            <Grid item xs={12} md={3} key={product.id}>
-              {/* Same heading row as "Results" so every column's card starts on one line */}
-              <Typography variant="h6" sx={{ mb: 2, visibility: 'hidden' }} aria-hidden>
-                Results
-              </Typography>
-              {renderProductColumn(product, index)}
-            </Grid>
-          ))}
-
-          {/* Add Product Column */}
-          {productsToMerge.length < 4 && (
-            <Grid item xs={12} md={3}>
-              <Typography variant="h6" sx={{ mb: 2, visibility: 'hidden' }} aria-hidden>
-                Results
-              </Typography>
-              {renderAddProductColumn()}
-            </Grid>
-          )}
-        </Grid>
-      </Paper>
-
-      {/* Product Selection Dialog */}
-      <Dialog open={productSelectDialogOpen} onClose={() => setProductSelectDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Select Product to Merge
-          <IconButton
-            onClick={() => setProductSelectDialogOpen(false)}
-            sx={{ position: 'absolute', right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            placeholder="Search products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ mb: 2 }}
-          />
-          
-          <List>
-            {searchProducts(availableProducts, searchTerm)
-              .filter(product => 
-                !productsToMerge.find(p => p.id === product.id)
-              )
-              .map(product => (
-                <ListItem
-                  key={product.id}
-                  button
-                  onClick={() => handleProductSelect(product)}
-                >
-                  <ListItemText
-                    primary={product.name}
-                    secondary={`ID: ${product.id} | Status: ${product.status} | Stock: ${product.currentStockCases || 0} cases, ${product.currentStockItems || 0} items`}
-                  />
-                </ListItem>
-              ))}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setProductSelectDialogOpen(false)}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirm before merging: a merge cannot be undone (the reference asks
-          to confirm on Complete). */}
-      <Dialog open={confirmMergeOpen} onClose={() => setConfirmMergeOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Complete Merge?</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" gutterBottom>
-            {productsToMerge.length} products will be merged into "{mergedProduct.name.trim()}".
-            Their sales and purchase history moves to the new product and the originals are sent to Trashed Items.
-          </Typography>
-          <Typography variant="body2" color="error">
-            This cannot be reversed.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmMergeOpen(false)}>Cancel</Button>
+      <Box sx={{ display: 'flex', gap: '16px', alignItems: 'flex-start', overflowX: 'auto', pb: 2 }}>
+        <Box sx={{ flexShrink: 0 }}>
+          {renderResults()}
           <Button
-            variant="contained"
-            onClick={() => { setConfirmMergeOpen(false); handleMerge(); }}
+            data-testid="complete-merge"
+            disabled={!canMerge}
+            onClick={() => setConfirmOpen(true)}
+            sx={{ width: 400, height: 42, mt: 1, bgcolor: '#e0e0e0', color: '#555', fontSize: 16, fontWeight: 700, textTransform: 'none', borderRadius: '8px', boxShadow: 'none', '&:hover': { bgcolor: '#cfcfcf' }, '&.Mui-disabled': { bgcolor: '#e0e0e0', color: '#9e9e9e' } }}
           >
-            Complete Merge
+            {loading ? <CircularProgress size={22} sx={{ color: '#555' }} /> : 'Complete Merge'}
           </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+        <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: '#e0e0e0', flexShrink: 0 }} />
+        {products.map(renderProduct)}
+        <Box
+          data-testid="add-product-card"
+          role="button"
+          tabIndex={0}
+          onClick={openAdd}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAdd(); } }}
+          sx={{ width: 400, minHeight: 760, flexShrink: 0, border: '1px dashed #bdbdbd', m: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#000', fontSize: 16, '&:hover': { bgcolor: '#fafafa' } }}
+        >
+          <AddIcon sx={{ fontSize: 20, mr: 0.5 }} /> Click to add a new product to merge
+        </Box>
+      </Box>
 
-      {/* Merge Results Dialog */}
-      <Dialog open={mergeDialogOpen} onClose={handleCloseMergeDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Merge Results
-          <IconButton
-            onClick={handleCloseMergeDialog}
-            sx={{ position: 'absolute', right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
+      {/* Add Product */}
+      <BadgeDialog
+        open={addOpen}
+        onClose={adding ? undefined : () => setAddOpen(false)}
+        title="Add Product"
+        subtitle="Select product to add to the merge"
+        testid="add-product-dialog"
+        actions={<>
+          <Button onClick={() => setAddOpen(false)} disabled={adding} sx={dlgBtn(false)}>Cancel</Button>
+          <Button onClick={confirmAdd} disabled={adding || !addPicked.length} data-testid="add-product-confirm" sx={dlgBtn(true)}>{adding ? 'Adding...' : 'Add'}</Button>
+        </>}
+      >
+        <Autocomplete
+          multiple
+          disableCloseOnSelect
+          options={addOptions}
+          value={addPicked}
+          loading={addSearching}
+          inputValue={addInput}
+          onInputChange={(_, v, reason) => { if (reason !== 'reset') setAddInput(v); }}
+          onChange={(_, v) => setAddPicked(v)}
+          getOptionLabel={(o) => o.name || ''}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          filterOptions={(x) => x}
+          noOptionsText={addInput.trim() ? (addSearching ? 'Searching...' : 'No products found') : 'Keep Typing to Search...'}
+          renderTags={(value) => (value.length ? <Chip label={`${value.length} Selected...`} size="small" sx={{ borderRadius: '4px', bgcolor: '#e0e0e0', fontSize: 15, mr: 1 }} /> : null)}
+          renderOption={(props, option, { selected }) => (
+            <li {...props} key={option.id} style={{ fontSize: 16, padding: '12px 16px', color: selected ? '#1c86f2' : '#000' }}>
+              <Checkbox icon={<UncheckedIcon fontSize="small" />} checkedIcon={<CheckedIcon fontSize="small" />} checked={selected} sx={{ p: 0, mr: 1.5, color: selected ? '#1c86f2' : '#000' }} />
+              {option.name}
+            </li>
+          )}
+          renderInput={(params) => (
+            <TextField {...params} placeholder={addPicked.length ? '' : 'Search for products...'} inputProps={{ ...params.inputProps, 'aria-label': 'Search for products', 'data-testid': 'add-product-search' }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: '#fff', minHeight: 44, py: 0, '& fieldset': { borderColor: '#000' }, '&:hover fieldset': { borderColor: '#000' }, '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 1 } } }} />
+          )}
+          ListboxProps={{ 'data-testid': 'add-product-options', style: { maxHeight: 300 } }}
+          componentsProps={{ paper: { sx: { borderRadius: '8px', border: '1px solid #000', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', mt: 0.5, '& .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent', color: '#1c86f2' }, '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#6fcbf9' } } } }}
+          sx={{ textAlign: 'left' }}
+        />
+        {pickedLabel && <Typography sx={{ display: 'none' }}>{pickedLabel}</Typography>}
+      </BadgeDialog>
+
+      {/* Confirm */}
+      <BadgeDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Complete Merge?"
+        subtitle={`The ${products.length} selected products will be merged into "${merged.name}". Their sales and purchase history move to the new product and the originals are sent to Trashed Items. This cannot be reversed.`}
+        testid="confirm-merge-dialog"
+        actions={<>
+          <Button onClick={() => setConfirmOpen(false)} sx={dlgBtn(false)}>Cancel</Button>
+          <Button onClick={doMerge} data-testid="confirm-merge-continue" sx={dlgBtn(true)}>Continue</Button>
+        </>}
+      />
+
+      {/* Result */}
+      <Dialog open={Boolean(result)} onClose={() => setResult(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' }, 'data-testid': 'merge-result-dialog' }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Merge Complete</DialogTitle>
         <DialogContent>
-          {mergeResults && (
+          {result && (
             <Box>
-              <Typography variant="body1" gutterBottom>
-                {mergeResults.message}
-              </Typography>
-              
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                  Merged Product Details:
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Name:</strong> {mergeResults.mergedProduct?.name}<br />
-                  <strong>ID:</strong> {mergeResults.mergedProduct?.id}<br />
-                  <strong>Total Sales History:</strong> {mergeResults.salesHistoryCount || 0} records<br />
-                  <strong>Total Purchase History:</strong> {mergeResults.purchaseHistoryCount || 0} records<br />
-                  <strong>Consolidated Stock:</strong> {mergeResults.mergedProduct?.currentStockCases || 0} cases, {mergeResults.mergedProduct?.currentStockItems || 0} items
-                </Typography>
-              </Box>
+              <Typography sx={{ mb: 1.5 }}>{result.message}</Typography>
+              <Table size="small">
+                <TableHead><TableRow><TableCell sx={{ fontWeight: 700 }}>Item</TableCell><TableCell sx={{ fontWeight: 700 }} align="right">Value</TableCell></TableRow></TableHead>
+                <TableBody>
+                  <TableRow><TableCell>New product</TableCell><TableCell align="right">{result.mergedProduct?.name} (#{result.mergedProduct?.id})</TableCell></TableRow>
+                  <TableRow><TableCell>Products merged</TableCell><TableCell align="right">{result.originalProductsCount ?? ''}</TableCell></TableRow>
+                  <TableRow><TableCell>Sales history moved</TableCell><TableCell align="right">{result.salesHistoryCount ?? ''}</TableCell></TableRow>
+                  <TableRow><TableCell>Purchase history moved</TableCell><TableCell align="right">{result.purchaseHistoryCount ?? ''}</TableCell></TableRow>
+                  <TableRow><TableCell>Stock on new product</TableCell><TableCell align="right">{stockText(result.mergedProduct)}</TableCell></TableRow>
+                </TableBody>
+              </Table>
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseMergeDialog}>Close</Button>
-          <Button onClick={handleGoBack} variant="contained">
-            View Products
-          </Button>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setResult(null)} disableElevation sx={{ bgcolor: '#dddddd', color: '#000', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#cccccc' } }}>Close</Button>
+          <Button onClick={() => navigate('/products')} variant="contained" disableElevation sx={{ bgcolor: '#5ebbeb', color: '#fff', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#4aa9dd' } }}>View Products</Button>
         </DialogActions>
       </Dialog>
     </Box>
