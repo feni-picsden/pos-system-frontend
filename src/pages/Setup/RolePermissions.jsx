@@ -148,11 +148,13 @@ const RolePermissions = () => {
     [catalog]
   );
 
+  // Switching a permission on also switches on whatever it requires (user
+  // 17/11/2026: a greyed toggle can be clicked directly; its parents come on too).
   const handlePermissionToggle = (permission) => {
     setSelectedPermissions((current) =>
       current.includes(permission)
         ? pruneUnmet(current.filter((p) => p !== permission), requiresByName)
-        : [...current, permission]
+        : [...current, ...withRequired([permission]).filter((n) => !current.includes(n))]
     );
   };
 
@@ -161,8 +163,19 @@ const RolePermissions = () => {
   // permissions whose requirements are met can come on.
   // A category counts as fully on when nothing more in it CAN come on (members locked
   // by a parent in another category are ignored), so the next click turns it off.
+  // Every permission the given ones need, transitively (e.g. Edit Classifications
+  // -> See Classifications), so a toggle / category switch can switch the parents
+  // on too (user 17/11/2026: one click = on, parents included).
+  const withRequired = (names) => {
+    const out = new Set(names);
+    const stack = [...names];
+    while (stack.length) {
+      for (const req of requiresByName[stack.pop()] || []) if (!out.has(req)) { out.add(req); stack.push(req); }
+    }
+    return [...out];
+  };
   const categoryWouldBe = (current, names) =>
-    pruneUnmet([...current, ...names.filter((n) => !current.includes(n))], requiresByName);
+    pruneUnmet([...current, ...withRequired(names).filter((n) => !current.includes(n))], requiresByName);
   const categoryAllOn = (current, names) =>
     categoryWouldBe(current, names).filter((n) => names.includes(n)).every((n) => current.includes(n));
   const handleCategoryToggle = (permissions) => {
@@ -394,10 +407,12 @@ const RolePermissions = () => {
               const checked = !locked && selectedPermissions.includes(permission.name);
               const cell = (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                  {/* Greyed while its parents are off, but still clickable: the click
+                      turns the parents on as well (tooltip still lists them). */}
                   <ShopfrontSwitch
                     checked={checked}
-                    disabled={locked}
                     onChange={() => handlePermissionToggle(permission.name)}
+                    sx={locked ? { opacity: 0.45 } : undefined}
                     inputProps={{ 'aria-label': permission.label }}
                   />
                   <Typography sx={{ fontSize: 15, color: locked ? '#8a8f98' : '#313439' }}>

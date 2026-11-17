@@ -82,7 +82,9 @@ const LOCKED_TOOLTIP_PROPS = {
 // light-blue title bar with '?' icon, question text, 42px input, Cancel/confirm buttons.
 // `outletPicker` (optional) = { value, options: [{id,name}], onChange }: shown on All Outlets
 // for a global admin so the new role can be company-wide or for one outlet.
-const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, onCancel, onConfirm, outletPicker = null }) => (
+// `busy`: the confirm is running - the button greys out and reads "Create..." until it
+// finishes (user 17/11/2026), and a second click / Cancel cannot fire meanwhile.
+const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, onCancel, onConfirm, outletPicker = null, busy = false }) => (
   <Dialog
     open={open}
     onClose={onCancel}
@@ -96,7 +98,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
       component="form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (value.trim()) onConfirm();
+        if (value.trim() && !busy) onConfirm();
       }}
       sx={{ px: 2, py: 2 }}
     >
@@ -145,6 +147,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
         <Button
           disableRipple
           onClick={onCancel}
+          disabled={busy}
           sx={{
             bgcolor: '#d4d4d4',
             color: '#313439',
@@ -163,7 +166,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
         <Button
           disableRipple
           type="submit"
-          disabled={!value.trim()}
+          disabled={!value.trim() || busy}
           sx={{
             bgcolor: '#0ea5e9',
             color: '#fff',
@@ -178,7 +181,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
             '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#737373' },
           }}
         >
-          {confirmText}
+          {busy ? `${confirmText}...` : confirmText}
         </Button>
       </Box>
     </Box>
@@ -200,6 +203,7 @@ const RolesAndPermissions = () => {
   // belongs to and let a new role be made Global or for one outlet (like Products).
   const { globalMode, outlets, outletNameOf } = useGlobalOutlet();
   const [createDialog, setCreateDialog] = useState({ open: false, name: '', outletId: 'global' });
+  const [promptBusy, setPromptBusy] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, role: null, loading: false });
 
   // Permission checks
@@ -226,6 +230,8 @@ const RolesAndPermissions = () => {
   };
 
   const handleCreateConfirm = async () => {
+    if (promptBusy) return;
+    setPromptBusy(true);
     try {
       const payload = { name: createDialog.name.trim() };
       if (globalMode && createDialog.outletId !== 'global') payload.outletId = createDialog.outletId;
@@ -237,6 +243,8 @@ const RolesAndPermissions = () => {
       setCreateDialog({ open: false, name: '', outletId: 'global' });
       setError(err.response?.data?.error || 'Failed to create role');
       console.error('Error creating role:', err);
+    } finally {
+      setPromptBusy(false);
     }
   };
 
@@ -268,6 +276,8 @@ const RolesAndPermissions = () => {
   };
 
   const handleCloneConfirm = async () => {
+    if (promptBusy) return;
+    setPromptBusy(true);
     try {
       await roleService.cloneRole(cloneDialog.role.id, cloneDialog.name.trim());
       setCloneDialog({ open: false, role: null, name: '' });
@@ -275,6 +285,8 @@ const RolesAndPermissions = () => {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to clone role');
       console.error('Error cloning role:', err);
+    } finally {
+      setPromptBusy(false);
     }
   };
 
@@ -490,6 +502,7 @@ const RolesAndPermissions = () => {
         onChange={(name) => setCreateDialog({ ...createDialog, name })}
         onCancel={() => setCreateDialog({ open: false, name: '', outletId: 'global' })}
         onConfirm={handleCreateConfirm}
+        busy={promptBusy}
         outletPicker={globalMode ? { value: createDialog.outletId, options: outlets, onChange: (outletId) => setCreateDialog({ ...createDialog, outletId }) } : null}
       />
 
@@ -503,6 +516,7 @@ const RolesAndPermissions = () => {
         onChange={(name) => setCloneDialog({ ...cloneDialog, name })}
         onCancel={() => setCloneDialog({ open: false, role: null, name: '' })}
         onConfirm={handleCloneConfirm}
+        busy={promptBusy}
       />
 
       {/* Delete confirmation */}
