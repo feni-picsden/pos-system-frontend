@@ -2030,11 +2030,16 @@ const GeneralSettings = () => {
       {SHOW_OUTLET_PROFILE_LIST && renderOutletsList()}
 
       {!selectedOutlet ? (
+        // While the outlet list is still loading the navbar outlet is about to
+        // be picked automatically - "Select which Outlets..." flashed for a
+        // second on every open. Only ask once the list is here and none is picked.
         <Box sx={{
           mt: 3, minHeight: 640, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
           border: '1px dashed #d4d4d4', borderRadius: '8px', color: '#676b72', fontSize: 16
         }}>
-          <TouchAppOutlined sx={{ fontSize: 18 }} /> Select which Outlets to edit...
+          {loadingOutlets || outlets.length === 0
+            ? 'Loading outlet settings…'
+            : <><TouchAppOutlined sx={{ fontSize: 18 }} /> Select which Outlets to edit...</>}
         </Box>
       ) : (
         // Locked (native fieldset disable + no pointer) while the outlet's saved
