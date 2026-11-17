@@ -213,7 +213,10 @@ const SettingsSection = ({ id, label, flash, children }) => (
       borderTop: '1px solid #e5e5e5',
       // No rule right under the page title: only BETWEEN sections.
       '&:first-of-type': { borderTop: 0, pt: 3 },
-      px: '4px',
+      // Band pokes 16px past the text on both sides so the flash never sits
+      // flush against the heading (user 17/11/2026); text stays where it was.
+      px: '16px',
+      mx: '-12px',
       pt: 6,
       pb: 6,
       scrollMarginTop: '144px',
@@ -3043,7 +3046,7 @@ const GeneralSettings = () => {
       <Box
         id="section-user-miscellaneous"
         sx={{
-          px: '4px', pt: 3, pb: 6, scrollMarginTop: '144px',
+          px: '16px', mx: '-12px', pt: 3, pb: 6, scrollMarginTop: '144px',
           borderRadius: '8px', transition: 'background-color 300ms',
           backgroundColor: flashSection === 'user-miscellaneous' ? '#f0f0f0' : 'transparent'
         }}
@@ -3183,7 +3186,9 @@ const GeneralSettings = () => {
       <Box sx={{ flex: 1, minWidth: 0, px: 4, pt: 2, pb: 12, backgroundColor: '#fff' }}>
         {/* Same 50px offset as the rail: at top 0 this search bar sat under the fixed app
             bar and the section heading scrolled through the gap, half hidden. */}
-        <Box sx={{ position: 'sticky', top: `${APP_BAR_HEIGHT}px`, zIndex: 3, backgroundColor: '#fff', pt: 1, pb: 2 }}>
+        {/* Spans the column's side padding too, so the section flash band
+            (which pokes 12px past the form) never shows a sliver above it. */}
+        <Box sx={{ position: 'sticky', top: `${APP_BAR_HEIGHT}px`, zIndex: 3, backgroundColor: '#fff', pt: 1, pb: 2, mx: -4, px: 4 }}>
           <Autocomplete
             options={searchOptions}
             groupBy={(option) => option.tab}
