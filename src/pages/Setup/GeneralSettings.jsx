@@ -71,7 +71,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
-import { useSearchParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 // The fixed app bar in DashboardLayout (HEADER_HEIGHT). Anything sticky on this page
 // has to start below it, or it scrolls under the bar and its text is clipped.
@@ -1595,6 +1595,10 @@ const GeneralSettings = () => {
             : ''}
           onChange={handleCompanySettingChange('defaultSaleKeys')}
           disabled={loadingSaleKeySets}
+          displayEmpty
+          renderValue={(v) => (v
+            ? v
+            : <Box component="span" sx={{ color: '#9e9e9e' }}>{loadingSaleKeySets ? 'Loading...' : 'Select...'}</Box>)}
         >
           {loadingSaleKeySets ? (
             <MenuItem value="">Loading...</MenuItem>
@@ -2884,9 +2888,6 @@ const GeneralSettings = () => {
                 })()}
               </Select>
             </FormControl>
-            <Button sx={{ mt: 1 }} component={RouterLink} to={'/settings/customer-display'}>
-              Edit templates
-            </Button>
           </Box>
 
           {/* Open customer display when register opens */}
