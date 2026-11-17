@@ -9934,8 +9934,10 @@ const SaleKeyPage = () => {
           bgcolor: 'white',
           display: 'flex',
           visibility: 'visible',
+          // Shares one 8px gap with the keys pane on whichever side it sits
+          // (Sale Keys Position: Right puts the summary on the left edge).
           m: '8px',
-          ml: 0,
+          ...(saleKeysPosition === 'right' ? { mr: 0 } : { ml: 0 }),
           flexDirection: 'column',
           overflow: 'hidden',
           position: 'relative',

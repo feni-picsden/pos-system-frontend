@@ -41,6 +41,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import orderInvoiceService from '../../services/orderInvoiceService';
+import { reviewRequiredFrom, reviewRequiredPath } from '../../utils/forceReview';
 import supplierService from '../../services/supplierService';
 import customerService from '../../services/customerService';
 import productService from '../../services/productService';
@@ -1576,6 +1577,8 @@ const EditOrder = () => {
           await orderInvoiceService.sendTransfer(id);
           setSuccess('Transfer sent! Stock has been moved between outlets.');
         } catch (transferErr) {
+          const rr = reviewRequiredFrom(transferErr);
+          if (rr) { setSaving(false); navigate(reviewRequiredPath(rr, id)); return; }
           setError(transferErr.response?.data?.error || 'Saved, but failed to send transfer');
           setSaving(false);
           return;
@@ -1589,6 +1592,9 @@ const EditOrder = () => {
       }, 1500);
       
     } catch (err) {
+      // Force Review: the order was not sent; a review was created (or must be).
+      const rr = reviewRequiredFrom(err);
+      if (rr) { navigate(reviewRequiredPath(rr, id)); return; }
       setError(err.response?.data?.error || 'Failed to save order');
       console.error('Error saving order:', err);
     } finally {
@@ -1684,8 +1690,11 @@ const EditOrder = () => {
         await orderInvoiceService.markAsReceived(id, receivedQuantities);
         setSuccess('Order saved and stock received successfully!');
       } catch (receiveErr) {
-        setSuccess('Order saved, but failed to receive stock. Please try receiving manually.');
+        const rr = reviewRequiredFrom(receiveErr);
+        if (rr) { navigate(reviewRequiredPath(rr, id)); return; }
+        setError(receiveErr.response?.data?.error || 'Order saved, but failed to receive stock. Please try receiving manually.');
         console.error('Error marking as received:', receiveErr);
+        return;
       }
       
       // Redirect to order details after a short delay

@@ -72,6 +72,8 @@ import supplierService from '../../services/supplierService';
 import { resolveAssetUrl } from '../../services/apiClient';
 import { outletService } from '../../services/outletService';
 import { userService } from '../../services/userService';
+import settingsService from '../../services/settingsService';
+import { reviewRequiredFrom } from '../../utils/forceReview';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { orderGates } from '../../utils/orderPermissions';
@@ -184,6 +186,10 @@ const OrderDetails = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewUsers, setReviewUsers] = useState([]);
+  // Setup > General > Outlets > Orders & Invoices > Default Order Reviewers:
+  // pre-ticked in the Create Review picker (reference: "Reviewers will be
+  // automatically added if specified in the settings").
+  const [defaultReviewerIds, setDefaultReviewerIds] = useState([]);
   const [editDetailsOpen, setEditDetailsOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     from: 'all',
@@ -464,6 +470,8 @@ const OrderDetails = () => {
         await orderInvoiceService.sendTransfer(id);
       } catch (err) {
         setSaving(false);
+        const rr = reviewRequiredFrom(err);
+        if (rr) { setEmailOrderDialogOpen(false); handleReviewRequired(rr); return; }
         setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to send transfer.', severity: 'error' });
         return;
       }
@@ -482,6 +490,8 @@ const OrderDetails = () => {
         severity: 'success',
       });
     } catch (err) {
+      const rr = reviewRequiredFrom(err);
+      if (rr) { setEmailOrderDialogOpen(false); setSaving(false); handleReviewRequired(rr); return; }
       setSnackbar({
         open: true,
         message: sendsTransfer
@@ -572,7 +582,14 @@ const OrderDetails = () => {
   };
 
   const handleOpenCreateReview = async () => {
-    setReviewDialogOpen(true);
+    // Defaults first so the picker opens with them already ticked.
+    try {
+      const os = await settingsService.getOutletSettings(order?.outletId || undefined);
+      const ids = Array.isArray(os?.settings?.defaultOrderReviewers) ? os.settings.defaultOrderReviewers.map(Number) : [];
+      setDefaultReviewerIds(ids);
+    } catch {
+      setDefaultReviewerIds([]);
+    }
     if (reviewUsers.length === 0) {
       try {
         const response = await userService.getUsers();
@@ -580,6 +597,29 @@ const OrderDetails = () => {
       } catch (err) {
         console.error('Error loading users for review:', err);
       }
+    }
+    setReviewDialogOpen(true);
+  };
+
+  // A send/receive refused with REVIEW_REQUIRED (no default reviewers configured)
+  // lands here with ?createReview=1: open the picker straight away.
+  useEffect(() => {
+    if (!order?.id) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get('createReview') !== '1') return;
+    navigate(`/orders-invoices/${id}`, { replace: true });
+    if (!order.reviewStatus) handleOpenCreateReview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.id, location.search]);
+
+  // Force Review answer from the backend: created -> review page; not created
+  // (no default reviewers) -> the Create Review picker right here.
+  const handleReviewRequired = (data) => {
+    if (data.reviewCreated) {
+      navigate(`/orders-invoices/${id}/review`);
+    } else {
+      setSnackbar({ open: true, message: data.error, severity: 'warning' });
+      handleOpenCreateReview();
     }
   };
 
@@ -1926,6 +1966,7 @@ const OrderDetails = () => {
         open={reviewDialogOpen}
         onClose={() => setReviewDialogOpen(false)}
         users={reviewUsers}
+        initialSelectedIds={defaultReviewerIds}
         onConfirm={handleConfirmReview}
         saving={saving}
         confirmLabel="Create Review"

@@ -51,6 +51,7 @@ import {
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import SettingsSlideOver from '../../components/Settings/SettingsSlideOver';
 import EditReasonsSlideOver from '../../components/Settings/EditReasonsSlideOver';
+import EditReviewersSlideOver from '../../components/Settings/EditReviewersSlideOver';
 import { COMPANY_SECTIONS, LOCAL_TAB_FIELDS, COMPANY_CONSTRAINTS, validateCompanyNumbers } from './generalSettingsFields';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 import { formatDateValueInZone } from '../../utils/dateFormat';
@@ -148,12 +149,17 @@ const USER_SECTIONS = [
   { key: 'user-miscellaneous', label: 'Miscellaneous' }
 ];
 
+// Metcash Integration section hidden (user 17/11/2026): the fields are only
+// stored, there is no Metcash connection. Values stay in outlet_settings.
+const SHOW_METCASH_SECTION = false;
+
 // Outlets tab sections, listed under "Outlets" in the rail (reference).
 const OUTLET_SECTIONS = [
   { key: 'outlet-general', label: 'General' },
   { key: 'outlet-gift-cards', label: 'Gift Cards' },
+  { key: 'outlet-orders-invoices', label: 'Orders & Invoices' },
   { key: 'outlet-transfers', label: 'Transfers' },
-  { key: 'outlet-metcash', label: 'Metcash Integration' },
+  ...(SHOW_METCASH_SECTION ? [{ key: 'outlet-metcash', label: 'Metcash Integration' }] : []),
   { key: 'outlet-miscellaneous', label: 'Miscellaneous' }
 ];
 
@@ -306,6 +312,20 @@ const DISCOUNT_BELOW_COST_FIELD = {
     '**Prevent**\n\nThis prevents products from being sold below cost, when a price calculation results in a lower-than-cost price, Crinit\'s Shop will show a dialog which forces the user to update the price to equal the cost.',
 };
 
+// Outlets > Orders & Invoices "Force Review ..." toggles, in the reference order
+// (labels / descriptions / on-off sentences verbatim from the reference page).
+const FORCE_REVIEW_FIELDS = [
+  { key: 'forceReviewSendOrders', label: 'Force Review Before Sending Orders', description: 'If enabled, reviews will automatically be created whenever an order is attempting to be sent', offLabel: "Orders don't need reviews" },
+  { key: 'forceReviewReceiveOrders', label: 'Force Review Before Receiving Orders', description: 'If enabled, reviews will automatically be created whenever an order is attempted to be received', offLabel: "Invoices don't need reviews" },
+  { key: 'forceReviewSendReturns', label: 'Force Review Before Sending Returns', description: 'If enabled, reviews will automatically be created whenever a return is attempting to be sent', offLabel: "Returns don't need reviews" },
+  { key: 'forceReviewSendTransfers', label: 'Force Review Before Sending Transfers', description: 'If enabled, reviews will automatically be created whenever a transfer is attempting to be sent', offLabel: "Transfers don't need reviews" },
+  { key: 'forceReviewReceiveTransfers', label: 'Force Review Before Receiving Transfers', description: 'If enabled, reviews will automatically be created whenever a transfer is attempting to be received', offLabel: "Transfers don't need reviews" },
+  { key: 'forceReviewSendCreditNotes', label: 'Force Review Before Sending Credit Notes', description: 'If enabled, reviews will automatically be created whenever a credit note is attempting to be sent', offLabel: "Credit Notes don't need reviews" },
+  { key: 'forceReviewDiscrepancyQuantity', label: 'Force Review When Receiving an Order With a Discrepancy in Quantity', description: 'If enabled, reviews will automatically be created whenever an order of any type has a discrepancy between the quantity of stock ordered and the quantity received', offLabel: "Discrepancies don't need reviews" },
+  { key: 'forceReviewDiscrepancyTotals', label: 'Force Review When Receiving an Order With a Discrepancy in Totals', description: 'If enabled, reviews will automatically be created whenever an order of any type has a discrepancy between the expected total and the final total of the invoice', offLabel: "Discrepancies don't need reviews" },
+  { key: 'forceReviewDiscrepancyCosts', label: 'Force Review When Receiving an Order With a Discrepancy in Costs', description: "If enabled, reviews will automatically be created whenever an order of any type has a discrepancy between a product's order cost and the final cost", offLabel: "Discrepancies don't need reviews" },
+];
+
 const REASON_LIST_FIELDS = {
   predefinedDiscountReasons: { noun: 'discount' },
   predefinedCashDrawerReasons: { noun: 'cash drawer' },
@@ -394,6 +414,18 @@ const OUTLET_SETTINGS_DEFAULTS = {
   defaultExpiryAmount: 3,
   defaultExpiryPeriod: 'Years',
   canManuallyAdjustExpiry: true,
+  // Orders & Invoices (reference review & approval process) - all off by default
+  forceReviewSendOrders: false,
+  forceReviewReceiveOrders: false,
+  forceReviewSendReturns: false,
+  forceReviewSendTransfers: false,
+  forceReviewReceiveTransfers: false,
+  forceReviewSendCreditNotes: false,
+  forceReviewDiscrepancyQuantity: false,
+  forceReviewDiscrepancyTotals: false,
+  forceReviewDiscrepancyCosts: false,
+  minimumReviewApprovals: 0,
+  defaultOrderReviewers: [],
   // Transfers
   updateLastCostWhenReceivingTransfers: true,
   // Reference (Settings > Outlets > Transfers): send at average cost or last
@@ -477,6 +509,8 @@ const GeneralSettings = () => {
   // key), plus the cash in/out lists which live in their own store - the
   // discount/drawer lists live inside companySettings.
   const [reasonsEditor, setReasonsEditor] = useState(null);
+  // Outlets > Orders & Invoices > "Edit Default Reviewers" panel.
+  const [reviewersEditorOpen, setReviewersEditorOpen] = useState(false);
   const [cashReasons, setCashReasons] = useState({ take_out: [], put_in: [] });
   // These two lists live in their own setting rows, so they have no entry in the
   // company blob's `_updatedAt` map - their row stamp is tracked separately.
@@ -2155,6 +2189,62 @@ const GeneralSettings = () => {
             </SettingRow>
           </SettingsSection>
 
+          {/* Reference Outlets > Orders & Invoices: the review & approval process
+              settings (Force Review toggles, minimum approvals, default reviewers). */}
+          <SettingsSection id="outlet-orders-invoices" label="Orders & Invoices" flash={flashSection === 'outlet-orders-invoices'}>
+            {FORCE_REVIEW_FIELDS.map((f) => (
+              <SettingRow key={f.key} label={f.label} updated={stampFor('outlet', f.key)} description={f.description}>
+                <SettingToggle
+                  checked={outletSettings[f.key] === true}
+                  onChange={handleOutletSettingChange(f.key)}
+                  stateText={outletSettings[f.key] === true ? 'Automatically create reviews' : f.offLabel}
+                />
+              </SettingRow>
+            ))}
+            <SettingRow
+              label="Minimum Number of Approvals for Review to Complete"
+              updated={stampFor('outlet', 'minimumReviewApprovals')}
+              description="The minimum number of people to mark an order as approved before it will be completed, if the order has less reviewers than the minimum number then it will not be able to be completed"
+            >
+              <TextField
+                type="number"
+                inputProps={{ min: 0, step: 1 }}
+                value={outletSettings.minimumReviewApprovals ?? 0}
+                onChange={handleOutletSettingChange('minimumReviewApprovals')}
+                onBlur={() => setOutletSettings((prev) => ({ ...prev, minimumReviewApprovals: Math.max(0, parseInt(prev.minimumReviewApprovals, 10) || 0) }))}
+                size="small"
+                fullWidth
+                sx={SETTING_FIELD_SX}
+              />
+            </SettingRow>
+            <SettingRow
+              label="Default Order Reviewers"
+              updated={stampFor('outlet', 'defaultOrderReviewers')}
+              description="The users who will automatically be added to new order reviews if no users are provided"
+            >
+              <Button
+                fullWidth
+                startIcon={<EditOutlined sx={{ fontSize: 20 }} />}
+                onClick={() => setReviewersEditorOpen(true)}
+                sx={{
+                  height: 42, borderRadius: '12px', textTransform: 'none',
+                  fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
+                  color: '#32b643', border: '1px solid #32b643', backgroundColor: '#fff',
+                  '&:hover': { color: '#6dd77b', borderColor: '#6dd77b', backgroundColor: '#fff' }
+                }}
+              >
+                Edit Default Reviewers
+              </Button>
+              {(() => {
+                const ids = (outletSettings.defaultOrderReviewers || []).map(Number);
+                const names = ids.map((uid) => users.find((u) => Number(u.id) === uid)?.name).filter(Boolean);
+                return names.length === 0
+                  ? <Typography sx={{ textAlign: 'center', color: '#676b72', fontSize: 16, mt: 2 }} data-testid="default-reviewers-names">No Default Reviewers</Typography>
+                  : <Typography sx={{ fontSize: 14, color: '#404040', mt: 1.5 }} data-testid="default-reviewers-names">{names.join(', ')}</Typography>;
+              })()}
+            </SettingRow>
+          </SettingsSection>
+
           <SettingsSection id="outlet-transfers" label="Transfers" flash={flashSection === 'outlet-transfers'}>
             {[
               {
@@ -2189,8 +2279,8 @@ const GeneralSettings = () => {
             ))}
           </SettingsSection>
 
-          {/* Not on the reference's Outlets tab, but a working local feature:
-              kept, in the same row style. */}
+          {/* Hidden (SHOW_METCASH_SECTION): fields are stored only, no Metcash link. */}
+          {SHOW_METCASH_SECTION && (
           <SettingsSection id="outlet-metcash" label="Metcash Integration" flash={flashSection === 'outlet-metcash'}>
             <SettingRow label="B2B Account (leave blank for default)" updated={stampFor('outlet', 'b2bAccount')}>
               <TextField value={outletSettings.b2bAccount || ''} onChange={handleOutletSettingChange('b2bAccount')} size="small" fullWidth sx={SETTING_FIELD_SX} />
@@ -2232,6 +2322,7 @@ const GeneralSettings = () => {
               />
             </SettingRow>
           </SettingsSection>
+          )}
 
           <SettingsSection id="outlet-miscellaneous" label="Miscellaneous" flash={flashSection === 'outlet-miscellaneous'}>
             {/* Discounting Below Cost Behaviour - reference: Allow / Warn / Prevent
@@ -3235,6 +3326,20 @@ const GeneralSettings = () => {
           reasons={reasonsEditor ? reasonListFor(reasonsEditor) : []}
           onCancel={() => setReasonsEditor(null)}
           onUpdate={handleReasonsUpdate}
+        />
+
+        {/* Edit Default Reviewers slide-over (Outlets > Orders & Invoices); the
+            ids land in the outlet blob and go out with the floating Save. */}
+        <EditReviewersSlideOver
+          open={reviewersEditorOpen}
+          users={users}
+          selectedIds={outletSettings.defaultOrderReviewers || []}
+          onCancel={() => setReviewersEditorOpen(false)}
+          onUpdate={(ids) => {
+            setOutletSettings((prev) => ({ ...prev, defaultOrderReviewers: ids }));
+            markDirty('outlet');
+            setReviewersEditorOpen(false);
+          }}
         />
 
         {/* Error Snackbar - the page scrolls, so an inline alert alone is

@@ -41,6 +41,7 @@ import {
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { format, addMonths, startOfMonth, endOfMonth, parse, isValid } from 'date-fns';
 import orderInvoiceService from '../../services/orderInvoiceService';
+import { reviewRequiredFrom, reviewRequiredPath } from '../../utils/forceReview';
 import supplierService from '../../services/supplierService';
 import transfereeService from '../../services/transfereeService';
 import productService from '../../services/productService';
@@ -304,6 +305,8 @@ const OrdersInvoices = () => {
       await orderInvoiceService.markAsReceived(item.id);
       await loadOrdersInvoices();
     } catch (err) {
+      const rr = reviewRequiredFrom(err);
+      if (rr) { navigate(reviewRequiredPath(rr, item.id)); return; }
       setError(err.response?.data?.error || 'Failed to mark as received');
       console.error('Error marking as received:', err);
     }
@@ -833,6 +836,7 @@ const OrdersInvoices = () => {
         transferId={receiveTransferId}
         onClose={() => setReceiveTransferId(null)}
         onReceived={() => loadOrdersInvoices()}
+        onReviewRequired={(data) => { setReceiveTransferId(null); navigate(reviewRequiredPath(data, receiveTransferId)); }}
         directWhenMatched
       />
     </Box>

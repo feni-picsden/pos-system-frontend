@@ -762,14 +762,17 @@ export const LOCAL_TAB_FIELDS = [
   ...local('Outlets', 1, 'Gift Cards', [
     'Enable Gift Cards', 'Default Expiry Amount', 'Default Expiry Period', 'Can Manually Adjust Expiry'
   ]),
+  ...local('Outlets', 1, 'Orders & Invoices', [
+    'Force Review Before Sending Orders', 'Force Review Before Receiving Orders', 'Force Review Before Sending Returns',
+    'Force Review Before Sending Transfers', 'Force Review Before Receiving Transfers', 'Force Review Before Sending Credit Notes',
+    'Force Review When Receiving an Order With a Discrepancy in Quantity', 'Force Review When Receiving an Order With a Discrepancy in Totals',
+    'Force Review When Receiving an Order With a Discrepancy in Costs', 'Minimum Number of Approvals for Review to Complete', 'Default Order Reviewers'
+  ]),
   ...local('Outlets', 1, 'Transfers', [
     'Send Transfers Using Average Cost', 'Update Last Cost When Receiving Transfers',
     'Update Average Cost When Receiving Transfers'
   ]),
-  ...local('Outlets', 1, 'Metcash Integration', [
-    'B2B Account (leave blank for default)', 'B2B Password (leave blank for default)',
-    'Customer ID', 'State', 'Pillar', 'Import Promotions', 'Import Buying Periods'
-  ]),
+  // 'Metcash Integration' section hidden (user 17/11/2026) - not searchable either.
   ...local('Outlets', 1, 'Miscellaneous', ['Discounting Below Cost Behaviour']),
   ...local('Registers', 2, 'General', [
     'Safe drop alert amount', 'Default Payment Method', 'Default Receipt Template', 'Sale Keys'

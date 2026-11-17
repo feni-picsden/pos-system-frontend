@@ -268,7 +268,9 @@ const DestinationProductPicker = ({ outletId, value, onChange, disabled }) => {
 // directWhenMatched: when every product already exists at the destination there is
 // nothing to decide, so the list page and the notification bell receive at once with
 // no popup (as they did before this dialog); the transfer page keeps its confirm.
-const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, directWhenMatched = false }) => {
+// onReviewRequired(data): the destination outlet forces a review before receiving
+// (409 REVIEW_REQUIRED) - the caller decides where to take the user.
+const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReviewRequired, directWhenMatched = false }) => {
   const [preview, setPreview] = useState(null);
   const [choices, setChoices] = useState({}); // { [sourceProductId]: { mode: 'new'|'existing', product } }
   const [loading, setLoading] = useState(false);
@@ -341,6 +343,12 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, directWh
       onReceived?.(data);
       if (direct) onClose?.(); else setDone(data);
     } catch (err) {
+      const data = err?.response?.data;
+      if (err?.response?.status === 409 && data?.code === 'REVIEW_REQUIRED') {
+        if (onReviewRequired) { onReviewRequired(data); return; }
+        setError(data.error);
+        return;
+      }
       setError(err?.response?.data?.error || 'Failed to receive transfer');
       if (isAlreadyReceived(err)) onReceived?.({ alreadyReceived: true });
     } finally {
