@@ -16,6 +16,7 @@ import { VisibilityOutlined as EyeIcon } from '@mui/icons-material';
 import productService from '../../services/productService';
 import { formatDate as formatAppDate } from '../../utils/appDateTime';
 import { useNavigate } from 'react-router-dom';
+import ProductOutletFilter from './ProductOutletFilter';
 import {
   EVENT_ROOT_SX,
   ORDERS_TABLE_SX,
@@ -51,12 +52,15 @@ const ProductPurchaseHistory = ({ productId }) => {
   const [purchasesData, setPurchasesData] = useState(null);
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  // Reference: single-select Outlets filter above the list (18/11/2026); null = all
+  // the user's outlets (or the header outlet, which apiClient sends by itself).
+  const [selectedOutlet, setSelectedOutlet] = useState(null);
 
   useEffect(() => {
     if (productId) {
       loadPurchaseHistory();
     }
-  }, [productId, page]);
+  }, [productId, page, selectedOutlet]);
 
   const loadPurchaseHistory = async () => {
     try {
@@ -65,6 +69,7 @@ const ProductPurchaseHistory = ({ productId }) => {
       const response = await productService.getProductPurchaseHistory(productId, {
         page,
         limit: 20,
+        outletId: selectedOutlet?.id || undefined,
       });
       setPurchasesData(response.data);
     } catch (err) {
@@ -83,13 +88,27 @@ const ProductPurchaseHistory = ({ productId }) => {
   // dd/mm/yyyy in the store's zone (Setup > General > Timezone).
   const formatDate = formatAppDate;
 
+  const outletFilter = (
+    <ProductOutletFilter
+      value={selectedOutlet}
+      onChange={(v) => { setPage(1); setSelectedOutlet(v); }}
+      testId="purchase-outlet-filter"
+    />
+  );
+
   if (loading) {
-    return <PageLoader />;
+    return (
+      <Box sx={EVENT_ROOT_SX}>
+        {outletFilter}
+        <PageLoader />
+      </Box>
+    );
   }
 
   if (error) {
     return (
       <Box sx={EVENT_ROOT_SX}>
+        {outletFilter}
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -98,6 +117,7 @@ const ProductPurchaseHistory = ({ productId }) => {
   if (!purchasesData) {
     return (
       <Box sx={EVENT_ROOT_SX}>
+        {outletFilter}
         <Alert severity="info">No purchase history available</Alert>
       </Box>
     );
@@ -105,6 +125,7 @@ const ProductPurchaseHistory = ({ productId }) => {
 
   return (
     <Box sx={EVENT_ROOT_SX}>
+      {outletFilter}
       {purchasesData.purchases.length === 0 ? (
         <Box sx={NICE_ERROR_SX}>
           <Box sx={NICE_ERROR_ICON_SX}>&#8709;</Box>

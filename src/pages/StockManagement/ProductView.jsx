@@ -52,6 +52,7 @@ import {
   RAIL_FOCUS_SX,
   activateOnKey,
 } from "../../components/StockManagement/productViewStyles";
+import useHeaderScope from "../../hooks/useHeaderScope";
 
 // Right-rail navigation rows (reference: 62px rows, icon + 24px/400 label + 12px description)
 const NAV_ITEMS = [
@@ -179,6 +180,9 @@ const ProductView = () => {
   const [priceSets, setPriceSets] = useState([]);
   // Reference: rows of other price sets are collapsed under "Show Other Prices".
   const [showOtherPrices, setShowOtherPrices] = useState(false);
+  // Home chart follows the header outlet (sent by apiClient) and the header
+  // register (user 18/11/2026), like the Sales Summary tab.
+  const { headerOutletId, headerRegisterId } = useHeaderScope();
 
   useEffect(() => {
     if (id) {
@@ -196,7 +200,7 @@ const ProductView = () => {
     if (product) {
       loadChartData();
     }
-  }, [product]);
+  }, [product, headerOutletId, headerRegisterId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Observe container width to make chart truly full width
   useEffect(() => {
@@ -257,7 +261,9 @@ const ProductView = () => {
       // Load sales summary data for the last 12 months
       const salesSummaryResponse = await productService.getProductSalesSummary(
         id,
-        "monthly"
+        "monthly",
+        null,
+        headerRegisterId || null
       );
       
       console.log("Sales summary response:", salesSummaryResponse);
@@ -480,6 +486,11 @@ const ProductView = () => {
       {/* Sales/Purchases Graph - bare chart on the page (no card, no internal title) */}
         <Box
           ref={chartContainerRef}
+          data-testid="home-chart"
+          data-loading={chartLoading ? "1" : "0"}
+          data-labels={JSON.stringify(monthLabels.map((m) => m.key))}
+          data-sales={JSON.stringify(salesSeries)}
+          data-purchases={JSON.stringify(purchasesSeries)}
           sx={{
             mb: 2,
             position: "relative",

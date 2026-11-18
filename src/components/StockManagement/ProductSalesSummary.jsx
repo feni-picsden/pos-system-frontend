@@ -31,9 +31,6 @@ import {
   NICE_ERROR_BODY_SX,
 } from './productViewStyles';
 
-// Sentinel option so the outlet filter can be reset from the option list.
-const ALL_OUTLETS = { id: null, name: 'All Outlets' };
-
 const COLUMNS = ['Period', 'Cases', 'Items', 'Sales', 'Profit', '%'];
 
 // Same week numbering the API uses (routes/products.js getWeekNumber), so the
@@ -76,7 +73,8 @@ const ProductSalesSummary = ({ productId }) => {
   const [selectedOutlet, setSelectedOutlet] = useState(null);
 
   // Header rule (16/10/2026): in-page Outlet filter hidden when a header outlet is selected.
-  const { showOutletFilter } = useHeaderScope();
+  // Header register (user 18/11/2026): only that register's sales are summarised.
+  const { showOutletFilter, headerRegisterId } = useHeaderScope();
   useEffect(() => {
     if (!showOutletFilter && selectedOutlet) setSelectedOutlet(null);
   }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -98,7 +96,8 @@ const ProductSalesSummary = ({ productId }) => {
         const response = await productService.getProductSalesSummary(
           productId,
           'monthly',
-          selectedOutlet?.id || null
+          selectedOutlet?.id || null,
+          headerRegisterId || null
         );
         setSalesData(response);
       } catch (err) {
@@ -109,7 +108,7 @@ const ProductSalesSummary = ({ productId }) => {
       }
     };
     load();
-  }, [productId, selectedOutlet]);
+  }, [productId, selectedOutlet, headerRegisterId]);
 
   const formatCurrency = (value) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -210,16 +209,20 @@ const ProductSalesSummary = ({ productId }) => {
     <Box sx={SECTION_ROOT_SX}>
       {/* Outlet filter - single-select combobox (clear X + caret), scopes the summary */}
       {/* Header rule (16/10/2026): hidden when a header outlet is selected, not removed */}
+      {/* Same look as the Inventory Log "Outlets" filter (user 18/11/2026) */}
       {showOutletFilter && (
-      <Autocomplete
-        options={[ALL_OUTLETS, ...outlets]}
-        getOptionLabel={(o) => o?.name || ''}
-        isOptionEqualToValue={(o, v) => o?.id === v?.id}
-        value={selectedOutlet}
-        onChange={(e, v) => setSelectedOutlet(v?.id ? v : null)}
-        renderInput={(params) => <TextField {...params} placeholder="Select outlet..." />}
-        sx={OUTLET_SELECT_SX}
-      />
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ fontSize: 16, color: '#000' }}>Outlets</Box>
+        <Autocomplete
+          options={outlets}
+          getOptionLabel={(o) => o?.name || ''}
+          isOptionEqualToValue={(o, v) => o?.id === v?.id}
+          value={selectedOutlet}
+          onChange={(e, v) => setSelectedOutlet(v?.id ? v : null)}
+          renderInput={(params) => <TextField {...params} placeholder="Select Outlet..." />}
+          sx={OUTLET_SELECT_SX}
+        />
+      </Box>
       )}
 
       {!hasAnySales ? (

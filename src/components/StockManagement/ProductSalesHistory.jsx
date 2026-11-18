@@ -7,13 +7,20 @@ import {
   Pagination,
   Collapse,
   TextField,
+  Autocomplete,
+  Checkbox,
+  Chip,
 } from '@mui/material';
 import {
   CheckCircleOutline as CheckCircleIcon,
   ShoppingBasketOutlined as BasketIcon,
+  CheckBoxOutlineBlank as UncheckedIcon,
+  CheckBox as CheckedIcon,
 } from '@mui/icons-material';
 import productService from '../../services/productService';
 import salesService from '../../services/salesService';
+import outletService from '../../services/outletService';
+import useHeaderScope from '../../hooks/useHeaderScope';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import DateRangePicker from '../Common/DateRangePicker';
 import { saleOutstanding, isOnAccountPayment, INCOMPLETE_PURPLE } from '../../utils/saleOutstanding';
@@ -33,6 +40,7 @@ import {
   EVENT_CLOSE_SX,
   EVENT_TOTALS_SX,
   EVENT_BALANCE_SX,
+  OUTLET_SELECT_SX,
   NICE_ERROR_SX,
   NICE_ERROR_ICON_SX,
   NICE_ERROR_REASON_SX,
@@ -76,11 +84,29 @@ const ProductSalesHistory = ({ productId }) => {
   const rangeEnd = dateRange?.endDate ? new Date(dateRange.endDate) : null;
   const rangeKey = `${rangeStart?.getTime() ?? ''}-${rangeEnd?.getTime() ?? ''}`;
 
+  // Reference: Outlet multi-select above the list (checkbox options, chips, clear X).
+  // Empty = all the user's outlets. Hidden when a header outlet is selected
+  // (header rule 16/10/2026); the header outlet then scopes the list by itself.
+  const [outlets, setOutlets] = useState([]);
+  const [selectedOutlets, setSelectedOutlets] = useState([]);
+  // Header register (user 18/11/2026): only that register's sales are listed.
+  const { showOutletFilter, headerRegisterId } = useHeaderScope();
+  useEffect(() => {
+    if (!showOutletFilter && selectedOutlets.length) setSelectedOutlets([]);
+  }, [showOutletFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    outletService
+      .getAllOutlets()
+      .then((res) => setOutlets(res?.outlets || res?.data || res || []))
+      .catch(() => setOutlets([]));
+  }, []);
+  const outletKey = selectedOutlets.map((o) => o.id).join(',');
+
   useEffect(() => {
     if (productId) {
       loadSalesHistory();
     }
-  }, [productId, rangeKey]);
+  }, [productId, rangeKey, outletKey, headerRegisterId]);
 
   const loadSalesHistory = async () => {
     const seq = ++reqRef.current;
@@ -94,6 +120,9 @@ const ProductSalesHistory = ({ productId }) => {
         limit: 10000,
         startDate: rangeStart ? rangeStart.toISOString() : undefined,
         endDate: rangeEnd ? rangeEnd.toISOString() : undefined,
+        // "1,2" for the picked outlets; empty lets apiClient send the header outlet
+        outletId: outletKey || undefined,
+        registerId: headerRegisterId || undefined,
       });
       if (seq !== reqRef.current) return;
       // Sale details are fetched lazily when a row is expanded. Prefetching
@@ -183,7 +212,6 @@ const ProductSalesHistory = ({ productId }) => {
       ['Savings', formatCurrency(det.savings)],
       ['Discount', formatCurrency(det.discount)],
       ['Tax', formatCurrency(det.tax)],
-      ['Loyalty Value', String(Number(det.loyaltyValue) || 0)],
     ];
     const payments = det.payments || [];
     // Still owed on this sale (server figure from the list row)
@@ -225,7 +253,9 @@ const ProductSalesHistory = ({ productId }) => {
             {sale.registerName ? <Box sx={{ fontSize: 16, mb: '8px' }}>{sale.registerName}</Box> : null}
             <Box sx={{ fontSize: 16 }}>{sale.salesperson || ''}</Box>
           </Box>
-          <Box>
+          {/* Reference: the totals table hugs the right edge, in line with the item
+              amounts / Cash / Balance below (user 18/11/2026). */}
+          <Box sx={{ textAlign: 'right' }}>
             <Box component="table" sx={EVENT_TOTALS_SX}>
               <tbody>
                 {totals.map(([label, value]) => (
@@ -293,6 +323,61 @@ const ProductSalesHistory = ({ productId }) => {
     <Box sx={EVENT_ROOT_SX}>
       {/* Our addition (the reference has no date filter here): full-width Date Range,
           the same control and look as the Inventory Log tab (user 18/11/2026). */}
+      {/* Reference: Outlet multi-select (checkbox options, chips in the box, clear X)
+          above the list. Header rule (16/10/2026): hidden when a header outlet is selected. */}
+      {showOutletFilter && (
+        <Box sx={{ p: 1, pb: 0 }}>
+          <Box sx={{ fontSize: 16, color: '#000' }}>Outlets</Box>
+          <Autocomplete
+            multiple
+            disableCloseOnSelect
+            options={outlets}
+            getOptionLabel={(o) => o?.name || ''}
+            isOptionEqualToValue={(o, v) => o?.id === v?.id}
+            value={selectedOutlets}
+            onChange={(e, v) => {
+              setPage(1);
+              setOpenIds([]);
+              setSelectedOutlets(v);
+            }}
+            limitTags={2}
+            ListboxProps={{ sx: { p: 0, '& .MuiAutocomplete-option': { fontSize: 16, py: '10px', color: '#000' }, '& .MuiAutocomplete-option[aria-selected="true"]': { color: '#1c86f2', bgcolor: 'transparent' }, '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#5ebbeb !important', color: '#000' } } }}
+            renderOption={(props, option, { selected }) => {
+              const checked = selected;
+              return (
+                <li {...props} key={option.id} aria-selected={checked}>
+                  <Checkbox
+                    icon={<UncheckedIcon fontSize="small" />}
+                    checkedIcon={<CheckedIcon fontSize="small" />}
+                    checked={checked}
+                    sx={{ p: 0, mr: 1, color: '#000', '&.Mui-checked': { color: '#1c86f2' } }}
+                  />
+                  {option.name}
+                </li>
+              );
+            }}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option.id}
+                  label={option.name}
+                  size="small"
+                  sx={{ borderRadius: '4px', fontSize: 14, maxWidth: 150, height: 24, bgcolor: '#ebebeb' }}
+                />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField {...params} placeholder={selectedOutlets.length ? '' : 'Select Outlet...'} inputProps={{ ...params.inputProps, 'data-testid': 'sales-history-outlets' }} />
+            )}
+            sx={{
+              ...OUTLET_SELECT_SX,
+              '& .MuiOutlinedInput-root': { ...OUTLET_SELECT_SX['& .MuiOutlinedInput-root'], height: 'auto', minHeight: 42, flexWrap: 'wrap', gap: '4px' },
+            }}
+          />
+        </Box>
+      )}
+
       <Box sx={{ p: 1, pb: 2 }}>
         <Box sx={{ fontSize: 16, color: '#000' }}>Date Range</Box>
         <DateRangePicker

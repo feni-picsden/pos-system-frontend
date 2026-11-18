@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import promotionService from '../../services/promotionService';
+import ProductOutletFilter from './ProductOutletFilter';
 import { format } from 'date-fns';
 import {
   SECTION_ROOT_SX,
@@ -32,18 +33,22 @@ const ProductPromotions = ({ productId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  // Reference: multi-select Outlets filter above the table (18/11/2026); empty = all
+  // the user's outlets (or the header outlet, which apiClient sends by itself).
+  const [selectedOutlets, setSelectedOutlets] = useState([]);
+  const outletKey = selectedOutlets.map((o) => o.id).join(',');
 
   useEffect(() => {
     if (productId) {
       loadPromotions();
     }
-  }, [productId]);
+  }, [productId, outletKey]);
 
   const loadPromotions = async () => {
     try {
       setLoading(true);
       setError('');
-      const response = await promotionService.getPromotions({ limit: 1000 });
+      const response = await promotionService.getPromotions({ limit: 1000, outletId: outletKey || undefined });
 
       let allPromotions = [];
       if (Array.isArray(response)) {
@@ -135,18 +140,24 @@ const ProductPromotions = ({ productId }) => {
     }
   };
 
+  const outletFilter = (
+    <Box sx={{ mx: -1, mt: -1 }}>
+      <ProductOutletFilter
+        multiple
+        value={selectedOutlets}
+        onChange={setSelectedOutlets}
+        testId="promotions-outlet-filter"
+      />
+    </Box>
+  );
+
   if (loading) {
     return (
-      <Box
-        sx={{
-          ...SECTION_ROOT_SX,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: 200,
-        }}
-      >
-        <CircularProgress />
+      <Box sx={SECTION_ROOT_SX}>
+        {outletFilter}
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <CircularProgress />
+        </Box>
       </Box>
     );
   }
@@ -154,6 +165,7 @@ const ProductPromotions = ({ productId }) => {
   if (error) {
     return (
       <Box sx={SECTION_ROOT_SX}>
+        {outletFilter}
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -161,6 +173,7 @@ const ProductPromotions = ({ productId }) => {
 
   return (
     <Box sx={SECTION_ROOT_SX}>
+      {outletFilter}
       {promotions.length === 0 ? (
         <Box sx={NICE_ERROR_SX}>
           <Box sx={NICE_ERROR_ICON_SX}>&#8709;</Box>

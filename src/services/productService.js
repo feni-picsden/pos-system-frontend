@@ -432,9 +432,9 @@ const productService = {
   },
 
     // Get product sales summary
-  getProductSalesSummary: async (productId, period = 'monthly', outletId = null) => {
+  getProductSalesSummary: async (productId, period = 'monthly', outletId = null, registerId = null) => {
     try {
-      const query = `period=${period}${outletId ? `&outletId=${outletId}` : ''}`;
+      const query = `period=${period}${outletId ? `&outletId=${outletId}` : ''}${registerId ? `&registerId=${registerId}` : ''}`;
       const response = await apiClient.get(`/products/${productId}/sales-summary?${query}`);
       return response.data;
     } catch (error) {

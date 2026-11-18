@@ -116,6 +116,8 @@ export const EVENT_LOCATION_SX = {
   ml: "16px",
   fontSize: 16,
   lineHeight: "19px",
+  // Outlet / Register / Salesperson centred in the row (user 18/11/2026)
+  textAlign: "center",
 };
 export const EVENT_PRICE_SX = {
   width: 220,

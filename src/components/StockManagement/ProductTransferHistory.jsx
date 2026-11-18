@@ -15,6 +15,7 @@ import { SwapHoriz as SwapHorizIcon } from '@mui/icons-material';
 import PageLoader from '../Common/PageLoader';
 import { Link as RouterLink } from 'react-router-dom';
 import productService from '../../services/productService';
+import ProductOutletFilter from './ProductOutletFilter';
 import { formatDate as formatAppDate } from '../../utils/appDateTime';
 import {
   EVENT_ROOT_SX,
@@ -50,12 +51,15 @@ const ProductTransferHistory = ({ productId }) => {
   const [error, setError] = useState('');
   const [transferData, setTransferData] = useState(null);
   const [page, setPage] = useState(1);
+  // Reference: single-select Outlets filter above the list (18/11/2026); null = all
+  // the user's outlets (or the header outlet, which apiClient sends by itself).
+  const [selectedOutlet, setSelectedOutlet] = useState(null);
 
   useEffect(() => {
     if (productId) {
       loadTransferHistory();
     }
-  }, [productId, page]);
+  }, [productId, page, selectedOutlet]);
 
   const loadTransferHistory = async () => {
     try {
@@ -64,6 +68,7 @@ const ProductTransferHistory = ({ productId }) => {
       const response = await productService.getProductTransferHistory(productId, {
         page,
         limit: 20,
+        outletId: selectedOutlet?.id || undefined,
       });
       setTransferData(response.data);
     } catch (err) {
@@ -82,11 +87,27 @@ const ProductTransferHistory = ({ productId }) => {
   // dd/mm/yyyy in the store's zone (Setup > General > Timezone).
   const formatDate = formatAppDate;
 
-  if (loading) return <PageLoader />;
+  const outletFilter = (
+    <ProductOutletFilter
+      value={selectedOutlet}
+      onChange={(v) => { setPage(1); setSelectedOutlet(v); }}
+      testId="transfer-outlet-filter"
+    />
+  );
+
+  if (loading) {
+    return (
+      <Box sx={EVENT_ROOT_SX}>
+        {outletFilter}
+        <PageLoader />
+      </Box>
+    );
+  }
 
   if (error) {
     return (
       <Box sx={EVENT_ROOT_SX}>
+        {outletFilter}
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -95,6 +116,7 @@ const ProductTransferHistory = ({ productId }) => {
   if (!transferData) {
     return (
       <Box sx={EVENT_ROOT_SX}>
+        {outletFilter}
         <Alert severity="info">No transfer history available</Alert>
       </Box>
     );
@@ -102,6 +124,7 @@ const ProductTransferHistory = ({ productId }) => {
 
   return (
     <Box sx={EVENT_ROOT_SX}>
+      {outletFilter}
       {transferData.transfers.length === 0 ? (
         <Box sx={NICE_ERROR_SX}>
           <Box sx={NICE_ERROR_ICON_SX}>&#8709;</Box>
