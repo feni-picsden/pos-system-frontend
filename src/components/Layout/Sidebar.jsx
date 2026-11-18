@@ -594,6 +594,15 @@ const menuItems = [
         permissions: ["see_trashed_items"],
       },
       {
+        // Reference: Utilities > Barcodes (product barcode list), between
+        // Trashed Items and Product Utilities (user 18/11/2026).
+        id: "utility-barcodes",
+        title: "Barcodes",
+        icon: <ViewWeekOutlined />,
+        path: "/utilities/barcodes",
+        permissions: ["modify_barcode_templates"],
+      },
+      {
         id: "product-utilities",
         title: "Product Utilities",
         icon: <Inventory2Outlined />,

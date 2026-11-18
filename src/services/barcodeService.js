@@ -66,6 +66,10 @@ const barcodeService = {
     if (filters.onlyDuplicates) {
       params.append('onlyDuplicates', filters.onlyDuplicates);
     }
+    // All Outlets mode only: the page's Outlets filter ("1,2").
+    if (filters.outletId) {
+      params.append('outletId', filters.outletId);
+    }
 
     const response = await apiClient.get(`/barcodes?${params.toString()}`);
     return response.data;
@@ -99,8 +103,12 @@ const barcodeService = {
     return response.data;
   },
 
-  deleteBarcode: async (productId, barcodeCode) => {
-    const response = await apiClient.delete(`/barcodes/${productId}/${encodeURIComponent(barcodeCode)}`);
+  // `quantity` deletes only that one row (a product may carry the same code twice
+  // with different pack sizes); without it every row with the code goes.
+  deleteBarcode: async (productId, barcodeCode, quantity) => {
+    const response = await apiClient.delete(`/barcodes/${productId}/${encodeURIComponent(barcodeCode)}`, {
+      params: quantity !== undefined && quantity !== null ? { quantity } : undefined,
+    });
     return response.data;
   },
 };

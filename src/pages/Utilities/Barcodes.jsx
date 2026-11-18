@@ -16,24 +16,26 @@ import {
   MenuItem,
   IconButton,
   SvgIcon,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
 import {
-  UnfoldMoreOutlined as SortIcon,
-  ArrowDropUpOutlined as SortAscIcon,
-  ArrowDropDownOutlined as SortDescIcon,
   CloseOutlined as ClearIcon,
+  CheckBoxOutlineBlankOutlined as SquareIcon,
+  CheckBoxOutlined as CheckSquareIcon,
 } from '@mui/icons-material';
+import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { Link as RouterLink } from 'react-router-dom';
 import barcodeService from '../../services/barcodeService';
 import apiClient from '../../services/apiClient';
-import DateRangePicker from '../../components/Common/DateRangePicker';
+import DateTimeRangeFilter from '../../components/Common/DateTimeRangeFilter';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
+import { NoResults } from '../../components/Common/EmptyResults';
 import { format } from 'date-fns';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 
 const EMPTY_RANGE = { startDate: null, endDate: null };
-const RANGE_PLACEHOLDER = 'DD/MM/YYYY HH:MM:SS';
 
 // Reference option labels -> values the backend switch actually accepts (routes/barcodes.js)
 const INVENTORY_LEVELS = [
@@ -62,7 +64,48 @@ const DeleteIcon = (props) => (
   </SvgIcon>
 );
 
-const groupLabelSx ={ color: '#676b72', fontSize: 14, fontWeight: 500, mb: 0.5 };
+// Reference filter labels: black 16px regular (user 18/11/2026).
+const groupLabelSx = { color: '#000', fontSize: 16, fontWeight: 400, mb: 0.5 };
+
+// Reference sort glyph: hollow up + down triangles, the active direction filled.
+const SortGlyph = ({ dir }) => (
+  <svg width="10" height="14" viewBox="0 0 10 14" aria-hidden="true" style={{ marginLeft: 4 }}>
+    <path d="M5 1 L9 5.5 H1 Z" fill={dir === 'asc' ? '#fff' : 'none'} stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />
+    <path d="M5 13 L9 8.5 H1 Z" fill={dir === 'desc' ? '#fff' : 'none'} stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />
+  </svg>
+);
+
+// Reference dropdown list: detached 8px under the field, 1px dark frame, 56px rows.
+const LIST_MENU_PROPS = {
+  transitionDuration: 0,
+  marginThreshold: 0,
+  anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+  transformOrigin: { vertical: 'top', horizontal: 'left' },
+  PaperProps: {
+    elevation: 0,
+    sx: {
+      mt: '8px',
+      borderRadius: '8px',
+      border: '1px solid #404040',
+      boxShadow: 'none',
+      '&& .MuiMenuItem-root': { minHeight: 56, height: 56, px: 2, fontSize: 16, color: '#000', borderBottom: 0 },
+      '&& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#38bdf8' },
+      '&& .MuiMenuItem-root:hover, && .MuiMenuItem-root.Mui-focusVisible, && .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#5ebbeb', color: '#f8f8f8' },
+      '&&:hover .MuiMenuItem-root.Mui-focusVisible:not(:hover)': { bgcolor: 'transparent', color: '#000' },
+    },
+  },
+  MenuListProps: { sx: { py: 0 } },
+};
+
+// A deleted barcode must stop scanning on the sell screen straight away: re-pull just
+// those products into the local catalog (IndexedDB) and drop the cached Products list.
+const refreshProducts = (productIds) => {
+  const ids = [...new Set(productIds.map((id) => parseInt(id, 10)).filter(Number.isFinite))];
+  if (!ids.length) return;
+  apiClient.bustCache('/products');
+  const outletId = localStorage.getItem('selectedOutletId') || undefined;
+  import('../../services/posCatalogSync').then((m) => m.refreshProductsInCache(ids, outletId)).catch(() => {});
+};
 
 const Field = ({ label, children }) => (
   <Box>
@@ -71,35 +114,22 @@ const Field = ({ label, children }) => (
   </Box>
 );
 
-// Reference: ONE bordered rounded-8 container showing start — end datetime segments;
-// clicking it opens the shared dual-month RANGE popover (start+end masked inputs + em-dash).
-const rangeSx = {
-  ...fieldSx,
-  '& input': { fontSize: 14, cursor: 'pointer' },
-};
-
-const DateRangeField = ({ value, onChange }) => (
-  <DateRangePicker
-    label=""
-    allowEmpty
-    enableTime
-    hideIcon
-    separator="—"
-    placeholder={`${RANGE_PLACEHOLDER} — ${RANGE_PLACEHOLDER}`}
-    inputSx={rangeSx}
-    value={value}
-    onChange={(v) => onChange({ startDate: v.startDate, endDate: v.endDate })}
-  />
+// Reference: two "DD/MM/YYYY HH:mm:ss" halves in one box, shared ref range popover.
+const DateRangeField = ({ value, onChange, testId }) => (
+  <DateTimeRangeFilter value={value} onChange={onChange} testId={testId} />
 );
 
 const Barcodes = () => {
   const [barcodes, setBarcodes] = useState([]);
   const [selectedBarcodes, setSelectedBarcodes] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // true from the start: the first paint must not flash "No results" before the list loads
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortField, setSortField] = useState('createdAt');
   // Reference default list order: created ascending (oldest first)
   const [sortDirection, setSortDirection] = useState('asc');
+  // Reference: no header shows an active arrow until the user sorts.
+  const [sortTouched, setSortTouched] = useState(false);
   const [barcodeToDelete, setBarcodeToDelete] = useState(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -111,6 +141,13 @@ const Barcodes = () => {
   const [inventoryLevel, setInventoryLevel] = useState('');
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [onlyDuplicates, setOnlyDuplicates] = useState(false);
+
+  // Our addition (same as Product / Customer Utilities): under "All Outlets" the list
+  // mixes every outlet, so an Outlets filter narrows it to one or more (?outletId=1,2).
+  // Hidden once the navbar pins an outlet - the server scopes the list then anyway.
+  const { isAllOutlets, outlets } = useSelectedOutlet();
+  const [selectedOutlets, setSelectedOutlets] = useState([]);
+  const filterOutletId = isAllOutlets && selectedOutlets.length ? selectedOutlets.map((o) => o.id).join(',') : '';
 
   // `overrides` lets a caller search with a value React has not committed to state yet
   // (the clear button clears the box and re-runs in the same tick).
@@ -135,6 +172,7 @@ const Barcodes = () => {
         inventoryLevel: inventoryLevel || null,
         barcodeSearch: search || null,
         onlyDuplicates: onlyDuplicates ? 'true' : null,
+        outletId: filterOutletId || null,
       });
 
       if (response.success) {
@@ -146,6 +184,10 @@ const Barcodes = () => {
           rows = rows.filter((r) => counts[r.code] > 1);
         }
         setBarcodes(rows);
+        // A ticked row the new filter hides must not stay counted in "N Selected"
+        // (Delete Selected would say N but only delete what is still listed).
+        const ids = new Set(rows.map((r) => r.id));
+        setSelectedBarcodes((prev) => prev.filter((id) => ids.has(id)));
       } else {
         setError('Failed to load barcodes');
         setBarcodes([]);
@@ -157,7 +199,7 @@ const Barcodes = () => {
     } finally {
       setLoading(false);
     }
-  }, [productCreatedAt, lastStocktakedAt, lastSoldAt, inventoryLevel, barcodeSearch, onlyDuplicates]);
+  }, [productCreatedAt, lastStocktakedAt, lastSoldAt, inventoryLevel, barcodeSearch, onlyDuplicates, filterOutletId]);
 
   useEffect(() => {
     document.title = 'Barcodes | Crinit\'s Shop';
@@ -186,7 +228,8 @@ const Barcodes = () => {
   }, [barcodes, sortField, sortDirection]);
 
   const handleSort = (field) => {
-    if (sortField === field) {
+    setSortTouched(true);
+    if (sortField === field && sortTouched) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
@@ -208,8 +251,9 @@ const Barcodes = () => {
     if (!barcodeToDelete) return;
     setDeleting(true);
     try {
-      await barcodeService.deleteBarcode(barcodeToDelete.productId, barcodeToDelete.code);
+      await barcodeService.deleteBarcode(barcodeToDelete.productId, barcodeToDelete.code, barcodeToDelete.quantity);
       setSelectedBarcodes((prev) => prev.filter((id) => id !== barcodeToDelete.id));
+      refreshProducts([barcodeToDelete.productId]);
       setBarcodeToDelete(null);
       await loadBarcodes();
     } catch (err) {
@@ -225,8 +269,12 @@ const Barcodes = () => {
     setDeleting(true);
     try {
       const rows = barcodes.filter((b) => selectedBarcodes.includes(b.id));
-      for (const row of rows) {
-        await barcodeService.deleteBarcode(row.productId, row.code);
+      try {
+        for (const row of rows) {
+          await barcodeService.deleteBarcode(row.productId, row.code, row.quantity);
+        }
+      } finally {
+        refreshProducts(rows.map((r) => r.productId));
       }
       setSelectedBarcodes([]);
       setBulkDeleteOpen(false);
@@ -249,14 +297,27 @@ const Barcodes = () => {
     }
   };
 
+  // A date, or "N/A" centred in a box exactly one date wide (an invisible sample date
+  // sets the width), so it lines up with the middle of the dates above and below it.
+  const dateOrNA = (date) => {
+    const text = formatDateTime(date);
+    if (date && text !== 'N/A') return text;
+    return (
+      <Box component="span" data-na="1" sx={{ position: 'relative', display: 'inline-block' }}>
+        <Box component="span" aria-hidden="true" sx={{ visibility: 'hidden' }}>00/00/0000 00:00:00</Box>
+        <Box component="span" sx={{ position: 'absolute', inset: 0, textAlign: 'center' }}>N/A</Box>
+      </Box>
+    );
+  };
+
   const SortableHeader = ({ field, children }) => {
-    const active = sortField === field;
+    const active = sortTouched && sortField === field;
     return (
       <TableCell
         sx={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', '&&': { p: 0 } }}
         onClick={() => handleSort(field)}
       >
-        {/* Reference: instant 10% black hover overlay with radius 12 on sortable headers */}
+        {/* No hover box on sortable headers (user 18/11/2026: "not show hover") */}
         <Box
           sx={{
             display: 'flex',
@@ -264,17 +325,11 @@ const Barcodes = () => {
             gap: 0.5,
             height: 51,
             px: '8px',
-            borderRadius: '12px',
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
           }}
         >
           {children}
           {/* Reference: stacked fa-sort at rest; solid up/down arrow on the sorted column */}
-          {active ? (
-            sortDirection === 'asc' ? <SortAscIcon fontSize="small" /> : <SortDescIcon fontSize="small" />
-          ) : (
-            <SortIcon fontSize="small" />
-          )}
+          <SortGlyph dir={active ? sortDirection : null} />
         </Box>
       </TableCell>
     );
@@ -283,23 +338,42 @@ const Barcodes = () => {
   return (
     <Box
       sx={{
-        p: 3,
-        pb: selectedBarcodes.length > 0 ? 11 : 3,
-        // Reference: the list lives in an internal scroll container; the page itself never scrolls
-        height: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' },
+        // Reference: page content starts 8px from the left edge.
+        px: '8px',
+        pt: 3,
+        // The list runs to the very bottom of the window (no grey strip under it);
+        // with rows ticked the fixed 64px bar sits there, so the list stops above it.
+        pb: selectedBarcodes.length > 0 ? '64px' : 0,
+        // Reference: the list lives in an internal scroll container; the page itself never scrolls.
+        // 50px = the app bar height (the old 64px left a 14px gap at the bottom).
+        height: 'calc(100vh - 50px)',
+        boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
       }}
     >
-      <Typography variant="h1" sx={{ mb: 3, fontSize: 32, fontWeight: 700, color: '#000' }}>
-        Barcodes
-      </Typography>
+      {/* Title left, row count top right - same "N Results" block as the Products page */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Typography variant="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
+          Barcodes
+        </Typography>
+        {/* 24px off the right edge like the Products page (8px page gutter + 16px) */}
+        <Box sx={{ textAlign: 'right', pr: 2 }} data-testid="barcodes-count">
+          <Typography variant="h4" fontWeight="bold" lineHeight={1}>
+            {barcodes.length}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Results
+          </Typography>
+        </Box>
+      </Box>
 
       {/* Filters — bare grid, no card (reference) */}
       <Box
         sx={{
-          pb: 2,
+          // 32px between the filters and the list header (16px looked merged - user 18/11/2026)
+          pb: 4,
           flexShrink: 0,
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
@@ -307,14 +381,76 @@ const Barcodes = () => {
           rowGap: 2,
         }}
       >
+        {/* Our addition (All Outlets only), same control as Product / Customer Utilities */}
+        {isAllOutlets && (
+          <Field label="Outlets">
+            <Autocomplete
+              multiple
+              disableCloseOnSelect
+              data-testid="outlets-filter"
+              options={outlets}
+              getOptionLabel={(o) => o.name || ''}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+              value={selectedOutlets}
+              onChange={(_e, value) => setSelectedOutlets(value)}
+              size="small"
+              sx={{
+                ...fieldSx,
+                '& .MuiOutlinedInput-root': { ...fieldSx['& .MuiOutlinedInput-root'], height: 'auto', minHeight: 42 },
+                '& .MuiAutocomplete-clearIndicator': { visibility: selectedOutlets.length ? 'visible' : 'hidden', p: '2px' },
+                '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: '#000' },
+              }}
+              slotProps={{
+                paper: {
+                  sx: {
+                    mt: '10px',
+                    border: '1px solid #000',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
+                    '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+                    '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent' },
+                    '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
+                  },
+                },
+              }}
+              renderOption={(props, option, { selected }) => {
+                const { key: _key, ...optionProps } = props;
+                return (
+                  <li key={option.id} {...optionProps} style={{ ...optionProps.style, color: selected ? '#00a6f4' : undefined }}>
+                    <Checkbox
+                      icon={<SquareIcon />}
+                      checkedIcon={<CheckSquareIcon />}
+                      checked={selected}
+                      sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                    />
+                    {option.name}
+                  </li>
+                );
+              }}
+              renderInput={(params) => <TextField {...params} placeholder={selectedOutlets.length ? '' : 'Select Outlets...'} />}
+              renderTags={(vals, getTagProps) => {
+                const chipSx = { height: 26, borderRadius: '4px', bgcolor: '#e5e5e5', color: '#000', fontSize: 16, '& .MuiChip-label': { px: 1 } };
+                const shown = vals.slice(0, 2).map((option, index) => {
+                  // eslint-disable-next-line no-unused-vars
+                  const { key, onDelete, ...tagProps } = getTagProps({ index });
+                  return <Chip key={key} label={option.name} size="small" sx={chipSx} {...tagProps} />;
+                });
+                if (vals.length > 2) shown.push(<Chip key="more" label={`${vals.length - 2} More...`} size="small" sx={chipSx} />);
+                return shown;
+              }}
+            />
+          </Field>
+        )}
+
         <Field label="Product Created At">
-          <DateRangeField value={productCreatedAt} onChange={setProductCreatedAt} />
+          <DateRangeField value={productCreatedAt} onChange={setProductCreatedAt} testId="range-created" />
         </Field>
         <Field label="Last Stocktaked At">
-          <DateRangeField value={lastStocktakedAt} onChange={setLastStocktakedAt} />
+          <DateRangeField value={lastStocktakedAt} onChange={setLastStocktakedAt} testId="range-stocktaked" />
         </Field>
         <Field label="Last Sold At">
-          <DateRangeField value={lastSoldAt} onChange={setLastSoldAt} />
+          <DateRangeField value={lastSoldAt} onChange={setLastSoldAt} testId="range-sold" />
         </Field>
 
         <Field label="Inventory Level">
@@ -331,7 +467,7 @@ const Barcodes = () => {
               '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
             }}
-            MenuProps={{ PaperProps: { sx: { borderRadius: '8px' } } }}
+            MenuProps={LIST_MENU_PROPS}
             // Working clear control — without it the staged filter can never be unset
             endAdornment={
               inventoryLevel ? (
@@ -361,7 +497,7 @@ const Barcodes = () => {
           >
             {INVENTORY_LEVELS.map((level) => (
               // Reference option rows: 56px tall, 16px padding
-              <MenuItem key={level.value} value={level.value} sx={{ height: 56, padding: '16px' }}>
+              <MenuItem key={level.value} value={level.value} disableRipple>
                 {level.label}
               </MenuItem>
             ))}
@@ -371,7 +507,7 @@ const Barcodes = () => {
         <Field label="Barcode">
           <TextField
             fullWidth
-            placeholder="Search for barcode or product name..."
+            placeholder="Search for barcode..."
             value={barcodeSearch}
             onChange={(e) => setBarcodeSearch(e.target.value)}
             // Enter searches straight away — a handheld scanner ends its scan with Enter,
@@ -441,7 +577,11 @@ const Barcodes = () => {
         </Box>
       </Box>
 
-      {/* Table — internal scroll container, header sticks to its top (reference) */}
+      {/* Nothing matched: ref "no results" line instead of an empty table (same as every list page) */}
+      {!loading && !error && sortedBarcodes.length === 0 ? (
+        <NoResults />
+      ) : (
+      /* Table — internal scroll container, header sticks to its top (reference) */
       <TableContainer
         component={Paper}
         sx={{ boxShadow: 'none', borderRadius: 0, flex: 1, minHeight: 0, overflow: 'auto' }}
@@ -491,14 +631,15 @@ const Barcodes = () => {
               <TableCell>Quantity</TableCell>
               <SortableHeader field="lastSoldAt">Last Sold At</SortableHeader>
               <SortableHeader field="lastStocktakedAt">Last Stocktaked At</SortableHeader>
-              <TableCell>Actions</TableCell>
+              {/* Centred over the centred Delete button (user 18/11/2026: "action label align") */}
+              <TableCell align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading || error || sortedBarcodes.length === 0 ? (
+            {loading || error ? (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 3, color: error ? '#dc2626' : '#676b72' }}>
-                  {loading ? 'Loading...' : error || 'No barcodes found'}
+                  {loading ? 'Loading...' : error}
                 </TableCell>
               </TableRow>
             ) : (
@@ -538,16 +679,20 @@ const Barcodes = () => {
                   <TableCell>{formatDateTime(barcode.createdAt)}</TableCell>
                   <TableCell>{barcode.code}</TableCell>
                   <TableCell>{barcode.quantity}</TableCell>
-                  <TableCell>{formatDateTime(barcode.lastSoldAt)}</TableCell>
-                  <TableCell>{formatDateTime(barcode.lastStocktakedAt)}</TableCell>
-                  <TableCell>
+                  {/* "N/A" (never sold / stocktaked) sits centred under the dates of its column (user 18/11/2026) */}
+                  <TableCell data-testid="last-sold">{dateOrNA(barcode.lastSoldAt)}</TableCell>
+                  <TableCell data-testid="last-stocktaked">{dateOrNA(barcode.lastStocktakedAt)}</TableCell>
+                  {/* No side padding + a 12px-padded button: it fits the narrow column on small
+                      screens too, so the centred Delete stays under the centred "Actions". */}
+                  <TableCell align="center" sx={{ '&&&': { paddingLeft: 0, paddingRight: 0 } }}>
                     <Button
                       onClick={() => setBarcodeToDelete(barcode)}
                       startIcon={<DeleteIcon />}
                       disableElevation
                       sx={{
                         height: 42,
-                        px: 4,
+                        px: 1.5,
+                        minWidth: 0,
                         py: 1,
                         color: '#dc2626',
                         bgcolor: 'transparent',
@@ -572,6 +717,7 @@ const Barcodes = () => {
           </TableBody>
         </Table>
       </TableContainer>
+      )}
 
       {/* Bulk action bar (reference: appears on first selection) */}
       {selectedBarcodes.length > 0 && (
@@ -592,7 +738,7 @@ const Barcodes = () => {
           }}
         >
           {/* Reference renders dark text on the blue bar */}
-          <Typography sx={{ color: '#000', fontWeight: 700, fontSize: 16 }}>
+          <Typography sx={{ color: '#000', fontWeight: 400, fontSize: 16 }}>
             {selectedBarcodes.length} Selected
           </Typography>
           <Button
