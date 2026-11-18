@@ -10,12 +10,12 @@ import {
 } from '@mui/material';
 import {
   CheckCircleOutline as CheckCircleIcon,
-  SentimentDissatisfiedOutlined as SadIcon,
+  ShoppingBasketOutlined as BasketIcon,
 } from '@mui/icons-material';
 import productService from '../../services/productService';
 import salesService from '../../services/salesService';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
-import DateRangeField from '../Common/DateRangeField';
+import DateRangePicker from '../Common/DateRangePicker';
 import { saleOutstanding, isOnAccountPayment, INCOMPLETE_PURPLE } from '../../utils/saleOutstanding';
 import {
   EVENT_ROOT_SX,
@@ -33,6 +33,11 @@ import {
   EVENT_CLOSE_SX,
   EVENT_TOTALS_SX,
   EVENT_BALANCE_SX,
+  NICE_ERROR_SX,
+  NICE_ERROR_ICON_SX,
+  NICE_ERROR_REASON_SX,
+  NICE_ERROR_HEADING_SX,
+  NICE_ERROR_BODY_SX,
   splitMoney,
 } from './productViewStyles';
 import { saleBasePrice } from '../../utils/saleTotals';
@@ -56,17 +61,19 @@ const ProductSalesHistory = ({ productId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [salesData, setSalesData] = useState(null);
-  const [selectedSale, setSelectedSale] = useState(null);
+  // Reference: several rows can stay open at once.
+  const [openIds, setOpenIds] = useState([]);
   const [page, setPage] = useState(1);
   const [saleDetailsById, setSaleDetailsById] = useState({});
-  // One From–To date box (same control as Orders & Invoices); null = all dates.
-  const [dateRange, setDateRange] = useState(null);
+  // Full-width Date Range (same control as Inventory Log); empty = all dates.
+  const [dateRange, setDateRange] = useState({ startDate: null, endDate: null });
   // Last-write-wins guard: a cached (instant) response must not be overwritten
   // by an older filter's request that is still in flight.
   const reqRef = useRef(0);
 
-  const rangeStart = dateRange?.startDate ? new Date(new Date(dateRange.startDate).setHours(0, 0, 0, 0)) : null;
-  const rangeEnd = dateRange?.endDate ? new Date(new Date(dateRange.endDate).setHours(23, 59, 59, 999)) : null;
+  // The picker carries the time too (DD/MM/YYYY HH:mm:ss), so the range is used as picked.
+  const rangeStart = dateRange?.startDate ? new Date(dateRange.startDate) : null;
+  const rangeEnd = dateRange?.endDate ? new Date(dateRange.endDate) : null;
   const rangeKey = `${rangeStart?.getTime() ?? ''}-${rangeEnd?.getTime() ?? ''}`;
 
   useEffect(() => {
@@ -85,8 +92,6 @@ const ProductSalesHistory = ({ productId }) => {
       const response = await productService.getProductSalesHistory(productId, {
         page: 1,
         limit: 10000,
-        // Whole days: from 00:00 of the first day to 23:59:59 of the last, on
-        // the browser's clock like the reference's filters (checked 30/10/2026).
         startDate: rangeStart ? rangeStart.toISOString() : undefined,
         endDate: rangeEnd ? rangeEnd.toISOString() : undefined,
       });
@@ -125,11 +130,11 @@ const ProductSalesHistory = ({ productId }) => {
   };
 
   const handleSaleSelect = async (sale) => {
-    if (selectedSale?.id === sale.id) {
-      setSelectedSale(null);
+    if (openIds.includes(sale.id)) {
+      setOpenIds((prev) => prev.filter((id) => id !== sale.id));
       return;
     }
-    setSelectedSale(sale);
+    setOpenIds((prev) => [...prev, sale.id]);
     if (!saleDetailsById[sale.id]) {
       try {
         const res = await salesService.getSaleById(sale.id);
@@ -217,6 +222,7 @@ const ProductSalesHistory = ({ productId }) => {
               {owed > 0 ? 'Incomplete' : titleCase(sale.status || 'Completed')}
             </Box>
             <Box sx={{ fontSize: 16, mb: '8px' }}>{sale.outlet || ''}</Box>
+            {sale.registerName ? <Box sx={{ fontSize: 16, mb: '8px' }}>{sale.registerName}</Box> : null}
             <Box sx={{ fontSize: 16 }}>{sale.salesperson || ''}</Box>
           </Box>
           <Box>
@@ -276,7 +282,7 @@ const ProductSalesHistory = ({ productId }) => {
           </Box>
         </Box>
 
-        <Box sx={EVENT_CLOSE_SX} onClick={() => setSelectedSale(null)}>
+        <Box sx={EVENT_CLOSE_SX} onClick={() => setOpenIds((prev) => prev.filter((id) => id !== sale.id))}>
           ✕ Close
         </Box>
       </Box>
@@ -285,31 +291,49 @@ const ProductSalesHistory = ({ productId }) => {
 
   return (
     <Box sx={EVENT_ROOT_SX}>
-      {/* Local-only control (the reference has no date filter here): one
-          From–To box, same as the Orders & Invoices date filter. */}
-      <Box sx={{ p: 2, maxWidth: 390 }}>
-        <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5, lineHeight: 1.2 }}>Date</Typography>
-        <DateRangeField
+      {/* Our addition (the reference has no date filter here): full-width Date Range,
+          the same control and look as the Inventory Log tab (user 18/11/2026). */}
+      <Box sx={{ p: 1, pb: 2 }}>
+        <Box sx={{ fontSize: 16, color: '#000' }}>Date Range</Box>
+        <DateRangePicker
+          label=""
           value={dateRange}
           onChange={(range) => {
             setPage(1);
-            setSelectedSale(null);
-            setDateRange(range);
+            setOpenIds([]);
+            setDateRange({ startDate: range?.startDate || null, endDate: range?.endDate || null });
+          }}
+          allowEmpty
+          enableTime
+          placeholder="DD/MM/YYYY HH:mm:ss — DD/MM/YYYY HH:mm:ss"
+          inputSx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '8px',
+              fontSize: 16,
+              backgroundColor: '#fff',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+            },
           }}
         />
       </Box>
 
       {allRows.length === 0 ? (
-        <Box sx={{ p: 6, textAlign: 'center' }}>
-          <SadIcon sx={{ fontSize: 64, color: '#bdbdbd', mb: 1 }} />
-          <Typography variant="h6" sx={{ fontWeight: 600, color: '#000' }}>
-            Oh No! This product has not been sold yet.
-          </Typography>
+        /* Reference ".nice-error": big outline basket beside "Oh No!" + one line */
+        <Box sx={NICE_ERROR_SX} data-testid="sales-history-empty">
+          <Box sx={NICE_ERROR_ICON_SX}>
+            <BasketIcon sx={{ fontSize: 160, display: 'block', mx: 'auto' }} />
+          </Box>
+          <Box sx={NICE_ERROR_REASON_SX}>
+            <Box component="h2" sx={NICE_ERROR_HEADING_SX}>Oh No!</Box>
+            <Box component="p" sx={NICE_ERROR_BODY_SX}>This product has not been sold yet.</Box>
+          </Box>
         </Box>
       ) : (
         rows.map((sale, index) => {
           const dt = formatDateTime(sale.saleDate);
-          const isSelected = selectedSale?.id === sale.id;
+          const isSelected = openIds.includes(sale.id);
           return (
             <Box key={sale.id} sx={eventRowSx(index)}>
               {isSelected ? null : (
@@ -329,7 +353,12 @@ const ProductSalesHistory = ({ productId }) => {
                       #{receiptNumber(sale.saleNumber)}
                     </Box>
                   </Box>
-                  <Box sx={EVENT_LOCATION_SX}>{sale.salesperson || ''}</Box>
+                  {/* Reference: Outlet / Register / Salesperson, one per line */}
+                  <Box sx={EVENT_LOCATION_SX}>
+                    <Box>{sale.outlet || ''}</Box>
+                    {sale.registerName ? <Box>{sale.registerName}</Box> : null}
+                    <Box>{sale.salesperson || ''}</Box>
+                  </Box>
                   <Box sx={EVENT_PRICE_SX}>
                     <Money value={sale.totalAmount} />
                   </Box>

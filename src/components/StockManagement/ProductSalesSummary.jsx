@@ -24,6 +24,11 @@ import {
   WIDGET_H2_SX,
   GRID_TABLE_SX,
   OUTLET_SELECT_SX,
+  NICE_ERROR_SX,
+  NICE_ERROR_ICON_SX,
+  NICE_ERROR_REASON_SX,
+  NICE_ERROR_HEADING_SX,
+  NICE_ERROR_BODY_SX,
 } from './productViewStyles';
 
 // Sentinel option so the outlet filter can be reset from the option list.
@@ -218,14 +223,15 @@ const ProductSalesSummary = ({ productId }) => {
       )}
 
       {!hasAnySales ? (
-        <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
-          <SadIcon sx={{ fontSize: 64, color: '#bdbdbd', mb: 1 }} />
-          <Typography variant="h6" sx={{ fontWeight: 600, color: '#000' }}>
-            Not Sold
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            This product hasn&apos;t been sold yet!
-          </Typography>
+        /* Reference ".nice-error": big outline sad face beside "Not Sold" + one line */
+        <Box sx={NICE_ERROR_SX} data-testid="sales-summary-empty">
+          <Box sx={NICE_ERROR_ICON_SX}>
+            <SadIcon sx={{ fontSize: 160, display: 'block', mx: 'auto' }} />
+          </Box>
+          <Box sx={NICE_ERROR_REASON_SX}>
+            <Box component="h2" sx={NICE_ERROR_HEADING_SX}>Not Sold</Box>
+            <Box component="p" sx={NICE_ERROR_BODY_SX}>This product hasn&apos;t been sold yet!</Box>
+          </Box>
         </Box>
       ) : (
         <>

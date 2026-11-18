@@ -24,11 +24,6 @@ import {
   INVENTORY_LOG_TABLE_SX,
   inventoryLogRowSx,
   INVENTORY_QTY_TABLE_SX,
-  NICE_ERROR_SX,
-  NICE_ERROR_ICON_SX,
-  NICE_ERROR_REASON_SX,
-  NICE_ERROR_HEADING_SX,
-  NICE_ERROR_BODY_SX,
 } from './productViewStyles';
 
 // Reference (global product): OUTLET is the first column and an "Outlets" filter
@@ -250,19 +245,8 @@ const ProductInventoryLog = ({ productId }) => {
         />
       </Box>
 
-      {data.logs.length === 0 ? (
-        <Box sx={NICE_ERROR_SX}>
-          <Box sx={NICE_ERROR_ICON_SX}>&#8709;</Box>
-          <Box sx={NICE_ERROR_REASON_SX}>
-            <Box component="h2" sx={NICE_ERROR_HEADING_SX}>
-              No results found
-            </Box>
-            <Box component="p" sx={NICE_ERROR_BODY_SX}>
-              We could not find any inventory log entries.
-            </Box>
-          </Box>
-        </Box>
-      ) : (
+      {/* Reference: with no entries only the blue header shows (no message) */}
+      {(
         <TableContainer sx={{ overflowX: 'auto' }}>
           <Table sx={INVENTORY_LOG_TABLE_SX}>
             <TableHead>
