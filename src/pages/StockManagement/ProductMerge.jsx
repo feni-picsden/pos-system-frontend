@@ -37,6 +37,8 @@ import { taxRateService } from '../../services/taxRateService';
 import { stripHtml } from '../../services/posLocalDb';
 import { useAuth } from '../../contexts/AuthContext';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { byMode } from '../../theme/sfPalette';
+import { useTheme } from '@mui/material/styles';
 
 // Reference (Stock Management > Products > Functions > Merge Products, help-centre
 // article 16344728041869, screenshots 16/11/2026): "Product Merge" page. A grey
@@ -53,6 +55,12 @@ const BLUE = '#b3e5fc';
 const GREY = '#d9d9d9';
 const DARK = '#313439';
 const NO_VALUE = 'No Value';
+// Dark-mode counterparts (reference dark screenshots): blue section #0b4f80, columns /
+// white cards #232323 (cards outlined #373737 via a shadow so nothing moves), inputs #121212.
+const BLUE_D = '#0b4f80';
+const CARD_D = '#232323';
+const TEXT = byMode('#000', '#f8f8f8');
+const DARK_ONLY = 'html[data-theme="dark"] &';
 
 const EMPTY = {
   name: '', type: 'Normal Product', status: 'Active', description: '', caseQuantity: 1,
@@ -102,31 +110,31 @@ const pickSection = (section, p) => {
 // ---------- small building blocks ----------
 const FieldLabel = ({ label, tick, required, action }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', minHeight: 36, mb: 0.5 }}>
-    <Typography sx={{ fontSize: 16, color: '#000' }}>{label}{required ? '*' : ''}</Typography>
-    {tick && <TickIcon data-testid="field-tick" sx={{ fontSize: 16, color: '#1c86f2', ml: 0.75 }} />}
+    <Typography sx={{ fontSize: 16, color: TEXT }}>{label}{required ? '*' : ''}</Typography>
+    {tick && <TickIcon data-testid="field-tick" sx={{ fontSize: 16, color: byMode('#1c86f2', '#74d4ff'), ml: 0.75 }} />}
     <Box sx={{ flex: 1 }} />
     {action}
   </Box>
 );
 const ValueText = ({ value }) => (
-  <Typography sx={{ fontSize: 16, color: value ? '#000' : '#8a8d91', px: 1, py: 0.5, mb: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+  <Typography sx={{ fontSize: 16, color: value ? TEXT : byMode('#8a8d91', '#d4d4d4'), px: 1, py: 0.5, mb: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
     {value || NO_VALUE}
   </Typography>
 );
-const inputSx = { width: '100%', border: '1px solid #000', borderRadius: '4px', bgcolor: '#fff', px: 1.5, fontSize: 16, minHeight: 50, mb: 1.5, fontFamily: 'inherit', '& input::placeholder': { color: '#9e9e9e' } };
-const selectSx = { width: '100%', mb: 1.5, bgcolor: '#fff', borderRadius: '8px', fontSize: 16, minHeight: 42, '& .MuiSelect-select': { py: 1 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 } };
+const inputSx = { width: '100%', border: 1, borderStyle: 'solid', borderColor: byMode('#000', '#a1a1a1'), borderRadius: '4px', bgcolor: byMode('#fff', '#121212'), px: 1.5, fontSize: 16, minHeight: 50, mb: 1.5, fontFamily: 'inherit', '& input::placeholder': { color: byMode('#9e9e9e', '#757575') }, [DARK_ONLY]: { color: '#f8f8f8' } };
+const selectSx = { width: '100%', mb: 1.5, bgcolor: byMode('#fff', '#121212'), borderRadius: '8px', fontSize: 16, minHeight: 42, '& .MuiSelect-select': { py: 1 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 1 }, [DARK_ONLY]: { color: '#f8f8f8' }, [`${DARK_ONLY} .MuiSelect-icon`]: { color: '#f8f8f8' } };
 const ClearBtn = ({ onClick, testid }) => (
-  <Button data-testid={testid} onClick={onClick} startIcon={<CloseIcon sx={{ fontSize: 16 }} />} sx={{ color: DARK, border: '1px solid #313439', borderRadius: '2px', bgcolor: '#f8f8f8', fontSize: 15, textTransform: 'none', px: 1.25, py: 0.25, minWidth: 0, '&:hover': { bgcolor: '#eee' } }}>
+  <Button data-testid={testid} onClick={onClick} startIcon={<CloseIcon sx={{ fontSize: 16 }} />} sx={{ color: byMode(DARK, '#d4d4d4'), border: 1, borderStyle: 'solid', borderColor: byMode('#313439', '#a1a1a1'), borderRadius: '2px', bgcolor: byMode('#f8f8f8', 'transparent'), fontSize: 15, textTransform: 'none', px: 1.25, py: 0.25, minWidth: 0, '&:hover': { bgcolor: byMode('#eee', '#333333') } }}>
     Clear
   </Button>
 );
 const SectionCard = ({ title, selected, dark, onSelect, children, testid }) => (
-  <Box data-testid={testid} data-selected={selected ? '1' : '0'} sx={{ bgcolor: selected ? BLUE : '#fff', p: 2, mb: 2, borderRadius: 0 }}>
+  <Box data-testid={testid} data-selected={selected ? '1' : '0'} sx={{ bgcolor: selected ? byMode(BLUE, BLUE_D) : byMode('#fff', CARD_D), p: 2, mb: 2, borderRadius: 0, ...(selected ? {} : { [DARK_ONLY]: { boxShadow: '0 0 0 1px #373737' } }) }}>
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-      <Typography sx={{ fontSize: 20, color: '#000' }}>{title}</Typography>
+      <Typography sx={{ fontSize: 20, color: TEXT }}>{title}</Typography>
       <Button
         onClick={onSelect}
-        sx={{ fontSize: 18, textTransform: 'none', borderRadius: '2px', px: 1.25, py: 0.5, border: `1px solid ${dark ? DARK : '#9e9e9e'}`, bgcolor: dark ? DARK : '#f3f3f3', color: dark ? '#fff' : '#555', fontWeight: 400, '&:hover': { bgcolor: dark ? DARK : '#e6e6e6' } }}
+        sx={{ fontSize: 18, textTransform: 'none', borderRadius: '2px', px: 1.25, py: 0.5, border: 1, borderStyle: 'solid', borderColor: dark ? byMode(DARK, '#f8f8f8') : byMode('#9e9e9e', '#a1a1a1'), bgcolor: dark ? byMode(DARK, '#3a3a3a') : byMode('#f3f3f3', 'transparent'), color: dark ? byMode('#fff', '#f8f8f8') : byMode('#555', '#d4d4d4'), fontWeight: 400, '&:hover': { bgcolor: dark ? byMode(DARK, '#4a4a4a') : byMode('#e6e6e6', '#333333') } }}
       >
         Select Section
       </Button>
@@ -136,20 +144,25 @@ const SectionCard = ({ title, selected, dark, onSelect, children, testid }) => (
 );
 const BadgeDialog = ({ open, onClose, title, subtitle, children, actions, testid }) => (
   <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 480, maxWidth: 'calc(100vw - 32px)', overflow: 'visible', borderRadius: 0, mt: 8 }, 'data-testid': testid }}>
-    <Box aria-hidden sx={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 118, height: 118, borderRadius: '50%', bgcolor: '#2d8ff5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 72, fontWeight: 700, lineHeight: 1 }}>?</Box>
+    <Box aria-hidden sx={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 118, height: 118, borderRadius: '50%', bgcolor: byMode('#2d8ff5', '#1c86f2'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 72, fontWeight: 700, lineHeight: 1 }}>?</Box>
     <Box sx={{ pt: 8.5, px: 2, pb: 2, textAlign: 'center' }}>
-      <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 1 }}>{title}</Typography>
-      {subtitle && <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>{subtitle}</Typography>}
+      <Typography sx={{ fontSize: 18, fontWeight: 700, color: TEXT, mb: 1 }}>{title}</Typography>
+      {subtitle && <Typography sx={{ fontSize: 16, color: TEXT, mb: 2 }}>{subtitle}</Typography>}
       {children}
       <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>{actions}</Box>
     </Box>
   </Dialog>
 );
-const dlgBtn = (primary) => ({ flex: 1, height: 48, fontSize: 24, fontWeight: 400, textTransform: 'none', borderRadius: '4px', boxShadow: 'none', bgcolor: primary ? '#32b643' : '#f3f4f6', color: primary ? '#fff' : '#676b72', border: `1px solid ${primary ? '#32b643' : '#d4d4d4'}`, '&:hover': { bgcolor: primary ? '#2a9c39' : '#e5e7eb', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: primary ? '#a5d9ad' : '#f3f4f6', color: primary ? '#fff' : '#bbb' } });
+const dlgBtn = (primary) => ({ flex: 1, height: 48, fontSize: 24, fontWeight: 400, textTransform: 'none', borderRadius: '4px', boxShadow: 'none', bgcolor: primary ? byMode('#32b643', '#7bf1a8') : byMode('#f3f4f6', '#3a3a3a'), color: primary ? byMode('#fff', '#232323') : byMode('#676b72', '#f8f8f8'), border: 1, borderStyle: 'solid', borderColor: primary ? byMode('#32b643', '#7bf1a8') : byMode('#d4d4d4', '#5a5a5a'), '&:hover': { bgcolor: primary ? byMode('#2a9c39', '#8ff5b8') : byMode('#e5e7eb', '#4a4a4a'), boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: primary ? byMode('#a5d9ad', '#7bf1a8') : byMode('#f3f4f6', '#3a3a3a'), color: primary ? byMode('#fff', '#232323') : byMode('#bbb', '#757575') } });
 
 // ---------- page ----------
 const ProductMerge = () => {
   const navigate = useNavigate();
+  const isDark = useTheme().palette.mode === 'dark';
+  // Inline style colours (outside sx): placeholders / option text per mode.
+  const phColor = isDark ? '#757575' : '#9e9e9e';
+  const optText = isDark ? '#f8f8f8' : '#000';
+  const optSel = isDark ? '#00a6f4' : '#1c86f2';
   const { getOutletName } = useAuth();
   const outletName = (typeof getOutletName === 'function' && getOutletName()) || 'Outlet';
 
@@ -280,7 +293,7 @@ const ProductMerge = () => {
   };
 
   // ---------- renderers ----------
-  const colSx = { width: 400, flexShrink: 0, bgcolor: GREY, p: 2, pt: 1.5, alignSelf: 'flex-start' };
+  const colSx = { width: 400, flexShrink: 0, bgcolor: byMode(GREY, CARD_D), p: 2, pt: 1.5, alignSelf: 'flex-start' };
   const rowInput = (field, { type = 'text', placeholder = '', testid } = {}) => (
     <InputBase value={merged[field] ?? ''} type={type} placeholder={placeholder} onChange={(e) => edit({ [field]: e.target.value })} inputProps={{ 'aria-label': field, 'data-testid': testid }} sx={inputSx} />
   );
@@ -291,7 +304,7 @@ const ProductMerge = () => {
       {merged[idField] ? (
         <ValueText value={merged[nameField] || items.find((x) => x.id === merged[idField])?.name || ''} />
       ) : (
-        <Select displayEmpty value="" onChange={(e) => { const it = items.find((x) => x.id === e.target.value); edit({ [idField]: it?.id ?? null, [nameField]: it?.name || '' }); }} inputProps={{ 'aria-label': label }} sx={selectSx} renderValue={() => <span style={{ color: '#9e9e9e' }}>{NO_VALUE}</span>}>
+        <Select displayEmpty value="" onChange={(e) => { const it = items.find((x) => x.id === e.target.value); edit({ [idField]: it?.id ?? null, [nameField]: it?.name || '' }); }} inputProps={{ 'aria-label': label }} sx={selectSx} renderValue={() => <span style={{ color: phColor }}>{NO_VALUE}</span>}>
           {optList(items).map((o) => <MenuItem key={o.id || 'none'} value={o.id} sx={{ fontSize: 16 }}>{o.name}</MenuItem>)}
         </Select>
       )}
@@ -300,7 +313,7 @@ const ProductMerge = () => {
 
   const renderResults = () => (
     <Box data-testid="merge-results-column" sx={colSx}>
-      <Typography sx={{ fontSize: 20, color: '#000', mb: 1.5, px: 0 }}>Results</Typography>
+      <Typography sx={{ fontSize: 20, color: TEXT, mb: 1.5, px: 0 }}>Results</Typography>
 
       <SectionCard testid="results-general" title="General" selected={isResults('general')} onSelect={() => selectResults('general')}>
         <FieldLabel label="Name" required tick={tickR('general')} />
@@ -308,7 +321,7 @@ const ProductMerge = () => {
         <FieldLabel label="Type" required tick={tickR('general')} />
         <ValueText value={merged.type} />
         <FieldLabel label="Status" required tick={tickR('general')} />
-        <Select value={merged.status || ''} displayEmpty onChange={(e) => edit({ status: e.target.value })} inputProps={{ 'aria-label': 'Status' }} sx={selectSx} renderValue={(v) => v || <span style={{ color: '#9e9e9e' }}>Select...</span>}>
+        <Select value={merged.status || ''} displayEmpty onChange={(e) => edit({ status: e.target.value })} inputProps={{ 'aria-label': 'Status' }} sx={selectSx} renderValue={(v) => v || <span style={{ color: phColor }}>Select...</span>}>
           {['Active', 'Not Selling', 'Discontinued'].map((s) => <MenuItem key={s} value={s} sx={{ fontSize: 16 }}>{s}</MenuItem>)}
         </Select>
         <FieldLabel label="Description" tick={tickR('general')} />
@@ -327,15 +340,15 @@ const ProductMerge = () => {
 
       <SectionCard testid="results-sellCost" title="Sell & Cost Prices" selected={isResults('sellCost')} onSelect={() => selectResults('sellCost')}>
         <FieldLabel label="Tax Rate" tick={tickR('sellCost')} action={<ClearBtn testid="clear-tax" onClick={() => edit({ retailTaxRate: '' })} />} />
-        <Select value={merged.retailTaxRate || ''} displayEmpty onChange={(e) => edit({ retailTaxRate: e.target.value })} inputProps={{ 'aria-label': 'Tax Rate' }} sx={selectSx} renderValue={(v) => v || <span style={{ color: '#9e9e9e' }}>Select...</span>}>
+        <Select value={merged.retailTaxRate || ''} displayEmpty onChange={(e) => edit({ retailTaxRate: e.target.value })} inputProps={{ 'aria-label': 'Tax Rate' }} sx={selectSx} renderValue={(v) => v || <span style={{ color: phColor }}>Select...</span>}>
           {taxRates.map((t) => <MenuItem key={t.id} value={t.name} sx={{ fontSize: 16 }}>{t.name}</MenuItem>)}
         </Select>
         <FieldLabel label="Cost is a percentage of sell price" tick={tickR('sellCost')} />
         <Box sx={{ mb: 1.5 }}><ShopfrontSwitch checked={!!merged.costPercentage} onChange={(e) => edit({ costPercentage: e.target.checked })} inputProps={{ 'aria-label': 'Cost is a percentage of sell price' }} /></Box>
         <FieldLabel label="Global Average Cost" tick={tickR('sellCost')} />
-        <InputBase value={merged.averageCaseCost ?? ''} onChange={(e) => edit({ averageCaseCost: e.target.value })} startAdornment={<span style={{ color: '#9e9e9e', marginRight: 6 }}>$</span>} inputProps={{ 'aria-label': 'Global Average Cost' }} sx={inputSx} />
+        <InputBase value={merged.averageCaseCost ?? ''} onChange={(e) => edit({ averageCaseCost: e.target.value })} startAdornment={<span style={{ color: phColor, marginRight: 6 }}>$</span>} inputProps={{ 'aria-label': 'Global Average Cost' }} sx={inputSx} />
         <FieldLabel label="Global Last Cost" tick={tickR('sellCost')} />
-        <InputBase value={merged.caseCost ?? ''} onChange={(e) => edit({ caseCost: e.target.value })} startAdornment={<span style={{ color: '#9e9e9e', marginRight: 6 }}>$</span>} inputProps={{ 'aria-label': 'Global Last Cost', 'data-testid': 'merged-last-cost' }} sx={inputSx} />
+        <InputBase value={merged.caseCost ?? ''} onChange={(e) => edit({ caseCost: e.target.value })} startAdornment={<span style={{ color: phColor, marginRight: 6 }}>$</span>} inputProps={{ 'aria-label': 'Global Last Cost', 'data-testid': 'merged-last-cost' }} sx={inputSx} />
         {[['requestPrice', 'Request Price'], ['requestQuantity', 'Request Quantity'], ['preventManualDiscounts', 'Prevent Manual Discounts']].map(([k, l]) => (
           <React.Fragment key={k}>
             <FieldLabel label={l} tick={tickR('sellCost')} />
@@ -348,14 +361,14 @@ const ProductMerge = () => {
             {merged.prices.map((p, i) => (
               <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
                 <InputBase type="number" value={p.quantity} onChange={(e) => { const n = [...merged.prices]; n[i] = { ...n[i], quantity: Math.max(1, parseInt(e.target.value || 1, 10)) }; edit({ prices: n }); }} inputProps={{ 'aria-label': `Price ${i + 1} quantity`, min: 1 }} sx={{ ...inputSx, width: 90, mb: 0 }} />
-                <Typography sx={{ fontSize: 16 }}>for $</Typography>
+                <Typography sx={{ fontSize: 16, [DARK_ONLY]: { color: '#f8f8f8' } }}>for $</Typography>
                 <InputBase type="number" value={p.price} onChange={(e) => { const n = [...merged.prices]; n[i] = { ...n[i], price: parseFloat(e.target.value || 0) }; edit({ prices: n }); }} inputProps={{ 'aria-label': `Price ${i + 1} amount`, step: 0.01 }} sx={{ ...inputSx, flex: 1, mb: 0 }} />
-                <IconButton size="small" aria-label={`Remove price ${i + 1}`} onClick={() => edit({ prices: merged.prices.filter((_, j) => j !== i) })} sx={{ color: '#e3342f' }}><DeleteOutlineIcon /></IconButton>
+                <IconButton size="small" aria-label={`Remove price ${i + 1}`} onClick={() => edit({ prices: merged.prices.filter((_, j) => j !== i) })} sx={{ color: byMode('#e3342f', '#ffa2a2') }}><DeleteOutlineIcon /></IconButton>
               </Box>
             ))}
           </Box>
         ) : <ValueText value="" />}
-        <Button startIcon={<AddIcon />} onClick={() => edit({ prices: [...(merged.prices || []), { quantity: 1, price: 0, cost: 0 }] })} sx={{ textTransform: 'none', color: DARK, fontSize: 15, mb: 0.5 }}>Add Price</Button>
+        <Button startIcon={<AddIcon />} onClick={() => edit({ prices: [...(merged.prices || []), { quantity: 1, price: 0, cost: 0 }] })} sx={{ textTransform: 'none', color: byMode(DARK, '#d4d4d4'), fontSize: 15, mb: 0.5 }}>Add Price</Button>
       </SectionCard>
 
       <SectionCard testid="results-inventory" title="Inventory" selected={isResults('inventory')} onSelect={() => selectResults('inventory')}>
@@ -366,7 +379,7 @@ const ProductMerge = () => {
           <InputBase type="number" placeholder="Cases" value={merged.currentStockCases ?? ''} onChange={(e) => edit({ currentStockCases: e.target.value })} inputProps={{ 'aria-label': 'Stock cases', 'data-testid': 'merged-stock-cases' }} sx={{ ...inputSx, mb: 0 }} />
           <InputBase type="number" placeholder="Items" value={merged.currentStockItems ?? ''} onChange={(e) => edit({ currentStockItems: e.target.value })} inputProps={{ 'aria-label': 'Stock items', 'data-testid': 'merged-stock-items' }} sx={{ ...inputSx, mb: 0 }} />
         </Box>
-        <Typography sx={{ fontSize: 13, color: '#555', mb: 0.5 }}>Leave blank to add the stock of all merged products together.</Typography>
+        <Typography sx={{ fontSize: 13, color: byMode('#555', '#a0a4aa'), mb: 0.5 }}>Leave blank to add the stock of all merged products together.</Typography>
       </SectionCard>
 
       <SectionCard testid="results-barcodes" title="Barcodes" selected={isResults('barcodes')} onSelect={() => selectResults('barcodes')}>
@@ -408,8 +421,8 @@ const ProductMerge = () => {
     return (
       <Box key={p.id} data-testid={`merge-product-column`} data-product-id={p.id} sx={colSx}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Typography sx={{ fontSize: 20, color: '#000', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</Typography>
-          <IconButton aria-label={`Remove ${p.name}`} onClick={() => removeProduct(p.id)} sx={{ color: '#e3342f' }}><DeleteOutlineIcon /></IconButton>
+          <Typography sx={{ fontSize: 20, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</Typography>
+          <IconButton aria-label={`Remove ${p.name}`} onClick={() => removeProduct(p.id)} sx={{ color: byMode('#e3342f', '#ffa2a2') }}><DeleteOutlineIcon /></IconButton>
         </Box>
         {sec('general', 'General', [['Name', p.name], ['Type', p.type], ['Status', p.status], ['Description', stripHtml(p.description || '')], ['Case Quantity', String(p.caseQuantity ?? 1)]])}
         {sec('classifications', 'Classifications', [['Category', p.category?.name], ['Brand', p.brand?.name], ['Family', p.family?.name], ['Tags', tagNames(p.tags).join(', ')]])}
@@ -426,8 +439,8 @@ const ProductMerge = () => {
   const pickedLabel = useMemo(() => (addPicked.length ? `${addPicked.length} Selected...` : ''), [addPicked]);
 
   return (
-    <Box sx={{ minHeight: 'calc(100vh - 50px)', bgcolor: '#f5f5f5', px: '8px', pb: '8px' }}>
-      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: '20px 0 24px' }}>Product Merge</Typography>
+    <Box sx={{ minHeight: 'calc(100vh - 50px)', bgcolor: byMode('#f5f5f5', '#121212'), px: '8px', pb: '8px' }}>
+      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: TEXT, m: '20px 0 24px' }}>Product Merge</Typography>
       {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
 
       <Box sx={{ display: 'flex', gap: '16px', alignItems: 'flex-start', overflowX: 'auto', pb: 2 }}>
@@ -437,12 +450,12 @@ const ProductMerge = () => {
             data-testid="complete-merge"
             disabled={!canMerge}
             onClick={() => setConfirmOpen(true)}
-            sx={{ width: 400, height: 42, mt: 1, bgcolor: '#e0e0e0', color: '#555', fontSize: 16, fontWeight: 700, textTransform: 'none', borderRadius: '8px', boxShadow: 'none', '&:hover': { bgcolor: '#cfcfcf' }, '&.Mui-disabled': { bgcolor: '#e0e0e0', color: '#9e9e9e' } }}
+            sx={{ width: 400, height: 42, mt: 1, bgcolor: byMode('#e0e0e0', '#3a3a3a'), color: byMode('#555', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none', borderRadius: '8px', boxShadow: 'none', '&:hover': { bgcolor: byMode('#cfcfcf', '#4a4a4a') }, '&.Mui-disabled': { bgcolor: byMode('#e0e0e0', '#3a3a3a'), color: byMode('#9e9e9e', '#757575') } }}
           >
-            {loading ? <CircularProgress size={22} sx={{ color: '#555' }} /> : 'Complete Merge'}
+            {loading ? <CircularProgress size={22} sx={{ color: byMode('#555', '#f8f8f8') }} /> : 'Complete Merge'}
           </Button>
         </Box>
-        <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: '#e0e0e0', flexShrink: 0 }} />
+        <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: byMode('#e0e0e0', '#333333'), flexShrink: 0 }} />
         {products.map(renderProduct)}
         <Box
           data-testid="add-product-card"
@@ -450,7 +463,7 @@ const ProductMerge = () => {
           tabIndex={0}
           onClick={openAdd}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAdd(); } }}
-          sx={{ width: 400, minHeight: 760, flexShrink: 0, border: '1px dashed #bdbdbd', m: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#000', fontSize: 16, '&:hover': { bgcolor: '#fafafa' } }}
+          sx={{ width: 400, minHeight: 760, flexShrink: 0, border: 1, borderStyle: 'dashed', borderColor: byMode('#bdbdbd', '#a1a1a1'), m: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: TEXT, fontSize: 16, '&:hover': { bgcolor: byMode('#fafafa', '#1a1a1a') } }}
         >
           <AddIcon sx={{ fontSize: 20, mr: 0.5 }} /> Click to add a new product to merge
         </Box>
@@ -481,18 +494,18 @@ const ProductMerge = () => {
           isOptionEqualToValue={(a, b) => a.id === b.id}
           filterOptions={(x) => x}
           noOptionsText={addInput.trim() ? (addSearching ? 'Searching...' : 'No products found') : 'Keep Typing to Search...'}
-          renderTags={(value) => (value.length ? <Chip label={`${value.length} Selected...`} size="small" sx={{ borderRadius: '4px', bgcolor: '#e0e0e0', fontSize: 15, mr: 1 }} /> : null)}
+          renderTags={(value) => (value.length ? <Chip label={`${value.length} Selected...`} size="small" sx={{ borderRadius: '4px', bgcolor: byMode('#e0e0e0', '#3a3a3a'), fontSize: 15, mr: 1 }} /> : null)}
           renderOption={(props, option, { selected }) => (
-            <li {...props} key={option.id} style={{ fontSize: 16, padding: '12px 16px', color: selected ? '#1c86f2' : '#000' }}>
-              <Checkbox icon={<UncheckedIcon fontSize="small" />} checkedIcon={<CheckedIcon fontSize="small" />} checked={selected} sx={{ p: 0, mr: 1.5, color: selected ? '#1c86f2' : '#000' }} />
+            <li {...props} key={option.id} style={{ fontSize: 16, padding: '12px 16px', color: selected ? optSel : optText }}>
+              <Checkbox icon={<UncheckedIcon fontSize="small" />} checkedIcon={<CheckedIcon fontSize="small" />} checked={selected} sx={{ p: 0, mr: 1.5, color: selected ? optSel : optText }} />
               {option.name}
             </li>
           )}
           renderInput={(params) => (
-            <TextField {...params} placeholder={addPicked.length ? '' : 'Search for products...'} inputProps={{ ...params.inputProps, 'aria-label': 'Search for products', 'data-testid': 'add-product-search' }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: '#fff', minHeight: 44, py: 0, '& fieldset': { borderColor: '#000' }, '&:hover fieldset': { borderColor: '#000' }, '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 1 } } }} />
+            <TextField {...params} placeholder={addPicked.length ? '' : 'Search for products...'} inputProps={{ ...params.inputProps, 'aria-label': 'Search for products', 'data-testid': 'add-product-search' }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: byMode('#fff', '#121212'), minHeight: 44, py: 0, '& fieldset': { borderColor: byMode('#000', '#a1a1a1') }, '&:hover fieldset': { borderColor: byMode('#000', '#a1a1a1') }, '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 1 }, [DARK_ONLY]: { color: '#f8f8f8' }, [`${DARK_ONLY} input::placeholder`]: { color: '#757575', opacity: 1 } } }} />
           )}
           ListboxProps={{ 'data-testid': 'add-product-options', style: { maxHeight: 300 } }}
-          componentsProps={{ paper: { sx: { borderRadius: '8px', border: '1px solid #000', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', mt: 0.5, '& .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent', color: '#1c86f2' }, '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#6fcbf9' } } } }}
+          componentsProps={{ paper: { sx: { borderRadius: '8px', border: 1, borderStyle: 'solid', borderColor: byMode('#000', '#a1a1a1'), boxShadow: '0 4px 12px rgba(0,0,0,0.15)', mt: 0.5, '& .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent', color: byMode('#1c86f2', '#00a6f4') }, '& .MuiAutocomplete-option.Mui-focused': { bgcolor: byMode('#6fcbf9', '#0084d1') }, [`${DARK_ONLY} .MuiAutocomplete-option.Mui-focused`]: { bgcolor: '#0084d1', color: '#fafafa' }, [`${DARK_ONLY} .MuiAutocomplete-noOptions, ${DARK_ONLY} .MuiAutocomplete-loading`]: { color: '#f8f8f8' } } } }}
           sx={{ textAlign: 'left' }}
         />
         {pickedLabel && <Typography sx={{ display: 'none' }}>{pickedLabel}</Typography>}
@@ -532,8 +545,8 @@ const ProductMerge = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button onClick={() => setResult(null)} disableElevation sx={{ bgcolor: '#dddddd', color: '#000', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#cccccc' } }}>Close</Button>
-          <Button onClick={() => navigate('/products')} variant="contained" disableElevation sx={{ bgcolor: '#5ebbeb', color: '#fff', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#4aa9dd' } }}>View Products</Button>
+          <Button onClick={() => setResult(null)} disableElevation sx={{ bgcolor: byMode('#dddddd', '#3a3a3a'), color: TEXT, height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: byMode('#cccccc', '#4a4a4a') } }}>Close</Button>
+          <Button onClick={() => navigate('/products')} variant="contained" disableElevation sx={{ bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#4aa9dd' } }}>View Products</Button>
         </DialogActions>
       </Dialog>
     </Box>

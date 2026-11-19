@@ -1,13 +1,14 @@
 import React from 'react';
 import { Table, TableHead, TableBody, TableRow, TableCell } from '@mui/material';
 import { defaultTiers } from '../../utils/familyOverride';
+import { byMode } from '../../theme/sfPalette';
 
 export default function FamilyPriceTiers({ product, emptyLabel = '—' }) {
   const tiers = defaultTiers(product);
   if (!tiers.length) return <span>{emptyLabel}</span>;
 
   return (
-    <Table size="small" aria-label="Quantity and price" sx={{ maxWidth: 280, border: '1px solid #e5e7eb', '& th, & td': { fontSize: 14, py: 0.75, px: 1.5 }, '& th': { fontWeight: 700, bgcolor: '#f3f4f6' } }}>
+    <Table size="small" aria-label="Quantity and price" sx={{ maxWidth: 280, border: 1, borderColor: byMode('#e5e7eb', '#333333'), '& th, & td': { fontSize: 14, py: 0.75, px: 1.5 }, '& th': { fontWeight: 700, bgcolor: byMode('#f3f4f6', '#333333') } }}>
       <TableHead><TableRow>
         <TableCell>Quantity</TableCell><TableCell align="right">Price</TableCell>
       </TableRow></TableHead>

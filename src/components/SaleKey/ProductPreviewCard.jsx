@@ -2,9 +2,12 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { splitMoney } from '../StockManagement/productViewStyles';
 import { stripHtml } from '../../services/posLocalDb';
+import { byMode } from '../../theme/sfPalette';
 
-const labelSx = { fontSize: 13, color: '#8a939c', lineHeight: 1.4 };
-const valueSx = { fontSize: 15, color: '#1a1a1a', lineHeight: 1.35 };
+// Dark mode: light values unchanged, dark values from the reference dark sell screen.
+const lineBy = (light, dark) => (t) => `1px solid ${t.palette.mode === 'dark' ? dark : light}`;
+const labelSx = { fontSize: 13, color: byMode('#8a939c', '#a0a4aa'), lineHeight: 1.4 };
+const valueSx = { fontSize: 15, color: byMode('#1a1a1a', '#f8f8f8'), lineHeight: 1.35 };
 
 // Label above value, the pairing the reference card uses throughout.
 const Field = ({ label, value }) => (
@@ -76,8 +79,8 @@ const ProductPreviewCard = ({ product }) => {
         zIndex: (theme) => theme.zIndex.modal + 1,
         px: 2.5,
         py: 2,
-        bgcolor: '#fff',
-        border: '1px solid #e3e6ea',
+        bgcolor: byMode('#fff', '#232323'),
+        border: lineBy('#e3e6ea', '#373737'),
         borderRadius: '12px',
         boxShadow: '0 12px 32px rgba(15,23,42,0.28)',
         // Caret pointing at the dialog, tying the two together as one step.
@@ -89,7 +92,7 @@ const ProductPreviewCard = ({ product }) => {
           transform: 'translateY(-50%)',
           borderStyle: 'solid',
           borderWidth: '11px 0 11px 13px',
-          borderColor: 'transparent transparent transparent #fff',
+          borderColor: byMode('transparent transparent transparent #fff', 'transparent transparent transparent #232323'),
         },
         // Never intercepts a click meant for the list row or the dialog behind it.
         pointerEvents: 'none',
@@ -106,7 +109,7 @@ const ProductPreviewCard = ({ product }) => {
       </Box>
 
       {description && (
-        <Box sx={{ borderTop: '1px solid #e3e6ea', mt: 1.5, pt: 1.5 }}>
+        <Box sx={{ borderTop: lineBy('#e3e6ea', '#373737'), mt: 1.5, pt: 1.5 }}>
           <Typography sx={labelSx}>Description</Typography>
           <Typography
             sx={{
@@ -132,7 +135,7 @@ const ProductPreviewCard = ({ product }) => {
       )}
 
       {hasFooter && (
-        <Box sx={{ borderTop: '1px solid #e3e6ea', mt: 1.5, pt: 1.5, display: 'flex', gap: 2 }}>
+        <Box sx={{ borderTop: lineBy('#e3e6ea', '#373737'), mt: 1.5, pt: 1.5, display: 'flex', gap: 2 }}>
           {/* Fixed halves, not auto columns: a long supplier name must not shove
               Category out of its column and reflow the card. */}
           {supplier && (

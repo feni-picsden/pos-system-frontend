@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   Box,
   TextField,
@@ -17,6 +17,12 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { matchesProductSearch } from '../../utils/productSearch';
 import { rankProducts } from '../../utils/searchRank';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode colours measured off the reference Assign screenshots (slate-blue
+// band, #121212 lists with #171717 zebra, #404040 save bar). Light = as built.
+const FOCUS_BORDER = byMode('#000', '#eeeeee');
+const MENU_TEXT = byMode('#000', '#fafafa');
 
 // Thin-stroke +/- to match the reference's FontAwesome-light fa-plus / fa-minus
 // (MUI Add/Remove icons render a heavier stroke).
@@ -60,6 +66,10 @@ const ClassificationAssignment = () => {
   const [filterText, setFilterText] = useState('');
   const [allClassifications, setAllClassifications] = useState([]);
   const [hoveredOption, setHoveredOption] = useState('');
+  // Reference: the two lists run down to the Save bar. A fixed 545px left an empty
+  // band above the bar on tall screens, so size them to the space that is left.
+  const listsRef = useRef(null);
+  const [listHeight, setListHeight] = useState(545);
 
   useEffect(() => {
     loadClassificationData();
@@ -235,6 +245,19 @@ const ClassificationAssignment = () => {
     }
   };
 
+  // Bottom bar (74px, +78px family notice) and the page's 16px bottom padding.
+  const bottomReserve = (classification?.type === 'FAMILY' ? 152 : 74) + 16;
+  useLayoutEffect(() => {
+    const fit = () => {
+      if (!listsRef.current) return;
+      const top = listsRef.current.getBoundingClientRect().top + window.scrollY;
+      setListHeight(Math.max(240, Math.floor(window.innerHeight - top - bottomReserve)));
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [loading, error, bottomReserve]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -255,27 +278,27 @@ const ClassificationAssignment = () => {
 
   // Shared field skin: 42px tall, 8px radius, #404040 border, black 2px on focus
   const fieldSx = {
-    backgroundColor: 'white',
+    backgroundColor: 'sf.input',
     '& .MuiOutlinedInput-root': {
       height: 40,
       borderRadius: '8px',
       fontSize: 16,
-      '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-      '&:hover.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+      '&:hover.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: FOCUS_BORDER, borderWidth: '2px' },
       '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-        borderColor: '#000 !important',
+        borderColor: byMode('#000 !important', '#eeeeee !important'),
         borderWidth: '2px !important'
       }
     },
-    '& .MuiOutlinedInput-input': { backgroundColor: '#fff' },
-    '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 }
+    '& .MuiOutlinedInput-input': { backgroundColor: 'sf.input' },
+    '& .MuiOutlinedInput-input::placeholder': { color: 'sf.textFaint', opacity: 1 }
   };
 
   // Reference label: 12.8px black with the floating-label transition
   const fieldLabelSx = {
     fontSize: '12.8px',
-    color: '#000',
+    color: 'sf.text',
     mb: 0.5,
     transition: 'all 150ms'
   };
@@ -287,7 +310,7 @@ const ClassificationAssignment = () => {
     height: 52,
     px: 1,
     borderRadius: '4px',
-    backgroundColor: index % 2 === 1 ? '#f8f8f8' : 'transparent'
+    backgroundColor: index % 2 === 1 ? byMode('#f8f8f8', '#171717') : 'transparent'
   });
 
   // 32x32 round-cornered +/- action button at the right edge of each row
@@ -300,11 +323,12 @@ const ClassificationAssignment = () => {
     justifyContent: 'center',
     padding: 0,
     borderRadius: '12px',
-    border: `1px solid ${borderColor}`,
+    border: '1px solid',
+    borderColor,
     backgroundColor: 'transparent',
     color: iconColor,
     cursor: 'pointer',
-    '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' }
+    '&:hover': { backgroundColor: 'sf.overlayPress' }
   });
 
   const emptyStateSx = {
@@ -313,26 +337,26 @@ const ClassificationAssignment = () => {
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: 16,
-    color: '#737373',
+    color: 'sf.textSoft',
     textAlign: 'center'
   };
 
   return (
     // Reference draws this page on white; without an explicit background the
     // layout's grey showed through around the fields and the two lists.
-    <Box sx={{ bgcolor: '#fff', minHeight: '100%' }}>
+    <Box sx={{ bgcolor: byMode('#fff', '#121212'), minHeight: '100%' }}>
       {/* Slate title bar with the without-a-classification toggle at its right edge */}
       <Box
         sx={{
           height: 60,
           px: 2,
-          backgroundColor: '#e2e8f0',
+          backgroundColor: byMode('#e2e8f0', '#314158'),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}
       >
-        <Typography sx={{ fontSize: 22, fontWeight: 400, color: '#000' }}>
+        <Typography sx={{ fontSize: 22, fontWeight: 400, color: 'sf.text' }}>
           {classification.name}
         </Typography>
         <FormControlLabel
@@ -342,14 +366,15 @@ const ClassificationAssignment = () => {
               onChange={(e) => setUnassignedOnly(e.target.checked)}
               sx={{
                 // Reference OFF track is neutral-400 (the shared switch defaults to #a1a1a1)
-                '& .MuiSwitch-track': { backgroundColor: '#a3a3a3 !important' },
+                '& .MuiSwitch-track': { backgroundColor: byMode('#a3a3a3 !important', '#404040 !important') },
                 // ponytail: ON track #3b82f6 is round-1's recorded value, never re-measured
+                // (dark: #1447e6 measured off the reference dark Assign crop)
                 '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                  backgroundColor: '#3b82f6 !important'
+                  backgroundColor: byMode('#3b82f6 !important', '#1447e6 !important')
                 },
                 // Reference OFF track darkens neutral-400 -> neutral-500 on hover
                 '&:hover .MuiSwitch-switchBase:not(.Mui-checked) + .MuiSwitch-track': {
-                  backgroundColor: '#737373 !important'
+                  backgroundColor: byMode('#737373 !important', '#555555 !important')
                 },
                 // Reference thumb: no drop shadow, 150ms travel
                 '& .MuiSwitch-switchBase': { transitionDuration: '150ms' },
@@ -365,7 +390,7 @@ const ClassificationAssignment = () => {
           sx={{
             m: 0,
             gap: 1,
-            '& .MuiFormControlLabel-label': { fontSize: 16, color: '#000' }
+            '& .MuiFormControlLabel-label': { fontSize: 16, color: 'sf.text' }
           }}
         />
       </Box>
@@ -391,7 +416,7 @@ const ClassificationAssignment = () => {
                     onClick={() => setSearchTerm('')}
                     sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                   >
-                    <CloseIcon sx={{ fontSize: 18, color: '#404040' }} />
+                    <CloseIcon sx={{ fontSize: 18, color: 'sf.border' }} />
                   </Box>
                 ) : null
               }}
@@ -410,9 +435,10 @@ const ClassificationAssignment = () => {
                 display: 'flex',
                 alignItems: 'center',
                 borderRadius: '8px',
-                border: '1px solid #404040',
-                backgroundColor: 'white',
-                '&:focus-within': { borderColor: '#000', borderWidth: '2px', px: '11px' }
+                border: '1px solid',
+                borderColor: 'sf.border',
+                backgroundColor: 'sf.input',
+                '&:focus-within': { borderColor: FOCUS_BORDER, borderWidth: '2px', px: '11px' }
               }}
             >
               <Box
@@ -434,8 +460,8 @@ const ClassificationAssignment = () => {
                   backgroundColor: 'transparent',
                   fontSize: 16,
                   fontFamily: 'inherit',
-                  color: '#000',
-                  '&::placeholder': { color: '#808080', opacity: 1 }
+                  color: 'sf.text',
+                  '&::placeholder': { color: 'sf.textFaint', opacity: 1 }
                 }}
               />
               {classificationFilter && (
@@ -455,12 +481,12 @@ const ClassificationAssignment = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  <CloseIcon sx={{ fontSize: 18, color: '#404040' }} />
+                  <CloseIcon sx={{ fontSize: 18, color: 'sf.border' }} />
                 </Box>
               )}
               <ArrowDropDownIcon
                 onClick={() => setFilterOpen((prev) => !prev)}
-                sx={{ color: '#404040', cursor: 'pointer' }}
+                sx={{ color: byMode('#404040', '#f8f8f8'), cursor: 'pointer' }}
               />
             </Box>
             {filterOpen && (
@@ -480,9 +506,10 @@ const ClassificationAssignment = () => {
                     left: 0,
                     right: 0,
                     zIndex: 1300,
-                    backgroundColor: '#fff',
+                    backgroundColor: byMode('#fff', '#232323'),
                     borderRadius: '8px',
-                    border: '1px solid #000',
+                    border: '1px solid',
+                    borderColor: byMode('#000', '#a1a1a1'),
                     maxHeight: 288,
                     overflowY: 'auto',
                     boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)'
@@ -505,8 +532,8 @@ const ClassificationAssignment = () => {
                           boxSizing: 'border-box',
                           fontSize: 16,
                           fontWeight: 700,
-                          color: '#000',
-                          borderBottom: '1px solid #a3a3a3'
+                          color: MENU_TEXT,
+                          borderBottom: byMode('1px solid #a3a3a3', '1px solid #a1a1a1')
                         }}
                       >
                         {group.header}
@@ -528,14 +555,14 @@ const ClassificationAssignment = () => {
                             boxSizing: 'border-box',
                             textAlign: 'left',
                             fontSize: 16,
-                            color: '#000',
+                            color: MENU_TEXT,
                             cursor: 'pointer',
                             // react-select renders the reference filter; its
                             // documented default focused/hover option bg is
                             // primary25 = #DEEBFF (a pale blue), not sky-300.
                             backgroundColor:
-                              hoveredOption === option.id ? '#DEEBFF' : 'transparent',
-                            '&:hover': { backgroundColor: '#DEEBFF' }
+                              hoveredOption === option.id ? byMode('#DEEBFF', '#0084d1') : 'transparent',
+                            '&:hover': { backgroundColor: byMode('#DEEBFF', '#0084d1') }
                           }}
                         >
                           {option.name}
@@ -556,8 +583,8 @@ const ClassificationAssignment = () => {
         )}
 
         {/* Two bare zebra lists: assigned (left) / available (right) */}
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Box sx={{ flex: 1, height: 545, overflowY: 'auto' }}>
+        <Box ref={listsRef} sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ flex: 1, height: listHeight, overflowY: 'auto' }}>
             {filteredAssigned.length === 0 ? (
               <Box sx={emptyStateSx}>
                 {assignedProducts.length === 0
@@ -567,7 +594,7 @@ const ClassificationAssignment = () => {
             ) : (
               filteredAssigned.map((product, index) => (
                 <Box key={product.id} sx={zebraRowSx(index)}>
-                  <Typography component="span" noWrap sx={{ fontSize: 16, color: '#000', minWidth: 0 }}>
+                  <Typography component="span" noWrap sx={{ fontSize: 16, color: 'sf.text', minWidth: 0 }}>
                     {product.name}
                   </Typography>
                   <Box
@@ -576,7 +603,7 @@ const ClassificationAssignment = () => {
                     aria-label={`Remove ${product.name}`}
                     disabled={saving}
                     onClick={() => handleUnassignProduct(product)}
-                    sx={rowButtonSx('#ef4444', '#dc2626')}
+                    sx={rowButtonSx(byMode('#ef4444', '#ffa2a2'), byMode('#dc2626', '#ffa2a2'))}
                   >
                     <ThinMinus />
                   </Box>
@@ -585,13 +612,13 @@ const ClassificationAssignment = () => {
             )}
           </Box>
 
-          <Box sx={{ flex: 1, height: 545, overflowY: 'auto' }}>
+          <Box sx={{ flex: 1, height: listHeight, overflowY: 'auto' }}>
             {filteredAvailable.length === 0 && (
               <Box sx={emptyStateSx}>No products found...</Box>
             )}
             {filteredAvailable.map((product, index) => (
               <Box key={product.id} sx={zebraRowSx(index)}>
-                <Typography component="span" noWrap sx={{ fontSize: 16, color: '#000', minWidth: 0 }}>
+                <Typography component="span" noWrap sx={{ fontSize: 16, color: 'sf.text', minWidth: 0 }}>
                   {product.name}
                 </Typography>
                 <Box
@@ -600,7 +627,7 @@ const ClassificationAssignment = () => {
                   aria-label={`Add ${product.name}`}
                   disabled={saving}
                   onClick={() => handleAssignProduct(product)}
-                  sx={rowButtonSx('#22c55e', '#16a34a')}
+                  sx={rowButtonSx(byMode('#22c55e', '#7bf1a8'), byMode('#16a34a', '#7bf1a8'))}
                 >
                   <ThinPlus />
                 </Box>
@@ -626,20 +653,20 @@ const ClassificationAssignment = () => {
             alignItems: 'center',
             gap: 3,
             px: 4,
-            backgroundColor: '#e1f1fb',
+            backgroundColor: byMode('#e1f1fb', '#0c3a55'),
             borderLeft: '4px solid #29a8e0',
-            color: '#1a6fa8',
+            color: byMode('#1a6fa8', '#74d4ff'),
             fontSize: 16
           }}
         >
-          <Box component="span" aria-hidden="true" sx={{ fontWeight: 700, fontSize: 20, color: '#1a6fa8' }}>i</Box>
+          <Box component="span" aria-hidden="true" sx={{ fontWeight: 700, fontSize: 20, color: byMode('#1a6fa8', '#74d4ff') }}>i</Box>
           Family products are price-aligned, saving this will cause the prices and tax rates of the products to align
         </Box>
       )}
       <Box
         sx={{
           height: 74,
-          backgroundColor: '#525252',
+          backgroundColor: byMode('#525252', '#404040'),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-end',
@@ -655,16 +682,17 @@ const ClassificationAssignment = () => {
             height: 42,
             px: '20px',
             borderRadius: '12px',
-            border: '1px solid #0ea5e9',
-            bgcolor: '#0ea5e9',
-            color: '#fff',
+            border: '1px solid',
+            borderColor: byMode('#0ea5e9', '#73d4ff'),
+            bgcolor: byMode('#0ea5e9', '#73d4ff'),
+            color: byMode('#fff', '#232323'),
             fontSize: 16,
             fontWeight: 700,
             fontFamily: 'inherit',
             cursor: saving ? 'default' : 'pointer',
             boxShadow: 'none',
-            '&:hover': { bgcolor: '#38bdf8', borderColor: '#38bdf8' },
-            '&:disabled': { bgcolor: '#404040', borderColor: '#404040', color: '#737373', cursor: 'default' }
+            '&:hover': { bgcolor: byMode('#38bdf8', '#8fdcff'), borderColor: byMode('#38bdf8', '#8fdcff') },
+            '&:disabled': { bgcolor: byMode('#404040', '#333333'), borderColor: byMode('#404040', '#333333'), color: '#737373', cursor: 'default' }
           }}
         >
           Save

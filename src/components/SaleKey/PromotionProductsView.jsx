@@ -18,6 +18,10 @@ import {
   ArrowBack as ArrowBackIcon,
   ArrowUpward as ArrowUpwardIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode: light values unchanged, dark values from the reference dark sell screen.
+const lineBy = (light, dark) => (t) => `1px solid ${t.palette.mode === 'dark' ? dark : light}`;
 
 const PromotionProductsView = ({
   promotionTypeFilter,
@@ -33,30 +37,30 @@ const PromotionProductsView = ({
   ensureRegisterControl,
 }) => {
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: byMode('white', '#232323') }}>
       {/* Header with Back button and Type selector - White background, black text */}
-      <Box sx={{ 
-        p: 1.5, 
+      <Box sx={{
+        p: 1.5,
         display: 'flex',
         alignItems: 'center',
         gap: 1.5,
-        bgcolor: 'white',
-        borderBottom: '1px solid #e0e0e0',
+        bgcolor: byMode('white', '#232323'),
+        borderBottom: lineBy('#e0e0e0', '#373737'),
         minHeight: 56
       }}>
-        <IconButton 
-          onClick={onBack} 
-          sx={{ 
-            color: '#000000',
-            '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.05)' }
+        <IconButton
+          onClick={onBack}
+          sx={{
+            color: byMode('#000000', '#f8f8f8'),
+            '&:hover': { bgcolor: byMode('rgba(0, 0, 0, 0.05)', 'rgba(255,255,255,0.08)') }
           }}
         >
           <ArrowBackIcon />
         </IconButton>
-        <Typography 
-          variant="body1" 
-          sx={{ 
-            color: '#000000',
+        <Typography
+          variant="body1"
+          sx={{
+            color: byMode('#000000', '#f8f8f8'),
             cursor: 'pointer',
             '&:hover': { textDecoration: 'underline' }
           }}
@@ -70,31 +74,31 @@ const PromotionProductsView = ({
           sx={{ 
             minWidth: 120,
             '& .MuiInputBase-root': {
-              color: '#000000',
-              bgcolor: 'white',
-              border: '1px solid #000000',
+              color: byMode('#000000', '#f8f8f8'),
+              bgcolor: byMode('white', '#121212'),
+              border: lineBy('#000000', '#a1a1a1'),
               borderRadius: 0,
               '&:hover': {
-                bgcolor: 'white',
+                bgcolor: byMode('white', '#121212'),
               },
-              '& .MuiOutlinedInput-notchedOutline': { 
-                borderColor: '#000000',
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: byMode('#000000', '#a1a1a1'),
               },
-              '&:hover .MuiOutlinedInput-notchedOutline': { 
-                borderColor: '#000000',
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: byMode('#000000', '#a1a1a1'),
               },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
-                borderColor: '#000000',
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: byMode('#000000', '#2b7fff'),
               },
-              '& .MuiSvgIcon-root': { color: '#000000' }
+              '& .MuiSvgIcon-root': { color: byMode('#000000', '#f8f8f8') }
             }
           }}
         >
           <Select
             value={promotionTypeFilter}
             onChange={(e) => onTypeChange(e.target.value)}
-            sx={{ 
-              color: '#000000',
+            sx={{
+              color: byMode('#000000', '#f8f8f8'),
               '& .MuiSelect-select': {
                 py: 1,
                 px: 1.5
@@ -106,7 +110,7 @@ const PromotionProductsView = ({
                   mt: 0.5,
                   '& .MuiMenuItem-root': {
                     '&:hover': {
-                      bgcolor: '#f5f5f5'
+                      bgcolor: byMode('#f5f5f5', '#0084d1')
                     }
                   }
                 }
@@ -121,7 +125,7 @@ const PromotionProductsView = ({
       </Box>
       
       {/* Search/Filter - White background, light grey border, no icon */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}>
+      <Box sx={{ p: 2, borderBottom: lineBy('#e0e0e0', '#373737'), bgcolor: byMode('white', '#232323') }}>
         <TextField
           fullWidth
           placeholder="Filter by product, classification or promotional category..."
@@ -130,15 +134,15 @@ const PromotionProductsView = ({
           variant="outlined"
           sx={{
             '& .MuiOutlinedInput-root': {
-              bgcolor: 'white',
+              bgcolor: byMode('white', '#121212'),
               '& fieldset': {
-                borderColor: '#e0e0e0',
+                borderColor: byMode('#e0e0e0', '#a1a1a1'),
               },
               '&:hover fieldset': {
-                borderColor: '#bdbdbd',
+                borderColor: byMode('#bdbdbd', '#a1a1a1'),
               },
               '&.Mui-focused fieldset': {
-                borderColor: '#9e9e9e',
+                borderColor: byMode('#9e9e9e', '#2b7fff'),
               },
             },
             '& .MuiInputBase-input::placeholder': {
@@ -166,34 +170,34 @@ const PromotionProductsView = ({
           <Table stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', color: '#000000' }}>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: byMode('#f5f5f5', '#333333'), color: byMode('#000000', '#5ebbeb') }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     Product
-                    <ArrowUpwardIcon sx={{ fontSize: 16, color: '#000000' }} />
+                    <ArrowUpwardIcon sx={{ fontSize: 16, color: byMode('#000000', '#5ebbeb') }} />
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', color: '#000000' }} align="right">
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: byMode('#f5f5f5', '#333333'), color: byMode('#000000', '#5ebbeb') }} align="right">
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
                     Quantity
-                    <ArrowUpwardIcon sx={{ fontSize: 16, color: '#000000' }} />
+                    <ArrowUpwardIcon sx={{ fontSize: 16, color: byMode('#000000', '#5ebbeb') }} />
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', color: '#000000' }} align="right">
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: byMode('#f5f5f5', '#333333'), color: byMode('#000000', '#5ebbeb') }} align="right">
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
                     Price
-                    <ArrowUpwardIcon sx={{ fontSize: 16, color: '#000000' }} />
+                    <ArrowUpwardIcon sx={{ fontSize: 16, color: byMode('#000000', '#5ebbeb') }} />
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', color: '#000000' }}>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: byMode('#f5f5f5', '#333333'), color: byMode('#000000', '#5ebbeb') }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     Start
-                    <ArrowUpwardIcon sx={{ fontSize: 16, color: '#000000' }} />
+                    <ArrowUpwardIcon sx={{ fontSize: 16, color: byMode('#000000', '#5ebbeb') }} />
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', color: '#000000' }}>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: byMode('#f5f5f5', '#333333'), color: byMode('#000000', '#5ebbeb') }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     End
-                    <ArrowUpwardIcon sx={{ fontSize: 16, color: '#000000' }} />
+                    <ArrowUpwardIcon sx={{ fontSize: 16, color: byMode('#000000', '#5ebbeb') }} />
                   </Box>
                 </TableCell>
               </TableRow>
@@ -226,19 +230,19 @@ const PromotionProductsView = ({
                       }}
                       sx={{ 
                         cursor: 'pointer',
-                        bgcolor: isSelected ? '#e3f2fd' : 'white',
-                        '&:hover': { bgcolor: isSelected ? '#bbdefb' : '#f5f5f5' },
+                        bgcolor: isSelected ? byMode('#e3f2fd', '#1f3a4a') : byMode('white', '#232323'),
+                        '&:hover': { bgcolor: isSelected ? byMode('#bbdefb', '#0084d1') : byMode('#f5f5f5', '#2b2b2b') },
                         '& td': {
-                          color: '#000000',
-                          borderBottom: '1px solid #e0e0e0'
+                          color: byMode('#000000', '#f8f8f8'),
+                          borderBottom: lineBy('#e0e0e0', '#373737')
                         }
                       }}
                     >
-                      <TableCell sx={{ color: '#000000' }}>{item.product.name}</TableCell>
-                      <TableCell align="right" sx={{ color: '#000000' }}>{item.quantity}</TableCell>
-                      <TableCell align="right" sx={{ color: '#000000' }}>${item.price.toFixed(2)}</TableCell>
-                      <TableCell sx={{ color: '#000000' }}>{startDate}</TableCell>
-                      <TableCell sx={{ color: '#000000' }}>{endDate}</TableCell>
+                      <TableCell sx={{ color: byMode('#000000', '#f8f8f8') }}>{item.product.name}</TableCell>
+                      <TableCell align="right" sx={{ color: byMode('#000000', '#f8f8f8') }}>{item.quantity}</TableCell>
+                      <TableCell align="right" sx={{ color: byMode('#000000', '#f8f8f8') }}>${item.price.toFixed(2)}</TableCell>
+                      <TableCell sx={{ color: byMode('#000000', '#f8f8f8') }}>{startDate}</TableCell>
+                      <TableCell sx={{ color: byMode('#000000', '#f8f8f8') }}>{endDate}</TableCell>
                     </TableRow>
                   );
                 })}

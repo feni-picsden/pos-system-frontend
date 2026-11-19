@@ -18,6 +18,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
 import outletService from '../../services/outletService';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
 import {
   SECTION_ROOT_SX,
   OUTLET_SELECT_SX,
@@ -148,7 +149,7 @@ const ProductInventoryLog = ({ productId }) => {
     const href = eventHref(log);
     const label = eventName(log);
     return href
-      ? <Box component={RouterLink} to={href} sx={{ color: 'inherit', textDecoration: 'underline' }}>{label}</Box>
+      ? <Box component={RouterLink} to={href} sx={{ color: byMode('inherit', '#4ca0f5'), textDecoration: 'underline' }}>{label}</Box>
       : label;
   };
 
@@ -200,7 +201,7 @@ const ProductInventoryLog = ({ productId }) => {
     <Box sx={SECTION_ROOT_SX}>
       {isGlobal && (
         <Box sx={{ mb: 2 }}>
-          <Box sx={{ fontSize: 16, color: '#000' }}>Outlets</Box>
+          <Box sx={{ fontSize: 16, color: 'sf.text' }}>Outlets</Box>
           <Autocomplete
             options={outlets}
             getOptionLabel={(o) => o?.name || ''}
@@ -220,7 +221,7 @@ const ProductInventoryLog = ({ productId }) => {
           "DD/MM/YYYY HH:mm:ss — DD/MM/YYYY HH:mm:ss"), not the browser's
           native datetime-local box, which rendered as ", dd-mm-yyyy --:--:-- --". */}
       <Box sx={{ mb: 2 }}>
-        <Box sx={{ fontSize: 16, color: '#000' }}>Date Range</Box>
+        <Box sx={{ fontSize: 16, color: 'sf.text' }}>Date Range</Box>
         <DateRangePicker
           label=""
           value={{ startDate: startDate || null, endDate: endDate || null }}
@@ -236,10 +237,10 @@ const ProductInventoryLog = ({ productId }) => {
             '& .MuiOutlinedInput-root': {
               borderRadius: '8px',
               fontSize: 16,
-              backgroundColor: '#fff',
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+              backgroundColor: 'sf.input',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.borderStrong', borderWidth: '2px' },
             },
           }}
         />

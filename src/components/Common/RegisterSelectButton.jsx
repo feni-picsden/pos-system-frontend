@@ -4,6 +4,7 @@ import { SignpostOutlined as SignpostOutlinedIcon } from '@mui/icons-material';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { byMode } from '../../theme/sfPalette';
 
 // The signpost trigger that opens the Location Selector. The navbar and the sell
 // screen render this same button; only the sell screen's measured spacing comes
@@ -26,11 +27,11 @@ const RegisterSelectButton = ({ sx }) => {
   const label = (
     <Box sx={{ textAlign: 'center', px: 1, py: 0.5 }}>
       {outletName && (
-        <Typography sx={{ fontSize: 13, color: '#8a9099', lineHeight: '18px' }}>
+        <Typography sx={{ fontSize: 13, color: byMode('#8a9099', '#bdbdbd'), lineHeight: '18px' }}>
           {outletName}
         </Typography>
       )}
-      <Typography sx={{ fontSize: 20, color: '#313439', lineHeight: '28px' }}>
+      <Typography sx={{ fontSize: 20, color: byMode('#313439', '#f8f8f8'), lineHeight: '28px' }}>
         {registerName}
       </Typography>
     </Box>
@@ -44,8 +45,8 @@ const RegisterSelectButton = ({ sx }) => {
       slotProps={{
         tooltip: {
           sx: {
-            bgcolor: '#f8f8f8',
-            color: '#313439',
+            bgcolor: byMode('#f8f8f8', '#232323'),
+            color: byMode('#313439', '#f8f8f8'),
             borderRadius: 0,
             p: 0,
             boxShadow: 'rgba(0,0,0,0.2) 0 0 4px, rgba(0,0,0,0.15) 0 2px 4px',

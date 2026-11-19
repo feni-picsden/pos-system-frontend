@@ -37,8 +37,17 @@ import usePageCache from '../../hooks/usePageCache';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
+import { byMode } from '../../theme/sfPalette';
 
 const ADD_CLASSIFICATION_ACTION = 'classifications.add';
+
+// Dark mode (reference Force Dark Mode screenshots): focused field border, row
+// action colours, zebra rows, tag chips. Light values = what the page had.
+const FOCUS_BORDER = byMode('#000000', '#eeeeee');
+const ACTION_VIEW = byMode('#2f9fd6', '#74d4ff');
+const ACTION_EDIT = byMode('#16a34a', '#7bf1a8');
+const ACTION_ASSIGN = byMode('#d97706', '#ffd230');
+const ACTION_DELETE = byMode('#e5484d', '#ffa2a2');
 
 const CLASSIFICATION_TYPE_OPTIONS = [
   { value: 'BRAND', label: 'Brand' },
@@ -58,7 +67,7 @@ const rowActionSx = (color) => ({
   borderRadius: '12px',
   px: 4,
   transition: 'none',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: 'sf.overlayPress' },
 });
 
 const formatType = (type) =>
@@ -229,16 +238,16 @@ const Classifications = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleAddClassification}
-            sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, transition: 'none', borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
+            sx={{ bgcolor: 'sf.btnPrimary', color: 'sf.onBtnPrimary', '&:hover': { bgcolor: 'sf.accentHover', boxShadow: 'none' }, transition: 'none', borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
           >
             Add Classification
           </Button>
         </Box>
         <Box sx={{ textAlign: 'right' }}>
-          <Typography sx={{ fontSize: 24, fontWeight: 400, color: '#000', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: 24, fontWeight: 400, color: 'sf.text', lineHeight: 1 }}>
             {filteredClassifications.length}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: byMode('text.secondary', 'sf.text') }}>
             Results
           </Typography>
         </Box>
@@ -246,7 +255,7 @@ const Classifications = () => {
 
       {/* Search: full width row */}
       <Box sx={{ mb: 2 }}>
-      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' }}>
+      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: 'sf.text' }}>
         Search
       </Typography>
       <TextField
@@ -254,15 +263,15 @@ const Classifications = () => {
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         sx={{
-          backgroundColor: 'white',
+          backgroundColor: 'sf.input',
           '& .MuiOutlinedInput-root': {
             borderRadius: '8px',
             fontSize: 16,
             height: 42,
             // Match Shopfront: dark-gray border, turns solid black on focus/click
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: FOCUS_BORDER, borderWidth: '2px' },
           },
         }}
       />
@@ -271,7 +280,7 @@ const Classifications = () => {
       {/* Classifications type filter + (All Outlets only) Outlet filter, one row */}
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', mb: 2 }}>
       <Box sx={{ flex: 2, minWidth: 0 }}>
-      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' }}>
+      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: 'sf.text' }}>
         Classifications
       </Typography>
       <FormControl fullWidth ref={typeSelectAnchorRef}>
@@ -290,7 +299,8 @@ const Classifications = () => {
                 maxWidth: typeMenuWidth,
                 maxHeight: 288,
                 borderRadius: '8px',
-                border: '1px solid #e0e0e0',
+                border: '1px solid',
+                borderColor: byMode('#e0e0e0', '#a1a1a1'),
                 boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
                 '& .MuiList-root': { py: 0.5 },
               },
@@ -309,12 +319,12 @@ const Classifications = () => {
                       key={value}
                       component="span"
                       sx={{
-                        bgcolor: 'rgba(0,0,0,0.1)',
+                        bgcolor: byMode('rgba(0,0,0,0.1)', '#333333'),
                         borderRadius: '4px',
                         px: 1,
                         fontSize: 14,
                         lineHeight: '24px',
-                        color: '#000',
+                        color: 'sf.text',
                       }}
                     >
                       {opt ? opt.label : value}
@@ -325,16 +335,16 @@ const Classifications = () => {
             );
           }}
           sx={{
-            backgroundColor: 'white',
+            backgroundColor: 'sf.input',
             borderRadius: '8px',
             fontSize: 16,
             minHeight: 42,
             '& .MuiSelect-select': { display: 'flex', alignItems: 'center', py: '8px' },
             // Match Shopfront: solid dark-gray border, no hover/focus color shift
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-            '& .MuiSelect-icon': { color: '#404040' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#eeeeee'), borderWidth: '1px' },
+            '& .MuiSelect-icon': { color: byMode('#404040', '#f8f8f8') },
           }}
         >
           {CLASSIFICATION_TYPE_OPTIONS.map((option) => {
@@ -351,19 +361,19 @@ const Classifications = () => {
                   // default .MuiMenuItem-root.Mui-selected background (every option is
                   // selected by default, so plain &:hover was losing the cascade).
                   '&&.Mui-selected': { bgcolor: 'transparent' },
-                  '&&:hover, &&.Mui-selected:hover, &&.Mui-focusVisible': { bgcolor: '#5ebbeb' },
-                  '&&:hover .MuiListItemText-primary': { color: '#000' },
+                  '&&:hover, &&.Mui-selected:hover, &&.Mui-focusVisible': { bgcolor: 'sf.menuHover' },
+                  '&&:hover .MuiListItemText-primary': { color: byMode('#000', '#fafafa') },
                 }}
               >
                 <Checkbox
                   checked={isSelected}
                   size="small"
                   disableRipple
-                  sx={{ p: 0, mr: 1.5, color: '#767676', '&.Mui-checked': { color: '#0ea5e9' } }}
+                  sx={{ p: 0, mr: 1.5, color: byMode('#767676', '#a1a1a1'), '&.Mui-checked': { color: byMode('#0ea5e9', '#00a6f4') } }}
                 />
                 <ListItemText
                   primary={option.label}
-                  primaryTypographyProps={{ fontSize: 16, color: isSelected ? '#0ea5e9' : '#000' }}
+                  primaryTypographyProps={{ fontSize: 16, sx: { color: isSelected ? byMode('#0ea5e9', '#00a6f4') : 'sf.text' } }}
                 />
               </MenuItem>
             );
@@ -379,16 +389,16 @@ const Classifications = () => {
         // radius, #404040 border that does not change on hover/focus.
         inputSx={{
           '& .MuiOutlinedInput-root': {
-            backgroundColor: '#fff',
+            backgroundColor: 'sf.input',
             borderRadius: '8px',
             fontSize: 16,
             minHeight: 42,
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#eeeeee'), borderWidth: '1px' },
           },
-          '& .MuiAutocomplete-popupIndicator': { color: '#404040' },
-          '& .MuiInputBase-input::placeholder': { color: '#000', opacity: 1 },
+          '& .MuiAutocomplete-popupIndicator': { color: byMode('#404040', '#f8f8f8') },
+          '& .MuiInputBase-input::placeholder': { color: 'sf.text', opacity: 1 },
         }}
       />
       </Box>
@@ -406,7 +416,7 @@ const Classifications = () => {
           <TableHead>
             <TableRow
               sx={{
-                '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0, whiteSpace: 'nowrap' },
+                '& th': { bgcolor: 'sf.tableHead', color: 'sf.onTableHead', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0, whiteSpace: 'nowrap' },
                 '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                 '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' }
               }}
@@ -434,18 +444,18 @@ const Classifications = () => {
           </TableHead>
           <TableBody
             sx={{
-              '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-              '& tr:nth-of-type(even)': { bgcolor: '#f8f8f8' },
+              '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+              '& tr:nth-of-type(even)': { bgcolor: byMode('#f8f8f8', '#202020') },
               // Same row rhythm as every other list (Customers, Price Lists, Gift
               // Cards): 12px; 35px made each row twice the height of its content.
-              '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 }
+              '& td': { border: 0, fontSize: 16, color: 'sf.text', py: 1.5 }
             }}
           >
             {filteredClassifications.map((classification) => (
               <TableRow key={classification.id}>
                 {globalMode && (
                   <TableCell sx={{ width: 180, whiteSpace: 'nowrap' }}>
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>
+                    <Typography sx={{ fontSize: 16, color: 'sf.text' }}>
                       {outletNameOf(classification.outletId)}
                     </Typography>
                   </TableCell>
@@ -458,7 +468,7 @@ const Classifications = () => {
                       e.preventDefault();
                       handleViewClassification(classification);
                     }}
-                    sx={{ fontSize: 16, color: '#000', textDecoration: 'none', cursor: 'pointer' }}
+                    sx={{ fontSize: 16, color: 'sf.text', textDecoration: 'none', cursor: 'pointer' }}
                   >
                     {classification.name}
                   </Typography>
@@ -486,12 +496,12 @@ const Classifications = () => {
                   )}
                 </TableCell>
                 <TableCell>
-                  <Typography sx={{ fontSize: 16, color: '#000' }}>
+                  <Typography sx={{ fontSize: 16, color: 'sf.text' }}>
                     {formatType(classification.type)}
                   </Typography>
                 </TableCell>
                 <TableCell align="center">
-                  <Typography sx={{ fontSize: 16, color: '#000' }}>
+                  <Typography sx={{ fontSize: 16, color: 'sf.text' }}>
                     {classification.productCount}
                   </Typography>
                 </TableCell>
@@ -508,7 +518,7 @@ const Classifications = () => {
                       startIcon={<ViewIcon />}
                       onClick={() => handleViewClassification(classification)}
                       size="small"
-                      sx={rowActionSx('#2f9fd6')}
+                      sx={rowActionSx(ACTION_VIEW)}
                     >
                       View
                     </Button>
@@ -517,7 +527,7 @@ const Classifications = () => {
                       startIcon={<EditIcon />}
                       onClick={() => handleEditClassification(classification)}
                       size="small"
-                      sx={rowActionSx('#16a34a')}
+                      sx={rowActionSx(ACTION_EDIT)}
                     >
                       Edit
                     </Button>
@@ -526,7 +536,7 @@ const Classifications = () => {
                       startIcon={<AssignIcon />}
                       onClick={() => handleAssignClassification(classification)}
                       size="small"
-                      sx={rowActionSx('#d97706')}
+                      sx={rowActionSx(ACTION_ASSIGN)}
                     >
                       Assign
                     </Button>
@@ -535,7 +545,7 @@ const Classifications = () => {
                       startIcon={<DeleteIcon />}
                       onClick={() => handleDeleteClassification(classification)}
                       size="small"
-                      sx={rowActionSx('#e5484d')}
+                      sx={rowActionSx(ACTION_DELETE)}
                     >
                       Delete
                     </Button>

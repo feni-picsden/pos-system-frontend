@@ -1,52 +1,57 @@
 import React from 'react';
 import { styled } from '@mui/material/styles';
 import Switch from '@mui/material/Switch';
+import { sfOf } from '../../theme/sfPalette';
 
 /**
  * Flat pill toggle that matches the Shopfront reference design:
- *  - OFF track  #a1a1a1  (hover #737373)
- *  - ON  track  #5ebbeb  (hover #4aa9dd)
+ *  - OFF track  #a1a1a1  (hover #737373)   dark mode: #404040
+ *  - ON  track  #5ebbeb  (hover #4aa9dd)   dark mode: #193cb8 (reference dark)
  *  - white thumb with a subtle shadow, no Material ripple halo
- * Drop-in replacement for MUI <Switch/> (same props/API).
+ * Drop-in replacement for MUI <Switch/> (same props/API). Colours come from the
+ * theme's sf tokens so the switch follows Light / Dark.
  */
-const ShopfrontSwitch = styled((props) => <Switch disableRipple {...props} />)(() => ({
-  width: 48,
-  height: 24,
-  padding: 0,
-  '& .MuiSwitch-switchBase': {
+const ShopfrontSwitch = styled((props) => <Switch disableRipple {...props} />)(({ theme }) => {
+  const sf = sfOf(theme);
+  return {
+    width: 48,
+    height: 24,
     padding: 0,
-    // Measured on the reference: 19px thumb, inset 2px, travelling 24px in a 48x24 track.
-    margin: '2px',
-    transitionDuration: '150ms',
-    '&.Mui-checked': {
-      transform: 'translateX(24px)',
-      color: '#fff',
-      '& + .MuiSwitch-track': { backgroundColor: '#5ebbeb', opacity: 1, border: 0 },
+    '& .MuiSwitch-switchBase': {
+      padding: 0,
+      // Measured on the reference: 19px thumb, inset 2px, travelling 24px in a 48x24 track.
+      margin: '2px',
+      transitionDuration: '150ms',
+      '&.Mui-checked': {
+        transform: 'translateX(24px)',
+        color: '#fff',
+        '& + .MuiSwitch-track': { backgroundColor: sf.switchOn, opacity: 1, border: 0 },
+      },
+      '&:hover, &.Mui-checked:hover': { backgroundColor: 'transparent' },
     },
-    '&:hover, &.Mui-checked:hover': { backgroundColor: 'transparent' },
-  },
-  '& .MuiSwitch-thumb': {
-    boxSizing: 'border-box',
-    width: 19,
-    height: 19,
-    backgroundColor: '#fff',
-    boxShadow: '0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)',
-  },
-  '& .Mui-disabled .MuiSwitch-thumb': {
-    backgroundColor: '#ebebeb',
-  },
-  '& .MuiSwitch-track': {
-    borderRadius: '12px',
-    backgroundColor: '#a1a1a1',
-    opacity: 1,
-    transition: 'background-color 150ms',
-  },
-  '&:hover .MuiSwitch-switchBase:not(.Mui-checked) + .MuiSwitch-track': {
-    backgroundColor: '#737373',
-  },
-  '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-    backgroundColor: '#4aa9dd',
-  },
-}));
+    '& .MuiSwitch-thumb': {
+      boxSizing: 'border-box',
+      width: 19,
+      height: 19,
+      backgroundColor: '#fff',
+      boxShadow: '0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1)',
+    },
+    '& .Mui-disabled .MuiSwitch-thumb': {
+      backgroundColor: '#ebebeb',
+    },
+    '& .MuiSwitch-track': {
+      borderRadius: '12px',
+      backgroundColor: sf.switchOff,
+      opacity: 1,
+      transition: 'background-color 150ms',
+    },
+    '&:hover .MuiSwitch-switchBase:not(.Mui-checked) + .MuiSwitch-track': {
+      backgroundColor: sf.switchOffHover,
+    },
+    '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+      backgroundColor: sf.switchOnHover,
+    },
+  };
+});
 
 export default ShopfrontSwitch;

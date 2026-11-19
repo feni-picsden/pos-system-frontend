@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
+import { byMode } from '../../theme/sfPalette';
 
 /**
  * The one Save control for a full-page form.
@@ -28,7 +29,8 @@ export const SAVE_BAR_CLEARANCE = 96;
 const saveButtonSx = {
   backgroundColor: '#5ebbeb',
   border: '1px solid #5ebbeb',
-  color: '#ffffff',
+  // Reference dark: dark label on the blue Save button
+  color: byMode('#ffffff', '#232323'),
   borderRadius: '12px',
   height: 42,
   minWidth: 132,
@@ -104,7 +106,7 @@ const PageSaveBar = ({
       disableElevation
       onClick={onSave}
       disabled={saving || disabled}
-      startIcon={saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : icon}
+      startIcon={saving ? <CircularProgress size={18} sx={{ color: byMode('#fff', '#232323') }} /> : icon}
       sx={saveButtonSx}
     >
       {saving ? 'Saving' : label}

@@ -23,12 +23,22 @@ import supplierService from '../../services/supplierService';
 import { searchProducts } from '../../utils/productSearch.js';
 import classificationService from '../../services/classificationService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (no reference dark screenshots for Suppliers): values copied from the
+// Classification Assign page matched to the reference - band #314158, list
+// #121212/#171717 zebra, + #7bf1a8, - #ffa2a2, dropdown #232323 / hover #0084d1,
+// Save bar #404040 with #73d4ff Save.
+const TEXT = byMode('#000', '#f8f8f8');
+const FIELD_BORDER = byMode('1px solid #404040', '1px solid #a1a1a1');
+const HOVER_TINT = byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.10)');
+const EMPTY_TEXT = byMode('#8e8e8e', '#b5b9bf');
 
 // Reference: floating-style field label, 12.8px black, 20px above the field
 const captionSx = {
   fontSize: '12.8px',
   lineHeight: '20px',
-  color: '#000',
+  color: TEXT,
   transition: 'all 0.15s cubic-bezier(0.4,0,0.2,1)'
 };
 
@@ -36,22 +46,22 @@ const captionSx = {
 // `top: 0` on the notched outline kills MUI's -5px legend offset so the Search and
 // Classification fields measure the same 42px.
 const searchFieldSx = {
-  backgroundColor: '#fff',
+  backgroundColor: byMode('#fff', '#121212'),
   borderRadius: '8px',
   '& .MuiOutlinedInput-root': {
     height: 42,
     borderRadius: '8px',
-    backgroundColor: '#fff',
+    backgroundColor: byMode('#fff', '#121212'),
     fontSize: 16,
     paddingRight: '8px',
-    '& fieldset': { border: '1px solid #404040', top: 0 },
+    '& fieldset': { border: FIELD_BORDER, top: 0 },
     '& legend': { display: 'none' },
-    '&:hover fieldset': { border: '1px solid #404040' },
-    '&.Mui-focused fieldset': { border: '1px solid #404040' },
-    '&.Mui-focused': { outline: '3px solid #000', outlineOffset: 0 }
+    '&:hover fieldset': { border: FIELD_BORDER },
+    '&.Mui-focused fieldset': { border: FIELD_BORDER },
+    '&.Mui-focused': { outline: byMode('3px solid #000', '3px solid #eeeeee'), outlineOffset: 0 }
   },
-  '& .MuiOutlinedInput-input': { padding: '8px 16px', color: '#000' },
-  '& input::placeholder': { color: '#808080', opacity: 1 }
+  '& .MuiOutlinedInput-input': { padding: '8px 16px', color: TEXT },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 }
 };
 
 // Reference in-field buttons (clear / caret): 25x24, radius 8px, hover wash
@@ -60,8 +70,8 @@ const fieldIconButtonSx = {
   height: 24,
   padding: '4px',
   borderRadius: '8px',
-  color: '#000',
-  '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' }
+  color: TEXT,
+  '&:hover': { backgroundColor: HOVER_TINT }
 };
 
 // Classification is a type-to-search combobox (reference), same 42px field as Search.
@@ -71,7 +81,7 @@ const classificationFieldSx = {
     ...searchFieldSx['& .MuiOutlinedInput-root'],
     padding: '0 72px 0 0 !important'
   },
-  '& .MuiOutlinedInput-root .MuiAutocomplete-input': { padding: '8px 16px', color: '#000' },
+  '& .MuiOutlinedInput-root .MuiAutocomplete-input': { padding: '8px 16px', color: TEXT },
   '& .MuiAutocomplete-endAdornment': { right: 8 },
   '& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator': {
     ...fieldIconButtonSx,
@@ -82,19 +92,19 @@ const classificationFieldSx = {
 const classificationPaperSx = {
   mt: '10px',
   borderRadius: '8px',
-  border: '1px solid #000',
-  backgroundColor: '#fff',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
+  backgroundColor: byMode('#fff', '#232323'),
   boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
   '& .MuiAutocomplete-listbox': { padding: 0, maxHeight: 288 },
-  '& .MuiAutocomplete-noOptions': { fontSize: 16, color: '#808080', padding: '16px' },
+  '& .MuiAutocomplete-noOptions': { fontSize: 16, color: byMode('#808080', '#a0a4aa'), padding: '16px' },
   '& .MuiAutocomplete-option': {
     fontSize: 16,
-    color: '#0a0a0a',
+    color: byMode('#0a0a0a', '#fafafa'),
     minHeight: 56,
     padding: '16px',
     transition: 'none',
     '&.Mui-focused, &[aria-selected="true"], &[aria-selected="true"].Mui-focused': {
-      backgroundColor: '#7dd3fc'
+      backgroundColor: byMode('#7dd3fc', '#0084d1')
     }
   }
 };
@@ -102,13 +112,13 @@ const classificationPaperSx = {
 const classificationHeaderSx = {
   fontSize: 16,
   fontWeight: 700,
-  color: '#0a0a0a',
-  backgroundColor: '#fff',
+  color: byMode('#0a0a0a', '#fafafa'),
+  backgroundColor: byMode('#fff', '#232323'),
   height: 57,
   boxSizing: 'border-box',
   padding: '16px',
   lineHeight: '25px',
-  borderTop: '1px solid #a3a3a3',
+  borderTop: byMode('1px solid #a3a3a3', '1px solid #a1a1a1'),
   position: 'sticky',
   top: 0,
   zIndex: 1
@@ -132,22 +142,22 @@ const unassignedSwitchSx = {
   '& .MuiSwitch-switchBase': { margin: '2.4px' },
   '& .MuiSwitch-switchBase.Mui-checked': { transform: 'translateX(24px)' },
   '& .MuiSwitch-track': {
-    backgroundColor: '#a3a3a3',
+    backgroundColor: byMode('#a3a3a3', '#404040'),
     transition: 'background-color 0.15s cubic-bezier(0.4,0,0.2,1)'
   },
-  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#3b82f6' },
-  '&:hover .MuiSwitch-switchBase:not(.Mui-checked) + .MuiSwitch-track': { backgroundColor: '#737373' },
-  '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#3b82f6' }
+  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: byMode('#3b82f6', '#1447e6') },
+  '&:hover .MuiSwitch-switchBase:not(.Mui-checked) + .MuiSwitch-track': { backgroundColor: byMode('#737373', '#555555') },
+  '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: byMode('#3b82f6', '#1447e6') }
 };
 
-const rowActionSx = (color) => ({
+const rowActionSx = (light, dark) => ({
   width: 32,
   height: 32,
   borderRadius: '12px',
-  border: `1px solid ${color}`,
+  border: byMode(`1px solid ${light}`, `1px solid ${dark}`),
   backgroundColor: 'transparent',
   transition: 'none',
-  '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' }
+  '&:hover': { backgroundColor: HOVER_TINT }
 });
 
 const SupplierAssignment = () => {
@@ -324,20 +334,20 @@ const SupplierAssignment = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ bgcolor: byMode(undefined, '#121212') }}>
       {/* Band 1 (h=60): supplier name + "without a Supplier" toggle */}
       <Box
         sx={{
           height: 60,
           boxSizing: 'border-box',
           p: 2,
-          backgroundColor: '#e2e8f0',
+          backgroundColor: byMode('#e2e8f0', '#314158'),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}
       >
-        <Typography sx={{ fontSize: 20, lineHeight: '28px', fontWeight: 400, color: '#000' }}>
+        <Typography sx={{ fontSize: 20, lineHeight: '28px', fontWeight: 400, color: TEXT }}>
           {supplier.name}
         </Typography>
         <FormControlLabel
@@ -349,7 +359,7 @@ const SupplierAssignment = () => {
             />
           }
           label="Only show Products without a Supplier"
-          sx={{ mr: 0, '& .MuiFormControlLabel-label': { fontSize: 16, ml: 1, color: '#000' } }}
+          sx={{ mr: 0, '& .MuiFormControlLabel-label': { fontSize: 16, ml: 1, color: TEXT } }}
         />
       </Box>
 
@@ -359,7 +369,7 @@ const SupplierAssignment = () => {
           height: 94,
           boxSizing: 'border-box',
           p: 2,
-          backgroundColor: '#e2e8f0',
+          backgroundColor: byMode('#e2e8f0', '#314158'),
           display: 'flex',
           gap: 2
         }}
@@ -377,7 +387,7 @@ const SupplierAssignment = () => {
                 searching || searchTerm ? (
                   <InputAdornment position="end" sx={{ ml: 0, gap: '4px' }}>
                     {searching && (
-                      <CircularProgress size={16} thickness={5} sx={{ color: '#000' }} />
+                      <CircularProgress size={16} thickness={5} sx={{ color: TEXT }} />
                     )}
                     {searchTerm && (
                       <IconButton
@@ -443,7 +453,9 @@ const SupplierAssignment = () => {
       )}
 
       {/* Two bare columns */}
-      <Box sx={{ display: 'flex', gap: 2, height: '60vh' }}>
+      {/* Lists run down to the fixed Save bar (user: "height increase"): viewport minus
+          app bar + title band + filters above (~236px) and the Save bar + gap below (~84px). */}
+      <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 320px)', minHeight: 240 }}>
         {/* Left column - assigned products */}
         <Box sx={{ flex: 1, overflow: 'auto' }}>
           {filteredAssigned.map((product, index) => (
@@ -456,22 +468,22 @@ const SupplierAssignment = () => {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 borderRadius: '4px',
-                backgroundColor: index % 2 === 1 ? '#f7f7f7' : 'transparent'
+                backgroundColor: index % 2 === 1 ? byMode('#f7f7f7', '#171717') : 'transparent'
               }}
             >
-              <Typography sx={{ fontSize: 16, color: '#000' }}>{productLabel(product)}</Typography>
+              <Typography sx={{ fontSize: 16, color: TEXT }}>{productLabel(product)}</Typography>
               <IconButton
                 disableRipple
                 onClick={() => handleUnassignProduct(product)}
                 disabled={saving}
-                sx={rowActionSx('rgb(239,68,68)')}
+                sx={rowActionSx('rgb(239,68,68)', '#ffa2a2')}
               >
-                <RemoveIcon sx={{ fontSize: 16, color: 'rgb(220,38,38)' }} />
+                <RemoveIcon sx={{ fontSize: 16, color: byMode('rgb(220,38,38)', '#ffa2a2') }} />
               </IconButton>
             </Box>
           ))}
           {filteredAssigned.length === 0 && (
-            <Typography sx={{ textAlign: 'center', color: '#8e8e8e', mt: 4, fontSize: 16 }}>
+            <Typography sx={{ textAlign: 'center', color: EMPTY_TEXT, mt: 4, fontSize: 16 }}>
               {searchTerm.trim()
                 ? `No products in ${supplier.name} found...`
                 : `Add products to ${supplier.name} ...`}
@@ -492,7 +504,7 @@ const SupplierAssignment = () => {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 borderRadius: '4px',
-                backgroundColor: index % 2 === 1 ? '#f7f7f7' : 'transparent'
+                backgroundColor: index % 2 === 1 ? byMode('#f7f7f7', '#171717') : 'transparent'
               }}
             >
               <Box>
@@ -504,8 +516,8 @@ const SupplierAssignment = () => {
                         component="span"
                         sx={{
                           fontSize: 12,
-                          color: '#000',
-                          border: '1px solid #b5b5b5',
+                          color: TEXT,
+                          border: byMode('1px solid #b5b5b5', '1px solid #a1a1a1'),
                           borderRadius: '4px',
                           px: 0.5,
                           backgroundColor: 'transparent'
@@ -516,25 +528,25 @@ const SupplierAssignment = () => {
                     ))}
                   </Box>
                 )}
-                <Typography sx={{ fontSize: 16, color: '#000' }}>{productLabel(product)}</Typography>
+                <Typography sx={{ fontSize: 16, color: TEXT }}>{productLabel(product)}</Typography>
               </Box>
               <IconButton
                 disableRipple
                 onClick={() => handleAssignProduct(product)}
                 disabled={saving}
-                sx={rowActionSx('rgb(34,197,94)')}
+                sx={rowActionSx('rgb(34,197,94)', '#7bf1a8')}
               >
-                <AddIcon sx={{ fontSize: 16, color: 'rgb(22,163,74)' }} />
+                <AddIcon sx={{ fontSize: 16, color: byMode('rgb(22,163,74)', '#7bf1a8') }} />
               </IconButton>
             </Box>
           ))}
           {filteredAvailable.length === 0 && (
-            <Typography sx={{ textAlign: 'center', color: '#8e8e8e', mt: 4, fontSize: 16 }}>
+            <Typography sx={{ textAlign: 'center', color: EMPTY_TEXT, mt: 4, fontSize: 16 }}>
               No available products
             </Typography>
           )}
           {availableTruncated && (
-            <Typography sx={{ textAlign: 'center', color: '#8e8e8e', my: 2, fontSize: 14 }}>
+            <Typography sx={{ textAlign: 'center', color: EMPTY_TEXT, my: 2, fontSize: 14 }}>
               Showing the first 1000 products. Use Search or Classification to narrow the list.
             </Typography>
           )}
@@ -557,14 +569,14 @@ const SupplierAssignment = () => {
           variant="contained"
           component={RouterLink} to={'/suppliers'}
           sx={{
-            backgroundColor: '#3b82f6',
-            color: '#fff',
+            backgroundColor: byMode('#3b82f6', '#73d4ff'),
+            color: byMode('#fff', '#232323'),
             fontWeight: 700,
             textTransform: 'none',
             borderRadius: '12px',
             boxShadow: 'none',
             px: 3,
-            '&:hover': { backgroundColor: '#2563eb', boxShadow: 'none' }
+            '&:hover': { backgroundColor: byMode('#2563eb', '#8fdcff'), boxShadow: 'none' }
           }}
         >
           Save

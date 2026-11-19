@@ -164,6 +164,7 @@ import PromotionProductsView from '../components/SaleKey/PromotionProductsView';
 import SaleKeysGrid from '../components/SaleKey/SaleKeysGrid';
 import CartSidebar, { KeypadPopover } from '../components/SaleKey/CartSidebar';
 import SaleDetailCard from '../components/SalesHistory/SaleDetailCard';
+import { byMode } from '../theme/sfPalette';
 import PrintReceiptDialog from '../components/PrintReceiptDialog';
 import EmailReceiptModal from '../components/SalesHistory/EmailReceiptModal';
 import AddSaleKeyDialog from '../components/SaleKey/AddSaleKeyDialog';
@@ -215,18 +216,21 @@ const getEffectiveCustomerSettings = (customer) => {
 
 // Search-results overlay + customer picker anatomy (reference: 75px gray band
 // headers, 75px zebra rows with 1px black bottom borders, 8/32 padding).
+// Dark mode (Profile > Theme): light values are the ones the page always had;
+// dark values are measured off the reference's dark sell screen (18/11/2026).
+const lineBy = (light, dark) => (t) => `1px solid ${t.palette.mode === 'dark' ? dark : light}`;
 const searchBandSx = {
   minHeight: 75,
   boxSizing: 'border-box',
   display: 'flex',
   alignItems: 'center',
   p: '8px 32px 8px 24px',
-  bgcolor: 'rgb(121,121,121)',
+  bgcolor: byMode('rgb(121,121,121)', '#3a3a3a'),
   color: '#f8f8f8',
   fontSize: '27.2px',
   fontWeight: 700,
   letterSpacing: 'normal',
-  borderBottom: '1px solid #000',
+  borderBottom: lineBy('#000', '#373737'),
 };
 
 // `active`: the row the arrow keys have highlighted (reference: arrow keys +
@@ -238,8 +242,8 @@ const searchRowSx = (idx, active = false) => ({
   alignItems: 'center',
   justifyContent: 'space-between',
   p: '8px 32px',
-  bgcolor: active ? '#bfe3f5' : idx % 2 === 0 ? '#f8f8f8' : '#dfdfdf',
-  borderBottom: '1px solid #000',
+  bgcolor: active ? byMode('#bfe3f5', '#0084d1') : idx % 2 === 0 ? byMode('#f8f8f8', '#494d54') : byMode('#dfdfdf', '#313439'),
+  borderBottom: lineBy('#000', '#373737'),
   cursor: 'pointer',
 });
 
@@ -2348,8 +2352,8 @@ const SaleKeyPage = () => {
     if (!product || product.trackInventory === false) return null;
     const figure = (value, label) => (
       <Box sx={{ textAlign: 'center', minWidth: 40 }}>
-        <Typography sx={{ fontSize: 16, color: '#000', lineHeight: 1.2 }}>{value}</Typography>
-        <Typography sx={{ fontSize: 13, color: '#000', lineHeight: 1.2 }}>{label}</Typography>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>{value}</Typography>
+        <Typography sx={{ fontSize: 13, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>{label}</Typography>
       </Box>
     );
     if (getItemsPerCase(product) > 1) {
@@ -8738,19 +8742,19 @@ const SaleKeyPage = () => {
   const renderCustomerRow = (customer, idx) => (
     <Box key={customer.id} onClick={() => handleSelectCustomer(customer)} sx={searchRowSx(idx, activeResultIndex === idx)}>
       <Box sx={{ minWidth: 0 }}>
-        <Typography noWrap sx={{ fontSize: 16, color: '#000' }}>
+        <Typography noWrap sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
           {`${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.company || 'Unnamed Customer'}
         </Typography>
         {(customer.customerGroup?.name || customer.company) && (
-          <Typography noWrap sx={{ fontSize: 14, color: '#757575' }}>
+          <Typography noWrap sx={{ fontSize: 14, color: byMode('#757575', '#d7d7d7') }}>
             {customer.customerGroup?.name || customer.company}
           </Typography>
         )}
       </Box>
       {(customer.loyaltyEnabled || customer.customerGroup?.loyaltyEnabled) && (
         <Box sx={{ flexShrink: 0, ml: 2, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 16, color: '#000' }}>{Number(customer.loyaltyPoints || 0)}</Typography>
-          <Typography sx={{ fontSize: 12, color: '#000' }}>Loyalty Points</Typography>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{Number(customer.loyaltyPoints || 0)}</Typography>
+          <Typography sx={{ fontSize: 12, color: byMode('#000', '#f8f8f8') }}>Loyalty Points</Typography>
         </Box>
       )}
     </Box>
@@ -8804,7 +8808,7 @@ const SaleKeyPage = () => {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 50px)', display: 'flex', flexDirection: 'column', bgcolor: '#fff', position: 'relative', overflowX: 'hidden' }}>
+    <Box sx={{ height: 'calc(100vh - 50px)', display: 'flex', flexDirection: 'column', bgcolor: byMode('#fff', '#121212'), position: 'relative', overflowX: 'hidden' }}>
       {/* Sell-screen-scoped header corrections. DashboardLayout is shared by every
           page, so the reference-only header shape is applied from here (mounted
           with the sell screen, reverted on unmount) instead of globally. */}
@@ -8918,7 +8922,8 @@ const SaleKeyPage = () => {
           flex: 1,
           minWidth: 0,
           overflow: 'hidden',
-          bgcolor: '#4a4e52',
+          // Reference dark: near-black pane (#050505) instead of the grey overlay
+          bgcolor: byMode('#4a4e52', '#050505'),
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -8940,7 +8945,8 @@ const SaleKeyPage = () => {
                 component="button"
                 onClick={b.onClick}
                 sx={{
-                  background: 'transparent',
+                  // Reference dark: filled #313439 buttons, #f8f8f8 border + text
+                  bgcolor: byMode('transparent', '#313439'),
                   border: '1px solid currentColor',
                   color: '#f8f8f8',
                   fontSize: 32,
@@ -9012,7 +9018,7 @@ const SaleKeyPage = () => {
                 the actions-pane picker (search box, Back / Create New, zebra
                 list). Escape or Back returns to finalize untouched. */}
             {isCustomerSearchMode && (
-              <Box sx={{ position: 'absolute', inset: 0, zIndex: 20, bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ position: 'absolute', inset: 0, zIndex: 20, bgcolor: byMode('#fff', '#121212'), display: 'flex', flexDirection: 'column' }}>
                 <TextField
                   autoFocus
                   placeholder="Search for Customers..."
@@ -9024,8 +9030,8 @@ const SaleKeyPage = () => {
                   onKeyDown={handleSearchKeyDown}
                   sx={{
                     flexShrink: 0,
-                    bgcolor: '#fff',
-                    borderBottom: '1px solid #000',
+                    bgcolor: byMode('#fff', '#232323'),
+                    borderBottom: lineBy('#000', '#373737'),
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 0,
                       height: 50,
@@ -9041,7 +9047,7 @@ const SaleKeyPage = () => {
                     },
                   }}
                 />
-                <Box sx={{ height: 55, flexShrink: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, borderBottom: '1px solid #000' }}>
+                <Box sx={{ height: 55, flexShrink: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, borderBottom: lineBy('#000', '#373737') }}>
                   {[
                     { label: '← Back', onClick: exitCustomerSearchMode },
                     { label: 'Create New', onClick: () => setShowCreateCustomerModal(true) },
@@ -9051,7 +9057,7 @@ const SaleKeyPage = () => {
                       component="button"
                       type="button"
                       onClick={b.onClick}
-                      sx={{ border: 0, bgcolor: 'transparent', p: 0, fontFamily: 'inherit', fontSize: '19.2px', color: '#000', cursor: 'pointer' }}
+                      sx={{ border: 0, bgcolor: 'transparent', p: 0, fontFamily: 'inherit', fontSize: '19.2px', color: byMode('#000', '#f8f8f8'), cursor: 'pointer' }}
                     >
                       {b.label}
                     </Box>
@@ -9093,7 +9099,7 @@ const SaleKeyPage = () => {
               </Alert>
             )}
             {/* Reference: the whole actions pane sits in one 1px solid black box. */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', border: '1px solid #000', boxSizing: 'border-box', overflow: 'hidden' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', border: lineBy('#000', '#373737'), boxSizing: 'border-box', overflow: 'hidden' }}>
           {!showPromotionView && !showClassificationView && (
             <ClickAwayListener onClickAway={handleClickAway}>
               {/* Reference: results REPLACE the keys grid in place — the panel grows
@@ -9118,7 +9124,7 @@ const SaleKeyPage = () => {
                 // a 1px black bottom rule, 16px padding all round, 16px black text
                 // at normal line-height/letter-spacing, #757575 placeholder, no
                 // magnifier icon and no focus ring.
-                bgcolor: '#fff',
+                bgcolor: byMode('#fff', '#232323'),
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 0,
                   height: 50,
@@ -9126,7 +9132,7 @@ const SaleKeyPage = () => {
                   fontSize: 16,
                   p: 0,
                   pr: '16px',
-                  borderBottom: '1px solid #000',
+                  borderBottom: lineBy('#000', '#373737'),
                   '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { border: 'none' },
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 'none' },
@@ -9135,7 +9141,7 @@ const SaleKeyPage = () => {
                   height: '100%',
                   boxSizing: 'border-box',
                   p: '16px',
-                  color: '#000',
+                  color: byMode('#000', '#f8f8f8'),
                   lineHeight: 'normal',
                   letterSpacing: 'normal',
                   '&::placeholder': { color: '#757575', opacity: 1 },
@@ -9183,7 +9189,7 @@ const SaleKeyPage = () => {
                           }
                         }}
                         aria-label={associatingBarcode ? 'cancel barcode association' : 'clear search'}
-                        sx={{ fontSize: 16, color: '#000', cursor: 'pointer' }}
+                        sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), cursor: 'pointer' }}
                       />
                     </InputAdornment>
                   ) : null,
@@ -9220,13 +9226,13 @@ const SaleKeyPage = () => {
                           gap: 1.5,
                           height: 56,
                           px: 2,
-                          bgcolor: '#f8f8f8',
-                          borderBottom: '1px solid #e0e0e0',
+                          bgcolor: byMode('#f8f8f8', '#232323'),
+                          borderBottom: lineBy('#e0e0e0', '#373737'),
                           cursor: 'pointer',
                           fontSize: 20,
-                          color: '#000',
+                          color: byMode('#000', '#f8f8f8'),
                           userSelect: 'none',
-                          '&:hover': { bgcolor: '#efefef' },
+                          '&:hover': { bgcolor: byMode('#efefef', '#2b2b2b') },
                         }}
                       >
                         ← Back
@@ -9241,8 +9247,8 @@ const SaleKeyPage = () => {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          bgcolor: '#f8f8f8',
-                          color: '#000',
+                          bgcolor: byMode('#f8f8f8', '#121212'),
+                          color: byMode('#000', '#f8f8f8'),
                           fontSize: 32,
                           textAlign: 'center',
                           px: 2,
@@ -9283,7 +9289,7 @@ const SaleKeyPage = () => {
                             {/* Reference search row: name, its price (or price range)
                                 under it in grey, stock on the right. */}
                             <Box sx={{ minWidth: 0 }}>
-                              <Typography noWrap sx={{ fontSize: 16, color: '#000' }}>
+                              <Typography noWrap sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                                 {product.name}
                               </Typography>
                               {/* Barcode search: the pack quantities of the barcodes that
@@ -9298,7 +9304,7 @@ const SaleKeyPage = () => {
                                   <Typography
                                     noWrap
                                     title={hits.length ? hits.map((b) => `Barcode ${b.code} adds ${b.quantity}`).join('\n') : undefined}
-                                    sx={{ fontSize: 14, color: '#757575' }}
+                                    sx={{ fontSize: 14, color: byMode('#757575', '#d7d7d7') }}
                                   >
                                     {priceRangeText(product)}
                                     {hits.length > 0 && (
@@ -9336,7 +9342,7 @@ const SaleKeyPage = () => {
               <Box
                 aria-hidden
                 sx={{
-                  position: 'absolute', bottom: 0, height: '6px', bgcolor: 'rgb(28,134,242)', zIndex: 1, pointerEvents: 'none',
+                  position: 'absolute', bottom: 0, height: '6px', bgcolor: byMode('rgb(28,134,242)', '#a3cefa'), zIndex: 1, pointerEvents: 'none',
                   left: tabBar.left, width: tabBar.width,
                   transition: 'left 250ms ease, width 250ms ease',
                 }}
@@ -9377,7 +9383,7 @@ const SaleKeyPage = () => {
                   textAlign: 'center',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
-                  color: activeTab === t.v ? 'rgb(28,134,242)' : '#000',
+                  color: activeTab === t.v ? byMode('rgb(28,134,242)', '#f8f8f8') : byMode('#000', '#f8f8f8'),
                   transition: 'color 250ms ease',
                   // Selected tab is marked by the shared sliding bar above (tabBar).
                 }}
@@ -9407,7 +9413,7 @@ const SaleKeyPage = () => {
           )}
 
           {!showPromotionView && !isCustomerSearchMode && !searchResultsVisible && activeTab === 'parked-sales' && (
-            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: byMode('white', '#313439') }}>
               {/* Reference: "Park Sale" action row on top (59px, car icon,
                   1px black bottom border), grayed/disabled while the cart is
                   empty; parks the current sale. */}
@@ -9423,9 +9429,9 @@ const SaleKeyPage = () => {
                   alignItems: 'center',
                   gap: 1.5,
                   px: 2,
-                  borderBottom: '1px solid #000',
+                  borderBottom: lineBy('#000', '#373737'),
                   fontSize: '19.2px',
-                  color: cart.length > 0 ? '#000' : '#737373',
+                  color: cart.length > 0 ? byMode('#000', '#f8f8f8') : byMode('#737373', '#676b72'),
                   cursor: cart.length > 0 ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -9457,7 +9463,7 @@ const SaleKeyPage = () => {
                     const totalAmount = parseFloat(sale.totalAmount || 0);
                     const formattedAmount = formatMoney(totalAmount);
                     // Reference rows: 89px, 16px padding, zebra #f8f8f8/#fff.
-                    const rowBgColor = index % 2 === 0 ? '#f8f8f8' : '#ffffff';
+                    const rowBgColor = index % 2 === 0 ? byMode('#f8f8f8', '#202020') : byMode('#ffffff', '#202020');
                     const isOpen = openParkedIds.includes(sale.id);
                     // Row <-> detail card swap is animated (Collapse) so the card
                     // opens/closes smoothly instead of jumping (user 16/11/2026).
@@ -9465,9 +9471,9 @@ const SaleKeyPage = () => {
                       if (!isOpen) return null;
                       const actionSx = (primary) => ({
                         width: '100%', height: 42, borderRadius: 0, fontSize: 14, fontWeight: 400, textTransform: 'none', boxShadow: 'none', mb: '8px',
-                        bgcolor: primary ? '#1c86f2' : '#f8f8f8', color: primary ? '#f8f8f8' : '#313439',
-                        border: `1px solid ${primary ? '#f8f8f8' : '#313439'}`,
-                        '&:hover': { boxShadow: 'none', bgcolor: primary ? '#1c86f2' : '#f8f8f8' },
+                        bgcolor: primary ? byMode('#1c86f2', '#09539f') : byMode('#f8f8f8', '#313439'), color: primary ? '#f8f8f8' : byMode('#313439', '#f8f8f8'),
+                        border: primary ? '1px solid #f8f8f8' : lineBy('#313439', '#f8f8f8'),
+                        '&:hover': { boxShadow: 'none', bgcolor: primary ? byMode('#1c86f2', '#09539f') : byMode('#f8f8f8', '#313439') },
                       });
                       const parkedActions = [
                         ['Load Sale', () => { closeParked(sale.id); resumeParkedSale(sale); }],
@@ -9480,7 +9486,18 @@ const SaleKeyPage = () => {
                         ['Remove Parked Sale', () => removeParkedSale(sale)],
                       ];
                       return (
-                        <Box sx={{ bgcolor: '#f8f8f8' }}>
+                        <Box
+                          sx={(t) => ({
+                            bgcolor: t.palette.mode === 'dark' ? '#202020' : '#f8f8f8',
+                            // Dark only: SaleDetailCard (shared with Sales History) fixes
+                            // its text black; the reference dark parked card is #f8f8f8
+                            // text with a #373737 rail above Balance.
+                            ...(t.palette.mode === 'dark' ? {
+                              '& > div': { color: '#f8f8f8' },
+                              '& > div > div:last-child > div:last-child': { borderTopColor: '#373737' },
+                            } : {}),
+                          })}
+                        >
                           <SaleDetailCard
                             sale={sale}
                             formatDate={(d) => formatAppDate(d)}
@@ -9521,7 +9538,7 @@ const SaleKeyPage = () => {
                         <Box sx={{ mr: 2, flexShrink: 0 }}>
                           <Avatar
                             sx={{
-                              bgcolor: '#1976d2',
+                              bgcolor: byMode('#1976d2', '#1c86f2'),
                               width: 40,
                               height: 40,
                               fontSize: '1.2rem',
@@ -9556,7 +9573,7 @@ const SaleKeyPage = () => {
                           <Typography
                             variant="caption"
                             sx={{
-                              color: '#666',
+                              color: byMode('#666', '#a0a4aa'),
                               fontSize: '0.85rem'
                             }}
                           >
@@ -9577,20 +9594,20 @@ const SaleKeyPage = () => {
                           {/* Reference: SALE NOTE / INTERNAL NOTE columns (11px caps label + text). */}
                           {sale.notes && (
                             <Box>
-                              <Typography sx={{ display: 'block', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', color: '#666' }}>
+                              <Typography sx={{ display: 'block', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', color: byMode('#666', '#a0a4aa') }}>
                                 Sale Note
                               </Typography>
-                              <Typography sx={{ fontSize: 14, color: '#000' }}>
+                              <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8') }}>
                                 {sale.notes}
                               </Typography>
                             </Box>
                           )}
                           {sale.internalNotes && (
                             <Box>
-                              <Typography sx={{ display: 'block', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', color: '#666' }}>
+                              <Typography sx={{ display: 'block', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', color: byMode('#666', '#a0a4aa') }}>
                                 Internal Note
                               </Typography>
-                              <Typography sx={{ fontSize: 14, color: '#000' }}>
+                              <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8') }}>
                                 {sale.internalNotes}
                               </Typography>
                             </Box>
@@ -9621,7 +9638,7 @@ const SaleKeyPage = () => {
                             variant="body2"
                             sx={{
                               fontSize: '0.9rem',
-                              color: '#666',
+                              color: byMode('#666', '#a0a4aa'),
                               mb: 0.5
                             }}
                           >
@@ -9658,8 +9675,8 @@ const SaleKeyPage = () => {
               picker — Back / Create New toolbar + zebra customer list; the
               search box above filters it. */}
           {!showPromotionView && !showClassificationView && isCustomerSearchMode && (
-            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
-              <Box sx={{ height: 55, flexShrink: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, borderBottom: '1px solid #000' }}>
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', bgcolor: byMode('#fff', '#121212') }}>
+              <Box sx={{ height: 55, flexShrink: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, borderBottom: lineBy('#000', '#373737') }}>
                 {[
                   { label: '← Back', onClick: exitCustomerSearchMode },
                   { label: 'Create New', onClick: () => setShowCreateCustomerModal(true) },
@@ -9669,7 +9686,7 @@ const SaleKeyPage = () => {
                     component="button"
                     type="button"
                     onClick={b.onClick}
-                    sx={{ border: 0, bgcolor: 'transparent', p: 0, fontFamily: 'inherit', fontSize: '19.2px', color: '#000', cursor: 'pointer' }}
+                    sx={{ border: 0, bgcolor: 'transparent', p: 0, fontFamily: 'inherit', fontSize: '19.2px', color: byMode('#000', '#f8f8f8'), cursor: 'pointer' }}
                   >
                     {b.label}
                   </Box>
@@ -9689,7 +9706,7 @@ const SaleKeyPage = () => {
 
           {/* Shop MyLocal / IBA E-Commerce tab — placeholder feed (integration TBD). */}
           {!showPromotionView && !showClassificationView && !isCustomerSearchMode && !searchResultsVisible && activeTab === 'ecommerce' && (
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: 'white', color: 'text.secondary', gap: 1 }}>
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: byMode('white', '#232323'), color: 'text.secondary', gap: 1 }}>
               <Typography variant="h6" sx={{ color: '#bdbdbd' }}>Shop MyLocal / IBA E-Commerce</Typography>
               <Typography variant="body2">Online orders will appear here once the integration is connected.</Typography>
             </Box>
@@ -9699,23 +9716,23 @@ const SaleKeyPage = () => {
               header row, then one white row per component — name on the left,
               $0.00 on the right (the combo line carries the price, not its parts). */}
           {componentsPaneVisible && !isCustomerSearchMode && !searchResultsVisible && (
-            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', bgcolor: '#fff', border: '1px solid #000' }}>
-              <Box sx={{ px: '16px', height: 48, display: 'flex', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
-                <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>Product Components</Typography>
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', bgcolor: byMode('#fff', '#232323'), border: lineBy('#000', '#373737') }}>
+              <Box sx={{ px: '16px', height: 48, display: 'flex', alignItems: 'center', borderBottom: lineBy('#e0e0e0', '#373737') }}>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>Product Components</Typography>
               </Box>
               {productDetailComponents.length === 0 ? (
                 <Box sx={{ px: '16px', py: '12px' }}>
-                  <Typography sx={{ fontSize: 16, color: '#676b72' }}>No components</Typography>
+                  <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>No components</Typography>
                 </Box>
               ) : (
                 productDetailComponents.map((c) => (
                   <Box
                     key={c.productId}
                     onClick={() => handleOpenComponentDetail(c)}
-                    sx={{ px: '16px', height: 42, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e0e0e0', cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' } }}
+                    sx={{ px: '16px', height: 42, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: lineBy('#e0e0e0', '#373737'), cursor: 'pointer', '&:hover': { bgcolor: byMode('#f5f5f5', '#2b2b2b') } }}
                   >
-                    <Typography sx={{ fontSize: 15, color: '#000' }}>{c.name}</Typography>
-                    <Typography sx={{ fontSize: 15, color: '#000' }}>$0.00</Typography>
+                    <Typography sx={{ fontSize: 15, color: byMode('#000', '#f8f8f8') }}>{c.name}</Typography>
+                    <Typography sx={{ fontSize: 15, color: byMode('#000', '#f8f8f8') }}>$0.00</Typography>
                   </Box>
                 ))
               )}
@@ -9728,7 +9745,7 @@ const SaleKeyPage = () => {
             flex: 1,
             // Reference keys container: #f8f8f8 surface, square corners, scrolls
             // natively when the key set overflows.
-            bgcolor: '#f8f8f8',
+            bgcolor: byMode('#f8f8f8', '#313439'),
             borderRadius: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
@@ -9757,27 +9774,27 @@ const SaleKeyPage = () => {
                 ensureRegisterControl={ensureRegisterControl}
               />
             ) : showClassificationView ? (
-              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'white' }}>
+              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: byMode('white', '#232323') }}>
                 {/* Header */}
-                <Box sx={{ 
-                  p: 1.5, 
+                <Box sx={{
+                  p: 1.5,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1.5,
-                  bgcolor: 'white',
-                  borderBottom: '1px solid #e0e0e0',
+                  bgcolor: byMode('white', '#232323'),
+                  borderBottom: lineBy('#e0e0e0', '#373737'),
                   minHeight: 56
                 }}>
-                  <IconButton 
+                  <IconButton
                     onClick={() => {
                       setShowClassificationView(false);
                       setSelectedClassificationProduct(null);
                     }}
-                    sx={{ color: '#000000' }}
+                    sx={{ color: byMode('#000000', '#f8f8f8') }}
                   >
                     <ArrowBackIcon />
                   </IconButton>
-                  <Typography variant="h6" sx={{ color: '#000000', fontWeight: 600 }}>
+                  <Typography variant="h6" sx={{ color: byMode('#000000', '#f8f8f8'), fontWeight: 600 }}>
                     {currentClassification?.name || 'Classification Products'}
                   </Typography>
                 </Box>
@@ -9806,7 +9823,7 @@ const SaleKeyPage = () => {
                     (reference: "The functionality can still be changed while the
                     sale key is open"). */}
                 <Box sx={{ px: 2, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: 1, borderColor: 'divider' }}>
-                  <Typography sx={{ fontSize: 13, color: '#676b72' }}>
+                  <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>
                     {classificationPaginated
                       ? `Page ${classificationPage + 1} of ${Math.max(1, Math.ceil(classificationVisible.length / CLASSIFICATION_PAGE_SIZE))}`
                       : `${classificationVisible.length} products`}
@@ -9887,8 +9904,8 @@ const SaleKeyPage = () => {
                                   }}
                             >
                               <Box sx={{ minWidth: 0 }}>
-                                <Typography noWrap sx={{ fontSize: 16, color: '#000' }}>{product.name}</Typography>
-                                <Typography noWrap sx={{ fontSize: 14, color: '#757575' }}>{priceRangeText(priced)}</Typography>
+                                <Typography noWrap sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{product.name}</Typography>
+                                <Typography noWrap sx={{ fontSize: 14, color: byMode('#757575', '#d7d7d7') }}>{priceRangeText(priced)}</Typography>
                               </Box>
                               <Box sx={{ flexShrink: 0, ml: 2 }}>{renderPickRowStock(priced)}</Box>
                             </Box>
@@ -9901,11 +9918,11 @@ const SaleKeyPage = () => {
             ) : (
               <>
                 {currentFolder && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.25, borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}>
-                    <IconButton size="small" onClick={goBackToMain} sx={{ color: '#313439' }} aria-label="Back to Home Keys">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.25, borderBottom: lineBy('#e0e0e0', '#373737'), bgcolor: byMode('white', '#232323') }}>
+                    <IconButton size="small" onClick={goBackToMain} sx={{ color: byMode('#313439', '#f8f8f8') }} aria-label="Back to Home Keys">
                       <ArrowBackIcon fontSize="small" />
                     </IconButton>
-                    <Typography variant="body2" sx={{ color: '#676b72' }}>
+                    <Typography variant="body2" sx={{ color: byMode('#676b72', '#a0a4aa') }}>
                       <Box
                         component="span"
                         onClick={goBackToMain}
@@ -9914,7 +9931,7 @@ const SaleKeyPage = () => {
                         Home Keys
                       </Box>
                       {' / '}
-                      <Box component="span" sx={{ fontWeight: 600, color: '#313439' }}>{currentFolderName}</Box>
+                      <Box component="span" sx={{ fontWeight: 600, color: byMode('#313439', '#f8f8f8') }}>{currentFolderName}</Box>
                     </Typography>
                   </Box>
                 )}
@@ -9942,7 +9959,7 @@ const SaleKeyPage = () => {
         <Box sx={{
           flex: '29.7 1 0',
           minWidth: '300px',
-          bgcolor: 'white',
+          bgcolor: byMode('white', '#121212'),
           display: 'flex',
           visibility: 'visible',
           // Shares one 8px gap with the keys pane on whichever side it sits
@@ -9964,7 +9981,7 @@ const SaleKeyPage = () => {
               // receipt above it, so the button never floats under a short receipt.
               // Same 1px black frame the open-sale sidebar carries (reference wraps
               // the whole right column, both states).
-              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box', border: '1px solid #000', bgcolor: '#fff' }}>
+              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box', border: lineBy('#000', '#373737'), bgcolor: byMode('#fff', '#121212') }}>
                 {/* Sidebar chrome measured on the reference (2026-08-03/05): square
                     green banner 109px tall, Roboto 64/700 #f8f8f8 on #2ca03b; three
                     equal square #1c86f2 buttons 51px with BLACK 16/400 labels and no
@@ -10004,8 +10021,8 @@ const SaleKeyPage = () => {
                   <Box sx={{
                     flexShrink: 0,
                     display: 'flex',
-                    borderTop: '1px solid #000',
-                    borderBottom: '1px solid #000',
+                    borderTop: lineBy('#000', '#373737'),
+                    borderBottom: lineBy('#000', '#373737'),
                     '& .MuiButton-root': {
                       flex: 1,
                       minWidth: 0,
@@ -10017,7 +10034,7 @@ const SaleKeyPage = () => {
                       fontWeight: 400,
                       color: '#f8f8f8',
                       bgcolor: '#1c86f2',
-                      borderRight: '1px solid #000',
+                      borderRight: lineBy('#000', '#373737'),
                       '&:last-of-type': { borderRight: 0 },
                       '&:hover': { bgcolor: '#1c86f2', boxShadow: 'none' },
                     },
@@ -10047,7 +10064,7 @@ const SaleKeyPage = () => {
                           // sits beside it unless it just repeats the label.
                           const name = receiptTemplates.find(t => t.id === id)?.name || '';
                           return (
-                            <Box component="span" sx={{ display: 'flex', gap: '16px', color: '#000' }}>
+                            <Box component="span" sx={{ display: 'flex', gap: '16px', color: byMode('#000', '#f8f8f8') }}>
                               <span>Receipt</span>
                               {name.toLowerCase() !== 'receipt' && <span>{name}</span>}
                             </Box>
@@ -10055,11 +10072,11 @@ const SaleKeyPage = () => {
                         }}
                         sx={{
                           height: 42,
-                          bgcolor: '#fff',
+                          bgcolor: byMode('#fff', '#121212'),
                           borderRadius: '8px',
                           fontSize: '16px',
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: '#5a5a5a' },
-                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#5a5a5a' },
+                          '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#5a5a5a', '#a1a1a1') },
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#5a5a5a', '#a1a1a1') },
                           '& .MuiSelect-select': { display: 'flex', alignItems: 'center', px: '16px' },
                         }}
                       >
@@ -10079,7 +10096,7 @@ const SaleKeyPage = () => {
                       a narrow (laptop) cart column scrolled the receipt left/right with
                       its right-hand price column cut off. Boxed inside, the border and
                       padding scale with the paper and the column never overflows. */}
-                  <Box sx={{ flex: '1 1 0px', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', bgcolor: '#f8f8f8', p: '16px' }}>
+                  <Box sx={{ flex: '1 1 0px', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', bgcolor: byMode('#f8f8f8', '#232323'), p: '16px' }}>
                     {isWidePreview(selectedTemplate) ? (
                       // A4 / Email: no paper preview - the centred notice, like the reference.
                       <WidePreviewNotice template={selectedTemplate} receiptData={receiptData} />
@@ -10130,11 +10147,11 @@ const SaleKeyPage = () => {
                 {/* Scrollable Product Detail Content */}
                 <Box sx={{ flex: 1, overflowY: 'auto' }}>
                   {/* Product Name and Price Header */}
-                  <Box sx={{ px: '16px', height: 60, borderBottom: '1px solid #000', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography sx={{ fontSize: '22.4px', fontWeight: 400, color: '#000', lineHeight: '27px', letterSpacing: 'normal' }}>
+                  <Box sx={{ px: '16px', height: 60, borderBottom: lineBy('#000', '#373737'), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography sx={{ fontSize: '22.4px', fontWeight: 400, color: byMode('#000', '#f8f8f8'), lineHeight: '27px', letterSpacing: 'normal' }}>
                       {selectedProductDetail.name}
                     </Typography>
-                    <Typography sx={{ fontSize: '22.4px', fontWeight: 400, color: '#000', lineHeight: '27px', letterSpacing: 'normal' }}>
+                    <Typography sx={{ fontSize: '22.4px', fontWeight: 400, color: byMode('#000', '#f8f8f8'), lineHeight: '27px', letterSpacing: 'normal' }}>
                       ${productDetailHeaderPrice().toFixed(2)}
                     </Typography>
                   </Box>
@@ -10152,10 +10169,10 @@ const SaleKeyPage = () => {
                       setSelectedCartItem(prev =>
                         (prev && prev.id === target.id && prev.timestamp === target.timestamp ? { ...prev, note } : prev));
                     }}
-                    sx={{ height: 36, borderBottom: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}
+                    sx={{ height: 36, borderBottom: lineBy('#000', '#373737'), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}
                   >
-                    <AddIcon sx={{ fontSize: 16, color: '#000' }} />
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>Add Note</Typography>
+                    <AddIcon sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }} />
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Add Note</Typography>
                   </Box>
 
                   {/* Show/Hide Costs (reference: gray eye button at the left edge; when
@@ -10168,16 +10185,16 @@ const SaleKeyPage = () => {
                     const profit = productDetailPriceOverride != null ? 0 : sellPrice - unitCost;
                     const pct = sellPrice > 0 ? (profit / sellPrice) * 100 : 0;
                     const cell = (label, value) => (
-                      <Box sx={{ textAlign: 'center', fontSize: 16, color: '#000', lineHeight: 1.2 }}>
+                      <Box sx={{ textAlign: 'center', fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>
                         <Box>{label}</Box>
                         <Box>{value}</Box>
                       </Box>
                     );
                     return (
-                      <Box sx={{ height: 40, borderBottom: '1px solid #000', display: 'flex', alignItems: 'stretch' }}>
+                      <Box sx={{ height: 40, borderBottom: lineBy('#000', '#373737'), display: 'flex', alignItems: 'stretch' }}>
                         <Box
                           onClick={() => setShowDetailCosts(v => !v)}
-                          sx={{ width: 130, flexShrink: 0, px: '8px', bgcolor: showDetailCosts ? '#d1d5db' : '#e5e7eb', color: '#000', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRight: '1px solid #000', cursor: 'pointer', transition: 'background-color 0.2s', userSelect: 'none' }}
+                          sx={{ width: 130, flexShrink: 0, px: '8px', bgcolor: showDetailCosts ? '#d1d5db' : '#e5e7eb', color: '#000', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRight: lineBy('#000', '#373737'), cursor: 'pointer', transition: 'background-color 0.2s', userSelect: 'none' }}
                         >
                           {showDetailCosts ? <VisibilityOffOutlinedIcon sx={{ fontSize: 18 }} /> : <VisibilityOutlinedIcon sx={{ fontSize: 18 }} />}
                           {showDetailCosts ? 'Hide Costs' : 'Show Costs'}
@@ -10194,31 +10211,31 @@ const SaleKeyPage = () => {
                   })()}
 
                   {/* Inventory band */}
-                  <Box sx={{ height: 40, borderBottom: '1px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-                    <Typography sx={{ fontSize: '19.2px', fontWeight: 400, color: '#000' }}>
+                  <Box sx={{ height: 40, borderBottom: lineBy('#000', '#373737'), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                    <Typography sx={{ fontSize: '19.2px', fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
                       {selectedProductDetail.currentStockCases || 0} Cases
                     </Typography>
-                    <Typography sx={{ fontSize: '19.2px', fontWeight: 400, color: '#000' }}>
+                    <Typography sx={{ fontSize: '19.2px', fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
                       {selectedProductDetail.currentStockItems || 0} Items
                     </Typography>
                   </Box>
 
                   {/* Case Quantity / Category label:value rows */}
-                  <Box sx={{ borderBottom: '1px solid #000', py: '4px' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: '#000' }}>
+                  <Box sx={{ borderBottom: lineBy('#000', '#373737'), py: '4px' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                       <Box sx={{ width: 110, flexShrink: 0 }}>Case Quantity</Box>
                       <Box>{selectedProductDetail.caseQuantity || 1}</Box>
                     </Box>
                     {/* Reference: no "OTHER" placeholder - the row is only there when the
                         product has a category; with costs shown, Case Cost follows. */}
                     {selectedProductDetail.category?.name && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: '#000' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                         <Box sx={{ width: 110, flexShrink: 0 }}>Category</Box>
                         <Box>{selectedProductDetail.category.name}</Box>
                       </Box>
                     )}
                     {showDetailCosts && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: '#000' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', height: 27, pl: '8px', fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                         <Box sx={{ width: 110, flexShrink: 0 }}>Case Cost</Box>
                         <Box>${Number(selectedProductDetail.caseCost ?? (Number(selectedProductDetail.itemCost || 0) * (selectedProductDetail.caseQuantity || 1))).toFixed(2)}</Box>
                       </Box>
@@ -10228,7 +10245,7 @@ const SaleKeyPage = () => {
                   {/* Prices Section (reference: absent for a product with no price rows,
                       e.g. a "Price Requested" product; listed otherwise) */}
                   {Array.isArray(selectedProductDetail.prices) && selectedProductDetail.prices.length > 0 && (
-                  <Box sx={{ borderBottom: '1px solid #000' }}>
+                  <Box sx={{ borderBottom: lineBy('#000', '#373737') }}>
                     <Box
                       onClick={() => setProductDetailExpanded(prev => ({ ...prev, prices: !prev.prices }))}
                       sx={{ height: 33, px: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
@@ -10269,7 +10286,7 @@ const SaleKeyPage = () => {
                   )}
 
                   {/* Purchases Section (reference: Order / Quantity / Order Date rows) */}
-                  <Box sx={{ borderBottom: '1px solid #000' }}>
+                  <Box sx={{ borderBottom: lineBy('#000', '#373737') }}>
                     <Box
                       onClick={() => setProductDetailExpanded(prev => ({ ...prev, purchases: !prev.purchases }))}
                       sx={{ height: 33, px: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
@@ -10312,7 +10329,7 @@ const SaleKeyPage = () => {
                   </Box>
 
                   {/* Inventory Section */}
-                  <Box sx={{ borderBottom: '1px solid #000' }}>
+                  <Box sx={{ borderBottom: lineBy('#000', '#373737') }}>
                     <Box
                       onClick={() => setProductDetailExpanded(prev => ({ ...prev, inventory: !prev.inventory }))}
                       sx={{ height: 33, px: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
@@ -10496,13 +10513,13 @@ const SaleKeyPage = () => {
 
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>Prices</Typography>
-                  <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', px: 1, py: 0.5, bgcolor: '#fafafa', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>
+                  <Box sx={{ border: lineBy('#e0e0e0', '#373737'), borderRadius: 1 }}>
+                    <Box sx={{ display: 'flex', px: 1, py: 0.5, bgcolor: byMode('#fafafa', '#333333'), borderBottom: lineBy('#e0e0e0', '#373737'), fontWeight: 600 }}>
                       <Box sx={{ width: 100 }}>Quantity</Box>
                       <Box sx={{ flex: 1 }}>Price</Box>
                     </Box>
                     {((productDetails.product?.prices) || productDetails.prices || []).map((p, i) => (
-                      <Box key={i} sx={{ display: 'flex', px: 1, py: 0.75, borderBottom: '1px solid #eee' }}>
+                      <Box key={i} sx={{ display: 'flex', px: 1, py: 0.75, borderBottom: lineBy('#eee', '#373737') }}>
                         <Box sx={{ width: 100 }}>{p.quantity}</Box>
                         <Box sx={{ flex: 1 }}>${Number(p.price || 0).toFixed(2)}</Box>
                       </Box>
@@ -10512,8 +10529,8 @@ const SaleKeyPage = () => {
               
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>Inventory</Typography>
-                  <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', px: 1, py: 0.5, bgcolor: '#fafafa', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>
+                  <Box sx={{ border: lineBy('#e0e0e0', '#373737'), borderRadius: 1 }}>
+                    <Box sx={{ display: 'flex', px: 1, py: 0.5, bgcolor: byMode('#fafafa', '#333333'), borderBottom: lineBy('#e0e0e0', '#373737'), fontWeight: 600 }}>
                       <Box sx={{ flex: 1 }}>Location</Box>
                       <Box sx={{ width: 100, textAlign: 'right' }}>Items</Box>
                     </Box>
@@ -10526,13 +10543,13 @@ const SaleKeyPage = () => {
               
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>Barcodes</Typography>
-                  <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', px: 1, py: 0.5, bgcolor: '#fafafa', borderBottom: '1px solid #e0e0e0', fontWeight: 600 }}>
+                  <Box sx={{ border: lineBy('#e0e0e0', '#373737'), borderRadius: 1 }}>
+                    <Box sx={{ display: 'flex', px: 1, py: 0.5, bgcolor: byMode('#fafafa', '#333333'), borderBottom: lineBy('#e0e0e0', '#373737'), fontWeight: 600 }}>
                       <Box sx={{ width: 100 }}>Quantity</Box>
                       <Box sx={{ flex: 1 }}>Barcode</Box>
             </Box>
                     {((productDetails.product?.barcodes) || productDetails.barcodes || []).map((b, i) => (
-                      <Box key={i} sx={{ display: 'flex', px: 1, py: 0.75, borderBottom: '1px solid #eee' }}>
+                      <Box key={i} sx={{ display: 'flex', px: 1, py: 0.75, borderBottom: lineBy('#eee', '#373737') }}>
                         <Box sx={{ width: 100 }}>{b.quantity ?? '-'}</Box>
                         <Box sx={{ flex: 1 }}>{b.barcode ?? b}</Box>
           </Box>
@@ -10604,7 +10621,7 @@ const SaleKeyPage = () => {
             borderRadius: '12px',
             overflow: 'visible',
             boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#232323'),
           }
         }}
         slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.65)' } } }}
@@ -10628,10 +10645,10 @@ const SaleKeyPage = () => {
         </Box>
 
         <Box sx={{ px: 3, pt: 7, pb: 3 }}>
-          <Typography align="center" sx={{ fontWeight: 700, color: '#111827', fontSize: 20, mb: 1 }}>
+          <Typography align="center" sx={{ fontWeight: 700, color: byMode('#111827', '#f8f8f8'), fontSize: 20, mb: 1 }}>
             {giftCardMode === 'sell' ? 'Add Gift Card' : 'Redeem Gift Card'}
           </Typography>
-          <Typography align="center" sx={{ fontSize: 15, color: '#5f6b76', lineHeight: 1.6, mb: 3 }}>
+          <Typography align="center" sx={{ fontSize: 15, color: byMode('#5f6b76', '#d4d4d4'), lineHeight: 1.6, mb: 3 }}>
             {giftCardMode === 'sell'
               ? "Enter the amount the customer wants on the gift card, then enter or scan the card's code"
               : "Please enter or scan the gift card's code"}
@@ -10682,14 +10699,14 @@ const SaleKeyPage = () => {
               sx={{
                 flex: 1,
                 height: 48,
-                bgcolor: '#f4f5f7',
-                border: '1px solid #dfe3e8',
+                bgcolor: byMode('#f4f5f7', '#3a3a3a'),
+                border: lineBy('#dfe3e8', '#4a4a4a'),
                 borderRadius: '8px',
-                color: '#5f6b76',
+                color: byMode('#5f6b76', '#d4d4d4'),
                 fontSize: 18,
                 fontWeight: 500,
                 justifyContent: 'center',
-                '&:hover': { bgcolor: '#e9ebee' },
+                '&:hover': { bgcolor: byMode('#e9ebee', '#4a4a4a') },
               }}
             >
               Cancel
@@ -10823,9 +10840,9 @@ const SaleKeyPage = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
           }}
         >
-          <Box sx={{ bgcolor: '#fff', borderRadius: '12px', p: 4, textAlign: 'center', maxWidth: 420 }}>
+          <Box sx={{ bgcolor: byMode('#fff', '#232323'), borderRadius: '12px', p: 4, textAlign: 'center', maxWidth: 420 }}>
             <Typography sx={{ fontSize: 22, fontWeight: 700, mb: 1 }}>Focus lost</Typography>
-            <Typography sx={{ fontSize: 15, color: '#404040' }}>
+            <Typography sx={{ fontSize: 15, color: byMode('#404040', '#d4d4d4') }}>
               The sell screen is no longer focused. Tap the screen to continue.
             </Typography>
           </Box>
@@ -11127,7 +11144,7 @@ const SaleKeyPage = () => {
             (selectedCartItem?.comboItems || []).map((ci) => (
               <Box
                 key={ci.productId}
-                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1, borderBottom: '1px solid #eee' }}
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1, borderBottom: lineBy('#eee', '#373737') }}
               >
                 <Typography variant="body2">
                   {ci.name} x{ci.quantity || 1}

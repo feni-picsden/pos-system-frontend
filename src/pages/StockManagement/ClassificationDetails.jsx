@@ -30,6 +30,21 @@ import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import masterDatabaseService from '../../services/masterDatabaseService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { toAppZonedDate } from '../../utils/appDateTime';
+import { useTheme } from '@mui/material/styles';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode colours measured off the reference classification view screenshots
+// (slate-blue rail, #202020 content, #4d4d4d chart grid). Light = as built.
+const VIEW_BG = byMode('#fff', '#202020');
+const RAIL_BG = byMode('#e2e8f0', '#314158');
+const FIELD_BORDER = byMode('1px solid #595959', '1px solid #a1a1a1');
+const FIELD_FOCUS = byMode('2px solid #000', '2px solid #eeeeee');
+const FIELD_BG = byMode('transparent', '#121212');
+const CANCEL_SX = { bgcolor: byMode('#d4d4d4', '#404040'), color: byMode('#000', '#ffffff') };
+const CANCEL_HOVER = byMode('#c6c6c6', '#4a4a4a');
+const GREEN_BTN = byMode('#22c55e', '#7bf1a8');
+const ON_GREEN_BTN = byMode('#fff', '#232323');
+const GREEN_BTN_HOVER = byMode('#16a34a', '#9af5bd');
 
 const TYPE_LABELS = {
   BRAND: 'Brand',
@@ -49,16 +64,18 @@ const selectFieldSx = {
   '& .MuiOutlinedInput-root': {
     minHeight: 42,
     borderRadius: '8px',
-    '& fieldset': { border: '1px solid #595959' },
-    '&:hover fieldset': { border: '1px solid #595959' },
-    '&.Mui-focused fieldset': { border: '2px solid #000' },
+    bgcolor: FIELD_BG,
+    '& fieldset': { border: FIELD_BORDER },
+    '&:hover fieldset': { border: FIELD_BORDER },
+    '&.Mui-focused fieldset': { border: FIELD_FOCUS },
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: 'sf.textFaint', opacity: 1 },
 };
 
 const ClassificationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isDark = useTheme().palette.mode === 'dark';
   const { prompt, notify } = useAppDialogs();
   const chartContainerRef = useRef(null);
 
@@ -416,12 +433,19 @@ const ClassificationDetails = () => {
       };
     });
 
+    // SVG colours (plain attributes, so picked by mode here).
+    const chartGrid = isDark ? '#4d4d4d' : '#e0e0e0';
+    const chartAxis = isDark ? '#4d4d4d' : '#ccc';
+    const chartTick = isDark ? '#d4d4d4' : '#666';
+    const chartPointRing = isDark ? '#5ebbeb' : '#fff';
+    const chartGuide = isDark ? '#a1a1a1' : '#999';
+
     return (
-      <Box sx={{ mb: 3, bgcolor: '#fff' }}>
+      <Box sx={{ mb: 3, bgcolor: VIEW_BG }}>
         {/* Centered "Sales" legend chip */}
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 1 }}>
           <Box sx={{ width: 36, height: 12, bgcolor: 'rgba(94,187,235,0.35)', border: '2px solid #5ebbeb' }} />
-          <Typography sx={{ fontSize: 12, color: '#666' }}>Sales</Typography>
+          <Typography sx={{ fontSize: 12, color: byMode('#666', '#f8f8f8') }}>Sales</Typography>
         </Box>
 
         <Box
@@ -430,7 +454,7 @@ const ClassificationDetails = () => {
             height: 390,
             position: "relative",
             width: "100%",
-            bgcolor: "#fff",
+            bgcolor: VIEW_BG,
             overflow: "visible",
           }}
         >
@@ -464,7 +488,7 @@ const ClassificationDetails = () => {
                         y1={y}
                         x2={effectiveWidth - padRight}
                         y2={y}
-                        stroke="#e0e0e0"
+                        stroke={chartGrid}
                         strokeWidth="1"
                       />
                     </g>
@@ -479,7 +503,7 @@ const ClassificationDetails = () => {
                     y1={padTop}
                     x2={getX(i)}
                     y2={height - padBottom}
-                    stroke="#e0e0e0"
+                    stroke={chartGrid}
                     strokeWidth="1"
                   />
                 ))}
@@ -493,7 +517,7 @@ const ClassificationDetails = () => {
                       y={y + 4}
                       textAnchor="end"
                       fontSize="12"
-                      fill="#666"
+                      fill={chartTick}
                     >
                       {formatCurrency(val)}
                     </text>
@@ -505,7 +529,7 @@ const ClassificationDetails = () => {
                   y1={height - padBottom}
                   x2={effectiveWidth - padRight}
                   y2={height - padBottom}
-                  stroke="#ccc"
+                  stroke={chartAxis}
                   strokeWidth="1"
                 />
 
@@ -514,7 +538,7 @@ const ClassificationDetails = () => {
                   y1={padTop}
                   x2={padLeft}
                   y2={height - padBottom}
-                  stroke="#ccc"
+                  stroke={chartAxis}
                   strokeWidth="1"
                 />
 
@@ -537,7 +561,7 @@ const ClassificationDetails = () => {
                       cy={y}
                       r="4"
                       fill="#5ebbeb"
-                      stroke="#fff"
+                      stroke={chartPointRing}
                       strokeWidth="1"
                     />
                   );
@@ -550,7 +574,7 @@ const ClassificationDetails = () => {
                     y1={padTop}
                     x2={getX(hoverIndex)}
                     y2={height - padBottom}
-                    stroke="#999"
+                    stroke={chartGuide}
                     strokeDasharray="2,2"
                     strokeWidth="1"
                   />
@@ -570,7 +594,7 @@ const ClassificationDetails = () => {
                     transform: "translateX(-50%)",
                     fontSize: "0.7rem",
                     whiteSpace: "nowrap",
-                    color: "#666",
+                    color: chartTick,
                   }}
                 >
                   {labelObj.label}
@@ -587,8 +611,8 @@ const ClassificationDetails = () => {
                 left: hoverPos.x - 60,
                 top: hoverPos.y + 10,
                 p: 1.5,
-                bgcolor: "rgba(0,0,0,0.85)",
-                color: "white",
+                bgcolor: byMode("rgba(0,0,0,0.85)", "#333333"),
+                color: byMode("white", "#f8f8f8"),
                 fontSize: "0.75rem",
                 pointerEvents: "none",
                 zIndex: 1000,
@@ -685,13 +709,13 @@ const ClassificationDetails = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 50px)', bgcolor: '#fff' }}>
+    <Box sx={{ display: 'flex', height: 'calc(100vh - 50px)', bgcolor: VIEW_BG }}>
       {/* Left Sidebar */}
       <Box
         sx={{
           width: 320,
           flexShrink: 0,
-          bgcolor: '#e2e8f0',
+          bgcolor: RAIL_BG,
           display: 'flex',
           flexDirection: 'column',
           overflowY: 'auto',
@@ -699,12 +723,12 @@ const ClassificationDetails = () => {
       >
         {/* Sidebar header: type crumb + View <name> */}
         <Box sx={{ px: '32px', pt: '48px', pb: '16px' }}>
-          <Typography sx={{ fontSize: 14, color: '#737373', lineHeight: 1.4 }}>
+          <Typography sx={{ fontSize: 14, color: byMode('#737373', '#a1a1a1'), lineHeight: 1.4 }}>
             {typeLabel}
           </Typography>
           <Typography
             noWrap
-            sx={{ fontSize: 20, fontWeight: 700, color: '#000', textOverflow: 'ellipsis' }}
+            sx={{ fontSize: 20, fontWeight: 700, color: 'sf.text', textOverflow: 'ellipsis' }}
           >
             View {classification.name}
           </Typography>
@@ -736,14 +760,14 @@ const ClassificationDetails = () => {
                   flexDirection: 'column',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  bgcolor: active ? '#fff' : 'transparent',
+                  bgcolor: active ? VIEW_BG : 'transparent',
                   zIndex: active ? 10 : 'auto',
                   boxShadow: active
                     ? '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)'
                     : 'none',
                   transition:
                     'color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1)',
-                  '&:hover': { bgcolor: active ? '#fff' : 'rgba(0,0,0,0.1)' },
+                  '&:hover': { bgcolor: active ? VIEW_BG : byMode('rgba(0,0,0,0.1)', 'rgba(255,255,255,0.08)') },
                 }}
               >
                 {/* Concave corner notches fusing the active tab into the content panel */}
@@ -756,7 +780,7 @@ const ClassificationDetails = () => {
                       top: `${top}px`,
                       width: 16,
                       height: 16,
-                      bgcolor: '#fff',
+                      bgcolor: VIEW_BG,
                       overflow: 'hidden',
                       pointerEvents: 'none',
                     }}
@@ -765,7 +789,7 @@ const ClassificationDetails = () => {
                       sx={{
                         width: '100%',
                         height: '100%',
-                        bgcolor: '#e2e8f0',
+                        bgcolor: RAIL_BG,
                         borderBottomRightRadius: top < 0 ? '8px' : 0,
                         borderTopRightRadius: top < 0 ? 0 : '8px',
                       }}
@@ -773,12 +797,12 @@ const ClassificationDetails = () => {
                   </Box>
                 ))}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ItemIcon sx={{ fontSize: 20, color: '#000' }} />
-                  <Typography sx={{ fontSize: 20, fontWeight: 400, color: '#000', lineHeight: 1.3 }}>
+                  <ItemIcon sx={{ fontSize: 20, color: byMode('#000', active ? '#00a6f4' : '#e5e5e5') }} />
+                  <Typography sx={{ fontSize: 20, fontWeight: 400, color: byMode('#000', '#e5e5e5'), lineHeight: 1.3 }}>
                     {item.label}
                   </Typography>
                 </Box>
-                <Typography noWrap sx={{ fontSize: 12, color: '#000', lineHeight: 1.3 }}>
+                <Typography noWrap sx={{ fontSize: 12, color: byMode('#000', '#e5e5e5'), lineHeight: 1.3 }}>
                   {item.description}
                 </Typography>
               </Box>
@@ -793,8 +817,8 @@ const ClassificationDetails = () => {
           sx={{
             position: 'sticky',
             bottom: 0,
-            bgcolor: '#e2e8f0',
-            borderRight: '4px solid rgba(203,213,225,0.5)',
+            bgcolor: RAIL_BG,
+            borderRight: byMode('4px solid rgba(203,213,225,0.5)', '4px solid #45556c'),
             pt: '8px',
             pb: '16px',
             // 320 sidebar - 4px right border - 2*16px = 284, the reference pill width
@@ -810,9 +834,9 @@ const ClassificationDetails = () => {
             onClick={handleEdit}
             sx={{
               ...pillButtonSx,
-              border: '1px solid #22c55e',
-              color: '#16a34a',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #22c55e' },
+              border: byMode('1px solid #22c55e', '1px solid #7bf1a8'),
+              color: byMode('#16a34a', '#7bf1a8'),
+              '&:hover': { bgcolor: 'sf.overlayPress', border: byMode('1px solid #22c55e', '1px solid #7bf1a8') },
             }}
           >
             Edit
@@ -823,9 +847,9 @@ const ClassificationDetails = () => {
             onClick={() => setDeleteOpen(true)}
             sx={{
               ...pillButtonSx,
-              border: '1px solid #ef4444',
-              color: '#dc2626',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #ef4444' },
+              border: byMode('1px solid #ef4444', '1px solid #ffa2a2'),
+              color: byMode('#dc2626', '#ffa2a2'),
+              '&:hover': { bgcolor: 'sf.overlayPress', border: byMode('1px solid #ef4444', '1px solid #ffa2a2') },
             }}
           >
             Delete
@@ -834,7 +858,7 @@ const ClassificationDetails = () => {
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: 3, bgcolor: '#fff' }}>
+      <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: 3, bgcolor: VIEW_BG }}>
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
             {error}
@@ -845,7 +869,7 @@ const ClassificationDetails = () => {
         {renderSalesChart()}
 
         {/* Products List */}
-        <Typography component="h3" sx={{ fontSize: '18.72px', fontWeight: 700, color: '#000', mb: 2 }}>
+        <Typography component="h3" sx={{ fontSize: '18.72px', fontWeight: 700, color: 'sf.text', mb: 2 }}>
           Products
         </Typography>
         <Box>
@@ -856,7 +880,7 @@ const ClassificationDetails = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                bgcolor: index % 2 === 0 ? '#fff' : '#f5f5f5',
+                bgcolor: index % 2 === 0 ? VIEW_BG : byMode('#f5f5f5', '#232323'),
                 borderRadius: '8px',
                 height: 50,
                 mb: '8px',
@@ -864,7 +888,7 @@ const ClassificationDetails = () => {
                 pr: 1,
               }}
             >
-              <Typography noWrap sx={{ fontSize: 16, color: '#000' }}>
+              <Typography noWrap sx={{ fontSize: 16, color: 'sf.text' }}>
                 {product.name}
               </Typography>
               <Box
@@ -875,7 +899,7 @@ const ClassificationDetails = () => {
                   alignItems: 'center',
                   gap: 0.75,
                   cursor: 'pointer',
-                  color: '#0284c7',
+                  color: byMode('#0284c7', '#74d4ff'),
                   fontSize: 16,
                   fontWeight: 700,
                   textDecoration: 'none',
@@ -883,7 +907,7 @@ const ClassificationDetails = () => {
                   py: 0.75,
                   borderRadius: '8px',
                   flexShrink: 0,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                  '&:hover': { bgcolor: 'sf.overlayPress' },
                 }}
               >
                 <VisibilityOutlinedIcon sx={{ fontSize: 20 }} />
@@ -892,7 +916,7 @@ const ClassificationDetails = () => {
             </Box>
           ))}
           {products.length === 0 && (
-            <Typography sx={{ textAlign: 'center', color: '#737373', fontSize: 16, py: 2 }}>
+            <Typography sx={{ textAlign: 'center', color: 'sf.textSoft', fontSize: 16, py: 2 }}>
               No Products
             </Typography>
           )}
@@ -905,14 +929,14 @@ const ClassificationDetails = () => {
         onClose={() => setEditOpen(false)}
         PaperProps={{ sx: { width: 300, maxWidth: '92vw', borderRadius: '8px', overflow: 'hidden' } }}
       >
-        <Box sx={{ bgcolor: '#bbf7d0', px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <EditOutlinedIcon sx={{ color: '#166534', fontSize: 20 }} />
-          <Typography noWrap sx={{ color: '#166534', fontSize: 18, fontWeight: 700 }}>
+        <Box sx={{ bgcolor: byMode('#bbf7d0', '#0d542b'), px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <EditOutlinedIcon sx={{ color: byMode('#166534', '#7bf1a8'), fontSize: 20 }} />
+          <Typography noWrap sx={{ color: byMode('#166534', '#7bf1a8'), fontSize: 18, fontWeight: 700 }}>
             Modify {classification.name}
           </Typography>
         </Box>
         <Box sx={{ px: 2, py: 2 }}>
-          <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Name</Typography>
+          <Typography sx={{ fontSize: 14, color: 'sf.text', mb: 0.5 }}>Name</Typography>
           <TextField
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
@@ -923,16 +947,17 @@ const ClassificationDetails = () => {
               '& .MuiOutlinedInput-root': {
                 height: 42,
                 borderRadius: '8px',
-                '& fieldset': { border: '1px solid #595959' },
-                '&:hover fieldset': { border: '1px solid #595959' },
-                '&.Mui-focused fieldset': { border: '2px solid #000' },
+                bgcolor: FIELD_BG,
+                '& fieldset': { border: FIELD_BORDER },
+                '&:hover fieldset': { border: FIELD_BORDER },
+                '&.Mui-focused fieldset': { border: FIELD_FOCUS },
               },
             }}
           />
           {/* Reference: a family's Modify dialog carries only its Name. */}
           {SHOW_MASTER_DATABASE_REF && classification.type !== 'FAMILY' && (
             <>
-          <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Master Database Reference</Typography>
+          <Typography sx={{ fontSize: 14, color: 'sf.text', mb: 0.5 }}>Master Database Reference</Typography>
           <Autocomplete
             freeSolo
             options={mdrOptions}
@@ -995,14 +1020,13 @@ const ClassificationDetails = () => {
               sx={{
                 width: 118,
                 height: 42,
-                bgcolor: '#d4d4d4',
-                color: '#000',
+                ...CANCEL_SX,
                 borderRadius: '12px',
                 fontWeight: 700,
                 fontSize: 16,
                 textTransform: 'none',
                 boxShadow: 'none',
-                '&:hover': { bgcolor: '#c6c6c6', boxShadow: 'none' },
+                '&:hover': { bgcolor: CANCEL_HOVER, boxShadow: 'none' },
               }}
             >
               Cancel
@@ -1013,15 +1037,15 @@ const ClassificationDetails = () => {
               sx={{
                 width: 118,
                 height: 42,
-                bgcolor: '#22c55e',
-                color: '#fff',
+                bgcolor: GREEN_BTN,
+                color: ON_GREEN_BTN,
                 borderRadius: '12px',
                 fontWeight: 700,
                 fontSize: 16,
                 textTransform: 'none',
                 boxShadow: 'none',
-                '&:hover': { bgcolor: '#16a34a', boxShadow: 'none' },
-                '&.Mui-disabled': { bgcolor: '#22c55e', color: '#fff', opacity: 0.55 },
+                '&:hover': { bgcolor: GREEN_BTN_HOVER, boxShadow: 'none' },
+                '&.Mui-disabled': { bgcolor: GREEN_BTN, color: ON_GREEN_BTN, opacity: 0.55 },
               }}
             >
               Save
@@ -1037,9 +1061,9 @@ const ClassificationDetails = () => {
         PaperProps={{ sx: { width: 302, maxWidth: '92vw', borderRadius: '8px', overflow: 'hidden' } }}
       >
         {/* p-4 header: 16px padding + 28px line box = 60px tall, per reference */}
-        <Box sx={{ bgcolor: '#bae6fd', p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <HelpOutlineIcon sx={{ color: '#075985', fontSize: 20 }} />
-          <Typography noWrap sx={{ color: '#075985', fontSize: 18, fontWeight: 700, lineHeight: '28px' }}>
+        <Box sx={{ bgcolor: byMode('#bae6fd', '#024a70'), p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <HelpOutlineIcon sx={{ color: byMode('#075985', '#018fc6'), fontSize: 20 }} />
+          <Typography noWrap sx={{ color: byMode('#075985', '#00bcff'), fontSize: 18, fontWeight: 700, lineHeight: '28px' }}>
             Add Tag
           </Typography>
         </Box>
@@ -1061,11 +1085,12 @@ const ClassificationDetails = () => {
                   '& .MuiOutlinedInput-root': {
                     minHeight: 42,
                     borderRadius: '8px',
-                    '& fieldset': { border: '1px solid #595959' },
-                    '&:hover fieldset': { border: '1px solid #595959' },
-                    '&.Mui-focused fieldset': { border: '2px solid #000' },
+                    bgcolor: FIELD_BG,
+                    '& fieldset': { border: FIELD_BORDER },
+                    '&:hover fieldset': { border: FIELD_BORDER },
+                    '&.Mui-focused fieldset': { border: FIELD_FOCUS },
                   },
-                  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+                  '& .MuiOutlinedInput-input::placeholder': { color: 'sf.textFaint', opacity: 1 },
                 }}
               />
             )}
@@ -1077,14 +1102,13 @@ const ClassificationDetails = () => {
               sx={{
                 width: 118,
                 height: 42,
-                bgcolor: '#d4d4d4',
-                color: '#000',
+                ...CANCEL_SX,
                 borderRadius: '12px',
                 fontWeight: 700,
                 fontSize: 16,
                 textTransform: 'none',
                 boxShadow: 'none',
-                '&:hover': { bgcolor: '#c6c6c6', boxShadow: 'none' },
+                '&:hover': { bgcolor: CANCEL_HOVER, boxShadow: 'none' },
               }}
             >
               Cancel
@@ -1095,15 +1119,15 @@ const ClassificationDetails = () => {
               sx={{
                 width: 118,
                 height: 42,
-                bgcolor: '#22c55e',
-                color: '#fff',
+                bgcolor: GREEN_BTN,
+                color: ON_GREEN_BTN,
                 borderRadius: '12px',
                 fontWeight: 700,
                 fontSize: 16,
                 textTransform: 'none',
                 boxShadow: 'none',
-                '&:hover': { bgcolor: '#16a34a', boxShadow: 'none' },
-                '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373' },
+                '&:hover': { bgcolor: GREEN_BTN_HOVER, boxShadow: 'none' },
+                '&.Mui-disabled': { bgcolor: byMode('#e5e5e5', '#3a3a3a'), color: byMode('#737373', '#a0a4aa') },
               }}
             >
               Confirm

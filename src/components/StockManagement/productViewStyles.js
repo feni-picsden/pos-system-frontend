@@ -2,6 +2,8 @@
 // (topdrops.onshopfront.com > Products > View). Used by ProductView.jsx and
 // every section component so the 8 sections stay visually identical.
 
+import { byMode } from "../../theme/sfPalette";
+
 // Heavy Shopfront widget shadow (reference product-view widgets and rail cards)
 export const WIDGET_SHADOW =
   "0 0 30px rgba(0,0,0,0.25), 0 15px 30px rgba(0,0,0,0.19)";
@@ -22,7 +24,8 @@ export const activateOnKey = (fn) => (e) => {
 export const WIDGET_SX = {
   p: 1,
   mb: 4,
-  bgcolor: "transparent",
+  // Reference dark: widgets sit as #202020 cards on the #121212 pane.
+  bgcolor: byMode("transparent", "#202020"),
   borderRadius: 0,
   boxShadow: WIDGET_SHADOW,
   breakInside: "avoid",
@@ -32,7 +35,7 @@ export const WIDGET_SX = {
 export const WIDGET_H3_SX = {
   fontSize: "18.72px",
   fontWeight: 700,
-  color: "#000",
+  color: "sf.text",
   m: "0 0 18.72px",
 };
 
@@ -41,7 +44,7 @@ export const WIDGET_H3_SX = {
 export const WIDGET_H2_SX = {
   fontSize: "24px",
   fontWeight: 700,
-  color: "#000",
+  color: "sf.text",
   m: "19.92px 0",
   lineHeight: "normal",
 };
@@ -51,9 +54,10 @@ export const WIDGET_H2_SX = {
 export const GRID_TABLE_SX = {
   borderCollapse: "collapse",
   "& th, & td": {
-    border: "1px solid #000",
+    border: 1,
+    borderColor: "sf.tableBorder",
     fontSize: 16,
-    color: "#000",
+    color: "sf.text",
     padding: "8px",
     backgroundColor: "transparent",
     // Reference cells are 36px tall: 16px font at normal line-height + 8px pad.
@@ -67,7 +71,7 @@ export const GRID_TABLE_SX = {
 // pane height so no white band shows below short sections.
 export const SECTION_ROOT_SX = {
   p: 1,
-  bgcolor: "#f8f8f8",
+  bgcolor: "sf.pane",
   flexGrow: 1,
 };
 
@@ -77,10 +81,11 @@ export const SECTION_ROOT_SX = {
 // ---------------------------------------------------------------------------
 
 // The list fills the pane edge to edge - no padding on the section root.
-export const EVENT_ROOT_SX = { bgcolor: "#f8f8f8", flexGrow: 1 };
+export const EVENT_ROOT_SX = { bgcolor: "sf.pane", flexGrow: 1 };
 
+// Reference dark: every row #232323 (no zebra); light keeps the #ebebeb stripe.
 export const eventRowSx = (index) => ({
-  backgroundColor: index % 2 === 1 ? "#ebebeb" : "#f8f8f8",
+  backgroundColor: index % 2 === 1 ? byMode("#ebebeb", "#232323") : "sf.pane",
 });
 
 export const EVENT_LINE_SX = {
@@ -89,7 +94,7 @@ export const EVENT_LINE_SX = {
   justifyContent: "space-between",
   padding: "16px",
   cursor: "pointer",
-  color: "#000",
+  color: "sf.text",
   // Reference row is a fixed 89px box that clips the taller timestamp block.
   height: 89,
   boxSizing: "border-box",
@@ -135,7 +140,7 @@ export const EVENT_EXPANDED_SX = {
   columnGap: "32px",
   rowGap: "32px",
   padding: "16px",
-  color: "#000",
+  color: "sf.text",
 };
 export const EVENT_SUMMARY_SX = {
   display: "grid",
@@ -148,7 +153,7 @@ export const EVENT_CLOSE_SX = {
   gridColumn: 2,
   gridRow: "1 / 3",
   alignSelf: "start",
-  backgroundColor: "#1c86f2",
+  backgroundColor: byMode("#1c86f2", "#0084d1"),
   color: "#f8f8f8",
   fontSize: 16,
   textAlign: "center",
@@ -158,7 +163,7 @@ export const EVENT_CLOSE_SX = {
   textTransform: "none",
   boxShadow: "none",
   width: "100%",
-  "&:hover": { backgroundColor: "#1c86f2", boxShadow: "none" },
+  "&:hover": { backgroundColor: byMode("#1c86f2", "#0084d1"), boxShadow: "none" },
 };
 // Reference totals block is a shrink-to-fit table centred in its column:
 // right-aligned labels, left-aligned values, 0.3em cell padding.
@@ -169,7 +174,7 @@ export const EVENT_TOTALS_SX = {
     padding: "4.8px",
     fontSize: 16,
     border: 0,
-    color: "#000",
+    color: "sf.text",
     lineHeight: "19px",
   },
   "& td:first-of-type": { textAlign: "right" },
@@ -179,7 +184,7 @@ export const EVENT_BALANCE_SX = {
   display: "flex",
   marginLeft: "auto",
   width: 366,
-  borderTop: "3px double #000",
+  borderTop: (t) => `3px double ${t.palette.mode === "dark" ? "#373737" : "#000000"}`,
   paddingTop: "8px",
   fontSize: 24,
   lineHeight: "29px",
@@ -204,11 +209,11 @@ export const ORDERS_TABLE_SX = {
   minWidth: "100%",
   borderCollapse: "collapse",
   // Compact sizes matched to the reference screenshot (16/10/2026).
-  "& > * > tr": { borderBottom: "1px solid #e0e0e0" },
+  "& > * > tr": { borderBottom: 1, borderColor: "sf.borderLight" },
   "& > * > tr > th": {
     textTransform: "uppercase",
-    backgroundColor: "#ebebeb",
-    color: "#000",
+    backgroundColor: byMode("#ebebeb", "#232323"),
+    color: "sf.text",
     fontWeight: 700,
     fontSize: 13,
     padding: "12px 8px",
@@ -223,7 +228,7 @@ export const ORDERS_TABLE_SX = {
   "& > * > tr > td": {
     fontSize: 14,
     fontWeight: 400,
-    color: "#000",
+    color: "sf.text",
     padding: "8px",
     border: 0,
     textAlign: "center",
@@ -244,7 +249,7 @@ export const ORDERS_TABLE_SX = {
   "& .secondary": {
     fontSize: "11px",
     fontWeight: 400,
-    color: "#676b72",
+    color: "sf.textMuted",
     textTransform: "uppercase",
   },
 };
@@ -281,21 +286,24 @@ export const INVENTORY_LOG_TABLE_SX = {
   width: "100%",
   "& > * > tr > th": {
     backgroundColor: "#5ebbeb",
-    color: "#f8f8f8",
+    // Reference dark keeps the blue header but with dark text on it.
+    color: byMode("#f8f8f8", "#232323"),
     fontWeight: 700,
     fontSize: 16,
     textTransform: "uppercase",
     padding: "16px 8px",
-    border: "1px solid #313439",
+    border: 1,
+    borderColor: byMode("#313439", "#373737"),
     textAlign: "left",
     lineHeight: "normal",
   },
   "& > * > tr > td": {
     fontSize: 16,
     fontWeight: 400,
-    color: "#000",
+    color: "sf.text",
     padding: "16px 8px",
-    border: "1px solid #313439",
+    border: 1,
+    borderColor: byMode("#313439", "#373737"),
     textAlign: "center",
     lineHeight: "normal",
   },
@@ -304,13 +312,13 @@ export const INVENTORY_LOG_TABLE_SX = {
   "& > * > tr > th.tight, & > * > tr > td.tight": { padding: 0 },
 };
 export const inventoryLogRowSx = (index) => ({
-  backgroundColor: index % 2 === 0 ? "#f8f8f8" : "#ebebeb",
+  backgroundColor: index % 2 === 0 ? "sf.pane" : byMode("#ebebeb", "#232323"),
 });
 // The Before / Changed / After cells hold a small 2-column quantity table.
 export const INVENTORY_QTY_TABLE_SX = {
   width: "100%",
   borderCollapse: "collapse",
-  "& td": { border: 0, textAlign: "center", fontSize: 16, color: "#000" },
+  "& td": { border: 0, textAlign: "center", fontSize: 16, color: "sf.text" },
   "& .title": { padding: "4px" },
   "& .value": { padding: "0 8px 8px" },
   "& .qty": { fontSize: "22.4px", lineHeight: "normal" },
@@ -323,7 +331,7 @@ export const NICE_ERROR_SX = {
   display: "flex",
   justifyContent: "center",
   padding: "16px",
-  color: "#000",
+  color: "sf.text",
 };
 export const NICE_ERROR_ICON_SX = {
   width: 200,
@@ -351,19 +359,19 @@ export const OUTLET_SELECT_SX = {
   width: "100%",
   "& .MuiOutlinedInput-root": {
     borderRadius: "8px",
-    backgroundColor: "#fff",
+    backgroundColor: "sf.input",
     height: 42,
     padding: "0 8px 0 8px",
   },
   "& .MuiOutlinedInput-input": { padding: "8px !important", fontSize: 16 },
   "& .MuiOutlinedInput-notchedOutline": {
-    borderColor: "#404040",
+    borderColor: "sf.border",
     borderWidth: "1px",
   },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "sf.border" },
   "& .Mui-focused .MuiOutlinedInput-notchedOutline": {
-    borderColor: "#000",
+    borderColor: "sf.borderStrong",
     borderWidth: "2px",
   },
-  "& input::placeholder": { color: "#808080", opacity: 1 },
+  "& input::placeholder": { color: "sf.textFaint", opacity: 1 },
 };

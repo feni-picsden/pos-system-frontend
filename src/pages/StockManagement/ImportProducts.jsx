@@ -31,6 +31,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import productService from '../../services/productService';
 import ProductImportHelpDrawer from '../../components/Products/ProductImportHelpDrawer';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference (Stock Management > Products > Import Products, 16/11/2026): one page
 // for both importers. Blue "<- Back" + title + "Looking for the file format?
@@ -45,50 +46,51 @@ const backButtonSx = {
   px: 2,
   gap: '6px',
   borderRadius: '12px',
-  bgcolor: '#1c86f2',
-  color: '#f8f8f8',
+  bgcolor: byMode('#1c86f2', '#5ebbeb'),
+  color: byMode('#f8f8f8', '#232323'),
   boxShadow: 'none',
   fontSize: 17,
   fontWeight: 700,
   lineHeight: 1,
   textTransform: 'none',
-  '&:hover': { bgcolor: '#1a78d8', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#1a78d8', '#4aa9dd'), boxShadow: 'none' },
 };
 
 const linkSx = {
   fontSize: 16,
-  color: 'rgb(0,0,238)',
+  color: byMode('rgb(0,0,238)', '#4ca0f5'),
   textDecoration: 'underline',
   verticalAlign: 'baseline',
   cursor: 'pointer',
   fontFamily: 'inherit',
-  '&:hover': { color: 'rgb(0,0,238)' },
+  '&:hover': { color: byMode('rgb(0,0,238)', '#4ca0f5') },
 };
 
 const selectSx = {
   width: 216,
   height: 40,
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
   borderRadius: '8px',
   fontSize: 16,
   textAlign: 'left',
   '& .MuiSelect-select': { py: 1, pl: 1.5, textAlign: 'left' },
-  '& .MuiSelect-icon': { fontSize: 18, color: '#000' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 },
+  '& .MuiSelect-icon': { fontSize: 18, color: byMode('#000', '#f8f8f8') },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: 1 },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 1 },
 };
 
 const MENU_PROPS = {
   PaperProps: {
     sx: {
-      mt: 0.5, borderRadius: '8px', border: '1px solid #000', boxShadow: 'none',
+      mt: 0.5, borderRadius: '8px', border: 1, borderStyle: 'solid', borderColor: byMode('#000', '#a1a1a1'), boxShadow: 'none',
       // Reference: selected option is blue text on white, no fill.
       '& .MuiMenuItem-root': {
         fontSize: 16, py: 2, px: 2,
-        '&.Mui-selected, &.Mui-selected.Mui-focusVisible, &.Mui-focusVisible': { bgcolor: 'transparent', color: '#1c86f2', outline: 'none', boxShadow: 'none' },
+        '&.Mui-selected, &.Mui-selected.Mui-focusVisible, &.Mui-focusVisible': { bgcolor: 'transparent', color: byMode('#1c86f2', '#00a6f4'), outline: 'none', boxShadow: 'none' },
         '&:focus, &:focus-visible': { outline: 'none', boxShadow: 'none' },
-        '&:hover, &.Mui-selected:hover': { bgcolor: '#f5f5f5' },
+        '&:hover, &.Mui-selected:hover': { bgcolor: byMode('#f5f5f5', '#0084d1') },
+        'html[data-theme="dark"] &:hover, html[data-theme="dark"] &.Mui-selected:hover': { color: '#fafafa' },
       },
     },
   },
@@ -96,12 +98,12 @@ const MENU_PROPS = {
 
 const primaryBtnSx = {
   height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none',
-  bgcolor: '#5ebbeb', color: '#fff', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#cfe9f7', color: '#fff' },
+  bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: byMode('#cfe9f7', '#2e5a6e'), color: byMode('#fff', '#8a8d91') },
 };
 const cancelBtnSx = {
   height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none',
-  bgcolor: '#dddddd', color: '#000', '&:hover': { bgcolor: '#cccccc', boxShadow: 'none' },
+  bgcolor: byMode('#dddddd', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), '&:hover': { bgcolor: byMode('#cccccc', '#4a4a4a'), boxShadow: 'none' },
 };
 
 const isCsv = (file) => file && (file.type === 'text/csv' || /\.csv$/i.test(file.name));
@@ -236,7 +238,7 @@ const ImportProducts = () => {
   const handleGoBack = () => navigate('/products');
 
   return (
-    <Box sx={{ minHeight: 'calc(100vh - 50px)', bgcolor: '#f5f5f5', px: '8px', pb: '8px', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: 'calc(100vh - 50px)', bgcolor: byMode('#f5f5f5', '#121212'), px: '8px', pb: '8px', display: 'flex', flexDirection: 'column' }}>
       {/* Header: Back + title/subtitle on the left, Import Mode on the right */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: '16px', m: '20px 0 16px' }}>
         <Button data-testid="back-button" onClick={handleGoBack} disableRipple disableElevation sx={backButtonSx}>
@@ -244,10 +246,10 @@ const ImportProducts = () => {
           Back
         </Button>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', lineHeight: 1.1, m: 0 }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), lineHeight: 1.1, m: 0 }}>
             Import Products
           </Typography>
-          <Typography component="p" sx={{ fontSize: 16, color: '#000', mt: 0.5 }}>
+          <Typography component="p" sx={{ fontSize: 16, color: byMode('#000', '#d4d4d4'), mt: 0.5 }}>
             Looking for the file format? There is the{' '}
             <Link component="button" type="button" data-testid="help-simple" onClick={() => setHelpArticle('simple')} sx={linkSx}>Simple</Link>
             {' '}or{' '}
@@ -256,7 +258,7 @@ const ImportProducts = () => {
           </Typography>
         </Box>
         <Box sx={{ textAlign: 'right' }}>
-          <Typography component="label" htmlFor="import-mode-select" sx={{ display: 'block', fontSize: 16, color: '#000', mb: 0.5 }}>
+          <Typography component="label" htmlFor="import-mode-select" sx={{ display: 'block', fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>
             Import Mode
           </Typography>
           <Select
@@ -290,13 +292,13 @@ const ImportProducts = () => {
           justifyContent: 'center',
           gap: 1,
           border: '2px dashed',
-          borderColor: dragActive ? '#676b72' : '#bdbdbd',
-          bgcolor: dragActive ? '#eeeeee' : 'transparent',
-          color: '#9e9e9e',
+          borderColor: dragActive ? byMode('#676b72', '#d4d4d4') : byMode('#bdbdbd', '#a1a1a1'),
+          bgcolor: dragActive ? byMode('#eeeeee', '#1e1e1e') : 'transparent',
+          color: byMode('#9e9e9e', '#a0a4aa'),
           cursor: 'pointer',
           textAlign: 'center',
           transition: 'background 200ms ease, color 200ms ease',
-          '&:hover': { color: '#676b72', borderColor: '#9e9e9e' },
+          '&:hover': { color: byMode('#676b72', '#d4d4d4'), borderColor: byMode('#9e9e9e', '#d4d4d4') },
         }}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -316,13 +318,13 @@ const ImportProducts = () => {
         {importing ? (
           <>
             <CircularProgress size={40} sx={{ color: '#5ebbeb' }} />
-            <Typography sx={{ fontSize: 16, color: '#676b72', mt: 1 }}>Importing products...</Typography>
+            <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa'), mt: 1 }}>Importing products...</Typography>
           </>
         ) : (
           <>
             <UploadIcon sx={{ fontSize: 56 }} />
-            <Typography sx={{ fontSize: 15, color: '#000' }}>
-              <Box component="span" sx={{ color: '#5ebbeb' }}>Upload a file</Box> or drag and drop
+            <Typography sx={{ fontSize: 15, color: byMode('#000', '#d4d4d4') }}>
+              <Box component="span" sx={{ color: byMode('#5ebbeb', '#4ca0f5') }}>Upload a file</Box> or drag and drop
             </Typography>
           </>
         )}

@@ -19,6 +19,7 @@ import {
 import ShopfrontSwitch from './ShopfrontSwitch';
 import { useAppDialogs } from './AppDialogProvider';
 import { SEARCHED_DATABASES } from '../../utils/pageRuleDatabases';
+import { byMode } from '../../theme/sfPalette';
 
 // Renders a custom Page Rule's questions (Setup > Page Rules; reference art.
 // 360021629152) in the reference creation-wizard chrome: full-screen gradient,
@@ -42,15 +43,16 @@ const MIN_SEARCH = 3;
 
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
-    bgcolor: '#fff',
+    // Dark (reference wizard): #232323 box with light text on the unchanged blue backdrop
+    bgcolor: byMode('#fff', '#232323'),
     borderRadius: '6px',
     minHeight: 52,
     fontSize: 18,
-    '& fieldset': { borderColor: '#404040', borderWidth: 1 },
-    '&:hover fieldset': { borderColor: '#000' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 2 },
+    '& fieldset': { borderColor: 'sf.border', borderWidth: 1 },
+    '&:hover fieldset': { borderColor: byMode('#000', '#f8f8f8') },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', '#f8f8f8'), borderWidth: 2 },
   },
-  '& input::placeholder': { color: '#6b6b6b', opacity: 1 },
+  '& input::placeholder': { color: byMode('#6b6b6b', '#757575'), opacity: 1 },
 };
 
 // Dotted field names ("prices.0.price", "emails.0") set nested values.

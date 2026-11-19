@@ -61,25 +61,31 @@ const AppDialogContext = createContext(null);
 // How long a message that needs no answer stays up (success toast, info/warning alert).
 const AUTO_CLOSE_MS = 3000;
 
+// Dark mode only (light renders exactly as before): reference dark note / question dialog.
+const dk = (light, dark) => (t) => (t.palette.mode === 'dark' ? dark : light);
+const DARK_QUESTION = { head: '#232323', title: '#f8f8f8', btn: '#a3cefa', btnHover: '#8bc0f5', onBtn: '#313439' };
+
 const PAPER_SX = {
   width: 440,
   maxWidth: '92vw',
   overflow: 'hidden',
-  bgcolor: '#f8f8f8',
+  bgcolor: dk('#f8f8f8', '#232323'),
   borderRadius: 0,
-  border: '1px solid #000',
+  border: (t) => `1px solid ${t.palette.mode === 'dark' ? '#373737' : '#000'}`,
+  backgroundImage: dk(undefined, 'none'),
   boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)',
   transition: 'none',
 };
 
 const CANCEL_SX = {
-  bgcolor: '#8a8d91',
-  color: '#fff',
+  bgcolor: dk('#8a8d91', '#313439'),
+  color: dk('#fff', '#d4d4d4'),
+  border: dk(undefined, '1px solid #a1a1a1'),
   textTransform: 'none',
   borderRadius: '6px',
   fontWeight: 600,
   px: 3,
-  '&:hover': { bgcolor: '#76797d' },
+  '&:hover': { bgcolor: dk('#76797d', '#3a3f47') },
 };
 
 export const AppDialogProvider = ({ children }) => {
@@ -164,8 +170,16 @@ export const AppDialogProvider = ({ children }) => {
   }), [notify, push]);
 
   const open = Boolean(request);
-  const level = SEVERITY[request?.severity] || SEVERITY.info;
+  // While the dialog fades out `request` is already null; keep drawing the one that
+  // is closing, so it never flashes an empty "Heads up" box with a default title.
+  const lastShown = useRef(null);
+  if (request) lastShown.current = request;
+  const shown = request || lastShown.current;
+  const level = SEVERITY[shown?.severity] || SEVERITY.info;
   const { Icon } = level;
+  // Question / prompt dialogs follow the reference dark frame; other severities keep their tints.
+  const dq = shown?.severity === 'question' || !SEVERITY[shown?.severity] ? DARK_QUESTION : null;
+  const q = (light, darkKey) => (dq ? dk(light, dq[darkKey]) : light);
   const cancelResult = request?.type === 'prompt' ? null : false;
 
   const submit = () => close(request?.type === 'prompt' ? value : true);
@@ -181,18 +195,18 @@ export const AppDialogProvider = ({ children }) => {
         // Sale-screen dialogs sit above the cart overlays, which run to 1400.
         sx={{ zIndex: 2000 }}
       >
-        <Box sx={{ bgcolor: level.bg, px: 3, py: 1.75, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ bgcolor: q(level.bg, 'head'), px: 3, py: 1.75, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Icon sx={{ color: level.fg, fontSize: 22 }} />
-          <Typography sx={{ color: level.fg, fontWeight: 700, fontSize: 18 }}>
-            {request?.title || DEFAULT_TITLE[request?.severity] || 'Heads up'}
+          <Typography sx={{ color: q(level.fg, 'title'), fontWeight: 700, fontSize: 18 }}>
+            {shown?.title || DEFAULT_TITLE[shown?.severity] || 'Heads up'}
           </Typography>
         </Box>
 
         <DialogContent sx={{ px: 3, py: 2.5 }}>
-          <Typography sx={{ color: '#313439', fontSize: 16, whiteSpace: 'pre-line' }}>
-            {request?.message}
+          <Typography sx={{ color: dk('#313439', '#d4d4d4'), fontSize: 16, whiteSpace: 'pre-line' }}>
+            {shown?.message}
           </Typography>
-          {request?.type === 'prompt' && (
+          {shown?.type === 'prompt' && (
             <TextField
               autoFocus
               fullWidth
@@ -205,31 +219,36 @@ export const AppDialogProvider = ({ children }) => {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !request?.multiline) { e.preventDefault(); submit(); }
               }}
-              sx={{ mt: 2, '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: '#fff' } }}
+              sx={{
+                mt: 2,
+                '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: dk('#fff', '#232323'), color: dk(undefined, '#f8f8f8') },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: dk(undefined, '#f8f8f8') },
+                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: dk(undefined, '#f8f8f8') },
+              }}
             />
           )}
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1.25 }}>
-          {request?.type !== 'alert' && (
+          {shown?.type !== 'alert' && (
             <Button onClick={() => close(cancelResult)} disableElevation sx={CANCEL_SX}>
-              {request?.cancelText || 'Cancel'}
+              {shown?.cancelText || 'Cancel'}
             </Button>
           )}
           <Button
             onClick={submit}
             disableElevation
             sx={{
-              bgcolor: level.btn,
-              color: '#fff',
+              bgcolor: q(level.btn, 'btn'),
+              color: q('#fff', 'onBtn'),
               textTransform: 'none',
               borderRadius: '6px',
               fontWeight: 600,
               px: 3,
-              '&:hover': { bgcolor: level.btnHover },
+              '&:hover': { bgcolor: q(level.btnHover, 'btnHover') },
             }}
           >
-            {request?.confirmText || (request?.type === 'alert' ? 'OK' : 'Continue')}
+            {shown?.confirmText || (shown?.type === 'alert' ? 'OK' : 'Continue')}
           </Button>
         </DialogActions>
       </Dialog>

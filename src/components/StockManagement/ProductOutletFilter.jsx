@@ -7,6 +7,7 @@ import {
 import outletService from '../../services/outletService';
 import useHeaderScope from '../../hooks/useHeaderScope';
 import { OUTLET_SELECT_SX } from './productViewStyles';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference product-view "Outlets" filter shared by the Purchase History / Transfer
 // History (single) and Promotions (multi, checkbox options + chips) tabs. Same box as
@@ -46,14 +47,14 @@ const ProductOutletFilter = ({ multiple = false, value, onChange, testId = 'prod
         value={selected}
         onChange={(e, v) => onChange(multiple ? v : v || null)}
         limitTags={2}
-        ListboxProps={multiple ? { sx: { p: 0, '& .MuiAutocomplete-option': { fontSize: 16, py: '10px', color: '#000' }, '& .MuiAutocomplete-option[aria-selected="true"]': { color: '#1c86f2', bgcolor: 'transparent' }, '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#5ebbeb !important', color: '#000' } } } : undefined}
+        ListboxProps={multiple ? { sx: { p: 0, '& .MuiAutocomplete-option': { fontSize: 16, py: '10px', color: 'sf.text' }, '& .MuiAutocomplete-option[aria-selected="true"]': { color: byMode('#1c86f2', '#00a6f4'), bgcolor: 'transparent' }, '& .MuiAutocomplete-option.Mui-focused': { bgcolor: byMode('#5ebbeb !important', '#0084d1 !important'), color: byMode('#000', '#fafafa') } } } : undefined}
         renderOption={multiple ? (props, option, { selected: isSel }) => (
           <li {...props} key={option.id} aria-selected={isSel}>
             <Checkbox
               icon={<UncheckedIcon fontSize="small" />}
               checkedIcon={<CheckedIcon fontSize="small" />}
               checked={isSel}
-              sx={{ p: 0, mr: 1, color: '#000', '&.Mui-checked': { color: '#1c86f2' } }}
+              sx={{ p: 0, mr: 1, color: 'sf.text', '&.Mui-checked': { color: byMode('#1c86f2', '#00a6f4') } }}
             />
             {option.name}
           </li>
@@ -65,7 +66,7 @@ const ProductOutletFilter = ({ multiple = false, value, onChange, testId = 'prod
               key={option.id}
               label={option.name}
               size="small"
-              sx={{ borderRadius: '4px', fontSize: 14, maxWidth: 150, height: 24, bgcolor: '#ebebeb' }}
+              sx={{ borderRadius: '4px', fontSize: 14, maxWidth: 150, height: 24, bgcolor: byMode('#ebebeb', '#3a3a3a') }}
             />
           )) : undefined}
         renderInput={(params) => (

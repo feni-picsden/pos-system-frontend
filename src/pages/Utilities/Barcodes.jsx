@@ -45,16 +45,16 @@ const INVENTORY_LEVELS = [
 ];
 
 const fieldSx = {
-  bgcolor: '#fff',
+  bgcolor: 'sf.input',
   '& .MuiOutlinedInput-root': {
     height: 42,
     borderRadius: '8px',
-    bgcolor: '#fff',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    bgcolor: 'sf.input',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.borderStrong', borderWidth: '2px' },
   },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: 'sf.textFaint', opacity: 1 },
 };
 
 // Reference uses the FontAwesome fa-trash-alt glyph (no FA dependency here — inline path).
@@ -65,13 +65,14 @@ const DeleteIcon = (props) => (
 );
 
 // Reference filter labels: black 16px regular (user 18/11/2026).
-const groupLabelSx = { color: '#000', fontSize: 16, fontWeight: 400, mb: 0.5 };
+const groupLabelSx = { color: 'sf.text', fontSize: 16, fontWeight: 400, mb: 0.5 };
 
 // Reference sort glyph: hollow up + down triangles, the active direction filled.
 const SortGlyph = ({ dir }) => (
+  // currentColor: follows the header text (white on blue in light, blue on dark grey in dark)
   <svg width="10" height="14" viewBox="0 0 10 14" aria-hidden="true" style={{ marginLeft: 4 }}>
-    <path d="M5 1 L9 5.5 H1 Z" fill={dir === 'asc' ? '#fff' : 'none'} stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />
-    <path d="M5 13 L9 8.5 H1 Z" fill={dir === 'desc' ? '#fff' : 'none'} stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />
+    <path d="M5 1 L9 5.5 H1 Z" fill={dir === 'asc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    <path d="M5 13 L9 8.5 H1 Z" fill={dir === 'desc' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
   </svg>
 );
 
@@ -86,12 +87,14 @@ const LIST_MENU_PROPS = {
     sx: {
       mt: '8px',
       borderRadius: '8px',
-      border: '1px solid #404040',
+      border: 1,
+      borderColor: 'sf.border',
+      bgcolor: 'sf.paper',
       boxShadow: 'none',
-      '&& .MuiMenuItem-root': { minHeight: 56, height: 56, px: 2, fontSize: 16, color: '#000', borderBottom: 0 },
+      '&& .MuiMenuItem-root': { minHeight: 56, height: 56, px: 2, fontSize: 16, color: 'sf.text', borderBottom: 0 },
       '&& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#38bdf8' },
-      '&& .MuiMenuItem-root:hover, && .MuiMenuItem-root.Mui-focusVisible, && .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#5ebbeb', color: '#f8f8f8' },
-      '&&:hover .MuiMenuItem-root.Mui-focusVisible:not(:hover)': { bgcolor: 'transparent', color: '#000' },
+      '&& .MuiMenuItem-root:hover, && .MuiMenuItem-root.Mui-focusVisible, && .MuiMenuItem-root.Mui-selected:hover': { bgcolor: 'sf.menuHover', color: '#f8f8f8' },
+      '&&:hover .MuiMenuItem-root.Mui-focusVisible:not(:hover)': { bgcolor: 'transparent', color: 'sf.text' },
     },
   },
   MenuListProps: { sx: { py: 0 } },
@@ -355,7 +358,7 @@ const Barcodes = () => {
     >
       {/* Title left, row count top right - same "N Results" block as the Products page */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Typography variant="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
+        <Typography variant="h1" sx={{ fontSize: 32, fontWeight: 700, color: 'sf.text' }}>
           Barcodes
         </Typography>
         {/* 24px off the right edge like the Products page (8px page gutter + 16px) */}
@@ -398,19 +401,20 @@ const Barcodes = () => {
                 ...fieldSx,
                 '& .MuiOutlinedInput-root': { ...fieldSx['& .MuiOutlinedInput-root'], height: 'auto', minHeight: 42 },
                 '& .MuiAutocomplete-clearIndicator': { visibility: selectedOutlets.length ? 'visible' : 'hidden', p: '2px' },
-                '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: '#000' },
+                '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: 'sf.text' },
               }}
               slotProps={{
                 paper: {
                   sx: {
                     mt: '10px',
-                    border: '1px solid #000',
+                    border: 1,
+                    borderColor: 'sf.borderStrong',
                     borderRadius: '8px',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                     '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
-                    '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+                    '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: 'sf.text' },
                     '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent' },
-                    '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
+                    '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': { bgcolor: 'sf.overlayHover' },
                   },
                 },
               }}
@@ -422,7 +426,7 @@ const Barcodes = () => {
                       icon={<SquareIcon />}
                       checkedIcon={<CheckSquareIcon />}
                       checked={selected}
-                      sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                      sx={{ p: 0, mr: '6px', color: 'sf.text', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
                     />
                     {option.name}
                   </li>
@@ -430,7 +434,7 @@ const Barcodes = () => {
               }}
               renderInput={(params) => <TextField {...params} placeholder={selectedOutlets.length ? '' : 'Select Outlets...'} />}
               renderTags={(vals, getTagProps) => {
-                const chipSx = { height: 26, borderRadius: '4px', bgcolor: '#e5e5e5', color: '#000', fontSize: 16, '& .MuiChip-label': { px: 1 } };
+                const chipSx = { height: 26, borderRadius: '4px', bgcolor: 'sf.chip', color: 'sf.text', fontSize: 16, '& .MuiChip-label': { px: 1 } };
                 const shown = vals.slice(0, 2).map((option, index) => {
                   // eslint-disable-next-line no-unused-vars
                   const { key, onDelete, ...tagProps } = getTagProps({ index });
@@ -462,10 +466,10 @@ const Barcodes = () => {
             sx={{
               height: 42,
               borderRadius: '8px',
-              bgcolor: '#fff',
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+              bgcolor: 'sf.input',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.borderStrong', borderWidth: '2px' },
             }}
             MenuProps={LIST_MENU_PROPS}
             // Working clear control — without it the staged filter can never be unset
@@ -489,7 +493,7 @@ const Barcodes = () => {
               value ? (
                 INVENTORY_LEVELS.find((l) => l.value === value)?.label
               ) : (
-                <Box component="span" sx={{ color: '#808080' }}>
+                <Box component="span" sx={{ color: 'sf.textFaint' }}>
                   Select Inventory Level filter...
                 </Box>
               )
@@ -542,7 +546,7 @@ const Barcodes = () => {
               checked={onlyDuplicates}
               onChange={(e) => setOnlyDuplicates(e.target.checked)}
             />
-            <Typography sx={{ color: '#313439', fontSize: 14 }}>
+            <Typography sx={{ color: 'sf.textSlate', fontSize: 14 }}>
               {onlyDuplicates
                 ? 'Only showing barcodes that are being used multiple times'
                 : 'Showing all barcodes, not just duplicates'}
@@ -562,7 +566,7 @@ const Barcodes = () => {
               bgcolor: '#5ebbeb',
               border: '1px solid #5ebbeb',
               borderRadius: '12px',
-              color: '#fff',
+              color: 'sf.onPrimaryButton',
               fontWeight: 700,
               fontSize: 16,
               textTransform: 'none',
@@ -600,8 +604,8 @@ const Barcodes = () => {
                   position: 'sticky',
                   top: 0,
                   zIndex: 1,
-                  backgroundColor: '#5ebbeb',
-                  color: '#fff',
+                  backgroundColor: 'sf.tableHead',
+                  color: 'sf.onTableHead',
                   fontWeight: 700,
                   fontSize: 16,
                   textTransform: 'none',
@@ -618,7 +622,7 @@ const Barcodes = () => {
                 {/* Reference: no select-all affordance until at least one row is selected */}
                 {selectedBarcodes.length > 0 && (
                   <Checkbox
-                    sx={{ color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                    sx={{ color: 'sf.onTableHead', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: 'sf.onTableHead' } }}
                     indeterminate={selectedBarcodes.length < sortedBarcodes.length}
                     checked={selectedBarcodes.length === sortedBarcodes.length}
                     onChange={handleSelectAll}
@@ -638,7 +642,7 @@ const Barcodes = () => {
           <TableBody>
             {loading || error ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3, color: error ? '#dc2626' : '#676b72' }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 3, color: error ? 'sf.dangerText' : 'sf.textMuted' }}>
                   {loading ? 'Loading...' : error}
                 </TableCell>
               </TableRow>
@@ -647,7 +651,7 @@ const Barcodes = () => {
                 <TableRow
                   key={barcode.id}
                   sx={{
-                    bgcolor: '#fff',
+                    bgcolor: 'sf.paper',
                     height: 58,
                     '& td': { fontSize: 16, height: 58, padding: '8px 8px 8px 10px', borderBottom: 'none' },
                   }}
@@ -668,9 +672,9 @@ const Barcodes = () => {
                       to={`/products/${barcode.productId}/view`}
                       sx={{
                         fontSize: 16,
-                        color: '#0000ee',
+                        color: 'sf.link',
                         textDecoration: 'underline',
-                        '&:visited': { color: '#551a8b' },
+                        '&:visited': { color: 'sf.linkVisited' },
                       }}
                     >
                       {barcode.productName}
@@ -694,7 +698,7 @@ const Barcodes = () => {
                         px: 1.5,
                         minWidth: 0,
                         py: 1,
-                        color: '#dc2626',
+                        color: 'sf.dangerText',
                         bgcolor: 'transparent',
                         border: '1px solid transparent',
                         borderRadius: '12px',
@@ -705,7 +709,7 @@ const Barcodes = () => {
                         boxShadow: 'none',
                         // Reference: hover is instant
                         transition: 'none',
-                        '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', boxShadow: 'none' },
+                        '&:hover': { bgcolor: 'sf.overlayPress', boxShadow: 'none' },
                       }}
                     >
                       Delete
@@ -728,7 +732,7 @@ const Barcodes = () => {
             right: 0,
             bottom: 0,
             height: 64,
-            bgcolor: '#5ebbeb',
+            bgcolor: 'sf.bulkBar',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
@@ -738,7 +742,7 @@ const Barcodes = () => {
           }}
         >
           {/* Reference renders dark text on the blue bar */}
-          <Typography sx={{ color: '#000', fontWeight: 400, fontSize: 16 }}>
+          <Typography sx={{ color: 'sf.onBulkBar', fontWeight: 400, fontSize: 16 }}>
             {selectedBarcodes.length} Selected
           </Typography>
           <Button
@@ -749,16 +753,17 @@ const Barcodes = () => {
               height: 42,
               width: 185,
               px: 4,
-              bgcolor: '#fb2c36',
-              border: '1px solid #fb2c36',
+              bgcolor: 'sf.bulkDanger',
+              border: 1,
+              borderColor: 'sf.bulkDanger',
               borderRadius: '12px',
-              color: '#fff',
+              color: 'sf.onBulkDanger',
               fontWeight: 700,
               fontSize: 16,
               textTransform: 'none',
               whiteSpace: 'nowrap',
               boxShadow: 'none',
-              '&:hover': { bgcolor: '#ff6467', borderColor: '#ff6467', boxShadow: 'none' },
+              '&:hover': { bgcolor: 'sf.bulkDangerHover', borderColor: 'sf.bulkDangerHover', boxShadow: 'none' },
             }}
           >
             Delete Selected

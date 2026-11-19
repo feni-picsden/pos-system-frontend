@@ -20,6 +20,7 @@ import productService from '../../services/productService';
 import settingsService from '../../services/settingsService';
 import { pricingUnitCost } from '../../utils/productCost';
 import { tierLinePrice } from '../../utils/quantityTierPrice';
+import { byMode } from '../../theme/sfPalette';
 
 // "Combo Items" — what a Combo Product spends. Selling one combo takes each
 // row's quantity off that product's stock (Shopfront "Basket Products",
@@ -159,17 +160,17 @@ const ComboItemsPanel = ({ items = [], excludeProductId = null, outletId = null,
             justifyContent: 'center',
             gap: 1,
             py: 4,
-            color: '#737373',
+            color: 'sf.textSoft',
           }}
         >
           <ComboIcon sx={{ fontSize: 20 }} />
           <Typography sx={{ fontSize: 16 }}>No Combo Items</Typography>
         </Box>
       ) : (
-        <TableContainer sx={{ maxWidth: 860, border: '1px solid #e0e0e0', borderRadius: '8px' }}>
+        <TableContainer sx={{ maxWidth: 860, border: 1, borderColor: 'sf.borderLight', borderRadius: '8px' }}>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ '& th': { bgcolor: '#ebebeb', fontWeight: 700, fontSize: 15, border: 0 } }}>
+              <TableRow sx={{ '& th': { bgcolor: 'sf.paneAlt', fontWeight: 700, fontSize: 15, border: 0 } }}>
                 <TableCell>Product</TableCell>
                 <TableCell align="center">Quantity</TableCell>
                 <TableCell align="right">Price</TableCell>
@@ -199,7 +200,7 @@ const ComboItemsPanel = ({ items = [], excludeProductId = null, outletId = null,
                       size="small"
                       onClick={() => remove(row.productId)}
                       aria-label={`remove ${row.name || 'product'}`}
-                      sx={{ color: '#d32f2f' }}
+                      sx={{ color: byMode('#d32f2f', '#ffa2a2') }}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -209,17 +210,17 @@ const ComboItemsPanel = ({ items = [], excludeProductId = null, outletId = null,
               {/* Reference closes the table with a Totals line sitting under the
                   Price and Cost columns rather than as free text below it. */}
               <TableRow>
-                <TableCell sx={{ borderTop: '1px solid #e0e0e0 !important', fontWeight: 700 }}>
+                <TableCell sx={{ borderTop: (t) => `1px solid ${t.palette.sf.borderLight} !important`, fontWeight: 700 }}>
                   Totals
                 </TableCell>
-                <TableCell sx={{ borderTop: '1px solid #e0e0e0 !important' }} />
-                <TableCell align="right" sx={{ borderTop: '1px solid #e0e0e0 !important', fontWeight: 700 }}>
+                <TableCell sx={{ borderTop: (t) => `1px solid ${t.palette.sf.borderLight} !important` }} />
+                <TableCell align="right" sx={{ borderTop: (t) => `1px solid ${t.palette.sf.borderLight} !important`, fontWeight: 700 }}>
                   {money(itemsTotal)}
                 </TableCell>
-                <TableCell align="right" sx={{ borderTop: '1px solid #e0e0e0 !important', fontWeight: 700 }}>
+                <TableCell align="right" sx={{ borderTop: (t) => `1px solid ${t.palette.sf.borderLight} !important`, fontWeight: 700 }}>
                   {money(contentsCost)}
                 </TableCell>
-                <TableCell sx={{ borderTop: '1px solid #e0e0e0 !important' }} />
+                <TableCell sx={{ borderTop: (t) => `1px solid ${t.palette.sf.borderLight} !important` }} />
               </TableRow>
             </TableBody>
           </Table>
@@ -229,7 +230,7 @@ const ComboItemsPanel = ({ items = [], excludeProductId = null, outletId = null,
 
       {items.length > 0 && (
         <>
-          <Typography sx={{ mt: 1.5, fontSize: 14, color: '#676b72', maxWidth: 860 }}>
+          <Typography sx={{ mt: 1.5, fontSize: 14, color: 'sf.textMuted', maxWidth: 860 }}>
             Quantity is what comes off each product&apos;s stock when one combo sells. Use whole
             numbers for a hamper, or a decimal to sell a glass out of a keg (a pint is 0.57 of a 50L keg).
           </Typography>

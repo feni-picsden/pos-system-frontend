@@ -3,6 +3,7 @@ import { Alert, Box, Table, TableBody, TableCell, TableHead, TableRow, Typograph
 import ShopfrontDialog, { DialogButton } from '../Common/ShopfrontDialog';
 import { familyCategoryCheck } from '../../utils/familyOverride';
 import FamilyPriceTiers, { FamilyMemberPriceRows } from './FamilyPriceTiers';
+import { byMode } from '../../theme/sfPalette';
 
 // Asked before a product joins a family whose products are from a DIFFERENT category
 // (our own safety net — the reference asks nothing). Joining changes no price by
@@ -10,8 +11,8 @@ import FamilyPriceTiers, { FamilyMemberPriceRows } from './FamilyPriceTiers';
 // edit on any member is carried to all of them, and members on the same price points
 // are added together for quantity deals at the till — so the wrong family is a pricing
 // mistake, not a label. The dialog shows who is already in the family.
-const cellSx = { fontSize: 14, py: 0.75, px: 1, borderBottom: '1px solid #e5e7eb' };
-const headSx = { ...cellSx, fontWeight: 700, color: '#313439' };
+const cellSx = { fontSize: 14, py: 0.75, px: 1, borderBottom: 1, borderBottomColor: byMode('#e5e7eb', '#333333') };
+const headSx = { ...cellSx, fontWeight: 700, color: byMode('#313439', '#f8f8f8') };
 
 const FamilyPickConfirmDialog = ({ open, family, members = [], product, onConfirm, onCancel }) => {
   if (!open || !family) return null;
@@ -57,7 +58,7 @@ const FamilyPickConfirmDialog = ({ open, family, members = [], product, onConfir
       <Typography sx={{ fontSize: 14, fontWeight: 700, textAlign: 'left', mb: 0.5 }}>
         Products already in this family
       </Typography>
-      <Box sx={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #e5e7eb' }}>
+      <Box sx={{ maxHeight: 220, overflowY: 'auto', border: 1, borderColor: byMode('#e5e7eb', '#333333') }}>
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>

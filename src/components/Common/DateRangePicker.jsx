@@ -18,6 +18,19 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, addMonths, startOfMonth, endOfMonth, startOfDay, endOfDay, isSameMonth, isWithinInterval, parse, isValid } from 'date-fns';
 import { toAppZonedDate } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-only colour (light keeps whatever it renders today: undefined = no rule).
+const darkOnly = (dark) => byMode(undefined, dark);
+// Reference dark popover typed boxes: white with black text, the focused one inverted.
+const POPOVER_INPUT_SX = {
+  flex: 1,
+  '& .MuiOutlinedInput-root': { bgcolor: darkOnly('#ffffff'), color: darkOnly('#000000') },
+  '& .MuiOutlinedInput-root.Mui-focused': { bgcolor: darkOnly('#121212'), color: darkOnly('#f8f8f8') },
+  '& .MuiOutlinedInput-root .MuiSvgIcon-root': { color: darkOnly('#000000') },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiSvgIcon-root': { color: darkOnly('#f8f8f8') },
+  '& input::placeholder': { color: darkOnly('#757575'), opacity: darkOnly(1) },
+};
 
 // Reference popover accepts typed dates, with or without slashes (25/12/2025 or 25122025).
 const parseTypedDate = (raw) => {
@@ -312,6 +325,7 @@ const DateRangePicker = ({
           {isLeft ? (
             <IconButton
               size="small"
+              sx={{ color: darkOnly('#f8f8f8') }}
               onClick={() => {
                 setLeftMonth(addMonths(leftMonth, -1));
                 setRightMonth(addMonths(rightMonth, -1));
@@ -322,7 +336,7 @@ const DateRangePicker = ({
           ) : (
             <Box sx={{ width: 34 }} />
           )}
-          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', color: darkOnly('#d4d4d4') }}>
             {format(month, 'MMMM yyyy')}
           </Typography>
           {isLeft ? (
@@ -330,6 +344,7 @@ const DateRangePicker = ({
           ) : (
             <IconButton
               size="small"
+              sx={{ color: darkOnly('#f8f8f8') }}
               onClick={() => {
                 setLeftMonth(addMonths(leftMonth, 1));
                 setRightMonth(addMonths(rightMonth, 1));
@@ -341,7 +356,7 @@ const DateRangePicker = ({
         </Box>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5, mb: 1 }}>
           {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-            <Typography key={i} variant="caption" sx={{ textAlign: 'center', fontWeight: 'bold', py: 0.5 }}>
+            <Typography key={i} variant="caption" sx={{ textAlign: 'center', fontWeight: 'bold', py: 0.5, color: darkOnly('#5e5e5e') }}>
               {day}
             </Typography>
           ))}
@@ -367,13 +382,14 @@ const DateRangePicker = ({
                     cursor: isCurrentMonth ? 'pointer' : 'default',
                     borderRadius: '50%',
                     // Reference: today is circled in blue
-                    border: isToday && !(isStart || isEnd) ? '1px solid #0284c7' : '1px solid transparent',
-                    bgcolor: isStart || isEnd ? '#2196f3' : isInRange ? '#e3f2fd' : 'transparent',
-                    // Reference: day numbers render blue
-                    color: isStart || isEnd ? 'white' : isCurrentMonth ? '#0284c7' : 'text.disabled',
+                    border: 1,
+                    borderColor: isToday && !(isStart || isEnd) ? byMode('#0284c7', '#74d4ff') : 'transparent',
+                    bgcolor: isStart || isEnd ? '#2196f3' : isInRange ? byMode('#e3f2fd', '#1f3a4a') : 'transparent',
+                    // Reference: day numbers render blue (dark: #74d4ff, outside days #424242)
+                    color: isStart || isEnd ? 'white' : isCurrentMonth ? byMode('#0284c7', '#74d4ff') : byMode('text.disabled', '#424242'),
                     fontWeight: isStart || isEnd ? 'bold' : 'normal',
                     '&:hover': isCurrentMonth ? {
-                      bgcolor: isStart || isEnd ? '#1976d2' : '#bbdefb',
+                      bgcolor: isStart || isEnd ? '#1976d2' : byMode('#bbdefb', '#2a4d60'),
                     } : {},
                   }}
                 >
@@ -406,8 +422,9 @@ const DateRangePicker = ({
               height: triggerHeight,
               // 14px = the text inset of the outlined fields beside it on the page
               px: '14px',
-              bgcolor: '#fff',
-              border: '1px solid #404040',
+              bgcolor: byMode('#fff', '#121212'),
+              border: 1,
+              borderColor: byMode('#404040', '#a1a1a1'),
               borderRadius: '8px',
               cursor: 'pointer',
             }}
@@ -416,7 +433,7 @@ const DateRangePicker = ({
               const d = which === 'start' ? startDate : endDate;
               return (
                 <React.Fragment key={which}>
-                  {i > 0 && <Typography sx={{ color: '#676b72' }}>{separator}</Typography>}
+                  {i > 0 && <Typography sx={{ color: byMode('#676b72', '#d4d4d4') }}>{separator}</Typography>}
                   <Box
                     component="button"
                     type="button"
@@ -433,7 +450,7 @@ const DateRangePicker = ({
                       fontSize: 16,
                       textAlign: 'left',
                       cursor: 'pointer',
-                      color: d ? '#000' : '#808080',
+                      color: d ? byMode('#000', '#f8f8f8') : byMode('#808080', '#757575'),
                     }}
                   >
                     {d ? format(d, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
@@ -444,7 +461,7 @@ const DateRangePicker = ({
             {allowEmpty && (startDate || endDate) ? (
               // same small black × as the page's other fields
               <IconButton size="small" onMouseDown={(e) => e.stopPropagation()} onClick={handleClear} sx={{ p: '2px' }}>
-                <Close sx={{ fontSize: 18, color: '#000' }} />
+                <Close sx={{ fontSize: 18, color: byMode('#000', '#f8f8f8') }} />
               </IconButton>
             ) : null}
           </Box>
@@ -497,8 +514,9 @@ const DateRangePicker = ({
               // so floor the height instead of padding every child to match.
               // ponytail: minHeight (not height) so a 6-week month still never clips.
               ...(enableTime || splitTrigger ? { minHeight: 463 } : {}),
-              bgcolor: '#f7f7f7',
-              border: '1px solid #e5e5e5',
+              bgcolor: byMode('#f7f7f7', '#232323'),
+              border: 1,
+              borderColor: byMode('#e5e5e5', '#373737'),
               borderRadius: '12px',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
             },
@@ -511,7 +529,7 @@ const DateRangePicker = ({
               <Button
                 size="small"
                 onClick={handleCurrentDay}
-                sx={{ textTransform: 'none', fontSize: 14, color: '#313439', p: '2px 8px', minWidth: 0 }}
+                sx={{ textTransform: 'none', fontSize: 14, color: byMode('#313439', '#f8f8f8'), p: '2px 8px', minWidth: 0 }}
               >
                 Current Day
               </Button>
@@ -519,13 +537,13 @@ const DateRangePicker = ({
 
             {/* Date Input Fields */}
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              {enableTime && <CalendarIcon fontSize="small" sx={{ color: '#676b72' }} />}
+              {enableTime && <CalendarIcon fontSize="small" sx={{ color: byMode('#676b72', '#f8f8f8') }} />}
               <TextField
                 size="small"
                 value={startInput}
                 onChange={(e) => handleTypedDate('start', e.target.value)}
                 placeholder="dd/mm/yyyy"
-                sx={{ flex: 1 }}
+                sx={POPOVER_INPUT_SX}
                 InputProps={popoverIcons && (tempStartDate || startInput) ? {
                   endAdornment: (
                     <IconButton size="small" aria-label="Clear start date" onClick={() => {
@@ -541,13 +559,13 @@ const DateRangePicker = ({
               {!single && (
                 <>
                   {/* Reference: dash between the side-by-side start/end inputs */}
-                  <Typography sx={{ color: '#676b72' }}>—</Typography>
+                  <Typography sx={{ color: byMode('#676b72', '#d4d4d4') }}>—</Typography>
                   <TextField
                     size="small"
                     value={endInput}
                     onChange={(e) => handleTypedDate('end', e.target.value)}
                     placeholder="dd/mm/yyyy"
-                    sx={{ flex: 1 }}
+                    sx={POPOVER_INPUT_SX}
                     InputProps={popoverIcons && (tempEndDate || endInput) ? {
                       endAdornment: (
                         <IconButton size="small" aria-label="Clear end date" onClick={() => {
@@ -566,14 +584,14 @@ const DateRangePicker = ({
             {/* Time-of-day narrowing (opt-in) — native hh:mm:ss inputs with their own clock picker */}
             {enableTime && (
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <ClockIcon fontSize="small" sx={{ color: '#676b72' }} />
+                <ClockIcon fontSize="small" sx={{ color: byMode('#676b72', '#f8f8f8') }} />
                 <TextField
                   size="small"
                   type="time"
                   value={startDate ? format(startDate, 'HH:mm:ss') : ''}
                   onChange={(e) => handleTimeChange('start', e)}
                   inputProps={{ step: 1 }}
-                  sx={{ flex: 1 }}
+                  sx={POPOVER_INPUT_SX}
                 />
                 {!single && (
                   <TextField
@@ -582,7 +600,7 @@ const DateRangePicker = ({
                     value={endDate ? format(endDate, 'HH:mm:ss') : ''}
                     onChange={(e) => handleTimeChange('end', e)}
                     inputProps={{ step: 1 }}
-                    sx={{ flex: 1 }}
+                    sx={POPOVER_INPUT_SX}
                   />
                 )}
               </Box>

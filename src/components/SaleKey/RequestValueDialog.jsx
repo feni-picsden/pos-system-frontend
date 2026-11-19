@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Dialog } from '@mui/material';
 import { KeypadBody, CancelConfirmRow } from './LineEditPanel';
+import { byMode } from '../../theme/sfPalette';
 
 // In-app replacement for window.prompt on the sell screen: products and sale keys
 // flagged "Request Quantity" / "Request Price" ask for the value with the same
@@ -25,10 +26,10 @@ const RequestValueDialog = ({ request, onClose }) => {
       open
       onClose={() => finish(null)}
       PaperProps={{
-        sx: { width: 389, borderRadius: '12px', bgcolor: '#FAFAFA', border: '1px solid #D4D4D4', p: 2, overflow: 'visible' },
+        sx: { width: 389, borderRadius: '12px', bgcolor: byMode('#FAFAFA', '#232323'), border: byMode('1px solid #D4D4D4', '1px solid #a1a1a1'), p: 2, overflow: 'visible' },
       }}
     >
-      <Box sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 1.5 }}>{request.title}</Box>
+      <Box sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1.5 }}>{request.title}</Box>
       {/* Confirm below is the Ok no second one inside the keypad. */}
       <KeypadBody value={value} setValue={setValue} onOk={confirm} mode={request.mode || 'price'} showOk={false} />
       <Box sx={{ mt: 2 }}>

@@ -49,6 +49,7 @@ import {
   splitMoney,
 } from './productViewStyles';
 import { saleBasePrice } from '../../utils/saleTotals';
+import { byMode } from '../../theme/sfPalette';
 
 const ROWS_PER_PAGE = 25;
 
@@ -285,7 +286,7 @@ const ProductSalesHistory = ({ productId }) => {
             ))}
             {(det.items?.length ?? 0) === 0 &&
               (det.loadError ? (
-                <Typography sx={{ color: '#e33430', fontSize: 16 }}>
+                <Typography sx={{ color: byMode('#e33430', '#ffa2a2'), fontSize: 16 }}>
                   Could not load the details for this sale.
                 </Typography>
               ) : (
@@ -327,7 +328,7 @@ const ProductSalesHistory = ({ productId }) => {
           above the list. Header rule (16/10/2026): hidden when a header outlet is selected. */}
       {showOutletFilter && (
         <Box sx={{ p: 1, pb: 0 }}>
-          <Box sx={{ fontSize: 16, color: '#000' }}>Outlets</Box>
+          <Box sx={{ fontSize: 16, color: 'sf.text' }}>Outlets</Box>
           <Autocomplete
             multiple
             disableCloseOnSelect
@@ -341,7 +342,7 @@ const ProductSalesHistory = ({ productId }) => {
               setSelectedOutlets(v);
             }}
             limitTags={2}
-            ListboxProps={{ sx: { p: 0, '& .MuiAutocomplete-option': { fontSize: 16, py: '10px', color: '#000' }, '& .MuiAutocomplete-option[aria-selected="true"]': { color: '#1c86f2', bgcolor: 'transparent' }, '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#5ebbeb !important', color: '#000' } } }}
+            ListboxProps={{ sx: { p: 0, '& .MuiAutocomplete-option': { fontSize: 16, py: '10px', color: 'sf.text' }, '& .MuiAutocomplete-option[aria-selected="true"]': { color: byMode('#1c86f2', '#00a6f4'), bgcolor: 'transparent' }, '& .MuiAutocomplete-option.Mui-focused': { bgcolor: byMode('#5ebbeb !important', '#0084d1 !important'), color: byMode('#000', '#fafafa') } } }}
             renderOption={(props, option, { selected }) => {
               const checked = selected;
               return (
@@ -350,7 +351,7 @@ const ProductSalesHistory = ({ productId }) => {
                     icon={<UncheckedIcon fontSize="small" />}
                     checkedIcon={<CheckedIcon fontSize="small" />}
                     checked={checked}
-                    sx={{ p: 0, mr: 1, color: '#000', '&.Mui-checked': { color: '#1c86f2' } }}
+                    sx={{ p: 0, mr: 1, color: 'sf.text', '&.Mui-checked': { color: byMode('#1c86f2', '#00a6f4') } }}
                   />
                   {option.name}
                 </li>
@@ -363,7 +364,7 @@ const ProductSalesHistory = ({ productId }) => {
                   key={option.id}
                   label={option.name}
                   size="small"
-                  sx={{ borderRadius: '4px', fontSize: 14, maxWidth: 150, height: 24, bgcolor: '#ebebeb' }}
+                  sx={{ borderRadius: '4px', fontSize: 14, maxWidth: 150, height: 24, bgcolor: byMode('#ebebeb', '#3a3a3a') }}
                 />
               ))
             }
@@ -379,7 +380,7 @@ const ProductSalesHistory = ({ productId }) => {
       )}
 
       <Box sx={{ p: 1, pb: 2 }}>
-        <Box sx={{ fontSize: 16, color: '#000' }}>Date Range</Box>
+        <Box sx={{ fontSize: 16, color: 'sf.text' }}>Date Range</Box>
         <DateRangePicker
           label=""
           value={dateRange}
@@ -395,10 +396,10 @@ const ProductSalesHistory = ({ productId }) => {
             '& .MuiOutlinedInput-root': {
               borderRadius: '8px',
               fontSize: 16,
-              backgroundColor: '#fff',
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+              backgroundColor: 'sf.input',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.borderStrong', borderWidth: '2px' },
             },
           }}
         />

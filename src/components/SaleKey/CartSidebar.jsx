@@ -40,6 +40,14 @@ import { useAppDialogs } from '../Common/AppDialogProvider';
 import settingsService from '../../services/settingsService';
 import { effectiveUnitCost } from '../../utils/productCost';
 import { formatMoney } from '../../utils/currency';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (Profile > Theme): light values are the reference's own colours and
+// stay exactly as before; dark values are measured off the reference's dark sell
+// screen (panel #121212, dividers #373737, text #f8f8f8, line name/price #5ebbeb).
+const ink = byMode('#000', '#f8f8f8');
+const line = byMode('1px solid #000', '1px solid #373737');
+const notInUse = byMode('rgba(189, 189, 189, 0.7)', '#4d5055');
 
 // SaleKeyPage imports the shared keypad from here (quantity popup)
 export { KeypadPopover };
@@ -278,7 +286,7 @@ const CartSidebar = ({
 
   // Reference greys the whole totals block out while the cart is empty.
   const cartEmpty = cart.length === 0;
-  const totalsColor = cartEmpty ? 'rgba(189, 189, 189, 0.7)' : '#000';
+  const totalsColor = cartEmpty ? notInUse : ink;
 
   const renderCartView = () => (
     <>
@@ -294,7 +302,7 @@ const CartSidebar = ({
             flexShrink: 0,
             display: 'flex',
             alignItems: 'stretch',
-            borderBottom: '1px solid #000',
+            borderBottom: line,
           }}
         >
           {/* Name/details — cursor:pointer, opens the customer dialog */}
@@ -302,11 +310,11 @@ const CartSidebar = ({
             onClick={() => onCustomerClick?.()}
             sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', pl: '16px', cursor: 'pointer' }}
           >
-            <Typography sx={{ fontSize: 24, fontWeight: 400, color: '#000', lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Typography sx={{ fontSize: 24, fontWeight: 400, color: ink, lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {selectedCustomer.company || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
             </Typography>
             {selectedCustomer.customerGroup?.name && (
-              <Typography sx={{ fontSize: 12, fontWeight: 400, color: '#676B72', lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 400, color: byMode('#676B72', '#d4d4d4'), lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {selectedCustomer.customerGroup.name}
               </Typography>
             )}
@@ -314,10 +322,10 @@ const CartSidebar = ({
           {/* Owing — 32px amount with 70% raised cents, small-caps 16px label */}
           {selectedCustomer.customerGroup?.allowAccountSales && (
           <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'right', pr: '8px' }}>
-            <Typography sx={{ fontSize: 32, fontWeight: 400, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
+            <Typography sx={{ fontSize: 32, fontWeight: 400, color: ink, lineHeight: 'normal', letterSpacing: 'normal' }}>
               {formatMoney(parseFloat(selectedCustomer.currentOwing ?? selectedCustomer.accountBalance) || 0)}
             </Typography>
-            <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000', fontVariant: 'small-caps', textTransform: 'none', lineHeight: 'normal', letterSpacing: 'normal', m: 0 }}>
+            <Typography sx={{ fontSize: 16, fontWeight: 400, color: ink, fontVariant: 'small-caps', textTransform: 'none', lineHeight: 'normal', letterSpacing: 'normal', m: 0 }}>
               Owing
             </Typography>
           </Box>
@@ -327,7 +335,7 @@ const CartSidebar = ({
             onClick={(e) => { e.stopPropagation(); onRemoveCustomer?.(); }}
             sx={{ width: 50, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', p: '1rem 0', cursor: 'pointer' }}
           >
-            <CloseIcon sx={{ fontSize: 16, color: '#000' }} />
+            <CloseIcon sx={{ fontSize: 16, color: ink }} />
           </Box>
         </Box>
       ) : (
@@ -342,18 +350,18 @@ const CartSidebar = ({
             alignItems: 'center',
             gap: 0,
             px: 0,
-            color: '#000',
-            borderBottom: '1px solid #000',
+            color: ink,
+            borderBottom: line,
             cursor: 'pointer',
           }}
         >
-          <AddIcon sx={{ fontSize: 16, color: '#000', ml: '28px' }} />
+          <AddIcon sx={{ fontSize: 16, color: ink, ml: '28px' }} />
           <Typography
             component="h3"
             sx={{
               fontSize: '18.72px',
               fontWeight: 700,
-              color: '#000',
+              color: ink,
               lineHeight: 'normal',
               letterSpacing: 'normal',
               m: 0,
@@ -398,11 +406,11 @@ const CartSidebar = ({
         <Box sx={{ flex: '1 1 0px', minHeight: 0, overflowY: 'auto' }}>
           {payments.map((payment) => {
             const inactive = payment.reversed || payment.reversalOf;
-            const color = inactive ? 'rgba(189, 189, 189, 0.9)' : '#000';
+            const color = inactive ? byMode('rgba(189, 189, 189, 0.9)', '#4d5055') : ink;
             return (
               <Box
                 key={payment.id}
-                sx={{ display: 'flex', alignItems: 'center', p: '16px 16px 16px 8px', borderBottom: '1px solid #000' }}
+                sx={{ display: 'flex', alignItems: 'center', p: '16px 16px 16px 8px', borderBottom: line }}
               >
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography component="div" sx={{ fontSize: 16, color, lineHeight: 'normal', letterSpacing: 'normal' }}>
@@ -421,7 +429,7 @@ const CartSidebar = ({
                 {!inactive && (
                   <DeleteOutlineIcon
                     onClick={() => setReverseTarget(payment)}
-                    sx={{ fontSize: 16, color: '#000', cursor: 'pointer', flexShrink: 0 }}
+                    sx={{ fontSize: 16, color: ink, cursor: 'pointer', flexShrink: 0 }}
                   />
                 )}
               </Box>
@@ -441,7 +449,7 @@ const CartSidebar = ({
           </Typography>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-          <Button variant="outlined" onClick={() => setReverseTarget(null)} sx={{ color: '#000', borderColor: '#bdbdbd', minWidth: 80 }}>No</Button>
+          <Button variant="outlined" onClick={() => setReverseTarget(null)} sx={{ color: ink, borderColor: byMode('#bdbdbd', '#a1a1a1'), minWidth: 80 }}>No</Button>
           <Button
             variant="contained"
             disableElevation
@@ -482,8 +490,9 @@ const CartSidebar = ({
                   // Reference: only the cells (qty / name / price / trash) are
                   // pointers — the row container itself is not.
                   cursor: 'auto',
-                  bgcolor: 'transparent',
-                  borderBottom: '1px solid #000',
+                  // Dark ref (632/633): every sale line sits on a #2a2a2a card.
+                  bgcolor: byMode('transparent', '#2a2a2a'),
+                  borderBottom: line,
                   borderRadius: 0,
                   overflow: 'hidden',
                 }}
@@ -491,7 +500,7 @@ const CartSidebar = ({
                 {/* Selection fill is an underlay on the PADDING box, so it stops
                     1px short of the row and never covers the black divider. */}
                 {isSelected && (
-                  <Box sx={{ position: 'absolute', inset: 0, bgcolor: '#cfebf9', pointerEvents: 'none' }} />
+                  <Box sx={{ position: 'absolute', inset: 0, bgcolor: byMode('#cfebf9', '#3a3a3a'), pointerEvents: 'none' }} />
                 )}
                 {/* Family colour strip (reference .product-family-colour):
                     10px-wide full-height band at the row's left edge, behind
@@ -509,7 +518,7 @@ const CartSidebar = ({
                   <Typography
                     component="span"
                     onClick={(e) => onQuantityKeypadClick(item, e)}
-                    sx={{ width: 36, flex: '0 1 auto', mr: '8px', textAlign: 'center', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: '#000', cursor: 'pointer' }}
+                    sx={{ width: 36, flex: '0 1 auto', mr: '8px', textAlign: 'center', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: byMode('#000', '#5ebbeb'), cursor: 'pointer' }}
                   >
                     {/* A case line shows CASES (reference: quantity / caseQuantity) */}
                     {displayQuantity(item) || 1}
@@ -519,13 +528,13 @@ const CartSidebar = ({
                   {item.note && (
                     <NoteIcon
                       onClick={(e) => { e.stopPropagation(); onEditNote?.(item); }}
-                      sx={{ fontSize: 16, color: '#313439', mr: '8px', cursor: 'pointer', flexShrink: 0, transition: 'color .2s', '&:hover': { color: '#676B72' } }}
+                      sx={{ fontSize: 16, color: byMode('#313439', '#d4d4d4'), mr: '8px', cursor: 'pointer', flexShrink: 0, transition: 'color .2s', '&:hover': { color: byMode('#676B72', '#a0a4aa') } }}
                     />
                   )}
                   <Typography
                     component="span"
                     onClick={(e) => onProductDetailClick(item, e)}
-                    sx={{ flex: '1 1 0px', mr: '16px', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: '#000', cursor: item.productId ? 'pointer' : 'default' }}
+                    sx={{ flex: '1 1 0px', mr: '16px', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: byMode('#000', '#5ebbeb'), cursor: item.productId ? 'pointer' : 'default' }}
                   >
                     {/* Reference: a case line reads "Name (Case)" — the word from Setup > General */}
                     {displayName(item, settingsService.getCachedGeneralSettings().caseText || 'Case')}
@@ -543,13 +552,13 @@ const CartSidebar = ({
                       }}
                       sx={{ width: 20, height: 19, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                     >
-                      <LockIcon sx={{ fontSize: 16, color: '#000' }} />
+                      <LockIcon sx={{ fontSize: 16, color: ink }} />
                     </Box>
                   )}
                   <Typography
                     component="span"
                     onClick={(e) => openDiscountEditor(item, e)}
-                    sx={{ flex: '0 1 auto', mr: '16px', textAlign: 'start', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: '#000', cursor: 'pointer' }}
+                    sx={{ flex: '0 1 auto', mr: '16px', textAlign: 'start', fontSize: 16, fontWeight: 400, lineHeight: 'normal', letterSpacing: 'normal', color: byMode('#000', '#5ebbeb'), cursor: 'pointer' }}
                   >
                     {(() => {
                       const price = parseFloat(item.price);
@@ -565,12 +574,12 @@ const CartSidebar = ({
                     }}
                     role="button"
                     aria-label={`Remove ${item.name}`}
-                    sx={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                    sx={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: byMode('#000', '#5ebbeb') }}
                   >
                     {/* Reference cart-line bin (thin-stroke "trash-alt"): a full-width
                         lid with a wide handle over a straight body that is a little
                         narrower than the lid, three long ribs. Drawn inline. */}
-                    <svg width="15" height="18" viewBox="0 0 15 18" aria-hidden="true" fill="none" stroke="#000" strokeWidth="1.15" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="15" height="18" viewBox="0 0 15 18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M.8 3.3h13.4" />
                       <path d="M4.6 3.3V1.4c0-.3.2-.6.6-.6h4.6c.4 0 .6.3.6.6v1.9" />
                       <path d="M2.2 3.3v12.9c0 .6.4 1 1 1h8.6c.6 0 1-.4 1-1V3.3" />
@@ -591,7 +600,7 @@ const CartSidebar = ({
                     component="div"
                     // The row is a wrapping flex container: without the full basis this
                     // box shrinks to its text and sits at the left, ignoring textAlign.
-                    sx={{ position: 'relative', flexBasis: '100%', mt: '0.5rem', textAlign: 'right', fontSize: 16, lineHeight: 'normal', letterSpacing: 'normal', color: '#000' }}
+                    sx={{ position: 'relative', flexBasis: '100%', mt: '0.5rem', textAlign: 'right', fontSize: 16, lineHeight: 'normal', letterSpacing: 'normal', color: ink }}
                   >
                     {(() => {
                       const unit = (parseFloat(item.price) || 0) / (parseFloat(item.quantity) || 1);
@@ -613,7 +622,7 @@ const CartSidebar = ({
                       const stats = lineProfit(item);
                       const pct = profitPercent(stats, profitDisplay);
                       return (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, lineHeight: 'normal', color: '#000' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, lineHeight: 'normal', color: ink }}>
                           <span>Cost: ${stats.totalCost.toFixed(2)}</span>
                           <span>Profit: ${stats.profit.toFixed(2)}</span>
                           <span>{pct.toFixed(2)}%</span>
@@ -666,8 +675,8 @@ const CartSidebar = ({
           a locked (manual) price; shows the automatic price that would apply if
           unlocked. 36px row, transparent bg, #313439 16px, ? icon right. */}
       {cart.some((i) => i.discountInfo) && (
-        <Box sx={{ flexShrink: 0, height: 36, boxSizing: 'border-box', display: 'flex', alignItems: 'center', p: '8px', bgcolor: 'transparent', borderTop: '1px solid #313439' }}>
-          <Typography component="span" sx={{ flexGrow: 1, minWidth: 0, fontSize: 16, fontWeight: 400, color: '#313439', lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Box sx={{ flexShrink: 0, height: 36, boxSizing: 'border-box', display: 'flex', alignItems: 'center', p: '8px', bgcolor: 'transparent', borderTop: byMode('1px solid #313439', '1px solid #373737') }}>
+          <Typography component="span" sx={{ flexGrow: 1, minWidth: 0, fontSize: 16, fontWeight: 400, color: byMode('#313439', '#d4d4d4'), lineHeight: 'normal', letterSpacing: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Unlocked Price:{' '}
             {/* ponytail: single-locked-line was the measured case; multi-line =
                 sum of each locked line's automatic (pre-discount) total.
@@ -685,7 +694,7 @@ const CartSidebar = ({
           </Typography>
           <HelpOutlineIcon
             onClick={() => setUnlockedInfoOpen(true)}
-            sx={{ fontSize: 24, color: '#313439', cursor: 'pointer', flexShrink: 0, ml: 1 }}
+            sx={{ fontSize: 24, color: byMode('#313439', '#d4d4d4'), cursor: 'pointer', flexShrink: 0, ml: 1 }}
           />
         </Box>
       )}
@@ -721,8 +730,8 @@ const CartSidebar = ({
           i
         </Box>
         <DialogContent sx={{ textAlign: 'center', pt: '76px', px: 3, pb: 0 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 1.5, color: '#000' }}>Unlocked Price</Typography>
-          <Typography sx={{ fontSize: 16, color: '#000', lineHeight: 1.4 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 18, mb: 1.5, color: ink }}>Unlocked Price</Typography>
+          <Typography sx={{ fontSize: 16, color: ink, lineHeight: 1.4 }}>
             The unlocked price is the price that would be used instead of the currently
             displayed price. To activate it, simply press the lock next to the product's
             current price.
@@ -734,15 +743,15 @@ const CartSidebar = ({
             disableElevation
             onClick={() => setUnlockedInfoOpen(false)}
             sx={{
-              bgcolor: '#e8e9eb',
-              color: '#313439',
+              bgcolor: byMode('#e8e9eb', '#3a3a3a'),
+              color: byMode('#313439', '#d4d4d4'),
               fontSize: 26,
               fontWeight: 400,
               textTransform: 'none',
               borderRadius: 0,
-              border: '1px solid #000',
+              border: line,
               height: 48,
-              '&:hover': { bgcolor: '#dcdde0' },
+              '&:hover': { bgcolor: byMode('#dcdde0', '#4a4a4a') },
             }}
           >
             OK
@@ -751,11 +760,11 @@ const CartSidebar = ({
       </Dialog>
       {/* #sale-summary — 144px pinned to the bottom of the panel: a 93px totals
           row (two equal 50% children, 8px padding each) + the 50px Finalize. */}
-      <Box sx={{ flexShrink: 0, borderTop: '1px solid #000', position: 'relative' }}>
+      <Box sx={{ flexShrink: 0, borderTop: line, position: 'relative' }}>
       {/* Total Amount Override panel drawn over the lower sidebar (reference:
           New Total blue cell + mode dropdown + Cancel/Confirm above the totals) */}
       {saleOverrideOpen && (
-        <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: '100%', zIndex: 5, bgcolor: '#fff', border: '1px solid #000', borderBottom: 'none' }} onClick={(e) => e.stopPropagation()}>
+        <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: '100%', zIndex: 5, bgcolor: byMode('#fff', '#232323'), border: line, borderBottom: 'none' }} onClick={(e) => e.stopPropagation()}>
           <LabelValueRow label="New Total">
             <BlueEditableCell
               ref={saleCellRef}
@@ -792,7 +801,7 @@ const CartSidebar = ({
       {!paymentView && cartPromotions.length > 0 && (
         // Reference (SS 389/390): full-width band ruled above AND below, name
         // left-aligned, 8px in, ~36px tall; grey = not applied, blue = applied.
-        <Box sx={{ borderTop: '1px solid #000', borderBottom: '1px solid #000', bgcolor: '#fff', px: '8px', py: '8px', flexShrink: 0 }}>
+        <Box sx={{ borderTop: line, borderBottom: line, bgcolor: byMode('#fff', '#121212'), px: '8px', py: '8px', flexShrink: 0 }}>
           {cartPromotions.map((p) => (
             <Typography
               key={p.id}
@@ -804,7 +813,7 @@ const CartSidebar = ({
                 lineHeight: '20px',
                 letterSpacing: '0.2px',
                 textTransform: 'uppercase',
-                color: p.applied ? '#5ebbeb' : '#737373',
+                color: p.applied ? '#5ebbeb' : byMode('#737373', '#a0a4aa'),
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -818,11 +827,11 @@ const CartSidebar = ({
       {/* Payment view footer: Total / Remaining centred, then Return to Sale. */}
       {paymentView ? (
         <Box sx={{ height: 93, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', p: '8px' }}>
-          <Typography component="div" sx={{ fontSize: 20, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
+          <Typography component="div" sx={{ fontSize: 20, color: ink, lineHeight: 'normal', letterSpacing: 'normal' }}>
             Total: {formatMoney(calculateTotal())}
           </Typography>
           {/* Overpaid in cash: show the change owed rather than a flat $0.00 remaining. */}
-          <Typography component="div" sx={{ fontSize: 24, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
+          <Typography component="div" sx={{ fontSize: 24, color: ink, lineHeight: 'normal', letterSpacing: 'normal' }}>
             {paidTotal - calculateTotal() > 0.005
               ? `Change: ${formatMoney(paidTotal - calculateTotal())}`
               : `Remaining: ${formatMoney(Math.max(0, calculateTotal() - paidTotal))}`}
@@ -849,7 +858,7 @@ const CartSidebar = ({
         const entries = Object.entries(surchargeSummary);
         if (!entries.length) return null;
         return entries.map(([name, amount]) => (
-          <Box key={name} sx={{ px: '8px', py: '6px', borderBottom: '1px solid #000', fontSize: 16, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
+          <Box key={name} sx={{ px: '8px', py: '6px', borderBottom: line, fontSize: 16, color: ink, lineHeight: 'normal', letterSpacing: 'normal' }}>
             {name}: ${Number(amount).toFixed(2)}
           </Box>
         ));
@@ -866,7 +875,7 @@ const CartSidebar = ({
         const stats = { totalPrice: lines.price + saleSurcharge, totalCost: lines.cost + saleSurcharge, profit: lines.price - lines.cost };
         const pct = profitPercent(stats, profitDisplay);
         return (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', px: '8px', py: '6px', borderBottom: '1px solid #000', fontSize: 16, color: '#000', lineHeight: 'normal', letterSpacing: 'normal' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', px: '8px', py: '6px', borderBottom: line, fontSize: 16, color: ink, lineHeight: 'normal', letterSpacing: 'normal' }}>
             <span>Cost: ${stats.totalCost.toFixed(2)}</span>
             <span>Profit: ${stats.profit.toFixed(2)}</span>
             <span>{pct.toFixed(2)}%</span>
@@ -935,10 +944,10 @@ const CartSidebar = ({
                     <Typography component="div" sx={{ ...lineSx, color: 'inherit' }}>
                       {cart.length} {plural('Product', cart.length)}
                     </Typography>
-                    <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && savings > 0 ? '#000' : 'rgba(189, 189, 189, 0.7)' }}>
+                    <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && savings > 0 ? ink : notInUse }}>
                       Savings: <SmallCentsMoney value={savings} />
                     </Typography>
-                    <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && lineDiscount > 0 ? '#000' : 'rgba(189, 189, 189, 0.7)' }}>
+                    <Typography component="div" sx={{ ...lineSx, color: !cartEmpty && lineDiscount > 0 ? ink : notInUse }}>
                       Discount: <SmallCentsMoney value={lineDiscount} />
                     </Typography>
                   </>
@@ -978,18 +987,18 @@ const CartSidebar = ({
           sx={{
             m: 0,
             p: '4px 8px',
-            bgcolor: '#F8F8F8',
-            color: '#313439',
+            bgcolor: byMode('#F8F8F8', '#3a3a3a'),
+            color: byMode('#313439', '#d4d4d4'),
             height: 50,
             fontSize: 32,
             lineHeight: 'normal',
             letterSpacing: 'normal',
-            borderTop: '1px solid #000',
+            borderTop: line,
             borderRadius: 0,
             fontWeight: 400,
             textTransform: 'none',
             fontVariant: 'small-caps',
-            '&:hover': { bgcolor: '#F8F8F8' },
+            '&:hover': { bgcolor: byMode('#F8F8F8', '#3a3a3a') },
           }}
         >
           Return to Sale
@@ -1024,12 +1033,12 @@ const CartSidebar = ({
             m: 0,
             p: '4px 8px',
             bgcolor: '#5ebbeb',
-            color: '#f8f8f8',
+            color: byMode('#f8f8f8', '#313439'),
             height: 50,
             fontSize: 32,
             lineHeight: 'normal',
             letterSpacing: 'normal',
-            borderTop: '1px solid #000',
+            borderTop: line,
             borderRight: 0,
             borderBottom: 0,
             borderLeft: 0,
@@ -1044,7 +1053,7 @@ const CartSidebar = ({
             // to gray-500 and the cursor is not-allowed.
             '&.Mui-disabled': {
               bgcolor: '#5ebbeb',
-              color: '#6a7282',
+              color: byMode('#6a7282', '#313439'),
               opacity: 1,
               cursor: 'not-allowed',
               pointerEvents: 'auto',
@@ -1069,10 +1078,10 @@ const CartSidebar = ({
         ml: 'auto',
         height: '100%',
         boxSizing: 'border-box',
-        border: '1px solid #000',
+        border: line,
         borderRadius: 0,
         boxShadow: 'none',
-        bgcolor: '#fff',
+        bgcolor: byMode('#fff', '#121212'),
         display: 'flex',
         flexDirection: 'column',
         overflow: 'visible',

@@ -7,6 +7,7 @@ import {
   Select,
   MenuItem,
   FormControl,
+  useTheme,
 } from '@mui/material';
 import { SettingsOutlined as SettingsIcon } from '@mui/icons-material';
 import {
@@ -14,6 +15,7 @@ import {
   Line,
   XAxis,
   YAxis,
+  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
@@ -21,6 +23,7 @@ import apiClient from '../../services/apiClient';
 import { appTimeZone } from '../../utils/appDateTime';
 import { zonedParts } from '../../utils/dateFormat';
 import { THEME_MODES } from '../../contexts/themeMode';
+import { byMode } from '../../theme/sfPalette';
 
 // Slate label colour, lightened in dark mode
 const slate = (t) => (t.palette.mode === 'dark' ? '#e8eaed' : '#313439');
@@ -53,6 +56,14 @@ function lastNDays(n) {
 
 const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeChange }) => {
   const [chartData, setChartData] = useState(lastNDays(7));
+  // recharts takes plain colours, not sx tokens
+  const muiTheme = useTheme();
+  const sf = muiTheme.palette.sf;
+  const isDark = muiTheme.palette.mode === 'dark';
+  // Reference dark (profile drawer): #f8f8f8 axis labels, #7e7e7e vertical grid
+  const tickFill = isDark ? '#f8f8f8' : sf.textMuted;
+  const darkGrid = isDark ? <CartesianGrid vertical horizontal={false} stroke="#7e7e7e" /> : null;
+  const tooltipStyle = { fontSize: 12, borderRadius: 6, backgroundColor: sf.paper, borderColor: sf.borderLight, color: sf.text };
 
   const loadChartData = useCallback(async () => {
     try {
@@ -112,7 +123,7 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
           height: `calc(100% - ${HEADER_HEIGHT}px)`,
           display: 'flex',
           flexDirection: 'column',
-          bgcolor: 'background.paper',
+          bgcolor: byMode('background.paper', '#202020'),
           borderRadius: 0,
           boxShadow:
             '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
@@ -123,7 +134,7 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
         {/* Theme row */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <SettingsIcon sx={{ fontSize: 20, color: slate }} />
+            <SettingsIcon sx={{ fontSize: 20, color: (t) => (t.palette.mode === 'dark' ? '#5ebbeb' : slate(t)) }} />
             <Typography sx={{ fontSize: 16, color: slate }}>Theme</Typography>
           </Box>
           <FormControl size="small" sx={{ minWidth: 110 }}>
@@ -133,9 +144,26 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
               sx={{
                 fontSize: 14,
                 borderRadius: '8px',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
+                bgcolor: byMode('transparent', '#121212'),
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: 1 },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border' },
+                // Reference dark: the open select's outline is #eeeeee, not the blue focus colour
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('sf.borderStrong', '#eeeeee'), borderWidth: 2 },
+              }}
+              // Reference dark list: #232323 paper with a 1px white edge; the focused /
+              // hovered option is #0084d1 with #fafafa text. Light keeps MUI's defaults.
+              MenuProps={{
+                PaperProps: {
+                  sx: (t) => (t.palette.mode === 'dark' ? {
+                    bgcolor: '#232323',
+                    border: '1px solid #ffffff',
+                    '& .MuiMenuItem-root': { color: '#f8f8f8' },
+                    '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent' },
+                    '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { bgcolor: '#0084d1', color: '#fafafa' },
+                    // only one row lit: while the mouse is over the list, the hovered row wins
+                    '&:hover .MuiMenuItem-root.Mui-focusVisible:not(:hover)': { bgcolor: 'transparent', color: '#f8f8f8' },
+                  } : {}),
+                },
               }}
             >
               {THEME_MODES.map((m) => (
@@ -152,23 +180,24 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
           </Typography>
           <ResponsiveContainer width="100%" height={150}>
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+              {darkGrid}
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: '#676b72' }}
+                tick={{ fontSize: 11, fill: tickFill }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
                 tickFormatter={fmtCurrency}
-                tick={{ fontSize: 10, fill: '#676b72' }}
+                tick={{ fontSize: 10, fill: tickFill }}
                 axisLine={false}
                 tickLine={false}
                 width={50}
               />
               <Tooltip
                 formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Revenue']}
-                labelStyle={{ fontSize: 12 }}
-                contentStyle={{ fontSize: 12, borderRadius: 6 }}
+                labelStyle={{ fontSize: 12, color: sf.text }}
+                contentStyle={tooltipStyle}
               />
               <Line
                 type="monotone"
@@ -189,14 +218,15 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
           </Typography>
           <ResponsiveContainer width="100%" height={150}>
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+              {darkGrid}
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: '#676b72' }}
+                tick={{ fontSize: 11, fill: tickFill }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: '#676b72' }}
+                tick={{ fontSize: 10, fill: tickFill }}
                 axisLine={false}
                 tickLine={false}
                 width={30}
@@ -204,8 +234,8 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
               />
               <Tooltip
                 formatter={(v) => [v, 'Transactions']}
-                labelStyle={{ fontSize: 12 }}
-                contentStyle={{ fontSize: 12, borderRadius: 6 }}
+                labelStyle={{ fontSize: 12, color: sf.text }}
+                contentStyle={tooltipStyle}
               />
               <Line
                 type="monotone"
@@ -227,10 +257,11 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
           onClick={onModifyUser}
           sx={{
             ...actionButtonSx,
-            border: '1px solid #5ebbeb',
-            color: '#5ebbeb',
+            // Reference dark: #74d4ff outline + text
+            border: byMode('1px solid #5ebbeb', '1px solid #74d4ff'),
+            color: byMode('#5ebbeb', '#74d4ff'),
             bgcolor: 'transparent',
-            '&:hover': { bgcolor: 'rgba(94,187,235,0.08)', border: '1px solid #4aa9dd' },
+            '&:hover': { bgcolor: 'rgba(94,187,235,0.08)', border: byMode('1px solid #4aa9dd', '1px solid #a3e4ff') },
           }}
         >
           Modify User
@@ -241,7 +272,7 @@ const ProfileDrawer = ({ open, onClose, onModifyUser, onLogout, theme, onThemeCh
           sx={{
             ...actionButtonSx,
             bgcolor: '#5ebbeb',
-            color: '#fff',
+            color: byMode('#fff', '#232323'),
             '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
           }}
         >

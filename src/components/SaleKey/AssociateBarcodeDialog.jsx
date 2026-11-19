@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, Box, Typography, ButtonBase } from '@mui/material';
 import { KeypadBody } from './LineEditPanel';
+import { byMode } from '../../theme/sfPalette';
 
 /**
  * Second step of the "associate an unknown barcode" flow: the operator has
@@ -49,7 +50,7 @@ const AssociateBarcodeDialog = ({ open, barcode, product, saving, onAssociate, o
           display: 'flex',
           flexDirection: 'column',
           borderRadius: '12px',
-          bgcolor: '#fff',
+          bgcolor: byMode('#fff', '#232323'),
           overflow: 'hidden',
           boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
         },
@@ -59,26 +60,26 @@ const AssociateBarcodeDialog = ({ open, barcode, product, saving, onAssociate, o
       {/* Light blue titled header, matching the reference's dialog chrome */}
       <Box
         sx={{
-          bgcolor: '#CFE9FA',
+          bgcolor: byMode('#CFE9FA', '#1f3a4a'),
           px: 2,
           py: 1.5,
           display: 'flex',
           alignItems: 'center',
           gap: 1,
           flexShrink: 0,
-          borderBottom: '1px solid #B7DCF3',
+          borderBottom: byMode('1px solid #B7DCF3', '1px solid #373737'),
         }}
       >
-        <Typography component="span" sx={{ color: '#1a6ea8', fontSize: 20, fontWeight: 700 }}>
+        <Typography component="span" sx={{ color: byMode('#1a6ea8', '#74d4ff'), fontSize: 20, fontWeight: 700 }}>
           ?
         </Typography>
-        <Typography sx={{ color: '#1a6ea8', fontSize: 17, fontWeight: 700 }}>
+        <Typography sx={{ color: byMode('#1a6ea8', '#74d4ff'), fontSize: 17, fontWeight: 700 }}>
           Associate Product
         </Typography>
       </Box>
 
       <Box sx={{ p: 2, minHeight: 0, overflowY: 'auto' }}>
-        <Typography sx={{ fontSize: 15, color: '#313439', lineHeight: 1.6, mb: 1.5 }}>
+        <Typography sx={{ fontSize: 15, color: byMode('#313439', '#d4d4d4'), lineHeight: 1.6, mb: 1.5 }}>
           What quantity would you like to associate to{' '}
           <Box component="span" sx={{ fontWeight: 700 }}>
             {product.name}
@@ -101,14 +102,14 @@ const AssociateBarcodeDialog = ({ open, barcode, product, saving, onAssociate, o
             sx={{
               flex: 1,
               height: 48,
-              bgcolor: '#f4f5f7',
-              border: '1px solid #dfe3e8',
+              bgcolor: byMode('#f4f5f7', '#3a3a3a'),
+              border: byMode('1px solid #dfe3e8', '1px solid #4a4a4a'),
               borderRadius: '8px',
-              color: '#5f6b76',
+              color: byMode('#5f6b76', '#d4d4d4'),
               fontSize: 18,
               fontWeight: 500,
               justifyContent: 'center',
-              '&:hover': { bgcolor: '#e9ebee' },
+              '&:hover': { bgcolor: byMode('#e9ebee', '#4a4a4a') },
             }}
           >
             Cancel

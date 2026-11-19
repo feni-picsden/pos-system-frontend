@@ -19,6 +19,15 @@ import { allowsCashOut, getPaymentMethodSettings } from '../../services/paymentM
 import { roundTender, roundingAdjustment } from '../../utils/paymentRounding';
 import { useAppDialogs } from '../Common/AppDialogProvider';
 import { formatMoney } from '../../utils/currency';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (Profile > Theme): light values stay exactly as before. No reference
+// dark screenshot of this screen exists, so dark uses the sell screen's measured
+// cart palette: surface #121212, dividers #373737, text #f8f8f8, muted #a0a4aa,
+// outlined buttons #a1a1a1, flat buttons #3a3a3a / #d4d4d4, blue bar text #313439.
+const fzInk = byMode('#000', '#f8f8f8');
+const fzLine = byMode('1px solid #000', '1px solid #373737');
+const fzSurface = byMode('white', '#121212');
 
 // ponytail: one resolver for effective customer-management flags. The customer's own
 // value wins only when overrideCustomerGroup is set (and actually provided); otherwise
@@ -510,20 +519,20 @@ const FinalizeSaleDialog = ({
   if (!open) return null;
 
   return (
-    <Box sx={{ display: 'flex', height: '100%', width: '100%', maxWidth: '100%', bgcolor: 'white', overflow: 'hidden', position: 'relative', zIndex: 0 ,gap: '10px' }}>
+    <Box sx={{ display: 'flex', height: '100%', width: '100%', maxWidth: '100%', bgcolor: fzSurface, color: byMode(undefined, '#f8f8f8'), overflow: 'hidden', position: 'relative', zIndex: 0 ,gap: '10px' }}>
         {/* Payment Input and Keypad Section — panel has NO padding: each block supplies
             its own inset, and the panel itself is the scroll container (reference parity). */}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'block', p: 0, overflowY: 'auto', bgcolor: 'white', border: '1px solid #000' }}>
+        <Box sx={{ flex: 1, minWidth: 0, display: 'block', p: 0, overflowY: 'auto', bgcolor: fzSurface, border: fzLine }}>
           {/* Title — spans the full panel width, collapsing 19.92px margins */}
-          <Typography component="h2" sx={{ m: '16px 0', fontSize: 20, fontWeight: 'bold', lineHeight: 'normal', letterSpacing: 'normal', color: '#000', textAlign: 'center' }}>
+          <Typography component="h2" sx={{ m: '16px 0', fontSize: 20, fontWeight: 'bold', lineHeight: 'normal', letterSpacing: 'normal', color: fzInk, textAlign: 'center' }}>
             Finalise Sale
           </Typography>
 
           {/* Amount and keypad form one connected, square bordered panel. */}
-          <Box sx={{ width: 400, maxWidth: 'calc(100% - 32px)', bgcolor: 'white', border: '1px solid #000', m: '16px auto 24px' }}>
+          <Box sx={{ width: 400, maxWidth: 'calc(100% - 32px)', bgcolor: fzSurface, border: fzLine, m: '16px auto 24px' }}>
             {/* Amount row: '$' prefix + borderless editable input, bottom border only */}
-            <Box sx={{ display: 'flex', alignItems: 'center', height: 91, borderBottom: '1px solid #000', px: 2, boxSizing: 'border-box' }}>
-              <Box component="span" sx={{ fontFamily: 'inherit', fontSize: '26.91px', lineHeight: 1.25, fontWeight: 400, color: '#000', mr: 1.5, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 91, borderBottom: fzLine, px: 2, boxSizing: 'border-box' }}>
+              <Box component="span" sx={{ fontFamily: 'inherit', fontSize: '26.91px', lineHeight: 1.25, fontWeight: 400, color: fzInk, mr: 1.5, flexShrink: 0 }}>
                 $
               </Box>
               <Box
@@ -551,7 +560,7 @@ const FinalizeSaleDialog = ({
                   lineHeight: 1.25,
                   letterSpacing: 'normal',
                   fontWeight: 400,
-                  color: '#000',
+                  color: fzInk,
                   textAlign: 'left',
                   p: 0,
                 }}
@@ -586,19 +595,19 @@ const FinalizeSaleDialog = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: '#fff',
-                    color: '#676b72',
+                    bgcolor: byMode('#fff', '#121212'),
+                    color: byMode('#676b72', '#a0a4aa'),
                     fontFamily: 'inherit',
                     fontSize: '26.91px',
                     fontWeight: 400,
                     border: 0,
-                    borderRight: index % 3 < 2 ? '1px solid #000' : 0,
-                    borderBottom: index < 9 ? '1px solid #000' : 0,
+                    borderRight: index % 3 < 2 ? fzLine : 0,
+                    borderBottom: index < 9 ? fzLine : 0,
                     borderRadius: 0,
                     cursor: 'pointer',
                     p: 0,
                     transition: 'none',
-                    '&:hover': { color: '#313439' },
+                    '&:hover': { color: byMode('#313439', '#f8f8f8') },
                   }}
                 >
                   {key === 'backspace' ? <BackspaceOutlined sx={{ fontSize: '26.91px' }} /> : key}
@@ -621,15 +630,15 @@ const FinalizeSaleDialog = ({
                         height: 40,
                         fontSize: 16,
                         fontWeight: 700,
-                        border: '1px solid #000',
+                        border: byMode('1px solid #000', '1px solid #a1a1a1'),
                         // Selected (armed) tender reads as the palette primary; hover is the
                         // lighter zebra fill so the two states stay distinguishable.
-                        bgcolor: paymentAmount === amt.toFixed(2) ? '#5ebbeb' : 'white',
-                        color: paymentAmount === amt.toFixed(2) ? '#f8f8f8' : '#000',
+                        bgcolor: paymentAmount === amt.toFixed(2) ? '#5ebbeb' : fzSurface,
+                        color: paymentAmount === amt.toFixed(2) ? byMode('#f8f8f8', '#232323') : fzInk,
                         borderRadius: 0,
                         '&:hover': {
-                          border: '1px solid #000',
-                          bgcolor: paymentAmount === amt.toFixed(2) ? '#5ebbeb' : '#f8f8f8',
+                          border: byMode('1px solid #000', '1px solid #a1a1a1'),
+                          bgcolor: paymentAmount === amt.toFixed(2) ? '#5ebbeb' : byMode('#f8f8f8', '#232323'),
                         },
                       }}
                     >
@@ -667,7 +676,7 @@ const FinalizeSaleDialog = ({
                 const isAccountOrLoyalty = [method.name, method.type].some(value =>
                   ['on account', 'loyalty'].includes(String(value || '').trim().toLowerCase()));
                 const tileBg = (isDarkMode && hex(methodSettings.buttonBackgroundColourDark))
-                  || hex(methodSettings.buttonBackgroundColour) || (isAccountOrLoyalty ? '#e5e7eb' : null);
+                  || hex(methodSettings.buttonBackgroundColour) || (isAccountOrLoyalty ? (isDarkMode ? '#3a3a3a' : '#e5e7eb') : null);
                 const tileFg = (isDarkMode && hex(methodSettings.buttonTextColourDark)) || hex(methodSettings.buttonTextColour);
                 return (
                   <Button
@@ -704,7 +713,7 @@ const FinalizeSaleDialog = ({
                       textTransform: 'none',
                       border: '1px solid currentColor',
                       bgcolor: tileBg || 'transparent',
-                      color: tileFg || '#000',
+                      color: tileFg || fzInk,
                       borderRadius: 0,
                       fontSize: 20,
                       fontWeight: 400,
@@ -719,9 +728,9 @@ const FinalizeSaleDialog = ({
                       // Amount-locked tiles look identical to enabled ones (reference);
                       // the order-reference gate keeps its greyed affordance.
                       '&.Mui-disabled': {
-                        bgcolor: method.name?.toLowerCase() === 'loyalty' || method.type?.toLowerCase() === 'loyalty' ? '#e5e7eb' : tileBg || 'transparent',
-                        color: isAccountOrLoyalty || (amountLocked && !needsOrderRef) ? '#000' : '#737373',
-                        borderColor: '#000',
+                        bgcolor: method.name?.toLowerCase() === 'loyalty' || method.type?.toLowerCase() === 'loyalty' ? byMode('#e5e7eb', '#3a3a3a') : tileBg || 'transparent',
+                        color: isAccountOrLoyalty || (amountLocked && !needsOrderRef) ? fzInk : byMode('#737373', '#757575'),
+                        borderColor: byMode('#000', '#a1a1a1'),
                         cursor: amountLocked && !needsOrderRef ? 'pointer' : 'default',
                       },
                     }}
@@ -784,18 +793,18 @@ const FinalizeSaleDialog = ({
           maxWidth: '100%',
           display: 'flex', 
           flexDirection: 'column', 
-          bgcolor: 'white',
-          border: '1px solid #000',
+          bgcolor: fzSurface,
+          border: fzLine,
           overflow: 'hidden'
         }}>
           {selectedCustomer ? (
-            <Box sx={{ minHeight: 60, px: 1.5, py: 1, borderBottom: '1px solid #000', display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+            <Box sx={{ minHeight: 60, px: 1.5, py: 1, borderBottom: fzLine, display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography sx={{ fontSize: 20, overflowWrap: 'anywhere' }}>
                   {selectedCustomer.company || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
                 </Typography>
                 {selectedCustomer.customerGroup?.name && (
-                  <Typography sx={{ fontSize: 10, color: '#676b72' }}>
+                  <Typography sx={{ fontSize: 10, color: byMode('#676b72', '#d4d4d4') }}>
                     {selectedCustomer.customerGroup.name}
                   </Typography>
                 )}
@@ -814,19 +823,19 @@ const FinalizeSaleDialog = ({
                   </Box>
                 </Box>
               ) : null}
-              <IconButton aria-label="Remove customer" onClick={onRemoveCustomer} size="small" sx={{ color: '#000' }}>
+              <IconButton aria-label="Remove customer" onClick={onRemoveCustomer} size="small" sx={{ color: fzInk }}>
                 <Close sx={{ fontSize: 16 }} />
               </IconButton>
             </Box>
           ) : (
-            <Box component="button" type="button" onClick={onAddCustomer} sx={{ minHeight: 60, px: 1.5, display: 'flex', alignItems: 'center', gap: 1, border: 0, borderBottom: '1px solid #000', bgcolor: '#fff', cursor: 'pointer', flexShrink: 0 }}>
+            <Box component="button" type="button" onClick={onAddCustomer} sx={{ minHeight: 60, px: 1.5, display: 'flex', alignItems: 'center', gap: 1, border: 0, borderBottom: fzLine, bgcolor: byMode('#fff', '#121212'), color: byMode(undefined, '#f8f8f8'), cursor: 'pointer', flexShrink: 0 }}>
               <AddIcon sx={{ fontSize: 16 }} />
               <Typography sx={{ fontSize: 18, fontWeight: 700 }}>Add Customer</Typography>
             </Box>
           )}
           {/* Order Reference — required by some customer groups (requireOrderReference) */}
           {eff.requireOrderReference && (
-            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #000' }}>
+            <Box sx={{ px: 2, py: 1.5, borderBottom: fzLine }}>
               <TextField
                 label="Order Reference"
                 required
@@ -839,23 +848,23 @@ const FinalizeSaleDialog = ({
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '8px',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 },
                   },
-                  '& input::placeholder': { color: '#808080', opacity: 1 },
+                  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
                 }}
               />
             </Box>
           )}
 
           {/* Reference hides the sale line items while finalize is open — empty white rail body */}
-          <Box sx={{ flex: 1, bgcolor: 'white' }} />
+          <Box sx={{ flex: 1, bgcolor: fzSurface }} />
 
           {/* Sale Summary — centred block under a black hairline, reference money format */}
           <Box sx={{
             p: '0px 16px 0px 0px',
-            borderTop: '1px solid #000',
+            borderTop: fzLine,
             borderRight: 0,
             borderBottom: 0,
             borderLeft: 0,
@@ -865,7 +874,7 @@ const FinalizeSaleDialog = ({
             justifyContent: 'center',
             alignItems: 'center',
             textAlign: 'start',
-            color: '#000',
+            color: fzInk,
             bgcolor: 'transparent',
           }}>
             {payments.length > 0 && (
@@ -875,7 +884,7 @@ const FinalizeSaleDialog = ({
                     key={payment.id || index}
                     sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}
                   >
-                    <Typography component="div" sx={{ fontSize: '19.2px', fontWeight: 700, color: '#676b72' }}>
+                    <Typography component="div" sx={{ fontSize: '19.2px', fontWeight: 700, color: byMode('#676b72', '#a0a4aa') }}>
                       {payment.description}: {formatMoney(payment.amount)}
                     </Typography>
                     {/* A mis-keyed tender must be removable in place. PIN pad charges are
@@ -885,7 +894,7 @@ const FinalizeSaleDialog = ({
                         size="small"
                         aria-label="Remove payment"
                         onClick={() => onRemovePayment(payment.id)}
-                        sx={{ color: '#dc2626', p: '2px', '&:hover': { bgcolor: 'transparent' } }}
+                        sx={{ color: byMode('#dc2626', '#ffa2a2'), p: '2px', '&:hover': { bgcolor: 'transparent' } }}
                       >
                         <DeleteOutline sx={{ fontSize: 18 }} />
                       </IconButton>
@@ -924,7 +933,7 @@ const FinalizeSaleDialog = ({
                 height: 50,
                 flexShrink: 0,
                 bgcolor: '#5ebbeb',
-                color: '#f8f8f8',
+                color: byMode('#f8f8f8', '#313439'),
                 borderRadius: 0,
                 textTransform: 'none',
                 fontSize: 16,
@@ -945,9 +954,9 @@ const FinalizeSaleDialog = ({
               height: 50,
               flexShrink: 0,
               p: '4px 8px 4px 8px',
-              border: '1px solid #000',
-              bgcolor: '#f8f8f8',
-              color: '#313439',
+              border: fzLine,
+              bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+              color: byMode('#313439', '#d4d4d4'),
               borderRadius: 0,
               textTransform: 'none',
               // Caps come from font-variant, not text-transform (reference parity).
@@ -959,8 +968,8 @@ const FinalizeSaleDialog = ({
               // Flat hover (measured): no transition to inherit.
               transition: 'none',
               '&:hover': {
-                border: '1px solid #000',
-                bgcolor: '#f8f8f8',
+                border: fzLine,
+                bgcolor: byMode('#f8f8f8', '#3a3a3a'),
               },
             }}
           >

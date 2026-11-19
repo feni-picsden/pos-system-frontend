@@ -6,6 +6,10 @@ import {
   TouchAppOutlined as HandIcon,
   ArrowDropDown as CaretIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode: light values unchanged, dark values from the reference dark sell screen.
+const lineBy = (light, dark) => (t) => `1px solid ${t.palette.mode === 'dark' ? dark : light}`;
 
 // Measured reference palette (topdrops.onshopfront.com sell screen)
 const PANEL_BLUE = '#5EBBEB';   // tabs / editable cells / dropdown row
@@ -27,7 +31,7 @@ const keyCellSx = {
   cursor: 'pointer',
   userSelect: 'none',
   bgcolor: 'transparent',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 };
 
 // Anchored keypad popup (reference: 357px, bg #FAFAFA, arrow on the right edge
@@ -73,9 +77,9 @@ export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = 
         {mode === 'qty' && steppers && (
           <StepDownIcon onClick={() => step(-1)} sx={{ color: KEY_BORDER, fontSize: 22, cursor: 'pointer' }} />
         )}
-        <Box sx={{ position: 'relative', flex: 1, height: 50, borderRadius: '8px', bgcolor: '#fff', border: '1px solid #404040', display: 'flex', alignItems: 'center' }}>
+        <Box sx={{ position: 'relative', flex: 1, height: 50, borderRadius: '8px', bgcolor: byMode('#fff', '#121212'), border: lineBy('#404040', '#a1a1a1'), display: 'flex', alignItems: 'center' }}>
           {mode === 'price' && (
-            <Box component="span" sx={{ position: 'absolute', left: 12, color: '#404040', fontSize: 16, pointerEvents: 'none' }}>$</Box>
+            <Box component="span" sx={{ position: 'absolute', left: 12, color: byMode('#404040', '#d4d4d4'), fontSize: 16, pointerEvents: 'none' }}>$</Box>
           )}
           <Box
             component="input"
@@ -102,13 +106,13 @@ export const KeypadBody = ({ value, setValue, onOk, mode = 'price', autoFocus = 
               bgcolor: 'transparent',
               fontSize: '17.94px',
               fontFamily: 'inherit',
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               pl: mode === 'price' ? '26px' : 2,
               pr: mode === 'percent' ? '26px' : 2,
             }}
           />
           {mode === 'percent' && (
-            <Box component="span" sx={{ position: 'absolute', right: 12, color: '#404040', fontSize: 16, pointerEvents: 'none' }}>%</Box>
+            <Box component="span" sx={{ position: 'absolute', right: 12, color: byMode('#404040', '#d4d4d4'), fontSize: 16, pointerEvents: 'none' }}>%</Box>
           )}
         </Box>
         {mode === 'qty' && steppers && (
@@ -147,8 +151,8 @@ export const KeypadPopover = ({ open, anchorEl, onClose, value, setValue, onOk, 
         width: 357,
         p: 2,
         borderRadius: '12px',
-        bgcolor: '#FAFAFA',
-        border: '1px solid #D4D4D4',
+        bgcolor: byMode('#FAFAFA', '#232323'),
+        border: lineBy('#D4D4D4', '#a1a1a1'),
         overflow: 'visible',
         // gap between the popup's right edge and the cell, for the arrow
         ml: '-10px',
@@ -156,15 +160,15 @@ export const KeypadPopover = ({ open, anchorEl, onClose, value, setValue, onOk, 
     }}
   >
     {/* Right-edge arrow pointing at the triggering cell */}
-    <Box sx={{ position: 'absolute', top: 32, right: '-8px', width: 14, height: 14, bgcolor: '#FAFAFA', borderTop: '1px solid #D4D4D4', borderRight: '1px solid #D4D4D4', transform: 'rotate(45deg)' }} />
+    <Box sx={{ position: 'absolute', top: 32, right: '-8px', width: 14, height: 14, bgcolor: byMode('#FAFAFA', '#232323'), borderTop: lineBy('#D4D4D4', '#a1a1a1'), borderRight: lineBy('#D4D4D4', '#a1a1a1'), transform: 'rotate(45deg)' }} />
     <KeypadBody value={value} setValue={setValue} onOk={onOk} mode={mode} />
   </Popover>
 );
 
 // 52px row, split 50/50 with a centre divider, 16px padding per cell.
 export const LabelValueRow = ({ label, children }) => (
-  <Box sx={{ display: 'flex', height: 52, boxSizing: 'border-box', borderBottom: '1px solid #000', fontSize: 16, color: '#000' }}>
-    <Box sx={{ width: '50%', boxSizing: 'border-box', p: 2, display: 'flex', alignItems: 'center', borderRight: '1px solid #000' }}>{label}</Box>
+  <Box sx={{ display: 'flex', height: 52, boxSizing: 'border-box', borderBottom: lineBy('#000', '#373737'), fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
+    <Box sx={{ width: '50%', boxSizing: 'border-box', p: 2, display: 'flex', alignItems: 'center', borderRight: lineBy('#000', '#373737') }}>{label}</Box>
     <Box sx={{ width: '50%', boxSizing: 'border-box', display: 'flex', alignItems: 'stretch' }}>{children}</Box>
   </Box>
 );
@@ -198,18 +202,18 @@ export const TypeDropdown = ({ options, value, onChange }) => {
     <Box sx={{ position: 'relative' }}>
       <Box
         onClick={() => setOpen((o) => !o)}
-        sx={{ height: 41, boxSizing: 'border-box', bgcolor: PANEL_BLUE, display: 'flex', alignItems: 'center', pl: 2, pr: 1, cursor: 'pointer', userSelect: 'none', fontSize: 16, color: '#000', borderBottom: '1px solid #000' }}
+        sx={{ height: 41, boxSizing: 'border-box', bgcolor: PANEL_BLUE, display: 'flex', alignItems: 'center', pl: 2, pr: 1, cursor: 'pointer', userSelect: 'none', fontSize: 16, color: '#000', borderBottom: lineBy('#000', '#373737') }}
       >
         <Box component="span" sx={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selected?.label}</Box>
         <CaretIcon sx={{ fontSize: 24, color: '#000', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
       </Box>
       {open && (
-        <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #000', borderRadius: '8px', overflow: 'auto', maxHeight: 288 }}>
+        <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: byMode('#fff', '#232323'), border: lineBy('#000', '#a1a1a1'), borderRadius: '8px', overflow: 'auto', maxHeight: 288 }}>
           {options.map((o) => (
             <Box
               key={o.value}
               onClick={() => { onChange(o.value); setOpen(false); }}
-              sx={{ height: 56, boxSizing: 'border-box', p: 2, display: 'flex', alignItems: 'center', fontSize: 16, cursor: 'pointer', userSelect: 'none', color: o.value === value ? KEY_BORDER : '#000', '&:hover': { bgcolor: '#74D4FF', color: '#0A0A0A' } }}
+              sx={{ height: 56, boxSizing: 'border-box', p: 2, display: 'flex', alignItems: 'center', fontSize: 16, cursor: 'pointer', userSelect: 'none', color: o.value === value ? KEY_BORDER : byMode('#000', '#f8f8f8'), '&:hover': { bgcolor: '#74D4FF', color: '#0A0A0A' } }}
             >
               {o.label}
             </Box>
@@ -328,14 +332,14 @@ const LineEditPanel = ({ item, keypadNonce, onConfirm, onCancel }) => {
   const preview = computeDiscount(baseItem, effectiveType, parseFloat(amount) || 0);
 
   return (
-    <Box sx={{ borderBottom: '1px solid #000', bgcolor: '#fff' }} onClick={(e) => e.stopPropagation()}>
+    <Box sx={{ borderBottom: lineBy('#000', '#373737'), bgcolor: byMode('#fff', '#232323') }} onClick={(e) => e.stopPropagation()}>
       {/* Simple | Advanced tabs */}
       <Box sx={{ display: 'flex' }}>
         {['simple', 'advanced'].map((t, i) => (
           <Box
             key={t}
             onClick={() => { setTab(t); setAmount(''); setKeypadAnchor(null); }}
-            sx={{ width: '50%', height: 52, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#000', cursor: 'pointer', userSelect: 'none', bgcolor: tab === t ? PANEL_BLUE : 'transparent', borderBottom: '1px solid #000', borderRight: i === 0 ? '1px solid #000' : 'none' }}
+            sx={{ width: '50%', height: 52, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: tab === t ? '#000' : byMode('#000', '#f8f8f8'), cursor: 'pointer', userSelect: 'none', bgcolor: tab === t ? PANEL_BLUE : 'transparent', borderBottom: lineBy('#000', '#373737'), borderRight: i === 0 ? lineBy('#000', '#373737') : 'none' }}
           >
             {t === 'simple' ? 'Simple' : 'Advanced'}
           </Box>

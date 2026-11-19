@@ -145,7 +145,7 @@ const Main = styled('main')(() => ({
 }));
 
 const AppBarStyled = styled(AppBar)(({ theme }) => ({
-  backgroundColor: '#313439',
+  backgroundColor: theme.palette.sf.headerBar,
   boxShadow: 'none',
   width: '100%',
   zIndex: theme.zIndex.drawer + 1,
@@ -172,8 +172,8 @@ const headerCellSx = {
 // a :hover style sticks after the tap, so it's replaced by an :active press state.
 const pressableSx = {
   transition: 'background 0.2s ease-in-out',
-  '@media (hover: hover)': { '&:hover': { bgcolor: '#e8e8e8' } },
-  '&:active': { bgcolor: '#e0e0e0' },
+  '@media (hover: hover)': { '&:hover': { bgcolor: 'sf.paperAlt' } },
+  '&:active': { bgcolor: 'sf.pressed' },
 };
 
 // Cloud logo as a real <button>: 50px header cell (the sell screen's header
@@ -193,8 +193,8 @@ const quickButtonSx = {
 const quickToolSx = {
   width: 44,
   height: 44,
-  bgcolor: '#f8f8f8',
-  color: '#676b72',
+  bgcolor: 'sf.pane',
+  color: 'sf.textMuted',
   borderRadius: '6px',
   display: 'flex',
   alignItems: 'center',
@@ -207,9 +207,9 @@ const quickToolSx = {
 const quickInputSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
-    '& fieldset': { borderColor: '#404040', borderWidth: 1 },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 2 },
+    '& fieldset': { borderColor: 'sf.border', borderWidth: 1 },
+    '&:hover fieldset': { borderColor: 'sf.border' },
+    '&.Mui-focused fieldset': { borderColor: 'sf.borderStrong', borderWidth: 2 },
   },
 };
 
@@ -707,7 +707,7 @@ const DashboardLayout = ({ children }) => {
     <Box
       sx={{
         height: '100%',
-        bgcolor: '#fff',
+        bgcolor: 'sf.paper',
         display: 'flex',
         flexDirection: 'column',
         // Shopfront-style row overrides for the shared Sidebar (page-local, keeps Sidebar untouched)
@@ -719,11 +719,11 @@ const DashboardLayout = ({ children }) => {
           borderRadius: 0,
           '&:hover': {
             backgroundColor: 'transparent',
-            '& .MuiTypography-root': { color: '#737373' },
+            '& .MuiTypography-root': { color: 'sf.textSoft' },
           },
         },
         // Reference: sub-items are the same 20px #171717 as top-level items
-        '& .MuiListItemText-root .MuiTypography-root': { fontSize: 20, color: '#171717' },
+        '& .MuiListItemText-root .MuiTypography-root': { fontSize: 20, color: 'sf.textStrong' },
         // Expanded group: parent label turns blue. Sidebar renders KeyboardArrowRight
         // (not ExpandLess) and its Collapse uses unmountOnExit, so a ListItem
         // immediately followed by a Collapse == expanded group.
@@ -737,7 +737,7 @@ const DashboardLayout = ({ children }) => {
       </Box>
       <Box sx={{ p: '8px 32px 16px', flexShrink: 0 }}>
         {['Channel: Release', `Version: ${APP_VERSION}`, `Device: ${getDeviceName()}`].map((line) => (
-          <Typography key={line} sx={{ fontSize: 12, fontWeight: 400, color: '#a3a3a3' }}>
+          <Typography key={line} sx={{ fontSize: 12, fontWeight: 400, color: 'sf.textDim' }}>
             {line}
           </Typography>
         ))}
@@ -792,10 +792,10 @@ const DashboardLayout = ({ children }) => {
                       },
                     }}
                   >
-                    <Box sx={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid #f8f8f8', ml: '17px' }} />
+                    <Box sx={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: (t) => `8px solid ${t.palette.sf.pane}`, ml: '17px' }} />
                     <Box
                       sx={{
-                        bgcolor: '#f8f8f8',
+                        bgcolor: 'sf.pane',
                         boxShadow: 'rgba(0,0,0,0.2) 0 0 4px, rgba(0,0,0,0.15) 0 2px 4px',
                         borderRadius: 0,
                         p: 1,
@@ -845,9 +845,9 @@ const DashboardLayout = ({ children }) => {
                             width: '100%',
                             height: 48,
                             boxSizing: 'border-box',
-                            bgcolor: '#f8f8f8',
+                            bgcolor: 'sf.pane',
                             borderRadius: '6px',
-                            color: '#313439',
+                            color: 'sf.textSlate',
                             fontSize: '19.2px',
                             px: '8px',
                             py: '12px',
@@ -947,19 +947,19 @@ const DashboardLayout = ({ children }) => {
               onClose={() => setVolAnchorEl(null)}
               anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              slotProps={{ paper: { sx: { width: 400, maxWidth: '95vw', bgcolor: 'rgb(248,248,248)', borderRadius: 0, boxShadow: 'rgba(0,0,0,0.2) 0 0 4px, rgba(0,0,0,0.15) 0 2px 4px', p: 2 } } }}
+              slotProps={{ paper: { sx: { width: 400, maxWidth: '95vw', bgcolor: 'sf.pane', borderRadius: 0, boxShadow: 'rgba(0,0,0,0.2) 0 0 4px, rgba(0,0,0,0.15) 0 2px 4px', p: 2 } } }}
             >
               {[
                 ['Master Volume', 'master', 'masterMuted'],
                 ['Crinit\'s Shop', 'shopfront', 'shopfrontMuted'],
               ].map(([label, key, mutedKey]) => (
                 <Box key={key} sx={{ p: 2 }}>
-                  <Typography component="span" sx={{ fontSize: 16, color: '#000' }}>{label}</Typography>
-                  <Typography component="span" sx={{ fontSize: 14, color: 'rgb(128,128,128)' }}>
+                  <Typography component="span" sx={{ fontSize: 16, color: 'sf.text' }}>{label}</Typography>
+                  <Typography component="span" sx={{ fontSize: 14, color: 'sf.textFaint' }}>
                     {` - ${volume[mutedKey] ? 0 : volume[key]}%`}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                    <VolumeDownIcon sx={{ fontSize: 24, color: '#313439' }} />
+                    <VolumeDownIcon sx={{ fontSize: 24, color: 'sf.textSlate' }} />
                     <input
                       type="range"
                       min={0}
@@ -969,7 +969,7 @@ const DashboardLayout = ({ children }) => {
                       aria-label={`${label} level`}
                       style={{ flex: 1, height: 5, accentColor: '#5ebbeb' }}
                     />
-                    <VolumeUpIcon sx={{ fontSize: 24, color: '#313439' }} />
+                    <VolumeUpIcon sx={{ fontSize: 24, color: 'sf.textSlate' }} />
                   </Box>
                   <Button
                     disableRipple
@@ -979,15 +979,16 @@ const DashboardLayout = ({ children }) => {
                       width: 90,
                       height: 29,
                       minWidth: 0,
-                      bgcolor: '#f8f8f8',
-                      border: '1px solid #000',
+                      bgcolor: 'sf.pane',
+                      border: 1,
+                      borderColor: 'sf.borderStrong',
                       borderRadius: '6px',
-                      color: '#000',
+                      color: 'sf.text',
                       fontSize: 16,
                       textTransform: 'none',
                       lineHeight: 1,
                       p: 0,
-                      '&:hover': { bgcolor: '#f8f8f8' },
+                      '&:hover': { bgcolor: 'sf.pane' },
                     }}
                   >
                     {volume[mutedKey] ? 'Unmute' : 'Mute'}
@@ -1026,7 +1027,7 @@ const DashboardLayout = ({ children }) => {
                 paper: {
                   sx: {
                     width: 300,
-                    bgcolor: 'rgb(248,248,248)',
+                    bgcolor: 'sf.pane',
                     borderRadius: 0,
                     boxShadow: 'rgba(0,0,0,0.2) 0 0 4px, rgba(0,0,0,0.15) 0 2px 4px',
                     p: 2,
@@ -1036,15 +1037,15 @@ const DashboardLayout = ({ children }) => {
             >
               {isOnline ? (
                 <>
-                  <Typography sx={{ fontSize: '14.4px', color: '#313439' }}>
+                  <Typography sx={{ fontSize: '14.4px', color: 'sf.textSlate' }}>
                     Please note, clearing local data or forcing a synchronise will <b>clear</b> any outstanding sales and all other local data.
                   </Typography>
-                  <Typography sx={{ fontSize: '14.4px', color: '#313439', mt: 1 }}>
+                  <Typography sx={{ fontSize: '14.4px', color: 'sf.textSlate', mt: 1 }}>
                     Use these only if you know what you are doing
                   </Typography>
                 </>
               ) : (
-                <Typography sx={{ fontSize: '14.4px', color: '#313439', fontWeight: 700, textAlign: 'center' }}>
+                <Typography sx={{ fontSize: '14.4px', color: 'sf.textSlate', fontWeight: 700, textAlign: 'center' }}>
                   You have access to less sync functions whilst offline
                 </Typography>
               )}
@@ -1197,7 +1198,7 @@ const DashboardLayout = ({ children }) => {
             maxWidth: '90%',
             top: HEADER_HEIGHT,
             height: `calc(100% - ${HEADER_HEIGHT}px)`,
-            bgcolor: '#fff',
+            bgcolor: 'sf.paper',
             boxShadow:
               '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
           },
@@ -1239,7 +1240,7 @@ const DashboardLayout = ({ children }) => {
             disableRipple
             onClick={handleMarkAllRead}
             disabled={notifications.length === 0}
-            sx={{ ml: 'auto', fontSize: 16, fontWeight: 700, color: 'rgb(112,112,112)', textTransform: 'none' }}
+            sx={{ ml: 'auto', fontSize: 16, fontWeight: 700, color: 'sf.textGrey', textTransform: 'none' }}
           >
             Mark All as Read
           </Button>
@@ -1275,8 +1276,9 @@ const DashboardLayout = ({ children }) => {
                       }
                     : {})}
                   sx={{
-                    borderBottom: '1px solid #f0f0f0',
-                    ...(canOpen ? { cursor: 'pointer', '&:hover': { backgroundColor: '#f5fafd' } } : {}),
+                    borderBottom: 1,
+                    borderColor: 'sf.divider',
+                    ...(canOpen ? { cursor: 'pointer', '&:hover': { backgroundColor: (t) => (t.palette.mode === 'dark' ? t.palette.sf.paneAlt : '#f5fafd') } } : {}),
                     // Sit the dot and bin level with the TITLE. Centred (MUI's
                     // default) they drifted down beside the message on tall rows,
                     // which is what made the dot look mixed into the text.

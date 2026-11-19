@@ -122,12 +122,21 @@ import settingsService from '../../services/settingsService';
 import shelfTicketService from '../../services/shelfTicketService';
 import { sellPricesChanged, queueEverydayTicket } from '../../utils/priceChangeTicket';
 import { pricingUnitCost, profitPercent, priceFromPercent } from '../../utils/productCost';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (Profile > Theme): light values are exactly what the form used before;
+// dark values are measured off the reference's dark product form.
+const DESC = byMode('#404040', '#d4d4d4');        // field description lines
+const OPT_TXT = byMode('#000', '#f8f8f8');        // combobox option text
+const OPT_SEL = byMode('#3aa6de', '#00a6f4');     // selected combobox option text
+const TRASH = byMode('#d32f2f', '#ffa2a2');       // row delete icon (light = MUI error.main)
+const ON_BTN = byMode('#ffffff', '#232323');      // label on the blue / green buttons
 
 // Parity primary button (bg #5ebbeb, radius 12, h42, 700/16, no shadow, none-case)
 const primaryButtonSx = {
   backgroundColor: '#5ebbeb',
   border: '1px solid #5ebbeb',
-  color: '#ffffff',
+  color: ON_BTN,
   borderRadius: '12px',
   height: 42,
   fontWeight: 700,
@@ -143,9 +152,10 @@ const primaryButtonSx = {
 // Parity secondary (green) button — ref token-green #22c55e (oklch 0.723 0.219 149.579),
 // 1px border in the same green, pure #fff label, pad 8px 32px, hover LIGHTENS
 const greenButtonSx = {
-  backgroundColor: '#22c55e',
-  color: '#ffffff',
-  border: '1px solid #22c55e',
+  backgroundColor: byMode('#22c55e', '#7bf1a8'),
+  color: ON_BTN,
+  border: 1,
+  borderColor: byMode('#22c55e', '#7bf1a8'),
   borderRadius: '12px',
   height: 42,
   fontWeight: 700,
@@ -154,7 +164,20 @@ const greenButtonSx = {
   boxShadow: 'none',
   padding: '8px 32px',
   transition: 'none',
-  '&:hover': { backgroundColor: '#4ade80', borderColor: '#4ade80', boxShadow: 'none' },
+  '&:hover': { backgroundColor: byMode('#4ade80', '#9df5bd'), borderColor: byMode('#4ade80', '#9df5bd'), boxShadow: 'none' },
+};
+
+// Reference dark: New Barcode / Add Loyalty Row are green, New Price Point is sky-blue
+// (light keeps the blue primary button it has today).
+const greenInDarkSx = {
+  backgroundColor: byMode('#5ebbeb', '#7bf1a8'),
+  borderColor: byMode('#5ebbeb', '#7bf1a8'),
+  '&:hover': { backgroundColor: byMode('#0ea5e9', '#9df5bd'), borderColor: byMode('#0ea5e9', '#9df5bd'), boxShadow: 'none' },
+};
+const skyInDarkSx = {
+  backgroundColor: byMode('#5ebbeb', '#73d4ff'),
+  borderColor: byMode('#5ebbeb', '#73d4ff'),
+  '&:hover': { backgroundColor: byMode('#0ea5e9', '#9ae2ff'), borderColor: byMode('#0ea5e9', '#9ae2ff'), boxShadow: 'none' },
 };
 
 // Favourited field names, persisted for this browser/login.
@@ -195,12 +218,12 @@ const FavoriteStar = ({ field }) => {
         height: 24,
         padding: 0,
         borderRadius: '8px',
-        color: active ? '#f59e0b' : '#dedede',
+        color: active ? byMode('#f59e0b', '#f6993f') : byMode('#dedede', '#a0a4aa'),
         // Ref: instant amber on hover (transition: all 0s) — MUI's SvgIcon defaults to
         // `fill 200ms`, so the glyph transition has to be killed too
         transition: 'none',
         '& .MuiSvgIcon-root': { transition: 'none' },
-        '&:hover': { color: '#f59e0b', backgroundColor: 'rgba(0, 0, 0, 0.1)' },
+        '&:hover': { color: byMode('#f59e0b', '#f6993f'), backgroundColor: byMode('rgba(0, 0, 0, 0.1)', 'rgba(255, 255, 255, 0.1)') },
       }}
     >
       {active ? (
@@ -218,10 +241,12 @@ const ComboPaper = (props) => (
   <Paper
     elevation={0}
     {...props}
-    sx={{
+    sx={[{
       borderRadius: 0,
       boxShadow: 'none',
-      border: '1px solid #404040',
+      border: 1,
+      borderColor: 'sf.border',
+      bgcolor: 'sf.paper',
       '& .MuiAutocomplete-listbox': { padding: 0 },
       // Ref marks the selected option with sky-blue TEXT only — never a blue-tinted row background.
       // !important is required: MUI's AutocompleteListbox rules tie on specificity and are injected
@@ -231,9 +256,37 @@ const ComboPaper = (props) => (
       '& .MuiAutocomplete-option[aria-selected="true"].Mui-focusVisible': { backgroundColor: 'transparent !important' },
       // Real mouse hover keeps the same neutral gray as every other option row (declared last to win the tie)
       '& .MuiAutocomplete-option[aria-selected="true"]:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04) !important' },
-    }}
+    },
+    // Dark only (reference): the hovered / keyboard-focused option is a solid #0084d1 row
+    // with near-white text. Light mode keeps the neutral gray tint above.
+    (t) => (t.palette.mode === 'dark'
+      ? {
+          '& .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-option:hover, & .MuiAutocomplete-option[aria-selected="true"].Mui-focused, & .MuiAutocomplete-option[aria-selected="true"]:hover': {
+            backgroundColor: '#0084d1 !important',
+            color: '#fafafa',
+          },
+        }
+      : {}),
+    ]}
   />
 );
+
+// Select menus: dark-only paper colours (reference list dropdown: #232323 panel, #a1a1a1
+// border, #f8f8f8 rows, #0084d1 hover row, #00a6f4 ticked row text). In light mode this
+// adds nothing, so the menus render exactly as before.
+const SELECT_MENU_PROPS = {
+  PaperProps: {
+    sx: (t) => (t.palette.mode === 'dark'
+      ? {
+          bgcolor: '#232323',
+          border: '1px solid #a1a1a1',
+          '& .MuiMenuItem-root': { color: '#f8f8f8' },
+          '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#00a6f4' },
+          '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { bgcolor: '#0084d1', color: '#fafafa' },
+        }
+      : {}),
+  },
+};
 
 // Ref option order + gray description second lines for the Status combobox
 // Tab strip: label + icon + the reference's measured pixel width for that tab
@@ -471,7 +524,8 @@ const RteToolbar = ({ exec, onImage }) => {
 // Parity data-table header (matches ReportTable.jsx)
 const dataTableHeadSx = {
   '& th': {
-    backgroundColor: '#5ebbeb',
+    // Reference dark form draws no blue bar: bold light headings on the form body.
+    backgroundColor: byMode('#5ebbeb', '#202020'),
     color: '#f8f8f8',
     fontWeight: 700,
     fontSize: 16,
@@ -483,8 +537,8 @@ const dataTableHeadSx = {
 
 // Parity zebra row for input tables
 const dataTableRowSx = (index) => ({
-  bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
-  '& td': { fontSize: 16, color: '#000', borderBottom: 'none', padding: '8px 8px 8px 10px' },
+  bgcolor: index % 2 === 0 ? byMode('#fff', '#202020') : byMode('#f8f8f8', '#202020'),
+  '& td': { fontSize: 16, color: 'sf.text', borderBottom: 'none', padding: '8px 8px 8px 10px' },
 });
 
 // The duplicate-barcode tooltip reads as a small white card rather than MUI's
@@ -493,16 +547,17 @@ const dataTableRowSx = (index) => ({
 const duplicateTooltipSlotProps = {
   tooltip: {
     sx: {
-      bgcolor: '#fff',
-      color: '#111827',
+      bgcolor: byMode('#fff', '#232323'),
+      color: byMode('#111827', '#f8f8f8'),
       maxWidth: 380,
       p: '12px 16px',
       borderRadius: '10px',
-      border: '1px solid #e5e7eb',
+      border: 1,
+      borderColor: byMode('#e5e7eb', '#a1a1a1'),
       boxShadow: '0 8px 24px rgba(15, 23, 42, 0.14)',
     },
   },
-  arrow: { sx: { color: '#fff', '&::before': { border: '1px solid #e5e7eb' } } },
+  arrow: { sx: { color: byMode('#fff', '#232323'), '&::before': { border: 1, borderColor: byMode('#e5e7eb', '#a1a1a1') } } },
 };
 
 const TabPanel = ({ children, value, index, ...other }) => (
@@ -1939,7 +1994,7 @@ const ProductEdit = () => {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        backgroundColor: '#ffffff',
+        backgroundColor: 'sf.formPage',
       }}
     >
       {error && (
@@ -1955,11 +2010,11 @@ const ProductEdit = () => {
           empty band for one line of text, which with the 50px app bar and the 72px
           tab row left barely half a 768px laptop screen for the form itself. 24/16
           reads the same and gives ~88px back to the content. */}
-      <Box sx={{ backgroundColor: 'rgb(226, 232, 240)', flexShrink: 0 }}>
+      <Box sx={{ backgroundColor: byMode('rgb(226, 232, 240)', '#314158'), flexShrink: 0 }}>
         <Box sx={{ maxWidth: '820px', margin: '0 auto', padding: '24px 24px 16px' }}>
-          <Typography sx={{ fontSize: 20, fontWeight: 700, color: 'rgb(90, 90, 90)' }}>
+          <Typography sx={{ fontSize: 20, fontWeight: 700, color: byMode('rgb(90, 90, 90)', '#d4d4d4') }}>
             {/* Until a name is typed the band read just "Creating" — fall back to "Product". */}
-            {isNewProduct ? 'Creating' : 'Editing'} <Box component="span" sx={{ color: '#000' }}>{formData.name || 'Product...'}</Box>
+            {isNewProduct ? 'Creating' : 'Editing'} <Box component="span" sx={{ color: byMode('#000', '#f8f8f8') }}>{formData.name || 'Product...'}</Box>
           </Typography>
         </Box>
 
@@ -1976,7 +2031,7 @@ const ProductEdit = () => {
               textTransform: 'none',
               fontSize: '14px',
               fontWeight: 400,
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               minHeight: 56,
               padding: '16px 24px',
               borderRadius: '8px 8px 0 0',
@@ -1985,11 +2040,11 @@ const ProductEdit = () => {
             // Ref tabs are ~9px narrower per tab: 18px icon + 5px gap (MUI default is 24px + 8px)
             '& .MuiTab-root .MuiTab-iconWrapper': { fontSize: 18, marginRight: '5px' },
             '& .MuiTab-root:hover:not(.Mui-selected)': {
-              backgroundColor: 'rgba(0, 0, 0, 0.1)',
+              backgroundColor: byMode('rgba(0, 0, 0, 0.1)', 'rgba(255, 255, 255, 0.1)'),
             },
             '& .MuiTab-root.Mui-selected': {
-              color: '#000',
-              backgroundColor: '#fff',
+              color: byMode('#000', '#f8f8f8'),
+              backgroundColor: 'sf.formTab',
               borderRadius: '8px 8px 0 0',
               boxShadow: 'rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.1) 0 4px 6px -4px',
             },
@@ -2014,20 +2069,21 @@ const ProductEdit = () => {
       {/* Scrollable form content (header band stays pinned) */}
       {/* pb clears the pinned Save bar, so the last field of a tab is never sitting
           underneath it. */}
-      <Box ref={contentScrollRef} sx={{ flex: 1, overflowY: 'auto', backgroundColor: '#fff', pb: `${SAVE_BAR_CLEARANCE}px` }}>
+      <Box ref={contentScrollRef} sx={{ flex: 1, overflowY: 'auto', backgroundColor: 'sf.formPage', pb: `${SAVE_BAR_CLEARANCE}px` }}>
       {/* Tab Content */}
       <Box sx={{
-        backgroundColor: 'white',
+        backgroundColor: 'sf.formPage',
         maxWidth: '820px',
         margin: '0 auto',
-        '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-        '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-        '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+        // Light inputs stay transparent (they sit on white and on #f8f8f8 zebra rows alike).
+        '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: byMode('transparent', '#121212') },
+        '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+        '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border' },
+        '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.borderStrong', borderWidth: '2px' },
         '& .MuiOutlinedInput-input': { padding: '9.5px 16px', fontSize: 16 },
         '& .MuiInputBase-multiline': { padding: 0 },
-        '& input::placeholder, & textarea::placeholder': { color: '#808080', opacity: 1 },
-        '& .MuiTypography-subtitle1': { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, color: '#000' },
+        '& input::placeholder, & textarea::placeholder': { color: 'sf.textFaint', opacity: 1 },
+        '& .MuiTypography-subtitle1': { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, color: 'sf.text' },
       }}>
         {/* General Tab */}
         <TabPanel value={activeTab} index={tabIndex('General')}>
@@ -2041,7 +2097,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Name <FavoriteStar field="Name" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 The name of the product, this will appear throughout Crinit's Shop and will be visible to customers
               </Typography>
               <TextField
@@ -2059,7 +2115,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Type <FavoriteStar field="Type" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 Determines how a product is sold and whether it contains other products. Under most circumstances this should be a{' '}
                 <Box component="em">{formData.type}</Box>
               </Typography>
@@ -2097,9 +2153,10 @@ const ProductEdit = () => {
                     }
                   }}
                   disabled={!isNewProduct}
+                  MenuProps={SELECT_MENU_PROPS}
                   sx={{
-                    '&.Mui-disabled': { backgroundColor: '#dedede', cursor: 'not-allowed' },
-                    '& .MuiSelect-select.Mui-disabled': { WebkitTextFillColor: '#000', cursor: 'not-allowed' },
+                    '&.Mui-disabled': { backgroundColor: byMode('#dedede', '#3a3a3a'), cursor: 'not-allowed' },
+                    '& .MuiSelect-select.Mui-disabled': { WebkitTextFillColor: byMode('#000', '#f8f8f8'), cursor: 'not-allowed' },
                   }}
                 >
                   {/* Reference list (measured 2026-09-15). Composite Product and
@@ -2117,7 +2174,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Status <FavoriteStar field="Status" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 Whether this product is a regularly stocked product, one you're removing from the store or one you're unable to sell yet
               </Typography>
               {/* Type-to-filter combobox with flat field-width panel and described options (ref) */}
@@ -2141,14 +2198,14 @@ const ProductEdit = () => {
                   // Ref row heights: 72px for a one-line description, 88px for two lines
                   // (16px vertical padding + 24px title + 16px-per-description-line)
                   <Box component="li" {...props} sx={{ display: 'block !important', py: '16px !important' }}>
-                    <Typography sx={{ fontSize: 16, lineHeight: '24px', color: selected ? '#3aa6de' : '#000' }}>
+                    <Typography sx={{ fontSize: 16, lineHeight: '24px', color: selected ? OPT_SEL : OPT_TXT }}>
                       {option.value}
                     </Typography>
                     <Typography
                       sx={{
                         fontSize: 13,
                         lineHeight: '16px',
-                        color: '#676b72',
+                        color: byMode('#676b72', '#a0a4aa'),
                         minHeight: `${(option.descriptionLines || 1) * 16}px`,
                       }}
                     >
@@ -2164,11 +2221,11 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Description <FavoriteStar field="Description" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 A large text description of the product, this can be viewed in the sell screen, but is most commonly used when connecting an eCommerce store
               </Typography>
               <RteToolbar exec={execDescCommand} onImage={openDescMedia} />
-              <Box sx={{ border: '1px solid #000', borderRadius: '2px' }}>
+              <Box sx={{ border: 1, borderColor: byMode('#000', '#a1a1a1'), bgcolor: byMode('transparent', '#121212'), borderRadius: '2px' }}>
                 <Box
                   ref={seedDescEditor}
                   contentEditable
@@ -2190,7 +2247,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Case Quantity <FavoriteStar field="Case Quantity" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 The number of items that come in a case / outer
               </Typography>
               {/* Ref: disabled input + green button share one row; value stays black on #dedede.
@@ -2207,9 +2264,9 @@ const ProductEdit = () => {
                     e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 1))}
                   sx={{
                     flex: 1,
-                    '& .MuiOutlinedInput-root.Mui-disabled': { backgroundColor: '#dedede', cursor: 'not-allowed' },
-                    '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                    '& .MuiOutlinedInput-input.Mui-disabled': { WebkitTextFillColor: '#000', cursor: 'not-allowed' },
+                    '& .MuiOutlinedInput-root.Mui-disabled': { backgroundColor: byMode('#dedede', '#3a3a3a'), cursor: 'not-allowed' },
+                    '& .MuiOutlinedInput-root.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border' },
+                    '& .MuiOutlinedInput-input.Mui-disabled': { WebkitTextFillColor: byMode('#000', '#f8f8f8'), cursor: 'not-allowed' },
                   }}
                 />
                 <Button
@@ -2228,7 +2285,7 @@ const ProductEdit = () => {
               <Dialog open={caseQuantityDraft !== null} onClose={() => setCaseQuantityDraft(null)} maxWidth="xs" fullWidth>
                 <DialogTitle sx={{ fontSize: 20, fontWeight: 700 }}>Edit Case Quantity</DialogTitle>
                 <DialogContent>
-                  <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+                  <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                     What do you want to change the case quantity to?
                   </Typography>
                   <TextField
@@ -2241,13 +2298,13 @@ const ProductEdit = () => {
                   />
                   {/* Reference wording (measured 2026-09-15): the change is applied,
                       prices and promotions are for the user to check afterwards. */}
-                  <Typography variant="body2" sx={{ mt: 2, color: '#404040' }}>
+                  <Typography variant="body2" sx={{ mt: 2, color: DESC }}>
                     Please note that inventory, cost, prices and promotions are affected by changing
                     case quantity and will need to be double-checked once the case quantity is changed.
                   </Typography>
                 </DialogContent>
                 <DialogActions sx={{ padding: '0 24px 20px' }}>
-                  <Button onClick={() => setCaseQuantityDraft(null)} sx={{ textTransform: 'none', color: '#676b72' }}>
+                  <Button onClick={() => setCaseQuantityDraft(null)} sx={{ textTransform: 'none', color: 'sf.textMuted' }}>
                     Cancel
                   </Button>
                   <Button
@@ -2325,7 +2382,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Category <FavoriteStar field="Category" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 A mid-level name for a like group of products
               </Typography>
               {/* Ref combobox: type-to-filter, x clear inside the field, sky-blue selected option */}
@@ -2348,7 +2405,7 @@ const ProductEdit = () => {
                 PaperComponent={ComboPaper}
                 sx={{ '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' } }}
                 renderOption={(props, option, { selected }) => (
-                  <Box component="li" {...props} sx={{ fontSize: 16, color: selected ? '#3aa6de' : '#000' }}>
+                  <Box component="li" {...props} sx={{ fontSize: 16, color: selected ? OPT_SEL : OPT_TXT }}>
                     {option.name}
                   </Box>
                 )}
@@ -2359,7 +2416,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Brand <FavoriteStar field="Brand" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 The group name of like products that customers recognise
               </Typography>
               <CreatableAutocomplete
@@ -2376,7 +2433,7 @@ const ProductEdit = () => {
                 PaperComponent={ComboPaper}
                 sx={{ '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' } }}
                 renderOption={(props, option, { selected }) => (
-                  <Box component="li" {...props} sx={{ fontSize: 16, color: selected ? '#3aa6de' : '#000' }}>
+                  <Box component="li" {...props} sx={{ fontSize: 16, color: selected ? OPT_SEL : OPT_TXT }}>
                     {option.name}
                   </Box>
                 )}
@@ -2387,7 +2444,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Family <FavoriteStar field="Family" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 Products that are price-aligned and grouped together
               </Typography>
               <CreatableAutocomplete
@@ -2401,7 +2458,7 @@ const ProductEdit = () => {
                 PaperComponent={ComboPaper}
                 sx={{ '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' } }}
                 renderOption={(props, option, { selected }) => (
-                  <Box component="li" {...props} sx={{ fontSize: 16, color: selected ? '#3aa6de' : '#000' }}>
+                  <Box component="li" {...props} sx={{ fontSize: 16, color: selected ? OPT_SEL : OPT_TXT }}>
                     {option.name}
                   </Box>
                 )}
@@ -2441,7 +2498,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Tags <FavoriteStar field="Tags" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 Used for filtering products into groups
               </Typography>
               {/* Was a <Select multiple>, which has no text filter at all — with a
@@ -2489,7 +2546,7 @@ const ProductEdit = () => {
                 PaperComponent={ComboPaper}
                 sx={{ '& .MuiAutocomplete-clearIndicator': { visibility: 'visible' } }}
                 renderOption={(props, option, { selected }) => (
-                  <Box component="li" {...props} sx={{ fontSize: 16, color: selected ? '#3aa6de' : '#000' }}>
+                  <Box component="li" {...props} sx={{ fontSize: 16, color: selected ? OPT_SEL : OPT_TXT }}>
                     {option}
                   </Box>
                 )}
@@ -2511,13 +2568,14 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Retail Tax Rate <FavoriteStar field="Retail Tax Rate" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 The tax this product accrues when selling it
               </Typography>
               <FormControl fullWidth>
                 <Select
                   value={formData.retailTaxRate}
                   onChange={(e) => handleInputChange('retailTaxRate', e.target.value)}
+                  MenuProps={SELECT_MENU_PROPS}
                 >
                   <MenuItem value="No Tax">No Tax</MenuItem>
                   {/* "No Tax" is itself a row of the tax-rate table - listed once, above. */}
@@ -2534,13 +2592,14 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Purchase Tax Rate <FavoriteStar field="Purchase Tax Rate" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 The tax this product accrues when purchasing it
               </Typography>
               <FormControl fullWidth>
                 <Select
                   value={formData.purchaseTaxRate}
                   onChange={(e) => handleInputChange('purchaseTaxRate', e.target.value)}
+                  MenuProps={SELECT_MENU_PROPS}
                 >
                   <MenuItem value="Inherit">Inherit</MenuItem>
                   <MenuItem value="No Tax">No Tax</MenuItem>
@@ -2563,7 +2622,7 @@ const ProductEdit = () => {
                   checked={formData.preventManualDiscounts}
                   onChange={(e) => handleInputChange('preventManualDiscounts', e.target.checked)}
                 />
-                <Typography variant="body2" sx={{ ml: 2, color: '#404040' }}>
+                <Typography variant="body2" sx={{ ml: 2, color: DESC }}>
                   {formData.preventManualDiscounts
                     ? "This product can't have manual discounts applied"
                     : 'This product can have manual discounts applied'}
@@ -2604,7 +2663,7 @@ const ProductEdit = () => {
                     });
                   }}
                 />
-                <Typography variant="body2" sx={{ ml: 2, color: '#404040' }}>
+                <Typography variant="body2" sx={{ ml: 2, color: DESC }}>
                   {formData.costPercentage
                     ? "The cost of this product is a percentage of the sell price"
                     : "This product's cost won't be a percentage of the sell price"}
@@ -2652,7 +2711,7 @@ const ProductEdit = () => {
                   }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      backgroundColor: '#fff',
+                      backgroundColor: byMode('#fff', '#121212'),
                     }
                   }}
                   helperText="The cost as a percentage of the sell price"
@@ -2704,7 +2763,7 @@ const ProductEdit = () => {
                       inputProps={{ step: 'any' }}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          backgroundColor: readOnly ? '#e0e0e0' : '#fff',
+                          backgroundColor: readOnly ? byMode('#e0e0e0', '#3a3a3a') : byMode('#fff', '#121212'),
                         },
                       }}
                       helperText={!formData.showCostsIncludingTax && formData[field] !== ''
@@ -2764,22 +2823,22 @@ const ProductEdit = () => {
                     products a change here also changes (the server aligns them). */}
                 {formData.familyId && familyMembers.length > 0 && (
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body1" sx={{ color: '#000' }}>
+                    <Typography variant="body1" sx={{ color: 'sf.text' }}>
                       Due to being in a family, modifying the prices here will also modify the prices for:
                     </Typography>
                     <Box component="ul" sx={{ mt: 1, mb: 0, pl: 3 }}>
                       {familyMembers.map((member) => (
                         <li key={member.id}>
-                          <Typography variant="body2" sx={{ color: '#000' }}>{member.name}</Typography>
+                          <Typography variant="body2" sx={{ color: 'sf.text' }}>{member.name}</Typography>
                         </li>
                       ))}
                     </Box>
                   </Box>
                 )}
-                <Typography variant="body2" sx={{ mb: 1, fontWeight: 700, color: '#000' }}>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: 700, color: 'sf.text' }}>
                   Relevant Prices
                 </Typography>
-                <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>
+                <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0, bgcolor: 'sf.formPage' }}>
                   <Table>
                     <TableHead>
                       <TableRow sx={dataTableHeadSx}>
@@ -2827,6 +2886,7 @@ const ProductEdit = () => {
                                 // price row), not "nothing picked", so the cell has
                                 // to render text for it rather than sit blank.
                                 SelectProps={{
+                                  MenuProps: SELECT_MENU_PROPS,
                                   displayEmpty: true,
                                   renderValue: (v) =>
                                     priceSourceLabel(
@@ -2957,6 +3017,7 @@ const ProductEdit = () => {
                               onClick={() => removePriceRow(index)}
                               color="error"
                               size="small"
+                              sx={{ color: TRASH }}
                             >
                               <DeleteIcon />
                             </IconButton>
@@ -2973,7 +3034,7 @@ const ProductEdit = () => {
                             <TableRow
                               data-testid="other-prices-toggle"
                               onClick={() => setShowOtherPrices((v) => !v)}
-                              sx={{ cursor: 'pointer', '& td': { fontSize: 18, color: '#000', py: 1.5, border: '1px solid #000' } }}
+                              sx={{ cursor: 'pointer', '& td': { fontSize: 18, color: 'sf.text', py: 1.5, border: 1, borderColor: byMode('#000', '#373737') } }}
                             >
                               <TableCell colSpan={6}>
                                 {showOtherPrices ? '−  Hide Other Prices' : '+  Show Other Prices'}
@@ -2991,7 +3052,7 @@ const ProductEdit = () => {
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={addPriceRow}
-                  sx={{ ...primaryButtonSx, mt: 2 }}
+                  sx={{ ...primaryButtonSx, ...skyInDarkSx, mt: 2 }}
                 >
                    New Price Point
                 </Button>
@@ -3034,7 +3095,7 @@ const ProductEdit = () => {
                   checked={formData.trackInventory}
                   onChange={(e) => handleInputChange('trackInventory', e.target.checked)}
                 />
-                <Typography variant="body2" sx={{ ml: 2, color: '#404040' }}>
+                <Typography variant="body2" sx={{ ml: 2, color: DESC }}>
                   {formData.trackInventory
                     ? 'The inventory changes for this product will be tracked'
                     : "The inventory changes for this product won't be tracked"}
@@ -3197,6 +3258,7 @@ const ProductEdit = () => {
                     <Select
                       value={formData.reorderRounding}
                       onChange={(e) => handleInputChange('reorderRounding', e.target.value)}
+                      MenuProps={SELECT_MENU_PROPS}
                     >
                       <MenuItem value="No Rounding">No Rounding</MenuItem>
                       <MenuItem value="Round Up to Case">Round Up to Case</MenuItem>
@@ -3245,7 +3307,7 @@ const ProductEdit = () => {
                     }
                   }}
                 />
-                <Typography variant="body2" sx={{ ml: 2, color: '#404040' }}>
+                <Typography variant="body2" sx={{ ml: 2, color: DESC }}>
                   {useBarcodeTemplatesOn
                     ? 'Barcodes on this product can use a Barcode Template (deli scales, lotto)'
                     : "This product's barcodes don't use Barcode Templates"}
@@ -3258,7 +3320,7 @@ const ProductEdit = () => {
             Barcodes <FavoriteStar field="Barcodes" />
           </Typography>
 
-          <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>
+          <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0, bgcolor: 'sf.formPage' }}>
             <Table>
               <TableHead>
                 <TableRow sx={dataTableHeadSx}>
@@ -3277,7 +3339,7 @@ const ProductEdit = () => {
                       {others.length > 0 && (
                         <>
                           <Typography
-                            sx={{ fontSize: 14, fontWeight: 600, color: '#111827', lineHeight: 1.4 }}
+                            sx={{ fontSize: 14, fontWeight: 600, color: byMode('#111827', '#f8f8f8'), lineHeight: 1.4 }}
                           >
                             This barcode is also used in the following products
                           </Typography>
@@ -3288,7 +3350,7 @@ const ProductEdit = () => {
                                 key={product.id}
                                 sx={{
                                   fontSize: 14,
-                                  color: '#374151',
+                                  color: byMode('#374151', '#d4d4d4'),
                                   lineHeight: 1.6,
                                   position: 'relative',
                                   '&::before': {
@@ -3314,7 +3376,7 @@ const ProductEdit = () => {
                           sx={{
                             fontSize: 14,
                             fontWeight: 600,
-                            color: '#111827',
+                            color: byMode('#111827', '#f8f8f8'),
                             lineHeight: 1.4,
                             mt: others.length > 0 ? 1 : 0,
                           }}
@@ -3394,8 +3456,9 @@ const ProductEdit = () => {
                           displayEmpty
                           value={barcode.templateId ?? ''}
                           inputProps={{ 'aria-label': 'Template' }}
+                          MenuProps={SELECT_MENU_PROPS}
                           renderValue={(v) => (v === '' || v == null
-                            ? <Box component="span" sx={{ color: '#808080' }}>No template</Box>
+                            ? <Box component="span" sx={{ color: 'sf.textFaint' }}>No template</Box>
                             : (barcodeTemplates.find((t) => t.id === Number(v))?.name || `Template #${v}`))}
                           onChange={(e) => {
                             const newBarcodes = [...formData.barcodes];
@@ -3438,6 +3501,7 @@ const ProductEdit = () => {
                         onClick={() => removeBarcode(index)}
                         color="error"
                         size="small"
+                        sx={{ color: TRASH }}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -3453,7 +3517,7 @@ const ProductEdit = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={addBarcode}
-            sx={{ ...primaryButtonSx, mt: 2 }}
+            sx={{ ...primaryButtonSx, ...greenInDarkSx, mt: 2 }}
           >
              New Barcode
           </Button>
@@ -3471,7 +3535,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Order Notes <FavoriteStar field="Order Notes" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 These will appear when you're placing an order to any supplier, they will also be sent to the supplier if you're emailing an order from within Crinit's Shop.
               </Typography>
               <TextField
@@ -3488,7 +3552,7 @@ const ProductEdit = () => {
               <Typography variant="subtitle1" sx={{ mb: 1 }}>
                 Invoice Notes <FavoriteStar field="Invoice Notes" />
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#404040' }}>
+              <Typography variant="body2" sx={{ mb: 2, color: DESC }}>
                 These will appear when you're receiving an invoice in Crinit\'s Shop.
               </Typography>
               <TextField
@@ -3530,6 +3594,7 @@ const ProductEdit = () => {
                           onClick={() => removeSupplier(index)}
                           color="error"
                           size="small"
+                          sx={{ color: TRASH }}
                         >
                           <DeleteIcon />
                         </IconButton>
@@ -3785,7 +3850,7 @@ const ProductEdit = () => {
             {isTrueSuperAdmin() ? 'Global' : (getOutletName() || 'N/A')} <FavoriteStar field="Loyalty Outlet" />
           </Typography>
           
-          <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0 }}>
+          <TableContainer component={Paper} sx={{ boxShadow: 'none', borderRadius: 0, bgcolor: 'sf.formPage' }}>
             <Table>
               <TableHead>
                 <TableRow sx={dataTableHeadSx}>
@@ -3840,6 +3905,7 @@ const ProductEdit = () => {
                         onClick={() => removeLoyaltyRow(index)}
                         color="error"
                         size="small"
+                        sx={{ color: TRASH }}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -3854,7 +3920,7 @@ const ProductEdit = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={addLoyaltyRow}
-            sx={{ ...primaryButtonSx, mt: 2 }}
+            sx={{ ...primaryButtonSx, ...greenInDarkSx, mt: 2 }}
           >
              Add Loyalty Row
           </Button>
@@ -3882,7 +3948,7 @@ const ProductEdit = () => {
                 control = (
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <ShopfrontSwitch checked={value === true} onChange={(e) => setValue(e.target.checked)} />
-                    <Typography variant="body2" sx={{ ml: 2, color: '#404040' }}>{value === true ? 'On' : 'Off'}</Typography>
+                    <Typography variant="body2" sx={{ ml: 2, color: DESC }}>{value === true ? 'On' : 'Off'}</Typography>
                   </Box>
                 );
                 break;
@@ -3950,7 +4016,7 @@ const ProductEdit = () => {
               checked={formData.sellOnShopMyLocal}
               onChange={(e) => handleInputChange('sellOnShopMyLocal', e.target.checked)}
             />
-            <Typography variant="body2" sx={{ ml: 2, color: '#404040' }}>
+            <Typography variant="body2" sx={{ ml: 2, color: DESC }}>
               {formData.sellOnShopMyLocal
                 ? 'This product will be available on Shop MyLocal'
                 : "This product won't be available on Shop MyLocal"}

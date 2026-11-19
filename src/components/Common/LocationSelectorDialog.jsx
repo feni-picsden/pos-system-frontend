@@ -10,10 +10,17 @@ import ShopfrontDialog from './ShopfrontDialog';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (Profile > Theme): light values stay exactly as before; dark values are
+// measured off the reference's dark Location Selector (blue-grey #45556c paper,
+// #cad5e2 option borders, #f8f8f8 text, gradient backdrop).
+const locText = byMode('#000', '#f8f8f8');
 
 // Location Selector option row (registers + "Not using a register") — reference styling.
 const locationOptionSx = {
-  border: '2px solid #e5e7eb',
+  border: byMode('2px solid #e5e7eb', '2px solid #cad5e2'),
+  color: byMode(undefined, '#f8f8f8'),
   borderRadius: '8px',
   padding: '16px',
   height: 57,
@@ -24,7 +31,7 @@ const locationOptionSx = {
   cursor: 'pointer',
   transition: 'all .15s cubic-bezier(.4,0,.2,1)',
   '&:hover': {
-    color: '#475569',
+    color: byMode('#475569', '#cad5e2'),
     boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
   },
 };
@@ -120,13 +127,15 @@ const LocationSelectorDialog = () => {
         open={showLocationSelector}
         onClose={() => { if (!busyKey) setShowLocationSelector(false); }}
         maxWidth={false}
-        slotProps={{ backdrop: { sx: { backgroundColor: '#fff' } } }}
+        slotProps={{ backdrop: { sx: { backgroundColor: '#fff', backgroundImage: byMode('none', 'linear-gradient(135deg, #413d39 0%, #1a1a1d 100%)') } } }}
         PaperProps={{
           sx: {
             width: 'fit-content',
             maxWidth: 'none',
             m: '32px',
-            backgroundColor: '#fff',
+            backgroundColor: byMode('#fff', '#45556c'),
+            backgroundImage: 'none',
+            color: byMode(undefined, '#f8f8f8'),
             borderRadius: '8px',
             boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
             padding: '48px 32px 32px',
@@ -143,7 +152,7 @@ const LocationSelectorDialog = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
-              color: '#6b7280',
+              color: byMode('#6b7280', '#d4d4d4'),
               fontSize: 14,
               cursor: busyKey ? 'default' : 'pointer',
               opacity: busyKey ? 0.5 : 1,
@@ -153,7 +162,7 @@ const LocationSelectorDialog = () => {
             <ArrowBackIcon sx={{ fontSize: 14 }} /> Back to outlet select
           </Box>
         )}
-        <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+        <Typography sx={{ fontSize: 20, fontWeight: 700, color: locText }}>
           {/* Step 1 picks the outlet, step 2 the register (user 19/10/2026). */}
           {locationStep === 'register' ? 'Register Selector' : 'Outlet Selector'}
         </Typography>
@@ -209,7 +218,7 @@ const LocationSelectorDialog = () => {
                       {outlet.name}
                     </Typography>
                     {isCurrent && (
-                      <Typography sx={{ fontSize: 14, color: '#3b9fe0' }}>
+                      <Typography sx={{ fontSize: 14, color: byMode('#3b9fe0', '#5ebbeb') }}>
                         (Previously Selected)
                       </Typography>
                     )}
@@ -247,7 +256,7 @@ const LocationSelectorDialog = () => {
                   <Typography component="span" sx={{ fontSize: 16, fontWeight: 400 }}>
                     Not at an Outlet
                   </Typography>
-                  <Typography sx={{ fontSize: 14, color: '#64748b' }}>(Global Mode)</Typography>
+                  <Typography sx={{ fontSize: 14, color: byMode('#64748b', '#d1d5d8') }}>(Global Mode)</Typography>
                 </Box>
                 {busyKey === 'outlet-global' && (
                   <CircularProgress size={18} sx={{ ml: 'auto', color: '#3b9fe0' }} />
@@ -288,12 +297,12 @@ const LocationSelectorDialog = () => {
                   {register.name}
                 </Typography>
                 {isInUseByCurrentUser && (
-                  <Typography sx={{ fontSize: 14, color: '#3b9fe0' }}>
+                  <Typography sx={{ fontSize: 14, color: byMode('#3b9fe0', '#5ebbeb') }}>
                     (Previously Selected)
                   </Typography>
                 )}
                 {isInUseByOtherUser && (
-                  <Typography component="span" sx={{ fontSize: 14, color: '#64748b', ml: '6px' }}>
+                  <Typography component="span" sx={{ fontSize: 14, color: byMode('#64748b', '#d4d4d4'), ml: '6px' }}>
                     (In use by {register.currentUser.name} - Click to take control)
                   </Typography>
                 )}

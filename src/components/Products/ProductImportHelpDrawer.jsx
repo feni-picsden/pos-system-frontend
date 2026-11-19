@@ -17,6 +17,7 @@ import {
   ChevronRight as NextIcon,
   LightbulbOutlined as NoteIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference: the "Simple" / "Advanced" links on Import Products open the help
 // article in a right-hand drawer (< > and Close at the top). Content follows
@@ -81,14 +82,16 @@ const Ul = ({ items, italic = false }) => (
 );
 const Note = ({ children }) => (
   <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1.5 }}>
-    <NoteIcon sx={{ color: '#1c86f2', mt: '2px' }} />
+    <NoteIcon sx={{ color: byMode('#1c86f2', '#4ca0f5'), mt: '2px' }} />
     <Box>
-      <Typography sx={{ fontSize: 16, color: '#1c86f2', fontWeight: 500, mb: 0.5 }}>Note</Typography>
-      <Typography sx={{ fontSize: 16, lineHeight: 1.6, color: '#1a56a0' }}>{children}</Typography>
+      <Typography sx={{ fontSize: 16, color: byMode('#1c86f2', '#4ca0f5'), fontWeight: 500, mb: 0.5 }}>Note</Typography>
+      <Typography sx={{ fontSize: 16, lineHeight: 1.6, color: byMode('#1a56a0', '#d4d4d4') }}>{children}</Typography>
     </Box>
   </Box>
 );
-const cellSx = { fontSize: 16, py: 0.5, px: 1, border: 'none', verticalAlign: 'top' };
+const cellSx = { fontSize: 16, py: 0.5, px: 1, border: 'none', verticalAlign: 'top', 'html[data-theme="dark"] &': { color: '#f8f8f8' } };
+// Dark only: the < > arrows are muted grey in the reference drawer (light keeps MUI's default).
+const navIconSx = { 'html[data-theme="dark"] &': { color: '#a0a4aa' }, 'html[data-theme="dark"] &.Mui-disabled': { color: '#5e5e5e' } };
 const ColumnTable = ({ rows, withDefault = false }) => (
   <Table size="small" sx={{ mb: 2 }} data-testid="help-column-table">
     <TableHead>
@@ -132,15 +135,15 @@ export default function ProductImportHelpDrawer({ open, onClose, article = 'simp
       open={open}
       onClose={onClose}
       sx={{ zIndex: 1400 }}
-      PaperProps={{ sx: { width: 'min(770px, 100vw)', display: 'flex', flexDirection: 'column', boxShadow: 'none' }, 'data-testid': 'product-import-help' }}
+      PaperProps={{ sx: { width: 'min(770px, 100vw)', display: 'flex', flexDirection: 'column', boxShadow: 'none', 'html[data-theme="dark"] &': { bgcolor: '#232323', color: '#f8f8f8' } }, 'data-testid': 'product-import-help' }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', px: 3, pt: 2 }}>
-        <IconButton size="small" aria-label="Previous article" onClick={() => go(idx - 1)} disabled={idx <= 0}><PrevIcon /></IconButton>
-        <IconButton size="small" aria-label="Next article" onClick={() => go(idx + 1)} disabled={idx >= ARTICLES.length - 1}><NextIcon /></IconButton>
+        <IconButton size="small" aria-label="Previous article" onClick={() => go(idx - 1)} disabled={idx <= 0} sx={navIconSx}><PrevIcon /></IconButton>
+        <IconButton size="small" aria-label="Next article" onClick={() => go(idx + 1)} disabled={idx >= ARTICLES.length - 1} sx={navIconSx}><NextIcon /></IconButton>
         <Button
           onClick={onClose}
           startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
-          sx={{ ml: 'auto', color: '#000', fontSize: 16, fontWeight: 700, textTransform: 'none' }}
+          sx={{ ml: 'auto', color: byMode('#000', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none' }}
         >
           Close
         </Button>
@@ -185,7 +188,7 @@ export default function ProductImportHelpDrawer({ open, onClose, article = 'simp
           <Box data-testid="help-article-advanced">
             <H1 id="advanced">Importing an Advanced Product CSV File Into Crinit Shop</H1>
             <P>Crinit Shop features an advanced CSV importer for products that use dynamic columns to set multiple prices, barcodes and inventory levels.</P>
-            <Box sx={{ bgcolor: '#e3f2fd', borderLeft: '4px solid #1c86f2', p: 2, mb: 2 }}>
+            <Box sx={{ bgcolor: byMode('#e3f2fd', '#1f3a4a'), borderLeft: '4px solid #1c86f2', p: 2, mb: 2 }}>
               <Note>
                 We also have a basic CSV importer which is simpler to use, but only allows you to have one price and barcode.
                 If your use-case supports it, we would recommend using the basic importer instead (Import Mode: Simple).

@@ -9,24 +9,30 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import productService from '../../services/productService';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
 import {
   SECTION_ROOT_SX,
   GRID_TABLE_SX,
   WIDGET_SHADOW,
 } from './productViewStyles';
 
-// Reference gives the revision header row a white background + widget shadow.
+// Reference gives the revision header row a white background + widget shadow
+// (dark: #333333 bar, #373737 grid lines).
 const REVISION_TABLE_SX = {
   ...GRID_TABLE_SX,
-  '& thead tr': { backgroundColor: '#fff', boxShadow: WIDGET_SHADOW },
+  '& th, & td': { ...GRID_TABLE_SX['& th, & td'], borderColor: byMode('#000000', '#373737') },
+  '& thead tr': { backgroundColor: byMode('#fff', '#333333'), boxShadow: WIDGET_SHADOW },
 };
 
 // Reference highlights removed values pink and added values green inside the
-// nested From/To tables.
+// nested From/To tables (dark: #492625 / #264029).
 const REMOVED_BG = 'rgba(227, 52, 47, 0.2)';
 const ADDED_BG = 'rgba(50, 182, 67, 0.2)';
+const REMOVED_BG_DARK = '#492625';
+const ADDED_BG_DARK = '#264029';
 
 const COLUMNS = ['Field', 'From', 'To', 'User', 'Timestamp'];
 
@@ -34,12 +40,16 @@ const COLUMNS = ['Field', 'From', 'To', 'User', 'Timestamp'];
 const NESTED_TABLE_SX = {
   ...GRID_TABLE_SX,
   width: '100%',
-  '& th, & td': { ...GRID_TABLE_SX['& th, & td'], padding: '8px' },
+  '& th, & td': { ...GRID_TABLE_SX['& th, & td'], padding: '8px', borderColor: byMode('#000000', '#373737') },
   '& th': GRID_TABLE_SX['& th'],
   '& td': GRID_TABLE_SX['& td'],
 };
 
 const ProductRevisionHistory = ({ productId }) => {
+  // The nested row highlight is an inline style, so pick it by mode here.
+  const isDarkMode = useTheme().palette.mode === 'dark';
+  const removedBg = isDarkMode ? REMOVED_BG_DARK : REMOVED_BG;
+  const addedBg = isDarkMode ? ADDED_BG_DARK : ADDED_BG;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [revisions, setRevisions] = useState([]);
@@ -133,8 +143,8 @@ const ProductRevisionHistory = ({ productId }) => {
                 backgroundColor: other.some((o) => same(row, o))
                   ? 'transparent'
                   : isFrom
-                  ? REMOVED_BG
-                  : ADDED_BG,
+                  ? removedBg
+                  : addedBg,
               }}
             >
               {keys.map((k) => (

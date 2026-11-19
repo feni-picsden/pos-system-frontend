@@ -3,6 +3,9 @@ import { Box, Typography } from '@mui/material';
 import ShopfrontDialog, { DialogButton } from '../Common/ShopfrontDialog';
 import { useAppDialogs } from '../Common/AppDialogProvider';
 
+// Dark mode only (light renders exactly as before): reference dark Email dialog.
+const darkOnly = (v) => (t) => (t.palette.mode === 'dark' ? v : undefined);
+
 // Reference "Email" dialog: one row per address, a validity glyph inside each
 // box (green tick / red cross), a green "Add Email Address" bar that is disabled
 // until the last row has something in it, then Cancel / Send.
@@ -97,7 +100,7 @@ const EmailReceiptModal = ({ open, onClose, onSend, saleId, senderEmail, custome
         </>
       }
     >
-      <Typography sx={{ fontSize: 16, m: '16px 0' }}>
+      <Typography sx={{ fontSize: 16, m: '16px 0', color: darkOnly('#f8f8f8') }}>
         Please enter an email to send email to
       </Typography>
 
@@ -116,9 +119,11 @@ const EmailReceiptModal = ({ open, onClose, onSend, saleId, senderEmail, custome
               boxSizing: 'border-box',
               p: '16px 30px 16px 16px',
               fontSize: 16,
-              border: '1px solid #000',
+              border: (t) => `1px solid ${t.palette.mode === 'dark' ? '#f8f8f8' : '#000'}`,
               borderRadius: 0,
               outline: 'none',
+              bgcolor: darkOnly('#232323'),
+              color: darkOnly('#f8f8f8'),
             }}
           />
           {email.trim() !== '' && (
@@ -148,8 +153,8 @@ const EmailReceiptModal = ({ open, onClose, onSend, saleId, senderEmail, custome
           height: 53,
           border: '1px solid #f8f8f8',
           borderRadius: 0,
-          bgcolor: '#32b643',
-          color: '#f8f8f8',
+          bgcolor: (t) => (t.palette.mode === 'dark' ? '#7bf1a8' : '#32b643'),
+          color: (t) => (t.palette.mode === 'dark' ? '#313439' : '#f8f8f8'),
           fontSize: 16,
           cursor: 'pointer',
           '&:disabled': { opacity: 0.45, cursor: 'default' },

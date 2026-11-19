@@ -50,6 +50,7 @@ import { matchesProductFilters } from "../../utils/productFilter";
 import { rankProducts } from "../../utils/searchRank.js";
 import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 import { useGlobalOutlet } from "../../components/Common/GlobalOutletFilter";
+import { byMode } from "../../theme/sfPalette";
 
 // Shopfront-style multi-select type-ahead combobox used by every filter on this page:
 // label above the field, 'Select...' placeholder, gray chips (collapsing to 'N Selected...')
@@ -120,12 +121,12 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
   };
 
   const chipSx = {
-    bgcolor: "rgba(0,0,0,0.1)",
+    bgcolor: byMode("rgba(0,0,0,0.1)", "#3a3a3a"),
     borderRadius: "4px",
     px: 1,
     fontSize: 14,
     lineHeight: "24px",
-    color: "#000",
+    color: byMode("#000", "#f8f8f8"),
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -137,7 +138,7 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
 
   return (
     <Box ref={rootRef} sx={{ position: "relative", minWidth: 0 }}>
-      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: "#000" }}>
+      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode("#000", "#f8f8f8") }}>
         {label}
       </Typography>
       <Box
@@ -149,8 +150,9 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
           gap: "4px",
           height: 42,
           boxSizing: "border-box",
-          bgcolor: "#fff",
-          border: "1px solid #404040",
+          bgcolor: byMode("#fff", "#121212"),
+          border: 1,
+          borderColor: byMode("#404040", "#a1a1a1"),
           borderRadius: "8px",
           px: "10px",
           py: "4px",
@@ -186,11 +188,11 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
             outline: "none",
             fontSize: 16,
             fontFamily: "inherit",
-            color: "#000",
+            color: byMode("#000", "#f8f8f8"),
             bgcolor: "transparent",
             p: 0,
             height: 24,
-            "&::placeholder": { color: "#808080", opacity: 1 },
+            "&::placeholder": { color: byMode("#808080", "#757575"), opacity: 1 },
           }}
         />
         {value.length > 0 && !single && (
@@ -202,7 +204,7 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
               onChange([]);
               setQuery("");
             }}
-            sx={{ p: "2px", color: "#808080", flexShrink: 0 }}
+            sx={{ p: "2px", color: byMode("#808080", "#f8f8f8"), flexShrink: 0 }}
           >
             <ClearIcon sx={{ fontSize: 18 }} />
           </IconButton>
@@ -214,7 +216,7 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
             if (open) closePanel();
             else openPanel();
           }}
-          sx={{ color: "#404040", cursor: "pointer", flexShrink: 0 }}
+          sx={{ color: byMode("#404040", "#f8f8f8"), cursor: "pointer", flexShrink: 0 }}
         />
       </Box>
       {open && (
@@ -226,8 +228,9 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
             right: 0,
             zIndex: 1300,
             mt: "4px",
-            bgcolor: "#fff",
-            border: "1px solid #000",
+            bgcolor: byMode("#fff", "#232323"),
+            border: 1,
+            borderColor: byMode("#000", "#a1a1a1"),
             borderRadius: "8px",
             maxHeight: 288,
             overflowY: "auto",
@@ -235,7 +238,7 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
           }}
         >
           {ordered.length === 0 ? (
-            <Box sx={{ px: 2, py: 1, fontSize: 16, color: "#808080" }}>No options</Box>
+            <Box sx={{ px: 2, py: 1, fontSize: 16, color: byMode("#808080", "#757575") }}>No options</Box>
           ) : (
             ordered.map((option) => {
               const isSelected = value.includes(option.id);
@@ -244,30 +247,37 @@ const ShopfrontComboFilter = ({ label, options, value, onChange, pinSelected = t
                   key={option.id}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => toggleOption(option.id)}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                    px: 2,
-                    py: 1,
-                    fontSize: 16,
-                    cursor: "pointer",
-                    color: isSelected ? "#38bdf8" : "#000",
-                    "&:hover": { bgcolor: "#7dd3fc" },
+                  sx={(t) => {
+                    const dark = t.palette.mode === "dark";
+                    return {
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                      px: 2,
+                      py: 1,
+                      fontSize: 16,
+                      cursor: "pointer",
+                      color: isSelected ? (dark ? "#00a6f4" : "#38bdf8") : (dark ? "#f8f8f8" : "#000"),
+                      "&:hover": dark ? { bgcolor: "#0084d1", color: "#fafafa" } : { bgcolor: "#7dd3fc" },
+                    };
                   }}
                 >
                   {!single && (
                     <Box
-                      sx={{
-                        width: 16,
-                        height: 16,
-                        flex: "0 0 16px",
-                        borderRadius: 0,
-                        border: isSelected ? "1px solid #38bdf8" : "1px solid #767676",
-                        bgcolor: isSelected ? "#38bdf8" : "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                      sx={(t) => {
+                        const dark = t.palette.mode === "dark";
+                        const tick = dark ? "#00a6f4" : "#38bdf8";
+                        return {
+                          width: 16,
+                          height: 16,
+                          flex: "0 0 16px",
+                          borderRadius: 0,
+                          border: isSelected ? `1px solid ${tick}` : `1px solid ${dark ? "#f8f8f8" : "#767676"}`,
+                          bgcolor: isSelected ? tick : (dark ? "#232323" : "#fff"),
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        };
                       }}
                     >
                       {isSelected && (
@@ -643,7 +653,7 @@ const Products = () => {
   // Not Purchasing: shopping cart.
   const getStatusIcon = (status) => {
     // Every icon is a 22px MUI-style glyph box, so the four line up the same way.
-    const sx = { fontSize: 22, color: "#313439", display: "block" };
+    const sx = { fontSize: 22, color: byMode("#313439", "#f8f8f8"), display: "block" };
     switch (status) {
       case "Inactive":
         return (
@@ -728,7 +738,7 @@ const Products = () => {
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, fontSize: 30, color: "#000", mr: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, fontSize: 30, color: byMode("#000", "#f8f8f8"), mr: 1 }}>
             Products
           </Typography>
           {/* Each button's permission mirrors the guard on its destination route in App.jsx,
@@ -738,7 +748,7 @@ const Products = () => {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={handleAddProduct}
-              sx={{ bgcolor: "#5ebbeb", "&:hover": { bgcolor: "#4aa9dd", boxShadow: "none" }, borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, px: 4, height: 42, transition: "none" }}
+              sx={{ bgcolor: "#5ebbeb", color: byMode("#fff", "#232323"), "&:hover": { bgcolor: "#4aa9dd", boxShadow: "none" }, borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, px: 4, height: 42, transition: "none" }}
             >
               Add Product
             </Button>
@@ -748,7 +758,7 @@ const Products = () => {
               variant="outlined"
               startIcon={<UploadFileIcon />}
               onClick={handleImportProducts}
-              sx={{ bgcolor: "transparent", color: "#707072", borderColor: "#8e8e8e", "&:hover": { bgcolor: "rgba(0,0,0,0.05)", borderColor: "#8e8e8e", boxShadow: "none" }, borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, px: 4, height: 42, transition: "none" }}
+              sx={{ bgcolor: "transparent", color: byMode("#707072", "#d4d4d4"), borderColor: byMode("#8e8e8e", "#a1a1a1"), "&:hover": { bgcolor: byMode("rgba(0,0,0,0.05)", "rgba(255,255,255,0.08)"), borderColor: byMode("#8e8e8e", "#a1a1a1"), boxShadow: "none" }, borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, px: 4, height: 42, transition: "none" }}
             >
               Import Products
             </Button>
@@ -758,7 +768,7 @@ const Products = () => {
               variant="outlined"
               startIcon={<MergeIcon />}
               onClick={handleMergeProducts}
-              sx={{ bgcolor: "transparent", color: "#707072", borderColor: "#8e8e8e", "&:hover": { bgcolor: "rgba(0,0,0,0.05)", borderColor: "#8e8e8e", boxShadow: "none" }, borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, px: 4, height: 42, transition: "none" }}
+              sx={{ bgcolor: "transparent", color: byMode("#707072", "#d4d4d4"), borderColor: byMode("#8e8e8e", "#a1a1a1"), "&:hover": { bgcolor: byMode("rgba(0,0,0,0.05)", "rgba(255,255,255,0.08)"), borderColor: byMode("#8e8e8e", "#a1a1a1"), boxShadow: "none" }, borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, px: 4, height: 42, transition: "none" }}
             >
               Merge Products
             </Button>
@@ -766,15 +776,15 @@ const Products = () => {
         </Box>
 
         <Box sx={{ textAlign: "right" }}>
-          <Typography variant="h4" fontWeight="bold" lineHeight={1}>
+          <Typography variant="h4" fontWeight="bold" lineHeight={1} sx={{ color: byMode("rgba(0, 0, 0, 0.87)", "#f8f8f8") }}>
             {totalProducts}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: byMode("rgba(0, 0, 0, 0.6)", "#f8f8f8") }}>
             Results
           </Typography>
         </Box>
       </Box>
-      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: "#000" }}>
+      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode("#000", "#f8f8f8") }}>
         Search
       </Typography>
       <TextField
@@ -784,15 +794,15 @@ const Products = () => {
         sx={{
           mb: 2,
           "& .MuiOutlinedInput-root": {
-            backgroundColor: "#fff",
+            backgroundColor: byMode("#fff", "#121212"),
             borderRadius: "8px",
             fontSize: 16,
-            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-            "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000000", borderWidth: "2px" },
+            "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+            "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#000000", "#2b7fff"), borderWidth: "2px" },
           },
           "& .MuiOutlinedInput-input": { padding: "8px 16px" },
-          "& .MuiOutlinedInput-input::placeholder": { color: "#808080", opacity: 1 },
+          "& .MuiOutlinedInput-input::placeholder": { color: byMode("#808080", "#757575"), opacity: 1 },
         }}
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
@@ -873,7 +883,8 @@ const Products = () => {
               gap: 2,
               mt: 2,
               pt: 2,
-              borderTop: "1px solid #e0e0e0",
+              borderTop: 1,
+              borderColor: byMode("#e0e0e0", "#333333"),
             }}
           >
             <ShopfrontComboFilter
@@ -917,7 +928,7 @@ const Products = () => {
           variant="contained"
           startIcon={showFilters ? <RemoveIcon /> : <AddIcon />}
           onClick={() => setShowFilters(!showFilters)}
-          sx={{ mt: 2, width: 256, bgcolor: "#5ebbeb", "&:hover": { bgcolor: "#4aa9dd", boxShadow: "none" }, borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, height: 42, transition: "none" }}
+          sx={{ mt: 2, width: 256, bgcolor: "#5ebbeb", color: byMode("#fff", "#232323"), "&:hover": { bgcolor: "#4aa9dd", boxShadow: "none" }, borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, height: 42, transition: "none" }}
         >
           {showFilters ? "Less Filters" : "More Filters"}
         </Button>
@@ -927,12 +938,12 @@ const Products = () => {
       <Box>
         {/* Reference: nothing matched = no table, just the centred message. */}
         {!loading && products.length === 0 ? <NoResults /> : (
-        <TableContainer sx={{ mt: 1 }}>
+        <TableContainer sx={{ mt: 1, bgcolor: byMode(undefined, "#232323"), borderRadius: byMode(undefined, "12px") }}>
           <Table sx={{ borderCollapse: "separate", borderSpacing: 0 }}>
             <TableHead>
               <TableRow
                 sx={{
-                  "& th": { bgcolor: "#5ebbeb", color: "white", fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  "& th": { bgcolor: byMode("#5ebbeb", "#333333"), color: byMode("white", "#5ebbeb"), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   "& th:first-of-type": { borderTopLeftRadius: "12px", borderBottomLeftRadius: "12px" },
                   "& th:last-of-type": { borderTopRightRadius: "12px", borderBottomRightRadius: "12px" },
                 }}
@@ -954,9 +965,9 @@ const Products = () => {
             </TableHead>
             <TableBody
               sx={{
-                "& tr:nth-of-type(odd)": { bgcolor: "#ffffff" },
-                "& tr:nth-of-type(even)": { bgcolor: "#f5f5f5" },
-                "& td": { border: 0, fontSize: 16, color: "#000", py: 1.5 },
+                "& tr:nth-of-type(odd)": { bgcolor: byMode("#ffffff", "#232323") },
+                "& tr:nth-of-type(even)": { bgcolor: byMode("#f5f5f5", "#232323") },
+                "& td": { border: 0, fontSize: 16, color: byMode("#000", "#f8f8f8"), py: 1.5 },
               }}
             >
               {loading ? (
@@ -996,7 +1007,7 @@ const Products = () => {
                         sx={{
                           fontWeight: 500,
                           fontSize: 16,
-                          color: "#000",
+                          color: byMode("#000", "#f8f8f8"),
                           textAlign: "left",
                           cursor: "pointer",
                           font: "inherit",
@@ -1077,21 +1088,21 @@ const Products = () => {
                         <Button
                           component={RouterLink} to={`/products/${product.id}/view`}
                           startIcon={<VisibilityOutlinedIcon />}
-                          sx={{ color: "#0284c7", textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, p: 0, height: 42, transition: "none", "&:hover": { bgcolor: "transparent" } }}
+                          sx={{ color: byMode("#0284c7", "#74d4ff"), textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, p: 0, height: 42, transition: "none", "&:hover": { bgcolor: "transparent" } }}
                         >
                           View
                         </Button>
                         <Button
                           component={RouterLink} to={`/products/${product.id}/edit`}
                           startIcon={<EditOutlinedIcon />}
-                          sx={{ color: "#16a34a", textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, p: 0, height: 42, transition: "none", "&:hover": { bgcolor: "transparent" } }}
+                          sx={{ color: byMode("#16a34a", "#7bf1a8"), textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, p: 0, height: 42, transition: "none", "&:hover": { bgcolor: "transparent" } }}
                         >
                           Edit
                         </Button>
                         <Button
                           onClick={() => setDeleteTarget(product)}
                           startIcon={<DeleteOutlineIcon />}
-                          sx={{ color: "#dc2626", textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, p: 0, height: 42, transition: "none", "&:hover": { bgcolor: "transparent" } }}
+                          sx={{ color: byMode("#dc2626", "#ffa2a2"), textTransform: "none", fontWeight: 700, fontSize: 16, minWidth: 0, p: 0, height: 42, transition: "none", "&:hover": { bgcolor: "transparent" } }}
                         >
                           Delete
                         </Button>

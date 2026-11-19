@@ -216,7 +216,7 @@ const ProductPurchaseHistory = ({ productId }) => {
                           purchase.id && navigate(`/orders-invoices/${purchase.id}`)
                         }
                         sx={{
-                          color: '#1c86f2',
+                          color: 'sf.actionView',
                           fontSize: 14,
                           whiteSpace: 'nowrap',
                           display: 'flex',

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Dialog, TextField } from '@mui/material';
 import { CancelConfirmRow, TypeDropdown } from './LineEditPanel';
+import { byMode } from '../../theme/sfPalette';
 
 const OTHER = '__other__';
 
@@ -35,10 +36,10 @@ const RequestReasonDialog = ({ request, onClose }) => {
       open
       onClose={() => finish(null)}
       PaperProps={{
-        sx: { width: 389, borderRadius: '12px', bgcolor: '#FAFAFA', border: '1px solid #D4D4D4', p: 2, overflow: 'visible' },
+        sx: { width: 389, borderRadius: '12px', bgcolor: byMode('#FAFAFA', '#232323'), border: byMode('1px solid #D4D4D4', '1px solid #a1a1a1'), p: 2, overflow: 'visible' },
       }}
     >
-      <Box sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 1.5 }}>{request.title}</Box>
+      <Box sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1.5 }}>{request.title}</Box>
       {options.length > 0 && (
         <Box sx={{ mb: 1.5 }}>
           <TypeDropdown

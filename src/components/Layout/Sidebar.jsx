@@ -776,7 +776,7 @@ const Sidebar = ({ onClick }) => {
             // Reference keeps the expanded group header pinned while its
             // sub-items scroll underneath.
             ...(hasChildren && isOpen
-              ? { position: "sticky", top: 0, zIndex: 1, bgcolor: "#fff" }
+              ? { position: "sticky", top: 0, zIndex: 1, bgcolor: "sf.paper" }
               : {}),
           }}
         >
@@ -795,7 +795,7 @@ const Sidebar = ({ onClick }) => {
               "&:hover": {
                 bgcolor: "transparent",
                 textDecoration: "none",
-                "& .MuiListItemText-primary": { color: "#737373" },
+                "& .MuiListItemText-primary": { color: "sf.textSoft" },
               },
             }}
           >
@@ -806,7 +806,7 @@ const Sidebar = ({ onClick }) => {
                 width: 25,
                 mr: "16px",
                 justifyContent: "center",
-                "& svg": { fontSize: 20, color: "#136e9d" },
+                "& svg": { fontSize: 20, color: "sf.icon" },
               }}
             >
               {item.icon}
@@ -825,7 +825,7 @@ const Sidebar = ({ onClick }) => {
                   // 28px label line-height => 36px row box + 4px margins = 40px step (reference)
                   lineHeight: "28px",
                   fontWeight: 400,
-                  color: "#171717",
+                  color: "sf.textStrong",
                 },
                 m: 0,
               }}
@@ -843,7 +843,7 @@ const Sidebar = ({ onClick }) => {
                 sx={{
                   ml: "auto",
                   fontSize: 16,
-                  color: "#171717",
+                  color: "sf.textStrong",
                   transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
                   transition: "transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
                 }}

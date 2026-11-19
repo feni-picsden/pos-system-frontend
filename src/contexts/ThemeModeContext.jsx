@@ -2,14 +2,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { CssBaseline } from "@mui/material";
 import { ThemeModeContext, THEME_STORAGE_KEY } from "./themeMode";
+import { sfTokens } from "../theme/sfPalette";
 
 const prefersDark = () =>
   typeof window !== "undefined" &&
   !!window.matchMedia &&
   window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-const buildTheme = (mode) =>
-  createTheme({
+const buildTheme = (mode) => {
+  const sf = sfTokens(mode);
+  const dark = mode === "dark";
+  return createTheme({
     palette: {
       mode,
       primary: {
@@ -20,10 +23,13 @@ const buildTheme = (mode) =>
       secondary: {
         main: "#dc004e",
       },
-      background:
-        mode === "dark"
-          ? { default: "#121212", paper: "#1e1e1e" }
-          : { default: "#f5f5f5", paper: "#ffffff" },
+      background: { default: sf.page, paper: sf.paper },
+      text: dark
+        ? { primary: sf.text, secondary: sf.textMuted }
+        : { primary: "rgba(0, 0, 0, 0.87)", secondary: "rgba(0, 0, 0, 0.6)" },
+      divider: dark ? sf.borderLight : "rgba(0, 0, 0, 0.12)",
+      // Semantic Crinit Shop tokens: sx={{ bgcolor: 'sf.pane', color: 'sf.text' }}
+      sf,
     },
     typography: {
       fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
@@ -46,12 +52,14 @@ const buildTheme = (mode) =>
             { WebkitAppearance: 'none', margin: 0 },
           // Firefox draws its own; both engines need telling.
           'input[type=number]': { MozAppearance: 'textfield', appearance: 'textfield' },
+          // Native controls (checkbox, range, date picker chrome) follow the mode.
+          ':root': { colorScheme: mode },
         },
       },
       MuiCard: {
         styleOverrides: {
           root: {
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            boxShadow: dark ? "0 2px 8px rgba(0,0,0,0.5)" : "0 2px 8px rgba(0,0,0,0.1)",
             borderRadius: 12,
           },
         },
@@ -78,8 +86,33 @@ const buildTheme = (mode) =>
           },
         },
       },
+      // Dark-only base so MUI surfaces read in dark mode (light mode: MUI defaults, unchanged).
+      ...(dark && {
+        MuiPaper: {
+          styleOverrides: {
+            root: { backgroundImage: "none" },
+          },
+        },
+        MuiTableCell: {
+          styleOverrides: {
+            root: { borderBottomColor: sf.borderLight },
+          },
+        },
+        MuiOutlinedInput: {
+          styleOverrides: {
+            notchedOutline: { borderColor: sf.border },
+          },
+        },
+        MuiTooltip: {
+          styleOverrides: {
+            tooltip: { backgroundColor: sf.paneAlt, color: sf.text },
+            arrow: { color: sf.paneAlt },
+          },
+        },
+      }),
     },
   });
+};
 
 export const ThemeModeProvider = ({ children }) => {
   const [themeMode, setThemeModeState] = useState(
@@ -111,6 +144,13 @@ export const ThemeModeProvider = ({ children }) => {
   const resolved =
     themeMode === "dark" || (themeMode === "system" && systemDark) ? "dark" : "light";
   const theme = useMemo(() => buildTheme(resolved), [resolved]);
+
+  // html[data-theme] drives the plain-CSS tokens in index.css (--sf-*) and lets
+  // non-MUI markup (recharts, raw <table>, portals) follow the mode too.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", resolved);
+    return () => document.documentElement.removeAttribute("data-theme");
+  }, [resolved]);
 
   return (
     <ThemeModeContext.Provider value={value}>

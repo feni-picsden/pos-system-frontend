@@ -183,7 +183,7 @@ const ProductTransferHistory = ({ productId }) => {
                       to={`/orders-invoices/${transfer.id}`}
                       underline="none"
                       sx={{
-                        color: '#1c86f2',
+                        color: 'sf.actionView',
                         fontSize: 14,
                         whiteSpace: 'nowrap',
                         display: 'flex',

@@ -14,7 +14,7 @@ export const SearchGlyph = ({ size = 26, color = 'currentColor' }) => (
 
 /** Outline page with a folded corner and a magnifier breaking out bottom-right
  *  (reference Product / Customer Utilities and Trashed Items). */
-export const FileSearchGlyph = ({ size = 56, color = '#000' }) => (
+export const FileSearchGlyph = ({ size = 56, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-glyph="file-search">
     <path d="M13 2H5a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h8" />
     <path d="M13 2l6 6v4" />
@@ -27,8 +27,8 @@ export const FileSearchGlyph = ({ size = 56, color = '#000' }) => (
 /** Ø - circle with the slash running past it (reference "No ..." blocks). */
 export const EmptySetGlyph = ({ size = 140 }) => (
   <svg width={size} height={size} viewBox="0 0 140 140" aria-hidden="true" data-glyph="empty-set">
-    <circle cx="70" cy="70" r="56" fill="none" stroke="#000" strokeWidth="10" />
-    <line x1="10" y1="130" x2="130" y2="10" stroke="#000" strokeWidth="10" strokeLinecap="round" />
+    <circle cx="70" cy="70" r="56" fill="none" stroke="currentColor" strokeWidth="10" />
+    <line x1="10" y1="130" x2="130" y2="10" stroke="currentColor" strokeWidth="10" strokeLinecap="round" />
   </svg>
 );
 
@@ -37,7 +37,7 @@ export function NoResults({ text = 'No results found. Try changing the search fi
   return (
     <Box
       data-testid="no-results"
-      sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, py: 6, color: '#676b72', fontSize: 19, ...sx }}
+      sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, py: 6, color: 'sf.textMuted', fontSize: 19, ...sx }}
     >
       <SearchGlyph />
       <span>{text}</span>
@@ -48,27 +48,27 @@ export function NoResults({ text = 'No results found. Try changing the search fi
 /** Utilities pages: big page-search glyph above one black line. */
 export function NoResultsDoc({ text = 'No results found. Change search filters and try again.', sx }) {
   return (
-    <Box data-testid="no-results-doc" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, mt: 5, ...sx }}>
+    <Box data-testid="no-results-doc" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, mt: 5, color: 'sf.text', ...sx }}>
       <FileSearchGlyph />
-      <Typography sx={{ fontSize: 16, color: '#000' }}>{text}</Typography>
+      <Typography sx={{ fontSize: 16, color: 'sf.text' }}>{text}</Typography>
     </Box>
   );
 }
 
 const TickGlyph = () => (
   <svg width="140" height="110" viewBox="0 0 140 110" aria-hidden="true">
-    <path d="M8 62 L46 100 L132 8" fill="none" stroke="#000" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8 62 L46 100 L132 8" fill="none" stroke="currentColor" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 /** Orders & Invoices / Statements: big glyph, bold title, one sub-line. */
 export function EmptyBlock({ icon = 'none', title, subtitle, testId = 'empty-block' }) {
   return (
-    <Box data-testid={testId} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5, py: 6 }}>
+    <Box data-testid={testId} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5, py: 6, color: 'sf.text' }}>
       {icon === 'tick' ? <TickGlyph /> : <EmptySetGlyph />}
       <Box>
-        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 3 }}>{title}</Typography>
-        <Typography sx={{ fontSize: 16, color: '#000' }}>{subtitle}</Typography>
+        <Typography sx={{ fontSize: 24, fontWeight: 700, color: 'sf.text', mb: 3 }}>{title}</Typography>
+        <Typography sx={{ fontSize: 16, color: 'sf.text' }}>{subtitle}</Typography>
       </Box>
     </Box>
   );

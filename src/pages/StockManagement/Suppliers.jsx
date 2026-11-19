@@ -37,8 +37,15 @@ import PerformanceGraph from '../../components/Classifications/PerformanceGraph'
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
+import { byMode } from '../../theme/sfPalette';
 
 const ADD_SUPPLIER_ACTION = 'suppliers.add';
+
+// Dark mode (no reference dark screenshots for Suppliers): values copied from the
+// sibling pages matched to the reference - Products list (table, inputs, row
+// actions), Classifications list (Assign) and Product Merge (merge mode).
+const TEXT = byMode('#000', '#f8f8f8');
+const HOVER_TINT = byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)');
 
 // Header buttons: same as Products / Customer Groups (12px radius, 42px, bold 16).
 const headerButtonSx = {
@@ -62,7 +69,7 @@ const rowActionSx = (color, width) => ({
   fontWeight: 700,
   fontSize: 16,
   transition: 'none',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', color },
+  '&:hover': { bgcolor: HOVER_TINT, color },
 });
 
 // Reference row actions are plain links: fw400, no button padding, color+underline hover, no bg tint
@@ -81,16 +88,16 @@ const actionLinkSx = {
 // Reference search field: 42px wrapper around a 40px input, 1px #404040 outline, 8px radius
 const searchFieldSx = {
   '& .MuiOutlinedInput-root': {
-    backgroundColor: '#fff',
+    backgroundColor: byMode('#fff', '#121212'),
     borderRadius: '8px',
     fontSize: 16,
     height: 42,
-    '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: '2px solid #000' },
+    '& .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') },
+    '&:hover .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: byMode('2px solid #000', '2px solid #2b7fff') },
   },
-  '& .MuiOutlinedInput-input': { padding: '8px 16px' },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input': { padding: '8px 16px', color: byMode(undefined, '#f8f8f8') },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Supplier Merge: sections + fields exactly as the reference result rail lists them.
@@ -363,8 +370,8 @@ const Suppliers = () => {
   const mergeColumnSx = {
     width: 420,
     flexShrink: 0,
-    bgcolor: '#fff',
-    border: '1px solid #e0e0e0',
+    bgcolor: byMode('#fff', '#232323'),
+    border: byMode('1px solid #e0e0e0', '1px solid #333333'),
     borderRadius: '12px',
     p: 2,
   };
@@ -373,28 +380,28 @@ const Suppliers = () => {
     mb: 2,
     borderRadius: '12px',
     overflow: 'hidden',
-    border: '1px solid #e0e0e0',
-    bgcolor: '#fff',
+    border: byMode('1px solid #e0e0e0', '1px solid #373737'),
+    bgcolor: byMode('#fff', '#232323'),
   };
 
   const mergeCardHeadSx = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    bgcolor: '#5ebbeb',
+    bgcolor: byMode('#5ebbeb', '#0b4f80'),
     px: 2,
     height: 51,
   };
 
-  const mergeRowSx = (i) => ({ bgcolor: i % 2 === 0 ? '#fff' : '#f5f5f5' });
+  const mergeRowSx = (i) => ({ bgcolor: i % 2 === 0 ? byMode('#fff', '#232323') : byMode('#f5f5f5', '#2b2b2b') });
 
   const sectionButtonSx = {
     textTransform: 'none',
     fontSize: 14,
     fontWeight: 700,
-    color: '#fff',
+    color: byMode('#fff', '#f8f8f8'),
     borderRadius: '8px',
-    border: '1px solid #fff',
+    border: byMode('1px solid #fff', '1px solid #a1a1a1'),
     px: 1.5,
     height: 32,
     bgcolor: 'transparent',
@@ -416,11 +423,11 @@ const Suppliers = () => {
 
   const renderResultRail = () => (
     <Box sx={mergeColumnSx}>
-      <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 2 }}>Results</Typography>
+      <Typography sx={{ fontSize: 24, fontWeight: 700, color: TEXT, mb: 2 }}>Results</Typography>
       {MERGE_SECTIONS.map((section) => (
         <Box key={section.key} sx={mergeCardSx}>
           <Box sx={mergeCardHeadSx}>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{section.title}</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#fff', '#f8f8f8') }}>{section.title}</Typography>
             <Button
               disableRipple
               disabled={mergeList.length === 0}
@@ -432,15 +439,15 @@ const Suppliers = () => {
           </Box>
           {section.fields.map(([key, label], i) => (
             <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1, ...mergeRowSx(i) }}>
-              <Typography sx={{ fontSize: 14, color: '#676b72', width: 170, flexShrink: 0 }}>{label}</Typography>
-              <Typography sx={{ fontSize: 14, color: '#000', flexGrow: 1, wordBreak: 'break-word' }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), width: 170, flexShrink: 0 }}>{label}</Typography>
+              <Typography sx={{ fontSize: 14, color: TEXT, flexGrow: 1, wordBreak: 'break-word' }}>
                 {displayValue(resolvedValue(key))}
               </Typography>
               {fieldSource[key] !== undefined && fieldSource[key] !== CLEARED && (
                 <Button
                   disableRipple
                   onClick={() => setFieldSource((prev) => ({ ...prev, [key]: CLEARED }))}
-                  sx={{ ...actionLinkSx, fontSize: 14, color: '#e33430', flexShrink: 0 }}
+                  sx={{ ...actionLinkSx, fontSize: 14, color: byMode('#e33430', '#ffa2a2'), flexShrink: 0 }}
                 >
                   Clear
                 </Button>
@@ -455,15 +462,15 @@ const Suppliers = () => {
   const renderSupplierColumn = (supplier) => (
     <Box key={supplier.id} sx={mergeColumnSx}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000' }}>{supplier.name}</Typography>
+        <Typography sx={{ fontSize: 24, fontWeight: 700, color: TEXT }}>{supplier.name}</Typography>
         <IconButton aria-label="Remove supplier" onClick={() => removeSupplierFromMerge(supplier.id)}>
-          <CloseIcon sx={{ color: '#e33430' }} />
+          <CloseIcon sx={{ color: byMode('#e33430', '#ffa2a2') }} />
         </IconButton>
       </Box>
       {MERGE_SECTIONS.map((section) => (
         <Box key={section.key} sx={mergeCardSx}>
           <Box sx={mergeCardHeadSx}>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{section.title}</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#fff', '#f8f8f8') }}>{section.title}</Typography>
             <Button disableRipple onClick={() => selectSection(section.key, supplier.id)} sx={sectionButtonSx}>
               Select Section
             </Button>
@@ -487,11 +494,11 @@ const Suppliers = () => {
                   cursor: 'pointer',
                   font: 'inherit',
                   ...mergeRowSx(i),
-                  ...(selected ? { bgcolor: '#e8f4fb' } : {}),
+                  ...(selected ? { bgcolor: byMode('#e8f4fb', '#0b4f80') } : {}),
                   border: 0,
                   borderLeft: selected ? '3px solid #5ebbeb' : '3px solid transparent',
                   transition: 'none',
-                  '&:hover': { bgcolor: '#e8f4fb' },
+                  '&:hover': { bgcolor: byMode('#e8f4fb', '#0b4f80') },
                 }}
               >
                 <Box
@@ -500,12 +507,12 @@ const Suppliers = () => {
                     height: 14,
                     flexShrink: 0,
                     borderRadius: '50%',
-                    border: '1px solid #404040',
+                    border: byMode('1px solid #404040', '1px solid #a1a1a1'),
                     bgcolor: selected ? '#5ebbeb' : 'transparent',
                   }}
                 />
-                <Typography sx={{ fontSize: 14, color: '#676b72', width: 156, flexShrink: 0 }}>{label}</Typography>
-                <Typography sx={{ fontSize: 14, color: '#000', flexGrow: 1, wordBreak: 'break-word' }}>
+                <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), width: 156, flexShrink: 0 }}>{label}</Typography>
+                <Typography sx={{ fontSize: 14, color: TEXT, flexGrow: 1, wordBreak: 'break-word' }}>
                   {displayValue(supplier[key])}
                 </Typography>
               </Box>
@@ -529,8 +536,9 @@ const Suppliers = () => {
           sx={{
             ...pageButtonSx,
             bgcolor: '#5ebbeb',
+            color: byMode(undefined, '#232323'),
             '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-            '&.Mui-disabled': { bgcolor: '#5ebbeb', color: '#fff', opacity: 0.5 },
+            '&.Mui-disabled': { bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), opacity: 0.5 },
           }}
         >
           Merge Suppliers
@@ -541,9 +549,9 @@ const Suppliers = () => {
           onClick={closeMerge}
           sx={{
             ...pageButtonSx,
-            color: '#707072',
-            borderColor: '#8e8e8e',
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', borderColor: '#8e8e8e', boxShadow: 'none' },
+            color: byMode('#707072', '#d4d4d4'),
+            borderColor: byMode('#8e8e8e', '#a1a1a1'),
+            '&:hover': { bgcolor: HOVER_TINT, borderColor: byMode('#8e8e8e', '#a1a1a1'), boxShadow: 'none' },
           }}
         >
           Cancel
@@ -570,16 +578,16 @@ const Suppliers = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: '#fff',
-            border: '2px dashed #bfe6fb',
+            bgcolor: byMode('#fff', 'transparent'),
+            border: byMode('2px dashed #bfe6fb', '2px dashed #a1a1a1'),
             borderRadius: '12px',
-            color: '#5ebbeb',
+            color: byMode('#5ebbeb', '#f8f8f8'),
             fontSize: 18,
             fontWeight: 700,
             fontFamily: 'inherit',
             cursor: 'pointer',
             transition: 'none',
-            '&:hover': { borderColor: '#5ebbeb', bgcolor: '#f5fbff' },
+            '&:hover': { borderColor: '#5ebbeb', bgcolor: byMode('#f5fbff', '#1a1a1a') },
           }}
         >
           + Add Supplier
@@ -590,11 +598,11 @@ const Suppliers = () => {
       <Dialog
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        PaperProps={{ elevation: 0, sx: { width: 400, maxWidth: '92vw', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)' } }}
+        PaperProps={{ elevation: 0, sx: { width: 400, maxWidth: '92vw', borderRadius: '12px', overflow: 'hidden', bgcolor: byMode(undefined, '#232323'), boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)' } }}
       >
-        <Box sx={{ bgcolor: '#bfe6fb', px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box component="span" sx={{ color: '#0369a1', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>?</Box>
-          <Typography sx={{ color: '#0369a1', fontSize: 18 }}>Add a Supplier</Typography>
+        <Box sx={{ bgcolor: byMode('#bfe6fb', '#024a70'), px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box component="span" sx={{ color: byMode('#0369a1', '#018fc6'), fontSize: 20, fontWeight: 700, lineHeight: 1 }}>?</Box>
+          <Typography sx={{ color: byMode('#0369a1', '#00bcff'), fontSize: 18 }}>Add a Supplier</Typography>
         </Box>
         {/* This form sends no outletId: a global admin creates a global supplier. Say so. */}
         <CreatingForOutlet sx={{ mx: 2, mt: 1 }} />
@@ -619,9 +627,9 @@ const Suppliers = () => {
                 <ListItemButton
                   key={s.id}
                   onClick={() => addSupplierToMerge(s)}
-                  sx={{ borderRadius: '8px', '&:hover': { bgcolor: '#5ebbeb', '& .MuiListItemText-primary': { color: '#fff' } } }}
+                  sx={{ borderRadius: '8px', '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), '& .MuiListItemText-primary': { color: byMode('#fff', '#fafafa') } } }}
                 >
-                  <ListItemText primary={s.name} primaryTypographyProps={{ fontSize: 16, color: '#000' }} />
+                  <ListItemText primary={s.name} primaryTypographyProps={{ fontSize: 16, color: TEXT }} />
                 </ListItemButton>
               ))}
           </List>
@@ -630,7 +638,7 @@ const Suppliers = () => {
           <Button
             disableRipple
             onClick={() => setPickerOpen(false)}
-            sx={{ bgcolor: '#d4d4d4', color: '#000', height: 42, borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 16, px: 3, '&:hover': { bgcolor: '#c4c4c4' } }}
+            sx={{ bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: TEXT, height: 42, borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 16, px: 3, '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a') } }}
           >
             Cancel
           </Button>
@@ -664,7 +672,7 @@ const Suppliers = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleAddSupplier}
-            sx={{ ...headerButtonSx, bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' } }}
+            sx={{ ...headerButtonSx, bgcolor: '#5ebbeb', color: byMode(undefined, '#232323'), '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' } }}
           >
             Add Supplier
           </Button>
@@ -672,16 +680,16 @@ const Suppliers = () => {
             variant="outlined"
             startIcon={<MergeIcon />}
             onClick={openMerge}
-            sx={{ ...headerButtonSx, bgcolor: 'transparent', color: '#707072', borderColor: '#8e8e8e', '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', borderColor: '#8e8e8e', boxShadow: 'none' } }}
+            sx={{ ...headerButtonSx, bgcolor: 'transparent', color: byMode('#707072', '#d4d4d4'), borderColor: byMode('#8e8e8e', '#a1a1a1'), '&:hover': { bgcolor: HOVER_TINT, borderColor: byMode('#8e8e8e', '#a1a1a1'), boxShadow: 'none' } }}
           >
             Merge Suppliers
           </Button>
         </Box>
         <Box sx={{ textAlign: 'right' }}>
-          <Typography variant="h4" lineHeight={1}>
+          <Typography variant="h4" lineHeight={1} sx={{ color: byMode(undefined, '#f8f8f8') }}>
             {filteredSuppliers.length}
           </Typography>
-          <Typography variant="body2" sx={{ color: '#000' }}>
+          <Typography variant="body2" sx={{ color: TEXT }}>
             Results
           </Typography>
         </Box>
@@ -690,7 +698,7 @@ const Suppliers = () => {
       {/* Search (full width) + Outlet filter beside it on All Outlets (2/3 + 1/3) */}
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', mb: 3 }}>
         <Box sx={{ flex: 2, minWidth: 0 }}>
-          <Typography sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' }}>Search</Typography>
+          <Typography sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: TEXT }}>Search</Typography>
           <TextField
             spellCheck={false}
             variant="outlined"
@@ -713,14 +721,14 @@ const Suppliers = () => {
       {/* Loading - use global loader only */}
       {loading ? null : filteredSuppliers.length === 0 ? <NoResults /> : (
         /* Suppliers Table - reference: nothing matched = no table, just the message */
-        <TableContainer>
+        <TableContainer sx={{ bgcolor: byMode(undefined, '#232323'), borderRadius: byMode(undefined, '12px') }}>
           <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <TableHead>
               <TableRow
                 sx={{
                   '& th': {
-                    bgcolor: '#5ebbeb',
-                    color: '#fff',
+                    bgcolor: byMode('#5ebbeb', '#333333'),
+                    color: byMode('#fff', '#5ebbeb'),
                     fontWeight: 700,
                     fontSize: 16,
                     border: 0,
@@ -741,25 +749,25 @@ const Suppliers = () => {
             </TableHead>
             <TableBody
               sx={{
-                '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-                '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 }
+                '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+                '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#232323') },
+                '& td': { border: 0, fontSize: 16, color: TEXT, py: 1.5 }
               }}
             >
               {filteredSuppliers.map((supplier) => (
                 <TableRow key={supplier.id}>
                   {globalMode && (
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Typography sx={{ fontSize: 16, color: '#000' }}>{outletNameOf(supplier.outletId)}</Typography>
+                      <Typography sx={{ fontSize: 16, color: TEXT }}>{outletNameOf(supplier.outletId)}</Typography>
                     </TableCell>
                   )}
                   <TableCell>
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>
+                    <Typography sx={{ fontSize: 16, color: TEXT }}>
                       {supplier.name}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>
+                    <Typography sx={{ fontSize: 16, color: TEXT }}>
                       {supplier.productCount || 0}
                     </Typography>
                   </TableCell>
@@ -775,16 +783,16 @@ const Suppliers = () => {
                   <TableCell align="center">
                     {/* One row, like the other lists: View / Edit / Assign / Delete */}
                     <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', alignItems: 'center' }}>
-                      <Button disableRipple startIcon={<ViewIcon />} component={RouterLink} to={`/suppliers/${supplier.id}/view`} sx={rowActionSx('#0284c7', 120)}>
+                      <Button disableRipple startIcon={<ViewIcon />} component={RouterLink} to={`/suppliers/${supplier.id}/view`} sx={rowActionSx(byMode('#0284c7', '#74d4ff'), 120)}>
                         View
                       </Button>
-                      <Button disableRipple startIcon={<EditIcon />} component={RouterLink} to={`/suppliers/${supplier.id}/edit`} sx={rowActionSx('#16a34a', 110)}>
+                      <Button disableRipple startIcon={<EditIcon />} component={RouterLink} to={`/suppliers/${supplier.id}/edit`} sx={rowActionSx(byMode('#16a34a', '#7bf1a8'), 110)}>
                         Edit
                       </Button>
-                      <Button disableRipple startIcon={<AssignIcon />} component={RouterLink} to={`/suppliers/${supplier.id}/assign`} sx={rowActionSx('#ea7317', 130)}>
+                      <Button disableRipple startIcon={<AssignIcon />} component={RouterLink} to={`/suppliers/${supplier.id}/assign`} sx={rowActionSx(byMode('#ea7317', '#ffd230'), 130)}>
                         Assign
                       </Button>
-                      <Button disableRipple startIcon={<DeleteIcon />} onClick={() => handleDeleteSupplier(supplier.id)} sx={rowActionSx('#dc2626', 130)}>
+                      <Button disableRipple startIcon={<DeleteIcon />} onClick={() => handleDeleteSupplier(supplier.id)} sx={rowActionSx(byMode('#dc2626', '#ffa2a2'), 130)}>
                         Delete
                       </Button>
                     </Box>

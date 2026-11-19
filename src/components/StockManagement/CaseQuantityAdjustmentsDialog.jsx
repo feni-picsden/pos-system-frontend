@@ -12,6 +12,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PlaceIcon from '@mui/icons-material/Place';
 import Tooltip from '@mui/material/Tooltip';
 import ShopfrontSwitch from '../Common/ShopfrontSwitch';
+import { byMode } from '../../theme/sfPalette';
 
 // "Case Quantity Adjustments" (reference, measured 2026-09-15). A case-quantity
 // change leaves two readings of the product's stock and cost figures, and this
@@ -26,8 +27,14 @@ import ShopfrontSwitch from '../Common/ShopfrontSwitch';
 //     schema.prisma — there is no per-outlet cost table), so the outlet row is
 //     always the greyed "uses the Global cost" case.
 
-const GREEN_HEADER = '#aaf0c8';
+const GREEN_HEADER = byMode('#aaf0c8', '#264029');
 const SELECTED_BORDER = '#5ebbeb';
+// Dark mode: the dialog's light greys map onto the reference's dark panel tones.
+const CARD_BG = byMode('#fff', '#232323');
+const CARD_TEXT = byMode('#313439', '#f8f8f8');
+const CELL_BG = byMode('#f2f3f4', '#3a3a3a');
+const CELL_TEXT = byMode('#40474e', '#f8f8f8');
+const RULE = byMode('#e3e5e7', '#333333');
 
 const pickerButtonSx = (selected) => ({
   // The pair shares its column rather than each holding a fixed width, so three
@@ -40,10 +47,11 @@ const pickerButtonSx = (selected) => ({
   fontWeight: 600,
   fontSize: 15,
   boxShadow: 'none',
-  bgcolor: '#fff',
-  color: selected ? '#1f6f9a' : '#313439',
-  border: `2px solid ${selected ? SELECTED_BORDER : '#d5d7da'}`,
-  '&:hover': { boxShadow: 'none', bgcolor: '#fff', borderColor: selected ? SELECTED_BORDER : '#9aa0a6' },
+  bgcolor: CARD_BG,
+  color: selected ? byMode('#1f6f9a', '#74d4ff') : CARD_TEXT,
+  border: 2,
+  borderColor: selected ? SELECTED_BORDER : byMode('#d5d7da', '#5a5a5a'),
+  '&:hover': { boxShadow: 'none', bgcolor: CARD_BG, borderColor: selected ? SELECTED_BORDER : byMode('#9aa0a6', '#a1a1a1') },
 });
 
 const valueCardSx = (selected) => ({
@@ -53,11 +61,12 @@ const valueCardSx = (selected) => ({
   p: '8px 10px',
   borderRadius: '10px',
   cursor: 'pointer',
-  bgcolor: '#f2f3f4',
-  color: '#40474e',
+  bgcolor: CELL_BG,
+  color: CELL_TEXT,
   fontSize: 13,
   lineHeight: '17px',
-  border: `2px solid ${selected ? SELECTED_BORDER : 'transparent'}`,
+  border: 2,
+  borderColor: selected ? SELECTED_BORDER : 'transparent',
   textAlign: 'left',
 });
 
@@ -70,7 +79,7 @@ const Tick = () => (
       right: -8,
       fontSize: 18,
       color: SELECTED_BORDER,
-      bgcolor: '#fff',
+      bgcolor: CARD_BG,
       borderRadius: '50%',
     }}
   />
@@ -101,7 +110,7 @@ const InventoryCell = ({ rows, side, selected, onSelect, expanded }) => {
               <Box>{value(row).items} Items</Box>
             </Box>
           ))
-        : rest.length > 0 && <Box sx={{ color: '#676b72' }}>+{rest.length} more fields</Box>}
+        : rest.length > 0 && <Box sx={{ color: 'sf.textMuted' }}>+{rest.length} more fields</Box>}
     </Box>
   );
 };
@@ -116,9 +125,9 @@ const CostCell = ({ row, side, selected, onSelect, muted = false }) => (
       ...valueCardSx(selected),
       ...(muted && {
         cursor: 'default',
-        color: '#9aa0a6',
-        bgcolor: '#f7f8f8',
-        borderColor: selected ? '#cfd4d8' : 'transparent',
+        color: byMode('#9aa0a6', '#757575'),
+        bgcolor: byMode('#f7f8f8', '#2b2b2b'),
+        borderColor: selected ? byMode('#cfd4d8', '#5a5a5a') : 'transparent',
       }),
     }}
     onClick={muted ? undefined : onSelect}
@@ -177,14 +186,14 @@ const CaseQuantityAdjustmentsDialog = ({ open, adjustments, outletName, onKeepOl
       PaperProps={{ sx: { borderRadius: '10px', overflow: 'hidden' } }}
     >
       <Box sx={{ bgcolor: GREEN_HEADER, px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <EditOutlinedIcon sx={{ fontSize: 20, color: '#1b7a45' }} />
-        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#1b7a45' }}>
+        <EditOutlinedIcon sx={{ fontSize: 20, color: byMode('#1b7a45', '#7bf1a8') }} />
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#1b7a45', '#7bf1a8') }}>
           Case Quantity Adjustments
         </Typography>
       </Box>
 
       <DialogContent sx={{ px: 3, py: 3 }}>
-        <Typography sx={{ fontSize: 15, color: '#313439', mb: 2 }}>
+        <Typography sx={{ fontSize: 15, color: CARD_TEXT, mb: 2 }}>
           Case Quantity has changed, select the correct adjustments for inventory levels and costs
         </Typography>
 
@@ -215,7 +224,7 @@ const CaseQuantityAdjustmentsDialog = ({ open, adjustments, outletName, onKeepOl
             // Every cell but the label column carries the rule and its own gutter.
             // nth-CHILD, not nth-of-type: the heading cells render as <p> and the
             // rest as <div>, so counting by tag would fall out of step.
-            '& > *:not(:nth-child(4n + 1))': { borderLeft: '1px solid #e3e5e7', px: 2 },
+            '& > *:not(:nth-child(4n + 1))': { borderLeft: 1, borderLeftColor: RULE, px: 2 },
             '& > *': { py: 1 },
           }}
         >
@@ -228,7 +237,7 @@ const CaseQuantityAdjustmentsDialog = ({ open, adjustments, outletName, onKeepOl
           ))}
 
           {/* Old / New pickers — the reference puts these on an "Outlet" row */}
-          <Box sx={{ fontSize: 15, fontWeight: 600, color: '#40474e', display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ fontSize: 15, fontWeight: 600, color: CELL_TEXT, display: 'flex', alignItems: 'center' }}>
             Outlet
           </Box>
           {columns.map((col, i) => (
@@ -252,7 +261,7 @@ const CaseQuantityAdjustmentsDialog = ({ open, adjustments, outletName, onKeepOl
               {/* The cells stretch so the column rules stay continuous; what is
                   INSIDE them hugs the top, level with the first line of figures. */}
               <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, pt: 2 }}>
-                <Typography sx={{ fontSize: 15, fontWeight: 600, color: '#40474e' }}>
+                <Typography sx={{ fontSize: 15, fontWeight: 600, color: CELL_TEXT }}>
                   {row.label}
                 </Typography>
                 {row.pin && <PlaceIcon sx={{ fontSize: 16, color: '#5ebbeb', mt: '2px' }} />}
@@ -316,8 +325,8 @@ const CaseQuantityAdjustmentsDialog = ({ open, adjustments, outletName, onKeepOl
           disableElevation
           onClick={onKeepOld}
           sx={{
-            '&&': { bgcolor: '#e9eaec', color: '#40474e' },
-            '&&:hover': { bgcolor: '#dcdee1' },
+            '&&': { bgcolor: byMode('#e9eaec', '#3a3a3a'), color: CELL_TEXT },
+            '&&:hover': { bgcolor: byMode('#dcdee1', '#4a4a4a') },
             textTransform: 'none',
             borderRadius: '10px',
             height: 42,
@@ -333,8 +342,8 @@ const CaseQuantityAdjustmentsDialog = ({ open, adjustments, outletName, onKeepOl
           disableElevation
           onClick={() => onAccept(picks)}
           sx={{
-            '&&': { bgcolor: '#22c55e', color: '#ffffff' },
-            '&&:hover': { bgcolor: '#4ade80' },
+            '&&': { bgcolor: byMode('#22c55e', '#7bf1a8'), color: byMode('#ffffff', '#232323') },
+            '&&:hover': { bgcolor: byMode('#4ade80', '#9df5bd') },
             textTransform: 'none',
             borderRadius: '10px',
             height: 42,

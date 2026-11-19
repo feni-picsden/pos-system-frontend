@@ -528,7 +528,7 @@ const AddSaleKeyDialog = ({
               <Box sx={{ 
                 width: 200, 
                 height: 200, 
-                border: '2px dashed #ccc', 
+                border: (t) => `2px dashed ${t.palette.mode === 'dark' ? '#a1a1a1' : '#ccc'}`,
                 borderRadius: 1,
                 display: 'flex',
                 alignItems: 'center',

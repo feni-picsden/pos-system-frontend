@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import { Box, Typography, IconButton } from '@mui/material';
 import {
   Remove as RemoveIcon,
@@ -51,12 +52,12 @@ const MonthCalendar = ({ month, start, end, onPick }) => {
   const today = new Date();
   return (
     <Box sx={{ width: 266 }}>
-      <Typography sx={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#000', mb: 1, height: 24, lineHeight: '24px' }}>
+      <Typography sx={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'sf.calTitle', mb: 1, height: 24, lineHeight: '24px' }}>
         {format(month, 'MMMM yyyy')}
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 38px)' }}>
         {WEEKDAYS.map((d, i) => (
-          <Typography key={`${d}-${i}`} sx={{ width: 38, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#737373', lineHeight: '24px' }}>
+          <Typography key={`${d}-${i}`} sx={{ width: 38, textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'sf.calWeekday', lineHeight: '24px' }}>
             {d}
           </Typography>
         ))}
@@ -73,16 +74,18 @@ const MonthCalendar = ({ month, start, end, onPick }) => {
               sx={{
                 width: 38,
                 height: 38,
-                border: isSameDay(day, today) ? '1px solid #33a3e0' : '1px solid transparent',
+                border: 1,
+                borderColor: isSameDay(day, today) ? 'sf.calDay' : 'transparent',
                 borderRadius: '12px',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 fontSize: 16,
                 fontWeight: 700,
                 transition: INSTANT,
-                color: selected ? '#f8f8f8' : outside ? '#c4c4c4' : '#33a3e0',
-                bgcolor: selected ? '#5ebbeb' : inRange ? '#e4f2fb' : 'transparent',
-                '&:hover': { bgcolor: selected ? '#5ebbeb' : '#e4f2fb' },
+                // Reference dark: selected day = blue pill with dark text
+                color: selected ? 'sf.onPrimaryButton' : outside ? 'sf.calOutside' : 'sf.calDay',
+                bgcolor: selected ? '#5ebbeb' : inRange ? 'sf.rangeTint' : 'transparent',
+                '&:hover': { bgcolor: selected ? '#5ebbeb' : 'sf.rangeTint' },
               }}
             >
               {format(day, 'd')}
@@ -130,12 +133,15 @@ const RangePopover = ({ start, end, onChange, onClose, anchorRef }) => {
   };
 
   const monoSx = {
+    // Reference keeps these two boxes white in dark mode too.
     width: 227, height: 36, bgcolor: '#fff', border: '1px solid #e5e5e5', borderRadius: '8px', px: 1,
     fontFamily: '"Roboto Mono", monospace', fontSize: 12, color: '#000', outline: 'none', transition: INSTANT,
+    // ...except the one being typed in, which the reference turns dark (dark mode only).
+    '&:focus': { bgcolor: byMode('#fff', '#121212'), color: byMode('#000', '#f8f8f8'), borderColor: byMode('#e5e5e5', '#f8f8f8') },
   };
   const chevronSx = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, border: 0,
-    bgcolor: 'transparent', color: '#000', cursor: 'pointer', p: 0, transition: INSTANT,
+    bgcolor: 'transparent', color: 'sf.calDay', cursor: 'pointer', p: 0, transition: INSTANT,
   };
 
   return (
@@ -143,15 +149,15 @@ const RangePopover = ({ start, end, onChange, onClose, anchorRef }) => {
       ref={ref}
       data-testid="dt-range-popover"
       sx={{
-        position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 20, width: 622, bgcolor: '#f7f7f7',
-        border: '1px solid #e5e5e5', borderRadius: '12px', p: 2,
+        position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 20, width: 622, bgcolor: 'sf.pane',
+        border: 1, borderColor: 'sf.chip', borderRadius: '12px', p: 2,
         boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)', transition: INSTANT,
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
         {['start', 'end'].map((key, i) => (
           <React.Fragment key={key}>
-            {i > 0 && <Typography sx={{ fontSize: 12, color: '#737373' }}>&mdash;</Typography>}
+            {i > 0 && <Typography sx={{ fontSize: 12, color: 'sf.textSoft' }}>&mdash;</Typography>}
             <Box
               component="input"
               value={text[key]}
@@ -179,8 +185,8 @@ const RangePopover = ({ start, end, onChange, onClose, anchorRef }) => {
               onClick={() => setMode(m.key)}
               sx={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32,
-                border: '1px solid #e5e5e5', borderRadius: '8px', cursor: 'pointer', transition: INSTANT,
-                bgcolor: mode === m.key ? '#5ebbeb' : '#fff', color: mode === m.key ? '#f8f8f8' : '#737373',
+                border: 1, borderColor: 'sf.chip', borderRadius: '8px', cursor: 'pointer', transition: INSTANT,
+                bgcolor: mode === m.key ? '#5ebbeb' : 'sf.paper', color: mode === m.key ? '#f8f8f8' : 'sf.textSoft',
               }}
             >
               <m.Icon sx={{ fontSize: 16 }} />
@@ -192,9 +198,9 @@ const RangePopover = ({ start, end, onChange, onClose, anchorRef }) => {
           type="button"
           onClick={() => { const now = new Date(); onChange({ start: startOfDay(now), end: endOfDay(now) }); }}
           sx={{
-            border: '1px solid #e5e5e5', borderRadius: '8px', bgcolor: '#fff', color: '#000', fontFamily: 'inherit',
+            border: 1, borderColor: 'sf.chip', borderRadius: '8px', bgcolor: 'sf.paper', color: 'sf.text', fontFamily: 'inherit',
             fontSize: 12, fontWeight: 700, height: 32, px: 1.5, cursor: 'pointer', transition: INSTANT,
-            '&:hover': { bgcolor: '#e4f2fb' },
+            '&:hover': { bgcolor: 'sf.rangeTint' },
           }}
         >
           Current Day
@@ -236,7 +242,7 @@ const DateTimeRangeFilter = ({ value, onChange, testId }) => {
 
   const halfSx = (d) => ({
     flex: 1, minWidth: 0, height: 41, border: 0, outline: 'none', bgcolor: 'transparent',
-    fontFamily: d ? 'inherit' : '"Roboto Mono", monospace', fontSize: 16, color: d ? '#000' : '#808080',
+    fontFamily: d ? 'inherit' : '"Roboto Mono", monospace', fontSize: 16, color: d ? 'sf.text' : 'sf.textFaint',
     textAlign: 'left', p: '8px 16px', cursor: 'pointer', transition: INSTANT, whiteSpace: 'nowrap', overflow: 'hidden',
   });
 
@@ -246,20 +252,20 @@ const DateTimeRangeFilter = ({ value, onChange, testId }) => {
         ref={boxRef}
         sx={{
           display: 'flex', alignItems: 'center', gap: '4px', width: '100%', height: 43,
-          border: open ? '2px solid #000' : '1px solid #404040', borderRadius: '8px', bgcolor: '#fff', p: 0,
+          border: open ? 2 : 1, borderColor: open ? 'sf.borderStrong' : 'sf.border', borderRadius: '8px', bgcolor: 'sf.input', p: 0,
           boxSizing: 'border-box',
         }}
       >
         <Box component="button" type="button" data-half="start" onClick={() => setOpen(true)} sx={halfSx(start)}>
           {fmtDate(start) || MASK}
         </Box>
-        <RemoveIcon sx={{ color: '#737373', fontSize: 16, width: 12, flexShrink: 0 }} />
+        <RemoveIcon sx={{ color: 'sf.textSoft', fontSize: 16, width: 12, flexShrink: 0 }} />
         <Box component="button" type="button" data-half="end" onClick={() => setOpen(true)} sx={halfSx(end)}>
           {fmtDate(end) || MASK}
         </Box>
         {(start || end) && (
           <IconButton size="small" aria-label="Clear dates" onClick={() => onChange({ startDate: null, endDate: null })} sx={{ p: '2px', mr: 1 }}>
-            <Close sx={{ fontSize: 18, color: '#000' }} />
+            <Close sx={{ fontSize: 18, color: 'sf.text' }} />
           </IconButton>
         )}
       </Box>

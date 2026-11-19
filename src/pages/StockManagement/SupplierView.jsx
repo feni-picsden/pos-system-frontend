@@ -32,9 +32,19 @@ import supplierService from '../../services/supplierService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { formatDate as formatAppDate, appTimeZone } from '../../utils/appDateTime';
 import { zonedParts } from '../../utils/dateFormat';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront card chrome (reference: .show-frame / #dialog)
 const CARD_SHADOW = '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)';
+// Dark mode (no reference dark screenshots for Suppliers): values copied from the
+// Classification view matched to the reference - rail #314158, content #202020,
+// rows #202020/#232323, View #74d4ff, Edit #7bf1a8, Delete #ffa2a2, chart greys.
+const CARD_BG = byMode('#f8f8f8', '#202020');
+const RAIL_BG = byMode('#f8f8f8', '#314158');
+const CARD_BORDER = byMode('1px solid #000', '1px solid #373737');
+const TEXT = byMode('#000', '#f8f8f8');
+const MUTED = byMode('#676b72', '#a0a4aa');
+const VIEW = byMode('#2196f3', '#74d4ff');
 // reference graph = current month + the full preceding 12
 const MONTHS = 13;
 
@@ -274,6 +284,11 @@ const SupplierView = () => {
           position: "relative",
           width: "100%",
           overflow: "visible",
+          // Dark-only chart colours (Classification view values); light keeps the SVG attributes.
+          '& svg [stroke="#e0e0e0"]': { stroke: byMode(undefined, '#4d4d4d') },
+          '& svg text[fill="#666"]': { fill: byMode(undefined, '#d4d4d4') },
+          '& svg circle[stroke="#fff"]': { stroke: byMode(undefined, '#5ebbeb') },
+          '& svg [stroke="#999"]': { stroke: byMode(undefined, '#a1a1a1') },
         }}
       >
         <svg
@@ -397,8 +412,8 @@ const SupplierView = () => {
                 left: hoverPos.x - 60,
                 top: hoverPos.y + 10,
                 p: 1.5,
-                bgcolor: "rgba(0,0,0,0.85)",
-                color: "white",
+                bgcolor: byMode("rgba(0,0,0,0.85)", "#333333"),
+                color: byMode("white", "#f8f8f8"),
                 fontSize: "0.75rem",
                 pointerEvents: "none",
                 zIndex: 1000,
@@ -465,7 +480,7 @@ const SupplierView = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 50px)', bgcolor: '#676b72', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', height: 'calc(100vh - 50px)', bgcolor: byMode('#676b72', '#121212'), overflow: 'hidden' }}>
       <Box sx={{ flex: 1, p: 0.5, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
@@ -477,14 +492,14 @@ const SupplierView = () => {
           sx={{
             textAlign: 'center',
             mb: 1,
-            backgroundColor: '#f8f8f8',
-            border: '1px solid #000',
+            backgroundColor: CARD_BG,
+            border: CARD_BORDER,
             boxShadow: CARD_SHADOW,
             boxSizing: 'border-box',
           }}
         >
           <Typography
-            sx={{ fontSize: '24px', fontWeight: 400, lineHeight: 1.2, color: 'black', padding: 2 }}
+            sx={{ fontSize: '24px', fontWeight: 400, lineHeight: 1.2, color: byMode('black', '#f8f8f8'), padding: 2 }}
           >
             {supplier.name}
           </Typography>
@@ -496,9 +511,9 @@ const SupplierView = () => {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            backgroundColor: '#f8f8f8',
+            backgroundColor: CARD_BG,
             borderRadius: 0,
-            border: '1px solid #000',
+            border: CARD_BORDER,
             boxShadow: CARD_SHADOW,
             boxSizing: 'border-box',
             minHeight: 0,
@@ -528,7 +543,7 @@ const SupplierView = () => {
                     <Typography
                       sx={{
                         fontSize: '16px',
-                        color: '#676b72',
+                        color: MUTED,
                         letterSpacing: '1px',
                         fontVariant: 'all-petite-caps',
                         mb: 0.5,
@@ -538,7 +553,7 @@ const SupplierView = () => {
                     </Typography>
                     {/* empty values render blank on the reference, never a dash */}
                     {field.lines.filter(Boolean).map((line) => (
-                      <Typography key={line} sx={{ color: '#313439', fontSize: '16px' }}>
+                      <Typography key={line} sx={{ color: byMode('#313439', '#f8f8f8'), fontSize: '16px' }}>
                         {line}
                       </Typography>
                     ))}
@@ -558,9 +573,9 @@ const SupplierView = () => {
                       <ListItem
                         sx={{
                           height: 72,
-                          backgroundColor: index % 2 === 0 ? '#fff' : '#f8f8f8',
-                          '&:hover': { backgroundColor: '#f0f0f0' },
-                          borderBottom: index < products.length - 1 ? '1px solid #e0e0e0' : 'none',
+                          backgroundColor: index % 2 === 0 ? byMode('#fff', '#202020') : byMode('#f8f8f8', '#232323'),
+                          '&:hover': { backgroundColor: byMode('#f0f0f0', '#303030') },
+                          borderBottom: index < products.length - 1 ? byMode('1px solid #e0e0e0', '1px solid #333333') : 'none',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
@@ -575,7 +590,7 @@ const SupplierView = () => {
                             size="small"
                             startIcon={<ViewIcon />}
                             component={RouterLink} to={`/products/${product.id}/view`}
-                            sx={{ color: '#2196f3', textTransform: 'none' }}
+                            sx={{ color: VIEW, textTransform: 'none' }}
                           >
                             View
                           </Button>
@@ -583,7 +598,7 @@ const SupplierView = () => {
                             size="small"
                             startIcon={<EditIcon />}
                             component={RouterLink} to={`/products/${product.id}/edit`}
-                            sx={{ color: '#45a049', textTransform: 'none' }}
+                            sx={{ color: byMode('#45a049', '#7bf1a8'), textTransform: 'none' }}
                           >
                             Edit
                           </Button>
@@ -610,11 +625,11 @@ const SupplierView = () => {
                 </Box>
               ) : orders.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
-                  <NoResultsIcon sx={{ fontSize: 64, color: '#676b72', mb: 2 }} />
-                  <Typography sx={{ fontWeight: 700, fontSize: '20px', color: '#000', mb: 1 }}>
+                  <NoResultsIcon sx={{ fontSize: 64, color: MUTED, mb: 2 }} />
+                  <Typography sx={{ fontWeight: 700, fontSize: '20px', color: TEXT, mb: 1 }}>
                     No results found
                   </Typography>
-                  <Typography sx={{ fontSize: '16px', color: '#676b72' }}>
+                  <Typography sx={{ fontSize: '16px', color: MUTED }}>
                     We could not find any results that matched the filters.
                   </Typography>
                 </Box>
@@ -622,7 +637,7 @@ const SupplierView = () => {
                 <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                   <Table size="small" stickyHeader>
                     <TableHead>
-                      <TableRow sx={{ '& th': { fontWeight: 700, textAlign: 'center', fontSize: 13 } }}>
+                      <TableRow sx={{ '& th': { fontWeight: 700, textAlign: 'center', fontSize: 13, bgcolor: byMode(undefined, '#232323'), color: byMode(undefined, '#f8f8f8') } }}>
                         <TableCell />
                         <TableCell>FROM</TableCell>
                         <TableCell>TO</TableCell>
@@ -639,25 +654,25 @@ const SupplierView = () => {
                         <TableRow
                           key={order.id}
                           sx={{
-                            '&:hover': { backgroundColor: '#f5f5f5' },
-                            backgroundColor: orders.indexOf(order) % 2 === 0 ? '#fafafa' : 'white',
+                            '&:hover': { backgroundColor: byMode('#f5f5f5', '#303030') },
+                            backgroundColor: orders.indexOf(order) % 2 === 0 ? byMode('#fafafa', '#202020') : byMode('white', '#232323'),
                             '& td': { textAlign: 'center' },
                           }}
                         >
                           <TableCell sx={{ width: 40 }}>
-                            <OrderRowIcon sx={{ fontSize: 22, color: '#313439', verticalAlign: 'middle' }} />
+                            <OrderRowIcon sx={{ fontSize: 22, color: byMode('#313439', '#f8f8f8'), verticalAlign: 'middle' }} />
                           </TableCell>
                           <TableCell sx={{ textAlign: 'left !important' }}>
-                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#000' }}>
+                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: TEXT }}>
                               {order.supplier?.name || '-'}
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#676b72' }}>SUPPLIER</Typography>
+                            <Typography sx={{ fontSize: 11, color: MUTED }}>SUPPLIER</Typography>
                           </TableCell>
                           <TableCell sx={{ textAlign: 'left !important' }}>
-                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#000' }}>
+                            <Typography sx={{ fontSize: 14, fontWeight: 700, color: TEXT }}>
                               {order.outlet?.name || order.customer?.name || order.to || '-'}
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: '#676b72' }}>OUTLET</Typography>
+                            <Typography sx={{ fontSize: 11, color: MUTED }}>OUTLET</Typography>
                           </TableCell>
                           <TableCell>{formatOrderDate(order.orderDate)}</TableCell>
                           <TableCell>{order.orderNumber || '-'}</TableCell>
@@ -683,7 +698,7 @@ const SupplierView = () => {
                               size="small"
                               startIcon={<ViewIcon />}
                               component={RouterLink} to={`/orders-invoices/${order.id}`}
-                              sx={{ color: '#2196f3', textTransform: 'none' }}
+                              sx={{ color: VIEW, textTransform: 'none' }}
                             >
                               View
                             </Button>
@@ -715,8 +730,8 @@ const SupplierView = () => {
         <Box
           onClick={handleEdit}
           sx={{
-            backgroundColor: '#f8f8f8',
-            border: '1px solid #000',
+            backgroundColor: RAIL_BG,
+            border: CARD_BORDER,
             boxShadow: CARD_SHADOW,
             boxSizing: 'border-box',
             cursor: 'pointer',
@@ -727,9 +742,9 @@ const SupplierView = () => {
             justifyContent: 'flex-start',
             p: 1,
             gap: 1,
-            color: '#32b643',
+            color: byMode('#32b643', '#7bf1a8'),
             transition: 'color 0.2s ease',
-            '&:hover': { color: 'rgb(109,215,123)' },
+            '&:hover': { color: byMode('rgb(109,215,123)', '#9af5bd') },
           }}
         >
           <EditIcon />
@@ -749,8 +764,8 @@ const SupplierView = () => {
           {/* 1px border + 8px padding + 3x62 items + 2x8 gaps = the reference 220px group card */}
           <Box
             sx={{
-              backgroundColor: '#f8f8f8',
-              border: '1px solid #000',
+              backgroundColor: RAIL_BG,
+              border: CARD_BORDER,
               boxShadow: CARD_SHADOW,
               boxSizing: 'border-box',
               p: 1,
@@ -776,7 +791,7 @@ const SupplierView = () => {
                     flexDirection: 'column',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    color: current ? '#5ebbeb' : '#000',
+                    color: current ? '#5ebbeb' : byMode('#000', '#e5e5e5'),
                     transition: 'color 0.2s ease',
                     '&:hover': { color: '#5ebbeb' },
                     '&:hover .rail-desc': { color: '#5ebbeb' },
@@ -811,7 +826,7 @@ const SupplierView = () => {
                     className="rail-desc"
                     sx={{
                       fontSize: '12px',
-                      color: current ? '#5ebbeb' : '#676b72',
+                      color: current ? '#5ebbeb' : byMode('#676b72', '#e5e5e5'),
                       transition: 'color 0.2s ease',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -829,8 +844,8 @@ const SupplierView = () => {
             onClick={() => setDeleteOpen(true)}
             sx={{
               mb: 0,
-              backgroundColor: '#f8f8f8',
-              border: '1px solid #000',
+              backgroundColor: RAIL_BG,
+              border: CARD_BORDER,
               boxShadow: CARD_SHADOW,
               boxSizing: 'border-box',
               cursor: 'pointer',
@@ -841,9 +856,9 @@ const SupplierView = () => {
               justifyContent: 'flex-start',
               p: 1,
               gap: 1,
-              color: '#e3342f',
+              color: byMode('#e3342f', '#ffa2a2'),
               transition: 'color 0.2s ease',
-              '&:hover': { color: 'rgb(243,170,168)' },
+              '&:hover': { color: byMode('rgb(243,170,168)', '#ffb8b8') },
             }}
           >
             <DeleteIcon />

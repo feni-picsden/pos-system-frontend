@@ -9,6 +9,32 @@
   --border-radius: 8px;
   --box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   --transition: all 0.2s ease-in-out;
+  /* Crinit Shop semantic tokens (mirrors src/theme/sfPalette.js) for plain CSS */
+  --sf-page: #ffffff;
+  --sf-pane: #f8f8f8;
+  --sf-pane-alt: #ebebeb;
+  --sf-paper: #ffffff;
+  --sf-text: #000000;
+  --sf-text-muted: #676b72;
+  --sf-border: #404040;
+  --sf-border-light: #e0e0e0;
+}
+
+/* Dark mode (Profile > Theme: Dark, or System on a dark OS) - set by ThemeModeContext */
+:root[data-theme="dark"] {
+  --background-color: #121212;
+  --surface-color: #1e1f22;
+  --text-primary: #e8eaed;
+  --text-secondary: #a0a4aa;
+  --sf-page: #121212;
+  --sf-pane: #1e1f22;
+  --sf-pane-alt: #2a2c30;
+  --sf-paper: #1e1f22;
+  --sf-text: #e8eaed;
+  --sf-text-muted: #a0a4aa;
+  --sf-border: #6b7076;
+  --sf-border-light: #3a3d42;
+  color-scheme: dark;
 }
 
 * {
@@ -220,4 +246,10 @@ body {
 .sf-combo-popper .MuiAutocomplete-option[aria-selected="true"],
 .sf-combo-popper .MuiAutocomplete-option[aria-selected="true"].Mui-focused {
   background-color: #f8f8f8 !important;
+}
+:root[data-theme="dark"] .sf-combo-popper .MuiAutocomplete-option:hover,
+:root[data-theme="dark"] .sf-combo-popper .MuiAutocomplete-option.Mui-focused,
+:root[data-theme="dark"] .sf-combo-popper .MuiAutocomplete-option[aria-selected="true"],
+:root[data-theme="dark"] .sf-combo-popper .MuiAutocomplete-option[aria-selected="true"].Mui-focused {
+  background-color: #2a2c30 !important;
 }

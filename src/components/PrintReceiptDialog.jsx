@@ -26,6 +26,10 @@ import { isWidePreview } from '../utils/receiptTemplateShape';
 import { printHtmlDocument } from '../utils/printHtmlDocument';
 import { saleToReceiptData } from '../utils/saleToReceiptData';
 import { withOutletProfile } from '../utils/outletReceiptProfile';
+import { byMode } from '../theme/sfPalette';
+
+// Dark mode only (light renders exactly as before): reference dark reprint dialog.
+const darkOnly = (v) => (t) => (t.palette.mode === 'dark' ? v : undefined);
 
 const PrintReceiptDialog = ({ open, onClose, sale }) => {
   const [receiptTemplates, setReceiptTemplates] = useState([]);
@@ -122,6 +126,7 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
           overflow: 'visible',
           maxHeight: 'calc(100vh - 32px)',
           m: 2,
+          bgcolor: darkOnly('#121212'),
         },
       }}
     >
@@ -142,7 +147,7 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
         <CloseIcon sx={{ fontSize: 20 }} />
       </IconButton>
 
-      <DialogTitle sx={{ p: 0, borderBottom: '1px solid #e0e0e0' }}>
+      <DialogTitle sx={{ p: 0, borderBottom: (t) => `1px solid ${t.palette.mode === 'dark' ? '#373737' : '#e0e0e0'}` }}>
         <FormControl fullWidth>
           <Select
             value={selectedTemplate?.id || ''}
@@ -164,9 +169,9 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
                 alignItems: 'center',
                 px: 2,
                 fontSize: 16,
-                color: '#313439',
+                color: byMode('#313439', '#f8f8f8'),
               },
-              '& .MuiSelect-icon': { right: 12, color: '#313439' },
+              '& .MuiSelect-icon': { right: 12, color: byMode('#313439', '#f8f8f8') },
             }}
           >
             {receiptTemplates.map((template) => (
@@ -187,7 +192,7 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
       <DialogContent
         sx={{
           p: '16px',
-          bgcolor: '#f8f8f8',
+          bgcolor: byMode('#f8f8f8', '#232323'),
           height: 'min(569px, calc(100vh - 185px))',
           minHeight: 220,
           overflowY: 'auto',
@@ -223,8 +228,8 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
           onClick={printReceipt}
           disabled={!receiptData || templatesLoading}
           sx={{
-            bgcolor: '#1c86f2',
-            color: '#f8f8f8',
+            bgcolor: byMode('#1c86f2', '#a3cefa'),
+            color: byMode('#f8f8f8', '#313439'),
             height: 56,
             fontSize: '32px',
             fontWeight: 400,
@@ -233,7 +238,8 @@ const PrintReceiptDialog = ({ open, onClose, sale }) => {
             borderRadius: 0,
             boxShadow: 'none',
             gap: 1,
-            '&:hover': { bgcolor: '#1573d4', boxShadow: 'none' },
+            '&:hover': { bgcolor: byMode('#1573d4', '#8bc0f5'), boxShadow: 'none' },
+            '&.Mui-disabled': { bgcolor: darkOnly('#3a3a3a'), color: darkOnly('#a0a4aa') },
           }}
         >
           Print

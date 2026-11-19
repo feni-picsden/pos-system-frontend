@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import promotionService from '../../services/promotionService';
 import ProductOutletFilter from './ProductOutletFilter';
 import { format } from 'date-fns';
+import { byMode } from '../../theme/sfPalette';
 import {
   SECTION_ROOT_SX,
   GRID_TABLE_SX,
@@ -206,13 +207,14 @@ const ProductPromotions = ({ productId }) => {
                       component="button"
                       onClick={() => handlePromotionClick(promotion)}
                       sx={{
-                        color: '#32b643',
+                        // Reference dark shows the promotion as a plain #4ca0f5 link.
+                        color: byMode('#32b643', '#4ca0f5'),
                         fontSize: 16,
                         textDecoration: 'none',
                         cursor: 'pointer',
                         transition: 'color 0.2s ease',
                         '&:hover': {
-                          color: 'rgb(109, 215, 123)',
+                          color: byMode('rgb(109, 215, 123)', '#74d4ff'),
                           textDecoration: 'underline',
                         },
                       }}
@@ -224,7 +226,7 @@ const ProductPromotions = ({ productId }) => {
                     {isActive ? (
                       <CheckCircleIcon sx={{ color: '#32b643', display: 'block' }} />
                     ) : (
-                      <CancelIcon sx={{ color: '#e3342f', display: 'block' }} />
+                      <CancelIcon sx={{ color: byMode('#e3342f', '#ffa2a2'), display: 'block' }} />
                     )}
                   </TableCell>
                   <TableCell>{formatDate(promotion.startDate)}</TableCell>

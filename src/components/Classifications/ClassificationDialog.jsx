@@ -22,21 +22,27 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import masterDatabaseService from '../../services/masterDatabaseService';
 import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
+import { useTheme } from '@mui/material/styles';
+import { byMode, sfOf } from '../../theme/sfPalette';
+
+// Dark mode colours measured off the reference Create New Classification dialog.
+const FOCUS_BORDER = byMode('#000000', '#eeeeee');
 
 // Shopfront-style field: dark-gray 1px outline, black 2px on focus, 8px radius, 42px tall
 const fieldSx = {
-  backgroundColor: 'white',
+  backgroundColor: 'sf.input',
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
     fontSize: 16,
     height: 42,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: FOCUS_BORDER, borderWidth: '2px' },
   },
 };
 
 const ClassificationDialog = ({ open, onClose, onSave, editingClassification, saveError }) => {
+  const sf = sfOf(useTheme());
   const { isTrueSuperAdmin, getOutletId } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
@@ -172,7 +178,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
         sx={{
           height: 60,
           minHeight: 60,
-          bgcolor: '#bae6fd',
+          bgcolor: byMode('#bae6fd', '#024a70'),
           borderRadius: '8px 8px 0 0',
           display: 'flex',
           alignItems: 'center',
@@ -180,8 +186,8 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
           gap: 1,
         }}
       >
-        <HelpOutlineIcon sx={{ fontSize: 22, color: '#075985' }} />
-        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#075985' }}>
+        <HelpOutlineIcon sx={{ fontSize: 22, color: byMode('#075985', '#018fc6') }} />
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#075985', '#00bcff') }}>
           {editingClassification ? 'Edit Classification' : 'Create New Classification'}
         </Typography>
       </Box>
@@ -203,7 +209,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
           }}
           sx={{
             width: '100%',
-            bgcolor: 'rgba(0,0,0,0.1)',
+            bgcolor: byMode('rgba(0,0,0,0.1)', '#333333'),
             borderRadius: '8px',
             p: '4px',
             gap: '4px',
@@ -216,9 +222,9 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
               textTransform: 'none',
               fontSize: 16,
               fontWeight: 400,
-              color: '#000',
+              color: byMode('#000', '#f5f5f5'),
               bgcolor: 'transparent',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+              '&:hover': { bgcolor: 'sf.overlayPress' },
               '&.Mui-selected': {
                 backgroundColor: '#5ebbeb',
                 color: '#fff',
@@ -233,7 +239,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
           <ToggleButton value="TAG">Tag</ToggleButton>
         </ToggleButtonGroup>
 
-        <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Name</Typography>
+        <Typography sx={{ fontSize: 16, color: 'sf.text', mb: 0.5 }}>Name</Typography>
         <TextField
           fullWidth
           value={formData.name}
@@ -244,7 +250,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
         />
 
         {SHOW_MASTER_DATABASE_REF && (<>
-        <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Master Database Reference</Typography>
+        <Typography sx={{ fontSize: 16, color: 'sf.text', mb: 0.5 }}>Master Database Reference</Typography>
         {/* Parity: searchable async dropdown populated from the master-database supplier list */}
         <FormControl fullWidth sx={{ mb: 1 }}>
           <Autocomplete
@@ -260,17 +266,18 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
                 {...params}
                 placeholder="Select..."
                 sx={{
-                  backgroundColor: 'white',
+                  backgroundColor: 'sf.input',
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '8px',
                     fontSize: 16,
                     minHeight: 42,
                     py: 0,
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: FOCUS_BORDER, borderWidth: '2px' },
                   },
-                  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+                  '& .MuiOutlinedInput-input::placeholder': { color: 'sf.textFaint', opacity: 1 },
+                  '& .MuiAutocomplete-popupIndicator': { color: byMode('rgba(0, 0, 0, 0.54)', '#f8f8f8') },
                 }}
                 InputProps={{
                   ...params.InputProps,
@@ -291,20 +298,20 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
             .product-family-colour). Family type only. */}
         {formData.type === 'FAMILY' && (
           <Box sx={{ mt: 1 }}>
-            <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Colour</Typography>
+            <Typography sx={{ fontSize: 16, color: 'sf.text', mb: 0.5 }}>Colour</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <input
                 type="color"
                 value={formData.color || '#ffffff'}
                 onChange={(e) => handleInputChange('color', e.target.value)}
-                style={{ width: 60, height: 42, border: '1px solid #404040', borderRadius: 8, padding: 2, background: 'white', cursor: 'pointer' }}
+                style={{ width: 60, height: 42, border: `1px solid ${sf.border}`, borderRadius: 8, padding: 2, background: sf.input, cursor: 'pointer' }}
               />
               {formData.color ? (
-                <Button size="small" onClick={() => handleInputChange('color', '')} sx={{ textTransform: 'none', color: '#676b72' }}>
+                <Button size="small" onClick={() => handleInputChange('color', '')} sx={{ textTransform: 'none', color: 'sf.textMuted' }}>
                   Clear
                 </Button>
               ) : (
-                <Typography sx={{ fontSize: 14, color: '#808080' }}>No colour</Typography>
+                <Typography sx={{ fontSize: 14, color: 'sf.textFaint' }}>No colour</Typography>
               )}
             </Box>
           </Box>
@@ -349,8 +356,8 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
         <Button
           onClick={handleCancel}
           sx={{
-            backgroundColor: '#d4d4d4',
-            color: '#000',
+            backgroundColor: byMode('#d4d4d4', '#404040'),
+            color: byMode('#000', '#ffffff'),
             width: 118,
             height: 42,
             borderRadius: '12px',
@@ -358,7 +365,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
             fontSize: 16,
             textTransform: 'none',
             boxShadow: 'none',
-            '&:hover': { backgroundColor: '#c4c4c4', boxShadow: 'none' },
+            '&:hover': { backgroundColor: byMode('#c4c4c4', '#4a4a4a'), boxShadow: 'none' },
           }}
         >
           Cancel
@@ -366,8 +373,8 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
         <Button
           onClick={handleSave}
           sx={{
-            backgroundColor: '#0ea5e9',
-            color: '#fff',
+            backgroundColor: byMode('#0ea5e9', '#73d4ff'),
+            color: byMode('#fff', '#232323'),
             width: 118,
             height: 42,
             borderRadius: '12px',
@@ -375,7 +382,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
             fontSize: 16,
             textTransform: 'none',
             boxShadow: 'none',
-            '&:hover': { backgroundColor: '#0284c7', boxShadow: 'none' },
+            '&:hover': { backgroundColor: byMode('#0284c7', '#8fdcff'), boxShadow: 'none' },
           }}
         >
           {editingClassification ? 'Update' : 'Create'}

@@ -14,6 +14,8 @@ import {
   Fade,
   Link,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
+import { byMode } from "../../theme/sfPalette";
 import {
   EditOutlined as EditIcon,
   DeleteOutline as DeleteIcon,
@@ -118,6 +120,11 @@ const ProductView = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isTrueSuperAdmin, getOutletName } = useAuth();
+  // Chart colours live in SVG attributes (not sx), so pick them by mode here.
+  const isDarkMode = useTheme().palette.mode === "dark";
+  const CHART_GRID = isDarkMode ? "#333333" : "#ddd";
+  const CHART_LABEL = isDarkMode ? "#a0a4aa" : "#333";
+  const CHART_LEGEND = isDarkMode ? "#f8f8f8" : "#333";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [product, setProduct] = useState(null);
@@ -482,7 +489,7 @@ const ProductView = () => {
 
   const renderHomeContent = () => (
     // Reference pane: #f8f8f8 behind transparent widgets, 8px 8px 0 padding.
-    <Box sx={{ p: 1, pb: 0, bgcolor: "#f8f8f8", flexGrow: 1 }}>
+    <Box sx={{ p: 1, pb: 0, bgcolor: byMode("#f8f8f8", "#121212"), flexGrow: 1 }}>
       {/* Sales/Purchases Graph - bare chart on the page (no card, no internal title) */}
         <Box
           ref={chartContainerRef}
@@ -687,7 +694,7 @@ const ProductView = () => {
                       y1={scaleY(val)}
                       x2={effectiveWidth - padRight}
                       y2={scaleY(val)}
-                      stroke="#ddd"
+                      stroke={CHART_GRID}
                       strokeWidth="1"
                     />
                   ))}
@@ -698,7 +705,7 @@ const ProductView = () => {
                       y1={padTop}
                       x2={getX(i, effectiveWidth)}
                       y2={baselineY}
-                      stroke="#ddd"
+                      stroke={CHART_GRID}
                       strokeWidth="1"
                     />
                   ))}
@@ -711,7 +718,7 @@ const ProductView = () => {
                       y={scaleY(val) + 4}
                       textAnchor="end"
                       fontSize="11"
-                      fill="#333"
+                      fill={CHART_LABEL}
                     >
                       ${val % 1 === 0 ? val : val.toFixed(2)}
                     </text>
@@ -724,7 +731,7 @@ const ProductView = () => {
                       transform={`translate(${getX(i, effectiveWidth)},${baselineY}) translate(0,10) rotate(-30)`}
                       textAnchor="end"
                       fontSize="11"
-                      fill="#333"
+                      fill={CHART_LABEL}
                     >
                       {labelObj.label || labelObj}
                     </text>
@@ -746,7 +753,7 @@ const ProductView = () => {
                           x="24"
                           y="10"
                           fontSize="11"
-                          fill="#333"
+                          fill={CHART_LEGEND}
                           dominantBaseline="middle"
                         >
                           {item.label}
@@ -853,9 +860,10 @@ const ProductView = () => {
                     : "translateX(10px)",
                 whiteSpace: "nowrap",
                 p: 1.25,
-                bgcolor: "#fff",
-                color: "#000",
-                border: "1px solid #ccc",
+                bgcolor: byMode("#fff", "#232323"),
+                color: byMode("#000", "#f8f8f8"),
+                border: 1,
+                borderColor: byMode("#ccc", "#373737"),
                 pointerEvents: "none",
                 zIndex: 1000,
                 borderRadius: 0,
@@ -865,13 +873,13 @@ const ProductView = () => {
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
                 <Box sx={{ width: 10, height: 10, bgcolor: "#e3342f", flexShrink: 0 }} />
-                <Typography sx={{ fontSize: 12, color: "#000", lineHeight: 1.2 }}>
+                <Typography sx={{ fontSize: 12, color: byMode("#000", "#f8f8f8"), lineHeight: 1.2 }}>
                   Purchases ${purchasesSeries[hoverIndex]?.toFixed(2) || "0.00"}
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Box sx={{ width: 10, height: 10, bgcolor: "#5ebbeb", flexShrink: 0 }} />
-                <Typography sx={{ fontSize: 12, color: "#000", lineHeight: 1.2 }}>
+                <Typography sx={{ fontSize: 12, color: byMode("#000", "#f8f8f8"), lineHeight: 1.2 }}>
                   Sales ${salesSeries[hoverIndex]?.toFixed(2) || "0.00"}
                 </Typography>
               </Box>
@@ -894,7 +902,7 @@ const ProductView = () => {
             </TableHead>
             <TableBody>
               {/* Full-width grey group row under the header */}
-              <TableRow sx={{ backgroundColor: "#ebebeb" }}>
+              <TableRow sx={{ backgroundColor: byMode("#ebebeb", "#232323") }}>
                 <TableCell
                   colSpan={5}
                   sx={{ fontSize: "19.2px !important", padding: "16px !important" }}
@@ -935,7 +943,7 @@ const ProductView = () => {
                         <TableCell
                           sx={{
                             padding: "16px !important",
-                            backgroundColor: "#bdbdbd !important",
+                            backgroundColor: byMode("#bdbdbd !important", "#3a3a3a !important"),
                           }}
                         >
                           ${cost.toFixed(2)}
@@ -953,7 +961,7 @@ const ProductView = () => {
                         <TableRow
                           data-testid="other-prices-toggle"
                           onClick={() => setShowOtherPrices((v) => !v)}
-                          sx={{ backgroundColor: "#ebebeb", cursor: "pointer" }}
+                          sx={{ backgroundColor: byMode("#ebebeb", "#232323"), cursor: "pointer" }}
                         >
                           <TableCell colSpan={5} sx={{ fontSize: "19.2px !important", padding: "16px !important" }}>
                             {showOtherPrices ? "Hide Other Prices" : "Show Other Prices"}
@@ -981,18 +989,18 @@ const ProductView = () => {
         {/* Details widget - stacked bold label with plain value underneath */}
         <Paper elevation={0} sx={WIDGET_SX}>
             <Box sx={{ mb: 1 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: 16, color: "#000" }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 16, color: "sf.text" }}>
                 Case Quantity
               </Typography>
-              <Typography sx={{ fontWeight: 400, fontSize: 16, color: "#000" }}>
+              <Typography sx={{ fontWeight: 400, fontSize: 16, color: "sf.text" }}>
                 {product?.caseQuantity || 0}
               </Typography>
             </Box>
             <Box sx={{ mb: 1 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: 16, color: "#000" }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 16, color: "sf.text" }}>
                 Tax Rate
               </Typography>
-              <Typography sx={{ fontWeight: 400, fontSize: 16, color: "#000" }}>
+              <Typography sx={{ fontWeight: 400, fontSize: 16, color: "sf.text" }}>
                 {product?.retailTaxRate || "N/A"}
               </Typography>
             </Box>
@@ -1000,19 +1008,19 @@ const ProductView = () => {
                 one price table, so it explains where this product's prices come from. */}
             {product?.family && (
               <Box sx={{ mb: 1 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: 16, color: "#000" }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: "sf.text" }}>
                   Family
                 </Typography>
-                <Typography sx={{ fontWeight: 400, fontSize: 16, color: "#000" }}>
+                <Typography sx={{ fontWeight: 400, fontSize: 16, color: "sf.text" }}>
                   {product.family.name}
                 </Typography>
               </Box>
             )}
             <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: 16, color: "#000" }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 16, color: "sf.text" }}>
                 Category
               </Typography>
-              <Typography sx={{ fontWeight: 400, fontSize: 16, color: "#000" }}>
+              <Typography sx={{ fontWeight: 400, fontSize: 16, color: "sf.text" }}>
                 {product?.category?.name || "N/A"}
               </Typography>
             </Box>
@@ -1038,7 +1046,7 @@ const ProductView = () => {
                         <Link
                           component={RouterLink}
                           to={`/products/${row.productId}/view`}
-                          sx={{ color: "#1a73e8" }}
+                          sx={{ color: byMode("#1a73e8", "#4ca0f5") }}
                         >
                           {row.product?.name || `#${row.productId}`}
                         </Link>
@@ -1072,7 +1080,7 @@ const ProductView = () => {
                         <Link
                           component={RouterLink}
                           to={`/products/${row.comboProduct?.id}/view`}
-                          sx={{ color: "#1a73e8" }}
+                          sx={{ color: byMode("#1a73e8", "#4ca0f5") }}
                         >
                           {row.comboProduct?.name || `#${row.comboProduct?.id}`}
                         </Link>
@@ -1092,7 +1100,7 @@ const ProductView = () => {
           sx={{
             ...WIDGET_SX,
             cursor: "pointer",
-            "&:hover": { backgroundColor: "rgba(0,0,0,0.02)" },
+            "&:hover": { backgroundColor: byMode("rgba(0,0,0,0.02)", "#2b2b2b") },
           }}
           onClick={() => setShowInventoryExpanded(!showInventoryExpanded)}
         >
@@ -1137,10 +1145,10 @@ const ProductView = () => {
                       { value: totalItems, label: "Items" },
                     ].map((stat) => (
                       <Box key={stat.label} sx={{ textAlign: "center" }}>
-                        <Typography sx={{ fontSize: 32, fontWeight: 400, color: "#000" }}>
+                        <Typography sx={{ fontSize: 32, fontWeight: 400, color: "sf.text" }}>
                           {stat.value}
                         </Typography>
-                        <Typography sx={{ fontSize: 16, fontWeight: 400, color: "#000" }}>
+                        <Typography sx={{ fontSize: 16, fontWeight: 400, color: "sf.text" }}>
                           {stat.label}
                         </Typography>
                       </Box>
@@ -1220,7 +1228,7 @@ const ProductView = () => {
             ...WIDGET_SX,
             mb: 0,
             cursor: "pointer",
-            "&:hover": { backgroundColor: "rgba(0,0,0,0.02)" },
+            "&:hover": { backgroundColor: byMode("rgba(0,0,0,0.02)", "#2b2b2b") },
           }}
           onClick={() => setShowSupplierExpanded(!showSupplierExpanded)}
         >
@@ -1233,11 +1241,11 @@ const ProductView = () => {
               return (
                 <>
                   <Box sx={{ textAlign: "center" }}>
-                    <Typography sx={{ fontSize: "19.2px", fontWeight: 400, color: "#000" }}>
+                    <Typography sx={{ fontSize: "19.2px", fontWeight: 400, color: "sf.text" }}>
                       {supplierName || "N/A"}
                     </Typography>
                     {supplierCode && (
-                      <Typography sx={{ fontSize: "19.2px", fontWeight: 400, color: "#000" }}>
+                      <Typography sx={{ fontSize: "19.2px", fontWeight: 400, color: "sf.text" }}>
                         {supplierCode}
                       </Typography>
                     )}
@@ -1284,7 +1292,7 @@ const ProductView = () => {
 
   return (
     <Box
-      sx={{ display: "flex", height: "calc(100vh - 50px)", bgcolor: "#464a4e" }}
+      sx={{ display: "flex", height: "calc(100vh - 50px)", bgcolor: byMode("#464a4e", "#121212") }}
     >
       {/* Main Content */}
       <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
@@ -1299,8 +1307,9 @@ const ProductView = () => {
           sx={{
             textAlign: "center",
             mb: 1,
-            backgroundColor: "#f8f8f8",
-            border: "1px solid #000",
+            backgroundColor: "sf.rail",
+            border: 1,
+            borderColor: byMode("#000", "#232323"),
             padding: "16px",
             boxShadow: WIDGET_SHADOW,
           }}
@@ -1309,7 +1318,7 @@ const ProductView = () => {
             sx={{
               fontWeight: 400,
               fontSize: 24,
-              color: "#000",
+              color: "sf.text",
               lineHeight: "29px",
             }}
           >
@@ -1322,7 +1331,7 @@ const ProductView = () => {
             flex: 1,
             display: "flex",
             flexDirection: "column",
-            bgcolor: "#fff",
+            bgcolor: byMode("#fff", "#121212"),
             overflow: "auto",
           }}
         >
@@ -1356,7 +1365,7 @@ const ProductView = () => {
             height: 62,
             minHeight: 62,
             mb: 1,
-            backgroundColor: "#f8f8f8",
+            backgroundColor: "sf.rail",
             boxShadow: WIDGET_SHADOW,
             display: "flex",
             alignItems: "center",
@@ -1364,7 +1373,7 @@ const ProductView = () => {
             p: 1,
             gap: 1,
             cursor: "pointer",
-            color: "#32b643",
+            color: "sf.actionEdit",
             // Rail-button slide (Dashboard rail pattern, 300ms) + colour transition
             transition: "color 0.2s ease, transform 0.3s ease",
             "&:hover": {
@@ -1395,7 +1404,7 @@ const ProductView = () => {
             role="tablist"
             aria-label="Product sections"
             sx={{
-              backgroundColor: "#f8f8f8",
+              backgroundColor: "sf.rail",
               boxShadow: WIDGET_SHADOW,
               // Reference leaves ~120px of page background here; we stretch the
               // card to the Delete button instead so the rail reads as one block.
@@ -1426,7 +1435,7 @@ const ProductView = () => {
                     borderRadius: 0,
                     cursor: "pointer",
                     overflow: "hidden",
-                    color: isActive ? "#5ebbeb" : "#000",
+                    color: isActive ? "#5ebbeb" : "sf.text",
                     transition: "color 0.2s ease",
                     "&:hover": {
                       color: isActive ? "rgb(49, 168, 229)" : "#5ebbeb",
@@ -1470,7 +1479,7 @@ const ProductView = () => {
                       sx={{
                         fontSize: 12,
                         lineHeight: 1.2,
-                        color: isActive ? "inherit" : "#676b72",
+                        color: isActive ? "inherit" : byMode("#676b72", "#d4d4d4"),
                         transition: "color 0.2s ease",
                       }}
                     >
@@ -1494,14 +1503,14 @@ const ProductView = () => {
               height: 62,
               minHeight: 62,
               mt: 1,
-              backgroundColor: "#f8f8f8",
+              backgroundColor: "sf.rail",
               boxShadow: WIDGET_SHADOW,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 1,
               cursor: "pointer",
-              color: "#e3342f",
+              color: byMode("#e3342f", "#ffa2a2"),
               transition: "color 0.2s ease",
               "&:hover": { color: "rgb(243, 170, 168)" },
             }}

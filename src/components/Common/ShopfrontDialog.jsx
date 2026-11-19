@@ -1,6 +1,13 @@
 import React from "react";
 import { Box, Button, Dialog } from "@mui/material";
 
+// Dark mode only (light renders exactly as before): reference dark dialog frame.
+const darkOnly = (v) => (t) => (t.palette.mode === "dark" ? v : undefined);
+const DARK_TONES = {
+  cancel: { bg: "#313439", fg: "#d4d4d4", border: "#a1a1a1" },
+  send: { bg: "#1c6ea4", fg: "#f8f8f8", border: "#f8f8f8" },
+};
+
 // Reference dialog frame (.question.show-frame): a square white panel with a
 // 120px circle icon straddling its top edge, a bold centred title (18.72px/700)
 // and flush footer buttons.
@@ -29,6 +36,9 @@ export const dialogButtonSx = (tone = "cancel", compact = false) => {
     danger: { bg: "#e0393e", fg: "#f8f8f8" },
   };
   const { bg, fg } = tones[tone] || tones.cancel;
+  const lightBorder = tone === "cancel" ? "#676b72" : "#f8f8f8";
+  const dk = DARK_TONES[tone] || (tones[tone] ? null : DARK_TONES.cancel);
+  const pick = (light, dark) => (dk ? (t) => (t.palette.mode === "dark" ? dark : light) : light);
   return {
     flex: 1,
     minHeight: 48,
@@ -40,11 +50,11 @@ export const dialogButtonSx = (tone = "cancel", compact = false) => {
     lineHeight: 1.2,
     textTransform: "none",
     boxShadow: "none",
-    bgcolor: bg,
-    color: fg,
-    border: `1px solid ${tone === "cancel" ? "#676b72" : "#f8f8f8"}`,
-    "&:hover": { boxShadow: "none", bgcolor: bg, filter: "brightness(0.94)" },
-    "&.Mui-disabled": { bgcolor: bg, color: fg, opacity: 0.45 },
+    bgcolor: pick(bg, dk?.bg),
+    color: pick(fg, dk?.fg),
+    border: dk ? (t) => `1px solid ${t.palette.mode === "dark" ? dk.border : lightBorder}` : `1px solid ${lightBorder}`,
+    "&:hover": { boxShadow: "none", bgcolor: pick(bg, dk?.bg), filter: "brightness(0.94)" },
+    "&.Mui-disabled": { bgcolor: pick(bg, dk?.bg), color: pick(fg, dk?.fg), opacity: 0.45 },
   };
 };
 
@@ -81,6 +91,9 @@ const ShopfrontDialog = ({
           maxWidth: "92vw",
           m: 0,
           boxShadow: "0 0 30px rgba(0,0,0,.25),0 15px 30px rgba(0,0,0,.2)",
+          bgcolor: darkOnly("#232323"),
+          color: darkOnly("#f8f8f8"),
+          backgroundImage: darkOnly("none"),
         },
       }}
     >

@@ -57,9 +57,10 @@ const ConfirmDeleteDialog = ({
           width: 440,
           maxWidth: '92vw',
           overflow: 'hidden',
-          bgcolor: '#f8f8f8',
+          bgcolor: 'sf.pane',
           borderRadius: 0,
-          border: '1px solid #000',
+          border: 1,
+          borderColor: 'sf.dialogBorder',
           boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)',
           transition: 'none',
         },
@@ -67,7 +68,7 @@ const ConfirmDeleteDialog = ({
     >
       <Box
         sx={{
-          bgcolor: '#fde8e8',
+          bgcolor: 'sf.dialogHead',
           px: 3,
           py: 1.75,
           display: 'flex',
@@ -75,14 +76,14 @@ const ConfirmDeleteDialog = ({
           gap: 1,
         }}
       >
-        <PriorityHighIcon sx={{ color: '#e33430', fontSize: 22 }} />
-        <Typography sx={{ color: '#e33430', fontWeight: 700, fontSize: 18 }}>{title}</Typography>
+        <PriorityHighIcon sx={{ color: 'sf.dialogTitle', fontSize: 22 }} />
+        <Typography sx={{ color: 'sf.dialogTitle', fontWeight: 700, fontSize: 18 }}>{title}</Typography>
       </Box>
 
       <DialogContent sx={{ px: 3, py: 2.5 }}>
         {/* component="div" so a caller may pass several lines (reference recovery
             dialogs have a question, a warning and a "was deleted … ago" line) */}
-        <Typography component="div" sx={{ color: '#313439', fontSize: 16 }}>{message}</Typography>
+        <Typography component="div" sx={{ color: 'sf.textSlate', fontSize: 16 }}>{message}</Typography>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1.25 }}>
@@ -91,13 +92,13 @@ const ConfirmDeleteDialog = ({
           disabled={working}
           disableElevation
           sx={{
-            bgcolor: '#8a8d91',
+            bgcolor: 'sf.dialogCancel',
             color: '#fff',
             textTransform: 'none',
             borderRadius: '6px',
             fontWeight: 600,
             px: 3,
-            '&:hover': { bgcolor: '#76797d' },
+            '&:hover': { bgcolor: 'sf.dialogCancelHover' },
           }}
         >
           {cancelText}
@@ -107,15 +108,15 @@ const ConfirmDeleteDialog = ({
           disabled={working}
           disableElevation
           sx={{
-            bgcolor: '#e33430',
-            color: '#fff',
+            bgcolor: 'sf.dialogDanger',
+            color: 'sf.onDialogDanger',
             textTransform: 'none',
             borderRadius: '6px',
             fontWeight: 600,
             px: 3,
-            '&:hover': { bgcolor: '#cc2f2a' },
+            '&:hover': { bgcolor: 'sf.dialogDangerHover' },
             // Keep the red (faded) while working so "Deleting..." stays readable.
-            '&.Mui-disabled': { bgcolor: '#e33430', color: '#fff', opacity: 0.7 },
+            '&.Mui-disabled': { bgcolor: 'sf.dialogDanger', color: 'sf.onDialogDanger', opacity: 0.7 },
           }}
         >
           {working ? loadingText : confirmText}

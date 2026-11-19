@@ -29,6 +29,7 @@ import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
 import PageRuleWizard from '../../components/Common/PageRuleWizard';
 import { resolveCustomPageRuleCode } from '../../utils/pageRuleDefaults';
 import { useAuth } from '../../contexts/AuthContext';
+import { byMode } from '../../theme/sfPalette';
 
 // A new product starts on the outlet's DEFAULT tax rate (Setup > Tax Rates ->
 // "Set as Default"); this used to be a fixed "GST".
@@ -53,21 +54,23 @@ const steps = [
 
 // Parity-system field styling: notchedOutline #404040 1px (hover same),
 // focused #000 2px, radius 8px; placeholder #808080.
+// Dark (reference): the box turns #232323 with light text on the same blue backdrop.
 const fieldSx = {
-  backgroundColor: 'white',
+  backgroundColor: byMode('white', '#232323'),
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#f8f8f8'), borderWidth: '2px' },
   },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: 'sf.textFaint', opacity: 1 },
 };
 
 // Parity-system primary button: bg #5ebbeb, radius 12px, height 42,
 // fontWeight 700, fontSize 16, textTransform none, no shadow.
 const primaryButtonSx = {
   backgroundColor: '#5ebbeb',
+  color: byMode('#ffffff', '#232323'),
   borderRadius: '12px',
   height: 42,
   fontWeight: 700,
@@ -488,7 +491,7 @@ const CreateProductWizard = () => {
                   <li key={key} {...optionProps}>
                     <Checkbox
                       checked={selected}
-                      sx={{ p: 0.5, mr: 1, color: '#000', '&.Mui-checked': { color: '#000' } }}
+                      sx={{ p: 0.5, mr: 1, color: byMode('#000', '#f8f8f8'), '&.Mui-checked': { color: byMode('#000', '#f8f8f8') } }}
                     />
                     {option.name || ''}
                   </li>
@@ -530,7 +533,7 @@ const CreateProductWizard = () => {
             </Typography>
             <TableContainer
               component={Paper}
-              sx={{ backgroundColor: 'white', borderRadius: 0, boxShadow: 'none' }}
+              sx={{ backgroundColor: byMode('white', '#232323'), borderRadius: 0, boxShadow: 'none' }}
             >
               <Table>
                 <TableHead>
@@ -556,7 +559,7 @@ const CreateProductWizard = () => {
                   {formData.prices.map((price, index) => (
                     <TableRow
                       key={index}
-                      sx={{ bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8' }}
+                      sx={{ bgcolor: index % 2 === 0 ? byMode('#fff', '#232323') : byMode('#f8f8f8', '#2b2b2b') }}
                     >
                       <TableCell>
                         <TextField
@@ -585,7 +588,7 @@ const CreateProductWizard = () => {
                           <IconButton
                             onClick={() => removePriceRow(index)}
                             size="small"
-                            sx={{ color: '#e33430' }}
+                            sx={{ color: byMode('#e33430', '#ffa2a2') }}
                           >
                             <DeleteOutline />
                           </IconButton>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dialog, Box, Typography, ButtonBase } from '@mui/material';
+import { byMode } from '../../theme/sfPalette';
 
 /**
  * Shown when a scanned/typed barcode matches no product and no customer.
@@ -27,7 +28,7 @@ const BarcodeNotFoundDialog = ({ open, barcode, onAssociate, onClose }) => (
         maxWidth: 'calc(100% - 32px)',
         m: 2,
         boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
-        bgcolor: '#fff',
+        bgcolor: byMode('#fff', '#232323'),
       },
     }}
     slotProps={{ backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.65)' } } }}
@@ -57,18 +58,18 @@ const BarcodeNotFoundDialog = ({ open, barcode, onAssociate, onClose }) => (
     </Box>
 
     <Box sx={{ px: 3, pt: 7, pb: 3 }}>
-      <Typography align="center" sx={{ fontWeight: 700, color: '#111827', fontSize: 20, mb: 1 }}>
+      <Typography align="center" sx={{ fontWeight: 700, color: byMode('#111827', '#f8f8f8'), fontSize: 20, mb: 1 }}>
         Product Not Found
       </Typography>
       <Typography
         align="center"
-        sx={{ fontSize: 15, color: '#5f6b76', lineHeight: 1.6, overflowWrap: 'anywhere' }}
+        sx={{ fontSize: 15, color: byMode('#5f6b76', '#d4d4d4'), lineHeight: 1.6, overflowWrap: 'anywhere' }}
       >
         We could not find a product or customer with the barcode {barcode}.
       </Typography>
       <Typography
         align="center"
-        sx={{ fontSize: 15, color: '#5f6b76', lineHeight: 1.6, mt: 1, mb: 3 }}
+        sx={{ fontSize: 15, color: byMode('#5f6b76', '#d4d4d4'), lineHeight: 1.6, mt: 1, mb: 3 }}
       >
         Would you like to associate this barcode to a product?
       </Typography>
@@ -79,14 +80,14 @@ const BarcodeNotFoundDialog = ({ open, barcode, onAssociate, onClose }) => (
           sx={{
             flex: 1,
             height: 48,
-            bgcolor: '#f4f5f7',
-            border: '1px solid #dfe3e8',
+            bgcolor: byMode('#f4f5f7', '#3a3a3a'),
+            border: byMode('1px solid #dfe3e8', '1px solid #4a4a4a'),
             borderRadius: '8px',
-            color: '#5f6b76',
+            color: byMode('#5f6b76', '#d4d4d4'),
             fontSize: 18,
             fontWeight: 500,
             justifyContent: 'center',
-            '&:hover': { bgcolor: '#e9ebee' },
+            '&:hover': { bgcolor: byMode('#e9ebee', '#4a4a4a') },
           }}
         >
           Cancel

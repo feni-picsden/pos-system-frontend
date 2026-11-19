@@ -146,7 +146,7 @@ const ProductSalesSummary = ({ productId }) => {
         {title}
       </Box>
       {!data || data.length === 0 ? (
-        <Typography sx={{ fontSize: 16, color: '#000' }}>
+        <Typography sx={{ fontSize: 16, color: 'sf.text' }}>
           No data available for this period
         </Typography>
       ) : (
@@ -212,7 +212,7 @@ const ProductSalesSummary = ({ productId }) => {
       {/* Same look as the Inventory Log "Outlets" filter (user 18/11/2026) */}
       {showOutletFilter && (
       <Box sx={{ mb: 2 }}>
-        <Box sx={{ fontSize: 16, color: '#000' }}>Outlets</Box>
+        <Box sx={{ fontSize: 16, color: 'sf.text' }}>Outlets</Box>
         <Autocomplete
           options={outlets}
           getOptionLabel={(o) => o?.name || ''}
@@ -247,7 +247,7 @@ const ProductSalesSummary = ({ productId }) => {
           <Box component="h2" sx={WIDGET_H2_SX}>
             Summary Statistics
           </Box>
-          <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', fontSize: 16, color: '#000' }}>
+          <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', fontSize: 16, color: 'sf.text' }}>
             {statistics(summary.last3Years || []).map((s) => (
               <Box key={s.label}>
                 <Box sx={{ fontSize: 16 }}>{s.label}</Box>

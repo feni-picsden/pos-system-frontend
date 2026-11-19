@@ -9,6 +9,7 @@ import posLocalDb from "../../services/posLocalDb";
 import { formatCurrency } from "../../utils/currency";
 import { saleOutstanding, isOnAccountPayment, INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
 import DateRangePicker from "../Common/DateRangePicker";
+import { byMode } from "../../theme/sfPalette";
 
 // Local "yyyy-MM-ddTHH:mm:ss" of a Date — the shape Modify Details keeps the sale date in.
 const toLocalInput = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
@@ -286,7 +287,7 @@ const SaleDetailCard = ({
           ["SALE NOTE", cancelled && !sale.cancelReason ? null : sale.notes],
         ].filter(([, text]) => text && String(text).trim()).map(([label, text]) => (
           <Box key={label} sx={{ mb: "16px" }}>
-            <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#757575", lineHeight: "13px" }}>{label}</Box>
+            <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: byMode("#757575", "#a0a4aa"), lineHeight: "13px" }}>{label}</Box>
             <Box sx={{ ...cell, whiteSpace: "pre-wrap" }}>{text}</Box>
           </Box>
         ))}
@@ -321,7 +322,7 @@ const SaleDetailCard = ({
                 {/* Reference: a product (line) note is a grey band under its line,
                     italic (ref screenshots 14/10/2026: "CL" rows). */}
                 {lineNote && (
-                  <Box sx={{ bgcolor: "#e0e0e0", px: "24px", py: "16px", mb: "16px", fontSize: 14, fontStyle: "italic", whiteSpace: "pre-wrap" }}>
+                  <Box sx={{ bgcolor: byMode("#e0e0e0", "#3a3a3a"), color: (t) => (t.palette.mode === "dark" ? "#f8f8f8" : undefined), px: "24px", py: "16px", mb: "16px", fontSize: 14, fontStyle: "italic", whiteSpace: "pre-wrap" }}>
                     {lineNote}
                   </Box>
                 )}

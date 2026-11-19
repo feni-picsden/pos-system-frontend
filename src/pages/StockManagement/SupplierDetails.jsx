@@ -47,6 +47,20 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAuth } from '../../contexts/AuthContext';
 import { outletService } from '../../services/outletService';
 import PageSaveBar from '../../components/Common/PageSaveBar';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (no reference dark screenshots for Suppliers): values copied from the
+// Product edit form matched to the reference - band/rail #314158, body #202020,
+// inputs #121212 + #a1a1a1, labels #d4d4d4, dropdown hover #0084d1, green #7bf1a8.
+const TEXT = byMode('#313439', '#f8f8f8');
+const MENU_HOVER_BG = byMode('transparent', '#0084d1');
+const MENU_HOVER_TEXT = byMode('#38bdf8', '#fafafa');
+const MENU_SELECTED_TEXT = byMode('#38bdf8', '#00a6f4');
+// Outlet info note: light keeps the MUI info palette; dark uses the Classification
+// assign info box (#0c3a55 / #74d4ff).
+const INFO_BG = byMode('info.light', '#0c3a55');
+const INFO_BORDER = byMode('info.main', '#74d4ff');
+const INFO_TEXT = byMode('info.contrastText', '#74d4ff');
 
 // Shopfront reference select menu: white panel, 1px black border, radius 8,
 // no shadow, no grow transition, selected/hovered option = #38bdf8 text, no bg
@@ -54,22 +68,22 @@ const selectMenuProps = {
   transitionDuration: 0,
   PaperProps: {
     sx: {
-      border: '1px solid #000',
+      border: byMode('1px solid #000', '1px solid #a1a1a1'),
       borderRadius: '8px',
       boxShadow: 'none',
       '& .MuiMenuItem-root:hover': {
-        backgroundColor: 'transparent',
-        color: '#38bdf8',
+        backgroundColor: MENU_HOVER_BG,
+        color: MENU_HOVER_TEXT,
       },
       '& .MuiMenuItem-root.Mui-selected': {
         backgroundColor: 'transparent',
-        color: '#38bdf8',
-        '&:hover': { backgroundColor: 'transparent', color: '#38bdf8' },
+        color: MENU_SELECTED_TEXT,
+        '&:hover': { backgroundColor: MENU_HOVER_BG, color: MENU_HOVER_TEXT },
       },
       // menu opens with the selected item focused — kill the focusVisible tint too
       '& .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': {
-        backgroundColor: 'transparent',
-        color: '#38bdf8',
+        backgroundColor: MENU_HOVER_BG,
+        color: MENU_HOVER_TEXT,
       },
     },
   },
@@ -78,7 +92,7 @@ const selectMenuProps = {
 // Reference field label: the label lives INSIDE the box as a placeholder until the
 // field is filled, then shows as a small caption ABOVE it (never a notched outline).
 const FieldLabel = ({ children }) => (
-  <Typography sx={{ fontSize: 12, color: '#676b72', lineHeight: '16px', mb: '2px' }}>
+  <Typography sx={{ fontSize: 12, color: byMode('#676b72', '#d4d4d4'), lineHeight: '16px', mb: '2px' }}>
     {children}
   </Typography>
 );
@@ -86,8 +100,8 @@ const FieldLabel = ({ children }) => (
 // Reference text input: 466x53 white box, 1px #000, square corners, 16px padding.
 const refInputSx = {
   width: '100%',
-  backgroundColor: '#ffffff',
-  border: '1px solid #000',
+  backgroundColor: byMode('#ffffff', '#121212'),
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: 0,
   fontSize: 16,
   p: '16px',
@@ -114,7 +128,7 @@ const RefInput = ({ label, value, ...props }) => (
 const refSelectSx = {
   height: 42,
   borderRadius: '8px',
-  backgroundColor: '#ffffff',
+  backgroundColor: byMode('#ffffff', '#121212'),
   fontSize: 16,
 };
 
@@ -127,7 +141,7 @@ const RefSelect = ({ label, value, children, ...props }) => (
         displayEmpty
         renderValue={(v) =>
           v === '' || v === null || v === undefined ? (
-            <Box component="span" sx={{ color: '#808080' }}>{label}</Box>
+            <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>{label}</Box>
           ) : (
             String(v)
           )
@@ -580,8 +594,8 @@ const SupplierDetails = () => {
       sx={{
         width: '500px',
         boxSizing: 'border-box',
-        backgroundColor: '#f8f8f8',
-        border: '1px solid #000',
+        backgroundColor: byMode('#f8f8f8', '#232323'),
+        border: byMode('1px solid #000', '1px solid #373737'),
         borderRadius: 0,
         p: '16px',
         mb: '32px',
@@ -596,12 +610,12 @@ const SupplierDetails = () => {
           justifyContent: 'space-between',
           height: 25,
           p: 0,
-          borderBottom: '1px solid #e0e0e0',
+          borderBottom: byMode('1px solid #e0e0e0', '1px solid #333333'),
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: byMode(undefined, '#f8f8f8') }}>
           {sectionIcons[sectionId]}
-          <Typography sx={{ fontSize: '20.8px', fontWeight: 400, color: '#313439', lineHeight: '25px' }}>
+          <Typography sx={{ fontSize: '20.8px', fontWeight: 400, color: TEXT, lineHeight: '25px' }}>
             {title}
           </Typography>
         </Box>
@@ -609,7 +623,7 @@ const SupplierDetails = () => {
           size="small"
           onClick={() => toggleSection(sectionId)}
           aria-label={collapsed[sectionId] ? `Expand ${title}` : `Collapse ${title}`}
-          sx={{ p: 0, color: '#313439', '&:hover': { backgroundColor: 'transparent' } }}
+          sx={{ p: 0, color: TEXT, '&:hover': { backgroundColor: 'transparent' } }}
         >
           {collapsed[sectionId] ? <CollapsedIcon /> : <ExpandIcon />}
         </IconButton>
@@ -637,7 +651,7 @@ const SupplierDetails = () => {
             width: 250,
             height: '100%',
             p: 0,
-            backgroundColor: '#fff',
+            backgroundColor: byMode('#fff', '#314158'),
             paddingBottom: '100px',
             position: 'fixed',
           }}
@@ -658,11 +672,11 @@ const SupplierDetails = () => {
                   p: '8px 8px',
                   mb: '24px',
                   borderRadius: 0,
-                  backgroundColor: activeSections.includes(item.id) ? '#ddf1fb' : 'transparent',
-                  color: '#313439',
+                  backgroundColor: activeSections.includes(item.id) ? byMode('#ddf1fb', '#202020') : 'transparent',
+                  color: TEXT,
                   transition: 'background-color 0.25s ease, color 0.2s ease',
                   '&:hover': {
-                    backgroundColor: activeSections.includes(item.id) ? '#ddf1fb' : 'transparent',
+                    backgroundColor: activeSections.includes(item.id) ? byMode('#ddf1fb', '#202020') : 'transparent',
                     color: '#5ebbeb',
                   },
                 }}
@@ -697,16 +711,16 @@ const SupplierDetails = () => {
             flexDirection: 'column',
             alignItems: 'center',
             ml: '250px',
-            backgroundColor: '#676b72',
+            backgroundColor: byMode('#676b72', '#202020'),
             minHeight: '100vh',
             p: 3,
             pt: 0,
             // Shopfront combobox parity: 1px #404040 outline, 2px #000 focused, radius 8
             '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-            '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-            '& input::placeholder, & textarea::placeholder': { color: '#808080', opacity: 1 },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+            '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+            '& input::placeholder, & textarea::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
           }}
         >
           {/* Title bar: editable supplier name + close (X) */}
@@ -717,7 +731,7 @@ const SupplierDetails = () => {
               mb: 3,
               display: 'flex',
               alignItems: 'center',
-              backgroundColor: '#f8f8f8',
+              backgroundColor: byMode('#f8f8f8', '#314158'),
               px: 1.5,
               py: 1,
             }}
@@ -729,8 +743,9 @@ const SupplierDetails = () => {
               fullWidth
               sx={{
                 fontSize: 16,
+                color: byMode(undefined, '#f8f8f8'),
                 '& input': { textAlign: 'center' },
-                '& input::placeholder': { color: '#9e9e9e', opacity: 1 },
+                '& input::placeholder': { color: byMode('#9e9e9e', '#a0a4aa'), opacity: 1 },
               }}
               inputProps={{ 'aria-label': 'Supplier name' }}
             />
@@ -739,7 +754,7 @@ const SupplierDetails = () => {
               aria-label="Close"
               sx={{
                 p: 0,
-                color: '#313439',
+                color: TEXT,
                 '&:hover': { backgroundColor: 'transparent' },
               }}
             >
@@ -798,12 +813,16 @@ const SupplierDetails = () => {
                   componentsProps={{
                     paper: {
                       sx: {
-                        border: '1px solid #000',
+                        border: byMode('1px solid #000', '1px solid #a1a1a1'),
                         borderRadius: '8px',
                         boxShadow: 'none',
                         '& .MuiAutocomplete-option:hover, & .MuiAutocomplete-option[aria-selected="true"]': {
                           backgroundColor: 'transparent',
-                          color: '#38bdf8',
+                          color: MENU_SELECTED_TEXT,
+                        },
+                        '& .MuiAutocomplete-option:hover, & .MuiAutocomplete-option.Mui-focused': {
+                          backgroundColor: byMode(undefined, '#0084d1'),
+                          color: byMode(undefined, '#fafafa'),
                         },
                       },
                     },
@@ -812,7 +831,7 @@ const SupplierDetails = () => {
                     '& .MuiOutlinedInput-root': {
                       height: 42,
                       py: 0,
-                      backgroundColor: '#fff',
+                      backgroundColor: byMode('#fff', '#121212'),
                       fontSize: 16,
                     },
                   }}
@@ -866,8 +885,8 @@ const SupplierDetails = () => {
               {/* Navbar outlet picked: say where the supplier lives instead */}
               {isTrueSuperAdmin() && navbarOutletId != null && (
                 <Grid item xs={12}>
-                  <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
-                    <Typography variant="body2" color="info.contrastText">
+                  <Box sx={{ p: 2, bgcolor: INFO_BG, borderRadius: 1, border: '1px solid', borderColor: INFO_BORDER }}>
+                    <Typography variant="body2" color="info.contrastText" sx={{ color: INFO_TEXT }}>
                       {!isEditMode
                         ? <>This supplier will be created in <strong>{outletLabel(navbarOutletId)}</strong></>
                         : formData.outletId == null
@@ -883,12 +902,12 @@ const SupplierDetails = () => {
                 <Grid item xs={12}>
                   <Box sx={{
                     p: 2,
-                    bgcolor: 'info.light',
+                    bgcolor: INFO_BG,
                     borderRadius: 1,
                     border: '1px solid',
-                    borderColor: 'info.main'
+                    borderColor: INFO_BORDER
                   }}>
-                    <Typography variant="body2" color="info.contrastText">
+                    <Typography variant="body2" color="info.contrastText" sx={{ color: INFO_TEXT }}>
                       {/* "will be created" is only true for a NEW supplier; an existing one says where it lives */}
                       {!isEditMode
                         ? <>This supplier will be created in your assigned outlet{getOutletName() ? <>: <strong>{getOutletName()}</strong></> : ''}</>
@@ -1023,18 +1042,18 @@ const SupplierDetails = () => {
                 sx={{
                   height: 32,
                   borderRadius: 0,
-                  backgroundColor: '#32b643',
-                  color: '#f8f8f8',
+                  backgroundColor: byMode('#32b643', '#7bf1a8'),
+                  color: byMode('#f8f8f8', '#232323'),
                   fontSize: 16,
                   fontWeight: 400,
                   textTransform: 'none',
-                  border: '1px solid #f8f8f8',
+                  border: byMode('1px solid #f8f8f8', '1px solid #232323'),
                   boxShadow: 'none',
                   transition: 'background-color 0.2s ease, color 0.2s ease',
                   '&:hover': {
-                    backgroundColor: '#f8f8f8',
-                    color: '#32b643',
-                    borderColor: '#32b643',
+                    backgroundColor: byMode('#f8f8f8', '#232323'),
+                    color: byMode('#32b643', '#7bf1a8'),
+                    borderColor: byMode('#32b643', '#7bf1a8'),
                     boxShadow: 'none',
                   },
                 }}
@@ -1045,7 +1064,7 @@ const SupplierDetails = () => {
               {/* Reference has no sub-card and no per-contact heading: a divider, then fields */}
               {formData.additionalContacts.map((contact) => (
                 <Box key={contact.id}>
-                  <Divider sx={{ my: 2, borderColor: '#000' }} />
+                  <Divider sx={{ my: 2, borderColor: byMode('#000', '#373737') }} />
                   <Grid container spacing={2}>
                     {CONTACT_FIELDS.map(([field, label]) => (
                       <React.Fragment key={field}>
@@ -1084,18 +1103,18 @@ const SupplierDetails = () => {
                       mt: 2,
                       height: 32,
                       borderRadius: 0,
-                      backgroundColor: '#e33430',
-                      color: '#f8f8f8',
+                      backgroundColor: byMode('#e33430', '#ffa2a2'),
+                      color: byMode('#f8f8f8', '#232323'),
                       fontSize: 16,
                       fontWeight: 400,
                       textTransform: 'none',
-                      border: '1px solid #f8f8f8',
+                      border: byMode('1px solid #f8f8f8', '1px solid #232323'),
                       boxShadow: 'none',
                       transition: 'background-color 0.2s ease, color 0.2s ease',
                       '&:hover': {
-                        backgroundColor: '#f8f8f8',
-                        color: '#e33430',
-                        borderColor: '#e33430',
+                        backgroundColor: byMode('#f8f8f8', '#232323'),
+                        color: byMode('#e33430', '#ffa2a2'),
+                        borderColor: byMode('#e33430', '#ffa2a2'),
                         boxShadow: 'none',
                       },
                     }}

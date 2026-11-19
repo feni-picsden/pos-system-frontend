@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dialog, Box, Typography, ButtonBase } from '@mui/material';
+import { byMode } from '../../theme/sfPalette';
 
 /**
  * Returns the pack quantity the scanned code carries for this product.
@@ -54,7 +55,7 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
           width: '100%',
           m: 2,
           boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
-          bgcolor: '#fff',
+          bgcolor: byMode('#fff', '#232323'),
         },
       }}
       slotProps={{
@@ -88,13 +89,13 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
       <Box sx={{ px: 3, pt: 8.5, pb: 2.5 }}>
         <Typography
           align="center"
-          sx={{ fontWeight: 700, color: '#111827', fontSize: 21, mb: 0.75 }}
+          sx={{ fontWeight: 700, color: byMode('#111827', '#f8f8f8'), fontSize: 21, mb: 0.75 }}
         >
           Multiple Results Found
         </Typography>
         <Typography
           align="center"
-          sx={{ fontSize: 14.5, color: '#5f6b76', lineHeight: 1.5, mb: 2.5, px: 1 }}
+          sx={{ fontSize: 14.5, color: byMode('#5f6b76', '#d4d4d4'), lineHeight: 1.5, mb: 2.5, px: 1 }}
         >
           Multiple results have been found, please select the correct result
           from the list below:
@@ -109,8 +110,8 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
               sx={{
                 width: '100%',
                 minHeight: 56,
-                bgcolor: '#fff',
-                border: '1px solid #dfe3e8',
+                bgcolor: byMode('#fff', '#121212'),
+                border: byMode('1px solid #dfe3e8', '1px solid #4a4a4a'),
                 borderRadius: '8px',
                 mb: 1.25,
                 px: 1.5,
@@ -119,7 +120,7 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
                 justifyContent: 'flex-start',
                 textAlign: 'left',
                 transition: 'border-color .15s, background-color .15s',
-                '&:hover': { bgcolor: '#fafbfc', borderColor: '#b6bec7' },
+                '&:hover': { bgcolor: byMode('#fafbfc', '#2b2b2b'), borderColor: byMode('#b6bec7', '#a1a1a1') },
               }}
             >
               {/* The pack quantity leads every option, "1 x" included: the cashier
@@ -134,8 +135,8 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
                   height: 32,
                   px: 1,
                   borderRadius: '6px',
-                  bgcolor: '#f1f3f5',
-                  color: '#48525c',
+                  bgcolor: byMode('#f1f3f5', '#3a3a3a'),
+                  color: byMode('#48525c', '#d4d4d4'),
                   fontSize: 15,
                   fontWeight: 600,
                   display: 'flex',
@@ -147,7 +148,7 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
               </Box>
               <Typography
                 noWrap
-                sx={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', minWidth: 0 }}
+                sx={{ fontSize: 16, fontWeight: 500, color: byMode('#1a1a1a', '#f8f8f8'), minWidth: 0 }}
               >
                 {product.name}
               </Typography>
@@ -161,14 +162,14 @@ const BarcodeSelectDialog = ({ open, barcode, products, onSelect, onClose }) => 
             width: '100%',
             height: 48,
             mt: 0.5,
-            bgcolor: '#f4f5f7',
-            border: '1px solid #dfe3e8',
+            bgcolor: byMode('#f4f5f7', '#3a3a3a'),
+            border: byMode('1px solid #dfe3e8', '1px solid #4a4a4a'),
             borderRadius: '8px',
-            color: '#5f6b76',
+            color: byMode('#5f6b76', '#d4d4d4'),
             fontSize: 16,
             fontWeight: 600,
             justifyContent: 'center',
-            '&:hover': { bgcolor: '#e9ebee' },
+            '&:hover': { bgcolor: byMode('#e9ebee', '#4a4a4a') },
           }}
         >
           Cancel
