@@ -56,6 +56,13 @@ import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { canReceiveTransfer } from '../../utils/transferReceive';
 import TransferReceiveDialog from '../../components/StockManagement/TransferReceiveDialog';
 import DateRangeField from '../../components/Common/DateRangeField';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-mode colours measured off the reference dark screenshot (Orders & Invoices list).
+const DK_TEXT = '#f8f8f8';
+const DK_SUB = '#bdbdbd';
+const DK_ON_BLUE = '#313439';
+const DK_DIVIDER = '#373737';
 
 const STATUS_OPTIONS = ['Outstanding', 'Open', 'Sent', 'Received', 'Applied', 'Cancelled', 'All'];
 const TYPE_OPTIONS = ['Order', 'Invoice', 'Transfer', 'Return', 'Credit Note', 'All'];
@@ -94,7 +101,7 @@ const EMPTY_FILTERS = {
 
 const toolbarButtonSx = {
   bgcolor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', DK_ON_BLUE),
   textTransform: 'none',
   fontSize: 16,
   borderRadius: '12px',
@@ -114,23 +121,36 @@ const fieldSx = {
     borderRadius: '8px',
     minHeight: 42,
     fontSize: 16,
-    bgcolor: '#fff',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+    bgcolor: byMode('#fff', '#121212'),
+    color: byMode(undefined, DK_TEXT),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#eeeeee'), borderWidth: '2px' },
   },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Reference: selected option renders as blue TEXT on white, not white-on-blue.
 const comboListboxSx = {
+  '& .MuiAutocomplete-option.Mui-focused': {
+    bgcolor: byMode(undefined, '#0084d1'),
+    color: byMode(undefined, '#fafafa'),
+  },
   '& .MuiAutocomplete-option[aria-selected="true"]': {
-    bgcolor: '#fff !important',
-    color: '#5ebbeb',
+    bgcolor: byMode('#fff !important', '#232323 !important'),
+    color: byMode('#5ebbeb', '#00a6f4'),
   },
 };
 
-const fieldLabelSx = { fontSize: 12, color: '#676b72', mb: 0.5, lineHeight: 1.2 };
+// Dropdown paper: reference dark = #232323 with a 1px white edge (drawn as a shadow, no size change).
+const comboPaperSx = {
+  bgcolor: byMode(undefined, '#232323'),
+  color: byMode(undefined, DK_TEXT),
+  boxShadow: byMode(undefined, '0 0 0 1px #ffffff'),
+  '& .MuiAutocomplete-noOptions': { color: byMode(undefined, DK_TEXT) },
+};
+
+const fieldLabelSx = { fontSize: 12, color: byMode('#676b72', DK_TEXT), mb: 0.5, lineHeight: 1.2 };
 
 // Reference pattern: label sits ABOVE the field as a small gray caption.
 const Labeled = ({ label, children }) => (
@@ -148,6 +168,10 @@ const badgeBg = {
   OPEN: '#3490dc',
   CANCELLED: '#e3342f',
 };
+// Reference dark: SENT pill is a light peach with 80% black text; others keep their colour.
+const badgeBgDark = { ...badgeBg, SENT: '#fcdab9', PENDING: '#fcdab9' };
+const badgeTextDark = (status) =>
+  (status === 'SENT' || status === 'PENDING' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)');
 
 import { matchesProductSearch } from '../../utils/productSearch';
 import { rankProducts } from '../../utils/searchRank';
@@ -445,6 +469,7 @@ const OrdersInvoices = () => {
           options.length === 0 ? (e, value) => setFilter(field)(value ?? '') : undefined
         }
         ListboxProps={{ sx: comboListboxSx }}
+        slotProps={{ paper: { sx: comboPaperSx } }}
         sx={{
           ...fieldSx,
           // X clear button only once a value is picked; an empty box shows just the
@@ -493,6 +518,7 @@ const OrdersInvoices = () => {
                 : 'No results found'
           }
           ListboxProps={{ sx: comboListboxSx }}
+          slotProps={{ paper: { sx: comboPaperSx } }}
           sx={fieldSx}
           renderInput={(params) => <TextField {...params} size="small" />}
         />
@@ -561,7 +587,7 @@ const OrdersInvoices = () => {
           transitionDuration={0}
           PaperProps={{
             sx: {
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#232323'),
               borderRadius: '8px',
               boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
               mt: 0.5,
@@ -573,7 +599,7 @@ const OrdersInvoices = () => {
             onClick={() => setIntegrationsMenuAnchor(null)}
             sx={{
               bgcolor: '#5ebbeb',
-              color: '#fff',
+              color: byMode('#fff', DK_ON_BLUE),
               fontSize: 16,
               gap: 1,
               minWidth: 168,
@@ -647,10 +673,11 @@ const OrdersInvoices = () => {
             ...toolbarButtonSx,
             // Reference 'Hide' state: outlined — white bg, blue text, light-blue border.
             ...(showAdvanced && {
-              bgcolor: '#fff',
-              color: '#5ebbeb',
-              border: '1px solid rgba(94, 187, 235, 0.6)',
-              '&:hover': { bgcolor: '#f4fafd', boxShadow: 'none' },
+              // Reference dark: 'Hide' stays a solid blue button like Filter.
+              bgcolor: byMode('#fff', '#5ebbeb'),
+              color: byMode('#5ebbeb', DK_ON_BLUE),
+              border: byMode('1px solid rgba(94, 187, 235, 0.6)', '1px solid #5ebbeb'),
+              '&:hover': { bgcolor: byMode('#f4fafd', '#4aa9dd'), boxShadow: 'none' },
             }),
           }}
         >
@@ -685,7 +712,7 @@ const OrdersInvoices = () => {
           <TableHead>
             <TableRow
               sx={{
-                '& th': { bgcolor: '#ebebeb', color: '#000', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0, textTransform: 'uppercase', textAlign: 'center', borderRadius: 0 }
+                '& th': { bgcolor: byMode('#ebebeb', '#3d4147'), color: byMode('#000', DK_TEXT), boxShadow: byMode(undefined, `inset 0 -1px 0 ${DK_DIVIDER}`), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0, textTransform: 'uppercase', textAlign: 'center', borderRadius: 0 }
               }}
             >
               <TableCell sx={{ width: 48 }} />
@@ -705,7 +732,7 @@ const OrdersInvoices = () => {
           <TableBody
             sx={{
               // Reference rows: transparent bg, no hover, 1px bottom border only.
-              '& td': { borderBottom: '1px solid #ebebeb', fontSize: 16, color: '#000', py: 1.5 }
+              '& td': { borderBottom: byMode('1px solid #ebebeb', `1px solid ${DK_DIVIDER}`), fontSize: 16, color: byMode('#000', DK_TEXT), py: 1.5 }
             }}
           >
             {filteredOrdersInvoices.map((item) => {
@@ -716,28 +743,28 @@ const OrdersInvoices = () => {
                 <TableRow key={item.id}>
                   <TableCell>
                     {item.type === 'TRANSFER'
-                      ? <TransferStockIcon sx={{ color: getTypeColor('TRANSFER') }} />
+                      ? <TransferStockIcon sx={{ color: byMode(getTypeColor('TRANSFER'), DK_TEXT) }} />
                       : item.type === 'RETURN'
-                        ? <ReturnStockIcon sx={{ color: getTypeColor('RETURN') }} />
+                        ? <ReturnStockIcon sx={{ color: byMode(getTypeColor('RETURN'), DK_TEXT) }} />
                         : item.type === 'CREDIT_NOTE'
-                          ? <CreditNoteIcon sx={{ color: getTypeColor('CREDIT_NOTE') }} />
+                          ? <CreditNoteIcon sx={{ color: byMode(getTypeColor('CREDIT_NOTE'), DK_TEXT) }} />
                           : item.type === 'ORDER'
-                            ? <OrderIcon sx={{ color: getTypeColor('ORDER') }} />
-                            : <InvoiceIcon sx={{ color: getTypeColor('INVOICE') }} />}
+                            ? <OrderIcon sx={{ color: byMode(getTypeColor('ORDER'), DK_TEXT) }} />
+                            : <InvoiceIcon sx={{ color: byMode(getTypeColor('INVOICE'), DK_TEXT) }} />}
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ fontSize: 16, color: '#000', fontWeight: 700, lineHeight: 1.2 }}>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', DK_TEXT), fontWeight: 700, lineHeight: 1.2 }}>
                       {from.name}
                     </Typography>
-                    <Typography sx={{ fontSize: 11, color: '#676b72', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    <Typography sx={{ fontSize: 11, color: byMode('#676b72', DK_SUB), textTransform: 'uppercase', letterSpacing: '0.4px' }}>
                       {from.sub}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ fontSize: 16, color: '#000', fontWeight: 700, lineHeight: 1.2 }}>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', DK_TEXT), fontWeight: 700, lineHeight: 1.2 }}>
                       {to.name}
                     </Typography>
-                    <Typography sx={{ fontSize: 11, color: '#676b72', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    <Typography sx={{ fontSize: 11, color: byMode('#676b72', DK_SUB), textTransform: 'uppercase', letterSpacing: '0.4px' }}>
                       {to.sub}
                     </Typography>
                   </TableCell>
@@ -751,8 +778,8 @@ const OrdersInvoices = () => {
                         display: 'inline-block',
                         p: '8px',
                         borderRadius: '4px',
-                        bgcolor: badgeBg[item.status] || '#9ca3af',
-                        color: 'rgba(255, 255, 255, 0.8)',
+                        bgcolor: byMode(badgeBg[item.status] || '#9ca3af', badgeBgDark[item.status] || '#9ca3af'),
+                        color: byMode('rgba(255, 255, 255, 0.8)', badgeTextDark(item.status)),
                         fontSize: 16,
                         lineHeight: 1,
                       }}
@@ -761,20 +788,20 @@ const OrdersInvoices = () => {
                     </Box>
                   </TableCell>
                   <TableCell align="center">
-                    <Typography sx={{ fontSize: 16, color: '#000', fontWeight: 700, lineHeight: 1.2 }}>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', DK_TEXT), fontWeight: 700, lineHeight: 1.2 }}>
                       {formatCurrency(item.totalAmount)}
                     </Typography>
-                    <Typography sx={{ fontSize: 11, color: '#676b72', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    <Typography sx={{ fontSize: 11, color: byMode('#676b72', DK_SUB), textTransform: 'uppercase', letterSpacing: '0.4px' }}>
                       {lineCount} {lineCount === 1 ? 'LINE' : 'LINES'}
                     </Typography>
                   </TableCell>
-                  <TableCell align="center" padding="none" sx={{ borderBottom: '1px solid #ebebeb' }}>
+                  <TableCell align="center" padding="none" sx={{ borderBottom: byMode('1px solid #ebebeb', `1px solid ${DK_DIVIDER}`) }}>
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: 3 }}>
                       <Button
                         size="small"
                         startIcon={<ViewIcon />}
                         onClick={() => handleViewOrderInvoice(item)}
-                        sx={{ color: '#0284c7', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                        sx={{ color: byMode('#0284c7', '#a3cefa'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                       >
                         View
                       </Button>
@@ -784,7 +811,7 @@ const OrdersInvoices = () => {
                             size="small"
                             startIcon={<CreditNoteIcon />}
                             onClick={() => handleApplyCreditNote(item)}
-                            sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                            sx={{ color: byMode('#16a34a', '#81dc8d'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                           >
                             Apply
                           </Button>
@@ -795,7 +822,7 @@ const OrdersInvoices = () => {
                           size="small"
                           startIcon={<EditIcon />}
                           onClick={() => handleEditOrderInvoice(item)}
-                          sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                          sx={{ color: byMode('#16a34a', '#81dc8d'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                         >
                           Edit
                         </Button>
@@ -807,7 +834,7 @@ const OrdersInvoices = () => {
                             size="small"
                             startIcon={<ReceiveStockIcon />}
                             onClick={() => handleMarkAsReceived(item)}
-                            sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                            sx={{ color: byMode('#16a34a', '#81dc8d'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                           >
                             Receive
                           </Button>
@@ -817,7 +844,7 @@ const OrdersInvoices = () => {
                           size="small"
                           startIcon={<ReceiveStockIcon />}
                           onClick={() => handleReceiveTransfer(item)}
-                          sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                          sx={{ color: byMode('#16a34a', '#81dc8d'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                         >
                           Receive
                         </Button>

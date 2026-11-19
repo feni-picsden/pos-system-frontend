@@ -32,6 +32,15 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-mode colours measured off the reference dark Create Order screenshots.
+const DK = {
+  band: '#314158', bandEdge: 'inset 0 -4px 0 #45556c', body: '#202020', text: '#f8f8f8',
+  input: '#121212', inputText: '#ffffff', border: '#a1a1a1', focus: '#eeeeee', placeholder: '#757575',
+  desc: '#d4d4d4', muted: '#a0a4aa', onBlue: '#232323', hover: '#0084d1', onHover: '#fafafa', selected: '#00a6f4',
+  link: '#4ca0f5', calDay: '#74d4ff', calHover: '#1f3a4a',
+};
 
 // Shopfront parity field styling: 42px h, 1px #404040 border, 8px radius
 const fieldSx = {
@@ -39,12 +48,13 @@ const fieldSx = {
     height: 42,
     borderRadius: '8px',
     fontSize: 16,
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', DK.input),
+    color: byMode(undefined, DK.inputText),
+    '& fieldset': { borderColor: byMode('#404040', DK.border), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', DK.border) },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', DK.placeholder), opacity: 1 },
 };
 
 const textareaSx = {
@@ -54,22 +64,24 @@ const textareaSx = {
     alignItems: 'flex-start',
     padding: '8px 16px',
     '& textarea': { lineHeight: '24px' },
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', DK.input),
+    color: byMode(undefined, DK.inputText),
+    '& fieldset': { borderColor: byMode('#404040', DK.border), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', DK.border) },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', DK.placeholder), opacity: 1 },
 };
 
 const unitSelectSx = {
   height: 42,
   borderRadius: '8px',
   fontSize: 16,
-  backgroundColor: '#fff',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  backgroundColor: byMode('#fff', DK.input),
+  color: byMode(undefined, DK.inputText),
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', DK.border), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', DK.border) },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
 };
 
 const selectMenuProps = {
@@ -77,17 +89,27 @@ const selectMenuProps = {
   PaperProps: {
     sx: {
       borderRadius: '8px',
-      '& .MuiMenuItem-root': { minHeight: 56, fontSize: 16, padding: '16px' },
-      '& .MuiMenuItem-root:hover': { backgroundColor: 'rgb(125,211,252)' },
-      '& .MuiMenuItem-root.Mui-selected': { backgroundColor: 'transparent', color: '#38bdf8' },
-      '& .MuiMenuItem-root.Mui-selected:hover': { backgroundColor: 'rgb(125,211,252)' },
+      bgcolor: byMode(undefined, '#232323'),
+      boxShadow: byMode(undefined, `0 0 0 1px ${DK.border}`),
+      '& .MuiMenuItem-root': { minHeight: 56, fontSize: 16, padding: '16px', color: byMode(undefined, DK.text) },
+      '& .MuiMenuItem-root:hover': { backgroundColor: byMode('rgb(125,211,252)', DK.hover), color: byMode(undefined, DK.onHover) },
+      '& .MuiMenuItem-root.Mui-selected': { backgroundColor: 'transparent', color: byMode('#38bdf8', DK.selected) },
+      '& .MuiMenuItem-root.Mui-selected:hover': { backgroundColor: byMode('rgb(125,211,252)', DK.hover), color: byMode(undefined, DK.onHover) },
       '& .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { backgroundColor: 'transparent' },
     },
   },
 };
 
+// Supplier / category dropdown options (light values unchanged).
+const optionListSx = {
+  '& .MuiAutocomplete-option': { minHeight: 45, fontSize: 16 },
+  '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: byMode('rgb(125,211,252)', DK.hover), color: byMode('#000', DK.onHover) },
+  '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: byMode('#38bdf8', DK.selected) },
+  '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: byMode('rgb(125,211,252)', DK.hover), color: byMode('#000', DK.onHover) },
+};
+
 const FieldLabel = ({ children }) => (
-  <Typography component="label" sx={{ display: 'block', fontWeight: 700, fontSize: 16, color: '#000', mb: 1 }}>
+  <Typography component="label" sx={{ display: 'block', fontWeight: 700, fontSize: 16, color: byMode('#000', DK.text), mb: 1 }}>
     {children}
   </Typography>
 );
@@ -132,7 +154,7 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
         </Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
           {WEEKDAYS.map((w, i) => (
-            <Typography key={i} sx={{ textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#676b72', py: 0.5 }}>
+            <Typography key={i} sx={{ textAlign: 'center', fontWeight: 700, fontSize: 12, color: byMode('#676b72', DK.muted), py: 0.5 }}>
               {w}
             </Typography>
           ))}
@@ -152,9 +174,9 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
                   cursor: inMonth ? 'pointer' : 'default',
                   borderRadius: '6px',
                   backgroundColor: selected ? '#5ebbeb' : 'transparent',
-                  color: selected ? '#fff' : inMonth ? '#0284c7' : 'transparent',
+                  color: selected ? byMode('#fff', DK.onBlue) : inMonth ? byMode('#0284c7', DK.calDay) : 'transparent',
                   fontWeight: selected ? 700 : 400,
-                  '&:hover': inMonth && !selected ? { backgroundColor: 'rgb(142,208,240)' } : {},
+                  '&:hover': inMonth && !selected ? { backgroundColor: byMode('rgb(142,208,240)', DK.calHover) } : {},
                 }}
               >
                 {format(day, 'd')}
@@ -194,22 +216,22 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
               alignItems: 'center',
               height: 36,
               px: 1,
-              border: '1px solid #404040',
+              border: byMode('1px solid #404040', `1px solid ${DK.border}`),
               borderRadius: '8px',
               fontSize: 15,
               fontFamily: 'monospace',
-              color: value ? '#000' : '#808080',
+              color: value ? byMode('#000', DK.inputText) : byMode('#808080', DK.placeholder),
             }}
           >
             <Box sx={{ flex: 1 }}>{value ? format(value, 'dd/MM/yyyy') : 'DD/MM/YYYY'}</Box>
             <IconButton size="small" onClick={() => onChange(null)} sx={{ p: 0.25 }}>
               <CloseIcon sx={{ fontSize: 16 }} />
             </IconButton>
-            <CalendarIcon sx={{ fontSize: 16, ml: 0.5, color: '#676b72' }} />
+            <CalendarIcon sx={{ fontSize: 16, ml: 0.5, color: byMode('#676b72', DK.muted) }} />
           </Box>
           <Typography
             onClick={() => handlePick(new Date())}
-            sx={{ fontSize: 14, color: '#0284c7', cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
+            sx={{ fontSize: 14, color: byMode('#0284c7', DK.link), cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
           >
             Current Day
           </Typography>
@@ -468,13 +490,13 @@ const CreateOrder = () => {
   const selectedSupplier = supplierOptions.find((o) => o.id === String(formData.from)) || null;
 
   return (
-    <Box>
+    <Box sx={{ bgcolor: byMode(undefined, DK.body) }}>
       {/* Banner band across the top of the content area: ~110px, title vertically centered
           and left-aligned to the centered 764px form column. No negative margins — the
           layout Main has no padding, negatives caused a horizontal body scrollbar. */}
-      <Box sx={{ backgroundColor: '#e2e8f0', mb: 6.5, px: 3, minHeight: 110, display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ backgroundColor: byMode('#e2e8f0', DK.band), boxShadow: byMode(undefined, DK.bandEdge), mb: 6.5, px: 3, minHeight: 110, display: 'flex', alignItems: 'center' }}>
         <Box sx={{ maxWidth: 764, mx: 'auto', width: '100%' }}>
-          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', DK.text) }}>
             Create Order
           </Typography>
         </Box>
@@ -509,15 +531,12 @@ const CreateOrder = () => {
             onError={(err) => setError(err?.response?.data?.error || 'Failed to create supplier')}
             disableClearable
             componentsProps={{
-              popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: '8px', border: '1px solid #404040', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' } } },
+              popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: '8px', border: byMode('1px solid #404040', `1px solid ${DK.border}`), bgcolor: byMode(undefined, '#232323'), color: byMode(undefined, DK.text), boxShadow: '0 4px 12px rgba(0,0,0,0.15)' } } },
             }}
             ListboxProps={{
               sx: {
                 maxHeight: 270,
-                '& .MuiAutocomplete-option': { minHeight: 45, fontSize: 16 },
-                '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
-                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38bdf8' },
-                '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
+                ...optionListSx,
               },
             }}
             renderInput={(params) => (
@@ -536,12 +555,12 @@ const CreateOrder = () => {
               alignItems: 'center',
               height: 42,
               px: 1.5,
-              border: '1px solid #404040',
+              border: byMode('1px solid #404040', `1px solid ${DK.border}`),
               borderRadius: '8px',
-              backgroundColor: '#d3d3d3',
+              backgroundColor: byMode('#d3d3d3', DK.input),
               cursor: 'not-allowed',
               fontSize: 16,
-              color: '#000',
+              color: byMode('#000', DK.inputText),
             }}
           >
             <Box sx={{ flex: 1 }}>
@@ -549,7 +568,7 @@ const CreateOrder = () => {
                 ? outlets.find((o) => String(o.id) === String(formData.to))?.name
                 : outlet?.name) || getOutletName() || 'N/A'}
             </Box>
-            <ArrowDropDownIcon sx={{ color: '#676b72' }} />
+            <ArrowDropDownIcon sx={{ color: byMode('#676b72', DK.text) }} />
           </Box>
         </Box>
 
@@ -622,8 +641,8 @@ const CreateOrder = () => {
         {/* Generate section */}
         <Divider sx={{ mt: 1 }} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SettingsOutlinedIcon sx={{ fontSize: 22, color: '#000' }} />
-          <Typography component="h2" sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+          <SettingsOutlinedIcon sx={{ fontSize: 22, color: byMode('#000', DK.text) }} />
+          <Typography component="h2" sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', DK.text) }}>
             Generate
           </Typography>
         </Box>
@@ -641,9 +660,11 @@ const CreateOrder = () => {
                 height: 42,
                 borderRadius: '8px',
                 fontSize: 16,
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+                bgcolor: byMode(undefined, DK.input),
+                color: byMode(undefined, DK.inputText),
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', DK.border), borderWidth: '1px' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', DK.border) },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
               }}
             >
               <MenuItem value="none">None</MenuItem>
@@ -714,11 +735,11 @@ const CreateOrder = () => {
                   checked={genConfig.matchLastSupplier}
                   onChange={(e) => handleGenConfigChange('matchLastSupplier', e.target.checked)}
                 />
-                <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#000' }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: byMode('#000', DK.text) }}>
                   Match Using Last Supplier
                 </Typography>
               </Box>
-              <Typography sx={{ fontSize: 14, color: '#676b72', mt: 0.5 }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#676b72', DK.desc), mt: 0.5 }}>
                 The core supplier will be used when matching the products
               </Typography>
             </Box>
@@ -729,11 +750,11 @@ const CreateOrder = () => {
                   checked={genConfig.includeTransfers}
                   onChange={(e) => handleGenConfigChange('includeTransfers', e.target.checked)}
                 />
-                <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#000' }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: byMode('#000', DK.text) }}>
                   Include Transfers
                 </Typography>
               </Box>
-              <Typography sx={{ fontSize: 14, color: '#676b72', mt: 0.5 }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#676b72', DK.desc), mt: 0.5 }}>
                 No transfers will be included in the analysis
               </Typography>
             </Box>
@@ -744,11 +765,11 @@ const CreateOrder = () => {
                   checked={genConfig.subtractOnOrder}
                   onChange={(e) => handleGenConfigChange('subtractOnOrder', e.target.checked)}
                 />
-                <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#000' }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 16, color: byMode('#000', DK.text) }}>
                   Subtract Stock Currently On Order
                 </Typography>
               </Box>
-              <Typography sx={{ fontSize: 14, color: '#676b72', mt: 0.5 }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#676b72', DK.desc), mt: 0.5 }}>
                 Products currently on order will not be taken into account during analysis
               </Typography>
             </Box>
@@ -763,15 +784,10 @@ const CreateOrder = () => {
                 isOptionEqualToValue={(o, v) => o.id === v.id}
                 onChange={(e, newValue) => handleGenConfigChange('categories', newValue)}
                 componentsProps={{
-                  popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: '8px' } } },
+                  popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: '8px', bgcolor: byMode(undefined, '#232323'), color: byMode(undefined, DK.text), boxShadow: byMode(undefined, `0 0 0 1px ${DK.border}`) } } },
                 }}
                 ListboxProps={{
-                  sx: {
-                    '& .MuiAutocomplete-option': { minHeight: 45, fontSize: 16 },
-                    '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
-                    '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38bdf8' },
-                    '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
-                  },
+                  sx: optionListSx,
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -788,7 +804,7 @@ const CreateOrder = () => {
                   />
                 )}
               />
-              <Typography sx={{ fontSize: 14, color: '#676b72', mt: 0.5 }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#676b72', DK.desc), mt: 0.5 }}>
                 Using a category filter will only filter the generation, not prevent items outside the category from being ordered
               </Typography>
             </Box>
@@ -807,7 +823,7 @@ const CreateOrder = () => {
             width: 116,
             height: 42,
             backgroundColor: '#5ebbeb',
-            color: '#fff',
+            color: byMode('#fff', DK.onBlue),
             borderRadius: '12px',
             fontSize: 16,
             fontWeight: 700,

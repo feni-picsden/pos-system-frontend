@@ -29,6 +29,15 @@ import transfereeService from '../../services/transfereeService';
 import supplierService from '../../services/supplierService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-mode colours copied from the reference dark Create Order screenshots (no own ref).
+const DK = {
+  band: '#314158', bandEdge: 'inset 0 -4px 0 #45556c', body: '#202020', text: '#f8f8f8',
+  input: '#121212', inputText: '#ffffff', border: '#a1a1a1', focus: '#eeeeee', placeholder: '#757575',
+  muted: '#a0a4aa', onBlue: '#232323', hover: '#0084d1', onHover: '#fafafa', selected: '#00a6f4',
+  calDay: '#74d4ff', calHover: '#1f3a4a', paper: '#232323', danger: '#ffa2a2',
+};
 
 // Shopfront parity field styling: 42px h, 1px #404040 border, 8px radius
 const fieldSx = {
@@ -36,12 +45,13 @@ const fieldSx = {
     height: 42,
     borderRadius: '8px',
     fontSize: 16,
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', DK.input),
+    color: byMode(undefined, DK.inputText),
+    '& fieldset': { borderColor: byMode('#404040', DK.border), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', DK.border) },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', DK.placeholder), opacity: 1 },
 };
 
 const textareaSx = {
@@ -52,12 +62,13 @@ const textareaSx = {
     alignItems: 'flex-start',
     padding: '8px 16px',
     '& textarea': { lineHeight: '24px' },
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', DK.input),
+    color: byMode(undefined, DK.inputText),
+    '& fieldset': { borderColor: byMode('#404040', DK.border), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', DK.border) },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', DK.placeholder), opacity: 1 },
 };
 
 // Reference dropdown panel: white, 1px #000 border, radius 8, no shadow, instant open;
@@ -68,21 +79,21 @@ const selectMenuProps = {
   transformOrigin: { vertical: 'top', horizontal: 'left' },
   PaperProps: {
     sx: {
-      border: '1px solid #000',
+      border: byMode('1px solid #000', `1px solid ${DK.border}`),
       borderRadius: '8px',
       boxShadow: 'none',
-      backgroundColor: '#fff',
-      '& .MuiMenuItem-root': { fontSize: 16 },
-      '& .MuiMenuItem-root:hover': { backgroundColor: 'transparent', color: '#38a8e8' },
-      '& .MuiMenuItem-root.Mui-selected': { backgroundColor: 'transparent', color: '#38a8e8' },
-      '& .MuiMenuItem-root.Mui-selected:hover': { backgroundColor: 'transparent', color: '#38a8e8' },
-      '& .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { backgroundColor: 'transparent', color: '#38a8e8' },
+      backgroundColor: byMode('#fff', DK.paper),
+      '& .MuiMenuItem-root': { fontSize: 16, color: byMode(undefined, DK.text) },
+      '& .MuiMenuItem-root:hover': { backgroundColor: byMode('transparent', DK.hover), color: byMode('#38a8e8', DK.onHover) },
+      '& .MuiMenuItem-root.Mui-selected': { backgroundColor: 'transparent', color: byMode('#38a8e8', DK.selected) },
+      '& .MuiMenuItem-root.Mui-selected:hover': { backgroundColor: byMode('transparent', DK.hover), color: byMode('#38a8e8', DK.onHover) },
+      '& .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { backgroundColor: 'transparent', color: byMode('#38a8e8', DK.selected) },
     },
   },
 };
 
 const FieldLabel = ({ children }) => (
-  <Typography component="label" sx={{ display: 'block', fontWeight: 700, fontSize: 16, color: '#000', mb: 1 }}>
+  <Typography component="label" sx={{ display: 'block', fontWeight: 700, fontSize: 16, color: byMode('#000', DK.text), mb: 1 }}>
     {children}
   </Typography>
 );
@@ -127,7 +138,7 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
         </Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 38px)', gap: '2px' }}>
           {WEEKDAYS.map((w, i) => (
-            <Typography key={i} sx={{ textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#676b72', py: 0.5 }}>
+            <Typography key={i} sx={{ textAlign: 'center', fontWeight: 700, fontSize: 12, color: byMode('#676b72', DK.muted), py: 0.5 }}>
               {w}
             </Typography>
           ))}
@@ -148,9 +159,9 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
                   cursor: inMonth ? 'pointer' : 'default',
                   borderRadius: '12px',
                   backgroundColor: selected ? '#38a8e8' : 'transparent',
-                  color: selected ? '#fff' : inMonth ? '#0284c7' : 'transparent',
+                  color: selected ? byMode('#fff', DK.onBlue) : inMonth ? byMode('#0284c7', DK.calDay) : 'transparent',
                   fontWeight: selected ? 700 : 400,
-                  '&:hover': inMonth && !selected ? { backgroundColor: 'rgb(142,208,240)' } : {},
+                  '&:hover': inMonth && !selected ? { backgroundColor: byMode('rgb(142,208,240)', DK.calHover) } : {},
                 }}
               >
                 {format(day, 'd')}
@@ -190,22 +201,22 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
               alignItems: 'center',
               height: 36,
               px: 1,
-              border: '1px solid #404040',
+              border: byMode('1px solid #404040', `1px solid ${DK.border}`),
               borderRadius: '8px',
               fontSize: 15,
               fontFamily: 'monospace',
-              color: value ? '#000' : '#808080',
+              color: value ? byMode('#000', DK.inputText) : byMode('#808080', DK.placeholder),
             }}
           >
             <Box sx={{ flex: 1 }}>{value ? format(value, 'dd/MM/yyyy') : 'DD/MM/YYYY'}</Box>
             <IconButton size="small" onClick={() => onChange(null)} sx={{ p: 0.25 }}>
               <CloseIcon sx={{ fontSize: 16 }} />
             </IconButton>
-            <CalendarIcon sx={{ fontSize: 16, ml: 0.5, color: '#676b72' }} />
+            <CalendarIcon sx={{ fontSize: 16, ml: 0.5, color: byMode('#676b72', DK.muted) }} />
           </Box>
           <Typography
             onClick={() => handlePick(new Date())}
-            sx={{ fontSize: 14, color: '#676b72', cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
+            sx={{ fontSize: 14, color: byMode('#676b72', DK.muted), cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
           >
             Current Day
           </Typography>
@@ -375,11 +386,11 @@ const CreateTransfer = () => {
   const toInvalid = toTouched && !formData.toOutletId;
 
   return (
-    <Box>
+    <Box sx={{ bgcolor: byMode(undefined, DK.body) }}>
       {/* Full-width light-slate header band with bold title, aligned to the 764px form column */}
-      <Box sx={{ backgroundColor: '#e2e8f0', mb: 6.5, px: 3, minHeight: 128, display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ backgroundColor: byMode('#e2e8f0', DK.band), boxShadow: byMode(undefined, DK.bandEdge), mb: 6.5, px: 3, minHeight: 128, display: 'flex', alignItems: 'center' }}>
         <Box sx={{ maxWidth: 764, mx: 'auto', width: '100%' }}>
-          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', DK.text) }}>
             Create Transfer
           </Typography>
         </Box>
@@ -407,15 +418,16 @@ const CreateTransfer = () => {
                 height: 42,
                 borderRadius: '8px',
                 fontSize: 16,
-                backgroundColor: '#fff',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#5f5f5f', borderWidth: '1px' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#5f5f5f' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+                backgroundColor: byMode('#fff', DK.input),
+                color: byMode(undefined, DK.inputText),
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#5f5f5f', DK.border), borderWidth: '1px' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#5f5f5f', DK.border) },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
                 // Locked by the navbar outlet: same grey box as Create Order's locked To.
-                '&.Mui-disabled': { backgroundColor: '#d3d3d3', cursor: 'not-allowed' },
-                '&.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                '& .MuiSelect-select.Mui-disabled': { color: '#000', WebkitTextFillColor: '#000', cursor: 'not-allowed' },
-                '&.Mui-disabled .MuiSvgIcon-root': { color: '#676b72' },
+                '&.Mui-disabled': { backgroundColor: byMode('#d3d3d3', DK.input), cursor: 'not-allowed' },
+                '&.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', DK.border) },
+                '& .MuiSelect-select.Mui-disabled': { color: byMode('#000', DK.inputText), WebkitTextFillColor: byMode('#000', DK.inputText), cursor: 'not-allowed' },
+                '&.Mui-disabled .MuiSvgIcon-root': { color: byMode('#676b72', DK.text) },
               }}
             >
               {/* Super admins may pick any outlet; outlet-scoped users see only their own (matches reference) */}
@@ -433,8 +445,8 @@ const CreateTransfer = () => {
         {/* To (searchable typeahead grouped by Outlets / Transferees) */}
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
-            {toInvalid && <WarningIcon sx={{ fontSize: 18, color: '#dc2626' }} />}
-            <Typography component="label" sx={{ fontWeight: 700, fontSize: 16, color: '#000' }}>
+            {toInvalid && <WarningIcon sx={{ fontSize: 18, color: byMode('#dc2626', DK.danger) }} />}
+            <Typography component="label" sx={{ fontWeight: 700, fontSize: 16, color: byMode('#000', DK.text) }}>
               To
             </Typography>
           </Box>
@@ -450,11 +462,13 @@ const CreateTransfer = () => {
               popper: {
                 sx: {
                   '& .MuiAutocomplete-paper': {
-                    border: '1px solid #000',
+                    border: byMode('1px solid #000', `1px solid ${DK.border}`),
                     borderRadius: '8px',
                     boxShadow: 'none',
+                    bgcolor: byMode(undefined, DK.paper),
+                    color: byMode(undefined, DK.text),
                   },
-                  '& .MuiAutocomplete-groupLabel': { fontWeight: 700, fontSize: 16, color: '#000', lineHeight: '36px' },
+                  '& .MuiAutocomplete-groupLabel': { fontWeight: 700, fontSize: 16, color: byMode('#000', DK.text), bgcolor: byMode(undefined, DK.paper), lineHeight: '36px' },
                 },
               },
             }}
@@ -462,9 +476,9 @@ const CreateTransfer = () => {
               sx: {
                 maxHeight: 290,
                 '& .MuiAutocomplete-option': { fontSize: 16 },
-                '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: 'transparent', color: '#38a8e8' },
-                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38a8e8' },
-                '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: 'transparent', color: '#38a8e8' },
+                '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: byMode('transparent', DK.hover), color: byMode('#38a8e8', DK.onHover) },
+                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: byMode('#38a8e8', DK.selected) },
+                '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: byMode('transparent', DK.hover), color: byMode('#38a8e8', DK.onHover) },
               },
             }}
             renderInput={(params) => (
@@ -551,7 +565,7 @@ const CreateTransfer = () => {
             width: 116,
             height: 42,
             backgroundColor: '#5ebbeb',
-            color: '#fff',
+            color: byMode('#fff', DK.onBlue),
             borderRadius: '12px',
             fontSize: 16,
             fontWeight: 700,

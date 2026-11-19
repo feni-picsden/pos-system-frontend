@@ -28,6 +28,15 @@ import CreatableAutocomplete from '../../components/Common/CreatableAutocomplete
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-mode colours copied from the reference dark Create Order screenshots (no own ref).
+const DK = {
+  band: '#314158', bandEdge: 'inset 0 -4px 0 #45556c', body: '#202020', text: '#f8f8f8',
+  input: '#121212', inputText: '#ffffff', border: '#a1a1a1', focus: '#eeeeee', placeholder: '#757575',
+  muted: '#a0a4aa', onBlue: '#232323', hover: '#0084d1', onHover: '#fafafa', selected: '#00a6f4',
+  link: '#4ca0f5', calDay: '#74d4ff', calHover: '#1f3a4a', paper: '#232323', danger: '#ffa2a2', ok: '#7bf1a8',
+};
 
 // Shopfront parity field styling: 42px h, 1px #404040 border, 8px radius
 const fieldSx = {
@@ -35,12 +44,13 @@ const fieldSx = {
     height: 42,
     borderRadius: '8px',
     fontSize: 16,
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', DK.input),
+    color: byMode(undefined, DK.inputText),
+    '& fieldset': { borderColor: byMode('#404040', DK.border), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', DK.border) },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', DK.placeholder), opacity: 1 },
 };
 
 const textareaSx = {
@@ -51,16 +61,17 @@ const textareaSx = {
     alignItems: 'flex-start',
     padding: '8px 16px',
     '& textarea': { lineHeight: '24px' },
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', DK.input),
+    color: byMode(undefined, DK.inputText),
+    '& fieldset': { borderColor: byMode('#404040', DK.border), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', DK.border) },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', DK.focus), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', DK.placeholder), opacity: 1 },
 };
 
 const FieldLabel = ({ children }) => (
-  <Typography component="label" sx={{ display: 'block', fontWeight: 700, fontSize: 16, color: '#000', mb: 1 }}>
+  <Typography component="label" sx={{ display: 'block', fontWeight: 700, fontSize: 16, color: byMode('#000', DK.text), mb: 1 }}>
     {children}
   </Typography>
 );
@@ -120,7 +131,7 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
         </Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
           {WEEKDAYS.map((w, i) => (
-            <Typography key={i} sx={{ textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#676b72', py: 0.5 }}>
+            <Typography key={i} sx={{ textAlign: 'center', fontWeight: 700, fontSize: 12, color: byMode('#676b72', DK.muted), py: 0.5 }}>
               {w}
             </Typography>
           ))}
@@ -140,9 +151,9 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
                   cursor: inMonth ? 'pointer' : 'default',
                   borderRadius: '6px',
                   backgroundColor: selected ? '#5ebbeb' : 'transparent',
-                  color: selected ? '#fff' : inMonth ? '#0284c7' : 'transparent',
+                  color: selected ? byMode('#fff', DK.onBlue) : inMonth ? byMode('#0284c7', DK.calDay) : 'transparent',
                   fontWeight: selected ? 700 : 400,
-                  '&:hover': inMonth && !selected ? { backgroundColor: 'rgb(142,208,240)' } : {},
+                  '&:hover': inMonth && !selected ? { backgroundColor: byMode('rgb(142,208,240)', DK.calHover) } : {},
                 }}
               >
                 {format(day, 'd')}
@@ -182,11 +193,11 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
               alignItems: 'center',
               height: 36,
               px: 1,
-              border: '1px solid #404040',
+              border: byMode('1px solid #404040', `1px solid ${DK.border}`),
               borderRadius: '8px',
               fontSize: 15,
               fontFamily: 'monospace',
-              color: value ? '#000' : '#808080',
+              color: value ? byMode('#000', DK.inputText) : byMode('#808080', DK.placeholder),
             }}
           >
             <Box
@@ -201,18 +212,19 @@ const ShopfrontDatePicker = ({ value, onChange }) => {
                 outline: 'none',
                 fontSize: 15,
                 fontFamily: 'monospace',
-                color: '#000',
-                '&::placeholder': { color: '#808080', opacity: 1 },
+                color: byMode('#000', DK.inputText),
+                bgcolor: byMode(undefined, 'transparent'),
+                '&::placeholder': { color: byMode('#808080', DK.placeholder), opacity: 1 },
               }}
             />
             <IconButton size="small" onClick={() => { onChange(null); setText(''); }} sx={{ p: 0.25 }}>
               <CloseIcon sx={{ fontSize: 16 }} />
             </IconButton>
-            <CalendarIcon sx={{ fontSize: 16, ml: 0.5, color: '#676b72' }} />
+            <CalendarIcon sx={{ fontSize: 16, ml: 0.5, color: byMode('#676b72', DK.muted) }} />
           </Box>
           <Typography
             onClick={() => handlePick(new Date())}
-            sx={{ fontSize: 14, color: '#0284c7', cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
+            sx={{ fontSize: 14, color: byMode('#0284c7', DK.link), cursor: 'pointer', whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
           >
             Current Day
           </Typography>
@@ -478,12 +490,12 @@ const CreateReceiveStock = () => {
   const selectedSupplier = supplierOptions.find((o) => o.id === String(formData.from)) || null;
 
   return (
-    <Box>
+    <Box sx={{ bgcolor: byMode(undefined, DK.body) }}>
       {/* Banner band across the top of the content area: title vertically centered
           and left-aligned to the centered 764px form column. */}
-      <Box sx={{ backgroundColor: '#e8eef7', mb: 6.5, px: 3, minHeight: 110, display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ backgroundColor: byMode('#e8eef7', DK.band), boxShadow: byMode(undefined, DK.bandEdge), mb: 6.5, px: 3, minHeight: 110, display: 'flex', alignItems: 'center' }}>
         <Box sx={{ maxWidth: 764, mx: 'auto', width: '100%' }}>
-          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', DK.text) }}>
             Create Invoice
           </Typography>
         </Box>
@@ -518,14 +530,14 @@ const CreateReceiveStock = () => {
             onError={(err) => setError(err?.response?.data?.error || 'Failed to create supplier')}
             disableClearable
             componentsProps={{
-              popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: 0, boxShadow: 'none', border: '1px solid #404040' } } },
+              popper: { sx: { '& .MuiAutocomplete-paper': { borderRadius: 0, boxShadow: 'none', border: byMode('1px solid #404040', `1px solid ${DK.border}`), bgcolor: byMode(undefined, DK.paper), color: byMode(undefined, DK.text) } } },
             }}
             ListboxProps={{
               sx: {
                 '& .MuiAutocomplete-option': { minHeight: 45, fontSize: 16 },
-                '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
-                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38bdf8' },
-                '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: 'rgb(125,211,252)', color: '#000' },
+                '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: byMode('rgb(125,211,252)', DK.hover), color: byMode('#000', DK.onHover) },
+                '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: byMode('#38bdf8', DK.selected) },
+                '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: byMode('rgb(125,211,252)', DK.hover), color: byMode('#000', DK.onHover) },
               },
             }}
             placeholder="Select Supplier..."
@@ -543,12 +555,12 @@ const CreateReceiveStock = () => {
               alignItems: 'center',
               height: 42,
               px: 1.5,
-              border: '1px solid #404040',
+              border: byMode('1px solid #404040', `1px solid ${DK.border}`),
               borderRadius: '8px',
-              backgroundColor: '#dedede',
+              backgroundColor: byMode('#dedede', DK.input),
               cursor: 'not-allowed',
               fontSize: 16,
-              color: '#676b72',
+              color: byMode('#676b72', DK.inputText),
             }}
           >
             <Box sx={{ flex: 1 }}>
@@ -556,7 +568,7 @@ const CreateReceiveStock = () => {
                 ? outlets.find((o) => String(o.id) === String(formData.to))?.name
                 : outlet?.name) || getOutletName() || 'N/A'}
             </Box>
-            <ArrowDropDownIcon sx={{ color: '#676b72' }} />
+            <ArrowDropDownIcon sx={{ color: byMode('#676b72', DK.text) }} />
           </Box>
         </Box>
 
@@ -572,7 +584,7 @@ const CreateReceiveStock = () => {
         {/* Invoice Number */}
         <Box>
           <FieldLabel>
-            Invoice Number <Box component="span" sx={{ color: '#dc2626' }}>*</Box>
+            Invoice Number <Box component="span" sx={{ color: byMode('#dc2626', DK.danger) }}>*</Box>
           </FieldLabel>
           <TextField
             fullWidth
@@ -585,17 +597,17 @@ const CreateReceiveStock = () => {
                 <InputAdornment position="end">
                   {numberTaken ? (
                     <Tooltip title={numberCheck.message || 'This invoice number is already in use'} placement="top" open arrow>
-                      <CloseIcon sx={{ fontSize: 20, color: '#dc2626' }} />
+                      <CloseIcon sx={{ fontSize: 20, color: byMode('#dc2626', DK.danger) }} />
                     </Tooltip>
                   ) : (
-                    <CheckIcon sx={{ fontSize: 20, color: '#16a34a' }} />
+                    <CheckIcon sx={{ fontSize: 20, color: byMode('#16a34a', DK.ok) }} />
                   )}
                 </InputAdornment>
               ) : null,
             }}
             sx={{
               ...fieldSx,
-              '& .MuiOutlinedInput-root.Mui-error fieldset': { borderColor: '#dc2626' },
+              '& .MuiOutlinedInput-root.Mui-error fieldset': { borderColor: byMode('#dc2626', DK.danger) },
               '& .MuiFormHelperText-root': { mx: 0, fontSize: 14 },
             }}
           />
@@ -659,7 +671,7 @@ const CreateReceiveStock = () => {
             width: 116,
             height: 42,
             backgroundColor: '#5ebbeb',
-            color: '#fff',
+            color: byMode('#fff', DK.onBlue),
             borderRadius: '12px',
             fontSize: 16,
             fontWeight: 700,

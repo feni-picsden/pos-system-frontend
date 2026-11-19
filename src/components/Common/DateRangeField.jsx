@@ -15,6 +15,18 @@ import {
   Close as ClearDateIcon,
 } from '@mui/icons-material';
 import { format, addMonths, startOfMonth, endOfMonth, parse, isValid } from 'date-fns';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (light values unchanged): the reference dark date popover, same values as
+// DateRangePicker / DateTimeRangeFilter - panel #232323 + #373737 edge, titles #d4d4d4,
+// weekdays #5e5e5e, days #74d4ff, range tint #1f3a4a, field #121212 + #a1a1a1.
+const typedBoxSx = {
+  flex: 1,
+  '& .MuiOutlinedInput-root': { bgcolor: byMode(undefined, '#121212'), color: byMode(undefined, '#f8f8f8') },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode(undefined, '#a1a1a1') },
+  '& input::placeholder': { color: byMode(undefined, '#757575'), opacity: 1 },
+  '& .MuiIconButton-root': { color: byMode(undefined, '#d4d4d4') },
+};
 
 // Shared single-box date range (moved unchanged from Orders & Invoices so other
 // screens can use the same reference control). value/onChange:
@@ -139,12 +151,12 @@ const DateRangeField = ({ value, onChange }) => {
     const today = new Date();
     return (
       <Box key={format(month, 'yyyy-MM')} sx={{ width: 224 }}>
-        <Typography sx={{ textAlign: 'center', fontWeight: 700, fontSize: 14, mb: 1 }}>
+        <Typography sx={{ textAlign: 'center', fontWeight: 700, fontSize: 14, mb: 1, color: byMode(undefined, '#d4d4d4') }}>
           {format(month, 'MMMM yyyy')}
         </Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', mb: 0.5 }}>
           {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-            <Typography key={i} sx={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#676b72' }}>
+            <Typography key={i} sx={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: byMode('#676b72', '#5e5e5e') }}>
               {d}
             </Typography>
           ))}
@@ -168,10 +180,10 @@ const DateRangeField = ({ value, onChange }) => {
                   borderRadius: '50%',
                   // today = blue OUTLINED circle (never solid fill)
                   border: isToday || isEdge ? '1px solid #5ebbeb' : '1px solid transparent',
-                  bgcolor: selected ? '#e3f2fd' : 'transparent',
-                  color: '#0284c7',
+                  bgcolor: selected ? byMode('#e3f2fd', '#1f3a4a') : 'transparent',
+                  color: byMode('#0284c7', '#74d4ff'),
                   fontSize: 14,
-                  '&:hover': { bgcolor: '#e3f2fd' },
+                  '&:hover': { bgcolor: byMode('#e3f2fd', '#1f3a4a') },
                 }}
               >
                 {format(day, 'd')}
@@ -185,7 +197,7 @@ const DateRangeField = ({ value, onChange }) => {
 
   const segSx = (has) => ({
     fontSize: 16,
-    color: has ? '#000' : '#808080',
+    color: has ? byMode('#000', '#f8f8f8') : byMode('#808080', '#757575'),
     px: 1,
     lineHeight: '40px',
   });
@@ -198,9 +210,11 @@ const DateRangeField = ({ value, onChange }) => {
           display: 'flex',
           alignItems: 'center',
           height: 42,
-          border: '1px solid #404040',
+          border: 1,
+          borderStyle: 'solid',
+          borderColor: byMode('#404040', '#a1a1a1'),
           borderRadius: '8px',
-          bgcolor: '#fff',
+          bgcolor: byMode('#fff', '#121212'),
           px: 1,
           cursor: 'pointer',
         }}
@@ -212,7 +226,7 @@ const DateRangeField = ({ value, onChange }) => {
             <Box component="span" sx={segSx(!!start)}>
               {start ? format(start, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
             </Box>
-            <Box component="span" sx={{ color: '#808080' }}>
+            <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>
               –
             </Box>
             <Box component="span" sx={segSx(!!end)}>
@@ -227,7 +241,7 @@ const DateRangeField = ({ value, onChange }) => {
         onClose={handleClose}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{ sx: { p: 2, width: 540, bgcolor: '#fff', borderRadius: '8px' } }}
+        PaperProps={{ sx: { p: 2, width: 540, bgcolor: byMode('#fff', '#232323'), borderRadius: '8px', border: byMode(undefined, '1px solid #373737'), backgroundImage: 'none', '& .MuiIconButton-root': { color: byMode(undefined, '#f8f8f8') } } }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <IconButton size="small">
@@ -251,6 +265,7 @@ const DateRangeField = ({ value, onChange }) => {
             placeholder="dd/mm/yyyy"
             autoFocus
             inputProps={{ 'aria-label': 'Start date', maxLength: 10 }}
+            sx={typedBoxSx}
             InputProps={{
               endAdornment: tempStart ? (
                 <InputAdornment position="end">
@@ -260,9 +275,8 @@ const DateRangeField = ({ value, onChange }) => {
                 </InputAdornment>
               ) : null,
             }}
-            sx={{ flex: 1 }}
           />
-          <Typography sx={{ color: '#676b72' }}>-</Typography>
+          <Typography sx={{ color: byMode('#676b72', '#d4d4d4') }}>-</Typography>
           <TextField
             size="small"
             value={endText}
@@ -271,6 +285,7 @@ const DateRangeField = ({ value, onChange }) => {
             onKeyDown={onEnter(commitEnd)}
             placeholder="dd/mm/yyyy"
             inputProps={{ 'aria-label': 'End date', maxLength: 10 }}
+            sx={typedBoxSx}
             InputProps={{
               endAdornment: tempEnd ? (
                 <InputAdornment position="end">
@@ -280,7 +295,6 @@ const DateRangeField = ({ value, onChange }) => {
                 </InputAdornment>
               ) : null,
             }}
-            sx={{ flex: 1 }}
           />
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>

@@ -84,11 +84,18 @@ import shelfTicketService from '../../services/shelfTicketService';
 import productService from '../../services/productService';
 import ReviewerSelectDialog from '../../components/StockManagement/ReviewerSelectDialog';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (no own ref): values copied from the reference dark Orders & Invoices list.
+const DK = {
+  page: '#121212', pane: '#232323', text: '#f8f8f8', onBlue: '#313439', head: '#3d4147',
+  border: '#a1a1a1', divider: '#373737', desc: '#d4d4d4', input: '#121212', placeholder: '#757575',
+};
 
 // Shopfront reference toolbar button: solid #5ebbeb, 53px tall, square, hover inverts to #f8f8f8/#5ebbeb
 const toolbarBtnSx = {
   backgroundColor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', DK.onBlue),
   fontSize: 16,
   fontWeight: 400,
   height: 53,
@@ -97,14 +104,14 @@ const toolbarBtnSx = {
   boxShadow: 'none',
   textTransform: 'none',
   transition: 'background 0.2s ease, color 0.2s ease',
-  '&:hover': { backgroundColor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
-  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: 'rgba(248,248,248,0.6)', opacity: 0.6 },
+  '&:hover': { backgroundColor: byMode('#f8f8f8', '#4aa9dd'), color: byMode('#5ebbeb', DK.onBlue), boxShadow: 'none' },
+  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: byMode('rgba(248,248,248,0.6)', 'rgba(49,52,57,0.6)'), opacity: 0.6 },
 };
 
 // Reference table styles: header #5ebbeb / #f8f8f8 16px bold, 8px padding, cells 16px #000
 const thSx = {
-  backgroundColor: '#5ebbeb',
-  color: 'rgb(248,248,248)',
+  backgroundColor: byMode('#5ebbeb', DK.head),
+  color: byMode('rgb(248,248,248)', DK.text),
   fontSize: 16,
   fontWeight: 700,
   padding: '8px',
@@ -113,13 +120,13 @@ const thSx = {
 };
 const tdSx = {
   fontSize: 16,
-  color: '#000',
+  color: byMode('#000', DK.text),
   padding: '8px',
   borderBottom: 'none',
 };
 const totalTdSx = {
-  backgroundColor: 'rgb(94,187,235)',
-  color: 'rgb(248,248,248)',
+  backgroundColor: byMode('rgb(94,187,235)', DK.head),
+  color: byMode('rgb(248,248,248)', DK.text),
   fontWeight: 700,
   fontSize: 16,
   padding: '8px',
@@ -139,13 +146,13 @@ const metaLabelSx = {
   color: 'rgb(189,189,189)',
   textTransform: 'uppercase',
 };
-const metaValueSx = { fontSize: 16, color: '#000' };
+const metaValueSx = { fontSize: 16, color: byMode('#000', DK.text) };
 
 // Edit Details Save (reference): blue stays blue on hover (darker), white text;
 // while saving it is disabled and shows a spinner + "Saving...".
 const sfDialogSave = {
   backgroundColor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   height: 42,
   minWidth: 100,
   borderRadius: 0,
@@ -157,7 +164,7 @@ const sfDialogSave = {
   whiteSpace: 'nowrap',
   transition: 'background 0.2s ease',
   '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' },
-  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: '#fff', opacity: 0.7 },
+  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: byMode('#fff', '#232323'), opacity: 0.7 },
 };
 
 const OrderDetails = () => {
@@ -1257,7 +1264,7 @@ const OrderDetails = () => {
   );
 
   return (
-    <Box sx={{ backgroundColor: '#f5f5f5', minHeight: '100vh', pb: 3 }}>
+    <Box sx={{ backgroundColor: byMode('#f5f5f5', DK.page), minHeight: '100vh', pb: 3 }}>
       {error && (
         <Alert severity="error" sx={{ m: 2 }} onClose={() => setError('')}>
           {error}
@@ -1581,7 +1588,7 @@ const OrderDetails = () => {
       </Box>
 
       {/* Product Details Table — unsent orders/invoices show the simplified reference column set */}
-      <Paper sx={{ mx: 2, backgroundColor: '#fff', borderRadius: 0, boxShadow: 'none' }}>
+      <Paper sx={{ mx: 2, backgroundColor: byMode('#fff', DK.pane), borderRadius: 0, boxShadow: 'none' }}>
         <TableContainer>
           {amountOnlyCredit ? (
           <Table>
@@ -1631,7 +1638,7 @@ const OrderDetails = () => {
                       <Box
                         component="a"
                         onClick={() => handleProductClick(item)}
-                        sx={{ color: '#000', textDecoration: 'none', cursor: 'pointer' }}
+                        sx={{ color: byMode('#000', DK.text), textDecoration: 'none', cursor: 'pointer' }}
                       >
                         {item.product}
                       </Box>
@@ -1709,7 +1716,7 @@ const OrderDetails = () => {
                       <Box
                         component="a"
                         onClick={() => handleProductClick(item)}
-                        sx={{ color: '#000', textDecoration: 'none', cursor: 'pointer' }}
+                        sx={{ color: byMode('#000', DK.text), textDecoration: 'none', cursor: 'pointer' }}
                       >
                         {item.product}
                       </Box>
@@ -1858,8 +1865,8 @@ const OrderDetails = () => {
                   alignItems: 'center',
                   gap: 0.25,
                   p: 0.5,
-                  borderBottom: '1px solid #e0e0e0',
-                  backgroundColor: '#fafafa',
+                  borderBottom: byMode('1px solid #e0e0e0', `1px solid ${DK.divider}`),
+                  backgroundColor: byMode('#fafafa', DK.pane),
                 }}
               >
                 <Tooltip title="Bold"><IconButton size="small" onClick={() => execEditorCommand('bold')}><FormatBold fontSize="small" /></IconButton></Tooltip>
@@ -1875,7 +1882,7 @@ const OrderDetails = () => {
                   aria-label="Paragraph style"
                   defaultValue="<p>"
                   onChange={(e) => execEditorCommand('formatBlock', e.target.value)}
-                  sx={{ height: 28, border: '1px solid #e0e0e0', borderRadius: '2px', backgroundColor: '#fff', fontSize: 13, px: 0.5 }}
+                  sx={{ height: 28, border: byMode('1px solid #e0e0e0', `1px solid ${DK.border}`), borderRadius: '2px', backgroundColor: byMode('#fff', DK.input), color: byMode(undefined, DK.text), fontSize: 13, px: 0.5 }}
                 >
                   <option value="<p>">Normal</option>
                   <option value="<h1>">Heading 1</option>
@@ -1889,7 +1896,7 @@ const OrderDetails = () => {
                   aria-label="Font size"
                   defaultValue="3"
                   onChange={(e) => execEditorCommand('fontSize', e.target.value)}
-                  sx={{ height: 28, border: '1px solid #e0e0e0', borderRadius: '2px', backgroundColor: '#fff', fontSize: 13, px: 0.5 }}
+                  sx={{ height: 28, border: byMode('1px solid #e0e0e0', `1px solid ${DK.border}`), borderRadius: '2px', backgroundColor: byMode('#fff', DK.input), color: byMode(undefined, DK.text), fontSize: 13, px: 0.5 }}
                 >
                   <option value="1">10</option>
                   <option value="2">13</option>
@@ -1930,22 +1937,24 @@ const OrderDetails = () => {
                   minHeight: 200,
                   fontSize: 16,
                   outline: 'none',
+                  bgcolor: byMode(undefined, DK.input),
+                  color: byMode(undefined, DK.text),
                   '&:empty:before': {
                     content: 'attr(data-placeholder)',
-                    color: '#999',
+                    color: byMode('#999', DK.placeholder),
                   },
                 }}
               />
             </Paper>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 1, borderTop: '1px solid #e0e0e0', justifyContent: 'space-between' }}>
+        <DialogActions sx={{ p: 2, pt: 1, borderTop: byMode('1px solid #e0e0e0', `1px solid ${DK.divider}`), justifyContent: 'space-between' }}>
           <Button
             onClick={() => setEmailOrderDialogOpen(false)}
             disabled={saving}
             variant="outlined"
             startIcon={<CancelIcon />}
-            sx={{ textTransform: 'none', color: '#676b72', borderColor: '#bdbdbd', '&:hover': { borderColor: '#bdbdbd', backgroundColor: 'transparent' } }}
+            sx={{ textTransform: 'none', color: byMode('#676b72', DK.desc), borderColor: byMode('#bdbdbd', DK.border), '&:hover': { borderColor: byMode('#bdbdbd', DK.border), backgroundColor: 'transparent' } }}
           >
             Cancel
           </Button>
@@ -1954,7 +1963,7 @@ const OrderDetails = () => {
             variant="contained"
             disableElevation
             disabled={saving}
-            sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', minWidth: 100, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
+            sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', color: byMode(undefined, '#232323'), minWidth: 100, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
           >
             {saving ? 'Sending...' : 'Send'}
           </Button>
@@ -1990,7 +1999,7 @@ const OrderDetails = () => {
               height: 64,
               borderRadius: '50%',
               backgroundColor: '#5ebbeb',
-              color: '#f8f8f8',
+              color: byMode('#f8f8f8', DK.onBlue),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -2049,7 +2058,7 @@ const OrderDetails = () => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <OrderIcon sx={{ color: '#666', mr: 1 }} />
+                        <OrderIcon sx={{ color: byMode('#666', '#a0a4aa'), mr: 1 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -2114,14 +2123,14 @@ const OrderDetails = () => {
               onClick={() => setEditDetailsOpen(false)}
               disabled={saving}
               variant="outlined"
-              sx={{ textTransform: 'none', color: '#676b72', borderColor: '#bdbdbd', '&:hover': { borderColor: '#bdbdbd', backgroundColor: 'transparent' } }}
+              sx={{ textTransform: 'none', color: byMode('#676b72', DK.desc), borderColor: byMode('#bdbdbd', DK.border), '&:hover': { borderColor: byMode('#bdbdbd', DK.border), backgroundColor: 'transparent' } }}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSaveEditDetails}
               disabled={saving}
-              startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
+              startIcon={saving ? <CircularProgress size={16} sx={{ color: byMode('#fff', '#232323') }} /> : <SaveIcon />}
               sx={sfDialogSave}
             >
               {saving ? 'Saving...' : 'Save'}
@@ -2155,7 +2164,7 @@ const OrderDetails = () => {
             onClick={() => setConfirmDialog(null)}
             disabled={saving}
             variant="outlined"
-            sx={{ textTransform: 'none', color: '#676b72', borderColor: '#bdbdbd', '&:hover': { borderColor: '#bdbdbd', backgroundColor: 'transparent' } }}
+            sx={{ textTransform: 'none', color: byMode('#676b72', DK.desc), borderColor: byMode('#bdbdbd', DK.border), '&:hover': { borderColor: byMode('#bdbdbd', DK.border), backgroundColor: 'transparent' } }}
           >
             Cancel
           </Button>
@@ -2164,7 +2173,7 @@ const OrderDetails = () => {
             disabled={saving}
             variant="contained"
             disableElevation
-            sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', minWidth: 100, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
+            sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', color: byMode(undefined, '#232323'), minWidth: 100, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
           >
             {saving ? 'Working...' : confirmDialog?.label}
           </Button>
