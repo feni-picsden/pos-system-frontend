@@ -228,7 +228,8 @@ const TrashedItems = () => {
 
   const handleSelectAll = (event) => {
     if (event.target.checked) {
-      setSelectedItems(trashedItems.map((item) => ({ id: item.id, type: item.type })));
+      // merged rows (canRestore false) are not recoverable, so never bulk-select them
+      setSelectedItems(trashedItems.filter((item) => item.canRestore !== false).map((item) => ({ id: item.id, type: item.type })));
     } else {
       setSelectedItems([]);
     }
@@ -382,8 +383,10 @@ const TrashedItems = () => {
   const isItemSelected = (itemId, itemType) =>
     selectedItems.some((item) => item.id === itemId && item.type === itemType);
 
-  const allSelected = trashedItems.length > 0 && selectedItems.length === trashedItems.length;
-  const someSelected = selectedItems.length > 0 && selectedItems.length < trashedItems.length;
+  // Merged rows (canRestore false) cannot be selected, so "all" means all recoverable rows.
+  const selectableCount = trashedItems.filter((item) => item.canRestore !== false).length;
+  const allSelected = selectableCount > 0 && selectedItems.length === selectableCount;
+  const someSelected = selectedItems.length > 0 && selectedItems.length < selectableCount;
 
   const dateInputSx = {
     flex: 1,
@@ -811,6 +814,7 @@ const TrashedItems = () => {
                   <TableCell padding="checkbox" sx={{ pl: '20px' }}>
                     <Checkbox
                       checked={isItemSelected(item.id, item.type)}
+                      disabled={item.canRestore === false}
                       onChange={() => handleSelectItem(item.id, item.type)}
                       {...CHECKBOX_ICONS}
                       sx={CHECKBOX_SX}
@@ -828,6 +832,12 @@ const TrashedItems = () => {
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{formatDeletedAt(item.deletedAt)}</TableCell>
                   <TableCell align="center" sx={{ pr: '16px' }}>
+                    {item.canRestore === false ? (
+                      // Merged records stay for the record only; a merge cannot be reversed.
+                      <Typography component="span" title="Merged into another record; a merge cannot be reversed" sx={{ fontSize: 16, color: 'sf.textMuted', fontWeight: 700 }}>
+                        Merged
+                      </Typography>
+                    ) : (
                     <Button
                       onClick={() => setConfirm({ item })}
                       disableRipple
@@ -847,6 +857,7 @@ const TrashedItems = () => {
                     >
                       Recover
                     </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

@@ -11,12 +11,7 @@ import {
   Typography,
   Alert,
   TextField,
-  Dialog,
-  DialogContent,
-  List,
-  ListItemButton,
-  ListItemText,
-  IconButton,
+  Snackbar,
 } from '@mui/material';
 import { NoResults } from '../../components/Common/EmptyResults';
 import {
@@ -26,18 +21,16 @@ import {
   VisibilityOutlined as ViewIcon,
   Link as AssignIcon,
   AccountTreeOutlined as MergeIcon,
-  CloseOutlined as CloseIcon,
 } from '@mui/icons-material';
-import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation, Link as RouterLink } from 'react-router-dom';
 import supplierService from '../../services/supplierService';
-import { SHOW_MASTER_DATABASE_REF } from '../../utils/featureFlags';
-import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 import usePageCache from '../../hooks/usePageCache';
 import PerformanceGraph from '../../components/Classifications/PerformanceGraph';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
 import { byMode } from '../../theme/sfPalette';
+import { MERGE_SUPPLIERS_ACTION } from './SupplierMerge';
 
 const ADD_SUPPLIER_ACTION = 'suppliers.add';
 
@@ -72,19 +65,6 @@ const rowActionSx = (color, width) => ({
   '&:hover': { bgcolor: HOVER_TINT, color },
 });
 
-// Reference row actions are plain links: fw400, no button padding, color+underline hover, no bg tint
-const actionLinkSx = {
-  textTransform: 'none',
-  fontWeight: 400,
-  fontSize: 16,
-  minWidth: 0,
-  minHeight: 0,
-  p: 0,
-  lineHeight: '25px',
-  transition: 'color 0.3s ease',
-  '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' },
-};
-
 // Reference search field: 42px wrapper around a 40px input, 1px #404040 outline, 8px radius
 const searchFieldSx = {
   '& .MuiOutlinedInput-root': {
@@ -98,96 +78,6 @@ const searchFieldSx = {
   },
   '& .MuiOutlinedInput-input': { padding: '8px 16px', color: byMode(undefined, '#f8f8f8') },
   '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
-};
-
-// Supplier Merge: sections + fields exactly as the reference result rail lists them.
-const MERGE_SECTIONS = [
-  {
-    key: 'general',
-    title: 'General',
-    fields: [
-      ['name', 'Name*'],
-      ['status', 'Status*'],
-      ['businessNumber', 'Business Number'],
-      ['accountNumber', 'Account Number'],
-      ...(SHOW_MASTER_DATABASE_REF ? [['masterDatabaseRef', 'Master Database Reference']] : []),
-    ],
-  },
-  {
-    key: 'contact',
-    title: 'Contact',
-    fields: [
-      ['email', 'Emails'],
-      ['fax', 'Fax'],
-      ['phone', 'Phone'],
-      ['mobile', 'Mobile'],
-      ['website', 'Website'],
-      ['twitter', 'Twitter'],
-      ['facebook', 'Facebook'],
-    ],
-  },
-  {
-    key: 'address',
-    title: 'Address',
-    fields: [
-      ['streetAddress1', 'Street Address 1'],
-      ['streetAddress2', 'Street Address 2'],
-      ['suburb', 'Suburb'],
-      ['city', 'City'],
-      ['postCode', 'Post Code'],
-      ['region', 'Region'],
-      ['country', 'Country'],
-    ],
-  },
-  {
-    key: 'additionalContacts',
-    title: 'Additional Contacts',
-    fields: [['additionalContacts', 'Additional Contacts']],
-  },
-  {
-    key: 'ordering',
-    title: 'Ordering',
-    fields: [
-      ['orderNotes', 'Order Notes'],
-      ['internalOrderNotes', 'Internal Order Notes'],
-      ['emailOrderAutomatically', 'Email Order Automatically'],
-      ['emailFormat', 'Email Format'],
-      ['allowOrdersBelowMinimum', 'allowOrderBelowMinimum'],
-      ['minimumOrderValue', 'Minimum Order Value'],
-      ['maximumOrderValue', 'Maximum Order Value'],
-    ],
-  },
-  {
-    key: 'receiving',
-    title: 'Receiving',
-    fields: [['paymentFeePercentage', 'Payment Fee Percentage']],
-  },
-];
-
-// ponytail: mobile/website/twitter are display-only here — the suppliers table has no
-// such columns, so sending them to PUT /suppliers/:id would blow up Prisma.
-const UNWRITABLE_FIELDS = new Set(['mobile', 'website', 'twitter']);
-const NUMBER_FIELDS = new Set(['minimumOrderValue', 'maximumOrderValue', 'paymentFeePercentage']);
-const BOOLEAN_FIELDS = new Set(['emailOrderAutomatically', 'allowOrdersBelowMinimum']);
-const CLEARED = '__cleared__';
-
-const displayValue = (value) => {
-  if (value === null || value === undefined || value === '') return 'No Value';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  const contacts = Array.isArray(value) ? value : typeof value === 'object' ? Object.values(value) : null;
-  if (contacts) return contacts.length ? `${contacts.length} Contact${contacts.length === 1 ? '' : 's'}` : 'No Value';
-  return String(value);
-};
-
-// Same shape the supplier edit page persists: { contact_1: {...}, contact_2: {...} }
-const toContactsObject = (value) => {
-  if (!value) return null;
-  const list = Array.isArray(value) ? value : Object.values(value);
-  if (!list.length) return null;
-  return list.reduce((acc, contact, index) => {
-    acc[`contact_${index + 1}`] = contact;
-    return acc;
-  }, {});
 };
 
 const Suppliers = () => {
@@ -204,15 +94,26 @@ const Suppliers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [supplierToDelete, setSupplierToDelete] = useState(null);
-  const [mergeList, setMergeList] = useState([]);
-  const [fieldSource, setFieldSource] = useState({});
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerSearch, setPickerSearch] = useState('');
-  const [mergeConfirmOpen, setMergeConfirmOpen] = useState(false);
-  const [merging, setMerging] = useState(false);
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const mergeMode = searchParams.get('merge') === '1';
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  // The merge used to be a mode of this page (/suppliers?merge=1): old links
+  // land on the Supplier Merge page.
+  useEffect(() => {
+    if (searchParams.get('merge') === '1') navigate('/suppliers/merge', { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Supplier Merge lands here with the merged name: say so (Customers delete toast pattern).
+  const [mergedToast, setMergedToast] = useState('');
+  useEffect(() => {
+    if (location.state?.merged) {
+      setMergedToast(location.state.merged);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   // All Outlets (no header outlet / register): Outlet filter + Outlet column.
   const { globalMode, outletNameOf } = useGlobalOutlet();
@@ -235,10 +136,19 @@ const Suppliers = () => {
     if (globalMode) openOutletPicker(ADD_SUPPLIER_ACTION);
     else navigate('/suppliers/new');
   };
+  // Merge never runs in All Outlets mode: same outlet-first prompt.
+  const handleMergeSuppliers = () => {
+    if (globalMode) openOutletPicker(MERGE_SUPPLIERS_ACTION);
+    else navigate('/suppliers/merge');
+  };
   useEffect(() => {
-    if (pendingOutletAction === ADD_SUPPLIER_ACTION && !globalMode) {
+    if (globalMode) return;
+    if (pendingOutletAction === ADD_SUPPLIER_ACTION) {
       clearPendingOutletAction();
       navigate('/suppliers/new');
+    } else if (pendingOutletAction === MERGE_SUPPLIERS_ACTION) {
+      clearPendingOutletAction();
+      navigate('/suppliers/merge');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingOutletAction, globalMode]);
@@ -265,401 +175,6 @@ const Suppliers = () => {
     }
   };
 
-  /* ------------------------------- Supplier Merge ------------------------------ */
-
-  const openMerge = () => {
-    setError('');
-    setSearchParams({ merge: '1' });
-  };
-
-  const closeMerge = () => {
-    setMergeList([]);
-    setFieldSource({});
-    setError('');
-    setSearchParams({});
-  };
-
-  const addSupplierToMerge = async (supplier) => {
-    setPickerOpen(false);
-    setPickerSearch('');
-    try {
-      // The list endpoint only returns a summary — the merge needs every field.
-      const response = await supplierService.getSupplier(supplier.id);
-      setMergeList((prev) => [...prev, response.supplier || response]);
-    } catch (err) {
-      setError('Failed to load supplier details');
-      console.error('Error loading supplier:', err);
-    }
-  };
-
-  const removeSupplierFromMerge = (id) => {
-    setMergeList((prev) => prev.filter((s) => s.id !== id));
-    setFieldSource((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([, source]) => source !== id))
-    );
-  };
-
-  const selectSection = (sectionKey, supplierId) => {
-    const section = MERGE_SECTIONS.find((s) => s.key === sectionKey);
-    setFieldSource((prev) => ({
-      ...prev,
-      ...Object.fromEntries(section.fields.map(([key]) => [key, supplierId])),
-    }));
-  };
-
-  const resolvedValue = (field) => {
-    const source = fieldSource[field];
-    if (source === undefined) return undefined;
-    if (source === CLEARED) return null;
-    return mergeList.find((s) => s.id === source)?.[field];
-  };
-
-  const mergedName = (resolvedValue('name') || '').toString().trim();
-
-  const buildMergePayload = () => {
-    const payload = {};
-    MERGE_SECTIONS.forEach((section) =>
-      section.fields.forEach(([key]) => {
-        if (UNWRITABLE_FIELDS.has(key)) return;
-        const value = resolvedValue(key);
-        if (value === undefined) return;
-        if (NUMBER_FIELDS.has(key)) payload[key] = value === null || value === '' ? null : Number(value);
-        else if (BOOLEAN_FIELDS.has(key)) payload[key] = Boolean(value);
-        else if (key === 'additionalContacts') payload[key] = toContactsObject(value);
-        else if (typeof value === 'string') payload[key] = value.trim() || null;
-        else payload[key] = value;
-      })
-    );
-    return payload;
-  };
-
-  // No backend /suppliers/merge endpoint exists: compose the merge from the existing
-  // supplier endpoints — write the chosen values onto the surviving supplier, move every
-  // product assignment across, then trash the suppliers that were merged in.
-  const confirmMerge = async () => {
-    const payload = buildMergePayload();
-    const primary = mergeList.find((s) => s.id === fieldSource.name) || mergeList[0];
-    setMerging(true);
-    setError('');
-    try {
-      await supplierService.updateSupplier(primary.id, payload);
-      for (const source of mergeList.filter((s) => s.id !== primary.id)) {
-        const products = await supplierService.getSupplierProducts(source.id);
-        const productIds = (products.assignedProducts || []).map((p) => p.id);
-        if (productIds.length) {
-          await supplierService.assignProducts(primary.id, productIds, 'assign');
-          await supplierService.assignProducts(source.id, productIds, 'unassign');
-        }
-        await supplierService.deleteSupplier(source.id);
-      }
-      setMergeConfirmOpen(false);
-      closeMerge();
-      await loadSuppliers();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to merge suppliers');
-      console.error('Error merging suppliers:', err);
-      setMergeConfirmOpen(false);
-    } finally {
-      setMerging(false);
-    }
-  };
-
-  // Merge page uses the list page's look (user 30/10/2026): white rounded cards,
-  // #5ebbeb header strips like the table head, alternating white/#f5f5f5 rows,
-  // 12px-radius buttons.
-  const mergeColumnSx = {
-    width: 420,
-    flexShrink: 0,
-    bgcolor: byMode('#fff', '#232323'),
-    border: byMode('1px solid #e0e0e0', '1px solid #333333'),
-    borderRadius: '12px',
-    p: 2,
-  };
-
-  const mergeCardSx = {
-    mb: 2,
-    borderRadius: '12px',
-    overflow: 'hidden',
-    border: byMode('1px solid #e0e0e0', '1px solid #373737'),
-    bgcolor: byMode('#fff', '#232323'),
-  };
-
-  const mergeCardHeadSx = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    bgcolor: byMode('#5ebbeb', '#0b4f80'),
-    px: 2,
-    height: 51,
-  };
-
-  const mergeRowSx = (i) => ({ bgcolor: i % 2 === 0 ? byMode('#fff', '#232323') : byMode('#f5f5f5', '#2b2b2b') });
-
-  const sectionButtonSx = {
-    textTransform: 'none',
-    fontSize: 14,
-    fontWeight: 700,
-    color: byMode('#fff', '#f8f8f8'),
-    borderRadius: '8px',
-    border: byMode('1px solid #fff', '1px solid #a1a1a1'),
-    px: 1.5,
-    height: 32,
-    bgcolor: 'transparent',
-    transition: 'none',
-    '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' },
-    '&.Mui-disabled': { color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.6)' },
-  };
-
-  const pageButtonSx = {
-    borderRadius: '12px',
-    textTransform: 'none',
-    boxShadow: 'none',
-    fontWeight: 700,
-    fontSize: 16,
-    px: 4,
-    height: 42,
-    transition: 'none',
-  };
-
-  const renderResultRail = () => (
-    <Box sx={mergeColumnSx}>
-      <Typography sx={{ fontSize: 24, fontWeight: 700, color: TEXT, mb: 2 }}>Results</Typography>
-      {MERGE_SECTIONS.map((section) => (
-        <Box key={section.key} sx={mergeCardSx}>
-          <Box sx={mergeCardHeadSx}>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#fff', '#f8f8f8') }}>{section.title}</Typography>
-            <Button
-              disableRipple
-              disabled={mergeList.length === 0}
-              onClick={() => selectSection(section.key, mergeList[0]?.id)}
-              sx={sectionButtonSx}
-            >
-              Select Section
-            </Button>
-          </Box>
-          {section.fields.map(([key, label], i) => (
-            <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1, ...mergeRowSx(i) }}>
-              <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), width: 170, flexShrink: 0 }}>{label}</Typography>
-              <Typography sx={{ fontSize: 14, color: TEXT, flexGrow: 1, wordBreak: 'break-word' }}>
-                {displayValue(resolvedValue(key))}
-              </Typography>
-              {fieldSource[key] !== undefined && fieldSource[key] !== CLEARED && (
-                <Button
-                  disableRipple
-                  onClick={() => setFieldSource((prev) => ({ ...prev, [key]: CLEARED }))}
-                  sx={{ ...actionLinkSx, fontSize: 14, color: byMode('#e33430', '#ffa2a2'), flexShrink: 0 }}
-                >
-                  Clear
-                </Button>
-              )}
-            </Box>
-          ))}
-        </Box>
-      ))}
-    </Box>
-  );
-
-  const renderSupplierColumn = (supplier) => (
-    <Box key={supplier.id} sx={mergeColumnSx}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography sx={{ fontSize: 24, fontWeight: 700, color: TEXT }}>{supplier.name}</Typography>
-        <IconButton aria-label="Remove supplier" onClick={() => removeSupplierFromMerge(supplier.id)}>
-          <CloseIcon sx={{ color: byMode('#e33430', '#ffa2a2') }} />
-        </IconButton>
-      </Box>
-      {MERGE_SECTIONS.map((section) => (
-        <Box key={section.key} sx={mergeCardSx}>
-          <Box sx={mergeCardHeadSx}>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#fff', '#f8f8f8') }}>{section.title}</Typography>
-            <Button disableRipple onClick={() => selectSection(section.key, supplier.id)} sx={sectionButtonSx}>
-              Select Section
-            </Button>
-          </Box>
-          {section.fields.map(([key, label], i) => {
-            const selected = fieldSource[key] === supplier.id;
-            return (
-              <Box
-                key={key}
-                component="button"
-                type="button"
-                onClick={() => setFieldSource((prev) => ({ ...prev, [key]: supplier.id }))}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  width: '100%',
-                  textAlign: 'left',
-                  px: 2,
-                  py: 1,
-                  cursor: 'pointer',
-                  font: 'inherit',
-                  ...mergeRowSx(i),
-                  ...(selected ? { bgcolor: byMode('#e8f4fb', '#0b4f80') } : {}),
-                  border: 0,
-                  borderLeft: selected ? '3px solid #5ebbeb' : '3px solid transparent',
-                  transition: 'none',
-                  '&:hover': { bgcolor: byMode('#e8f4fb', '#0b4f80') },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 14,
-                    height: 14,
-                    flexShrink: 0,
-                    borderRadius: '50%',
-                    border: byMode('1px solid #404040', '1px solid #a1a1a1'),
-                    bgcolor: selected ? '#5ebbeb' : 'transparent',
-                  }}
-                />
-                <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), width: 156, flexShrink: 0 }}>{label}</Typography>
-                <Typography sx={{ fontSize: 14, color: TEXT, flexGrow: 1, wordBreak: 'break-word' }}>
-                  {displayValue(supplier[key])}
-                </Typography>
-              </Box>
-            );
-          })}
-        </Box>
-      ))}
-    </Box>
-  );
-
-  const renderMergePage = () => (
-    <Box sx={{ p: 2, minHeight: '100%' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">Supplier Merge</Typography>
-        <Button
-          variant="contained"
-          disableRipple
-          startIcon={<MergeIcon />}
-          disabled={mergeList.length < 2 || !mergedName}
-          onClick={() => setMergeConfirmOpen(true)}
-          sx={{
-            ...pageButtonSx,
-            bgcolor: '#5ebbeb',
-            color: byMode(undefined, '#232323'),
-            '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-            '&.Mui-disabled': { bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), opacity: 0.5 },
-          }}
-        >
-          Merge Suppliers
-        </Button>
-        <Button
-          variant="outlined"
-          disableRipple
-          onClick={closeMerge}
-          sx={{
-            ...pageButtonSx,
-            color: byMode('#707072', '#d4d4d4'),
-            borderColor: byMode('#8e8e8e', '#a1a1a1'),
-            '&:hover': { bgcolor: HOVER_TINT, borderColor: byMode('#8e8e8e', '#a1a1a1'), boxShadow: 'none' },
-          }}
-        >
-          Cancel
-        </Button>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, overflowX: 'auto', pb: 2 }}>
-        {renderResultRail()}
-        {mergeList.map(renderSupplierColumn)}
-        <Box
-          component="button"
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          sx={{
-            width: 420,
-            flexShrink: 0,
-            minHeight: 400,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: byMode('#fff', 'transparent'),
-            border: byMode('2px dashed #bfe6fb', '2px dashed #a1a1a1'),
-            borderRadius: '12px',
-            color: byMode('#5ebbeb', '#f8f8f8'),
-            fontSize: 18,
-            fontWeight: 700,
-            fontFamily: 'inherit',
-            cursor: 'pointer',
-            transition: 'none',
-            '&:hover': { borderColor: '#5ebbeb', bgcolor: byMode('#f5fbff', '#1a1a1a') },
-          }}
-        >
-          + Add Supplier
-        </Box>
-      </Box>
-
-      {/* Add-a-supplier picker: same chrome as the Customers Export/Import dialogs */}
-      <Dialog
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        PaperProps={{ elevation: 0, sx: { width: 400, maxWidth: '92vw', borderRadius: '12px', overflow: 'hidden', bgcolor: byMode(undefined, '#232323'), boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)' } }}
-      >
-        <Box sx={{ bgcolor: byMode('#bfe6fb', '#024a70'), px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box component="span" sx={{ color: byMode('#0369a1', '#018fc6'), fontSize: 20, fontWeight: 700, lineHeight: 1 }}>?</Box>
-          <Typography sx={{ color: byMode('#0369a1', '#00bcff'), fontSize: 18 }}>Add a Supplier</Typography>
-        </Box>
-        {/* This form sends no outletId: a global admin creates a global supplier. Say so. */}
-        <CreatingForOutlet sx={{ mx: 2, mt: 1 }} />
-        <DialogContent sx={{ px: 2, pt: 2 }}>
-          <TextField
-            autoFocus
-            fullWidth
-            spellCheck={false}
-            placeholder="Search for Suppliers"
-            value={pickerSearch}
-            onChange={(e) => setPickerSearch(e.target.value)}
-            sx={{ mb: 1, ...searchFieldSx }}
-          />
-          <List dense>
-            {suppliers
-              .filter(
-                (s) =>
-                  !mergeList.some((m) => m.id === s.id) &&
-                  s.name?.toLowerCase().includes(pickerSearch.toLowerCase())
-              )
-              .map((s) => (
-                <ListItemButton
-                  key={s.id}
-                  onClick={() => addSupplierToMerge(s)}
-                  sx={{ borderRadius: '8px', '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), '& .MuiListItemText-primary': { color: byMode('#fff', '#fafafa') } } }}
-                >
-                  <ListItemText primary={s.name} primaryTypographyProps={{ fontSize: 16, color: TEXT }} />
-                </ListItemButton>
-              ))}
-          </List>
-        </DialogContent>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 2, pb: 2 }}>
-          <Button
-            disableRipple
-            onClick={() => setPickerOpen(false)}
-            sx={{ bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: TEXT, height: 42, borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 16, px: 3, '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a') } }}
-          >
-            Cancel
-          </Button>
-        </Box>
-      </Dialog>
-
-      <ConfirmDeleteDialog
-        open={mergeConfirmOpen}
-        title="Merge Suppliers"
-        message={`All purchase history from the merged suppliers is moved into "${mergedName}" and the other suppliers are removed. This cannot be reversed.`}
-        confirmText="Continue"
-        loadingText="Merging..."
-        loading={merging}
-        onCancel={() => setMergeConfirmOpen(false)}
-        onConfirm={confirmMerge}
-      />
-    </Box>
-  );
-
-  if (mergeMode) return renderMergePage();
-
   return (
     <Box sx={{ p: 2 }}>
       {/* Header (user design 30/10/2026): bold title, blue Add, outlined Merge, Results right */}
@@ -679,7 +194,7 @@ const Suppliers = () => {
           <Button
             variant="outlined"
             startIcon={<MergeIcon />}
-            onClick={openMerge}
+            onClick={handleMergeSuppliers}
             sx={{ ...headerButtonSx, bgcolor: 'transparent', color: byMode('#707072', '#d4d4d4'), borderColor: byMode('#8e8e8e', '#a1a1a1'), '&:hover': { bgcolor: HOVER_TINT, borderColor: byMode('#8e8e8e', '#a1a1a1'), boxShadow: 'none' } }}
           >
             Merge Suppliers
@@ -813,6 +328,14 @@ const Suppliers = () => {
           setSupplierToDelete(null);
         }}
         onConfirm={confirmDeleteSupplier}
+      />
+
+      <Snackbar
+        open={Boolean(mergedToast)}
+        autoHideDuration={4000}
+        onClose={() => setMergedToast('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        message={`Suppliers successfully merged into "${mergedToast}"`}
       />
     </Box>
   );

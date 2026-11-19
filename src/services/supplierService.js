@@ -79,6 +79,12 @@ const supplierService = {
     return response.data;
   },
 
+  // Supplier Merge: { supplierIds: [...], survivorId, data: { merged field values } }
+  mergeSuppliers: async (payload) => {
+    const response = await apiClient.post('/suppliers/merge', payload);
+    return response.data;
+  },
+
   importSupplierProducts: async (id, payload) => {
     const response = await apiClient.post(`/suppliers/${id}/import-products`, payload);
     return response.data;

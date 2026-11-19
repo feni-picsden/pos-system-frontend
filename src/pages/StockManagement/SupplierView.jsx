@@ -537,6 +537,10 @@ const SupplierView = () => {
                     ],
                   },
                   { label: 'Phone', lines: [supplier.phone] },
+                  // Mobile / Website / Twitter only take a tile when they hold a value.
+                  ...(supplier.mobile ? [{ label: 'Mobile', lines: [supplier.mobile] }] : []),
+                  ...(supplier.website ? [{ label: 'Website', lines: [supplier.website] }] : []),
+                  ...(supplier.twitter ? [{ label: 'Twitter', lines: [supplier.twitter] }] : []),
                   { label: 'Credit Balance', lines: [formatCurrency(supplier.creditBalance || 0)] },
                 ].map((field) => (
                   <Box key={field.label}>

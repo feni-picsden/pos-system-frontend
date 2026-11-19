@@ -141,6 +141,7 @@ import ExternalStocktakeMatch from './pages/StockManagement/ExternalStocktakeMat
 import BulkPriceEdit from './pages/StockManagement/BulkPriceEdit';
 import ImportProducts from './pages/StockManagement/ImportProducts';
 import ProductMerge from './pages/StockManagement/ProductMerge';
+import SupplierMerge from './pages/StockManagement/SupplierMerge';
 import CappedPricing from './pages/StockManagement/CappedPricing';
 import ImportSupplierProducts from './pages/StockManagement/ImportSupplierProducts';
 import FuturePrices from './pages/Utilities/FuturePrices';
@@ -644,6 +645,16 @@ function App() {
                               requiredPermissions={["suppliers.add"]}
                             >
                               <SupplierDetails />
+                            </PermissionProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/suppliers/merge"
+                          element={
+                            <PermissionProtectedRoute
+                              requiredAllPermissions={["suppliers.edit", "suppliers.delete"]}
+                            >
+                              <SupplierMerge />
                             </PermissionProtectedRoute>
                           }
                         />
