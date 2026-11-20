@@ -85,6 +85,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import saleKeyService from '../services/saleKeyService';
 import productService from '../services/productService';
+import { additionalFieldService } from '../services/additionalFieldService';
 import { taxRateService } from '../services/taxRateService';
 import customerService from '../services/customerService';
 import receiptTemplateService from '../services/receiptTemplateService';
@@ -4461,12 +4462,28 @@ const SaleKeyPage = () => {
           try {
             const q = term.trim().toLowerCase();
             let products = posLocalDb.isReady() ? posLocalDb.getProducts() : [];
-            if (!products.length) {
+            // The custom fields (Setup > Additional Information) are what this key is
+            // for. A local catalogue synced before the product list carried
+            // additionalInfo has none of the values, so read the list from the API then.
+            if (!products.length || !products.some(p => p && 'additionalInfo' in p)) {
               const resp = await productService.getProducts({ limit: 1000, status: 'Active' });
               products = resp.products || [];
             }
+            let customFields = [];
+            try { customFields = (await additionalFieldService.getFields()).fields || []; } catch { customFields = []; }
             const inField = (v) => typeof v === 'string' && v.toLowerCase().includes(q);
+            const inValue = (v) => {
+              if (v === null || v === undefined || typeof v === 'boolean') return false;
+              if (Array.isArray(v)) return v.some(inValue);
+              return String(v).toLowerCase().includes(q);
+            };
+            // A product without its own value shows the field's default value.
+            const inCustomFields = (p) => {
+              const info = p.additionalInfo && typeof p.additionalInfo === 'object' ? p.additionalInfo : {};
+              return customFields.some(f => inValue(info[f.safeName] ?? f.defaultValue));
+            };
             const matches = products.filter(p =>
+              inCustomFields(p) ||
               inField(p.description) || inField(p.orderNotes) || inField(p.invoiceNotes) ||
               inField(p.metcashMsc) ||
               (Array.isArray(p.barcodes) && p.barcodes.some(b => inField(typeof b === 'string' ? b : b?.barcode)))
