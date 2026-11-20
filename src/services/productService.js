@@ -16,6 +16,12 @@ function _bustOptionsCache() {
   apiClient.bustCache('/products/filters/options');
 }
 
+// The options are categories/brands/families/tags/suppliers/tax rates. A write
+// to any of those (from their own screens) must drop this copy too, or the
+// product pickers miss a new category until the TTL runs out.
+const OPTIONS_SOURCES = new Set(['/classifications', '/suppliers', '/tax-rates', '/products']);
+apiClient.onWrite((prefix) => { if (OPTIONS_SOURCES.has(prefix)) _bustOptionsCache(); });
+
 async function _fetchOptions(outletId = null) {
   const scope = `${outletId || ''}|${_navbarOutlet()}`;
   if (_optionsCache && _optionsOutlet === scope && Date.now() - _optionsCacheTs < OPTIONS_TTL_MS) {

@@ -4,6 +4,9 @@ import { resourcePrefix } from '../utils/resourcePrefix';
 import posLocalDb from './posLocalDb';
 import clearLocalSession from './clearLocalSession';
 
+// Subscribers told about every successful write (see apiClient.onWrite below).
+const writeListeners = new Set();
+
 /** API resource prefix -> the IndexedDB store that mirrors it. */
 const STORE_BY_RESOURCE = {
   '/products': 'products',
@@ -99,10 +102,24 @@ function refreshMovedStock(prefix, url, data) {
   posLocalDb.invalidateStore('products').catch(() => {});
 }
 
+// Stores that mirror a resource under another name: the Products page keeps the
+// classification pickers as four stores of their own, so a category/brand/
+// family/tag write has to drop those too or the filter misses the new one.
+const EXTRA_STORES_BY_RESOURCE = {
+  '/classifications': ['categories', 'brands', 'families', 'tags'],
+};
+
 function invalidateStoreFor(prefix) {
   const store = STORE_BY_RESOURCE[prefix];
-  if (!store) return Promise.resolve();
-  return posLocalDb.invalidateStore(store).catch(() => {});
+  const stores = [...(store ? [store] : []), ...(EXTRA_STORES_BY_RESOURCE[prefix] || [])];
+  return Promise.all(stores.map((s) => posLocalDb.invalidateStore(s).catch(() => {})));
+}
+
+// Module-level caches elsewhere (productService's picker options) cannot import
+// apiClient's internals without a cycle, so they subscribe to writes instead
+// (the Set is hoisted above axios.create by the declaration below).
+function notifyWrite(prefix) {
+  writeListeners.forEach((fn) => { try { fn(prefix); } catch { /* listener's problem */ } });
 }
 
 /**
@@ -137,6 +154,12 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Defined right here, before anything else in this module: services that this
+// module (indirectly) imports evaluate while apiClient is still being set up,
+// and they subscribe at import time.
+/** Called with the resource prefix ('/products', ...) after every successful write. */
+apiClient.onWrite = (fn) => { writeListeners.add(fn); return () => writeListeners.delete(fn); };
 
 // Origin that serves uploaded files (avatars, media): the API base without /api.
 // Never hardcode localhost — deployed builds point at the hosted backend.
@@ -258,6 +281,7 @@ apiClient.interceptors.response.use(
       // Doing it here means every mutation in the app invalidates its store,
       // instead of each call site having to remember to.
       apiClient.invalidateResource(prefix);
+      notifyWrite(prefix);
       if (STOCK_MOVING_RESOURCES.has(prefix)) {
         apiClient.bustCache('/products');
         apiClient.bustCache('/reports');
