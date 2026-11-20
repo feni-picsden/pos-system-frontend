@@ -770,12 +770,18 @@ const ProductEdit = () => {
   // Every tab index below is read off this list, never off PRODUCT_TABS, or a
   // combo's indexes would be one out from the tabs actually on screen.
   const isCombo = formData?.type === COMBO_TYPE;
+  // Settings > Additional Information field definitions
+  const [additionalFields, setAdditionalFields] = useState([]);
+  // Reference: the Additional Info tab is only on the page once Setup >
+  // Additional Information holds at least one field.
+  const hasAdditionalInfoTab = additionalFields.length > 0;
   const tabs = React.useMemo(
     () => {
-      const base = isCombo ? [PRODUCT_TABS[0], COMBO_TAB, ...PRODUCT_TABS.slice(1)] : PRODUCT_TABS;
+      let base = isCombo ? [PRODUCT_TABS[0], COMBO_TAB, ...PRODUCT_TABS.slice(1)] : PRODUCT_TABS;
+      if (!hasAdditionalInfoTab) base = base.filter((t) => t.label !== 'Additional Info');
       return hasFavourites ? [STARRED_TAB, ...base] : base;
     },
-    [isCombo, hasFavourites]
+    [isCombo, hasFavourites, hasAdditionalInfoTab]
   );
   const tabIndex = (label) => tabs.findIndex((t) => t.label === label);
   const starredActive = hasFavourites && activeTab === tabIndex('Starred');
@@ -852,8 +858,6 @@ const ProductEdit = () => {
       )
     : pricingItemCost;
 
-  // Settings > Additional Information field definitions
-  const [additionalFields, setAdditionalFields] = useState([]);
 
   // Settings > Price Sets — options for assigning a price point to a set.
   const [priceSets, setPriceSets] = useState([]);
@@ -4021,7 +4025,8 @@ const ProductEdit = () => {
           </Box>
         </TabPanel>
 
-        {/* Additional Info Tab */}
+        {/* Additional Info Tab (only once an additional field exists) */}
+        {hasAdditionalInfoTab && (
         <TabPanel value={activeTab} index={tabIndex('Additional Info')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <ComputerIcon sx={{ mr: 1 }} />
@@ -4120,6 +4125,7 @@ const ProductEdit = () => {
           </Box>
           </Box>
         </TabPanel>
+        )}
       </Box>
 
       </Box>
