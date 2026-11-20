@@ -1141,7 +1141,7 @@ const DashboardLayout = ({ children }) => {
             >
               <Avatar
                 src={avatarSrc}
-                sx={{ width: 34, height: 34, bgcolor: '#1976d2', fontSize: 13 }}
+                sx={{ width: 34, height: 34, bgcolor: '#1976d2', color: '#fff', fontSize: 13 }}
               >
                 {!avatarSrc && getUserInitials()}
               </Avatar>

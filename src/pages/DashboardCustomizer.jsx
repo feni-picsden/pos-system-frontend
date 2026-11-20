@@ -68,8 +68,12 @@ function findFreeSlot(existing, w, h, gridRows = GRID_ROWS) {
 
 const DashboardCustomizer = () => {
   const navigate = useNavigate();
-  const { selectedOutletId } = useSelectedOutlet();
+  const { selectedOutletId, isAllOutlets } = useSelectedOutlet();
   const { user } = useAuth();
+  // Dashboards are per outlet: in "All Outlets" mode there is nothing to edit.
+  useEffect(() => {
+    if (isAllOutlets) navigate('/dashboard', { replace: true });
+  }, [isAllOutlets, navigate]);
   const gridRef = useRef(null);
   const customizing = true;
   const [widgets, setWidgets] = useState([]);

@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { Link as RouterLink } from 'react-router-dom';
 import FavouriteReportPreview from '../components/Dashboard/FavouriteReportPreview';
 import dashboardLayoutService from '../services/dashboardLayoutService';
 import { useSelectedOutlet } from '../contexts/SelectedOutletContext';
+import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
 import { useAuth } from '../contexts/AuthContext';
 import posLocalDb from '../services/posLocalDb';
 import { byMode } from '../theme/sfPalette';
@@ -13,7 +15,8 @@ import { byMode } from '../theme/sfPalette';
 const GRID_COLS = 10;
 
 const Dashboard = () => {
-  const { selectedOutletId } = useSelectedOutlet();
+  const { selectedOutletId, isAllOutlets } = useSelectedOutlet();
+  const { openLocationSelector } = useSelectedRegister();
   const { user } = useAuth();
   const [widgets, setWidgets] = useState([]);
   const [gridRows, setGridRows] = useState(5);
@@ -64,12 +67,19 @@ const Dashboard = () => {
       if (mounted) setLoading(false);
     };
 
+    // Dashboards are per outlet; "All Outlets" mode has none to load (the server
+    // would answer 400), so the page asks for an outlet instead.
+    if (isAllOutlets) {
+      setWidgets([]);
+      setLoading(false);
+      return undefined;
+    }
     setLoading(true);
     load();
     return () => {
       mounted = false;
     };
-  }, [selectedOutletId]);
+  }, [selectedOutletId, isAllOutlets]);
 
   const visibleWidgets = widgets.filter((w) => w?.favouriteReport);
 
@@ -79,8 +89,9 @@ const Dashboard = () => {
         display: 'flex',
         height: 'calc(100vh - 50px)',
         minHeight: 480,
-        bgcolor: byMode('#fff', '#121212'),
-        p: 2.5,
+        // All Outlets: the whole page is the sell screen's "no register" pane.
+        bgcolor: isAllOutlets ? byMode('#4a4e52', '#050505') : byMode('#fff', '#121212'),
+        p: isAllOutlets ? 0 : 2.5,
         '@media print': { height: 'auto', minHeight: 0 },
       }}
     >
@@ -107,14 +118,81 @@ const Dashboard = () => {
             </Typography>
           </Box>
         )}
-        {!loading && !error && visibleWidgets.length === 0 && (
-          <Box sx={{ gridColumn: '1 / -1', p: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              No reports on dashboard
+        {!loading && isAllOutlets && (
+          <Box
+            sx={{
+              gridColumn: '1 / -1',
+              gridRow: '1 / -1',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              textAlign: 'center',
+              px: 2,
+            }}
+          >
+            <Typography sx={{ color: '#f8f8f8', fontSize: 48, fontWeight: 400, lineHeight: 1.2 }}>
+              You currently don't have an outlet selected.
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Click Edit to add and save dashboard items.
+            <Box
+              component="button"
+              onClick={() => openLocationSelector({ force: true, step: 'outlet' })}
+              sx={{
+                bgcolor: byMode('transparent', '#313439'),
+                border: '1px solid currentColor',
+                color: '#f8f8f8',
+                fontSize: 32,
+                borderRadius: 0,
+                padding: '4px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontFamily: 'inherit',
+                lineHeight: 1.2,
+              }}
+            >
+              <StorefrontOutlinedIcon sx={{ fontSize: 20 }} />
+              Select Outlet
+            </Box>
+          </Box>
+        )}
+        {!loading && !error && !isAllOutlets && visibleWidgets.length === 0 && (
+          <Box
+            sx={{
+              gridColumn: '1 / -1',
+              gridRow: '1 / -1',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '14px',
+            }}
+          >
+            <Typography sx={{ fontSize: 36, fontWeight: 400, color: byMode('#606f7b', '#bdbdbd'), lineHeight: 1.2 }}>
+              No User Dashboard
             </Typography>
+            <Box
+              component={RouterLink}
+              to="/dashboard/customize"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: 30,
+                px: '10px',
+                bgcolor: '#16a34a',
+                color: '#fff',
+                fontSize: 16,
+                textDecoration: 'none',
+                borderRadius: 0,
+                '&:hover': { bgcolor: '#15803d' },
+              }}
+            >
+              <EditOutlinedIcon sx={{ fontSize: 18 }} />
+              Edit
+            </Box>
           </Box>
         )}
         {!loading && !error && visibleWidgets.map((w) => (
@@ -142,7 +220,8 @@ const Dashboard = () => {
         ))}
       </Box>
 
-      {/* Right-edge slide-out rail (matches reference: icon square peeks out, hover slides the label in) */}
+      {/* Right-edge slide-out rail (matches reference: icon square peeks out, hover slides the label in).
+          In All Outlets mode Edit opens the Location Selector (pick an outlet first). */}
       <Box
         sx={{
           position: 'fixed',
@@ -157,8 +236,9 @@ const Dashboard = () => {
         }}
       >
         <Box
-          component={RouterLink}
-          to="/dashboard/customize"
+          component={isAllOutlets ? 'button' : RouterLink}
+          to={isAllOutlets ? undefined : '/dashboard/customize'}
+          onClick={isAllOutlets ? () => openLocationSelector({ force: true, step: 'outlet' }) : undefined}
           aria-label="Edit dashboard"
           sx={{
             pointerEvents: 'auto',

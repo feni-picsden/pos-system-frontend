@@ -56,6 +56,9 @@ const buildTheme = (mode) => {
           ':root': { colorScheme: mode },
         },
       },
+      // Initials avatars: MUI paints the letters in the page background colour,
+      // which is near-black in dark mode (dark "SA" on the blue navbar avatar).
+      ...(dark ? { MuiAvatar: { styleOverrides: { colorDefault: { color: '#fff' } } } } : {}),
       MuiCard: {
         styleOverrides: {
           root: {
