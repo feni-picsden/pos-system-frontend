@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext, createContext } from 'react';
 import PageLoader from '../../components/Common/PageLoader';
 import NumberField from '../../components/Common/NumberField';
 import {
@@ -192,18 +192,50 @@ const readFavouriteFields = () => {
   }
 };
 
+// Starred fields are shared between the page and every FavoriteStar, so the
+// "Starred" tab (reference) appears the moment the first field is starred and goes
+// when the last star is removed.
+const FavouriteFieldsContext = createContext(null);
+
+// Which tab each starrable field lives on. The Starred tab mounts only the panels
+// that hold a starred field and hides everything in them but the heading and the
+// starred blocks, so the fields keep their one piece of markup and form state.
+const FIELD_TAB = {
+  Name: 'General', Type: 'General', Status: 'General', Description: 'General', 'Case Quantity': 'General',
+  'Combo Items': 'Combo Items',
+  Category: 'Classifications', Brand: 'Classifications', Family: 'Classifications', Tags: 'Classifications', 'Metcash MSC': 'Classifications',
+  'Retail Tax Rate': 'Sell & Cost', 'Purchase Tax Rate': 'Sell & Cost', 'Prevent Manual Discounts': 'Sell & Cost', 'Cost Percentage': 'Sell & Cost',
+  Cost: 'Sell & Cost', 'Request Price': 'Sell & Cost', 'Request Quantity': 'Sell & Cost', Prices: 'Sell & Cost',
+  'Track Inventory': 'Inventory', 'Inventory Outlet': 'Inventory',
+  'Use Barcode Templates': 'Barcodes', Barcodes: 'Barcodes',
+  'Order Notes': 'Suppliers', 'Invoice Notes': 'Suppliers', Suppliers: 'Suppliers',
+  'Loyalty Outlet': 'Loyalty',
+  'Sell on Shop MyLocal': 'Additional Info',
+};
+// Reference: the tab's star is amber, like a starred field's star.
+const STARRED_TAB = { label: 'Starred', icon: <StarIcon sx={{ color: byMode('#f59e0b', '#f6993f') }} />, width: 115 };
+
+// While the Starred tab is open: the indices of the panels it shows (else null).
+const StarredPanelsContext = createContext(null);
+
 // Favourite star that follows every field label — outline star, light gray at rest,
 // amber + rgba(0,0,0,0.1) bg on hover, 150ms color/background transition (ref pattern).
 // Filled amber once the field is favourited.
 const FavoriteStar = ({ field }) => {
-  const [active, setActive] = useState(() => !!readFavouriteFields()[field]);
+  const shared = useContext(FavouriteFieldsContext);
+  const [local, setLocal] = useState(() => !!readFavouriteFields()[field]);
+  const active = shared ? !!shared.favourites[field] : local;
 
   const toggle = () => {
+    if (shared) {
+      shared.toggle(field);
+      return;
+    }
     const next = readFavouriteFields();
-    if (active) delete next[field];
+    if (local) delete next[field];
     else next[field] = true;
     localStorage.setItem(FAVOURITE_FIELDS_KEY, JSON.stringify(next));
-    setActive(!active);
+    setLocal(!local);
   };
 
   return (
@@ -211,6 +243,7 @@ const FavoriteStar = ({ field }) => {
       size="small"
       disableRipple
       onClick={toggle}
+      data-starred={active ? 'true' : 'false'}
       aria-label={`${active ? 'Unfavourite' : 'Favourite'} ${field}`}
       aria-pressed={active}
       sx={{
@@ -560,17 +593,22 @@ const duplicateTooltipSlotProps = {
   arrow: { sx: { color: byMode('#fff', '#232323'), '&::before': { border: 1, borderColor: byMode('#e5e7eb', '#a1a1a1') } } },
 };
 
-const TabPanel = ({ children, value, index, ...other }) => (
-  <div
-    role="tabpanel"
-    hidden={value !== index}
-    id={`product-tabpanel-${index}`}
-    aria-labelledby={`product-tab-${index}`}
-    {...other}
-  >
-    {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-  </div>
-);
+const TabPanel = ({ children, value, index, ...other }) => {
+  // The Starred tab also shows the panels that hold a starred field.
+  const starredPanels = useContext(StarredPanelsContext);
+  const shown = value === index || Boolean(starredPanels && starredPanels.has(index));
+  return (
+    <div
+      role="tabpanel"
+      hidden={!shown}
+      id={`product-tabpanel-${index}`}
+      aria-labelledby={`product-tab-${index}`}
+      {...other}
+    >
+      {shown && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+};
 
 // Supplier "Replacement Cost": the DB keeps this sentinel string for "no
 // supplier-specific cost, use the product's" — the form shows it as a placeholder.
@@ -588,7 +626,28 @@ const ProductEdit = () => {
   // otherwise the product is saved with outletId null and the outlet-scoped Products
   // list (which filters strictly by outletId for super admins) can never show it again.
   const { selectedOutletId } = useSelectedOutlet();
+  // Starred fields (the star beside each label), shared with every FavoriteStar.
+  // Reference: with any star set the page opens on the Starred tab (index 0).
+  const [favourites, setFavourites] = useState(readFavouriteFields);
+  const hasFavourites = Object.keys(favourites).length > 0;
   const [activeTab, setActiveTab] = useState(0);
+  const toggleFavourite = (field) => {
+    const next = { ...favourites };
+    if (next[field]) delete next[field];
+    else next[field] = true;
+    try { localStorage.setItem(FAVOURITE_FIELDS_KEY, JSON.stringify(next)); } catch { /* storage blocked */ }
+    setFavourites(next);
+    // The Starred tab is prepended with the first star and removed with the last,
+    // so the open tab's index shifts by one either way (ref keeps the same tab open).
+    const before = Object.keys(favourites).length;
+    const after = Object.keys(next).length;
+    if (before === 0 && after > 0) setActiveTab((t) => t + 1);
+    else if (before > 0 && after === 0) setActiveTab((t) => Math.max(0, t - 1));
+  };
+  const favouriteContext = React.useMemo(
+    () => ({ favourites, toggle: toggleFavourite }),
+    [favourites] // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -712,10 +771,24 @@ const ProductEdit = () => {
   // combo's indexes would be one out from the tabs actually on screen.
   const isCombo = formData?.type === COMBO_TYPE;
   const tabs = React.useMemo(
-    () => (isCombo ? [PRODUCT_TABS[0], COMBO_TAB, ...PRODUCT_TABS.slice(1)] : PRODUCT_TABS),
-    [isCombo]
+    () => {
+      const base = isCombo ? [PRODUCT_TABS[0], COMBO_TAB, ...PRODUCT_TABS.slice(1)] : PRODUCT_TABS;
+      return hasFavourites ? [STARRED_TAB, ...base] : base;
+    },
+    [isCombo, hasFavourites]
   );
   const tabIndex = (label) => tabs.findIndex((t) => t.label === label);
+  const starredActive = hasFavourites && activeTab === tabIndex('Starred');
+  // Panels the Starred tab shows: every tab that holds at least one starred field.
+  const starredPanels = React.useMemo(() => {
+    if (!starredActive) return null;
+    const set = new Set();
+    Object.keys(favourites).forEach((field) => {
+      const i = tabs.findIndex((t) => t.label === FIELD_TAB[field]);
+      if (i >= 0) set.add(i);
+    });
+    return set;
+  }, [starredActive, favourites, tabs]);
 
   // Setup > General drove the sell screen's profit figures but never this page, so the
   // Prices table always costed off the LAST item cost and always showed a gross profit
@@ -1392,7 +1465,7 @@ const ProductEdit = () => {
     // and /products/:id/edit, which share this handler) as well as at the API.
     if (!formData.name?.trim()) {
       setNameInvalid(true);
-      reportSaveProblem('Enter a product name, then press Save again.', { tab: 0, severity: 'warning' });
+      reportSaveProblem('Enter a product name, then press Save again.', { tab: tabIndex('General'), severity: 'warning' });
       return;
     }
     setNameInvalid(false);
@@ -1403,7 +1476,7 @@ const ProductEdit = () => {
       setCaseQtyInvalid(true);
       reportSaveProblem(
         'Enter a Case Quantity of 1 or more (how many items come in one case), then press Save again.',
-        { tab: 0, severity: 'warning' }
+        { tab: tabIndex('General'), severity: 'warning' }
       );
       return;
     }
@@ -1421,7 +1494,7 @@ const ProductEdit = () => {
     if (missingRequired.length > 0) {
       reportSaveProblem(
         `Fill in the required additional information: ${missingRequired.map((f) => f.name).join(', ')}. Then press Save again.`,
-        { tab: 8, severity: 'warning' }
+        { tab: tabIndex('Additional Info'), severity: 'warning' }
       );
       return;
     }
@@ -1431,7 +1504,7 @@ const ProductEdit = () => {
     // so the user is sent straight to Sell & Cost instead of waiting on a round trip.
     if ((formData.prices || []).filter((p) => !isBlankPriceRow(p)).length === 0 && !formData.requestPrice && !formData.costPercentage) {
       reportSaveProblem('This product has no price. Add at least one price, then press Save again.', {
-        tab: 2,
+        tab: tabIndex('Sell & Cost'),
         severity: 'warning',
       });
       return;
@@ -1440,7 +1513,7 @@ const ProductEdit = () => {
     // otherwise be saved as "$0.00" without anyone typing it (0 can still be typed).
     if ((formData.prices || []).some((p) => !isBlankPriceRow(p) && (p.price === '' || p.price == null))) {
       reportSaveProblem('A price point has no price. Enter its price (or remove the row), then press Save again.', {
-        tab: 2,
+        tab: tabIndex('Sell & Cost'),
         severity: 'warning',
       });
       return;
@@ -1478,7 +1551,7 @@ const ProductEdit = () => {
           }
         );
         if (!proceed) {
-          setActiveTab(4);
+          setActiveTab(tabIndex('Barcodes'));
           return;
         }
       }
@@ -2069,12 +2142,18 @@ const ProductEdit = () => {
       {/* Scrollable form content (header band stays pinned) */}
       {/* pb clears the pinned Save bar, so the last field of a tab is never sitting
           underneath it. */}
+      <FavouriteFieldsContext.Provider value={favouriteContext}>
+      <StarredPanelsContext.Provider value={starredPanels}>
       <Box ref={contentScrollRef} sx={{ flex: 1, overflowY: 'auto', backgroundColor: 'sf.formPage', pb: `${SAVE_BAR_CLEARANCE}px` }}>
       {/* Tab Content */}
-      <Box sx={{
+      <Box data-starred-mode={starredActive ? 'true' : undefined} sx={{
         backgroundColor: 'sf.formPage',
         maxWidth: '820px',
         margin: '0 auto',
+        // Starred tab: in each panel it shows, keep the section heading (first child)
+        // and the blocks that hold a starred star; hide the rest.
+        '&[data-starred-mode="true"] [role="tabpanel"]:not([data-starred-panel]) > .MuiBox-root > :not(:first-child):not(:has([data-starred="true"])):not([data-field-block="panel"])': { display: 'none' },
+        '&[data-starred-mode="true"] [role="tabpanel"]:not([data-starred-panel]) > .MuiBox-root > .MuiGrid-container > .MuiGrid-item:not(:has([data-starred="true"]))': { display: 'none' },
         // Light inputs stay transparent (they sit on white and on #f8f8f8 zebra rows alike).
         '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: byMode('transparent', '#121212') },
         '& .MuiOutlinedInput-notchedOutline': { borderColor: 'sf.border', borderWidth: '1px' },
@@ -2085,6 +2164,16 @@ const ProductEdit = () => {
         '& input::placeholder, & textarea::placeholder': { color: 'sf.textFaint', opacity: 1 },
         '& .MuiTypography-subtitle1': { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, color: 'sf.text' },
       }}>
+        {/* Starred tab (reference): "Starred" title, a rule, then every section that
+            holds a starred field with only its starred fields (panels below). */}
+        <TabPanel value={activeTab} index={tabIndex('Starred')} data-starred-panel="true">
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <StarIcon sx={{ mr: 1, color: byMode('#9ca3af', '#a0a4aa') }} />
+            <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Starred</Typography>
+          </Box>
+          <Divider sx={{ mt: 3 }} />
+        </TabPanel>
+
         {/* General Tab */}
         <TabPanel value={activeTab} index={tabIndex('General')}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -2361,12 +2450,14 @@ const ProductEdit = () => {
               <Box sx={{ flexGrow: 1 }} />
               <FavoriteStar field="Combo Items" />
             </Box>
-            <ComboItemsPanel
-              items={formData.comboContents || []}
-              excludeProductId={isNewProduct ? null : parseInt(id, 10)}
-              outletId={formData.outletId}
-              onChange={(next) => setFormData((prev) => ({ ...prev, comboContents: next }))}
-            />
+            <Box data-field-block="panel">
+              <ComboItemsPanel
+                items={formData.comboContents || []}
+                excludeProductId={isNewProduct ? null : parseInt(id, 10)}
+                outletId={formData.outletId}
+                onChange={(next) => setFormData((prev) => ({ ...prev, comboContents: next }))}
+              />
+            </Box>
           </TabPanel>
         )}
 
@@ -3316,6 +3407,7 @@ const ProductEdit = () => {
             </Box>
           )}
 
+          <Box data-field-block="true">
           <Typography variant="subtitle1" sx={{ mb: 2 }}>
             Barcodes <FavoriteStar field="Barcodes" />
           </Typography>
@@ -3521,6 +3613,7 @@ const ProductEdit = () => {
           >
              New Barcode
           </Button>
+          </Box>
         </TabPanel>
 
         {/* Suppliers Tab */}
@@ -3846,6 +3939,7 @@ const ProductEdit = () => {
             <Typography variant="h6" sx={{ fontSize: 24, fontWeight: 700 }}>Loyalty</Typography>
           </Box>
           
+          <Box data-field-block="true">
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
             {isTrueSuperAdmin() ? 'Global' : (getOutletName() || 'N/A')} <FavoriteStar field="Loyalty Outlet" />
           </Typography>
@@ -3924,6 +4018,7 @@ const ProductEdit = () => {
           >
              Add Loyalty Row
           </Button>
+          </Box>
         </TabPanel>
 
         {/* Additional Info Tab */}
@@ -4008,6 +4103,7 @@ const ProductEdit = () => {
             );
           })}
 
+          <Box data-field-block="true">
           <Typography variant="subtitle1" sx={{ mb: 2 }}>
             Sell on Shop MyLocal <FavoriteStar field="Sell on Shop MyLocal" />
           </Typography>
@@ -4022,10 +4118,13 @@ const ProductEdit = () => {
                 : "This product won't be available on Shop MyLocal"}
             </Typography>
           </Box>
+          </Box>
         </TabPanel>
       </Box>
 
       </Box>
+      </StarredPanelsContext.Provider>
+      </FavouriteFieldsContext.Provider>
 
       <PageSaveBar onSave={handleSave} saving={saving} />
 
