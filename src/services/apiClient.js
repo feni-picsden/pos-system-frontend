@@ -48,7 +48,8 @@ const DERIVED_RESOURCES = {
   // A product save can change its category/brand/family/tags, which is what the
   // Classifications list counts and audits — otherwise the list showed a family
   // with 0 products for up to 5 minutes after one had just been put into it.
-  '/products': ['/classifications'],
+  // The same save can add/remove supplier links, which the Suppliers list counts.
+  '/products': ['/classifications', '/suppliers'],
 };
 
 // Writes that MOVE STOCK (sale/refund/cancel, order send/receive, return,
