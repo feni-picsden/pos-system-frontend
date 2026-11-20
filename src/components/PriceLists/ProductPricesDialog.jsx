@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Dialog, Box, Typography, Button, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
+import { byMode } from '../../theme/sfPalette';
 
 // "See Prices" on the price list edit page (reference "Product Prices" /
 // "Family Prices" dialog): every price row of the product grouped as
@@ -13,8 +14,8 @@ import InfoIcon from '@mui/icons-material/Info';
 
 const money = (v) => `$${(Number(v) || 0).toFixed(2)}`;
 
-const cellSx = { border: '1px solid #000', fontSize: 16, color: '#000', padding: '12px 10px', lineHeight: 'normal' };
-const groupRowSx = { '& td': { ...cellSx, bgcolor: '#ebebeb', fontSize: 18, padding: '14px 16px' } };
+const cellSx = { border: byMode('1px solid #000', '1px solid #373737'), fontSize: 16, color: byMode('#000', '#f8f8f8'), padding: '12px 10px', lineHeight: 'normal' };
+const groupRowSx = { '& td': { ...cellSx, bgcolor: byMode('#ebebeb', '#232323'), fontSize: 18, padding: '14px 16px' } };
 
 const buildPriceGroups = ({ product, priceSets = [], outlets = [], selectedOutletId = null }) => {
   const rows = Array.isArray(product?.prices) ? product.prices : [];
@@ -62,7 +63,7 @@ const PriceRows = ({ rows }) =>
       <TableCell sx={cellSx}>{r.source}</TableCell>
       <TableCell sx={cellSx}>{r.quantity}</TableCell>
       <TableCell sx={cellSx}>{money(r.price)}</TableCell>
-      <TableCell sx={{ ...cellSx, bgcolor: '#c4c4c4', color: '#5a5a5a' }}>{money(r.cost)}</TableCell>
+      <TableCell sx={{ ...cellSx, bgcolor: byMode('#c4c4c4', '#3a3a3a'), color: byMode('#5a5a5a', '#d4d4d4') }}>{money(r.cost)}</TableCell>
       <TableCell sx={cellSx}>{r.pct.toFixed(2)}%</TableCell>
     </TableRow>
   ));
@@ -82,9 +83,9 @@ const ProductPricesDialog = ({ open, onClose, title = 'Product Prices', product,
       onClose={onClose}
       PaperProps={{ elevation: 0, sx: { width: 770, maxWidth: '94vw', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 0 30px rgba(0,0,0,.25), 0 15px 30px rgba(0,0,0,.19)' } }}
     >
-      <Box sx={{ bgcolor: '#bfe6fb', px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <InfoIcon sx={{ color: '#1c6fa8', fontSize: 20 }} />
-        <Typography sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 18 }}>{title}</Typography>
+      <Box sx={{ bgcolor: byMode('#bfe6fb', '#0c3a55'), px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <InfoIcon sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontSize: 20 }} />
+        <Typography sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 18 }}>{title}</Typography>
       </Box>
       <Box sx={{ p: 2 }}>
         <Table sx={{ borderCollapse: 'collapse' }}>
@@ -98,12 +99,12 @@ const ProductPricesDialog = ({ open, onClose, title = 'Product Prices', product,
           <TableBody>
             <TableRow sx={groupRowSx}><TableCell colSpan={5}>Relevant Prices</TableCell></TableRow>
             {loading ? (
-              <TableRow><TableCell colSpan={5} sx={{ ...cellSx, color: '#6b7280', textAlign: 'center' }}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} sx={{ ...cellSx, color: byMode('#6b7280', '#a0a4aa'), textAlign: 'center' }}>Loading...</TableCell></TableRow>
             ) : (
               <PriceRows rows={groups.relevant} />
             )}
             {!showOther ? (
-              <TableRow sx={{ ...groupRowSx, cursor: 'pointer', '&:hover td': { bgcolor: '#e0e0e0' } }} onClick={() => setShowOther(true)}>
+              <TableRow sx={{ ...groupRowSx, cursor: 'pointer', '&:hover td': { bgcolor: byMode('#e0e0e0', '#2f2f2f') } }} onClick={() => setShowOther(true)}>
                 <TableCell colSpan={5}>Show Other Prices</TableCell>
               </TableRow>
             ) : (
@@ -118,7 +119,7 @@ const ProductPricesDialog = ({ open, onClose, title = 'Product Prices', product,
           <Button
             onClick={onClose}
             disableElevation
-            sx={{ bgcolor: '#e0e0e0', color: '#000', fontWeight: 700, fontSize: 16, textTransform: 'none', borderRadius: '8px', px: 3, height: 42, '&:hover': { bgcolor: '#d0d0d0' } }}
+            sx={{ bgcolor: byMode('#e0e0e0', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), fontWeight: 700, fontSize: 16, textTransform: 'none', borderRadius: '8px', px: 3, height: 42, '&:hover': { bgcolor: byMode('#d0d0d0', '#4a4a4a') } }}
           >
             Done
           </Button>

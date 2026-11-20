@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, CardContent, Typography, Box } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
+import { byMode } from "../../theme/sfPalette";
 import {
   AssignmentOutlined as StockListIcon,
   QrCodeScannerOutlined as ExternalStocktakeIcon,
@@ -92,12 +93,12 @@ const MoreStockManagement = () => (
             position: "relative",
             overflow: "hidden",
             textDecoration: "none",
-            backgroundColor: "transparent",
-            border: "1px solid #000",
+            backgroundColor: byMode("transparent", "#232323"),
+            border: byMode("1px solid #000", "1px solid #373737"),
             borderRadius: 0,
             boxShadow:
               "0 0 30px rgba(0,0,0,0.25), 0 15px 30px rgba(0,0,0,0.19)",
-            color: "#313439",
+            color: byMode("#313439", "#f8f8f8"),
             transition: "color 0.2s ease",
             "&::before": {
               content: '""',

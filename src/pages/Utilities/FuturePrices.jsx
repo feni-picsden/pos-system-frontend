@@ -54,6 +54,7 @@ import productService from '../../services/productService';
 import futurePriceService from '../../services/futurePriceService';
 import classificationService from '../../services/classificationService';
 import { priceSetService } from '../../services/priceSetService';
+import { byMode } from '../../theme/sfPalette';
 
 // Default Price Set as a pick in the Price Set filter / dialog (server id 0 = default).
 const DEFAULT_SET = { id: 0, name: 'Default Price Set', outletId: null };
@@ -92,8 +93,8 @@ const BULK_BASE_SX = {
   bgcolor: 'transparent',
   transition: INSTANT,
   '&.Mui-disabled': {
-    bgcolor: '#e5e5e5',
-    color: '#737373',
+    bgcolor: byMode('#e5e5e5', '#3a3a3a'),
+    color: byMode('#737373', '#a0a4aa'),
     borderColor: '#a1a1a1',
     cursor: 'not-allowed',
     // MUI sets pointer-events:none on disabled buttons, which would swallow the cursor.
@@ -104,16 +105,16 @@ const BULK_BASE_SX = {
 // Reference hover on the outlined bulk actions is a neutral wash; the border never moves.
 const BULK_DANGER_SX = {
   ...BULK_BASE_SX,
-  color: '#e7000b',
-  borderColor: '#fb2c36',
-  '&:hover': { borderColor: '#fb2c36', bgcolor: 'rgba(0,0,0,0.05)' },
+  color: byMode('#e7000b', '#ffa2a2'),
+  borderColor: byMode('#fb2c36', '#ffa2a2'),
+  '&:hover': { borderColor: byMode('#fb2c36', '#ffa2a2'), bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 };
 
 const BULK_PRIMARY_SX = {
   ...BULK_BASE_SX,
   color: '#5ebbeb',
   borderColor: '#5ebbeb',
-  '&:hover': { borderColor: '#5ebbeb', bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { borderColor: '#5ebbeb', bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 };
 
 // Row actions are the same outlined pill, but 34px tall.
@@ -170,6 +171,7 @@ const FuturePriceConfirmDialog = ({
           borderRadius: 0,
           overflow: 'visible',
           boxShadow: '0 0 30px 0 rgba(0,0,0,0.25)',
+          bgcolor: byMode(undefined, '#232323'),
           mt: '60px',
         },
       }}
@@ -199,11 +201,11 @@ const FuturePriceConfirmDialog = ({
       <DialogContent sx={{ pt: '76px', px: 4, pb: 0 }}>
         <Typography
           component="h3"
-          sx={{ fontSize: '18.72px', fontWeight: 700, color: '#000', textAlign: 'center', mb: 2 }}
+          sx={{ fontSize: '18.72px', fontWeight: 700, color: byMode('#000', '#f8f8f8'), textAlign: 'center', mb: 2 }}
         >
           {isDelete ? 'Delete Future Price' : 'Apply Future Price'}
         </Typography>
-        <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'center', mb: 3 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), textAlign: 'center', mb: 3 }}>
           {row
             ? `Are you sure you want to ${verb} the future price?`
             : `Are you sure you want to ${verb} ${count} future price(s)?`}
@@ -216,8 +218,8 @@ const FuturePriceConfirmDialog = ({
                 <TableRow
                   sx={{
                     '& th': {
-                      bgcolor: '#5ebbeb',
-                      color: '#fff',
+                      bgcolor: byMode('#5ebbeb', '#333333'),
+                      color: byMode('#fff', '#5ebbeb'),
                       fontWeight: 700,
                       fontSize: 16,
                       textAlign: 'center',
@@ -255,10 +257,10 @@ const FuturePriceConfirmDialog = ({
           onClick={onCancel}
           sx={{
             ...CONFIRM_FOOTER_SX,
-            bgcolor: '#f8f8f8',
-            color: '#676b72',
-            border: '1px solid #676b72',
-            '&:hover': { bgcolor: '#f0f0f0', boxShadow: 'none' },
+            bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+            color: byMode('#676b72', '#d4d4d4'),
+            border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
+            '&:hover': { bgcolor: byMode('#f0f0f0', '#4a4a4a'), boxShadow: 'none' },
           }}
         >
           Cancel
@@ -270,9 +272,9 @@ const FuturePriceConfirmDialog = ({
             ...CONFIRM_FOOTER_SX,
             bgcolor: confirmBg,
             color: '#f8f8f8',
-            border: '1px solid #f8f8f8',
+            border: byMode('1px solid #f8f8f8', '1px solid #232323'),
             '&:hover': { bgcolor: confirmHoverBg, boxShadow: 'none' },
-            '&.Mui-disabled': { bgcolor: '#404040', color: '#737373' },
+            '&.Mui-disabled': { bgcolor: byMode('#404040', '#3a3a3a'), color: byMode('#737373', '#a0a4aa') },
           }}
         >
           {loading ? (isDelete ? 'Deleting...' : 'Applying...') : isDelete ? 'Delete' : 'Apply'}
@@ -284,11 +286,12 @@ const FuturePriceConfirmDialog = ({
 
 const FIELD_SX = {
   height: 42,
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
+  color: byMode(undefined, '#f8f8f8'),
   borderRadius: '8px',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   '& .MuiSelect-select, & .MuiInputBase-input': { fontSize: 16, py: 0, height: '42px !important', display: 'flex', alignItems: 'center' },
 };
 
@@ -297,17 +300,18 @@ const FIELD_SX = {
 // hovered / keyboard row a faint grey wash.
 // Reference Future Prices lists: attached right under the field, hovered /
 // keyboard row filled sky-300, picked row text blue.
-const activeRowSx = { bgcolor: '#7dd3fc' };
+const activeRowSx = { bgcolor: byMode('#7dd3fc', '#0084d1'), color: byMode(undefined, '#fafafa') };
 const LIST_PAPER_SX = {
   mt: '4px',
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
+  bgcolor: byMode(undefined, '#232323'),
   borderRadius: '8px',
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
   '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
-  '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
   '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent', color: '#00a6f4' },
   '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': activeRowSx,
-  '& .MuiAutocomplete-noOptions': { fontSize: 16, color: '#000', px: '14px', py: '18px' },
+  '& .MuiAutocomplete-noOptions': { fontSize: 16, color: byMode('#000', '#f8f8f8'), px: '14px', py: '18px' },
 };
 
 const SELECT_MENU_PROPS = {
@@ -317,11 +321,12 @@ const SELECT_MENU_PROPS = {
     sx: {
       mt: '10px',
       maxHeight: 289,
-      border: '1px solid #000',
+      border: byMode('1px solid #000', '1px solid #a1a1a1'),
+      bgcolor: byMode(undefined, '#232323'),
       borderRadius: '8px',
       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
       '& .MuiMenu-list': { py: '2px' },
-      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
       '& .MuiMenuItem-root.Mui-selected': { color: '#00a6f4', bgcolor: 'transparent' },
       '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': activeRowSx,
     },
@@ -332,13 +337,13 @@ const SELECT_MENU_PROPS = {
 const TAG_CHIP_SX = {
   height: 26,
   borderRadius: '4px',
-  bgcolor: '#e5e5e5',
-  color: '#000',
+  bgcolor: byMode('#e5e5e5', '#3a3a3a'),
+  color: byMode('#000', '#f8f8f8'),
   fontSize: 16,
   '& .MuiChip-label': { px: 1 },
 };
 
-const CLEAR_ICON_SX = { fontSize: 18, color: '#000' };
+const CLEAR_ICON_SX = { fontSize: 18, color: byMode('#000', '#f8f8f8') };
 
 // Grid checkboxes, as on the other Utilities lists: thin-outline square glyphs, 28x32 box.
 const CHECKBOX_GLYPHS = {
@@ -346,7 +351,7 @@ const CHECKBOX_GLYPHS = {
   checkedIcon: <CheckSquareIcon />,
   indeterminateIcon: <IndeterminateSquareIcon />,
 };
-const CHECKBOX_SX = { p: '4px 2px', color: '#000', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#000' } };
+const CHECKBOX_SX = { p: '4px 2px', color: byMode('#000', '#f8f8f8'), '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: byMode('#000', '#f8f8f8') } };
 
 /**
  * Multi-select filter (Outlets / Created By / Price Set): shows the first two
@@ -387,7 +392,7 @@ const MultiFilter = ({ label, options, value, onChange, noOptionsText = 'No Opti
                 checked={selected}
                 icon={<SquareIcon />}
                 checkedIcon={<CheckSquareIcon />}
-                sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                sx={{ p: 0, mr: '6px', color: byMode('#000', '#f8f8f8'), '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
               />
               {option.name}
             </li>
@@ -413,7 +418,7 @@ const MultiFilter = ({ label, options, value, onChange, noOptionsText = 'No Opti
             placeholder={value.length ? '' : label}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            sx={{ '& .MuiOutlinedInput-root': { ...FIELD_SX, py: '0 !important' }, '& input::placeholder': { color: '#808080', opacity: 1 } }}
+            sx={{ '& .MuiOutlinedInput-root': { ...FIELD_SX, py: '0 !important' }, '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 } }}
           />
         )}
       />
@@ -424,23 +429,25 @@ const MultiFilter = ({ label, options, value, onChange, noOptionsText = 'No Opti
 // Schedule-dialog inputs: 1px #404040 border, 8px radius, #d4d4d4 fill when disabled.
 const DIALOG_INPUT_SX = {
   borderRadius: '8px',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-  '&.Mui-disabled': { bgcolor: '#d4d4d4' },
-  '&.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+  bgcolor: byMode(undefined, '#121212'),
+  color: byMode(undefined, '#f8f8f8'),
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+  '&.Mui-disabled': { bgcolor: byMode('#d4d4d4', '#3a3a3a') },
+  '&.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
 };
 // Dialog text fields: 42px tall, placeholder in grey, 14px text inset.
 const DIALOG_FIELD_SX = {
   '& .MuiOutlinedInput-root': { ...DIALOG_INPUT_SX, height: 42, pl: '14px' },
   '& .MuiOutlinedInput-input': { py: 0, pl: 0, fontSize: 16, height: '42px' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
-  '& .Mui-disabled input::placeholder': { color: '#737373' },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
+  '& .Mui-disabled input::placeholder': { color: byMode('#737373', '#a0a4aa') },
 };
 // Reference dialog field names: 12px black, a fixed 16px line above the field
 // (kept as blank space while hidden so rows never jump).
 const DialogLabel = ({ show, children }) => (
-  <Typography sx={{ fontSize: 12, lineHeight: '16px', color: '#000', mb: '4px', visibility: show ? 'visible' : 'hidden' }}>
+  <Typography sx={{ fontSize: 12, lineHeight: '16px', color: byMode('#000', '#f8f8f8'), mb: '4px', visibility: show ? 'visible' : 'hidden' }}>
     {children}
   </Typography>
 );
@@ -812,9 +819,9 @@ const FuturePrices = () => {
 
   return (
     /* Reference spacing: page top 27px, 3px between the h1 and New. */
-    <Box sx={{ px: 1, pt: '27px', pb: 1, backgroundColor: '#fff', minHeight: 'calc(100vh - 50px)' }}>
+    <Box sx={{ px: 1, pt: '27px', pb: 1, backgroundColor: byMode('#fff', '#121212'), minHeight: 'calc(100vh - 50px)' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: '3px', mb: '20px' }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 700, fontSize: 32, color: '#000' }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 700, fontSize: 32, color: byMode('#000', '#f8f8f8') }}>
           Future Prices
         </Typography>
         <Button
@@ -838,7 +845,7 @@ const FuturePrices = () => {
           mb: '34px',
           '& .MuiOutlinedInput-root': FIELD_SX,
           '& .MuiOutlinedInput-input': { px: '14px' },
-          '& input::placeholder': { color: '#808080', opacity: 1 },
+          '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
         }}
       />
 
@@ -876,7 +883,7 @@ const FuturePrices = () => {
                 placeholder="Category"
                 onFocus={() => setCategoryFocused(true)}
                 onBlur={() => setCategoryFocused(false)}
-                sx={{ '& .MuiOutlinedInput-root': { ...FIELD_SX, py: '0 !important' }, '& input::placeholder': { color: '#808080', opacity: 1 } }}
+                sx={{ '& .MuiOutlinedInput-root': { ...FIELD_SX, py: '0 !important' }, '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 } }}
               />
             )}
           />
@@ -899,7 +906,7 @@ const FuturePrices = () => {
         {/* Reference: inline-block, 19px line box, padding 0 8px 0 0 (no margin). */}
         <Typography
           component="span"
-          sx={{ display: 'inline-block', fontSize: 16, lineHeight: '19px', color: '#000', padding: '0 8px 0 0' }}
+          sx={{ display: 'inline-block', fontSize: 16, lineHeight: '19px', color: byMode('#000', '#f8f8f8'), padding: '0 8px 0 0' }}
         >
           {selectedPrices.length} Selected Prices
         </Typography>
@@ -959,10 +966,10 @@ const FuturePrices = () => {
           {/* Reference: 200x160 black empty-set icon, 24px black H2, black subtitle. */}
           <EmptySetGlyph />
           <Box>
-            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000', mb: 3 }}>
+            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: byMode('#000', '#f8f8f8'), mb: 3 }}>
               No Future Prices
             </Typography>
-            <Typography sx={{ color: '#000', fontSize: 16 }}>
+            <Typography sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 16 }}>
               There are no prices set to be activated in the future.
             </Typography>
           </Box>
@@ -976,7 +983,7 @@ const FuturePrices = () => {
           <TableHead>
             <TableRow
               sx={{
-                '& th': { bgcolor: '#5ebbeb', color: '#fff', fontSize: 16, fontWeight: 700, border: 0, height: 51, py: 0, px: '8px' },
+                '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#fff', '#5ebbeb'), fontSize: 16, fontWeight: 700, border: 0, height: 51, py: 0, px: '8px' },
                 '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                 '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
               }}
@@ -987,7 +994,7 @@ const FuturePrices = () => {
                   indeterminate={selectedPrices.length > 0 && selectedPrices.length < futurePrices.length}
                   checked={futurePrices.length > 0 && selectedPrices.length === futurePrices.length}
                   onChange={handleSelectAll}
-                  sx={{ ...CHECKBOX_SX, color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                  sx={{ ...CHECKBOX_SX, color: byMode('#fff', '#5ebbeb'), '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: byMode('#fff', '#5ebbeb') } }}
                 />
               </TableCell>
               {COLUMNS.map((col) => {
@@ -1009,13 +1016,13 @@ const FuturePrices = () => {
           </TableHead>
           <TableBody
             sx={{
-              '& tr': { bgcolor: '#fff' },
-              '& td': { border: 0, height: 58, py: 0, px: '8px', fontSize: 16, color: '#000' },
+              '& tr': { bgcolor: byMode('#fff', '#232323') },
+              '& td': { border: 0, height: 58, py: 0, px: '8px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
             }}
           >
             {pagedPrices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={COLUMNS.length + 2} align="center" sx={{ py: 4, color: '#000', fontSize: 16 }}>
+                <TableCell colSpan={COLUMNS.length + 2} align="center" sx={{ py: 4, color: byMode('#000', '#f8f8f8'), fontSize: 16 }}>
                   No results found. Change search filters and try again.
                 </TableCell>
               </TableRow>
@@ -1031,8 +1038,8 @@ const FuturePrices = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ fontSize: 12, color: '#404040', lineHeight: '16px' }}>{row.itemType}</Typography>
-                    <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '20px' }}>{row.itemName}</Typography>
+                    <Typography sx={{ fontSize: 12, color: byMode('#404040', '#d4d4d4'), lineHeight: '16px' }}>{row.itemType}</Typography>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: '20px' }}>{row.itemName}</Typography>
                   </TableCell>
                   {isAllOutlets && <TableCell>{row.outletName}</TableCell>}
                   <TableCell>{row.priceSet}</TableCell>
@@ -1051,7 +1058,7 @@ const FuturePrices = () => {
                         variant="outlined"
                         startIcon={<DeleteIcon />}
                         onClick={() => setConfirm({ kind: 'delete', ids: [row.id], row })}
-                        sx={rowActionSx('#e7000b', '#fb2c36')}
+                        sx={rowActionSx(byMode('#e7000b', '#ffa2a2'), byMode('#fb2c36', '#ffa2a2'))}
                       >
                         Delete
                       </Button>
@@ -1060,7 +1067,7 @@ const FuturePrices = () => {
                           variant="outlined"
                           startIcon={<CheckCircleIcon />}
                           onClick={() => setConfirm({ kind: 'apply', ids: [row.id], row })}
-                          sx={rowActionSx('#00a63e', '#00c950')}
+                          sx={rowActionSx(byMode('#00a63e', '#7bf1a8'), byMode('#00c950', '#7bf1a8'))}
                         >
                           Apply
                         </Button>
@@ -1128,16 +1135,16 @@ const FuturePrices = () => {
             display: 'flex',
             alignItems: 'center',
             gap: 1.5,
-            backgroundColor: '#b8e6fe',
+            backgroundColor: byMode('#b8e6fe', '#0c3a55'),
             px: 3,
             py: 2,
           }}
         >
           {/* Reference: a bold "?" glyph (no circle) and a bold sky-800 title. */}
-          <Typography component="span" sx={{ fontSize: 22, fontWeight: 700, color: '#0369a1', lineHeight: 1 }}>
+          <Typography component="span" sx={{ fontSize: 22, fontWeight: 700, color: byMode('#0369a1', '#74d4ff'), lineHeight: 1 }}>
             ?
           </Typography>
-          <Typography component="span" sx={{ fontSize: 18, fontWeight: 700, color: '#0369a1' }}>
+          <Typography component="span" sx={{ fontSize: 18, fontWeight: 700, color: byMode('#0369a1', '#74d4ff') }}>
             Schedule Price Change
           </Typography>
         </DialogTitle>
@@ -1168,12 +1175,14 @@ const FuturePrices = () => {
                   paper: {
                     sx: {
                       mt: '4px',
-                      border: '1px solid #000',
+                      border: byMode('1px solid #000', '1px solid #a1a1a1'),
+                      bgcolor: byMode(undefined, '#232323'),
                       borderRadius: '8px',
-                      '& .MuiAutocomplete-groupLabel': { fontWeight: 700, fontSize: 16, color: '#000', lineHeight: '56px', px: '14px', borderBottom: '1px solid #e5e5e5' },
+                      '& .MuiAutocomplete-groupLabel': { fontWeight: 700, fontSize: 16, color: byMode('#000', '#f8f8f8'), bgcolor: byMode(undefined, '#232323'), lineHeight: '56px', px: '14px', borderBottom: byMode('1px solid #e5e5e5', '1px solid #373737') },
                       '& .MuiAutocomplete-listbox': { maxHeight: 289, py: 0 },
-                      '& .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
-                      '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#7dd3fc !important' },
+                      '& .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
+                      '& .MuiAutocomplete-option.Mui-focused': { bgcolor: byMode('#7dd3fc !important', '#0084d1 !important'), color: byMode(undefined, '#fafafa') },
+                      '& .MuiAutocomplete-noOptions': { color: byMode(undefined, '#f8f8f8') },
                     },
                   },
                 }}
@@ -1184,7 +1193,7 @@ const FuturePrices = () => {
                   return (
                     <li key={option.id} {...optionProps} style={{ ...optionProps.style, display: 'block' }}>
                       <Box sx={{ lineHeight: '20px' }}>{option.name}</Box>
-                      {sub && <Box sx={{ fontSize: 13, color: '#737373', lineHeight: '16px' }}>{sub}</Box>}
+                      {sub && <Box sx={{ fontSize: 13, color: byMode('#737373', '#a0a4aa'), lineHeight: '16px' }}>{sub}</Box>}
                     </li>
                   );
                 }}
@@ -1248,7 +1257,7 @@ const FuturePrices = () => {
             {/* Reference: a family product warns that its siblings take the price too. */}
             {selectedItem && (selectedProductDetails?.family?.name || selectedItem?.family?.name) && (
               <Grid item xs={12} sx={{ pt: '8px !important' }}>
-                <Typography sx={{ fontSize: 16, color: '#404040', lineHeight: '20px' }}>
+                <Typography sx={{ fontSize: 16, color: byMode('#404040', '#d4d4d4'), lineHeight: '20px' }}>
                   Will also apply price to family: {selectedProductDetails?.family?.name || selectedItem?.family?.name}
                 </Typography>
               </Grid>
@@ -1260,15 +1269,15 @@ const FuturePrices = () => {
               <Grid item xs={12} sx={{ pt: '8px !important' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography sx={{ fontSize: 16, color: '#404040', lineHeight: '20px' }}>Product Price</Typography>
-                    <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '20px' }}>
+                    <Typography sx={{ fontSize: 16, color: byMode('#404040', '#d4d4d4'), lineHeight: '20px' }}>Product Price</Typography>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: '20px' }}>
                       {/* Reference: a dash until a quantity is typed, then price x quantity. */}
                       {selectedProductDetails && parseFloat(quantity) > 0 ? formatCurrency(getProductPrice(selectedProductDetails) * parseFloat(quantity)) : <Box component="span" sx={{ fontWeight: 700 }}>—</Box>}
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right' }}>
-                    <Typography sx={{ fontSize: 16, color: '#404040', lineHeight: '20px' }}>Product Cost</Typography>
-                    <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '20px' }}>
+                    <Typography sx={{ fontSize: 16, color: byMode('#404040', '#d4d4d4'), lineHeight: '20px' }}>Product Cost</Typography>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: '20px' }}>
                       {selectedProductDetails && parseFloat(quantity) > 0 ? formatCurrency(getProductCost(selectedProductDetails) * parseFloat(quantity)) : <Box component="span" sx={{ fontWeight: 700 }}>—</Box>}
                     </Typography>
                   </Box>
@@ -1293,7 +1302,7 @@ const FuturePrices = () => {
                 suffix="..."
               />
               {dateError && (
-                <Typography sx={{ color: '#e33430', fontSize: 12, mt: 0.5 }}>{dateError}</Typography>
+                <Typography sx={{ color: byMode('#e33430', '#ffa2a2'), fontSize: 12, mt: 0.5 }}>{dateError}</Typography>
               )}
             </Grid>
 
@@ -1351,7 +1360,7 @@ const FuturePrices = () => {
                 onFocus={(e) => { setPriceFocused(true); e.target.select(); }}
                 onBlur={() => setPriceFocused(false)}
                 onChange={(e) => setPrice(e.target.value)}
-                InputProps={{ startAdornment: <InputAdornment position="start" sx={{ mr: '6px', '& p': { color: '#404040', fontSize: 16 } }}>$</InputAdornment> }}
+                InputProps={{ startAdornment: <InputAdornment position="start" sx={{ mr: '6px', '& p': { color: byMode('#404040', '#d4d4d4'), fontSize: 16 } }}>$</InputAdornment> }}
                 inputProps={{ min: 0, step: 0.01 }}
               />
             </Grid>
@@ -1371,10 +1380,10 @@ const FuturePrices = () => {
               fontWeight: 700,
               fontSize: 16,
               textTransform: 'none',
-              color: '#000',
-              backgroundColor: '#d4d4d4',
+              color: byMode('#000', '#f8f8f8'),
+              backgroundColor: byMode('#d4d4d4', '#3a3a3a'),
               transition: INSTANT,
-              '&:hover': { backgroundColor: '#c4c4c4' },
+              '&:hover': { backgroundColor: byMode('#c4c4c4', '#4a4a4a') },
             }}
           >
             Cancel
@@ -1398,7 +1407,7 @@ const FuturePrices = () => {
               boxShadow: 'none',
               transition: INSTANT,
               '&:hover': { bgcolor: '#0084d1', borderColor: '#0084d1', boxShadow: 'none' },
-              '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373', borderColor: '#a1a1a1' },
+              '&.Mui-disabled': { bgcolor: byMode('#e5e5e5', '#3a3a3a'), color: byMode('#737373', '#a0a4aa'), borderColor: '#a1a1a1' },
             }}
           >
             {loading ? 'Add...' : 'Add'}

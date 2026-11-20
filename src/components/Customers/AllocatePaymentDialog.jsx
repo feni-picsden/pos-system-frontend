@@ -7,6 +7,7 @@ import settingsService from "../../services/settingsService";
 import { useAppDialogs } from "../Common/AppDialogProvider";
 import { formatCurrency } from "../../utils/currency";
 import { formatSettingsDate, formatSettingsTime } from "../../utils/appDateTime";
+import { byMode } from "../../theme/sfPalette";
 
 // Reference: an Incomplete payment ("There is an unallocated payment." ->
 // Allocate) is spread over the customer's outstanding invoices here. Same
@@ -15,7 +16,7 @@ import { formatSettingsDate, formatSettingsTime } from "../../utils/appDateTime"
 // figure and the sum at what is still unallocated. A partial allocation is
 // allowed — the payment stays Incomplete with the rest.
 const headSx = {
-  "& th": { bgcolor: "#5ebbeb", color: "white", fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+  "& th": { bgcolor: byMode("#5ebbeb", "#333333"), color: byMode("white", "#5ebbeb"), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
   "& th:first-of-type": { borderTopLeftRadius: "12px", borderBottomLeftRadius: "12px" },
   "& th:last-of-type": { borderTopRightRadius: "12px", borderBottomRightRadius: "12px" },
 };
@@ -23,15 +24,16 @@ const fieldSx = {
   width: 130,
   "& .MuiOutlinedInput-root": {
     fontSize: 16, borderRadius: "8px",
-    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" },
+    bgcolor: byMode(undefined, "#121212"),
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1") },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#000", "#2b7fff"), borderWidth: "2px" },
   },
 };
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 // Same buttons as the Make Payment dialog (sky-blue filled, rounded).
 const primaryButtonSx = {
-  bgcolor: "#5ebbeb", color: "white", "&:hover": { bgcolor: "#4aa9dd", boxShadow: "none" },
-  "&.Mui-disabled": { bgcolor: "#5ebbeb", color: "white", opacity: 0.6 },
+  bgcolor: "#5ebbeb", color: byMode("white", "#232323"), "&:hover": { bgcolor: "#4aa9dd", boxShadow: "none" },
+  "&.Mui-disabled": { bgcolor: "#5ebbeb", color: byMode("white", "#232323"), opacity: 0.6 },
   borderRadius: "12px", textTransform: "none", boxShadow: "none", fontWeight: 700, fontSize: 16, px: 4, height: 42,
 };
 
@@ -106,7 +108,7 @@ const AllocatePaymentDialog = ({ open, payment, invoices = [], loading = false, 
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 2, mt: 1 }}>
           <Typography variant="h6" sx={{ fontWeight: "bold" }}>Outstanding Invoices</Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Typography data-allocate-remaining variant="body2" sx={{ color: "#676b72" }}>
+            <Typography data-allocate-remaining variant="body2" sx={{ color: byMode("#676b72", "#a0a4aa") }}>
               {formatCurrency(rows.reduce((s, r) => s + (Number(r.outstandingAmount) || 0), 0) - allocated)} Outstanding and {formatCurrency(remaining)} Unallocated
             </Typography>
             <Button onClick={autofill} variant="outlined" size="small">Autofill</Button>
@@ -125,7 +127,7 @@ const AllocatePaymentDialog = ({ open, payment, invoices = [], loading = false, 
                 <TableCell>Allocation</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody sx={{ "& tr:nth-of-type(odd)": { bgcolor: "#ffffff" }, "& tr:nth-of-type(even)": { bgcolor: "#f5f5f5" }, "& td": { border: 0, fontSize: 16, color: "#000" } }}>
+            <TableBody sx={{ "& tr:nth-of-type(odd)": { bgcolor: byMode("#ffffff", "#232323") }, "& tr:nth-of-type(even)": { bgcolor: byMode("#f5f5f5", "#2a2a2a") }, "& td": { border: 0, fontSize: 16, color: byMode("#000", "#f8f8f8") } }}>
               {rows.map((sale) => (
                 <TableRow key={sale.id} data-allocate-row={sale.id}>
                   <TableCell>{formatSettingsDate(sale.saleDate)} {formatSettingsTime(sale.saleDate)}</TableCell>
@@ -152,7 +154,7 @@ const AllocatePaymentDialog = ({ open, payment, invoices = [], loading = false, 
             </TableBody>
             {rows.length > 0 && (
               <TableFooter>
-                <TableRow sx={{ "& td": { border: 0, fontSize: 16, color: "#000", fontWeight: 700 } }}>
+                <TableRow sx={{ "& td": { border: 0, fontSize: 16, color: byMode("#000", "#f8f8f8"), fontWeight: 700 } }}>
                   <TableCell colSpan={3}>TOTAL</TableCell>
                   <TableCell>{formatCurrency(rows.reduce((s, r) => s + (Number(r.totalAmount) || 0), 0))}</TableCell>
                   <TableCell>{formatCurrency(rows.reduce((s, r) => s + (Number(r.outstandingAmount) || 0), 0))}</TableCell>

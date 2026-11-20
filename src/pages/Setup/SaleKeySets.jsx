@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Box,
   Button,
@@ -306,7 +307,7 @@ const SaleKeySets = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('white', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' }
                 }}
@@ -323,9 +324,9 @@ const SaleKeySets = () => {
             </TableHead>
             <TableBody
               sx={{
-                '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-                '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 }
+                '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+                '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#2a2a2a') },
+                '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5 }
               }}
             >
               {saleKeySets.map((set) => (
@@ -344,7 +345,7 @@ const SaleKeySets = () => {
                         startIcon={<EditIcon />}
                         disabled={!canEdit}
                         onClick={() => handleEditSet(set.id)}
-                        sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                        sx={{ color: byMode('#16a34a', '#7bf1a8'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                       >
                         Edit
                       </Button>
@@ -353,7 +354,7 @@ const SaleKeySets = () => {
                         startIcon={<CloneIcon />}
                         disabled={!canAdd || Boolean(cloningId)}
                         onClick={() => handleCloneSet(set.id, set.name)}
-                        sx={{ color: '#ff9800', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                        sx={{ color: byMode('#ff9800', '#fbbf24'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                       >
                         {cloningId === set.id ? 'Cloning...' : 'Clone'}
                       </Button>
@@ -362,7 +363,7 @@ const SaleKeySets = () => {
                         startIcon={<DeleteIcon />}
                         disabled={!canDelete}
                         onClick={() => handleDeleteSet(set.id, set.name)}
-                        sx={{ color: '#dc2626', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                        sx={{ color: byMode('#dc2626', '#ffa2a2'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                       >
                         Delete
                       </Button>
@@ -422,9 +423,9 @@ const SaleKeySets = () => {
                 mb: 2,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '8px',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' }
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' }
                 }
               }}
             />
@@ -441,7 +442,7 @@ const SaleKeySets = () => {
                   sx={{ borderRadius: '8px' }}
                 >
                   {outlets.map((o) => (
-                    <MenuItem key={o.id} value={o.id} sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>
+                    <MenuItem key={o.id} value={o.id} sx={{ fontSize: 16, '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1') }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: byMode('#5ebbeb', '#0084d1') } }}>
                       {o.name}
                     </MenuItem>
                   ))}
@@ -464,21 +465,21 @@ const SaleKeySets = () => {
                     sx: {
                       mt: 0.5,
                       borderRadius: '8px',
-                      border: '1px solid #e0e0e0',
+                      border: byMode('1px solid #e0e0e0', '1px solid #a1a1a1'),
                       boxShadow: '0 4px 14px rgba(0,0,0,0.12)'
                     }
                   }
                 }}
                 sx={{
                   borderRadius: '8px',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' }
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' }
                 }}
               >
-                <MenuItem value="no-template" sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>No template</MenuItem>
+                <MenuItem value="no-template" sx={{ fontSize: 16, '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1') }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: byMode('#5ebbeb', '#0084d1') } }}>No template</MenuItem>
                 {saleKeyService.getTemplates().map((t) => (
-                  <MenuItem key={t.id} value={t.id} sx={{ fontSize: 16, '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' } }}>{t.name}</MenuItem>
+                  <MenuItem key={t.id} value={t.id} sx={{ fontSize: 16, '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1') }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: byMode('#5ebbeb', '#0084d1') } }}>{t.name}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -494,9 +495,9 @@ const SaleKeySets = () => {
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '8px',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' }
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' }
                 }
               }}
             />
@@ -509,7 +510,7 @@ const SaleKeySets = () => {
               setCreateDialogOpen(false);
               setNewSetData({ name: '', description: '', template: 'no-template' });
             }}
-            sx={{ color: '#666', textTransform: 'none', fontWeight: 700 }}
+            sx={{ color: byMode('#666', '#d4d4d4'), textTransform: 'none', fontWeight: 700 }}
           >
             Cancel
           </Button>
@@ -517,7 +518,7 @@ const SaleKeySets = () => {
             onClick={handleCreateSet}
             variant="contained"
             disabled={creating || !newSetData.name.trim()}
-            sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#b9e2f6', color: '#fff' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 3, height: 40 }}
+            sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: byMode('#b9e2f6', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 3, height: 40 }}
           >
             {creating ? 'Creating...' : 'Create'}
           </Button>

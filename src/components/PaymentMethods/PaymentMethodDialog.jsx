@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Dialog,
   DialogContent,
@@ -106,22 +107,22 @@ export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959
           sx={{
             width: '100%',
             height: 42,
-            border: `1px solid ${borderColor}`,
+            border: byMode(`1px solid ${borderColor}`, '1px solid #a1a1a1'),
             borderRadius: square ? 0 : '8px',
             pl: 1.5,
             pr: 4.5,
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#121212'),
             fontFamily: 'inherit',
             fontSize: 16,
-            color: '#000',
+            color: byMode('#000', '#f8f8f8'),
             outline: 'none',
             boxSizing: 'border-box',
-            '&::placeholder': { color: '#808080', opacity: 1 },
+            '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
           }}
         />
         <ArrowDropDownIcon
           onClick={() => !disabled && (open ? close() : (setOpen(true), anchorRef.current?.focus()))}
-          sx={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#000', cursor: 'pointer' }}
+          sx={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: byMode('#000', '#f8f8f8'), cursor: 'pointer' }}
         />
         <Popper
           open={open}
@@ -134,8 +135,8 @@ export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959
             role="listbox"
             sx={{
               width: anchorRef.current ? anchorRef.current.offsetWidth : 'auto',
-              bgcolor: '#fff',
-              border: '1px solid #000',
+              bgcolor: byMode('#fff', '#232323'),
+              border: byMode('1px solid #000', '1px solid #a1a1a1'),
               borderRadius: '8px',
               boxShadow: 'none',
               maxHeight: ROW_H * 5 + 45,
@@ -144,7 +145,7 @@ export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959
             }}
           >
             {filteredGroups.length === 0 ? (
-              <Box sx={{ px: 2, height: ROW_H, display: 'flex', alignItems: 'center', fontSize: 16, color: '#0a0a0a' }}>No Options</Box>
+              <Box sx={{ px: 2, height: ROW_H, display: 'flex', alignItems: 'center', fontSize: 16, color: byMode('#0a0a0a', '#f8f8f8') }}>No Options</Box>
             ) : (
               filteredGroups.map((group) => (
                 <Box key={group.label} role="group" aria-label={group.label}>
@@ -153,7 +154,7 @@ export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959
                     aria-hidden="true"
                     sx={{
                       px: 2, height: 45, display: 'flex', alignItems: 'center', fontSize: 16, fontWeight: 700,
-                      color: '#000', borderBottom: '1px solid #000', cursor: 'default', userSelect: 'none',
+                      color: byMode('#000', '#f8f8f8'), borderBottom: byMode('1px solid #000', '1px solid #a1a1a1'), cursor: 'default', userSelect: 'none',
                     }}
                   >
                     {group.label}
@@ -175,8 +176,8 @@ export const TypeCombobox = ({ value, onChange, disabled, borderColor = '#595959
                           alignItems: 'center',
                           cursor: 'pointer',
                           fontSize: 16,
-                          color: option === value ? BLUE : '#000',
-                          bgcolor: idx === active ? '#6fd0ff' : 'transparent',
+                          color: byMode(option === value ? BLUE : '#000', idx === active ? '#fafafa' : (option === value ? '#00a6f4' : '#f8f8f8')),
+                          bgcolor: idx === active ? byMode('#6fd0ff', '#0084d1') : 'transparent',
                           transition: INSTANT,
                         }}
                       >
@@ -236,12 +237,12 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
     <Dialog
       open={open}
       onClose={onClose}
-      PaperProps={{ sx: { borderRadius: '8px', width: 512, maxWidth: '92vw', overflow: 'visible', bgcolor: '#fff' } }}
+      PaperProps={{ sx: { borderRadius: '8px', width: 512, maxWidth: '92vw', overflow: 'visible', bgcolor: byMode('#fff', '#232323') } }}
     >
       {/* Light-green header, no close X — close = Cancel / Escape */}
       <Box
         sx={{
-          bgcolor: '#b9f6ca',
+          bgcolor: byMode('#b9f6ca', '#264029'),
           px: 3,
           py: 1.75,
           display: 'flex',
@@ -251,8 +252,8 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
           borderTopRightRadius: '8px',
         }}
       >
-        <CheckIcon sx={{ color: '#1b873f', fontSize: 22 }} />
-        <Typography sx={{ color: '#14532d', fontSize: 18, fontWeight: 700 }}>
+        <CheckIcon sx={{ color: byMode('#1b873f', '#7bf1a8'), fontSize: 22 }} />
+        <Typography sx={{ color: byMode('#14532d', '#7bf1a8'), fontSize: 18, fontWeight: 700 }}>
           {paymentMethod ? 'Edit Payment Method' : 'Create Payment Method'}
         </Typography>
       </Box>
@@ -280,21 +281,21 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
             sx={{
               width: '100%',
               height: 42,
-              border: '1px solid #595959',
+              border: byMode('1px solid #595959', '1px solid #a1a1a1'),
               borderRadius: '8px',
               px: 1.5,
               mb: 2,
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#121212'),
               fontFamily: 'inherit',
               fontSize: 16,
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               outline: 'none',
               boxSizing: 'border-box',
-              '&::placeholder': { color: '#808080', opacity: 1 },
+              '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
             }}
           />
 
-          <Typography sx={{ fontSize: 13, color: '#000', mb: 0.5 }}>Type</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>Type</Typography>
           <TypeCombobox
             value={formData.type}
             disabled={loading}
@@ -309,8 +310,8 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
             disableRipple
             disableElevation
             sx={{
-              bgcolor: '#d4d4d4',
-              color: '#000',
+              bgcolor: byMode('#d4d4d4', '#3a3a3a'),
+              color: byMode('#000', '#f8f8f8'),
               textTransform: 'none',
               borderRadius: '12px',
               height: 42,
@@ -318,7 +319,7 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
               fontSize: 16,
               px: 3,
               transition: INSTANT,
-              '&:hover': { bgcolor: '#c2c2c2' },
+              '&:hover': { bgcolor: byMode('#c2c2c2', '#4a4a4a') },
             }}
           >
             Cancel
@@ -330,7 +331,7 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
             disableElevation
             sx={{
               bgcolor: '#22c55e',
-              color: '#fff',
+              color: byMode('#fff', '#232323'),
               textTransform: 'none',
               borderRadius: '12px',
               height: 42,
@@ -339,7 +340,7 @@ const PaymentMethodDialog = ({ open, onClose, paymentMethod, onSave, loading }) 
               px: 3,
               transition: INSTANT,
               '&:hover': { bgcolor: '#16a34a' },
-              '&.Mui-disabled': { bgcolor: 'rgba(0,0,0,0.1)', color: '#b5b5b5' },
+              '&.Mui-disabled': { bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'), color: byMode('#b5b5b5', '#757575') },
             }}
           >
             {loading ? 'Saving...' : paymentMethod ? 'Update' : 'Create'}

@@ -18,6 +18,7 @@ import {
   ChevronRight as NextIcon,
   OpenInNew as OpenIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference: "Looking for the file format? Click here." in the Import Customers
 // dialog opens the help article "Customer Management" in a right-hand drawer
@@ -114,7 +115,7 @@ const Ul = ({ items }) => (
     {items.map((it, i) => <li key={i}>{it}</li>)}
   </Box>
 );
-const cellSx = { fontSize: 16, py: 0.75, px: 1, border: '1px solid #ddd' };
+const cellSx = { fontSize: 16, py: 0.75, px: 1, border: byMode('1px solid #ddd', '1px solid #373737') };
 const ColumnTable = ({ rows, headers }) => (
   <Table size="small" sx={{ mb: 2, width: 'auto' }}>
     <TableHead>
@@ -165,16 +166,16 @@ export default function CustomersHelpDrawer({ open, onClose, initialSection = 'i
         <Button
           onClick={onClose}
           startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
-          sx={{ ml: 'auto', color: '#000', fontSize: 16, fontWeight: 700, textTransform: 'none' }}
+          sx={{ ml: 'auto', color: byMode('#000', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none' }}
         >
           Close
         </Button>
       </Box>
       <Box ref={bodyRef} sx={{ flex: 1, overflowY: 'auto', px: 4, pb: 4 }}>
         <H1>Customer Management</H1>
-        <Typography sx={{ fontSize: 16, color: '#444', mb: 2 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#444', '#a0a4aa'), mb: 2 }}>
           5 months ago ·{' '}
-          <Link href={ARTICLE_URL} target="_blank" rel="noopener noreferrer" sx={{ color: 'rgb(0,0,238)', display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+          <Link href={ARTICLE_URL} target="_blank" rel="noopener noreferrer" sx={{ color: byMode('rgb(0,0,238)', '#4ca0f5'), display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
             Open externally <OpenIcon sx={{ fontSize: 16 }} />
           </Link>
         </Typography>

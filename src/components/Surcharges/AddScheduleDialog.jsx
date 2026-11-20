@@ -32,6 +32,7 @@ import { taxRateService } from '../../services/taxRateService';
 import classificationService from '../../services/classificationService';
 import { useAppDialogs } from '../Common/AppDialogProvider';
 import { endTimeToSeconds, isValidWindow, normaliseTime, timeToSeconds } from '../../utils/surchargeSchedule';
+import { byMode } from '../../theme/sfPalette';
 
 const DAYS_OF_WEEK = [
   'Monday',
@@ -61,29 +62,38 @@ const appliesToKey = () => localStorage.getItem('selectedOutletId') || '';
 const isAllDay = (startTime, endTime) =>
   timeToSeconds(startTime) === 0 && endTimeToSeconds(endTime) === 24 * 60 * 60;
 
+// Dark-mode colours (light values = what the dialog used before).
+const TXT = byMode('#000000', '#f8f8f8');
+const PANE = byMode('white', '#232323');
+const INPUT_BG = byMode('white', '#121212');
+const BORDER = byMode('#c7c7c7', '#a1a1a1');
+const BORDER_HOVER = byMode('#8a8a8a', '#a1a1a1');
+const BORDER_FOCUS = byMode('#000000', '#2b7fff');
+
 // Reference dialog fields: thin grey border, 8px radius, 42px tall.
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
-    bgcolor: 'white',
+    bgcolor: INPUT_BG,
     borderRadius: '8px',
     minHeight: 42,
-    '& fieldset': { borderColor: '#c7c7c7', borderWidth: 1 },
-    '&:hover fieldset': { borderColor: '#8a8a8a' },
-    '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: 1 },
+    '& fieldset': { borderColor: BORDER, borderWidth: 1 },
+    '&:hover fieldset': { borderColor: BORDER_HOVER },
+    '&.Mui-focused fieldset': { borderColor: BORDER_FOCUS, borderWidth: 1 },
   },
   '& .MuiOutlinedInput-input': { py: '9.5px' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 const selectSx = {
-  bgcolor: 'white',
+  bgcolor: INPUT_BG,
   borderRadius: '8px',
   minHeight: 42,
   '& .MuiSelect-select': { py: '9.5px' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#c7c7c7', borderWidth: 1 },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#8a8a8a' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: 1 },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: BORDER, borderWidth: 1 },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: BORDER_HOVER },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: BORDER_FOCUS, borderWidth: 1 },
+  '& .MuiSelect-icon': { color: byMode(undefined, '#a1a1a1') },
 };
-const labelSx = { mb: 0.5, color: '#000000', fontWeight: 600, fontSize: 14 };
+const labelSx = { mb: 0.5, color: TXT, fontWeight: 600, fontSize: 14 };
 
 const AddScheduleDialog = ({
   open,
@@ -333,8 +343,8 @@ const AddScheduleDialog = ({
           py: 0.75,
           fontWeight: 700,
           fontSize: 14,
-          color: '#000000',
-          borderTop: withTopBorder ? '1px solid #e0e0e0' : 'none',
+          color: TXT,
+          borderTop: withTopBorder ? byMode('1px solid #e0e0e0', '1px solid #373737') : 'none',
         }}
       >
         {title}
@@ -348,19 +358,19 @@ const AddScheduleDialog = ({
                 onClick={() => onToggle(item.id)}
                 sx={{
                   py: 0.25,
-                  bgcolor: checked ? '#e3f3fb' : 'transparent',
-                  '&:hover': { bgcolor: checked ? '#cfe9f7' : '#f5f5f5' },
+                  bgcolor: checked ? byMode('#e3f3fb', '#0c3a55') : 'transparent',
+                  '&:hover': { bgcolor: checked ? byMode('#cfe9f7', '#0f4a6b') : byMode('#f5f5f5', '#2f2f2f') },
                 }}
               >
                 <Checkbox
                   checked={checked}
                   icon={<CheckBoxOutlineBlankIcon />}
                   checkedIcon={<CheckBoxIcon />}
-                  sx={{ color: '#000000', p: 0.5 }}
+                  sx={{ color: TXT, p: 0.5 }}
                 />
                 <ListItemText
                   primary={item.name}
-                  primaryTypographyProps={{ sx: { color: '#000000', fontSize: 14 } }}
+                  primaryTypographyProps={{ sx: { color: TXT, fontSize: 14 } }}
                 />
               </ListItemButton>
             </ListItem>
@@ -380,13 +390,13 @@ const AddScheduleDialog = ({
           width: 512,
           maxWidth: '95vw',
           borderRadius: '8px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+          boxShadow: byMode('0 4px 20px rgba(0,0,0,0.15)', '0 4px 20px rgba(0,0,0,0.6)')
         }
       }}
     >
       {/* Reference header: pale green band, dark-green pencil + title */}
       <Box sx={{
-        bgcolor: '#e6f4ea',
+        bgcolor: byMode('#e6f4ea', '#264029'),
         px: 2,
         py: 1.25,
         display: 'flex',
@@ -395,13 +405,13 @@ const AddScheduleDialog = ({
         borderTopLeftRadius: '8px',
         borderTopRightRadius: '8px'
       }}>
-        <EditIcon sx={{ color: '#1b5e20', fontSize: 20 }} />
-        <Typography sx={{ fontSize: 18, fontWeight: 600, color: '#1b5e20', flex: 1 }}>
+        <EditIcon sx={{ color: byMode('#1b5e20', '#7bf1a8'), fontSize: 20 }} />
+        <Typography sx={{ fontSize: 18, fontWeight: 600, color: byMode('#1b5e20', '#7bf1a8'), flex: 1 }}>
           {isEditMode ? 'Modify Schedule' : 'Add to Schedule'}
         </Typography>
       </Box>
 
-      <DialogContent sx={{ p: 3, bgcolor: 'white' }}>
+      <DialogContent sx={{ p: 3, bgcolor: PANE }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* Surcharge Name */}
           <Box>
@@ -424,9 +434,10 @@ const AddScheduleDialog = ({
                 <Box
                   sx={{
                     border: '1px solid #c7c7c7',
+                    borderColor: byMode(undefined, '#a1a1a1'),
                     borderRadius: '8px',
                     minHeight: 42,
-                    bgcolor: 'white',
+                    bgcolor: INPUT_BG,
                     px: 1,
                     py: 0.5,
                     display: 'flex',
@@ -434,8 +445,8 @@ const AddScheduleDialog = ({
                     gap: 0.5,
                     alignItems: 'center',
                     cursor: 'text',
-                    '&:hover': { borderColor: '#8a8a8a' },
-                    '&:focus-within': { borderColor: '#000000' },
+                    '&:hover': { borderColor: BORDER_HOVER },
+                    '&:focus-within': { borderColor: BORDER_FOCUS },
                   }}
                   onClick={() => setShowAppliesToDropdown(true)}
                 >
@@ -455,12 +466,12 @@ const AddScheduleDialog = ({
                         else if (item.type === 'category') handleRemoveCategory(item.id);
                         else handleRemoveTag(item.id);
                       }}
-                      deleteIcon={<CloseIcon sx={{ fontSize: 16, color: '#000000' }} />}
+                      deleteIcon={<CloseIcon sx={{ fontSize: 16, color: TXT }} />}
                       sx={{
-                        bgcolor: '#f1f1f1',
-                        color: '#000000',
+                        bgcolor: byMode('#f1f1f1', '#3a3a3a'),
+                        color: TXT,
                         borderRadius: '6px',
-                        '& .MuiChip-deleteIcon': { color: '#000000', '&:hover': { color: '#000000' } },
+                        '& .MuiChip-deleteIcon': { color: TXT, '&:hover': { color: TXT } },
                       }}
                       size="small"
                     />
@@ -486,7 +497,7 @@ const AddScheduleDialog = ({
                               e.stopPropagation();
                               setShowAppliesToDropdown(!showAppliesToDropdown);
                             }}
-                            sx={{ color: '#000000' }}
+                            sx={{ color: TXT }}
                           >
                             <Typography variant="caption">▼</Typography>
                           </IconButton>
@@ -496,7 +507,8 @@ const AddScheduleDialog = ({
                     sx={{
                       flex: 1,
                       minWidth: 150,
-                      '& .MuiInputBase-input': { color: '#000000', fontSize: 14, py: 0.5 },
+                      '& .MuiInputBase-input': { color: TXT, fontSize: 14, py: 0.5 },
+                      '& .MuiInputBase-input::placeholder': { color: byMode(undefined, '#757575'), opacity: byMode(undefined, 1) },
                     }}
                   />
                 </Box>
@@ -512,15 +524,15 @@ const AddScheduleDialog = ({
                       mt: 0.5,
                       maxHeight: 200,
                       overflow: 'auto',
-                      border: '1px solid #c7c7c7',
+                      border: byMode('1px solid #c7c7c7', '1px solid #a1a1a1'),
                       borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      bgcolor: 'white'
+                      boxShadow: byMode('0 4px 12px rgba(0,0,0,0.15)', '0 4px 12px rgba(0,0,0,0.6)'),
+                      bgcolor: PANE
                     }}
                   >
                     {!canSearch && (
                       <Box sx={{ p: 2 }}>
-                        <Typography sx={{ color: '#757575', fontSize: 14 }}>Keep Typing to Search...</Typography>
+                        <Typography sx={{ color: byMode('#757575', '#a0a4aa'), fontSize: 14 }}>Keep Typing to Search...</Typography>
                       </Box>
                     )}
                     {canSearch && filteredCategories.length > 0 &&
@@ -529,7 +541,7 @@ const AddScheduleDialog = ({
                       renderOptionGroup('Tags', filteredTags, formData.selectedTags, handleTagToggle, filteredCategories.length > 0)}
                     {canSearch && filteredCategories.length === 0 && filteredTags.length === 0 && (
                       <Box sx={{ p: 2 }}>
-                        <Typography sx={{ color: '#757575', fontSize: 14 }}>No Options</Typography>
+                        <Typography sx={{ color: byMode('#757575', '#a0a4aa'), fontSize: 14 }}>No Options</Typography>
                       </Box>
                     )}
                   </Paper>
@@ -559,7 +571,7 @@ const AddScheduleDialog = ({
                 checked={formData.applyAllDay}
                 onChange={(e) => handleInputChange('applyAllDay', e.target.checked)}
               />
-              <Typography sx={{ color: '#000000', fontSize: 14 }}>Apply all day</Typography>
+              <Typography sx={{ color: TXT, fontSize: 14 }}>Apply all day</Typography>
             </Box>
           </Box>
 
@@ -623,7 +635,7 @@ const AddScheduleDialog = ({
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
-                      <Typography sx={{ color: '#000000' }}>
+                      <Typography sx={{ color: TXT }}>
                         {formData.surchargeType === 'Percentage' ? '%' : '$'}
                       </Typography>
                     </InputAdornment>
@@ -660,19 +672,19 @@ const AddScheduleDialog = ({
       {/* Action Buttons */}
       <Box sx={{
         p: 2,
-        bgcolor: 'white',
+        bgcolor: PANE,
         display: 'flex',
         justifyContent: 'flex-end',
         gap: 1,
-        borderTop: '1px solid #e0e0e0'
+        borderTop: byMode('1px solid #e0e0e0', '1px solid #373737')
       }}>
         <Button
           onClick={handleClose}
           disabled={saving}
           sx={{
-            bgcolor: '#d4d4d4',
-            color: '#000000',
-            '&:hover': { bgcolor: '#c4c4c4' },
+            bgcolor: byMode('#d4d4d4', '#3a3a3a'),
+            color: byMode('#000000', '#f8f8f8'),
+            '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a') },
             textTransform: 'none',
             minWidth: 118,
             height: 42,
@@ -717,9 +729,9 @@ const AddScheduleDialog = ({
           disabled={saving}
           sx={{
             bgcolor: '#22c55e',
-            color: 'white',
+            color: byMode('white', '#232323'),
             '&:hover': { bgcolor: '#16a34a' },
-            '&.Mui-disabled': { bgcolor: '#9ad8ad', color: 'white' },
+            '&.Mui-disabled': { bgcolor: byMode('#9ad8ad', '#3a3a3a'), color: byMode('white', '#a0a4aa') },
             textTransform: 'none',
             minWidth: 118,
             height: 42,

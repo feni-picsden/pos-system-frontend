@@ -31,6 +31,7 @@ import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { GRID_TABLE_SX, WIDGET_SHADOW, SECTION_ROOT_SX } from '../../components/StockManagement/productViewStyles';
 import { formatRuleLabel, formatMinimumRule, entityTypeLabel, overrideTiers, money } from './ruleLabels';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront's price list VIEW page (reference, 29/10/2026 screenshots):
 //   left panel  - "View <name>", Home / Customers / Revisions, Edit + Delete
@@ -51,17 +52,17 @@ const NAV_ITEMS = [
 
 // Rounded light-blue header row shared by the Home, Customers and drawer tables.
 const blueHeaderSx = {
-  '& th': { bgcolor: '#5ebbeb', color: '#f8f8f8', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
 };
 
 const bodySx = {
-  '& td': { border: 0, fontSize: 16, color: '#000', py: 2.25 },
+  '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 2.25 },
 };
 
 const linkSx = {
-  color: '#1c86f2',
+  color: byMode('#1c86f2', '#74d4ff'),
   textTransform: 'none',
   fontWeight: 700,
   fontSize: 16,
@@ -71,7 +72,10 @@ const linkSx = {
   '&:hover': { bgcolor: 'transparent', textDecoration: 'none' },
 };
 
-const outlineButtonSx = (color) => ({
+const outlineButtonSx = (lightColor, darkColor) => {
+  const color = byMode(lightColor, darkColor);
+  const border = byMode(`1px solid ${lightColor}`, `1px solid ${darkColor}`);
+  return ({
   // Same pill style as the Classification view page: outline only, light grey tint on hover.
   width: '100%',
   height: 42,
@@ -79,15 +83,16 @@ const outlineButtonSx = (color) => ({
   px: '32px',
   bgcolor: 'transparent',
   color,
-  border: `1px solid ${color}`,
+  border,
   borderRadius: '12px',
   fontSize: 16,
   fontWeight: 700,
   textTransform: 'none',
   boxShadow: 'none',
   transition: 'none',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: `1px solid ${color}`, boxShadow: 'none' },
-});
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), border, boxShadow: 'none' },
+  });
+};
 
 // dd/mm/yyyy HH:mm:ss on the store's clock (Setup > General > Timezone).
 const formatDateTime = (isoDate) => formatAppDateTime(isoDate) || '-';
@@ -104,9 +109,9 @@ const RevisionValue = ({ value }) => {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {value.map((item, i) => (
           <Box key={`${item?.name || 'item'}-${i}`}>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', mb: 0.5 }}>{item?.name || '-'}</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>{item?.name || '-'}</Typography>
             {(item?.lines || []).map((line, j) => (
-              <Typography key={j} sx={{ fontSize: 16, color: '#000' }}>{line}</Typography>
+              <Typography key={j} sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{line}</Typography>
             ))}
             {/* reference: override prices as a small bold-header "Quantity | Price" grid */}
             {Array.isArray(item?.tiers) && item.tiers.length > 0 && (
@@ -114,7 +119,7 @@ const RevisionValue = ({ value }) => {
                 component="table"
                 sx={{
                   borderCollapse: 'collapse',
-                  '& th, & td': { border: '1px solid #000', px: 1, py: 0.75, fontSize: 16, color: '#000', textAlign: 'left' },
+                  '& th, & td': { border: byMode('1px solid #000', '1px solid #a1a1a1'), px: 1, py: 0.75, fontSize: 16, color: byMode('#000', '#f8f8f8'), textAlign: 'left' },
                   '& th': { fontWeight: 700 },
                 }}
               >
@@ -241,10 +246,10 @@ const PriceListDetails = () => {
   const allowPromos = Boolean(configuration.allowDiscountingPromotions);
 
   const flag = (on) => (
-    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: 16, color: '#000' }}>
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
       {on
-        ? <CheckIcon sx={{ fontSize: 18, color: '#32b643' }} />
-        : <CloseIcon sx={{ fontSize: 18, color: '#e33430' }} />}
+        ? <CheckIcon sx={{ fontSize: 18, color: byMode('#32b643', '#7bf1a8') }} />
+        : <CloseIcon sx={{ fontSize: 18, color: byMode('#e33430', '#ffa2a2') }} />}
       {on ? 'Enabled' : 'Disabled'}
     </Box>
   );
@@ -258,18 +263,18 @@ const PriceListDetails = () => {
           textAlign: 'center',
           p: 2,
           mb: 3,
-          bgcolor: '#fff',
-          border: '1px solid #e5e7eb',
+          bgcolor: byMode('#fff', '#232323'),
+          border: byMode('1px solid #e5e7eb', '1px solid #373737'),
           borderRadius: '8px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
         }}
       >
         <Box>
-          <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>Allow Higher Prices</Typography>
+          <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>Allow Higher Prices</Typography>
           {flag(allowHigher)}
         </Box>
         <Box>
-          <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>Allow Discounting Promotions</Typography>
+          <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>Allow Discounting Promotions</Typography>
           {flag(allowPromos)}
         </Box>
       </Box>
@@ -290,8 +295,8 @@ const PriceListDetails = () => {
               <TableRow key={rule.id ?? `${rule.entityType}-${rule.entityId}-${index}`}>
                 <TableCell>{rule.entityName}</TableCell>
                 <TableCell>{entityTypeLabel(rule.entityType)}</TableCell>
-                <TableCell sx={{ color: rule.excludeFromPriceList ? '#e33430 !important' : undefined }}>{formatRuleLabel(rule)}</TableCell>
-                <TableCell sx={{ color: ['No Minimum', 'N/A'].includes(formatMinimumRule(rule)) ? '#6b7280 !important' : undefined }}>{formatMinimumRule(rule)}</TableCell>
+                <TableCell sx={{ color: rule.excludeFromPriceList ? byMode('#e33430 !important', '#ffa2a2 !important') : undefined }}>{formatRuleLabel(rule)}</TableCell>
+                <TableCell sx={{ color: ['No Minimum', 'N/A'].includes(formatMinimumRule(rule)) ? byMode('#6b7280 !important', '#a0a4aa !important') : undefined }}>{formatMinimumRule(rule)}</TableCell>
                 <TableCell>
                   <Button disableRipple startIcon={<ViewIcon />} onClick={() => openDetails(rule)} sx={linkSx}>
                     Details
@@ -304,7 +309,7 @@ const PriceListDetails = () => {
                 <TableCell>All Other Products</TableCell>
                 <TableCell>Fallback</TableCell>
                 <TableCell>{formatRuleLabel(fallbackRule)}</TableCell>
-                <TableCell sx={{ color: formatMinimumRule(fallbackRule) === 'No Minimum' ? '#6b7280 !important' : undefined }}>{formatMinimumRule(fallbackRule)}</TableCell>
+                <TableCell sx={{ color: formatMinimumRule(fallbackRule) === 'No Minimum' ? byMode('#6b7280 !important', '#a0a4aa !important') : undefined }}>{formatMinimumRule(fallbackRule)}</TableCell>
                 <TableCell>
                   <Button disableRipple startIcon={<ViewIcon />} onClick={() => openDetails(fallbackRule, true)} sx={linkSx}>
                     Details
@@ -314,7 +319,7 @@ const PriceListDetails = () => {
             )}
             {rules.length === 0 && !fallbackRule && (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 6, color: '#6b7280 !important' }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 6, color: byMode('#6b7280 !important', '#a0a4aa !important') }}>
                   This price list is empty
                 </TableCell>
               </TableRow>
@@ -350,7 +355,7 @@ const PriceListDetails = () => {
             ))}
             {customers.length === 0 && (
               <TableRow>
-                <TableCell colSpan={2} align="center" sx={{ py: 6, color: '#6b7280 !important' }}>
+                <TableCell colSpan={2} align="center" sx={{ py: 6, color: byMode('#6b7280 !important', '#a0a4aa !important') }}>
                   No customers are using this price list
                 </TableCell>
               </TableRow>
@@ -366,11 +371,11 @@ const PriceListDetails = () => {
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}><CircularProgress /></Box>
     ) : (
       <Box>
-        <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>
           Please Note: Revisions may take up to five minutes to appear
         </Typography>
         <TableContainer sx={{ ...SECTION_ROOT_SX, p: 0 }}>
-          <Table sx={{ ...GRID_TABLE_SX, tableLayout: 'fixed', '& thead tr': { backgroundColor: '#fff', boxShadow: WIDGET_SHADOW }, '& td': { verticalAlign: 'top' } }}>
+          <Table sx={{ ...GRID_TABLE_SX, tableLayout: 'fixed', '& thead tr': { backgroundColor: byMode('#fff', '#232323'), boxShadow: WIDGET_SHADOW }, '& td': { verticalAlign: 'top' } }}>
             <TableHead>
               <TableRow>
                 {[['Field', '9%'], ['From', '31%'], ['To', '31%'], ['User', '9%'], ['Timestamp', '20%']].map(([h, w]) => (
@@ -405,10 +410,10 @@ const PriceListDetails = () => {
   const detailTiers = detailRule ? overrideTiers(detailRule) : [];
 
   return (
-    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 50px)', bgcolor: '#fff' }}>
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 50px)', bgcolor: byMode('#fff', '#121212') }}>
       {/* Left panel */}
-      <Box sx={{ width: 320, flexShrink: 0, bgcolor: '#e2e8f0', display: 'flex', flexDirection: 'column' }}>
-        <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: '#000', m: 0, px: 2, py: 3 }}>
+      <Box sx={{ width: 320, flexShrink: 0, bgcolor: byMode('#e2e8f0', '#232323'), display: 'flex', flexDirection: 'column' }}>
+        <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8'), m: 0, px: 2, py: 3 }}>
           View {priceList?.name || ''}
         </Typography>
         <Box sx={{ flex: 1, py: 1 }}>
@@ -429,20 +434,20 @@ const PriceListDetails = () => {
                   px: 3,
                   py: 1.25,
                   cursor: 'pointer',
-                  bgcolor: active ? '#fff' : 'transparent',
+                  bgcolor: active ? byMode('#fff', '#333333') : 'transparent',
                   borderTopLeftRadius: 8,
                   borderBottomLeftRadius: 8,
                   boxShadow: active ? '0 1px 6px rgba(0,0,0,0.18)' : 'none',
                   transition: 'background 0.15s ease, box-shadow 0.15s ease',
-                  '&:hover': { bgcolor: active ? '#fff' : '#d6dee8' },
+                  '&:hover': { bgcolor: active ? byMode('#fff', '#333333') : byMode('#d6dee8', '#2f2f2f') },
                   '&:focus-visible': { outline: '2px solid #5ebbeb', outlineOffset: '-2px' },
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#000' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: byMode('#000', '#f8f8f8') }}>
                   {item.icon}
-                  <Typography sx={{ fontSize: 20, color: '#000' }}>{item.label}</Typography>
+                  <Typography sx={{ fontSize: 20, color: byMode('#000', '#f8f8f8') }}>{item.label}</Typography>
                 </Box>
-                <Typography sx={{ fontSize: 12, color: '#313439', ml: '30px' }}>{item.hint}</Typography>
+                <Typography sx={{ fontSize: 12, color: byMode('#313439', '#d4d4d4'), ml: '30px' }}>{item.hint}</Typography>
               </Box>
             );
           })}
@@ -453,7 +458,7 @@ const PriceListDetails = () => {
             startIcon={<EditIcon />}
             component={RouterLink}
             to={`/customers/price-lists/${id}/configuration`}
-            sx={outlineButtonSx('#32b643')}
+            sx={outlineButtonSx('#32b643', '#7bf1a8')}
           >
             Edit
           </Button>
@@ -461,7 +466,7 @@ const PriceListDetails = () => {
             disableElevation
             startIcon={<DeleteIcon />}
             onClick={() => setDeleteOpen(true)}
-            sx={outlineButtonSx('#e33430')}
+            sx={outlineButtonSx('#e33430', '#ffa2a2')}
           >
             Delete
           </Button>
@@ -499,36 +504,36 @@ const PriceListDetails = () => {
               maxWidth: '100vw',
               p: 3,
               boxSizing: 'border-box',
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#232323'),
               overflowY: 'auto',
               boxShadow: '-8px 0 24px rgba(0,0,0,0.2)',
               animation: 'plDrawerIn 220ms ease',
               '@keyframes plDrawerIn': { from: { transform: 'translateX(100%)' }, to: { transform: 'translateX(0)' } },
             }}
           >
-            <IconButton aria-label="Close" onClick={() => setDetail(null)} sx={{ position: 'absolute', top: 12, right: 12, color: '#000' }}>
+            <IconButton aria-label="Close" onClick={() => setDetail(null)} sx={{ position: 'absolute', top: 12, right: 12, color: byMode('#000', '#f8f8f8') }}>
               <CloseIcon />
             </IconButton>
-            <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+            <Typography sx={{ fontSize: 12, color: byMode('#6b7280', '#a0a4aa') }}>
               {detail.isFallback ? 'Fallback Rule' : entityTypeLabel(detailRule.entityType)}
             </Typography>
-            <Typography sx={{ fontSize: 22, color: '#000', mb: 2, pr: 5 }}>
+            <Typography sx={{ fontSize: 22, color: byMode('#000', '#f8f8f8'), mb: 2, pr: 5 }}>
               {detail.isFallback ? 'All Other Products' : detailRule.entityName}
             </Typography>
 
             {/* reference: the fallback drawer has no included/excluded line */}
             {!detail.isFallback && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 2, fontSize: 16, color: '#000' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 2, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                 {detailRule.excludeFromPriceList
-                  ? <CloseIcon sx={{ fontSize: 20, color: '#e33430' }} />
-                  : <CheckIcon sx={{ fontSize: 20, color: '#32b643' }} />}
+                  ? <CloseIcon sx={{ fontSize: 20, color: byMode('#e33430', '#ffa2a2') }} />
+                  : <CheckIcon sx={{ fontSize: 20, color: byMode('#32b643', '#7bf1a8') }} />}
                 {detailRule.excludeFromPriceList ? 'Excluded from the price list' : 'Included in the price list'}
               </Box>
             )}
 
             {detailRule.pricingMethod === 'override' ? (
               <>
-                <Typography sx={{ fontSize: 13, color: '#6b7280', mb: 0.5 }}>Override Prices</Typography>
+                <Typography sx={{ fontSize: 13, color: byMode('#6b7280', '#a0a4aa'), mb: 0.5 }}>Override Prices</Typography>
                 <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
                   <TableHead>
                     <TableRow sx={{ ...blueHeaderSx, '& th': { ...blueHeaderSx['& th'], textAlign: 'center' } }}>
@@ -538,7 +543,7 @@ const PriceListDetails = () => {
                       <TableCell>%</TableCell>
                     </TableRow>
                   </TableHead>
-                  <TableBody sx={{ '& td': { border: 0, fontSize: 16, color: '#000', textAlign: 'center', py: 1.5 } }}>
+                  <TableBody sx={{ '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), textAlign: 'center', py: 1.5 } }}>
                     {detailTiers.map((tier, i) => {
                       const qty = Number(tier.quantity) || 0;
                       const price = Number(tier.price) || 0;
@@ -555,7 +560,7 @@ const PriceListDetails = () => {
                     })}
                     {detailTiers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} sx={{ color: '#6b7280 !important' }}>No prices set</TableCell>
+                        <TableCell colSpan={4} sx={{ color: byMode('#6b7280 !important', '#a0a4aa !important') }}>No prices set</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -564,12 +569,12 @@ const PriceListDetails = () => {
             ) : (
               <>
                 {/* reference: an excluded rule still prints its (unused) rule, e.g. "Discount by 0.00%" */}
-                <Typography sx={{ fontSize: 13, color: '#6b7280' }}>Price Rule</Typography>
-                <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>{formatRuleLabel(detailRule, { ignoreExclude: true }) || 'Discount by 0.00%'}</Typography>
+                <Typography sx={{ fontSize: 13, color: byMode('#6b7280', '#a0a4aa') }}>Price Rule</Typography>
+                <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 2 }}>{formatRuleLabel(detailRule, { ignoreExclude: true }) || 'Discount by 0.00%'}</Typography>
                 {!['No Minimum', 'N/A'].includes(formatMinimumRule(detailRule)) && (
                   <>
-                    <Typography sx={{ fontSize: 13, color: '#6b7280' }}>Minimum Price</Typography>
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>{formatMinimumRule(detailRule)}</Typography>
+                    <Typography sx={{ fontSize: 13, color: byMode('#6b7280', '#a0a4aa') }}>Minimum Price</Typography>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{formatMinimumRule(detailRule)}</Typography>
                   </>
                 )}
               </>

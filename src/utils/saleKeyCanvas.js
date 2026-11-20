@@ -1,3 +1,5 @@
+import { byMode } from '../theme/sfPalette';
+
 // Match the normal POS viewport: 24px horizontal margins/gutter, 70.3% keys,
 // a minimum 300px cart, and the keys panel's 1px borders. Vertically reserve
 // the 50px header, 16px margins, 2px borders, 50px search and 50px tabs.
@@ -19,6 +21,6 @@ export const saleKeyPreviewPanelSx = {
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #373737'),
   boxSizing: 'border-box',
 };

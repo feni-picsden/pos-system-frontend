@@ -12,6 +12,7 @@ import {
 import ColorInput from './ColorInput';
 import { borderToCss, normalizeBorder, isSideOn, BORDER_SIDES } from '../../utils/receiptTemplateShape';
 import { REF_MENU_PROPS, BLUE, DARK } from './refMenuProps';
+import { byMode } from '../../theme/sfPalette';
 
 // Shared by the Receipt and Statement editors (moved out of ReceiptEditor.jsx).
 export { REF_MENU_PROPS, BLUE, DARK };
@@ -90,7 +91,7 @@ const BorderSettingsDialog = ({ open, value, onCancel, onUpdate }) => {
       onClose={onCancel}
       PaperProps={{
         elevation: 0,
-        sx: { width: 526, maxWidth: '92vw', bgcolor: '#fff', borderRadius: 0, overflow: 'visible', position: 'relative', mt: 8 },
+        sx: { width: 526, maxWidth: '92vw', bgcolor: byMode('#fff', '#232323'), borderRadius: 0, overflow: 'visible', position: 'relative', mt: 8 },
       }}
     >
       {/* Reference: big blue '?' badge sitting half over the top edge */}
@@ -103,7 +104,7 @@ const BorderSettingsDialog = ({ open, value, onCancel, onUpdate }) => {
       </Box>
       <DialogContent sx={{ px: 2, pt: 9, pb: 2, overflow: 'visible' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#000' }}>Border Settings</Typography>
+          <Typography sx={{ fontWeight: 700, fontSize: 18, color: byMode('#000', '#f8f8f8') }}>Border Settings</Typography>
           <Box sx={{ display: 'flex' }}>
             {segment('simple', 'Simple')}
             {segment('advanced', 'Advanced')}
@@ -155,22 +156,22 @@ const BorderSettingsDialog = ({ open, value, onCancel, onUpdate }) => {
         {/* Width | Style | Colour on one row */}
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
           <Box sx={{ width: 100 }}>
-            <Typography sx={{ fontSize: 16, color: '#000' }}>Width</Typography>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Width</Typography>
             <TextField
               type="number"
               inputProps={{ min: 0 }}
               value={shown.width}
               onChange={(e) => edit({ width: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-              sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#fff', borderRadius: 0, height: 54 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000' } }}
+              sx={{ '& .MuiOutlinedInput-root': { bgcolor: byMode('#fff', '#121212'), borderRadius: 0, height: 54 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') } }}
             />
           </Box>
           <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontSize: 16, color: '#000' }}>Style</Typography>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Style</Typography>
             <Select
               fullWidth
               value={BORDER_STYLES.includes(shown.style) ? shown.style : 'none'}
               onChange={(e) => edit({ style: e.target.value })}
-              sx={{ bgcolor: '#fff', borderRadius: '8px', height: 54, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
+              sx={{ bgcolor: byMode('#fff', '#121212'), borderRadius: '8px', height: 54, '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') } }}
               // Reference list: opens BELOW the field, ~5 rows then scroll, 1px black
               // frame, hovered row light blue, picked row in blue text.
               MenuProps={REF_MENU_PROPS}
@@ -181,9 +182,9 @@ const BorderSettingsDialog = ({ open, value, onCancel, onUpdate }) => {
             </Select>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 16, color: '#000' }}>Colour</Typography>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Colour</Typography>
             {/* Reference swatch: colour inside a thick black frame; click = picker popup */}
-            <Box sx={{ position: 'relative', width: 74, height: 54, bgcolor: shown.color, border: '5px solid #000', boxSizing: 'border-box', cursor: 'pointer' }}>
+            <Box sx={{ position: 'relative', width: 74, height: 54, bgcolor: shown.color, border: byMode('5px solid #000', '5px solid #a1a1a1'), boxSizing: 'border-box', cursor: 'pointer' }}>
               <ColorInput
                 aria-label="Border colour"
                 value={shown.color || '#000000'}
@@ -198,7 +199,7 @@ const BorderSettingsDialog = ({ open, value, onCancel, onUpdate }) => {
         <Button
           onClick={onCancel}
           disableElevation
-          sx={{ flex: 1, borderRadius: 0, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', textTransform: 'none', fontSize: 28, fontWeight: 400, height: 48, '&:hover': { bgcolor: '#ececec' } }}
+          sx={{ flex: 1, borderRadius: 0, bgcolor: byMode('#f8f8f8', '#3a3a3a'), color: byMode('#676b72', '#f8f8f8'), border: byMode('1px solid #676b72', '1px solid #a1a1a1'), textTransform: 'none', fontSize: 28, fontWeight: 400, height: 48, '&:hover': { bgcolor: byMode('#ececec', '#4a4a4a') } }}
         >
           Cancel
         </Button>

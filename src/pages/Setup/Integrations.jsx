@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Box,
   Card,
@@ -205,8 +206,8 @@ function IntegrationCard({ integration, onIntegrate, onSettings, onRevoke }) {
         flexDirection: 'column',
         position: 'relative',
         overflow: 'visible',
-        bgcolor: '#FFFFFF',
-        border: '1px solid #E0E0E0',
+        bgcolor: byMode('#FFFFFF', '#232323'),
+        border: byMode('1px solid #E0E0E0', '1px solid #373737'),
         borderRadius: '8px',
         boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
       }}
@@ -291,7 +292,7 @@ function IntegrationCard({ integration, onIntegrate, onSettings, onRevoke }) {
           sx={{
             fontSize: '18px',
             fontWeight: 700,
-            color: '#333333',
+            color: byMode('#333333', '#f8f8f8'),
             lineHeight: 1.3,
           }}
         >
@@ -300,7 +301,7 @@ function IntegrationCard({ integration, onIntegrate, onSettings, onRevoke }) {
         <Typography
           sx={{
             fontSize: '14px',
-            color: '#666666',
+            color: byMode('#666666', '#d4d4d4'),
             lineHeight: 1.5,
             mb: 1.5,
             maxWidth: 240,
@@ -312,7 +313,7 @@ function IntegrationCard({ integration, onIntegrate, onSettings, onRevoke }) {
           <Typography
             sx={{
               fontSize: '14px',
-              color: '#999999',
+              color: byMode('#999999', '#a0a4aa'),
               display: 'block',
             }}
           >
@@ -367,7 +368,7 @@ function IntegrationCard({ integration, onIntegrate, onSettings, onRevoke }) {
               py: 1.25,
               px: 2.5,
               bgcolor: '#56B4EF',
-              color: '#FFFFFF',
+              color: byMode('#FFFFFF', '#232323'),
               '&:hover': { bgcolor: '#42a5f5' },
             }}
           >

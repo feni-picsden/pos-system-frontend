@@ -5,6 +5,7 @@ import {
   CheckBoxOutlined as SquareCheckedIcon,
 } from '@mui/icons-material';
 import { INSTANT } from './ticketChrome';
+import { byMode } from '../../theme/sfPalette';
 
 /** 16px square glyph checkbox (the reference uses fal fa-square, not a native input). */
 export const SquareCheckButton = ({ checked, onClick, light, label }) => (
@@ -25,7 +26,7 @@ export const SquareCheckButton = ({ checked, onClick, light, label }) => (
       border: 0,
       bgcolor: 'transparent',
       cursor: 'pointer',
-      color: light ? '#f8f8f8' : '#000',
+      color: light ? '#f8f8f8' : byMode('#000', '#f8f8f8'),
       transition: INSTANT,
     }}
   >

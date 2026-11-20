@@ -540,8 +540,8 @@ const CreateProductWizard = () => {
                   <TableRow
                     sx={{
                       '& th': {
-                        backgroundColor: '#5ebbeb',
-                        color: '#f8f8f8',
+                        backgroundColor: byMode('#5ebbeb', '#333333'),
+                        color: byMode('#f8f8f8', '#5ebbeb'),
                         fontWeight: 700,
                         fontSize: 16,
                         textTransform: 'uppercase',

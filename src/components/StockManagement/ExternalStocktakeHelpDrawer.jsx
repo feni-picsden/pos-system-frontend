@@ -17,6 +17,7 @@ import {
   ChevronRight as NextIcon,
   LightbulbOutlined as NoteIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference: the "For information about formatting click here." link in the
 // Import Stocktake dialog opens the help article in a right-hand drawer (left
@@ -54,7 +55,7 @@ const IMPORT_COLUMNS = [
 ];
 
 const Note = ({ children }) => (
-  <Box sx={{ bgcolor: '#dff0fb', borderLeft: '4px solid #5ebbeb', p: 2, my: 2, color: '#1a5f86' }}>
+  <Box sx={{ bgcolor: byMode('#dff0fb', '#0c3a55'), borderLeft: '4px solid #5ebbeb', p: 2, my: 2, color: byMode('#1a5f86', '#74d4ff') }}>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
       <NoteIcon sx={{ fontSize: 18 }} />
       <Typography sx={{ fontSize: 16 }}>Note</Typography>
@@ -145,7 +146,7 @@ export default function ExternalStocktakeHelpDrawer({ open, onClose, initialSect
       PaperProps={{ sx: { width: 'min(1120px, 100vw)', display: 'flex', flexDirection: 'row', boxShadow: 'none' } }}
     >
       {/* table of contents */}
-      <Box sx={{ width: 350, flexShrink: 0, bgcolor: '#e1e8ee', p: 2.5, overflowY: 'auto' }}>
+      <Box sx={{ width: 350, flexShrink: 0, bgcolor: byMode('#e1e8ee', '#2a2a2a'), p: 2.5, overflowY: 'auto' }}>
         {SECTIONS.map((s) => (
           <Typography
             key={s.id}
@@ -155,7 +156,7 @@ export default function ExternalStocktakeHelpDrawer({ open, onClose, initialSect
               pl: s.level ? 2 : 0,
               py: 0.5,
               cursor: 'pointer',
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               textDecoration: current === s.id ? 'underline' : 'none',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -175,7 +176,7 @@ export default function ExternalStocktakeHelpDrawer({ open, onClose, initialSect
           <Button
             onClick={onClose}
             startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
-            sx={{ ml: 'auto', color: '#000', fontSize: 16, fontWeight: 700, textTransform: 'none' }}
+            sx={{ ml: 'auto', color: byMode('#000', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none' }}
           >
             Close
           </Button>

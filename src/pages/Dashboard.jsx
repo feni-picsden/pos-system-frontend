@@ -8,6 +8,7 @@ import dashboardLayoutService from '../services/dashboardLayoutService';
 import { useSelectedOutlet } from '../contexts/SelectedOutletContext';
 import { useAuth } from '../contexts/AuthContext';
 import posLocalDb from '../services/posLocalDb';
+import { byMode } from '../theme/sfPalette';
 
 const GRID_COLS = 10;
 
@@ -78,7 +79,7 @@ const Dashboard = () => {
         display: 'flex',
         height: 'calc(100vh - 50px)',
         minHeight: 480,
-        bgcolor: '#fff',
+        bgcolor: byMode('#fff', '#121212'),
         p: 2.5,
         '@media print': { height: 'auto', minHeight: 0 },
       }}
@@ -129,7 +130,7 @@ const Dashboard = () => {
               flexDirection: 'column',
             }}
           >
-            <Typography variant="h6" sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 0.5 }}>
+            <Typography variant="h6" sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>
               {w.favouriteReport
                 ? `${w.favouriteReport.name}${w.favouriteReport.user && w.favouriteReport.user.id !== user?.id ? `(${w.favouriteReport.user.name})` : ''}`
                 : 'Dashboard item'}

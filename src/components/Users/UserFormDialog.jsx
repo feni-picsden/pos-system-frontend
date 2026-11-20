@@ -24,6 +24,7 @@ import { roleService } from '../../services/roleService';
 import { outletService } from '../../services/outletService';
 import settingsService from '../../services/settingsService';
 import { REF_MENU_PROPS } from '../Common/refMenuProps';
+import { byMode } from '../../theme/sfPalette';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 
@@ -33,23 +34,23 @@ const inputSx = {
     height: 42,
     borderRadius: '8px',
     fontSize: 16,
-    bgcolor: '#fff',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+    bgcolor: byMode('#fff', '#121212'),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#f8f8f8'), borderWidth: '2px' },
     '&.Mui-error .MuiOutlinedInput-notchedOutline': { borderColor: '#dc2626' },
   },
-  '& .MuiOutlinedInput-input': { padding: '9px 16px', '&::placeholder': { color: '#808080', opacity: 1 } },
+  '& .MuiOutlinedInput-input': { padding: '9px 16px', '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 } },
 };
 
 const selectSx = {
   height: 42,
   borderRadius: '8px',
   fontSize: 16,
-  bgcolor: '#fff',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+  bgcolor: byMode('#fff', '#121212'),
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#f8f8f8'), borderWidth: '2px' },
   '&.Mui-error .MuiOutlinedInput-notchedOutline': { borderColor: '#dc2626' },
 };
 
@@ -66,19 +67,19 @@ const footerButtonSx = (bg, fg, hoverBg) => ({
   boxShadow: 'none',
   transition: 'all 0s ease',
   '&:hover': { bgcolor: hoverBg, boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: 'rgba(0,0,0,0.1)', color: '#b3b3b3' },
+  '&.Mui-disabled': { bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'), color: byMode('#b3b3b3', '#a0a4aa') },
 });
 
 // Reference: a small label sits ABOVE each field (Username / Password / Role).
 const FieldLabel = ({ children, invalid = false }) => (
-  <Typography sx={{ fontSize: 13, color: invalid ? '#dc2626' : '#313439', mb: 0.5, lineHeight: '18px' }}>
+  <Typography sx={{ fontSize: 13, color: invalid ? byMode('#dc2626', '#ffa2a2') : byMode('#313439', '#f8f8f8'), mb: 0.5, lineHeight: '18px' }}>
     {children}
   </Typography>
 );
 
 const ErrorText = ({ children }) =>
   children ? (
-    <Typography sx={{ fontSize: 12, color: '#dc2626', mt: 0.5 }}>{children}</Typography>
+    <Typography sx={{ fontSize: 12, color: byMode('#dc2626', '#ffa2a2'), mt: 0.5 }}>{children}</Typography>
   ) : null;
 
 const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
@@ -454,12 +455,12 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           alignItems: 'center',
           gap: 1.5,
           px: 3,
-          bgcolor: '#bbf7d0',
+          bgcolor: byMode('#bbf7d0', '#264029'),
           borderRadius: '8px 8px 0 0',
         }}
       >
-        <CheckIcon sx={{ color: '#000' }} />
-        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#166534' }}>
+        <CheckIcon sx={{ color: byMode('#000', '#7bf1a8') }} />
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#166534', '#7bf1a8') }}>
           {isEditMode ? 'Edit User' : 'Create User'}
         </Typography>
       </Box>
@@ -535,7 +536,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           {/* Outlet (our outlet-wise rule, not in the reference): only in All
               Outlets mode. With a navbar outlet the user is created for it. */}
           {!canPickAnyOutlet && fixedOutletId && !isEditMode && (
-            <Typography sx={{ fontSize: 13, color: '#676b72' }}>
+            <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>
               Creating user for outlet: <strong>{fixedOutletName || `Outlet ${fixedOutletId}`}</strong>
             </Typography>
           )}
@@ -554,7 +555,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
                     sx={selectSx}
                     IconComponent={ArrowDropDownIcon}
                     MenuProps={REF_MENU_PROPS}
-                    renderValue={(v) => (v ? outletName(v) : <Box component="span" sx={{ color: '#808080' }}>Select an outlet</Box>)}
+                    renderValue={(v) => (v ? outletName(v) : <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>Select an outlet</Box>)}
                   >
                     {outlets.map((outlet) => (
                       <MenuItem key={outlet.id} value={outlet.id}>{outlet.name}</MenuItem>
@@ -570,7 +571,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
                   checked={formData.assignMultipleOutlets}
                   onChange={(e) => handleInputChange('assignMultipleOutlets', e.target.checked)}
                 />
-                <Typography sx={{ fontSize: 16, color: '#313439' }}>Assign Multiple Outlets</Typography>
+                <Typography sx={{ fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>Assign Multiple Outlets</Typography>
               </Box>
 
               {formData.assignMultipleOutlets && (
@@ -589,7 +590,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
                     renderValue={(selected) =>
                       selected.length
                         ? selected.map(outletName).join(', ')
-                        : <Box component="span" sx={{ color: '#808080' }}>Select outlets</Box>
+                        : <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>Select outlets</Box>
                     }
                   >
                     {outlets.map((outlet) => (
@@ -619,7 +620,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
               renderValue={(v) => {
                 if (!v) {
                   return (
-                    <Box component="span" sx={{ color: '#808080' }}>
+                    <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>
                       {rolesLoading ? 'Loading roles...' : canPickAnyOutlet && !formData.outletId ? 'Select an outlet first' : 'Select a role'}
                     </Box>
                   );
@@ -644,7 +645,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
                 checked={formData.reportAccessAllOutlets}
                 onChange={(e) => handleInputChange('reportAccessAllOutlets', e.target.checked)}
               />
-              <Typography sx={{ fontSize: 16, color: '#313439' }}>Enable Reporting for All Outlets</Typography>
+              <Typography sx={{ fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>Enable Reporting for All Outlets</Typography>
             </Box>
           )}
         </Box>
@@ -655,7 +656,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           disableRipple
           onClick={onClose}
           disabled={loading}
-          sx={footerButtonSx('#dedede', '#000', '#d0d0d0')}
+          sx={footerButtonSx(byMode('#dedede', '#3a3a3a'), byMode('#000', '#f8f8f8'), byMode('#d0d0d0', '#4a4a4a'))}
         >
           Cancel
         </Button>
@@ -663,7 +664,7 @@ const UserFormDialog = ({ open, onClose, user, onUserSaved }) => {
           disableRipple
           onClick={handleSubmit}
           disabled={loading}
-          sx={footerButtonSx('#22c55e', '#fff', '#16a34a')}
+          sx={footerButtonSx('#22c55e', byMode('#fff', '#232323'), '#16a34a')}
         >
           {loading ? null : (
             isEditMode ? 'Update' : 'Create'

@@ -18,7 +18,9 @@ import {
   Box,
   InputAdornment,
   CircularProgress,
+  useTheme,
 } from "@mui/material";
+import { byMode } from "../../theme/sfPalette";
 import {
   IosShareOutlined as ExportIcon,
   LocalOfferOutlined as CategoryIcon,
@@ -39,10 +41,11 @@ const editInputSx = (width, height = 42) => ({
     height,
     borderRadius: "8px",
     fontSize: 16,
-    backgroundColor: "#fff",
-    "& fieldset": { borderColor: "#404040", borderWidth: "1px" },
-    "&:hover fieldset": { borderColor: "#404040", borderWidth: "1px" },
-    "&.Mui-focused fieldset": { borderColor: "#000", borderWidth: "2px" },
+    backgroundColor: byMode("#fff", "#121212"),
+    color: byMode(undefined, "#f8f8f8"),
+    "& fieldset": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&:hover fieldset": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&.Mui-focused fieldset": { borderColor: byMode("#000", "#2b7fff"), borderWidth: "2px" },
   },
 });
 
@@ -52,12 +55,15 @@ const GROUP_ORDER = ["Categories", "Families", "Products", "Price Sets"];
 const GROUP_ICONS = { Categories: CategoryIcon, Families: FamilyIcon, Products: ProductIcon, "Price Sets": PriceSetIcon };
 
 // Reference "No Products" panel: a crossed circle beside the message
-const EmptyIcon = () => (
-  <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
-    <circle cx="70" cy="70" r="55" fill="none" stroke="#000" strokeWidth="10" />
-    <line x1="132" y1="8" x2="8" y2="132" stroke="#000" strokeWidth="10" strokeLinecap="round" />
-  </svg>
-);
+const EmptyIcon = () => {
+  const ink = useTheme().palette.mode === "dark" ? "#f8f8f8" : "#000";
+  return (
+    <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
+      <circle cx="70" cy="70" r="55" fill="none" stroke={ink} strokeWidth="10" />
+      <line x1="132" y1="8" x2="8" y2="132" stroke={ink} strokeWidth="10" strokeLinecap="round" />
+    </svg>
+  );
+};
 const HINT_OPTION = { type: "hint", label: "Keep Typing to Search..." };
 const ALL_PRODUCTS_LIMIT = 100000;
 
@@ -144,7 +150,7 @@ const StockRow = memo(function StockRow({ product, pricePoint, priceIndex, editi
       <TableCell>
         {cell("profitPercentage", profitPercent, {
           width: 150, height: 40, suffix: "%",
-          color: Number(profitPercent) < 0 ? "red" : undefined,
+          color: Number(profitPercent) < 0 ? byMode("red", "#ffa2a2") : undefined,
         })}
       </TableCell>
     </TableRow>
@@ -717,15 +723,15 @@ const StockList = () => {
               height: 42,
               borderRadius: "12px",
               px: 2,
-              border: "1px solid #8b8b8b",
-              color: "#6f6f6f",
+              border: byMode("1px solid #8b8b8b", "1px solid #a1a1a1"),
+              color: byMode("#6f6f6f", "#d4d4d4"),
               fontSize: 16,
               fontWeight: 700,
               textTransform: "none",
               boxShadow: "none",
               transition: "none",
               "&:hover": {
-                border: "1px solid #8b8b8b",
+                border: byMode("1px solid #8b8b8b", "1px solid #a1a1a1"),
                 backgroundColor: "transparent",
                 boxShadow: "none",
                 transition: "none",
@@ -737,7 +743,7 @@ const StockList = () => {
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           {updating && <CircularProgress size={18} thickness={5} aria-label="Updating list" sx={{ color: "#5ebbeb" }} />}
-          <Typography sx={{ fontSize: 16, color: "#525252" }}>
+          <Typography sx={{ fontSize: 16, color: byMode("#525252", "#d4d4d4") }}>
             {Array.isArray(filteredProducts) ? filteredProducts.length : 0} Products
           </Typography>
         </Box>
@@ -750,7 +756,7 @@ const StockList = () => {
           fullWidth
           freeSolo
           forcePopupIcon
-          popupIcon={<ArrowDropDownIcon sx={{ color: "#808080" }} />}
+          popupIcon={<ArrowDropDownIcon sx={{ color: byMode("#808080", "#a0a4aa") }} />}
           value={selectedOption}
           inputValue={searchTerm}
           onInputChange={(e, value, reason) => {
@@ -801,7 +807,9 @@ const StockList = () => {
             },
             paper: {
               sx: {
-                border: "1px solid #000",
+                border: byMode("1px solid #000", "1px solid #a1a1a1"),
+                bgcolor: byMode(undefined, "#232323"),
+                color: byMode(undefined, "#f8f8f8"),
                 borderRadius: "8px",
                 boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
                 // freeSolo opens an empty list when nothing matches; hide it (no stray line)
@@ -810,9 +818,9 @@ const StockList = () => {
                 "& .MuiAutocomplete-groupLabel": {
                   fontSize: 16,
                   fontWeight: 700,
-                  color: "#000",
+                  color: byMode("#000", "#f8f8f8"),
                   padding: "16px",
-                  backgroundColor: "#fff",
+                  backgroundColor: byMode("#fff", "#232323"),
                   lineHeight: 1.2,
                 },
                 // ponytail: doubled selector + li tag beats MUI's grouped-option defaults
@@ -825,10 +833,11 @@ const StockList = () => {
                   gap: "8px",
                   '&[aria-selected="true"], &.Mui-focused, &.Mui-focusVisible, &:hover, &[aria-selected="true"].Mui-focused':
                     {
-                      backgroundColor: "#7dd3fc",
+                      backgroundColor: byMode("#7dd3fc", "#0084d1"),
+                      color: byMode(undefined, "#fafafa"),
                     },
                   // the "Keep Typing to Search..." hint: plain text, not a choice
-                  '&[aria-disabled="true"]': { opacity: 1, cursor: "default", backgroundColor: "#fff" },
+                  '&[aria-disabled="true"]': { opacity: 1, cursor: "default", backgroundColor: byMode("#fff", "#232323"), color: byMode(undefined, "#f8f8f8") },
                 },
               },
             },
@@ -837,7 +846,7 @@ const StockList = () => {
             const Icon = GROUP_ICONS[option.type];
             return (
               <Box component="li" {...props} key={`${option.type}-${option.id ?? option.label}`}>
-                {Icon && <Icon sx={{ fontSize: 20, color: "#404040" }} />}
+                {Icon && <Icon sx={{ fontSize: 20, color: byMode("#404040", "#d4d4d4") }} />}
                 {option.label}
               </Box>
             );
@@ -854,11 +863,11 @@ const StockList = () => {
                   fontSize: 16,
                   paddingTop: "0 !important",
                   paddingBottom: "0 !important",
-                  "& fieldset": { borderColor: "#404040", borderWidth: "1px" },
-                  "&:hover fieldset": { borderColor: "#404040", borderWidth: "1px" },
-                  "&.Mui-focused fieldset": { borderColor: "#000", borderWidth: "2px" },
+                  "& fieldset": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+                  "&:hover fieldset": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+                  "&.Mui-focused fieldset": { borderColor: byMode("#000", "#2b7fff"), borderWidth: "2px" },
                 },
-                "& input::placeholder": { color: "#808080", opacity: 1 },
+                "& input::placeholder": { color: byMode("#808080", "#757575"), opacity: 1 },
                 // react-select-style static chevron: no rotate on open
                 "& .MuiAutocomplete-popupIndicator": { transform: "none" },
                 "& .MuiAutocomplete-popupIndicatorOpen": { transform: "none" },
@@ -877,7 +886,7 @@ const StockList = () => {
           sx={{
             ml: 0,
             gap: "8px",
-            "& .MuiFormControlLabel-label": { fontSize: 16, color: "#000" },
+            "& .MuiFormControlLabel-label": { fontSize: 16, color: byMode("#000", "#f8f8f8") },
           }}
         />
       </Box>
@@ -890,8 +899,8 @@ const StockList = () => {
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, py: 6, opacity: updating ? 0.5 : 1 }}>
           <EmptyIcon />
           <Box>
-            <Typography sx={{ fontSize: 24, fontWeight: 700, color: "#000", mb: 3 }}>No Products</Typography>
-            <Typography sx={{ fontSize: 16, color: "#000" }}>Search did not yield any results.</Typography>
+            <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode("#000", "#f8f8f8"), mb: 3 }}>No Products</Typography>
+            <Typography sx={{ fontSize: 16, color: byMode("#000", "#f8f8f8") }}>Search did not yield any results.</Typography>
           </Box>
         </Box>
       ) : (
@@ -905,13 +914,13 @@ const StockList = () => {
           <TableHead>
             <TableRow
               sx={{
-                backgroundColor: "#5ebbeb",
+                backgroundColor: byMode("#5ebbeb", "#333333"),
                 "& th": {
-                  backgroundColor: "#5ebbeb", // a sticky header cell paints its own background
+                  backgroundColor: byMode("#5ebbeb", "#333333"), // a sticky header cell paints its own background
                   // ...and at 125% / 150% scaling a hairline seam showed between
                   // cells; 1px of the same blue to the right covers it
-                  boxShadow: "1px 0 0 #5ebbeb",
-                  color: "#fff",
+                  boxShadow: byMode("1px 0 0 #5ebbeb", "1px 0 0 #333333"),
+                  color: byMode("#fff", "#5ebbeb"),
                   fontWeight: 700,
                   fontSize: 16,
                   textTransform: "none",
@@ -943,7 +952,7 @@ const StockList = () => {
           <TableBody
             aria-busy={updating}
             sx={{
-              "& td": { fontSize: 16, color: "#000", borderBottom: "none", whiteSpace: "nowrap", px: "24px" },
+              "& td": { fontSize: 16, color: byMode("#000", "#f8f8f8"), borderBottom: "none", whiteSpace: "nowrap", px: "24px" },
               // rows still showing the previous filter while the new one draws
               opacity: updating ? 0.5 : 1,
               transition: "opacity 120ms",

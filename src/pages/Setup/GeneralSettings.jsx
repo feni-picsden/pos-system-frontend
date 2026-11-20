@@ -72,6 +72,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
 import { getSaleKeysOutletId } from '../../utils/saleKeysOutlet';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { byMode } from '../../theme/sfPalette';
 
 // The fixed app bar in DashboardLayout (HEADER_HEIGHT). Anything sticky on this page
 // has to start below it, or it scrolls under the bar and its text is clipped.
@@ -81,11 +82,14 @@ const APP_BAR_HEIGHT = 50;
 const SETTING_FIELD_SX = {
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
+    backgroundColor: byMode(undefined, '#121212'),
+    color: byMode(undefined, '#f8f8f8'),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' }
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 }
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
+  '& .MuiSelect-icon, & .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator': { color: byMode(undefined, '#a1a1a1') }
 };
 
 const TAB_GROUPS = [
@@ -102,14 +106,15 @@ const SETTING_MENU_PROPS = {
   PaperProps: {
     elevation: 0,
     sx: {
-      border: '1px solid #404040',
+      border: byMode('1px solid #404040', '1px solid #a1a1a1'),
       borderRadius: '8px',
       boxShadow: 'none',
-      '&& .MuiMenuItem-root': { minHeight: 46, fontSize: 16, color: '#313439' },
-      '&& .MuiMenuItem-root.Mui-selected': { backgroundColor: 'transparent', color: '#38bdf8' },
+      backgroundColor: byMode(undefined, '#232323'),
+      '&& .MuiMenuItem-root': { minHeight: 46, fontSize: 16, color: byMode('#313439', '#f8f8f8') },
+      '&& .MuiMenuItem-root.Mui-selected': { backgroundColor: 'transparent', color: byMode('#38bdf8', '#00a6f4') },
       '&& .MuiMenuItem-root:hover, && .MuiMenuItem-root.Mui-selected:hover, && .MuiMenuItem-root.Mui-focusVisible': {
-        backgroundColor: '#5ebbeb',
-        color: '#f8f8f8'
+        backgroundColor: byMode('#5ebbeb', '#0084d1'),
+        color: byMode('#f8f8f8', '#fafafa')
       }
     }
   }
@@ -120,17 +125,19 @@ const SETTING_LISTBOX_PROPS = {
   paper: {
     elevation: 0,
     sx: {
-      border: '1px solid #404040',
+      border: byMode('1px solid #404040', '1px solid #a1a1a1'),
       borderRadius: '8px',
       boxShadow: 'none',
+      backgroundColor: byMode(undefined, '#232323'),
       // ponytail: doubled selectors (&&) - MUI's own .Mui-focused rule has the
       // same specificity and is injected later, so a single & lost the band.
-      '&& li.MuiAutocomplete-option': { minHeight: 46, height: 46, fontSize: 16, color: '#313439' },
-      '&& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: '#38bdf8' },
+      '&& li.MuiAutocomplete-option': { minHeight: 46, height: 46, fontSize: 16, color: byMode('#313439', '#f8f8f8') },
+      '&& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent', color: byMode('#38bdf8', '#00a6f4') },
       '&& .MuiAutocomplete-option:hover, && .MuiAutocomplete-option.Mui-focused, && .MuiAutocomplete-option[data-focus="true"], && .MuiAutocomplete-option[aria-selected="true"].Mui-focused, && .MuiAutocomplete-option[aria-selected="true"]:hover': {
-        backgroundColor: '#5ebbeb',
-        color: '#f8f8f8'
-      }
+        backgroundColor: byMode('#5ebbeb', '#0084d1'),
+        color: byMode('#f8f8f8', '#fafafa')
+      },
+      '& .MuiAutocomplete-noOptions, & .MuiAutocomplete-loading': { color: byMode(undefined, '#a0a4aa') }
     }
   }
 };
@@ -200,7 +207,7 @@ const selectedFirst = (options, selected) => {
 // flash when it is the jump target.
 // Shown inside a Select whose option list is empty (user request 05/11/2026).
 const NO_DATA_ITEM = (
-  <MenuItem disabled value="__no_data__" sx={{ color: '#9e9e9e', fontStyle: 'italic' }}>
+  <MenuItem disabled value="__no_data__" sx={{ color: byMode('#9e9e9e', '#a0a4aa'), fontStyle: 'italic' }}>
     No data found
   </MenuItem>
 );
@@ -210,7 +217,7 @@ const SettingsSection = ({ id, label, flash, children }) => (
   <Box
     id={`section-${id}`}
     sx={{
-      borderTop: '1px solid #e5e5e5',
+      borderTop: byMode('1px solid #e5e5e5', '1px solid #373737'),
       // No rule right under the page title: only BETWEEN sections.
       '&:first-of-type': { borderTop: 0, pt: 3 },
       // Band pokes 16px past the text on both sides so the flash never sits
@@ -222,10 +229,10 @@ const SettingsSection = ({ id, label, flash, children }) => (
       scrollMarginTop: '144px',
       borderRadius: '8px',
       transition: 'background-color 300ms',
-      backgroundColor: flash ? '#f0f0f0' : 'transparent'
+      backgroundColor: flash ? byMode('#f0f0f0', '#2f2f2f') : 'transparent'
     }}
   >
-    <Typography component="h2" sx={{ fontSize: '24px', fontWeight: 700, color: '#000', mb: 3 }}>
+    <Typography component="h2" sx={{ fontSize: '24px', fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 3 }}>
       {label}
     </Typography>
     {/* Rule above runs the full page width; the fields stay ~756px. */}
@@ -243,26 +250,26 @@ const SettingRow = ({ label, updated, description, helpUrl, onMoreInfo, error, c
     data-setting={label}
     sx={{
       scrollMarginTop: '160px',
-      ...(error && { backgroundColor: '#fde8e8', borderRadius: '6px', p: 1, ml: -1, mr: -1 }),
+      ...(error && { backgroundColor: byMode('#fde8e8', '#492625'), borderRadius: '6px', p: 1, ml: -1, mr: -1 }),
     }}
   >
-    <Typography component="div" sx={{ fontSize: '16px', fontWeight: 700, color: error ? '#b91c1c' : '#000', display: 'flex', alignItems: 'center' }}>
-      {error && <WarningAmberOutlined sx={{ fontSize: 18, mr: 0.75, color: '#b91c1c' }} />}
-      {label}
+    <Typography component="div" sx={{ fontSize: '16px', fontWeight: 700, color: error ? byMode('#b91c1c', '#ffa2a2') : byMode('#000', '#f8f8f8'), display: 'block', whiteSpace: 'nowrap' }}>
+      {error && <WarningAmberOutlined sx={{ fontSize: 18, mr: 0.75, verticalAlign: 'text-bottom', color: byMode('#b91c1c', '#ffa2a2') }} />}
+      <Box component="span" sx={{ display: 'inline-block' }}>{label}</Box>
       {updated && (
-        <Box component="span" sx={{ ml: 0.75, fontSize: '13px', fontWeight: 400, color: '#676b72' }}>
+        <Box component="span" sx={{ ml: 0.75, fontSize: '13px', fontWeight: 400, whiteSpace: 'nowrap', color: byMode('#676b72', '#a0a4aa') }}>
           - Last updated {updated}
         </Box>
       )}
     </Typography>
     {description && (
-      <Typography sx={{ fontSize: '14px', color: '#404040', mt: 0.25 }}>
+      <Typography sx={{ fontSize: '14px', color: byMode('#404040', '#d4d4d4'), mt: 0.25 }}>
         {description}{!onMoreInfo && helpUrl && ' '}
         {!onMoreInfo && helpUrl && <Link
           href={helpUrl}
           target="_blank"
           rel="noopener"
-          sx={{ color: '#404040', textDecoration: 'underline' }}
+          sx={{ color: byMode('#404040', '#d4d4d4'), textDecoration: 'underline' }}
         >
           More Info...
         </Link>}
@@ -273,9 +280,9 @@ const SettingRow = ({ label, updated, description, helpUrl, onMoreInfo, error, c
         onClick={onMoreInfo}
         sx={{
           mt: 0.5, p: '2px 8px', minWidth: 0, textTransform: 'none',
-          fontSize: 14, fontWeight: 400, color: '#404040',
-          border: '1px solid #d4d4d4', borderRadius: '8px',
-          '&:hover': { backgroundColor: '#f8f8f8', borderColor: '#404040' }
+          fontSize: 14, fontWeight: 400, color: byMode('#404040', '#d4d4d4'),
+          border: byMode('1px solid #d4d4d4', '1px solid #a1a1a1'), borderRadius: '8px',
+          '&:hover': { backgroundColor: byMode('#f8f8f8', '#2f2f2f'), borderColor: byMode('#404040', '#d4d4d4') }
         }}
       >
         More Info...
@@ -294,7 +301,7 @@ const renderRichText = (text) =>
 const SettingToggle = ({ checked, onChange, stateText }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
     <ShopfrontSwitch checked={!!checked} onChange={onChange} />
-    {stateText && <Typography sx={{ fontSize: '14px', color: '#404040' }}>{stateText}</Typography>}
+    {stateText && <Typography sx={{ fontSize: '14px', color: byMode('#404040', '#d4d4d4') }}>{stateText}</Typography>}
   </Box>
 );
 
@@ -375,10 +382,10 @@ const EMPTY_REGISTER_PROFILE = {
 const outletEditorInputSx = {
   width: '100%',
   maxWidth: 764,
-  '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px' },
+  '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px', backgroundColor: byMode(undefined, '#121212') },
   '& .MuiOutlinedInput-input': { padding: '8px 16px', fontSize: 16 },
-  '& .MuiOutlinedInput-notchedOutline': { border: '1px solid oklch(0.371 0 0)' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid oklch(0.371 0 0)' }
+  '& .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid oklch(0.371 0 0)', '1px solid #a1a1a1') },
+  '&:hover .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid oklch(0.371 0 0)', '1px solid #a1a1a1') }
 };
 
 // Form defaults for the per-register / per-outlet tabs. Each load starts from
@@ -1537,7 +1544,7 @@ const GeneralSettings = () => {
               href={field.link.href}
               target="_blank"
               rel="noopener"
-              sx={{ color: '#404040', textDecoration: 'underline' }}
+              sx={{ color: byMode('#404040', '#d4d4d4'), textDecoration: 'underline' }}
             >
               {field.link.text}
             </Link>
@@ -1564,14 +1571,14 @@ const GeneralSettings = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <Box
               sx={{
-                py: 1, px: 2, fontSize: '14px', color: '#404040',
-                backgroundColor: '#f5f5f5', borderRight: '1px solid #d4d4d4',
+                py: 1, px: 2, fontSize: '14px', color: byMode('#404040', '#d4d4d4'),
+                backgroundColor: byMode('#f5f5f5', '#3a3a3a'), borderRight: byMode('1px solid #d4d4d4', '1px solid #373737'),
                 borderRadius: '8px 0 0 8px'
               }}
             >
               Example
             </Box>
-            <Typography sx={{ px: 2, fontSize: '14px', color: '#404040' }}>
+            <Typography sx={{ px: 2, fontSize: '14px', color: byMode('#404040', '#d4d4d4') }}>
               {/* the live clock shows the zone picked above, even before Save */}
               {formatDateValueInZone(currentDateTime, value, companySettings.timezone || 'Australia/Sydney')}
             </Typography>
@@ -1601,7 +1608,7 @@ const GeneralSettings = () => {
           displayEmpty
           renderValue={(v) => (v
             ? v
-            : <Box component="span" sx={{ color: '#9e9e9e' }}>{loadingSaleKeySets ? 'Loading...' : 'Select...'}</Box>)}
+            : <Box component="span" sx={{ color: byMode('#9e9e9e', '#757575') }}>{loadingSaleKeySets ? 'Loading...' : 'Select...'}</Box>)}
         >
           {loadingSaleKeySets ? (
             <MenuItem value="">Loading...</MenuItem>
@@ -1642,14 +1649,14 @@ const GeneralSettings = () => {
         sx={{
           height: 42, borderRadius: '12px', textTransform: 'none',
           fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
-          color: '#32b643', border: '1px solid #32b643', backgroundColor: '#fff',
-          '&:hover': { color: '#6dd77b', borderColor: '#6dd77b', backgroundColor: '#fff' }
+          color: byMode('#32b643', '#7bf1a8'), border: byMode('1px solid #32b643', '1px solid #7bf1a8'), backgroundColor: byMode('#fff', 'transparent'),
+          '&:hover': { color: byMode('#6dd77b', '#b9f8cf'), borderColor: byMode('#6dd77b', '#b9f8cf'), backgroundColor: byMode('#fff', 'rgba(255,255,255,0.08)') }
         }}
       >
         Edit Reasons
       </Button>
       {reasonListFor(field.key).length === 0 && (
-        <Typography sx={{ fontSize: 14, color: '#404040', mt: 1 }}>
+        <Typography sx={{ fontSize: 14, color: byMode('#404040', '#d4d4d4'), mt: 1 }}>
           No reasons are provided, the users will always need to type in the reason
         </Typography>
       )}
@@ -1817,7 +1824,7 @@ const GeneralSettings = () => {
                 onClick={handleSetDefaultSaleKeysForOutlet}
                 disabled={!selectedOutletSaleKeySetId}
                 sx={{
-                  bgcolor: '#5ebbeb', color: '#fff', height: 42, borderRadius: '12px',
+                  bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), height: 42, borderRadius: '12px',
                   fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none',
                   '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }
                 }}
@@ -1843,14 +1850,14 @@ const GeneralSettings = () => {
           gap: '4px',
           padding: '0 8px',
           cursor: 'pointer',
-          color: '#32b643',
+          color: byMode('#32b643', '#7bf1a8'),
           fontSize: 16,
           fontWeight: 400,
           background: 'transparent',
           border: 'none',
           borderRadius: 0,
           transition: 'all 0s',
-          '&:hover': { color: '#6dd77b' }
+          '&:hover': { color: byMode('#6dd77b', '#b9f8cf') }
         }}
       >
         <EditOutlined sx={{ fontSize: 20 }} />
@@ -1860,16 +1867,16 @@ const GeneralSettings = () => {
   );
 
   const outletListRowSx = (isParent) => ({
-    backgroundColor: isParent ? '#f8f8f8' : 'transparent',
+    backgroundColor: isParent ? byMode('#f8f8f8', '#232323') : 'transparent',
     transition: 'all 0s',
-    '&:hover': { backgroundColor: 'rgb(223,223,223)' },
+    '&:hover': { backgroundColor: byMode('rgb(223,223,223)', '#2f2f2f') },
     '& > td': {
       height: isParent ? 62 : 52,
       // ponytail: vertical padding on top of a fixed height pushed rows to 69/57.
       // Horizontal padding only - `height` already reserves the row box.
       padding: '0 16px',
-      borderTop: '1px solid #000',
-      borderBottom: '1px solid #000',
+      borderTop: byMode('1px solid #000', '1px solid #373737'),
+      borderBottom: byMode('1px solid #000', '1px solid #373737'),
       textAlign: 'left'
     }
   });
@@ -1905,7 +1912,7 @@ const GeneralSettings = () => {
           <React.Fragment key={outlet.id}>
             <Box component="tr" sx={outletListRowSx(true)}>
               <Box component="td">
-                <Box className="outlet" sx={{ fontSize: 24, fontWeight: 700, color: '#000' }}>
+                <Box className="outlet" sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
                   {outlet.name}
                 </Box>
               </Box>
@@ -1950,7 +1957,7 @@ const GeneralSettings = () => {
           onClick={() => { setEditingOutletId(null); setSearchParams({}); }}
           sx={{
             display: 'inline-flex', alignItems: 'center', gap: '4px', mb: 2, cursor: 'pointer',
-            color: '#32b643', fontSize: 16, transition: 'all 0s', '&:hover': { color: '#6dd77b' }
+            color: byMode('#32b643', '#7bf1a8'), fontSize: 16, transition: 'all 0s', '&:hover': { color: byMode('#6dd77b', '#b9f8cf') }
           }}
         >
           <ArrowBackOutlined sx={{ fontSize: 20 }} /> Outlets
@@ -1959,7 +1966,7 @@ const GeneralSettings = () => {
           Editing {outletProfile.name || outlet?.name || ''}
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 0, borderBottom: '1px solid #ddd', mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 0, borderBottom: byMode('1px solid #ddd', '1px solid #373737'), mb: 3 }}>
           {['General', 'Contact', 'Address'].map((label, index) => (
             <Box
               key={label}
@@ -1977,8 +1984,8 @@ const GeneralSettings = () => {
                 borderBottom: '4px solid',
                 borderBottomColor: outletEditorTab === index ? '#5ebbeb' : 'transparent',
                 borderRadius: '8px 8px 0 0',
-                backgroundColor: outletEditorTab === index ? '#fff' : 'transparent',
-                color: outletEditorTab === index ? '#000' : '#676b72',
+                backgroundColor: outletEditorTab === index ? byMode('#fff', '#232323') : 'transparent',
+                color: outletEditorTab === index ? byMode('#000', '#f8f8f8') : byMode('#676b72', '#a0a4aa'),
                 transition: 'color 0.15s, background-color 0.15s, border-color 0.15s'
               }}
             >
@@ -1997,7 +2004,7 @@ const GeneralSettings = () => {
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', height: 42 }}>
                 <ShopfrontSwitch checked={!!outletProfile.hasKitchenScreen} disabled />
-                <Typography sx={{ ml: '8px', fontSize: 14, color: 'oklch(0.371 0 0)' }}>
+                <Typography sx={{ ml: '8px', fontSize: 14, color: byMode('oklch(0.371 0 0)', '#d4d4d4') }}>
                   This Outlet is not allowed to use Kitchen Screens
                 </Typography>
               </Box>
@@ -2009,8 +2016,8 @@ const GeneralSettings = () => {
                 sx={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: '100%', maxWidth: 764, minHeight: 120, mb: 1, cursor: 'pointer',
-                  border: '1px dashed #d9d9d9', backgroundColor: '#f7f7f7',
-                  fontSize: 16, color: '#676b72'
+                  border: byMode('1px dashed #d9d9d9', '1px dashed #a1a1a1'), backgroundColor: byMode('#f7f7f7', '#121212'),
+                  fontSize: 16, color: byMode('#676b72', '#a0a4aa')
                 }}
               >
                 <input type="file" accept="image/*" hidden onChange={handleOutletLogoSelect} />
@@ -2022,8 +2029,8 @@ const GeneralSettings = () => {
                 onClick={() => setOutletProfile(prev => ({ ...prev, logo: '' }))}
                 sx={{
                   width: '100%', maxWidth: 764, height: 42, borderRadius: '12px',
-                  background: 'transparent', border: '1px solid oklch(0.556 0 0)',
-                  color: 'oklch(0.439 0 0)', fontSize: 16, fontWeight: 700,
+                  background: 'transparent', border: byMode('1px solid oklch(0.556 0 0)', '1px solid #a1a1a1'),
+                  color: byMode('oklch(0.439 0 0)', '#d4d4d4'), fontSize: 16, fontWeight: 700,
                   padding: '8px 32px', textTransform: 'none', boxShadow: 'none'
                 }}
               >
@@ -2048,7 +2055,7 @@ const GeneralSettings = () => {
             onClick={handleSaveOutletProfile}
             disabled={loading}
             sx={{
-              bgcolor: '#5ebbeb', color: '#fff', height: 42, px: 6, borderRadius: '12px',
+              bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), height: 42, px: 6, borderRadius: '12px',
               fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none',
               '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }
             }}
@@ -2076,7 +2083,7 @@ const GeneralSettings = () => {
         // second on every open. Only ask once the list is here and none is picked.
         <Box sx={{
           mt: 3, minHeight: 640, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
-          border: '1px dashed #d4d4d4', borderRadius: '8px', color: '#676b72', fontSize: 16
+          border: byMode('1px dashed #d4d4d4', '1px dashed #a1a1a1'), borderRadius: '8px', color: byMode('#676b72', '#a0a4aa'), fontSize: 16
         }}>
           {loadingOutlets || outlets.length === 0
             ? 'Loading outlet settings…'
@@ -2095,7 +2102,7 @@ const GeneralSettings = () => {
           }}
         >
           {loadingOutletSettings && (
-            <Typography sx={{ fontSize: 14, color: '#676b72', mt: 1 }}>Loading outlet settings…</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), mt: 1 }}>Loading outlet settings…</Typography>
           )}
           <SettingsSection id="outlet-general" label="General" flash={flashSection === 'outlet-general'}>
             <SettingRow
@@ -2236,8 +2243,8 @@ const GeneralSettings = () => {
                 sx={{
                   height: 42, borderRadius: '12px', textTransform: 'none',
                   fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
-                  color: '#32b643', border: '1px solid #32b643', backgroundColor: '#fff',
-                  '&:hover': { color: '#6dd77b', borderColor: '#6dd77b', backgroundColor: '#fff' }
+                  color: byMode('#32b643', '#7bf1a8'), border: byMode('1px solid #32b643', '1px solid #7bf1a8'), backgroundColor: byMode('#fff', 'transparent'),
+                  '&:hover': { color: byMode('#6dd77b', '#b9f8cf'), borderColor: byMode('#6dd77b', '#b9f8cf'), backgroundColor: byMode('#fff', 'rgba(255,255,255,0.08)') }
                 }}
               >
                 Edit Default Reviewers
@@ -2246,8 +2253,8 @@ const GeneralSettings = () => {
                 const ids = (outletSettings.defaultOrderReviewers || []).map(Number);
                 const names = ids.map((uid) => users.find((u) => Number(u.id) === uid)?.name).filter(Boolean);
                 return names.length === 0
-                  ? <Typography sx={{ textAlign: 'center', color: '#676b72', fontSize: 16, mt: 2 }} data-testid="default-reviewers-names">No Default Reviewers</Typography>
-                  : <Typography sx={{ fontSize: 14, color: '#404040', mt: 1.5 }} data-testid="default-reviewers-names">{names.join(', ')}</Typography>;
+                  ? <Typography sx={{ textAlign: 'center', color: byMode('#676b72', '#a0a4aa'), fontSize: 16, mt: 2 }} data-testid="default-reviewers-names">No Default Reviewers</Typography>
+                  : <Typography sx={{ fontSize: 14, color: byMode('#404040', '#d4d4d4'), mt: 1.5 }} data-testid="default-reviewers-names">{names.join(', ')}</Typography>;
               })()}
             </SettingRow>
           </SettingsSection>
@@ -2375,8 +2382,8 @@ const GeneralSettings = () => {
           sx={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             width: '100%', height: 42, padding: '8px 16px', fontSize: 16, fontFamily: 'inherit',
-            cursor: 'pointer', textAlign: 'left', backgroundColor: '#fff', color: '#000',
-            border: '1px solid oklch(0.371 0 0)',
+            cursor: 'pointer', textAlign: 'left', backgroundColor: byMode('#fff', '#121212'), color: byMode('#000', '#f8f8f8'),
+            border: byMode('1px solid oklch(0.371 0 0)', '1px solid #a1a1a1'),
             borderRadius: open ? '8px 8px 0 0' : '8px',
             transition: 'all 0s'
           }}
@@ -2387,8 +2394,8 @@ const GeneralSettings = () => {
         {open && (
           <Box
             sx={{
-              width: '100%', backgroundColor: '#fff',
-              border: '1px solid oklch(0.371 0 0)', borderTop: 0, borderRadius: '0 0 8px 8px',
+              width: '100%', backgroundColor: byMode('#fff', '#232323'),
+              border: byMode('1px solid oklch(0.371 0 0)', '1px solid #a1a1a1'), borderTop: 0, borderRadius: '0 0 8px 8px',
               transition: 'all 0s', animationName: 'none'
             }}
           >
@@ -2405,8 +2412,8 @@ const GeneralSettings = () => {
                 sx={{
                   display: 'flex', alignItems: 'center', height: 56, padding: '16px',
                   fontSize: 16, cursor: 'pointer', transition: 'all 0s',
-                  color: option === value ? 'oklch(0.685 0.169 237.323)' : 'oklch(0.145 0 0)',
-                  '&:hover': { backgroundColor: '#f8f8f8' }
+                  color: option === value ? byMode('oklch(0.685 0.169 237.323)', '#00a6f4') : byMode('oklch(0.145 0 0)', '#f8f8f8'),
+                  '&:hover': { backgroundColor: byMode('#f8f8f8', '#2f2f2f') }
                 }}
               >
                 {option}
@@ -2426,7 +2433,7 @@ const GeneralSettings = () => {
           onClick={() => { setEditingRegisterId(null); setSearchParams({}); }}
           sx={{
             display: 'inline-flex', alignItems: 'center', gap: '4px', mb: 2, cursor: 'pointer',
-            color: '#32b643', fontSize: 16, transition: 'all 0s', '&:hover': { color: '#6dd77b' }
+            color: byMode('#32b643', '#7bf1a8'), fontSize: 16, transition: 'all 0s', '&:hover': { color: byMode('#6dd77b', '#b9f8cf') }
           }}
         >
           <ArrowBackOutlined sx={{ fontSize: 20 }} /> Registers
@@ -2436,7 +2443,7 @@ const GeneralSettings = () => {
           Editing {registerProfile.name || register?.name || ''}
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 0, borderBottom: '1px solid #ddd', mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 0, borderBottom: byMode('1px solid #ddd', '1px solid #373737'), mb: 3 }}>
           {[{ label: 'General', icon: SettingsOutlined }, { label: 'Register Closures', icon: PrintOutlined }].map((tab, index) => (
             <Box
               key={tab.label}
@@ -2449,8 +2456,8 @@ const GeneralSettings = () => {
                 fontFamily: 'inherit', cursor: 'pointer', border: 0,
                 borderBottom: '4px solid transparent',
                 borderRadius: '8px 8px 0 0',
-                backgroundColor: registerEditorTab === index ? '#fff' : 'transparent',
-                color: registerEditorTab === index ? '#000' : '#676b72',
+                backgroundColor: registerEditorTab === index ? byMode('#fff', '#232323') : 'transparent',
+                color: registerEditorTab === index ? byMode('#000', '#f8f8f8') : byMode('#676b72', '#a0a4aa'),
                 transition: registerEditorTab === index
                   ? 'all 0s'
                   : 'color 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -2497,9 +2504,9 @@ const GeneralSettings = () => {
                     sx={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: 25, height: 24, padding: '4px', border: 0, borderRadius: '4px',
-                      cursor: 'pointer', background: 'transparent', color: '#15803d',
+                      cursor: 'pointer', background: 'transparent', color: byMode('#15803d', '#7bf1a8'),
                       transition: 'all 0s',
-                      '&:hover': { backgroundColor: 'rgba(0,0,0,0.10)' }
+                      '&:hover': { backgroundColor: byMode('rgba(0,0,0,0.10)', 'rgba(255,255,255,0.10)') }
                     }}
                   >
                     <EditOutlined sx={{ fontSize: 16 }} />
@@ -2510,7 +2517,7 @@ const GeneralSettings = () => {
 
             <Typography sx={{ fontSize: 24, fontWeight: 700, mt: 4, mb: 2 }}>Payment Methods</Typography>
             {paymentMethods.length === 0 && (
-              <Typography sx={{ fontSize: 14, color: '#676b72' }}>No payment methods configured.</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>No payment methods configured.</Typography>
             )}
             {/* reference lists payment methods ascending by name */}
             {[...paymentMethods].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map((pm) => {
@@ -2531,7 +2538,7 @@ const GeneralSettings = () => {
                         payments: { ...prev.payments, [pm.id]: e.target.checked }
                       }))}
                     />
-                    <Typography sx={{ ml: '8px', fontSize: 14, color: 'oklch(0.371 0 0)' }}>
+                    <Typography sx={{ ml: '8px', fontSize: 14, color: byMode('oklch(0.371 0 0)', '#d4d4d4') }}>
                       {enabled
                         ? 'This payment method will be available to use on this register'
                         : 'The register will not have access to this payment method'}
@@ -2557,7 +2564,7 @@ const GeneralSettings = () => {
             onClick={handleSaveRegisterProfile}
             disabled={loading || registerProfileState !== 'ready'}
             sx={{
-              bgcolor: '#5ebbeb', color: '#fff', height: 42, px: 6, borderRadius: '12px',
+              bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), height: 42, px: 6, borderRadius: '12px',
               fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none',
               '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }
             }}
@@ -2566,7 +2573,7 @@ const GeneralSettings = () => {
           </Button>
         </Box>
         {registerProfileState === 'failed' && (
-          <Typography sx={{ textAlign: 'center', color: '#d32f2f', fontSize: 14, mt: 1 }}>
+          <Typography sx={{ textAlign: 'center', color: byMode('#d32f2f', '#ffa2a2'), fontSize: 14, mt: 1 }}>
             This register&apos;s settings could not be loaded, so saving is disabled.
           </Typography>
         )}
@@ -2592,8 +2599,9 @@ const GeneralSettings = () => {
             value={selectedRegister}
             onChange={(e) => selectRegister(e.target.value)}
             sx={{
+              backgroundColor: byMode(undefined, '#121212'),
               '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: '#000',
+                borderColor: byMode('#000', '#a1a1a1'),
                 borderRadius: 0
               }
             }}
@@ -2636,7 +2644,7 @@ const GeneralSettings = () => {
       {/* General Section */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <SettingsIcon sx={{ mr: 1, color: '#666' }} />
+          <SettingsIcon sx={{ mr: 1, color: byMode('#666', '#a0a4aa') }} />
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             General
           </Typography>
@@ -2654,7 +2662,7 @@ const GeneralSettings = () => {
               </Typography>
             </Box>
             {/* Reference help text, verbatim. */}
-            <Typography sx={{ fontSize: 13, color: '#676b72', mb: 1, lineHeight: 1.4 }}>
+            <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa'), mb: 1, lineHeight: 1.4 }}>
               The amount of cash in the drawer required to trigger a <strong>Safe drop</strong> which allows you to move money from the register to your safe. If set to zero no alert will ever be triggered
             </Typography>
             <TextField
@@ -3031,12 +3039,12 @@ const GeneralSettings = () => {
     <Box
       sx={{
         maxWidth: 618, minHeight: 400, mt: 4, borderRadius: 0,
-        border: '1px dashed #d9d9d9', display: 'flex', flexDirection: 'column',
+        border: byMode('1px dashed #d9d9d9', '1px dashed #a1a1a1'), display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 1
       }}
     >
-      <ManageAccountsOutlined sx={{ fontSize: 32, color: '#676b72' }} />
-      <Typography sx={{ fontSize: '16px', color: '#676b72' }}>
+      <ManageAccountsOutlined sx={{ fontSize: 32, color: byMode('#676b72', '#a0a4aa') }} />
+      <Typography sx={{ fontSize: '16px', color: byMode('#676b72', '#a0a4aa') }}>
         Select which Users to edit...
       </Typography>
     </Box>
@@ -3048,12 +3056,12 @@ const GeneralSettings = () => {
         sx={{
           px: '16px', mx: '-12px', pt: 3, pb: 6, scrollMarginTop: '144px',
           borderRadius: '8px', transition: 'background-color 300ms',
-          backgroundColor: flashSection === 'user-miscellaneous' ? '#f0f0f0' : 'transparent'
+          backgroundColor: flashSection === 'user-miscellaneous' ? byMode('#f0f0f0', '#2f2f2f') : 'transparent'
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-          <CardGiftcardOutlined sx={{ color: '#000', fontSize: 24 }} />
-          <Typography component="h2" sx={{ fontSize: '24px', fontWeight: 700, color: '#000' }}>
+          <CardGiftcardOutlined sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 24 }} />
+          <Typography component="h2" sx={{ fontSize: '24px', fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
             Miscellaneous
           </Typography>
         </Box>
@@ -3118,7 +3126,7 @@ const GeneralSettings = () => {
           alignSelf: 'flex-start',
           display: { xs: 'none', md: 'block' },
           minHeight: `calc(100vh - ${APP_BAR_HEIGHT}px)`,
-          backgroundColor: '#e2e8f0',
+          backgroundColor: byMode('#e2e8f0', '#232323'),
           // No right rule: the white active tab runs straight into the white
           // content column (user request 05/11/2026).
           pt: 2,
@@ -3139,18 +3147,18 @@ const GeneralSettings = () => {
                   width: 'calc(100% - 16px)', ml: 2, px: 3,
                   py: active ? 2 : 1,
                   border: 0, borderRadius: '8px 0 0 8px', textAlign: 'left',
-                  fontFamily: 'inherit', fontWeight: 400, color: '#000',
+                  fontFamily: 'inherit', fontWeight: 400, color: byMode('#000', '#f8f8f8'),
                   fontSize: active ? 20 : '13.3333px',
                   cursor: active ? 'default' : 'pointer',
-                  backgroundColor: active ? '#fff' : 'transparent',
+                  backgroundColor: active ? byMode('#fff', '#333333') : 'transparent',
                   boxShadow: active
-                    ? '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)'
+                    ? byMode('0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)', '0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -4px rgba(0,0,0,0.5)')
                     : 'none',
                   zIndex: active ? 1 : 'auto',
-                  '&:hover': active ? {} : { backgroundColor: 'rgba(0,0,0,0.10)' }
+                  '&:hover': active ? {} : { backgroundColor: byMode('rgba(0,0,0,0.10)', 'rgba(255,255,255,0.08)') }
                 }}
               >
-                <group.icon sx={{ fontSize: active ? 22 : 18, color: '#000' }} />
+                <group.icon sx={{ fontSize: active ? 22 : 18, color: byMode('#000', '#f8f8f8') }} />
                 {group.label}
               </Box>
               {active && (index === 0 || index === 3 || (index === 1 && !editingOutletId && selectedOutlet)) && (
@@ -3164,9 +3172,9 @@ const GeneralSettings = () => {
                       sx={{
                         display: 'block', width: '100%', textAlign: 'left',
                         p: '4px 8px', border: 0, borderRadius: '4px',
-                        fontFamily: 'inherit', fontSize: 16, fontWeight: 400, color: '#0d0d0d',
+                        fontFamily: 'inherit', fontSize: 16, fontWeight: 400, color: byMode('#0d0d0d', '#f8f8f8'),
                         backgroundColor: 'transparent', cursor: 'pointer',
-                        '&:hover': { backgroundColor: 'rgba(0,0,0,0.10)' }
+                        '&:hover': { backgroundColor: byMode('rgba(0,0,0,0.10)', 'rgba(255,255,255,0.08)') }
                       }}
                     >
                       {section.label}
@@ -3183,12 +3191,12 @@ const GeneralSettings = () => {
           LISTS which run full width. */}
       {/* The column runs full width so the white sticky header band reaches the
           right edge (user request 05/11/2026); the form itself stays ~756px. */}
-      <Box sx={{ flex: 1, minWidth: 0, px: 4, pt: 2, pb: 12, backgroundColor: '#fff' }}>
+      <Box sx={{ flex: 1, minWidth: 0, px: 4, pt: 2, pb: 12, backgroundColor: byMode('#fff', '#121212') }}>
         {/* Same 50px offset as the rail: at top 0 this search bar sat under the fixed app
             bar and the section heading scrolled through the gap, half hidden. */}
         {/* Spans the column's side padding too, so the section flash band
             (which pokes 12px past the form) never shows a sliver above it. */}
-        <Box sx={{ position: 'sticky', top: `${APP_BAR_HEIGHT}px`, zIndex: 3, backgroundColor: '#fff', pt: 1, pb: 2, mx: -4, px: 4 }}>
+        <Box sx={{ position: 'sticky', top: `${APP_BAR_HEIGHT}px`, zIndex: 3, backgroundColor: byMode('#fff', '#121212'), pt: 1, pb: 2, mx: -4, px: 4 }}>
           <Autocomplete
             options={searchOptions}
             groupBy={(option) => option.tab}
@@ -3205,7 +3213,7 @@ const GeneralSettings = () => {
                 ...SETTING_LISTBOX_PROPS.paper,
                 sx: {
                   ...SETTING_LISTBOX_PROPS.paper.sx,
-                  '&& .MuiListSubheader-root': { fontWeight: 700, color: '#000', lineHeight: '32px' }
+                  '&& .MuiListSubheader-root': { fontWeight: 700, color: byMode('#000', '#f8f8f8'), backgroundColor: byMode(undefined, '#232323'), lineHeight: '32px' }
                 }
               }
             }}
@@ -3221,12 +3229,12 @@ const GeneralSettings = () => {
           />
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, maxWidth: 756 }}>
             <Box>
-              <Typography component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '32px', fontWeight: 700, color: '#000' }}>
+              <Typography component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '32px', fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
                 {React.createElement(TAB_GROUPS[activeTab].icon, { sx: { fontSize: 32 } })}
                 {TAB_GROUPS[activeTab].label}
               </Typography>
               {activeTab !== 0 && activeTab !== 1 && (
-                <Typography sx={{ fontSize: '14px', color: '#676b72' }}>
+                <Typography sx={{ fontSize: '14px', color: byMode('#676b72', '#a0a4aa') }}>
                   Local settings (not in Crinit's Shop)
                 </Typography>
               )}
@@ -3244,7 +3252,7 @@ const GeneralSettings = () => {
                   displayEmpty
                   renderValue={(v) => (v
                     ? (outlets.find((o) => String(o.id) === String(v))?.name || '')
-                    : <Box component="span" sx={{ color: '#9e9e9e' }}>Select an outlet</Box>)}
+                    : <Box component="span" sx={{ color: byMode('#9e9e9e', '#757575') }}>Select an outlet</Box>)}
                   sx={SETTING_FIELD_SX}
                   MenuProps={SETTING_LISTBOX_PROPS}
                 >
@@ -3376,7 +3384,7 @@ const GeneralSettings = () => {
 
         {/* Confirm Leaving - raised when navigating away with unsaved changes */}
         <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)}>
-          <DialogTitle sx={{ backgroundColor: '#fdecea', color: '#d32f2f', fontWeight: 700 }}>
+          <DialogTitle sx={{ backgroundColor: byMode('#fdecea', '#82181a'), color: byMode('#d32f2f', '#ff6467'), fontWeight: 700 }}>
             Confirm Leaving
           </DialogTitle>
           <DialogContent sx={{ pt: '16px !important' }}>
@@ -3386,8 +3394,8 @@ const GeneralSettings = () => {
             <Button
               onClick={() => setLeaveOpen(false)}
               sx={{
-                backgroundColor: '#dedede', color: '#000', fontWeight: 700,
-                textTransform: 'none', '&:hover': { backgroundColor: '#cfcfcf' }
+                backgroundColor: byMode('#dedede', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), fontWeight: 700,
+                textTransform: 'none', '&:hover': { backgroundColor: byMode('#cfcfcf', '#4a4a4a') }
               }}
             >
               Cancel
@@ -3400,8 +3408,8 @@ const GeneralSettings = () => {
                 pendingLeaveRef.current = null;
               }}
               sx={{
-                backgroundColor: '#e5484d', color: '#fff', fontWeight: 700,
-                textTransform: 'none', '&:hover': { backgroundColor: '#d32f2f' }
+                backgroundColor: byMode('#e5484d', '#ffa2a2'), color: byMode('#fff', '#232323'), fontWeight: 700,
+                textTransform: 'none', '&:hover': { backgroundColor: byMode('#d32f2f', '#ffb8b8') }
               }}
             >
               Leave

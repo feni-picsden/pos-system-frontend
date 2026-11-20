@@ -13,6 +13,7 @@ import { HelpOutline as HelpOutlineIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import customerGroupService from '../../services/customerGroupService';
 import { useAuth } from '../../contexts/AuthContext';
+import { byMode } from '../../theme/sfPalette';
 
 const dialogButtonSx = (bgcolor, color, hoverBg) => ({
   bgcolor,
@@ -129,9 +130,9 @@ const CustomerGroupDialog = ({ open, onClose, customerGroup, onGroupSaved }) => 
       }}
     >
       {/* Header band: light-blue with a "?" and the title */}
-      <Box sx={{ bgcolor: '#bae6fd', px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <HelpOutlineIcon sx={{ color: '#0369a1', fontSize: 22 }} />
-        <Typography sx={{ color: '#0369a1', fontWeight: 400, fontSize: 18 }}>
+      <Box sx={{ bgcolor: byMode('#bae6fd', '#0c3a55'), px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <HelpOutlineIcon sx={{ color: byMode('#0369a1', '#74d4ff'), fontSize: 22 }} />
+        <Typography sx={{ color: byMode('#0369a1', '#74d4ff'), fontWeight: 400, fontSize: 18 }}>
           {isEditMode ? 'Edit Customer Group' : 'Create Customer Group'}
         </Typography>
       </Box>
@@ -140,7 +141,7 @@ const CustomerGroupDialog = ({ open, onClose, customerGroup, onGroupSaved }) => 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
         {!isEditMode && (
-          <Typography sx={{ color: '#313439', fontSize: 16, mb: 1 }}>
+          <Typography sx={{ color: byMode('#313439', '#f8f8f8'), fontSize: 16, mb: 1 }}>
             What should this Customer Group be called?
           </Typography>
         )}
@@ -157,9 +158,9 @@ const CustomerGroupDialog = ({ open, onClose, customerGroup, onGroupSaved }) => 
               height: 42,
               borderRadius: '8px',
               fontSize: 16,
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' }
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#f8f8f8'), borderWidth: '2px' }
             },
             '& .MuiOutlinedInput-input': { py: 0 },
           }}
@@ -170,7 +171,7 @@ const CustomerGroupDialog = ({ open, onClose, customerGroup, onGroupSaved }) => 
         <Button
           onClick={handleCancel}
           disableElevation
-          sx={dialogButtonSx('#d4d4d4', '#000', '#c4c4c4')}
+          sx={dialogButtonSx(byMode('#d4d4d4', '#3a3a3a'), byMode('#000', '#f8f8f8'), byMode('#c4c4c4', '#4a4a4a'))}
         >
           Cancel
         </Button>
@@ -178,7 +179,7 @@ const CustomerGroupDialog = ({ open, onClose, customerGroup, onGroupSaved }) => 
           onClick={handleSubmit}
           disabled={loading}
           disableElevation
-          sx={dialogButtonSx('#38bdf8', '#fff', '#0ea5e9')}
+          sx={dialogButtonSx('#38bdf8', byMode('#fff', '#232323'), '#0ea5e9')}
         >
           {isEditMode ? 'Save Changes' : 'Create'}
         </Button>

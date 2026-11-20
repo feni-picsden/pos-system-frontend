@@ -44,6 +44,7 @@ import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import outletService from '../../services/outletService';
 import registerService from '../../services/registerService';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -75,7 +76,7 @@ const MonthCalendar = ({ month, start, end, onPick }) => {
   return (
     <Box sx={{ width: 266 }}>
       <Typography
-        sx={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#000', mb: 1, height: 24, lineHeight: '24px' }}
+        sx={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: byMode('#000', '#d4d4d4'), mb: 1, height: 24, lineHeight: '24px' }}
       >
         {format(month, 'MMMM yyyy')}
       </Typography>
@@ -83,7 +84,7 @@ const MonthCalendar = ({ month, start, end, onPick }) => {
         {WEEKDAYS.map((d, i) => (
           <Typography
             key={`${d}-${i}`}
-            sx={{ width: 38, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#737373', lineHeight: '24px' }}
+            sx={{ width: 38, textAlign: 'center', fontSize: 12, fontWeight: 700, color: byMode('#737373', '#a0a4aa'), lineHeight: '24px' }}
           >
             {d}
           </Typography>
@@ -101,16 +102,16 @@ const MonthCalendar = ({ month, start, end, onPick }) => {
               sx={{
                 width: 38,
                 height: 38,
-                border: isSameDay(day, today) ? '1px solid #33a3e0' : '1px solid transparent',
+                border: isSameDay(day, today) ? byMode('1px solid #33a3e0', '1px solid #74d4ff') : '1px solid transparent',
                 borderRadius: '12px',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 fontSize: 16,
                 fontWeight: 700,
                 transition: INSTANT,
-                color: selected ? '#f8f8f8' : outside ? '#c4c4c4' : '#33a3e0',
-                bgcolor: selected ? '#5ebbeb' : inRange ? '#e4f2fb' : 'transparent',
-                '&:hover': { bgcolor: selected ? '#5ebbeb' : '#e4f2fb' }
+                color: selected ? '#f8f8f8' : outside ? byMode('#c4c4c4', '#6e6e6e') : byMode('#33a3e0', '#74d4ff'),
+                bgcolor: selected ? '#5ebbeb' : inRange ? byMode('#e4f2fb', '#1f3a4a') : 'transparent',
+                '&:hover': { bgcolor: selected ? '#5ebbeb' : byMode('#e4f2fb', '#1f3a4a') }
               }}
             >
               {format(day, 'd')}
@@ -166,13 +167,13 @@ const RangePopover = ({ start, end, onChange, onClose }) => {
   const monoSx = {
     width: 227,
     height: 36,
-    bgcolor: '#fff',
-    border: '1px solid #e5e5e5',
+    bgcolor: byMode('#fff', '#121212'),
+    border: byMode('1px solid #e5e5e5', '1px solid #a1a1a1'),
     borderRadius: '8px',
     px: 1,
     fontFamily: '"Roboto Mono", monospace',
     fontSize: 12,
-    color: '#000',
+    color: byMode('#000', '#f8f8f8'),
     outline: 'none',
     transition: INSTANT
   };
@@ -185,7 +186,7 @@ const RangePopover = ({ start, end, onChange, onClose }) => {
     height: 24,
     border: 0,
     bgcolor: 'transparent',
-    color: '#000',
+    color: byMode('#000', '#f8f8f8'),
     cursor: 'pointer',
     p: 0,
     transition: INSTANT
@@ -200,8 +201,8 @@ const RangePopover = ({ start, end, onChange, onClose }) => {
         left: 0,
         zIndex: 20,
         width: 622,
-        bgcolor: '#f7f7f7',
-        border: '1px solid #e5e5e5',
+        bgcolor: byMode('#f7f7f7', '#232323'),
+        border: byMode('1px solid #e5e5e5', '1px solid #373737'),
         borderRadius: '12px',
         p: 2,
         boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
@@ -220,7 +221,7 @@ const RangePopover = ({ start, end, onChange, onClose }) => {
           }}
           sx={monoSx}
         />
-        <Typography sx={{ fontSize: 12, color: '#737373' }}>&mdash;</Typography>
+        <Typography sx={{ fontSize: 12, color: byMode('#737373', '#a0a4aa') }}>&mdash;</Typography>
         <Box
           component="input"
           value={text.end}
@@ -248,12 +249,12 @@ const RangePopover = ({ start, end, onChange, onClose }) => {
                 justifyContent: 'center',
                 width: 32,
                 height: 32,
-                border: '1px solid #e5e5e5',
+                border: byMode('1px solid #e5e5e5', '1px solid #373737'),
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: INSTANT,
-                bgcolor: mode === m.key ? '#5ebbeb' : '#fff',
-                color: mode === m.key ? '#f8f8f8' : '#737373'
+                bgcolor: mode === m.key ? '#5ebbeb' : byMode('#fff', '#121212'),
+                color: mode === m.key ? '#f8f8f8' : byMode('#737373', '#a0a4aa')
               }}
             >
               <m.Icon sx={{ fontSize: 16 }} />
@@ -268,10 +269,10 @@ const RangePopover = ({ start, end, onChange, onClose }) => {
             onChange({ start: startOfDay(now), end: endOfDay(now) });
           }}
           sx={{
-            border: '1px solid #e5e5e5',
+            border: byMode('1px solid #e5e5e5', '1px solid #373737'),
             borderRadius: '8px',
-            bgcolor: '#fff',
-            color: '#000',
+            bgcolor: byMode('#fff', '#121212'),
+            color: byMode('#000', '#f8f8f8'),
             fontFamily: 'inherit',
             fontSize: 12,
             fontWeight: 700,
@@ -279,7 +280,7 @@ const RangePopover = ({ start, end, onChange, onClose }) => {
             px: 1.5,
             cursor: 'pointer',
             transition: INSTANT,
-            '&:hover': { bgcolor: '#e4f2fb' }
+            '&:hover': { bgcolor: byMode('#e4f2fb', '#1f3a4a') }
           }}
         >
           Current Day
@@ -333,7 +334,7 @@ const DateRangeFilter = ({ start, end, onChange }) => {
     bgcolor: 'transparent',
     fontFamily: 'inherit',
     fontSize: 16,
-    color: '#000',
+    color: byMode('#000', '#f8f8f8'),
     textAlign: 'left',
     p: '8px 16px',
     cursor: 'default',
@@ -349,16 +350,16 @@ const DateRangeFilter = ({ start, end, onChange }) => {
           gap: '4px',
           width: '100%',
           height: 43,
-          border: '1px solid #404040',
+          border: byMode('1px solid #404040', '1px solid #a1a1a1'),
           borderRadius: '8px',
-          bgcolor: '#fff',
+          bgcolor: byMode('#fff', '#121212'),
           p: 0
         }}
       >
         <Box component="button" type="button" onClick={() => setOpen(true)} sx={fieldSx}>
           {fmtDate(start) || MASK}
         </Box>
-        <RemoveIcon sx={{ color: '#737373', fontSize: 16, width: 12, flexShrink: 0 }} />
+        <RemoveIcon sx={{ color: byMode('#737373', '#a0a4aa'), fontSize: 16, width: 12, flexShrink: 0 }} />
         <Box component="button" type="button" onClick={() => setOpen(true)} sx={fieldSx}>
           {fmtDate(end) || MASK}
         </Box>
@@ -368,7 +369,7 @@ const DateRangeFilter = ({ start, end, onChange }) => {
   );
 };
 
-const filterLabelSx = { mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' };
+const filterLabelSx = { mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode('#000', '#f8f8f8') };
 
 // Reference filter select: flat 42px box, "Select..." placeholder, clear (x)
 // once something is picked. Options are plain {id, name} rows.
@@ -393,7 +394,7 @@ const ClosureSelect = ({ value, onChange, options, label }) => {
                 <Box
                   key={id}
                   data-chip={nameOf(id)}
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: '4px', bgcolor: '#e6e6e6', borderRadius: '2px', px: '6px', fontSize: 14, lineHeight: '24px' }}
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: '4px', bgcolor: byMode('#e6e6e6', '#3a3a3a'), borderRadius: '2px', px: '6px', fontSize: 14, lineHeight: '24px' }}
                 >
                   {nameOf(id)}
                   <Close
@@ -425,10 +426,10 @@ const ClosureSelect = ({ value, onChange, options, label }) => {
         }
         // Same box as the Date Range filter beside it (1px #404040, 8px radius, 43px).
         sx={{
-          bgcolor: '#fff', borderRadius: '8px', minHeight: 43, fontSize: 16, transition: INSTANT,
-          '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-          '&:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' }
+          bgcolor: byMode('#fff', '#121212'), borderRadius: '8px', minHeight: 43, fontSize: 16, transition: INSTANT,
+          '& .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') },
+          '&:hover .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') }
         }}
       >
         {options.map((o) => (
@@ -536,8 +537,8 @@ const RegisterClosures = () => {
 
   // Same table design as the other report pages (Security Centre / Sales History):
   // sky-blue header with white caps, zebra rows, no cell borders.
-  const cellSx = { p: '8px 8px 8px 10px', fontSize: 16, color: '#000', borderBottom: 'none' };
-  const headerCellSx = { p: '8px', fontSize: 16, fontWeight: 700, textTransform: 'uppercase', color: '#f8f8f8', bgcolor: '#5ebbeb', borderBottom: 'none' };
+  const cellSx = { p: '8px 8px 8px 10px', fontSize: 16, color: byMode('#000', '#f8f8f8'), borderBottom: 'none' };
+  const headerCellSx = { p: '8px', fontSize: 16, fontWeight: 700, textTransform: 'uppercase', color: byMode('#f8f8f8', '#5ebbeb'), bgcolor: byMode('#5ebbeb', '#333333'), borderBottom: 'none' };
 
   return (
     // Same page padding as Products (24px) so the Results block clears the edge.
@@ -547,13 +548,13 @@ const RegisterClosures = () => {
         <Typography
           variant="h4"
           component="h1"
-          sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: 0 }}
+          sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), m: 0 }}
         >
           Register Closures
         </Typography>
         <Box data-total-count sx={{ textAlign: 'right' }}>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: '#000' }}>{total}</Typography>
-          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: byMode('#000', '#f8f8f8') }}>{total}</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>Results</Typography>
         </Box>
       </Box>
 
@@ -623,7 +624,7 @@ const RegisterClosures = () => {
         </TableHead>
         <TableBody>
           {rows.map((rc, i) => (
-            <TableRow key={rc.id} sx={{ bgcolor: i % 2 ? '#f8f8f8' : '#fff' }}>
+            <TableRow key={rc.id} sx={{ bgcolor: i % 2 ? byMode('#f8f8f8', '#2a2a2a') : byMode('#fff', '#232323') }}>
               <TableCell sx={cellSx}>{rc.register?.name || rc.registerId}</TableCell>
               {/* RegisterClosure stores outletId with no outlet relation, so the
                   name comes from the register's outlet or the filter list. */}
@@ -644,7 +645,7 @@ const RegisterClosures = () => {
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 0.5,
-                    color: '#1c86f2',
+                    color: byMode('#1c86f2', '#74d4ff'),
                     textDecoration: 'none',
                     fontSize: 16,
                     cursor: 'pointer',

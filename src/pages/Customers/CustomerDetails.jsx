@@ -57,6 +57,7 @@ import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import CreatableAutocomplete from "../../components/Common/CreatableAutocomplete";
 import PerformanceGraph from "../../components/Customers/PerformanceGraph";
 import PageSaveBar from '../../components/Common/PageSaveBar';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference edit-form section rail: exactly these six. Loyalty / Account / Special
 // Pricing are NOT rail sections on the reference edit form (they live on the customer
@@ -77,9 +78,9 @@ const WIZARD_STEPS = 4;
 // no elevation and no grow animation; the selected row is blue text, not a tinted row.
 const menuSurfaceSx = {
   borderRadius: "2px",
-  border: "1px solid #000",
+  border: byMode("1px solid #000", "1px solid #a1a1a1"),
   boxShadow: "none",
-  backgroundColor: "#fff",
+  backgroundColor: byMode("#fff", "#232323"),
 };
 
 const selectMenuProps = {
@@ -89,10 +90,10 @@ const selectMenuProps = {
   PaperProps: {
     sx: {
       ...menuSurfaceSx,
-      "& .MuiMenuItem-root": { fontSize: 16, color: "#313439" },
+      "& .MuiMenuItem-root": { fontSize: 16, color: byMode("#313439", "#f8f8f8") },
       "& .MuiMenuItem-root.Mui-selected": {
         backgroundColor: "transparent",
-        color: "#5ebbeb",
+        color: byMode("#5ebbeb", "#00a6f4"),
       },
       "& .MuiMenuItem-root.Mui-selected:hover, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible": {
         backgroundColor: "rgba(94,187,235,0.08)",
@@ -105,14 +106,14 @@ const autocompletePaperProps = {
   paper: {
     sx: {
       ...menuSurfaceSx,
-      "& .MuiAutocomplete-option": { fontSize: 16, color: "#313439" },
+      "& .MuiAutocomplete-option": { fontSize: 16, color: byMode("#313439", "#f8f8f8") },
       '& .MuiAutocomplete-option[aria-selected="true"]': {
         backgroundColor: "transparent",
-        color: "#5ebbeb",
+        color: byMode("#5ebbeb", "#00a6f4"),
       },
       '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': {
         backgroundColor: "rgba(94,187,235,0.08)",
-        color: "#5ebbeb",
+        color: byMode("#5ebbeb", "#00a6f4"),
       },
     },
   },
@@ -122,24 +123,26 @@ const autocompletePaperProps = {
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
     borderRadius: 0,
-    backgroundColor: "#fff",
+    backgroundColor: byMode("#fff", "#121212"),
     fontSize: 16,
     height: 53,
-    "& .MuiOutlinedInput-notchedOutline": { border: "1px solid #000" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { border: "1px solid #000" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { border: "2px solid #000" },
+    "& .MuiOutlinedInput-notchedOutline": { border: byMode("1px solid #000", "1px solid #a1a1a1") },
+    "&:hover .MuiOutlinedInput-notchedOutline": { border: byMode("1px solid #000", "1px solid #a1a1a1") },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { border: byMode("2px solid #000", "2px solid #2b7fff") },
   },
+  "& input::placeholder": { color: byMode(undefined, "#757575"), opacity: byMode(undefined, 1) },
 };
 
 const multilineFieldSx = {
   "& .MuiOutlinedInput-root": {
     borderRadius: 0,
-    backgroundColor: "#fff",
+    backgroundColor: byMode("#fff", "#121212"),
     fontSize: 16,
-    "& .MuiOutlinedInput-notchedOutline": { border: "1px solid #000" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { border: "1px solid #000" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { border: "2px solid #000" },
+    "& .MuiOutlinedInput-notchedOutline": { border: byMode("1px solid #000", "1px solid #a1a1a1") },
+    "&:hover .MuiOutlinedInput-notchedOutline": { border: byMode("1px solid #000", "1px solid #a1a1a1") },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { border: byMode("2px solid #000", "2px solid #2b7fff") },
   },
+  "& textarea::placeholder": { color: byMode(undefined, "#757575"), opacity: byMode(undefined, 1) },
 };
 
 // Wizard chrome (full-screen, animated gradient) — matches reference .creation-wizard.
@@ -159,13 +162,14 @@ const wizardInputSx = {
   maxWidth: 868,
   "& .MuiOutlinedInput-root": {
     borderRadius: 0,
-    backgroundColor: "#fff",
+    backgroundColor: byMode("#fff", "#232323"),
+    color: byMode(undefined, "#f8f8f8"),
     fontSize: 16,
     height: 53,
     // :not(.Mui-error) so an invalid field keeps MUI's red outline instead of the black one.
-    "&:not(.Mui-error) .MuiOutlinedInput-notchedOutline": { border: "1px solid #000" },
-    "&:not(.Mui-error):hover .MuiOutlinedInput-notchedOutline": { border: "1px solid #000" },
-    "&:not(.Mui-error).Mui-focused .MuiOutlinedInput-notchedOutline": { border: "1px solid #000" },
+    "&:not(.Mui-error) .MuiOutlinedInput-notchedOutline": { border: byMode("1px solid #000", "1px solid #a1a1a1") },
+    "&:not(.Mui-error):hover .MuiOutlinedInput-notchedOutline": { border: byMode("1px solid #000", "1px solid #a1a1a1") },
+    "&:not(.Mui-error).Mui-focused .MuiOutlinedInput-notchedOutline": { border: byMode("1px solid #000", "1px solid #a1a1a1") },
   },
 };
 
@@ -195,7 +199,7 @@ const SectionCard = ({ id, icon, title, collapsed, onToggle, children }) => (
     sx={{
       px: 2,
       py: 3,
-      backgroundColor: "#f8f8f8",
+      backgroundColor: byMode("#f8f8f8", "#232323"),
       borderRadius: 0,
       boxShadow: "0 0 30px rgba(0,0,0,0.25)",
       width: 500,
@@ -214,9 +218,9 @@ const SectionCard = ({ id, icon, title, collapsed, onToggle, children }) => (
         alignItems: "center",
         gap: 1,
         pb: 1.5,
-        borderBottom: "1px solid #e0e0e0",
+        borderBottom: byMode("1px solid #e0e0e0", "1px solid #373737"),
         cursor: "pointer",
-        color: "#313439",
+        color: byMode("#313439", "#f8f8f8"),
         transition: "color 0.2s ease",
         "&:hover": { color: "#5ebbeb" },
       }}
@@ -1171,7 +1175,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
           width: 250,
           height: "100%",
           p: 1,
-          backgroundColor: "#fff",
+          backgroundColor: byMode("#fff", "#232323"),
           borderRadius: 0,
           boxShadow: "none",
           paddingBottom: "100px",
@@ -1187,12 +1191,12 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                 button
                 onClick={() => handleScrollToSection(item.id)}
                 sx={{
-                  backgroundColor: inView ? "#e6f2fb" : "transparent",
-                  color: "#313439",
+                  backgroundColor: inView ? byMode("#e6f2fb", "#333333") : "transparent",
+                  color: byMode("#313439", "#f8f8f8"),
                   borderRadius: 0,
                   transition: "color 0.2s ease",
                   "&:hover": {
-                    backgroundColor: inView ? "#e6f2fb" : "transparent",
+                    backgroundColor: inView ? byMode("#e6f2fb", "#333333") : "transparent",
                     color: "#5ebbeb",
                   },
                 }}
@@ -1220,7 +1224,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
         sx={{
           flex: 1,
           ml: "250px",
-          backgroundColor: "#676b72",
+          backgroundColor: byMode("#676b72", "#121212"),
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
@@ -1231,7 +1235,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
             position: "sticky",
             top: 0,
             zIndex: 5,
-            backgroundColor: "#fff",
+            backgroundColor: byMode("#fff", "#232323"),
             height: 64,
             display: "flex",
             alignItems: "center",
@@ -1239,7 +1243,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
             px: 2,
           }}
         >
-          <Typography sx={{ fontSize: "20.8px", color: "#313439" }}>
+          <Typography sx={{ fontSize: "20.8px", color: byMode("#313439", "#f8f8f8") }}>
             {`${formData.firstName} ${formData.lastName}`.trim()}
           </Typography>
           <IconButton
@@ -1250,8 +1254,8 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
               right: 16,
               width: 36,
               height: 36,
-              border: "1px solid #313439",
-              color: "#313439",
+              border: byMode("1px solid #313439", "1px solid #a1a1a1"),
+              color: byMode("#313439", "#f8f8f8"),
               transition: "color 0.2s ease, border-color 0.2s ease",
               "&:hover": {
                 backgroundColor: "transparent",
@@ -1329,7 +1333,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                   sx={fieldSx}
                   InputProps={{
                     endAdornment: codeUnique ? (
-                      <CheckIcon sx={{ color: "#16a34a" }} />
+                      <CheckIcon sx={{ color: byMode("#16a34a", "#7bf1a8") }} />
                     ) : null,
                   }}
                 />
@@ -1416,7 +1420,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                     mb: 1,
                   }}
                 >
-                  <Typography variant="body2" sx={{ color: "#676b72" }}>
+                  <Typography variant="body2" sx={{ color: byMode("#676b72", "#d4d4d4") }}>
                     Emails
                   </Typography>
                   <Box
@@ -1429,7 +1433,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                       background: "none",
                       font: "inherit",
                       fontSize: "13px",
-                      color: "#676b72",
+                      color: byMode("#676b72", "#d4d4d4"),
                       cursor: "pointer",
                       transition: "color 0.2s ease",
                       "&:hover": { color: "#5ebbeb" },
@@ -1460,12 +1464,12 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                         width: 53,
                         height: 53,
                         borderRadius: 0,
-                        border: "1px solid #000",
-                        backgroundColor: "#fff",
-                        color: "#313439",
+                        border: byMode("1px solid #000", "1px solid #a1a1a1"),
+                        backgroundColor: byMode("#fff", "#121212"),
+                        color: byMode("#313439", "#f8f8f8"),
                         transition: "color 0.2s ease, border-color 0.2s ease",
                         "&:hover": {
-                          backgroundColor: "#fff",
+                          backgroundColor: byMode("#fff", "#121212"),
                           color: "#5ebbeb",
                           borderColor: "#5ebbeb",
                         },
@@ -1627,7 +1631,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
               sx={{ gap: 1.5, ml: 0, mb: sameAsBilling ? 0 : 2 }}
             />
             {sameAsBilling ? (
-              <Typography variant="body2" sx={{ color: "#676b72" }}>
+              <Typography variant="body2" sx={{ color: byMode("#676b72", "#d4d4d4") }}>
                 The delivery address will be the same as the billing address
               </Typography>
             ) : (
@@ -1757,7 +1761,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, color: "#676b72" }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: byMode("#676b72", "#d4d4d4") }}>
                     Performance Trend (Current Owing)
                   </Typography>
                   <PerformanceGraph

@@ -5,6 +5,7 @@ import { useParams, Link as RouterLink } from 'react-router-dom';
 import loyaltyProgramService from '../../services/loyaltyProgramService';
 import classificationService from '../../services/classificationService';
 import PageSaveBar from '../../components/Common/PageSaveBar';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference "Assign Loyalty - <Outlet>" page: search (Brands / Categories / Families / Tags,
 // "Keep Typing to Search..." until typed), Add All buttons, then one bordered panel per
@@ -32,7 +33,7 @@ const refAddAllButtonSx = {
   height: 53,
   px: 2,
   backgroundColor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', '#232323'),
   fontSize: 16,
   fontWeight: 400,
   textTransform: 'none',
@@ -83,10 +84,10 @@ const cellFieldSx = {
     borderRadius: 0,
     height: 53,
     fontSize: 16,
-    backgroundColor: '#fff',
-    '& fieldset': { border: '1px solid #000' },
-    '&:hover fieldset': { border: '1px solid #000' },
-    '&.Mui-focused fieldset': { border: '2px solid #000' },
+    backgroundColor: byMode('#fff', '#121212'),
+    '& fieldset': { border: byMode('1px solid #000', '1px solid #a1a1a1') },
+    '&:hover fieldset': { border: byMode('1px solid #000', '1px solid #a1a1a1') },
+    '&.Mui-focused fieldset': { border: byMode('2px solid #000', '2px solid #f8f8f8') },
   },
   '& input': { padding: '0 14px', height: 53, boxSizing: 'border-box' },
 };
@@ -237,12 +238,12 @@ const AssignLoyalty = () => {
         <Button startIcon={<ArrowBackIcon sx={{ fontSize: '28px !important' }} />} component={RouterLink} to="/settings/loyalty" sx={{ ...refBlueButtonSx, mr: 1 }}>
           Back
         </Button>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
           Assign Loyalty - {outletTitle}
         </Typography>
       </Box>
 
-      <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>
+      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 2 }}>
         Please note: The highest earn value will be selected and the lowest redeem value will be selected on conflicts, however values with zero will take highest priority.
       </Typography>
 
@@ -280,18 +281,18 @@ const AssignLoyalty = () => {
               '& .MuiOutlinedInput-root': {
                 borderRadius: '8px',
                 minHeight: 42,
-                backgroundColor: '#fff',
-                '& fieldset': { border: '1px solid #404040' },
-                '&:hover fieldset': { border: '1px solid #404040' },
-                '&.Mui-focused fieldset': { border: '2px solid #000' },
+                backgroundColor: byMode('#fff', '#121212'),
+                '& fieldset': { border: byMode('1px solid #404040', '1px solid #a1a1a1') },
+                '&:hover fieldset': { border: byMode('1px solid #404040', '1px solid #a1a1a1') },
+                '&.Mui-focused fieldset': { border: byMode('2px solid #000', '2px solid #f8f8f8') },
               },
-              '& input::placeholder': { color: '#808080', opacity: 1 },
+              '& input::placeholder': { color: byMode('#808080', '#a0a4aa'), opacity: 1 },
             }}
           />
         )}
         renderGroup={(params) => (
           <li key={params.key}>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', px: 2, py: 1.5, borderBottom: '1px solid #e0e0e0' }}>{params.group}</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), px: 2, py: 1.5, borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737') }}>{params.group}</Typography>
             <ul style={{ padding: 0 }}>{params.children}</ul>
           </li>
         )}
@@ -304,7 +305,7 @@ const AssignLoyalty = () => {
             </li>
           );
         }}
-        slotProps={{ paper: { sx: { borderRadius: '8px', border: '1px solid #404040', boxShadow: 'none', '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: '#5ebbeb' }, '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: '#5ebbeb' } } } }}
+        slotProps={{ paper: { sx: { borderRadius: '8px', border: byMode('1px solid #404040', '1px solid #a1a1a1'), boxShadow: 'none', '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: byMode('#5ebbeb', '#0084d1') }, '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: byMode('#5ebbeb', '#0084d1') } } } }}
         sx={{ mb: 1.5 }}
       />
 
@@ -317,25 +318,25 @@ const AssignLoyalty = () => {
       </Box>
 
       {totalAssigned === 0 && (
-        <Typography sx={{ fontSize: 16, color: '#676b72', textAlign: 'center', py: 4 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa'), textAlign: 'center', py: 4 }}>
           No items assigned yet. Use the search or "Add All" buttons above to add items.
         </Typography>
       )}
 
       {TYPES.map((t) => items[t.type].length > 0 && (
         <Box key={t.type} mb={3}>
-          <Typography sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 1 }}>{t.title}</Typography>
+          <Typography sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>{t.title}</Typography>
           {items[t.type].map((it, itemIdx) => (
-            <Box key={`${t.type}-${it.itemId}`} data-testid={`loyalty-item-${t.type}-${it.itemId}`} sx={{ border: '1px solid #000', p: 1, mb: 1.5 }}>
+            <Box key={`${t.type}-${it.itemId}`} data-testid={`loyalty-item-${t.type}-${it.itemId}`} sx={{ border: byMode('1px solid #000', '1px solid #a1a1a1'), p: 1, mb: 1.5 }}>
               <Box display="flex" alignItems="center" mb={1}>
-                <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', lineHeight: 1.2 }}>{it.item?.name || 'Unknown'}</Typography>
+                <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>{it.item?.name || 'Unknown'}</Typography>
                 <Button disableRipple startIcon={<AddIcon />} onClick={() => addTier(t.type, itemIdx)} sx={addTierSx} aria-label={`Add tier ${it.item?.name}`}>
                   Add
                 </Button>
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 74px', columnGap: 1, mb: 0.5 }}>
                 {['Quantity', 'Earn Value', 'Redeem Value'].map((h) => (
-                  <Typography key={h} sx={{ fontSize: 16, fontWeight: 700, color: '#000', textAlign: 'center' }}>{h}</Typography>
+                  <Typography key={h} sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), textAlign: 'center' }}>{h}</Typography>
                 ))}
                 <Box />
               </Box>

@@ -10,6 +10,7 @@ import {
   TableHead,
   TableRow,
   Alert,
+  useTheme,
 } from "@mui/material";
 // Reference rail glyphs are outlined: pencil, trash, house, clock.
 import {
@@ -27,6 +28,7 @@ import PromotionRevisionCell from "../../components/Marketing/PromotionRevisionC
 import { revisionSentence } from "../../utils/promotionRevision";
 import { formatAppPattern } from "../../utils/appDateTime";
 import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
+import { byMode } from "../../theme/sfPalette";
 import {
   WIDGET_SHADOW,
   GRID_TABLE_SX,
@@ -50,6 +52,7 @@ const EXPRESS_TYPE_ALIASES = {
 const expressTypeOf = (type) => EXPRESS_TYPE_ALIASES[type] || null;
 
 const ExpressPromotionView = () => {
+  const isDark = useTheme().palette.mode === "dark";
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -213,7 +216,7 @@ const ExpressPromotionView = () => {
   const HEADER_LABEL_SX = {
     fontSize: 16,
     fontVariant: "all-small-caps",
-    color: "#676b72",
+    color: byMode("#676b72", "#a0a4aa"),
     lineHeight: 1.2,
   };
   // Reference section label ("CRITERIA" / "MISSING ITEMS").
@@ -297,7 +300,7 @@ const ExpressPromotionView = () => {
 
   return (
     <Box
-      sx={{ display: "flex", height: "calc(100vh - 50px)", bgcolor: "#464a4e" }}
+      sx={{ display: "flex", height: "calc(100vh - 50px)", bgcolor: byMode("#464a4e", "#121212") }}
     >
       {/* Main Content */}
       <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -312,8 +315,8 @@ const ExpressPromotionView = () => {
           sx={{
             textAlign: "center",
             mb: 1,
-            backgroundColor: "#f8f8f8",
-            border: "1px solid #000",
+            backgroundColor: byMode("#f8f8f8", "#232323"),
+            border: byMode("1px solid #000", "1px solid #232323"),
             padding: "16px",
             boxShadow: WIDGET_SHADOW,
           }}
@@ -322,7 +325,7 @@ const ExpressPromotionView = () => {
             sx={{
               fontWeight: 400,
               fontSize: 24,
-              color: "#000",
+              color: byMode("#000", "#f8f8f8"),
               lineHeight: "29px",
             }}
           >
@@ -336,7 +339,7 @@ const ExpressPromotionView = () => {
             flex: 1,
             display: "flex",
             flexDirection: "column",
-            bgcolor: "#fff",
+            bgcolor: byMode("#fff", "#121212"),
             overflow: "auto",
           }}
         >
@@ -355,7 +358,7 @@ const ExpressPromotionView = () => {
                     </TableRow>
                     <TableRow>
                       {/* Reference: a plain centred note line, no shading. */}
-                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: "400 !important", color: "#000" }}>
+                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: "400 !important", color: byMode("#000", "#f8f8f8") }}>
                         Please Note: Revisions may take up to five minutes to appear
                       </TableCell>
                     </TableRow>
@@ -417,17 +420,17 @@ const ExpressPromotionView = () => {
                             mt: "6px",
                             px: "10px",
                             py: "3px",
-                            border: "1px solid #a3a3a3",
+                            border: byMode("1px solid #a3a3a3", "1px solid #a1a1a1"),
                             borderRadius: "4px",
                             fontSize: 16,
-                            color: "#313439",
+                            color: byMode("#313439", "#f8f8f8"),
                             lineHeight: 1.3,
                           }}
                         >
                           {h.value}
                         </Box>
                       ) : (
-                        <Typography sx={{ fontSize: 24, color: "#313439", lineHeight: 1.3 }}>
+                        <Typography sx={{ fontSize: 24, color: byMode("#313439", "#f8f8f8"), lineHeight: 1.3 }}>
                           {h.value}
                         </Typography>
                       )}
@@ -448,9 +451,8 @@ const ExpressPromotionView = () => {
                       sx={{
                         width: "90%",
                         borderCollapse: "collapse",
-                        "& th": { fontSize: 16, fontWeight: 700, color: "#313439", textAlign: "center", padding: "4px 8px" },
-                        "& td": { fontSize: 16, color: "#313439", textAlign: "center", padding: "8px 8px" },
-                        "& td.item": { textAlign: "left", fontWeight: 700, paddingLeft: "16px" },
+                        "& th": { fontSize: 16, fontWeight: 700, color: byMode("#313439", "#f8f8f8"), textAlign: "center", padding: "4px 8px" },
+                        "& td": { fontSize: 16, color: byMode("#313439", "#f8f8f8"), textAlign: "center", padding: "8px 8px" },                        "& td.item": { textAlign: "left", fontWeight: 700, paddingLeft: "16px" },
                         "& td.group": { ...SECTION_LABEL_SX, mb: 0, textAlign: "left", letterSpacing: "1px", padding: "12px 0 0" },
                       }}
                     >
@@ -483,7 +485,7 @@ const ExpressPromotionView = () => {
                                   <td>${(parseFloat(item.normalPrice) || 0).toFixed(2)}</td>
                                   <td>${(parseFloat(item.promoPrice) || 0).toFixed(2)}</td>
                                   <td>${(parseFloat(item.rebate) || 0).toFixed(2)}</td>
-                                  <td style={{ color: red ? "#e33430" : "#313439" }}>{profitText}</td>
+                                  <td style={{ color: red ? (isDark ? "#ffa2a2" : "#e33430") : (isDark ? "#f8f8f8" : "#313439") }}>{profitText}</td>
                                 </tr>
                               );
                             })}
@@ -493,7 +495,7 @@ const ExpressPromotionView = () => {
                     </Box>
                   </>
                 ) : (
-                  <Typography sx={{ fontSize: 16, color: "#676b72" }}>
+                  <Typography sx={{ fontSize: 16, color: byMode("#676b72", "#a0a4aa") }}>
                     No items in promotion
                   </Typography>
                 )}
@@ -503,7 +505,7 @@ const ExpressPromotionView = () => {
                 {missingItems.length > 0 && (
                   <Box sx={{ mt: 4 }}>
                     <Typography sx={SECTION_LABEL_SX}>Missing Items</Typography>
-                    <Typography sx={{ fontSize: 16, color: "#313439", mb: 2 }}>
+                    <Typography sx={{ fontSize: 16, color: byMode("#313439", "#f8f8f8"), mb: 2 }}>
                       We&apos;ve detected the following items exist in the promotion, however
                       aren&apos;t available in this promotion for your store.
                     </Typography>
@@ -518,10 +520,10 @@ const ExpressPromotionView = () => {
                           fontSize: 16,
                           fontVariant: "all-small-caps",
                           letterSpacing: "1px",
-                          color: "#676b72",
+                          color: byMode("#676b72", "#a0a4aa"),
                           textAlign: "center",
                         },
-                        "& .mi-cell": { fontSize: 16, color: "#313439", textAlign: "center" },
+                        "& .mi-cell": { fontSize: 16, color: byMode("#313439", "#f8f8f8"), textAlign: "center" },
                       }}
                     >
                       <Typography className="mi-head">Item</Typography>
@@ -538,17 +540,17 @@ const ExpressPromotionView = () => {
                           <Button
                             component={RouterLink} to={`/marketing/promotions/express/${id}`}
                             sx={{
-                              border: "1px solid #e0e0e0",
+                              border: byMode("1px solid #e0e0e0", "1px solid #a1a1a1"),
                               borderRadius: "12px",
                               height: 42,
                               padding: "8px 32px",
                               fontSize: 16,
                               fontWeight: 700,
                               textTransform: "none",
-                              color: "#16a34a",
+                              color: byMode("#16a34a", "#7bf1a8"),
                               backgroundColor: "transparent",
                               boxShadow: "none",
-                              "&:hover": { backgroundColor: "transparent", borderColor: "#16a34a" },
+                              "&:hover": { backgroundColor: "transparent", borderColor: byMode("#16a34a", "#7bf1a8") },
                             }}
                           >
                             Add to Promotion
@@ -587,7 +589,7 @@ const ExpressPromotionView = () => {
             height: 62,
             minHeight: 62,
             mb: 1,
-            backgroundColor: "#f8f8f8",
+            backgroundColor: byMode("#f8f8f8", "#232323"),
             boxShadow: WIDGET_SHADOW,
             display: "flex",
             alignItems: "center",
@@ -595,7 +597,7 @@ const ExpressPromotionView = () => {
             p: 1,
             gap: 1,
             cursor: "pointer",
-            color: "#32b643",
+            color: byMode("#32b643", "#7bf1a8"),
             // Reference transitions colour only - no movement, no bg change.
             transition: "color 0.2s ease",
             "&:hover": { color: "rgb(109, 215, 123)" },
@@ -624,7 +626,7 @@ const ExpressPromotionView = () => {
             role="tablist"
             aria-label="Promotion sections"
             sx={{
-              backgroundColor: "#f8f8f8",
+              backgroundColor: byMode("#f8f8f8", "#232323"),
               boxShadow: WIDGET_SHADOW,
               flex: "0 0 auto",
               py: "8px",
@@ -651,7 +653,7 @@ const ExpressPromotionView = () => {
                     borderRadius: 0,
                     cursor: "pointer",
                     overflow: "hidden",
-                    color: isActive ? "#5ebbeb" : "#000",
+                    color: isActive ? "#5ebbeb" : byMode("#000", "#f8f8f8"),
                     transition: "color 0.2s ease",
                     "&:hover": {
                       color: isActive ? "rgb(49, 168, 229)" : "#5ebbeb",
@@ -695,7 +697,7 @@ const ExpressPromotionView = () => {
                       sx={{
                         fontSize: 12,
                         lineHeight: 1.2,
-                        color: isActive ? "inherit" : "#676b72",
+                        color: isActive ? "inherit" : byMode("#676b72", "#d4d4d4"),
                         transition: "color 0.2s ease",
                       }}
                     >
@@ -719,14 +721,14 @@ const ExpressPromotionView = () => {
               height: 62,
               minHeight: 62,
               mt: 1,
-              backgroundColor: "#f8f8f8",
+              backgroundColor: byMode("#f8f8f8", "#232323"),
               boxShadow: WIDGET_SHADOW,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 1,
               cursor: "pointer",
-              color: "#e3342f",
+              color: byMode("#e3342f", "#ffa2a2"),
               transition: "color 0.2s ease",
               "&:hover": { color: "rgb(243, 170, 168)" },
             }}

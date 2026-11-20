@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button, Dialog } from "@mui/material";
 import paymentService from "../../services/paymentService";
 import CustomerPaymentPanel from "./CustomerPaymentPanel";
+import { byMode } from "../../theme/sfPalette";
 
 // Reference "Customer Payment" popup (Sales History card, 14/10/2026): clicking a
 // payment-method link on an invoice that was paid off later opens the payment
@@ -28,7 +29,7 @@ const CustomerPaymentDialog = ({ salePaymentId, open, onClose, formatDate, forma
       open={open}
       onClose={onClose}
       maxWidth={false}
-      PaperProps={{ sx: { width: "min(1760px, calc(100vw - 64px))", m: 2, borderRadius: 0, bgcolor: "#f8f8f8", color: "#000" } }}
+      PaperProps={{ sx: { width: "min(1760px, calc(100vw - 64px))", m: 2, borderRadius: 0, bgcolor: byMode("#f8f8f8", "#232323"), color: byMode("#000", "#f8f8f8"), backgroundImage: byMode(undefined, "none") } }}
     >
       <CustomerPaymentPanel
         payment={payment}

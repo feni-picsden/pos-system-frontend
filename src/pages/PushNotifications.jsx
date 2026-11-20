@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { byMode } from '../theme/sfPalette';
 import { parseNumberInput, finishNumber } from '../utils/numberInput';
 import {
   Box,
@@ -25,7 +26,7 @@ const INSTANT = 'all 0s ease';
 
 // Reference list header button: white pill, light-blue border + text, bold.
 const OUTLINED_BUTTON_SX = {
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', 'transparent'),
   color: '#5ebbeb',
   border: '1px solid #5ebbeb',
   textTransform: 'none',
@@ -36,7 +37,7 @@ const OUTLINED_BUTTON_SX = {
   height: 42,
   px: 3,
   transition: INSTANT,
-  '&:hover': { bgcolor: '#f0f9ff', borderColor: '#5ebbeb', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#f0f9ff', 'rgba(94,187,235,0.12)'), borderColor: '#5ebbeb', boxShadow: 'none' },
 };
 
 const rowActionSx = (color) => ({
@@ -49,11 +50,11 @@ const rowActionSx = (color) => ({
   minWidth: 0,
   px: 1.5,
   transition: INSTANT,
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 });
 
-const FIELD_LABEL_SX = { fontWeight: 700, fontSize: 16, color: '#000' };
-const HELPER_SX = { fontSize: 14, color: '#676b72', mt: 0.25 };
+const FIELD_LABEL_SX = { fontWeight: 700, fontSize: 16, color: byMode('#000', '#f8f8f8') };
+const HELPER_SX = { fontSize: 14, color: byMode('#676b72', '#a0a4aa'), mt: 0.25 };
 
 // Reference edit page: content column ~766px wide, centred.
 const EDIT_COLUMN_SX = { maxWidth: 766, mx: 'auto', width: '100%', boxSizing: 'border-box' };
@@ -62,15 +63,15 @@ const TEXT_INPUT_SX = {
   width: '100%',
   boxSizing: 'border-box',
   height: 42,
-  border: '1px solid #595959',
+  border: byMode('1px solid #595959', '1px solid #a1a1a1'),
   borderRadius: '8px',
   px: 1.5,
   fontFamily: 'inherit',
   fontSize: 16,
-  color: '#000',
-  bgcolor: '#fff',
+  color: byMode('#000', '#f8f8f8'),
+  bgcolor: byMode('#fff', '#121212'),
   outline: 'none',
-  '&:focus': { border: '2px solid #000' },
+  '&:focus': { border: byMode('2px solid #000', '2px solid #2b7fff') },
 };
 
 // Toggle groups matching the reference edit page: bold label, gray helper,
@@ -228,9 +229,9 @@ export default function PushNotifications() {
     return (
       <Box sx={{ pb: 12 }}>
         {/* Reference: pale blue-grey header band, grey "Editing" + bold device name, centred column */}
-        <Box sx={{ bgcolor: '#e2e8f0', px: 3, py: 4 }}>
-          <Typography component="h1" sx={{ ...EDIT_COLUMN_SX, fontSize: 20, fontWeight: 700, color: '#000' }}>
-            <Box component="span" sx={{ color: '#676b72', mr: 0.5 }}>Editing</Box>
+        <Box sx={{ bgcolor: byMode('#e2e8f0', '#232323'), px: 3, py: 4 }}>
+          <Typography component="h1" sx={{ ...EDIT_COLUMN_SX, fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
+            <Box component="span" sx={{ color: byMode('#676b72', '#a0a4aa'), mr: 0.5 }}>Editing</Box>
             {' '}
             {editingDevice.deviceName}
             {isCurrentDevice(editingDevice) && <CurrentDeviceTag />}
@@ -260,14 +261,14 @@ export default function PushNotifications() {
               alignItems: 'center',
               width: '100%',
               height: 42,
-              border: '1px solid #595959',
+              border: byMode('1px solid #595959', '1px solid #a1a1a1'),
               borderRadius: '8px',
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#121212'),
               overflow: 'hidden',
             }}
           >
             {/* Reference: plain "$" prefix inside the same box */}
-            <Box sx={{ pl: 1.5, fontSize: 16, color: '#000' }}>$</Box>
+            <Box sx={{ pl: 1.5, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>$</Box>
             <Box
               component="input"
               type="number"
@@ -288,7 +289,8 @@ export default function PushNotifications() {
                 px: 1,
                 fontFamily: 'inherit',
                 fontSize: 16,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
+                bgcolor: byMode(undefined, 'transparent'),
               }}
             />
           </Box>
@@ -304,7 +306,7 @@ export default function PushNotifications() {
                 onChange={(e) => setEditForm((f) => ({ ...f, [t.field]: e.target.checked }))}
                 sx={{ mr: 1.5 }}
               />
-              <Typography sx={{ fontSize: 14, color: '#404040' }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#404040', '#d4d4d4') }}>
                 {editForm[t.field] ? t.onText : t.offText}
               </Typography>
             </Box>
@@ -322,7 +324,7 @@ export default function PushNotifications() {
     <Box sx={{ p: 3 }}>
       {/* Reference: title with the outlined light-blue "+ Add Current Device" pill right beside it */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
           Push Notifications
         </Typography>
         <Button
@@ -339,13 +341,13 @@ export default function PushNotifications() {
 
       {loading ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, py: 6 }}>
-          <CircularProgress size={22} sx={{ color: '#737373' }} />
-          <Typography sx={{ fontSize: 16, color: '#737373' }}>Loading devices...</Typography>
+          <CircularProgress size={22} sx={{ color: byMode('#737373', '#a0a4aa') }} />
+          <Typography sx={{ fontSize: 16, color: byMode('#737373', '#a0a4aa') }}>Loading devices...</Typography>
         </Box>
       ) : devices.length === 0 ? (
         /* Reference: no header bar, just the centred grey sentence */
         <Box sx={{ pt: '20vh', textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 24, color: '#404040' }}>No Push Devices found.</Typography>
+          <Typography sx={{ fontSize: 24, color: byMode('#404040', '#d4d4d4') }}>No Push Devices found.</Typography>
         </Box>
       ) : (
         <>
@@ -353,14 +355,14 @@ export default function PushNotifications() {
           <Box
             sx={{
               height: 51,
-              bgcolor: '#5ebbeb',
+              bgcolor: byMode('#5ebbeb', '#333333'),
               borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
               pl: '20px',
             }}
           >
-            <Typography sx={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Name</Typography>
+            <Typography sx={{ color: byMode('#fff', '#5ebbeb'), fontSize: 16, fontWeight: 700 }}>Name</Typography>
           </Box>
           {devices.map((d) => (
           <Box
@@ -370,12 +372,12 @@ export default function PushNotifications() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#232323'),
               pl: '20px',
               pr: '12px',
             }}
           >
-            <Typography sx={{ fontSize: 16, color: '#000' }}>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
               {d.deviceName}
               {isCurrentDevice(d) && <CurrentDeviceTag />}
             </Typography>
@@ -384,7 +386,7 @@ export default function PushNotifications() {
                 disableRipple
                 startIcon={<EditIcon />}
                 onClick={() => openEdit(d)}
-                sx={rowActionSx('#16a34a')}
+                sx={rowActionSx(byMode('#16a34a', '#7bf1a8'))}
               >
                 Edit
               </Button>
@@ -392,7 +394,7 @@ export default function PushNotifications() {
                 disableRipple
                 startIcon={<DeleteIcon />}
                 onClick={() => setDeleteTarget(d)}
-                sx={rowActionSx('#dc2626')}
+                sx={rowActionSx(byMode('#dc2626', '#ffa2a2'))}
               >
                 Delete
               </Button>

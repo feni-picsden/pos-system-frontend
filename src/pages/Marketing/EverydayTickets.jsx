@@ -37,6 +37,7 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import useResultKeys from '../../components/Common/useResultKeys';
 import { SquareCheckButton, TicketCounter } from '../../components/ShelfTickets/TicketControls';
 import TicketSelect from '../../components/ShelfTickets/TicketSelect';
+import { byMode } from '../../theme/sfPalette';
 import PrintTicketsDialog from '../../components/ShelfTickets/PrintTicketsDialog';
 import {
   INSTANT,
@@ -88,8 +89,8 @@ const PANEL_SX = {
   left: 0,
   right: 0,
   zIndex: 1000,
-  bgcolor: '#fff',
-  border: '1px solid #000',
+  bgcolor: byMode('#fff', '#232323'),
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: 0,
   boxShadow: 'rgba(0,0,0,0.25) 0 0 15px, rgba(0,0,0,0.19) 0 7.5px 15px',
   maxHeight: 698,
@@ -123,7 +124,7 @@ const GROUP_HEADER_SX = {
   py: '4px',
   fontSize: '17.28px',
   textTransform: 'uppercase',
-  color: '#bdbdbd',
+  color: byMode('#bdbdbd', '#a0a4aa'),
 };
 
 // Reference result glyphs: a product shows its image (or the image placeholder),
@@ -139,7 +140,7 @@ const ResultRow = ({ imageUrl, icon, name, query, onClick, active = false }) => 
       type="button"
       onClick={onClick}
       sx={{
-        ...(active ? { bgcolor: '#8bcef1 !important', color: '#f8f8f8 !important' } : {}),
+        ...(active ? { bgcolor: byMode('#8bcef1 !important', '#0084d1 !important'), color: byMode('#f8f8f8 !important', '#fafafa !important') } : {}),
         display: 'flex',
         alignItems: 'center',
         gap: 1,
@@ -152,15 +153,15 @@ const ResultRow = ({ imageUrl, icon, name, query, onClick, active = false }) => 
         textAlign: 'left',
         fontFamily: 'inherit',
         fontSize: '19.2px',
-        color: '#676b72',
+        color: byMode('#676b72', '#d4d4d4'),
         transition: INSTANT,
-        '&:hover': { bgcolor: '#8bcef1', color: '#f8f8f8' },
+        '&:hover': { bgcolor: byMode('#8bcef1', '#0084d1'), color: byMode('#f8f8f8', '#fafafa') },
       }}
     >
       {imageUrl ? (
         <Box component="img" src={imageUrl} alt="" sx={{ width: 25, height: 25, objectFit: 'cover', flexShrink: 0 }} />
       ) : (
-        <Glyph sx={{ width: 25, height: 25, color: '#bdbdbd', flexShrink: 0 }} />
+        <Glyph sx={{ width: 25, height: 25, color: byMode('#bdbdbd', '#a0a4aa'), flexShrink: 0 }} />
       )}
       <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {highlightMatch(name, query)}
@@ -663,10 +664,10 @@ const EverydayTickets = () => {
                   p: '4px',
                   border: 0,
                   bgcolor: 'transparent',
-                  color: '#000',
+                  color: byMode('#000', '#f8f8f8'),
                   cursor: 'pointer',
                   transition: INSTANT,
-                  '&:hover': { color: '#404040' },
+                  '&:hover': { color: byMode('#404040', '#d4d4d4') },
                 }}
               >
                 <CloseIcon sx={{ fontSize: 18 }} />
@@ -679,15 +680,15 @@ const EverydayTickets = () => {
               <TableCell colSpan={columnCount}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', pl: '78px' }}>
                   {breaks.length === 0 ? (
-                    <Box sx={{ fontSize: '12.8px', color: '#000' }}>No Prices</Box>
+                    <Box sx={{ fontSize: '12.8px', color: byMode('#000', '#f8f8f8') }}>No Prices</Box>
                   ) : (
                     breaks.map((priceBreak, index) => (
                       // Reference: one 130px slot per price point (1 / 6 / 7 / 24 sit ~130px apart).
                       <Box key={`${ticket.id}-price-${index}`} sx={{ width: 130, flexShrink: 0 }}>
-                        <Box sx={{ fontSize: '12.8px', color: '#676b72', lineHeight: 1.3 }}>
+                        <Box sx={{ fontSize: '12.8px', color: byMode('#676b72', '#a0a4aa'), lineHeight: 1.3 }}>
                           {priceBreak.quantity}
                         </Box>
-                        <Box sx={{ fontSize: '15.36px', color: '#000', fontWeight: 400, lineHeight: 1.3 }}>
+                        <Box sx={{ fontSize: '15.36px', color: byMode('#000', '#f8f8f8'), fontWeight: 400, lineHeight: 1.3 }}>
                           ${priceBreak.price.toFixed(2)}
                         </Box>
                       </Box>
@@ -704,7 +705,7 @@ const EverydayTickets = () => {
   return (
     // pb keeps the last table row clear of the fixed action bar.
     <Box sx={{ p: 1, pb: BAR_CLEARANCE }}>
-      <Typography variant="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 3 }}>
+      <Typography variant="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 3 }}>
         Everyday Tickets
       </Typography>
 
@@ -733,7 +734,7 @@ const EverydayTickets = () => {
                     p: 0,
                     border: 0,
                     bgcolor: 'transparent',
-                    color: '#313439',
+                    color: byMode('#313439', '#f8f8f8'),
                     cursor: 'pointer',
                     transition: INSTANT,
                   }}
@@ -744,19 +745,19 @@ const EverydayTickets = () => {
             ) : null,
           }}
           sx={{
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#121212'),
             '& .MuiOutlinedInput-root': {
               // Same 42px as the three selects beside it, so the filter row reads as one line.
               height: 42,
               borderRadius: 0,
               fontSize: 16,
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '1px' },
             },
             // Zero the input's default 16.5px vertical padding so the fixed 53px root holds (MUI line-height artifact).
             '& .MuiOutlinedInput-input': { paddingTop: 0, paddingBottom: 0 },
-            '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+            '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
           }}
         />
 
@@ -765,11 +766,11 @@ const EverydayTickets = () => {
         {searchOpen && searchTerm.trim().length >= 1 && (
           <Box sx={PANEL_SX}>
             {searchTerm.trim().length < 2 ? (
-              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>Start typing to search...</Box>
+              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: byMode('#676b72', '#a0a4aa') }}>Start typing to search...</Box>
             ) : searchLoading && productResults.length === 0 && classificationSections.length === 0 ? (
-              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>Searching...</Box>
+              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: byMode('#676b72', '#a0a4aa') }}>Searching...</Box>
             ) : productResults.length === 0 && classificationSections.length === 0 ? (
-              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: '#676b72' }}>No search results found.</Box>
+              <Box sx={{ px: '16px', py: '8px', fontSize: '19.2px', color: byMode('#676b72', '#a0a4aa') }}>No search results found.</Box>
             ) : (
               <>
                 {/* Reference order: classifications (Categories, Brands, Families, Tags) first,
@@ -847,8 +848,8 @@ const EverydayTickets = () => {
                   position: 'sticky',
                   top: 0,
                   zIndex: 1,
-                  bgcolor: '#5ebbeb',
-                  color: '#f8f8f8',
+                  bgcolor: byMode('#5ebbeb', '#333333'),
+                  color: byMode('#f8f8f8', '#5ebbeb'),
                   fontSize: 16,
                   fontWeight: 700,
                   letterSpacing: '0.6px',
@@ -861,7 +862,7 @@ const EverydayTickets = () => {
               }}
             >
               {/* Reference: the 16px square sits ~14px in from the table edge, centred in its cell. */}
-              <TableCell sx={CHECK_CELL_SX}>
+              <TableCell sx={{ ...CHECK_CELL_SX, '& button': { color: byMode('#f8f8f8', '#5ebbeb') } }}>
                 <SquareCheckButton checked={anySelected} onClick={toggleAll} light label="Select all tickets" />
               </TableCell>
               {/* Reference columns: Name, Category, Added By, Added At (Outlet only under All Outlets). */}
@@ -877,17 +878,17 @@ const EverydayTickets = () => {
             sx={{
               '& td': {
                 fontSize: 16,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 textAlign: 'center',
                 padding: '16px 4px',
-                borderBottom: '1px solid #f8f8f8',
+                borderBottom: byMode('1px solid #f8f8f8', '1px solid #373737'),
               },
               // These beat the '& td' rule above (class + type), which would otherwise win.
               // Reference: the expanded price band is faintly shaded under the row.
               '& .everyday-ticket-prices td': {
                 padding: '8px',
                 textAlign: 'left',
-                bgcolor: '#fafafa',
+                bgcolor: byMode('#fafafa', '#2a2a2a'),
                 boxShadow: 'inset 0 -3px 4px -3px rgba(0,0,0,0.18)',
               },
               // A row with its prices expanded hands the separator to the prices row below it.
@@ -927,7 +928,7 @@ const EverydayTickets = () => {
 
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-          <CircularProgress size={22} sx={{ color: '#737373' }} />
+          <CircularProgress size={22} sx={{ color: byMode('#737373', '#a0a4aa') }} />
         </Box>
       )}
 
@@ -940,10 +941,10 @@ const EverydayTickets = () => {
             sx={{
               ...BAR_BUTTON_SX,
               minWidth: 193,
-              bgcolor: '#d4d4d4',
-              color: '#000',
-              border: '1px solid #d4d4d4',
-              '&:hover': { bgcolor: '#a3a3a3', border: '1px solid #a3a3a3', boxShadow: 'none' },
+              bgcolor: byMode('#d4d4d4', '#3a3a3a'),
+              color: byMode('#000', '#f8f8f8'),
+              border: byMode('1px solid #d4d4d4', '1px solid #3a3a3a'),
+              '&:hover': { bgcolor: byMode('#a3a3a3', '#4a4a4a'), border: byMode('1px solid #a3a3a3', '1px solid #4a4a4a'), boxShadow: 'none' },
             }}
           >
             Add All Products
@@ -997,7 +998,7 @@ const EverydayTickets = () => {
             onClick={() => setPrintOpen(true)}
             disabled={selectedTickets.length === 0}
             data-testid="tickets-print"
-            sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#fff', borderColor: '#d4d4d4', opacity: 1 } }}
+            sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#fff', '#a0a4aa'), borderColor: byMode('#d4d4d4', '#3a3a3a'), opacity: 1 } }}
           >
             Print
           </Button>
@@ -1007,7 +1008,7 @@ const EverydayTickets = () => {
             disableElevation
             onClick={handleExport}
             disabled={selectedTickets.length === 0}
-            sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#fff', borderColor: '#d4d4d4', opacity: 1 } }}
+            sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#fff', '#a0a4aa'), borderColor: byMode('#d4d4d4', '#3a3a3a'), opacity: 1 } }}
           >
             Export
           </Button>
@@ -1028,12 +1029,12 @@ const EverydayTickets = () => {
       >
         {/* Reference: sky title bar with a bold "?" and title, a one-line question, then
             three equal grey buttons - Cancel | Only Positive Inventory | All Products. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, height: 60, bgcolor: '#bae6fd' }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 20, color: '#0369a1' }}>?</Typography>
-          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#0369a1' }}>Add all products</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, height: 60, bgcolor: byMode('#bae6fd', '#0c3a55') }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 20, color: byMode('#0369a1', '#74d4ff') }}>?</Typography>
+          <Typography sx={{ fontWeight: 700, fontSize: 18, color: byMode('#0369a1', '#74d4ff') }}>Add all products</Typography>
         </Box>
         <DialogContent sx={{ px: 2, pt: 2.5, pb: 2 }}>
-          <Typography sx={{ fontSize: 16, color: '#000' }}>Which products would you like to add?</Typography>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Which products would you like to add?</Typography>
         </DialogContent>
         <DialogActions sx={{ px: 2, pb: 2, pt: 0, gap: 2 }}>
           {[
@@ -1052,9 +1053,9 @@ const EverydayTickets = () => {
                 minWidth: 0,
                 px: 2,
                 whiteSpace: 'nowrap',
-                bgcolor: '#d4d4d4',
-                color: '#000',
-                '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' },
+                bgcolor: byMode('#d4d4d4', '#3a3a3a'),
+                color: byMode('#000', '#f8f8f8'),
+                '&:hover': { bgcolor: byMode('#a3a3a3', '#4a4a4a'), boxShadow: 'none' },
               }}
             >
               {label}

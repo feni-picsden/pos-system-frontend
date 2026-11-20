@@ -4,6 +4,7 @@ import { CheckCircleOutlined, HighlightOffOutlined } from "@mui/icons-material";
 import settingsService from "../../services/settingsService";
 import { saleOutstanding, INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
 import { SplitPrice, customerName } from "./SaleDetailCard";
+import { byMode } from "../../theme/sfPalette";
 
 // The collapsed sale row from the reference (.sale-line): status glyph, date /
 // time / invoice number, Outlet / Register / User, the total (owed under it)
@@ -17,10 +18,10 @@ const SaleListRow = ({ sale, formatDate, formatTime, outletName, onClick, zebra 
       alignItems: "center",
       height: 89,
       p: "16px",
-      color: "#000",
-      bgcolor: zebra ? "#ebebeb" : "#f8f8f8",
+      color: byMode("#000", "#f8f8f8"),
+      bgcolor: zebra ? byMode("#ebebeb", "#2a2a2a") : byMode("#f8f8f8", "#232323"),
       cursor: onClick ? "pointer" : "default",
-      "&:hover": onClick ? { bgcolor: "#e3e3e3" } : undefined,
+      "&:hover": onClick ? { bgcolor: byMode("#e3e3e3", "#2f2f2f") } : undefined,
     }}
   >
     {/* .sale-line-status — 40px fixed-width 32px glyph */}
@@ -37,7 +38,7 @@ const SaleListRow = ({ sale, formatDate, formatTime, outletName, onClick, zebra 
       ) : saleOutstanding(sale) > 0 ? (
         <Box title="Incomplete" sx={{ width: 28, height: 28, m: "2px auto", borderRadius: "50%", border: `2px solid ${INCOMPLETE_PURPLE}` }} />
       ) : (
-        <CheckCircleOutlined titleAccess="Completed" sx={{ fontSize: 32, color: "#000" }} />
+        <CheckCircleOutlined titleAccess="Completed" sx={{ fontSize: 32, color: byMode("#000", "#f8f8f8") }} />
       )}
     </Box>
 
@@ -59,7 +60,7 @@ const SaleListRow = ({ sale, formatDate, formatTime, outletName, onClick, zebra 
       </Box>
       {sale.notes && String(sale.notes).trim() && !(sale.status === "CANCELLED" && !sale.cancelReason) && (
         <Box sx={{ flex: 1, minWidth: 0, pl: 4 }}>
-          <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#757575", lineHeight: "13px" }}>SALE NOTE</Box>
+          <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: byMode("#757575", "#a0a4aa"), lineHeight: "13px" }}>SALE NOTE</Box>
           <Box sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sale.notes}</Box>
         </Box>
       )}

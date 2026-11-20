@@ -18,6 +18,7 @@ import { handlePrintPreview, renderPrintElement, multiBuyData } from '../../util
 import shelfTicketTemplateService from '../../services/shelfTicketTemplateService';
 import futurePriceService from '../../services/futurePriceService';
 import { extractBarcodeValue } from '../../utils/barcodeSvg';
+import { byMode } from '../../theme/sfPalette';
 
 const PREVIEW_PLACEHOLDER = {
   productName: 'Sample Product',
@@ -39,16 +40,16 @@ const MM_TO_PX = 3.7795275591; // 96 DPI
 
 // Design tokens: notched outline #404040 1px, focus #000 2px, radius 8, placeholder #808080.
 const FIELD_SX = {
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-  '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+  '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: byMode(undefined, '#121212') },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 const PRINT_BUTTON_SX = {
   bgcolor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   height: 42,
   borderRadius: '12px',
   px: 3,
@@ -56,29 +57,29 @@ const PRINT_BUTTON_SX = {
   fontWeight: 700,
   textTransform: 'none',
   boxShadow: 'none',
-  '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#cfe9f7', color: '#fff' },
+  '&:hover': { bgcolor: byMode('#0ea5e9', '#4aa9dd'), boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: byMode('#cfe9f7', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') },
 };
 
 // Secondary action: neutral-300 fill, neutral-400 on hover — the palette's cancel pairing.
 const CANCEL_BUTTON_SX = {
   ...PRINT_BUTTON_SX,
-  bgcolor: '#d4d4d4',
-  color: '#000',
-  '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' },
+  bgcolor: byMode('#d4d4d4', '#3a3a3a'),
+  color: byMode('#000', '#f8f8f8'),
+  '&:hover': { bgcolor: byMode('#a3a3a3', '#4a4a4a'), boxShadow: 'none' },
 };
 
 // View-mode pair: palette outline + primary fill instead of MUI's grey 4px pill halves.
 const VIEW_TOGGLE_SX = {
   '& .MuiToggleButton-root': {
-    border: '1px solid #404040',
+    border: byMode('1px solid #404040', '1px solid #a1a1a1'),
     borderRadius: '8px',
-    color: '#313439',
-    '&:hover': { bgcolor: '#f8f8f8' },
+    color: byMode('#313439', '#d4d4d4'),
+    '&:hover': { bgcolor: byMode('#f8f8f8', '#2f2f2f') },
     '&.Mui-selected': {
       bgcolor: '#5ebbeb',
-      color: '#f8f8f8',
-      '&:hover': { bgcolor: '#0ea5e9' },
+      color: byMode('#f8f8f8', '#232323'),
+      '&:hover': { bgcolor: byMode('#0ea5e9', '#4aa9dd') },
     },
   },
 };
@@ -232,7 +233,7 @@ const PrintTicketsDialog = ({ open, onClose, tickets = [], ticketType = 'Everyda
             size="small"
             onClick={onClose}
             startIcon={<CloseIcon />}
-            sx={{ color: '#313439', textTransform: 'none', fontWeight: 600 }}
+            sx={{ color: byMode('#313439', '#d4d4d4'), textTransform: 'none', fontWeight: 600 }}
           >
             Close
           </Button>
@@ -312,7 +313,7 @@ const PrintTicketsDialog = ({ open, onClose, tickets = [], ticketType = 'Everyda
             <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Selected Products</Typography>
             <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
               {tickets.slice(0, 50).map((ticket, i) => (
-                <Box key={i} sx={{ py: 0.5, borderBottom: '1px solid #f0f0f0' }}>
+                <Box key={i} sx={{ py: 0.5, borderBottom: byMode('1px solid #f0f0f0', '1px solid #373737') }}>
                   <Typography variant="body2" noWrap>{ticket.name || ticket.productName}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     {ticket.category || ''} {ticket.price ? `· $${parseFloat(ticket.price).toFixed(2)}` : ''}

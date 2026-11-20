@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { Box, Typography, Paper, Grid, Table, TableHead, TableBody, TableRow, TableCell, Button, Dialog, DialogTitle, DialogContent, IconButton, Stack, Alert, Avatar } from '@mui/material';
+import { Box, Typography, Paper, Grid, Table, TableHead, TableBody, TableRow, TableCell, Button, Dialog, DialogTitle, DialogContent, IconButton, Stack, Alert, Avatar, useTheme } from '@mui/material';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -14,6 +14,7 @@ import { zonedParts, zonedInstant } from '../../utils/dateFormat';
 import registerClosureService from '../../services/registerClosureService';
 import settingsService from '../../services/settingsService';
 import { resolveAssetUrl } from '../../services/apiClient';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference toolbar palette (measured on the Shopfront closure view)
 const REF_BLUE = '#1C86F2';
@@ -179,6 +180,7 @@ const EMPTY = { rows: [], total: 0 };
 const RegisterClosureView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isDark = useTheme().palette.mode === 'dark';
   const [closure, setClosure] = useState(null);
   const [details, setDetails] = useState(null);
   const [notes, setNotes] = useState([]);
@@ -405,7 +407,7 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
         <Table size="small">
           <TableBody>
             {summaryRows.map(([label, value], i) => (
-              <TableRow key={label} sx={{ bgcolor: i % 2 === 0 ? '#fff' : '#f8f8f8', '& td': { color: '#000', fontSize: 16, padding: '8px 8px 8px 10px', borderBottom: 'none' } }}>
+              <TableRow key={label} sx={{ bgcolor: i % 2 === 0 ? byMode('#fff', '#232323') : byMode('#f8f8f8', '#2a2a2a'), '& td': { color: byMode('#000', '#f8f8f8'), fontSize: 16, padding: '8px 8px 8px 10px', borderBottom: 'none' } }}>
                 <TableCell sx={{ width: 220, fontWeight: 700 }}>{label}</TableCell>
                 <TableCell>{value}</TableCell>
               </TableRow>
@@ -424,8 +426,8 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
 
       {/* Reference order: Notes, Statistics, Hourly */}
       <Box sx={{ mt: 3 }} data-section="notes">
-        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 1 }}>Notes</Typography>
-        {notes.length === 0 && <Typography sx={{ color: '#676b72', fontSize: 16 }}>No notes have been added to this register closure.</Typography>}
+        <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>Notes</Typography>
+        {notes.length === 0 && <Typography sx={{ color: byMode('#676b72', '#a0a4aa'), fontSize: 16 }}>No notes have been added to this register closure.</Typography>}
         {notes.map((n) => (
           <Box key={n.id} data-note sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', py: 1 }}>
             {/* Same as the navbar profile: the user's image, else their initials on blue */}
@@ -433,30 +435,30 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
               {!n.avatar && initials(n.user)}
             </Avatar>
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: 14, color: '#000' }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8') }}>
                 <Box component="span" sx={{ fontWeight: 700 }}>{n.user || 'Unknown'}</Box>
-                <Box component="span" sx={{ color: '#676b72' }} title={when(n.createdAt)}> - {ago(n.createdAt)}</Box>
+                <Box component="span" sx={{ color: byMode('#676b72', '#a0a4aa') }} title={when(n.createdAt)}> - {ago(n.createdAt)}</Box>
               </Typography>
-              <Typography sx={{ fontSize: 14, color: '#000', whiteSpace: 'pre-wrap' }}>{n.text}</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8'), whiteSpace: 'pre-wrap' }}>{n.text}</Typography>
             </Box>
           </Box>
         ))}
       </Box>
 
       <Box sx={{ mt: 3 }}>
-        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 1 }}>Statistics</Typography>
+        <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>Statistics</Typography>
         {/* Reference: sky-blue header row (white caps), zebra rows, blue total row with no label */}
         <Table size="small" data-section="statistics" sx={{ '& td, & th': { border: 0, fontSize: 16, px: 1, py: '8px' } }}>
           <TableHead>
-            <TableRow sx={{ bgcolor: STATS_BLUE, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+            <TableRow sx={{ bgcolor: byMode(STATS_BLUE, '#333333'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
               {['NAME', 'REVENUE', 'COST OF GOODS SOLD', 'PROFIT', 'PROFIT PERCENTAGE', 'AVERAGE SALE'].map((h, i) => (
-                <TableCell key={h} align={i ? 'center' : 'left'} sx={{ color: '#fff', fontWeight: 700 }}>{h}</TableCell>
+                <TableCell key={h} align={i ? 'center' : 'left'} sx={{ color: byMode('#fff', '#5ebbeb'), fontWeight: 700 }}>{h}</TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {(closure.userStats || []).map((s, i) => (
-              <TableRow key={s.id} sx={{ bgcolor: i % 2 ? '#e0e0e0' : '#f8f8f8', '& td': { color: '#000' } }}>
+              <TableRow key={s.id} sx={{ bgcolor: i % 2 ? byMode('#e0e0e0', '#2a2a2a') : byMode('#f8f8f8', '#232323'), '& td': { color: byMode('#000', '#f8f8f8') } }}>
                 <TableCell>{s.user?.name || s.userId}</TableCell>
                 <TableCell align="center">{money(s.revenue)}</TableCell>
                 <TableCell align="center">{money(s.costOfGoodsSold)}</TableCell>
@@ -465,7 +467,7 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
                 <TableCell align="center">{money(s.averageSale)}</TableCell>
               </TableRow>
             ))}
-            <TableRow data-row="total" sx={{ bgcolor: STATS_BLUE, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '& td': { color: '#fff', fontWeight: 700 } }}>
+            <TableRow data-row="total" sx={{ bgcolor: byMode(STATS_BLUE, '#333333'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '& td': { color: byMode('#fff', '#5ebbeb'), fontWeight: 700 } }}>
               <TableCell />
               <TableCell align="center">{money(statsTotal.revenue)}</TableCell>
               <TableCell align="center">{money(statsTotal.cogs)}</TableCell>
@@ -478,7 +480,7 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
       </Box>
 
       <Box sx={{ mt: 3 }}>
-        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 2 }}>Hourly</Typography>
+        <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>Hourly</Typography>
         {/* Reference: centred dark segmented toggle, selected tab blue */}
         <Box className="no-print" sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
           <Box data-hourly-tabs sx={{ display: 'inline-flex', border: '1px solid #1f1f1f', borderRadius: '2px', overflow: 'hidden' }}>
@@ -503,10 +505,10 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
         <Box sx={{ height: 400 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={hourlyChartData} margin={{ top: 10, right: 20, left: 10, bottom: 60 }}>
-              <CartesianGrid stroke="#e5e5e5" />
-              <XAxis dataKey="time" angle={-35} textAnchor="end" height={70} interval={0} tick={{ fontSize: 11, fill: '#000' }} tickLine={false} axisLine={{ stroke: '#ccc' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#000' }} tickLine={false} axisLine={false} tickFormatter={hourlyFormat} width={80} allowDecimals={hourlyTab === 'averageSale'} />
-              <Tooltip formatter={(v) => [hourlyFormat(v), activeHourlyTab.label]} />
+              <CartesianGrid stroke={isDark ? '#333333' : '#e5e5e5'} />
+              <XAxis dataKey="time" angle={-35} textAnchor="end" height={70} interval={0} tick={{ fontSize: 11, fill: isDark ? '#f8f8f8' : '#000' }} tickLine={false} axisLine={{ stroke: isDark ? '#373737' : '#ccc' }} />
+              <YAxis tick={{ fontSize: 11, fill: isDark ? '#f8f8f8' : '#000' }} tickLine={false} axisLine={false} tickFormatter={hourlyFormat} width={80} allowDecimals={hourlyTab === 'averageSale'} />
+              <Tooltip labelStyle={isDark ? { color: '#000' } : undefined} formatter={(v) => [hourlyFormat(v), activeHourlyTab.label]} />
               <Area type="monotone" dataKey="value" stroke={activeHourlyTab.color} strokeWidth={2} fill={activeHourlyTab.fill} fillOpacity={1} dot={{ r: 3, fill: activeHourlyTab.color, strokeWidth: 0 }} activeDot={{ r: 4 }} isAnimationActive animationBegin={0} animationDuration={600} animationEasing="ease-out" />
             </AreaChart>
           </ResponsiveContainer>
@@ -536,14 +538,14 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
           onChange={(e) => setNoteDraft(e.target.value)}
           maxLength={2000}
           aria-label="Note"
-          style={{ width: 350, height: 129, background: '#fff', border: '1px solid #000', borderRadius: 0, padding: 16, boxSizing: 'border-box', font: 'inherit', fontSize: 16, resize: 'none' }}
+          style={{ width: 350, height: 129, background: isDark ? '#121212' : '#fff', border: isDark ? '1px solid #a1a1a1' : '1px solid #000', color: isDark ? '#f8f8f8' : undefined, borderRadius: 0, padding: 16, boxSizing: 'border-box', font: 'inherit', fontSize: 16, resize: 'none' }}
         />
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: '8px', m: '8px 0 0' }}>
           <Button
             disableRipple
             disableElevation
             onClick={() => setNoteOpen(false)}
-            sx={{ width: 167, height: 48, minWidth: 167, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', borderRadius: 0, fontSize: 32, lineHeight: 1, fontWeight: 400, textTransform: 'none', boxShadow: 'none', transition: REF_TRANSITION, '&:hover': { bgcolor: '#676b72', color: '#f8f8f8', border: '1px solid #676b72', boxShadow: 'none' } }}
+            sx={{ width: 167, height: 48, minWidth: 167, bgcolor: byMode('#f8f8f8', '#3a3a3a'), color: byMode('#676b72', '#f8f8f8'), border: '1px solid #676b72', borderRadius: 0, fontSize: 32, lineHeight: 1, fontWeight: 400, textTransform: 'none', boxShadow: 'none', transition: REF_TRANSITION, '&:hover': { bgcolor: byMode('#676b72', '#4a4a4a'), color: '#f8f8f8', border: '1px solid #676b72', boxShadow: 'none' } }}
           >
             Cancel
           </Button>

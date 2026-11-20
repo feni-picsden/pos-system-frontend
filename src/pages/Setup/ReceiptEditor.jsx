@@ -83,6 +83,7 @@ import { ReferenceComponent } from '../../components/Receipt/ReferenceReceipt';
 import { sampleReferenceData, samplePaymentReferenceData } from '../../utils/referenceReceiptData';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
+import { byMode } from '../../theme/sfPalette';
 
 // A block's default column set: the reference's own columns for that type, in
 // reference order, each keyed so the storage adapter can match it.
@@ -1825,7 +1826,7 @@ const ReceiptEditor = () => {
             {box('top', 'top')}
             <Box />
             {box('left', 'left')}
-            <Box sx={{ width: 56, height: 40, bgcolor: '#e5e5e5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ width: 56, height: 40, bgcolor: byMode('#e5e5e5', '#333333'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Tooltip title={paddingLinked ? 'Unlink sides' : 'Link all sides'}>
                 <IconButton
                   size="small"
@@ -1834,10 +1835,10 @@ const ReceiptEditor = () => {
                   sx={{
                     width: 30,
                     height: 30,
-                    bgcolor: paddingLinked ? BLUE : '#fff',
-                    color: paddingLinked ? '#fff' : BLUE,
+                    bgcolor: paddingLinked ? BLUE : byMode('#fff', '#121212'),
+                    color: paddingLinked ? '#fff' : byMode(BLUE, '#74d4ff'),
                     border: `1px solid ${BLUE}`,
-                    '&:hover': { bgcolor: paddingLinked ? '#1670d0' : '#e8f1fd' },
+                    '&:hover': { bgcolor: paddingLinked ? '#1670d0' : byMode('#e8f1fd', '#1f3a4a') },
                   }}
                 >
                   {paddingLinked ? <LinkIcon fontSize="small" /> : <LinkOffIcon fontSize="small" />}
@@ -1858,7 +1859,7 @@ const ReceiptEditor = () => {
     const renderBorderControl = () => (
       <Box>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>Border</Typography>
-        <Box sx={{ height: 44, bgcolor: '#e5e5e5', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+        <Box sx={{ height: 44, bgcolor: byMode('#e5e5e5', '#333333'), display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
           <Box sx={{ width: '80%', height: 22, bgcolor: '#fff', ...borderToCss(component.properties?.border) }} />
         </Box>
         <Button
@@ -1879,10 +1880,10 @@ const ReceiptEditor = () => {
     return (
       <Box sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          {componentInfo?.Icon && <componentInfo.Icon sx={{ fontSize: 20, color: '#676b72' }} />}
+          {componentInfo?.Icon && <componentInfo.Icon sx={{ fontSize: 20, color: byMode('#676b72', '#a0a4aa') }} />}
           {componentInfo?.label}
           {isNestedComponent && (
-            <Typography variant="caption" sx={{ ml: 1, px: 1, py: 0.25, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+            <Typography variant="caption" sx={{ ml: 1, px: 1, py: 0.25, bgcolor: byMode('#e3f2fd', '#0c3a55'), color: byMode(undefined, '#74d4ff'), borderRadius: 1 }}>
               In Column
             </Typography>
           )}
@@ -2665,14 +2666,14 @@ const ReceiptEditor = () => {
                     setMediaDialogOpen(true);
                   }}
                   sx={{
-                    border: '2px dashed #ccc',
+                    border: byMode('2px dashed #ccc', '2px dashed #a1a1a1'),
                     borderRadius: 1,
                     p: 3,
                     textAlign: 'center',
                     cursor: 'pointer',
                     '&:hover': {
                       borderColor: '#1976d2',
-                      backgroundColor: '#f5f5f5'
+                      backgroundColor: byMode('#f5f5f5', '#2f2f2f')
                     }
                   }}
                 >
@@ -3470,13 +3471,13 @@ const ReceiptEditor = () => {
             <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
               <Box
                 sx={{
-                  borderBottom: '1px solid #e0e0e0',
+                  borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737'),
                   p: 1,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
                   flexWrap: 'wrap',
-                  bgcolor: '#f5f5f5'
+                  bgcolor: byMode('#f5f5f5', '#2a2a2a')
                 }}
               >
                 <Button 
@@ -3737,8 +3738,8 @@ const ReceiptEditor = () => {
                   flex: 1,
                   p: 2,
                   minHeight: 300,
-                  border: '1px solid #e0e0e0',
-                  bgcolor: '#ffffff',
+                  border: byMode('1px solid #e0e0e0', '1px solid #373737'),
+                  bgcolor: byMode('#ffffff', '#121212'),
                   overflow: 'auto',
                   outline: 'none',
                   '&:focus': {
@@ -3831,10 +3832,10 @@ const ReceiptEditor = () => {
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 1,
                         '& fieldset': {
-                          borderColor: '#e0e0e0',
+                          borderColor: byMode('#e0e0e0', '#a1a1a1'),
                         },
                         '&:hover fieldset': {
-                          borderColor: '#bdbdbd',
+                          borderColor: byMode('#bdbdbd', '#a1a1a1'),
                         },
                         '&.Mui-focused fieldset': {
                           borderColor: '#1976d2',
@@ -3859,10 +3860,10 @@ const ReceiptEditor = () => {
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 1,
                         '& fieldset': {
-                          borderColor: '#e0e0e0',
+                          borderColor: byMode('#e0e0e0', '#a1a1a1'),
                         },
                         '&:hover fieldset': {
-                          borderColor: '#bdbdbd',
+                          borderColor: byMode('#bdbdbd', '#a1a1a1'),
                         },
                         '&.Mui-focused fieldset': {
                           borderColor: '#1976d2',
@@ -3880,7 +3881,7 @@ const ReceiptEditor = () => {
                     color="primary"
                     size="small"
                   />
-                  <Typography variant="body2" sx={{ color: '#666' }}>
+                  <Typography variant="body2" sx={{ color: byMode('#666', '#d4d4d4') }}>
                     Open link in new window
                   </Typography>
                 </Box>
@@ -3894,11 +3895,11 @@ const ReceiptEditor = () => {
                   textTransform: 'none',
                   px: 2,
                   py: 1,
-                  border: '1px solid #e0e0e0',
-                  color: '#666',
+                  border: byMode('1px solid #e0e0e0', '1px solid #a1a1a1'),
+                  color: byMode('#666', '#d4d4d4'),
                   '&:hover': {
-                    backgroundColor: '#f5f5f5',
-                    borderColor: '#bdbdbd',
+                    backgroundColor: byMode('#f5f5f5', '#3a3a3a'),
+                    borderColor: byMode('#bdbdbd', '#a1a1a1'),
                   },
                 }}
               >
@@ -3913,14 +3914,14 @@ const ReceiptEditor = () => {
                   textTransform: 'none',
                   px: 2,
                   py: 1,
-                  backgroundColor: linkData.title && linkData.target ? '#1976d2' : '#e0e0e0',
-                  color: linkData.title && linkData.target ? '#fff' : '#999',
+                  backgroundColor: linkData.title && linkData.target ? '#1976d2' : byMode('#e0e0e0', '#3a3a3a'),
+                  color: linkData.title && linkData.target ? '#fff' : byMode('#999', '#a0a4aa'),
                   '&:hover': {
-                    backgroundColor: linkData.title && linkData.target ? '#1565c0' : '#e0e0e0',
+                    backgroundColor: linkData.title && linkData.target ? '#1565c0' : byMode('#e0e0e0', '#3a3a3a'),
                   },
                   '&:disabled': {
-                    backgroundColor: '#e0e0e0',
-                    color: '#999',
+                    backgroundColor: byMode('#e0e0e0', '#3a3a3a'),
+                    color: byMode('#999', '#a0a4aa'),
                   },
                 }}
               >
@@ -3959,12 +3960,12 @@ const ReceiptEditor = () => {
           justifyContent: 'center',
           p: 2,
           pr: '400px',
-          bgcolor: '#f7f7f7',
+          bgcolor: byMode('#f7f7f7', '#232323'),
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" sx={{ color: '#1a1a1a', fontWeight: 500 }}>
+            <Typography variant="h6" sx={{ color: byMode('#1a1a1a', '#f8f8f8'), fontWeight: 500 }}>
               Receipt -
             </Typography>
             <TextField
@@ -3981,24 +3982,24 @@ const ReceiptEditor = () => {
               size="small"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'white',
+                  backgroundColor: byMode('white', '#121212'),
                   borderRadius: 0,
                   height: 37,
                   width: 200,
                   '& fieldset': {
-                    borderColor: '#000',
+                    borderColor: byMode('#000', '#a1a1a1'),
                     borderWidth: '1px',
                   },
                   '&:hover fieldset': {
-                    borderColor: '#000',
+                    borderColor: byMode('#000', '#a1a1a1'),
                   },
                   '&.Mui-focused fieldset': {
-                    borderColor: '#000',
+                    borderColor: byMode('#000', '#2b7fff'),
                     borderWidth: '1px',
                   },
                 },
                 '& .MuiInputBase-input': {
-                  color: '#000',
+                  color: byMode('#000', '#f8f8f8'),
                   // Measured 16px/400 — size="small" otherwise drops the input to 14px.
                   fontSize: 16,
                   fontWeight: 400,
@@ -4102,7 +4103,7 @@ const ReceiptEditor = () => {
         <Paper sx={{ width: 400, borderRadius: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {/* Tab Header — no container rule: measured 5.2 gives the strip as
               `grid grid-cols-2 w-full` and an inactive/disabled tab has NO bottom border. */}
-          <Box sx={{ bgcolor: '#f8f9fa' }}>
+          <Box sx={{ bgcolor: byMode('#f8f9fa', '#232323') }}>
             <Tabs 
               value={activeTab} 
               onChange={(e, newValue) => setActiveTab(newValue)}
@@ -4120,19 +4121,19 @@ const ReceiptEditor = () => {
                   py: 2,
                   fontSize: '1.125rem',
                   gap: '8px',
-                  color: '#737373',
+                  color: byMode('#737373', '#a0a4aa'),
                   bgcolor: 'transparent',
                   '& .MuiSvgIcon-root': { fontSize: 20, marginBottom: 0 },
                   '&.Mui-selected': {
-                    color: '#000',
+                    color: byMode('#000', '#f8f8f8'),
                     fontWeight: 400,
-                    bgcolor: '#e5e5e5',
+                    bgcolor: byMode('#e5e5e5', '#333333'),
                   },
                   '&.Mui-disabled': {
                     cursor: 'not-allowed',
                     pointerEvents: 'auto',
                     backgroundColor: 'transparent',
-                    color: '#737373',
+                    color: byMode('#737373', '#757575'),
                     opacity: 1,
                   },
                 },
@@ -4150,7 +4151,7 @@ const ReceiptEditor = () => {
 
           {/* Tab Content — reference panel is white; the tiles are transparent so the
               panel colour is what shows between them. */}
-          <Box sx={{ flex: 1, overflow: 'auto', bgcolor: '#fff' }}>
+          <Box sx={{ flex: 1, overflow: 'auto', bgcolor: byMode('#fff', '#232323') }}>
             {activeTab === 0 && (
               <Box sx={{ p: 2 }}>
                 <Grid container spacing={1.5}>
@@ -4165,7 +4166,7 @@ const ReceiptEditor = () => {
                           transition: 'none',
                           boxShadow: 'none',
                           '&:hover': {
-                            bgcolor: '#ebebeb',
+                            bgcolor: byMode('#ebebeb', '#2f2f2f'),
                           },
                           // Measured reference tile: 96x96 square, transparent, 1px #ddd,
                           // radius 4, centred in a 112-wide grid cell.
@@ -4173,7 +4174,7 @@ const ReceiptEditor = () => {
                           height: 96,
                           mx: 'auto',
                           bgcolor: 'transparent',
-                          border: '1px solid #ddd',
+                          border: byMode('1px solid #ddd', '1px solid #373737'),
                           opacity: draggedFromPalette === comp.type ? 0.5 : 1,
                           borderRadius: 1,
                         }}
@@ -4199,7 +4200,7 @@ const ReceiptEditor = () => {
                             justifyContent: 'center',
                             width: 27,
                             height: 27,
-                            color: '#676b72'
+                            color: byMode('#676b72', '#a0a4aa')
                           }}>
                             <comp.Icon sx={{ fontSize: 27 }} />
                           </Box>
@@ -4207,7 +4208,7 @@ const ReceiptEditor = () => {
                             // Measured reference label: 16px/400 black.
                             fontSize: '1rem',
                             lineHeight: 1.15,
-                            color: '#000',
+                            color: byMode('#000', '#f8f8f8'),
                             fontWeight: 400
                           }}>
                             {comp.label}
@@ -4225,9 +4226,9 @@ const ReceiptEditor = () => {
                   p: 2,
                   // Design-system inputs/selects: radius 8, #404040 1px notch, #000 2px focus.
                   '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-                  '& .MuiInputBase-input::placeholder': { color: '#808080', opacity: 1 },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#f8f8f8'), borderWidth: '2px' },
+                  '& .MuiInputBase-input::placeholder': { color: byMode('#808080', '#a0a4aa'), opacity: 1 },
                 }}
               >
                 {renderPropertiesPanel()}
@@ -4245,7 +4246,7 @@ const ReceiptEditor = () => {
               gap: 1,
               // Measured reference footer: 16px padding, 1px SOLID BLACK top rule.
               p: 2,
-              borderTop: '1px solid #000',
+              borderTop: byMode('1px solid #000', '1px solid #373737'),
             }}
           >
             {/* Measured reference: Preview (81) and Cancel (73) are text-only; only Save
@@ -4254,9 +4255,9 @@ const ReceiptEditor = () => {
               onClick={() => setPreviewOpen((v) => !v)}
               sx={{
                 borderRadius: 0,
-                bgcolor: '#f8f8f8',
-                color: '#676b72',
-                border: '1px solid #676b72',
+                bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+                color: byMode('#676b72', '#f8f8f8'),
+                border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
                 fontSize: 18,
                 fontWeight: 400,
                 textTransform: 'none',
@@ -4264,7 +4265,7 @@ const ReceiptEditor = () => {
                 minHeight: 32,
                 height: 32,
                 p: '4px 8px',
-                '&:hover': { bgcolor: '#eee' },
+                '&:hover': { bgcolor: byMode('#eee', '#4a4a4a') },
               }}
             >
               {previewOpen ? 'Edit' : 'Preview'}
@@ -4274,9 +4275,9 @@ const ReceiptEditor = () => {
                 onClick={handleCancel}
                 sx={{
                   borderRadius: 0,
-                  bgcolor: '#f8f8f8',
-                  color: '#676b72',
-                  border: '1px solid #676b72',
+                  bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+                  color: byMode('#676b72', '#f8f8f8'),
+                  border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
                   fontSize: 18,
                   fontWeight: 400,
                   textTransform: 'none',
@@ -4284,7 +4285,7 @@ const ReceiptEditor = () => {
                   minHeight: 32,
                   height: 32,
                   p: '4px 8px',
-                  '&:hover': { bgcolor: '#eee' },
+                  '&:hover': { bgcolor: byMode('#eee', '#4a4a4a') },
                 }}
               >
                 Cancel

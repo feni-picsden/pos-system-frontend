@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -42,15 +43,15 @@ const rowActionSx = (color) => ({
   minWidth: 0,
   px: 1.5,
   transition: INSTANT,
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
   '& .MuiButton-startIcon': { mr: '6px' },
   '& i.fal': { display: 'inline-flex', alignItems: 'center', '& svg': { width: 18, height: 18 } },
   '&.Mui-disabled': {
-    bgcolor: 'rgba(0,0,0,0.1)',
-    color: '#b5b5b5',
+    bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'),
+    color: byMode('#b5b5b5', '#757575'),
     pointerEvents: 'auto',
     cursor: 'not-allowed',
-    '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
+    '&:hover': { bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a') },
   },
 });
 
@@ -120,7 +121,7 @@ const TransferList = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-        <Typography component="h1" sx={{ fontWeight: 700, fontSize: 32, color: '#000' }}>
+        <Typography component="h1" sx={{ fontWeight: 700, fontSize: 32, color: byMode('#000', '#f8f8f8') }}>
           Transferees
         </Typography>
         {canModify && (
@@ -140,7 +141,7 @@ const TransferList = () => {
               px: 4,
               height: 42,
               transition: INSTANT,
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #5ebbeb' }
+              '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), border: '1px solid #5ebbeb' }
             }}
           >
             New
@@ -149,10 +150,10 @@ const TransferList = () => {
         <Box sx={{ flexGrow: 1 }} />
         {/* Live results counter, like the Tax Rates / Products pages */}
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: '#000' }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: byMode('#000', '#f8f8f8') }}>
             {rows.length}
           </Typography>
-          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>Results</Typography>
         </Box>
       </Box>
 
@@ -169,8 +170,8 @@ const TransferList = () => {
             <TableRow
               sx={{
                 '& th': {
-                  bgcolor: '#5fb8ea',
-                  color: 'white',
+                  bgcolor: byMode('#5fb8ea', '#333333'),
+                  color: byMode('white', '#5ebbeb'),
                   fontWeight: 700,
                   fontSize: 16,
                   border: 0,
@@ -189,8 +190,8 @@ const TransferList = () => {
           </TableHead>
           <TableBody
             sx={{
-              '& tr': { bgcolor: '#ffffff', height: 74 },
-              '& td': { borderBottom: '1px solid #e0e0e0', fontSize: 16, color: '#000', p: '16px' },
+              '& tr': { bgcolor: byMode('#ffffff', '#232323'), height: 74 },
+              '& td': { borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737'), fontSize: 16, color: byMode('#000', '#f8f8f8'), p: '16px' },
             }}
           >
             {rows.length === 0 ? (
@@ -227,7 +228,7 @@ const TransferList = () => {
                         disableRipple
                         startIcon={<VisibilityIcon sx={{ fontSize: 18 }} />}
                         component={RouterLink} to={`/settings/transfer-list/${row.id}/view`}
-                        sx={rowActionSx('#1c86f2')}
+                        sx={rowActionSx(byMode('#1c86f2', '#74d4ff'))}
                       >
                         View
                       </Button>
@@ -236,7 +237,7 @@ const TransferList = () => {
                           disableRipple
                           startIcon={<Glyph name="pencil" />}
                           component={RouterLink} to={`/settings/transfer-list/${row.id}/edit`}
-                          sx={rowActionSx('#16a34a')}
+                          sx={rowActionSx(byMode('#16a34a', '#7bf1a8'))}
                         >
                           Edit
                         </Button>
@@ -255,7 +256,7 @@ const TransferList = () => {
                               startIcon={<Glyph name="trash" />}
                               onClick={() => handleDelete(row)}
                               disabled={row.transferCount > 0}
-                              sx={rowActionSx('#dc2626')}
+                              sx={rowActionSx(byMode('#dc2626', '#ffa2a2'))}
                             >
                               Delete
                             </Button>

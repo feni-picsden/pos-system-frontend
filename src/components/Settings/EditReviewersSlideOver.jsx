@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Autocomplete, Avatar, Box, Button, IconButton, TextField, Typography } from '@mui/material';
 import { DeleteOutlined } from '@mui/icons-material';
 import SettingsSlideOver from './SettingsSlideOver';
+import { byMode } from '../../theme/sfPalette';
 
 const userDisplayName = (u) =>
   u?.name || `${u?.firstName || ''} ${u?.lastName || ''}`.trim() || u?.username || u?.email || 'Unknown';
@@ -11,8 +12,8 @@ const userDisplayName = (u) =>
 // (avatar rows), the chosen users listed under it, "No Default Reviewers" when
 // empty, Cancel / Update footer. Cancel discards; Update hands back the ids.
 const FIELD_SX = {
-  '& .MuiOutlinedInput-root': { minHeight: 42, borderRadius: '8px' },
-  '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' }
+  '& .MuiOutlinedInput-root': { minHeight: 42, borderRadius: '8px', backgroundColor: byMode(undefined, '#121212') },
+  '& .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') }
 };
 
 const EditReviewersSlideOver = ({ open, users = [], selectedIds = [], onCancel, onUpdate }) => {
@@ -30,7 +31,7 @@ const EditReviewersSlideOver = ({ open, users = [], selectedIds = [], onCancel, 
   return (
     <SettingsSlideOver open={open} wide header={false} onClose={onCancel}>
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 4 }} data-testid="edit-reviewers-panel">
-        <Typography sx={{ fontSize: 24, fontWeight: 400, color: '#000' }}>Edit Order Reviewers</Typography>
+        <Typography sx={{ fontSize: 24, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>Edit Order Reviewers</Typography>
         <Autocomplete
           options={options}
           value={null}
@@ -54,7 +55,7 @@ const EditReviewersSlideOver = ({ open, users = [], selectedIds = [], onCancel, 
         />
         <Box sx={{ flex: 1, overflowY: 'auto', mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }} data-testid="default-reviewers-list">
           {chosen.length === 0 ? (
-            <Typography sx={{ textAlign: 'center', color: '#676b72', fontSize: 16, mt: 3 }}>No Default Reviewers</Typography>
+            <Typography sx={{ textAlign: 'center', color: byMode('#676b72', '#a0a4aa'), fontSize: 16, mt: 3 }}>No Default Reviewers</Typography>
           ) : chosen.map((u) => (
             <Box key={u.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 1, py: 0.5 }}>
               <Avatar sx={{ width: 32, height: 32, bgcolor: '#9e9e9e', fontSize: 14 }}>{userDisplayName(u).charAt(0).toUpperCase()}</Avatar>
@@ -71,7 +72,7 @@ const EditReviewersSlideOver = ({ open, users = [], selectedIds = [], onCancel, 
             sx={{
               flex: 1, height: 42, borderRadius: '12px', textTransform: 'none',
               fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
-              backgroundColor: '#dedede', color: '#000', '&:hover': { backgroundColor: '#cfcfcf' }
+              backgroundColor: byMode('#dedede', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), '&:hover': { backgroundColor: byMode('#cfcfcf', '#4a4a4a') }
             }}
           >
             Cancel
@@ -81,7 +82,7 @@ const EditReviewersSlideOver = ({ open, users = [], selectedIds = [], onCancel, 
             sx={{
               flex: 1, height: 42, borderRadius: '12px', textTransform: 'none',
               fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
-              backgroundColor: '#5ebbeb', color: '#fff', boxShadow: 'none',
+              backgroundColor: '#5ebbeb', color: byMode('#fff', '#232323'), boxShadow: 'none',
               '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' }
             }}
           >

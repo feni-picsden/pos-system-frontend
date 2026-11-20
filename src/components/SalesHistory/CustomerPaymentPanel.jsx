@@ -4,6 +4,7 @@ import settingsService from "../../services/settingsService";
 import { PaymentStatusGlyph, paymentStatusOf } from "../Customers/PaymentStatus";
 import { formatCurrency } from "../../utils/currency";
 import { SplitPrice, customerName } from "./SaleDetailCard";
+import { byMode } from "../../theme/sfPalette";
 
 // Reference "Customer Payment" panel (Balance & Payments row click, and the
 // popup behind a payment-method link on a Sales History card): when the payment
@@ -19,17 +20,17 @@ export const paymentActionSx = (primary) => ({
   fontWeight: 400,
   textTransform: "none",
   boxShadow: "none",
-  bgcolor: primary ? "#1c86f2" : "#f8f8f8",
-  color: primary ? "#f8f8f8" : "#313439",
-  border: `1px solid ${primary ? "#f8f8f8" : "#313439"}`,
-  "&:hover": { boxShadow: "none", bgcolor: primary ? "#1573d4" : "#ebebeb" },
+  bgcolor: primary ? "#1c86f2" : byMode("#f8f8f8", "#232323"),
+  color: primary ? "#f8f8f8" : byMode("#313439", "#d4d4d4"),
+  border: primary ? byMode("1px solid #f8f8f8", "1px solid #1c86f2") : byMode("1px solid #313439", "1px solid #a1a1a1"),
+  "&:hover": { boxShadow: "none", bgcolor: primary ? "#1573d4" : byMode("#ebebeb", "#3a3a3a") },
 });
 
 const CustomerPaymentPanel = ({ payment, loading, error, actions, formatDate, formatTime, actionsWidth = 371 }) => {
   const when = (d) => `${formatDate(d)} ${formatTime(d)}`;
 
   return (
-    <Box sx={{ p: "16px", display: "grid", gridTemplateColumns: `1fr ${actionsWidth}px`, gap: "32px", color: "#000" }}>
+    <Box sx={{ p: "16px", display: "grid", gridTemplateColumns: `1fr ${actionsWidth}px`, gap: "32px", color: byMode("#000", "#f8f8f8"), bgcolor: byMode(undefined, "#232323") }}>
       {/* While loading / on error the left column keeps the finished layout's
           height so the panel does not jump and Close stays top-right. */}
       {loading && (

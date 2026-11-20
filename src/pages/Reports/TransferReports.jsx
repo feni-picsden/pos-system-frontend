@@ -62,6 +62,7 @@ import transferReportService from '../../services/transferReportService';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import DateRangePicker from '../../components/Common/DateRangePicker';
+import { byMode } from '../../theme/sfPalette';
 const { jsPDF } = await import('jspdf');
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -75,31 +76,31 @@ const INSTANT = 'all 0s ease';
 
 // Sky-outlined toolbar buttons (Export / Print / Save / Groups / Columns).
 const SKY_BUTTON_SX = {
-  color: '#0284c7',
-  borderColor: '#0284c7',
+  color: byMode('#0284c7', '#74d4ff'),
+  borderColor: byMode('#0284c7', '#74d4ff'),
   textTransform: 'none',
   fontWeight: 700,
   fontSize: 16,
   height: 42,
   borderRadius: '12px',
   transition: INSTANT,
-  '&:hover': { borderColor: '#0284c7', bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { borderColor: byMode('#0284c7', '#74d4ff'), bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 };
 
 // Parity input outline: #404040 1px, focused #000 2px, radius 8px.
 const FIELD_SX = {
-  '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
-  '& input::placeholder, & textarea::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: byMode(undefined, '#121212'), color: byMode(undefined, '#f8f8f8') },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
+  '& input::placeholder, & textarea::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Data table chrome — identical to the Sales / Inventory report tables.
 const TABLE_HEAD_SX = {
   '& th': {
-    backgroundColor: '#5ebbeb',
-    color: '#f8f8f8',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     textTransform: 'uppercase',
@@ -113,7 +114,7 @@ const TABLE_HEAD_SX = {
 
 const TABLE_ROW_SX = {
   '& td': {
-    color: '#000',
+    color: byMode('#000', '#f8f8f8'),
     fontWeight: 400,
     fontSize: 16,
     padding: '8px 8px 8px 10px',
@@ -123,30 +124,30 @@ const TABLE_ROW_SX = {
 };
 
 const TABLE_TOTAL_SX = {
-  bgcolor: '#5ebbeb',
+  bgcolor: byMode('#5ebbeb', '#333333'),
   '& td': {
-    color: '#f8f8f8',
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
     position: 'sticky',
     bottom: 0,
-    backgroundColor: '#5ebbeb',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
     zIndex: 1,
   },
   '& td:first-of-type': { zIndex: 3 },
 };
 
 // Reference odd-row stripe is a visible grey.
-const ROW_ALT_BG = '#e8e8e8';
+const ROW_ALT_BG = byMode('#e8e8e8', '#2a2a2a');
 
 // Reference filter block: flush slate box, 80px tall, square, 1px near-white border.
 const FILTER_BLOCK_SX = {
   height: 80,
   boxSizing: 'border-box',
-  bgcolor: '#676b72',
-  border: '1px solid #f8f8f8',
+  bgcolor: byMode('#676b72', '#333333'),
+  border: byMode('1px solid #f8f8f8', '1px solid #121212'),
   borderRadius: 0,
   color: '#f8f8f8',
   fontSize: 16,
@@ -162,7 +163,7 @@ const FILTER_BLOCK_SX = {
 // Date and Time block styled like the other filter blocks (same as SalesReport.jsx).
 const FILTER_DATE_SX = {
   '& .MuiOutlinedInput-root': {
-    backgroundColor: '#676b72',
+    backgroundColor: byMode('#676b72', '#333333'),
     borderRadius: 0,
     height: 80,
     color: '#f8f8f8',
@@ -170,9 +171,9 @@ const FILTER_DATE_SX = {
     alignItems: 'flex-end',
     padding: '0 16px 14px 16px',
   },
-  '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #f8f8f8' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #f8f8f8' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { border: '1px solid #f8f8f8' },
+  '& .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #f8f8f8', '1px solid #121212') },
+  '&:hover .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #f8f8f8', '1px solid #121212') },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #f8f8f8', '1px solid #121212') },
   '& .MuiOutlinedInput-notchedOutline legend': { display: 'none' },
   '& .MuiInputLabel-root, & .MuiInputLabel-root.MuiInputLabel-shrink': {
     color: '#f8f8f8',
@@ -187,7 +188,7 @@ const FILTER_DATE_SX = {
 // Search suggestion rows (same as the Sales Report): type label + icon; a deleted item shows a bin.
 const SUGGEST_LABELS = { product: 'Product', category: 'Category', brand: 'Brand', family: 'Family', tag: 'Tag', outlet: 'Outlet', transferee: 'Transferee' };
 const SuggestIcon = ({ type, deleted }) => {
-  const sx = { fontSize: 34, color: '#111' };
+  const sx = { fontSize: 34, color: byMode('#111', '#f8f8f8') };
   if (deleted) return <DeleteOutlineIcon sx={sx} />;
   switch (type) {
     case 'product': return <QrCodeIcon sx={sx} />;
@@ -281,13 +282,13 @@ const highlightSQL = (sql) =>
     .filter(Boolean)
     .map((token, i) => {
       let color;
-      if (/^["']/.test(token)) color = '#669900';
-      else if (/^[A-Za-z_]/.test(token)) color = SQL_KEYWORDS.has(token.toUpperCase()) ? '#0077aa' : SQL_FUNCTIONS.has(token.toUpperCase()) ? '#dd4a68' : '#000000';
-      else if (!/^\s+$/.test(token)) color = '#999999';
+      if (/^["']/.test(token)) color = byMode('#669900', '#96d0ff');
+      else if (/^[A-Za-z_]/.test(token)) color = SQL_KEYWORDS.has(token.toUpperCase()) ? byMode('#0077aa', '#f47067') : SQL_FUNCTIONS.has(token.toUpperCase()) ? byMode('#dd4a68', '#6cb6ff') : byMode('#000000', '#adbac7');
+      else if (!/^\s+$/.test(token)) color = byMode('#999999', '#adbac7');
       return (
-        <span key={i} style={color ? { color } : undefined}>
+        <Box component="span" key={i} sx={color ? { color } : undefined}>
           {token}
-        </span>
+        </Box>
       );
     });
 
@@ -336,7 +337,7 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, basis = 
             width: 'calc(100% - 2px)',
             zIndex: 8,
             boxSizing: 'border-box',
-            bgcolor: '#f8f8f8',
+            bgcolor: byMode('#f8f8f8', '#232323'),
             borderRadius: 0,
             boxShadow: 'none',
             p: '11px 16px',
@@ -345,7 +346,7 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, basis = 
           {groups.map((group, gi) => (
             <Box key={group.label || `g${gi}`}>
               {group.label && (
-                <Box sx={{ fontWeight: 700, fontSize: '19.2px', color: '#313439', mb: '8px' }}>
+                <Box sx={{ fontWeight: 700, fontSize: '19.2px', color: byMode('#313439', '#f8f8f8'), mb: '8px' }}>
                   {group.label}
                 </Box>
               )}
@@ -363,9 +364,9 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, basis = 
                       p: '3px 4px',
                       cursor: 'pointer',
                       bgcolor: option.value === value ? '#5ebbeb' : 'transparent',
-                      color: option.value === value ? '#f8f8f8' : '#313439',
+                      color: option.value === value ? '#f8f8f8' : byMode('#313439', '#f8f8f8'),
                       transition: 'background 0.1s, color 0.1s',
-                      '&:hover': { bgcolor: '#313439', color: '#f8f8f8' },
+                      '&:hover': { bgcolor: byMode('#313439', '#0084d1'), color: byMode('#f8f8f8', '#fafafa') },
                     }}
                   >
                     {option.label}
@@ -687,7 +688,7 @@ const TransferReports = () => {
   const renderCell = (row, col) => {
     const text = periodCell(row, col);
     if (col.kind === 'link' && text && row.transferId) {
-      return <Link component={RouterLink} to={`/orders-invoices/${row.transferId}`} sx={{ color: '#0284c7', fontWeight: 400 }}>{text}</Link>;
+      return <Link component={RouterLink} to={`/orders-invoices/${row.transferId}`} sx={{ color: byMode('#0284c7', '#74d4ff'), fontWeight: 400 }}>{text}</Link>;
     }
     return text;
   };
@@ -780,13 +781,13 @@ const TransferReports = () => {
           pl: '16px',
           mb: '8px',
           bgcolor: 'rgba(0,0,0,0)',
-          border: '1px solid #404040',
+          border: byMode('1px solid #404040', '1px solid #a1a1a1'),
           borderRadius: '8px',
           boxShadow: 'none',
           overflow: 'hidden',
         }}
       >
-        <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', fontFamily: "'Roboto Mono', monospace", fontSize: 16, color: '#000000' }}>
+        <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', fontFamily: "'Roboto Mono', monospace", fontSize: 16, color: byMode('#000000', '#adbac7') }}>
           {highlightSQL(customQuery.replace(/\n/g, ' '))}
         </Box>
         <Button
@@ -796,7 +797,7 @@ const TransferReports = () => {
           sx={{
             ml: 2,
             minWidth: 88,
-            color: '#00a63e',
+            color: byMode('#00a63e', '#7bf1a8'),
             textTransform: 'none',
             whiteSpace: 'nowrap',
             fontWeight: 700,
@@ -805,7 +806,7 @@ const TransferReports = () => {
             border: '1px solid transparent',
             bgcolor: 'transparent',
             transition: INSTANT,
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid transparent' },
+            '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), border: '1px solid transparent' },
           }}
         >
           Edit
@@ -873,15 +874,15 @@ const TransferReports = () => {
               onFocus={() => setSuggestOpen(true)}
               sx={FIELD_SX}
               InputProps={{
-                endAdornment: searchTerm ? <CancelIcon onClick={() => { setSearchTerm(''); setSuggestions([]); }} sx={{ cursor: 'pointer', color: '#333', fontSize: 22 }} /> : null,
+                endAdornment: searchTerm ? <CancelIcon onClick={() => { setSearchTerm(''); setSuggestions([]); }} sx={{ cursor: 'pointer', color: byMode('#333', '#d4d4d4'), fontSize: 22 }} /> : null,
               }}
             />
             {suggestOpen && (
-              <Paper elevation={4} sx={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20, maxHeight: 520, overflowY: 'auto', borderRadius: 0, bgcolor: '#f8f8f8' }}>
+              <Paper elevation={4} sx={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20, maxHeight: 520, overflowY: 'auto', borderRadius: 0, bgcolor: byMode('#f8f8f8', '#232323') }}>
                 {!searchTerm.trim() ? (
                   <Box sx={{ px: 2, py: 1.5, fontSize: 22 }}>Start typing to search...</Box>
                 ) : suggestLoading ? (
-                  <Box sx={{ px: 2, py: 1.5, fontSize: 18, color: '#666' }}>Searching...</Box>
+                  <Box sx={{ px: 2, py: 1.5, fontSize: 18, color: byMode('#666', '#d4d4d4') }}>Searching...</Box>
                 ) : suggestions.length === 0 ? (
                   <Box sx={{ px: 2, py: 1.5, fontSize: 22 }}>No search results found.</Box>
                 ) : (
@@ -889,7 +890,7 @@ const TransferReports = () => {
                     <Box
                       key={`${s.type}-${s.id}`}
                       onClick={() => addChip(s)}
-                      sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1.5, py: 1, cursor: 'pointer', bgcolor: i % 2 ? '#e8e8e8' : '#f8f8f8', '&:hover': { bgcolor: '#5ebbeb', color: '#fff' } }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1.5, py: 1, cursor: 'pointer', bgcolor: i % 2 ? byMode('#e8e8e8', '#2a2a2a') : byMode('#f8f8f8', '#232323'), '&:hover': { bgcolor: '#5ebbeb', color: '#fff' } }}
                     >
                       <SuggestIcon type={s.type} deleted={s.deleted} />
                       <Box sx={{ flex: 1 }}>
@@ -911,20 +912,20 @@ const TransferReports = () => {
         {chips.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
             {chips.map((c) => (
-              <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid #404040', bgcolor: '#fff' }}>
-                <Box onClick={() => removeChip(c)} sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: '1px solid #404040', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' } }}>
-                  <DeleteOutlineIcon sx={{ fontSize: 34, color: '#111' }} />
+              <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: byMode('1px solid #404040', '1px solid #a1a1a1'), bgcolor: byMode('#fff', '#232323') }}>
+                <Box onClick={() => removeChip(c)} sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: byMode('1px solid #404040', '1px solid #a1a1a1'), cursor: 'pointer', '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') } }}>
+                  <DeleteOutlineIcon sx={{ fontSize: 34, color: byMode('#111', '#f8f8f8') }} />
                 </Box>
                 <Box sx={{ px: 1.5, py: 0.75 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: 16, lineHeight: 1.2 }}>
                     {SUGGEST_LABELS[c.type] || c.type}
                     {c.deleted ? (
                       <Tooltip title="This item no longer exists in your store" arrow placement="top">
-                        <BlockIcon sx={{ fontSize: 18, color: '#333' }} />
+                        <BlockIcon sx={{ fontSize: 18, color: byMode('#333', '#d4d4d4') }} />
                       </Tooltip>
                     ) : (
                       <Tooltip title="This item exists in your store" arrow placement="top">
-                        <ExistsIcon sx={{ fontSize: 18, color: '#333' }} />
+                        <ExistsIcon sx={{ fontSize: 18, color: byMode('#333', '#d4d4d4') }} />
                       </Tooltip>
                     )}
                   </Box>
@@ -962,24 +963,24 @@ const TransferReports = () => {
         onClose={() => { setColumnsAnchorEl(null); setColumnsChipsExpanded(false); setColumnsSearch(''); }}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{ sx: { width: 544, mt: '6px', p: '16px', borderRadius: '8px', border: '1px solid #404040', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' } }}
+        PaperProps={{ sx: { width: 544, mt: '6px', p: '16px', borderRadius: '8px', border: byMode('1px solid #404040', '1px solid #a1a1a1'), bgcolor: byMode(undefined, '#232323'), boxShadow: '0 6px 18px rgba(0,0,0,0.18)' } }}
       >
         {(() => {
           const selected = pickerColumns.filter(isPicked);
           const shown = columnsChipsExpanded ? selected : selected.slice(0, 2);
           const remaining = selected.length - shown.length;
           return (
-            <Box onClick={() => setColumnsChipsExpanded((v) => !v)} sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', border: '1px solid #404040', borderRadius: '8px', px: '12px', py: '8px', mb: '12px', cursor: 'pointer', minHeight: 44 }}>
+            <Box onClick={() => setColumnsChipsExpanded((v) => !v)} sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', border: byMode('1px solid #404040', '1px solid #a1a1a1'), borderRadius: '8px', px: '12px', py: '8px', mb: '12px', cursor: 'pointer', minHeight: 44 }}>
               {shown.map((c) => (
-                <Box key={c.id} sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{c.label}</Box>
+                <Box key={c.id} sx={{ bgcolor: byMode('#e8e8e8', '#3a3a3a'), borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>{c.label}</Box>
               ))}
-              {remaining > 0 && <Box sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{remaining} More...</Box>}
-              <Box component="input" value={columnsSearch} onClick={(e) => e.stopPropagation()} onChange={(e) => setColumnsSearch(e.target.value)} placeholder="" sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 16, color: '#313439', fontFamily: 'inherit' }} />
-              <Box sx={{ ml: 'auto', display: 'inline-flex', color: '#313439' }}>{columnsChipsExpanded ? <ArrowDropDown /> : <ArrowDropUp />}</Box>
+              {remaining > 0 && <Box sx={{ bgcolor: byMode('#e8e8e8', '#3a3a3a'), borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>{remaining} More...</Box>}
+              <Box component="input" value={columnsSearch} onClick={(e) => e.stopPropagation()} onChange={(e) => setColumnsSearch(e.target.value)} placeholder="" sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 16, color: byMode('#313439', '#f8f8f8'), fontFamily: 'inherit' }} />
+              <Box sx={{ ml: 'auto', display: 'inline-flex', color: byMode('#313439', '#f8f8f8') }}>{columnsChipsExpanded ? <ArrowDropDown /> : <ArrowDropUp />}</Box>
             </Box>
           );
         })()}
-        <Box sx={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #404040', borderRadius: '8px' }}>
+        <Box sx={{ maxHeight: 300, overflowY: 'auto', border: byMode('1px solid #404040', '1px solid #a1a1a1'), borderRadius: '8px' }}>
           {(() => {
             // Precision mode (reference): a plain single-pick list, the current metric on sky.
             const rowOf = (column, keyPrefix) => {
@@ -988,7 +989,7 @@ const TransferReports = () => {
                 <Box
                   key={`${keyPrefix}-${column.id}`}
                   onClick={() => { handleColumnToggle(column.id); if (isPrecisionMode) setColumnsAnchorEl(null); }}
-                  sx={{ display: 'flex', alignItems: 'center', gap: '10px', px: '16px', height: 56, cursor: 'pointer', fontSize: 16, color: !isPrecisionMode && checked ? '#0284c7' : '#313439', bgcolor: isPrecisionMode && checked ? '#5ebbeb' : 'transparent', '&:hover': { bgcolor: '#5ebbeb', color: '#000' } }}
+                  sx={{ display: 'flex', alignItems: 'center', gap: '10px', px: '16px', height: 56, cursor: 'pointer', fontSize: 16, color: !isPrecisionMode && checked ? byMode('#0284c7', '#74d4ff') : byMode('#313439', '#f8f8f8'), bgcolor: isPrecisionMode && checked ? '#5ebbeb' : 'transparent', '&:hover': { bgcolor: '#5ebbeb', color: byMode('#000', '#232323') } }}
                 >
                   {!isPrecisionMode && (checked ? <CheckBoxIcon sx={{ fontSize: 20 }} /> : <CheckBoxOutlineBlankIcon sx={{ fontSize: 20 }} />)}
                   {column.label}
@@ -1006,7 +1007,7 @@ const TransferReports = () => {
             return (
               <>
                 {selected.map((c) => rowOf(c, 'sel'))}
-                {selected.length > 0 && <Box sx={{ borderTop: '1px solid #404040' }} />}
+                {selected.length > 0 && <Box sx={{ borderTop: byMode('1px solid #404040', '1px solid #a1a1a1') }} />}
                 {pickerColumns.map((c) => rowOf(c, 'all'))}
               </>
             );
@@ -1026,7 +1027,7 @@ const TransferReports = () => {
           </Box>
         ) : (
           <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
-            <Table size="small" stickyHeader sx={{ width: '100%', '& .MuiTableCell-stickyHeader': { backgroundColor: '#5ebbeb' }, '& th': { cursor: 'pointer', userSelect: 'none' }, '& td:first-of-type': { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'inherit' } }}>
+            <Table size="small" stickyHeader sx={{ width: '100%', '& .MuiTableCell-stickyHeader': { backgroundColor: byMode('#5ebbeb', '#333333') }, '& th': { cursor: 'pointer', userSelect: 'none' }, '& td:first-of-type': { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'inherit' } }}>
               <TableHead>
                 <TableRow sx={TABLE_HEAD_SX}>
                   <TableCell onClick={() => handleSort('name')} sx={{ position: 'sticky', left: 0, zIndex: 3 }}>NAME<SortIcon active={sortConfig?.key === 'name' ? sortConfig.direction : null} /></TableCell>
@@ -1048,7 +1049,7 @@ const TransferReports = () => {
                   (() => { let stripe = 0; return sortedRows.map((row, index) => {
                     const hasChildren = Array.isArray(row.children);
                     if (!hasChildren) {
-                      const shade = stripe++ % 2 === 0 ? '#fff' : ROW_ALT_BG;
+                      const shade = stripe++ % 2 === 0 ? byMode('#fff', '#232323') : ROW_ALT_BG;
                       return (
                         <TableRow key={index} sx={{ ...TABLE_ROW_SX, bgcolor: shade }}>
                           <TableCell>{row.name}</TableCell>
@@ -1082,12 +1083,12 @@ const TransferReports = () => {
                             );
                           }
                           if (!open) return null;
-                          const shade = stripe++ % 2 === 0 ? '#fff' : ROW_ALT_BG;
+                          const shade = stripe++ % 2 === 0 ? byMode('#fff', '#232323') : ROW_ALT_BG;
                           return (
                             <TableRow key={`${index}-child-${childIndex}`} sx={{ ...TABLE_ROW_SX, bgcolor: shade }}>
                               <TableCell sx={{ pl: '14px !important' }}>
                                 <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 24 }}>
-                                  <Box sx={{ width: 14, flexShrink: 0, borderLeft: '2px solid #000', position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: '2px solid #000' } }} />
+                                  <Box sx={{ width: 14, flexShrink: 0, borderLeft: byMode('2px solid #000', '2px solid #a1a1a1'), position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: byMode('2px solid #000', '2px solid #a1a1a1') } }} />
                                   <Box sx={{ pl: '12px', display: 'flex', alignItems: 'center' }}>{child.name}</Box>
                                 </Box>
                               </TableCell>
@@ -1116,20 +1117,20 @@ const TransferReports = () => {
       </Paper>
 
       {/* Export Dialog — same as the Sales Report page. */}
-      <Dialog open={exportDialogOpen} onClose={handleExportDialogClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' } }}>
-        <DialogTitle sx={{ bgcolor: '#b3e5fc', display: 'flex', alignItems: 'center', gap: 1.5, py: 2, px: 3, borderBottom: '1px solid #e0e0e0' }}>
-          <HelpIcon sx={{ color: '#0288d1', fontSize: 28 }} />
-          <Typography variant="h6" component="span" sx={{ color: '#0288d1', fontWeight: 600, fontSize: '1.25rem' }}>Export Report</Typography>
+      <Dialog open={exportDialogOpen} onClose={handleExportDialogClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2, bgcolor: byMode(undefined, '#232323'), boxShadow: '0 8px 32px rgba(0,0,0,0.12)' } }}>
+        <DialogTitle sx={{ bgcolor: byMode('#b3e5fc', '#0c3a55'), display: 'flex', alignItems: 'center', gap: 1.5, py: 2, px: 3, borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
+          <HelpIcon sx={{ color: byMode('#0288d1', '#74d4ff'), fontSize: 28 }} />
+          <Typography variant="h6" component="span" sx={{ color: byMode('#0288d1', '#74d4ff'), fontWeight: 600, fontSize: '1.25rem' }}>Export Report</Typography>
         </DialogTitle>
         <DialogContent sx={{ px: 3, py: 3 }}>
           <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#666', fontSize: '0.9rem', fontWeight: 500 }}>Export Type</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1.5, color: byMode('#666', '#d4d4d4'), fontSize: '0.9rem', fontWeight: 500 }}>Export Type</Typography>
             <FormControl fullWidth>
               <Select
                 value={exportType}
                 onChange={(e) => setExportType(e.target.value)}
                 displayEmpty
-                sx={{ bgcolor: 'white', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#ddd' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#bbb' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#0288d1' } }}
+                sx={{ bgcolor: byMode('white', '#121212'), color: byMode(undefined, '#f8f8f8'), '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#ddd', '#a1a1a1') }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#bbb', '#a1a1a1') }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#0288d1', '#2b7fff') } }}
                 renderValue={(value) => {
                   const icons = { pdf: <PdfIcon sx={{ mr: 1.5, color: '#d32f2f' }} />, xlsx: <XlsxIcon sx={{ mr: 1.5, color: '#2e7d32' }} />, csv: <CsvIcon sx={{ mr: 1.5, color: '#ed6c02' }} />, json: <JsonIcon sx={{ mr: 1.5, color: '#0288d1' }} /> };
                   const labels = { pdf: 'PDF', xlsx: 'XLSX', csv: 'CSV', json: 'JSON' };
@@ -1145,7 +1146,7 @@ const TransferReports = () => {
           </Box>
           {exportType === 'pdf' && (
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#666', fontSize: '0.9rem', fontWeight: 500 }}>Orientation</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, color: byMode('#666', '#d4d4d4'), fontSize: '0.9rem', fontWeight: 500 }}>Orientation</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 {['portrait', 'landscape'].map((o) => {
                   const on = exportOrientation === o;
@@ -1159,9 +1160,9 @@ const TransferReports = () => {
                         py: 1.5, textTransform: 'uppercase', fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.5px',
                         ...(on
                           ? (o === 'portrait'
-                            ? { bgcolor: 'white', color: '#333', border: '2px solid #0288d1', boxShadow: '0 2px 8px rgba(2, 136, 209, 0.15)', '&:hover': { bgcolor: '#f5f5f5', border: '2px solid #0277bd', boxShadow: '0 2px 12px rgba(2, 136, 209, 0.25)' } }
-                            : { bgcolor: '#e0e0e0', color: '#333', border: '2px solid #9e9e9e', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', '&:hover': { bgcolor: '#d5d5d5', border: '2px solid #757575', boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)' } })
-                          : { bgcolor: 'white', color: '#666', border: '1px solid #ddd', '&:hover': { bgcolor: '#fafafa', border: '1px solid #bbb' } }),
+                            ? { bgcolor: byMode('white', '#121212'), color: byMode('#333', '#f8f8f8'), border: byMode('2px solid #0288d1', '2px solid #74d4ff'), boxShadow: '0 2px 8px rgba(2, 136, 209, 0.15)', '&:hover': { bgcolor: byMode('#f5f5f5', '#2f2f2f'), border: byMode('2px solid #0277bd', '2px solid #74d4ff'), boxShadow: '0 2px 12px rgba(2, 136, 209, 0.25)' } }
+                            : { bgcolor: byMode('#e0e0e0', '#3a3a3a'), color: byMode('#333', '#f8f8f8'), border: byMode('2px solid #9e9e9e', '2px solid #a1a1a1'), boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', '&:hover': { bgcolor: byMode('#d5d5d5', '#4a4a4a'), border: byMode('2px solid #757575', '2px solid #d4d4d4'), boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)' } })
+                          : { bgcolor: byMode('white', '#121212'), color: byMode('#666', '#d4d4d4'), border: byMode('1px solid #ddd', '1px solid #a1a1a1'), '&:hover': { bgcolor: byMode('#fafafa', '#2f2f2f'), border: byMode('1px solid #bbb', '1px solid #d4d4d4') } }),
                       }}
                     >
                       {o === 'portrait' ? 'Portrait' : 'Landscape'}
@@ -1172,9 +1173,9 @@ const TransferReports = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2.5, bgcolor: '#fafafa', borderTop: '1px solid #e0e0e0' }}>
-          <Button onClick={handleExportDialogClose} variant="outlined" sx={{ minWidth: 100, py: 1, textTransform: 'none', fontSize: '0.95rem', fontWeight: 500, color: '#666', borderColor: '#ccc', '&:hover': { borderColor: '#999', bgcolor: '#f5f5f5' } }}>Cancel</Button>
-          <Button onClick={handleExportConfirm} variant="contained" sx={{ minWidth: 100, py: 1, textTransform: 'none', fontSize: '0.95rem', fontWeight: 600, bgcolor: '#00bcd4', boxShadow: '0 2px 8px rgba(0, 188, 212, 0.3)', '&:hover': { bgcolor: '#00acc1', boxShadow: '0 4px 12px rgba(0, 188, 212, 0.4)' } }}>Export</Button>
+        <DialogActions sx={{ px: 3, py: 2.5, bgcolor: byMode('#fafafa', '#232323'), borderTop: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
+          <Button onClick={handleExportDialogClose} variant="outlined" sx={{ minWidth: 100, py: 1, textTransform: 'none', fontSize: '0.95rem', fontWeight: 500, color: byMode('#666', '#d4d4d4'), borderColor: byMode('#ccc', '#a1a1a1'), '&:hover': { borderColor: byMode('#999', '#d4d4d4'), bgcolor: byMode('#f5f5f5', '#2f2f2f') } }}>Cancel</Button>
+          <Button onClick={handleExportConfirm} variant="contained" sx={{ minWidth: 100, py: 1, textTransform: 'none', fontSize: '0.95rem', fontWeight: 600, bgcolor: '#00bcd4', color: byMode(undefined, '#232323'), boxShadow: '0 2px 8px rgba(0, 188, 212, 0.3)', '&:hover': { bgcolor: '#00acc1', boxShadow: '0 4px 12px rgba(0, 188, 212, 0.4)' } }}>Export</Button>
         </DialogActions>
       </Dialog>
 

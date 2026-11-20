@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import priceListService from '../../services/priceListService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront's "Create New Price List" prompt (reference): light-blue title bar
 // with a "?" icon, one question + one text box, grey Cancel / blue Create. The
@@ -96,22 +97,22 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
           width: 300,
           maxWidth: '92vw',
           overflow: 'hidden',
-          bgcolor: '#fff',
+          bgcolor: byMode('#fff', '#232323'),
           borderRadius: '12px',
           boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)',
         },
       }}
     >
       {/* Light-blue title bar with the "?" glyph (reference) */}
-      <Box sx={{ bgcolor: '#bfe6fb', px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography component="span" aria-hidden sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
-        <Typography component="h3" sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 18, m: 0 }}>
+      <Box sx={{ bgcolor: byMode('#bfe6fb', '#0c3a55'), px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography component="span" aria-hidden sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
+        <Typography component="h3" sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 18, m: 0 }}>
           Create New Price List
         </Typography>
       </Box>
 
       <DialogContent sx={{ px: 2, pt: 3, pb: 1 }}>
-        <Typography component="p" sx={{ m: '0 0 12px', fontSize: 16, color: '#000' }}>
+        <Typography component="p" sx={{ m: '0 0 12px', fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
           What should the price list be called?
         </Typography>
 
@@ -133,11 +134,11 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
             }
           }}
           sx={{
-            '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px', fontSize: 16, bgcolor: '#fff' },
+            '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px', fontSize: 16, bgcolor: byMode('#fff', '#121212') },
             '& .MuiOutlinedInput-input': { p: '8px 16px' },
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
           }}
         />
       </DialogContent>
@@ -147,7 +148,7 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
           onClick={handleClose}
           disabled={loading}
           disableElevation
-          sx={{ ...buttonSx, flex: 1, borderRadius: '8px', bgcolor: '#d5d5d5', color: '#000', '&:hover': { bgcolor: '#c4c4c4' } }}
+          sx={{ ...buttonSx, flex: 1, borderRadius: '8px', bgcolor: byMode('#d5d5d5', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a') } }}
         >
           Cancel
         </Button>
@@ -155,7 +156,7 @@ const PriceListDialog = ({ open, onClose, onSave }) => {
           onClick={handleSubmit}
           disabled={loading}
           disableElevation
-          sx={{ ...buttonSx, flex: 1, borderRadius: '8px', bgcolor: '#1c9cf0', color: '#fff', '&:hover': { bgcolor: '#1686d1' }, '&.Mui-disabled': { bgcolor: '#8fcdf7', color: '#fff' } }}
+          sx={{ ...buttonSx, flex: 1, borderRadius: '8px', bgcolor: '#1c9cf0', color: '#fff', '&:hover': { bgcolor: '#1686d1' }, '&.Mui-disabled': { bgcolor: byMode('#8fcdf7', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') } }}
         >
           {loading ? <CircularProgress size={20} sx={{ color: 'inherit' }} /> : 'Create'}
         </Button>

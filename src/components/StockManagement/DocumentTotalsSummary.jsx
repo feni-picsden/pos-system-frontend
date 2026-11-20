@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { formatMoney } from '../../utils/currency';
 import { plural } from '../../utils/caseLine';
+import { byMode } from '../../theme/sfPalette';
 
 // Order / invoice / transfer / return totals, laid out like the sell screen's
 // sale summary (CartSidebar): counters + the money breakdown on the left, the
@@ -20,7 +21,7 @@ const SmallCentsMoney = ({ value }) => {
   );
 };
 
-const lineSx = { fontSize: 16, fontWeight: 400, lineHeight: 'normal', color: '#000' };
+const lineSx = { fontSize: 16, fontWeight: 400, lineHeight: 'normal', color: byMode('#000', '#f8f8f8') };
 
 /**
  * cases / items: quantity counters; products: line count.
@@ -36,8 +37,8 @@ const DocumentTotalsSummary = ({ cases = 0, items = 0, products = 0, lines = [],
         display: 'flex',
         width: '100%',
         maxWidth: 560,
-        border: '1px solid #000',
-        backgroundColor: '#fff',
+        border: byMode('1px solid #000', '1px solid #a1a1a1'),
+        backgroundColor: byMode('#fff', '#232323'),
       }}
     >
       <Box sx={{ width: '50%', boxSizing: 'border-box', p: '8px', display: 'flex', flexDirection: 'column', gap: 0.25 }}>
@@ -56,7 +57,7 @@ const DocumentTotalsSummary = ({ cases = 0, items = 0, products = 0, lines = [],
             <Typography
               key={l.label}
               component="div"
-              sx={{ ...lineSx, color: zero ? 'rgba(189, 189, 189, 0.7)' : '#000', opacity: pending ? 0.35 : 1 }}
+              sx={{ ...lineSx, color: zero ? 'rgba(189, 189, 189, 0.7)' : byMode('#000', '#f8f8f8'), opacity: pending ? 0.35 : 1 }}
             >
               {l.label}: {l.sign === '-' && !zero ? '-' : ''}<SmallCentsMoney value={Math.abs(Number(l.value) || 0)} />
             </Typography>
@@ -64,19 +65,19 @@ const DocumentTotalsSummary = ({ cases = 0, items = 0, products = 0, lines = [],
         })}
       </Box>
       <Box sx={{ width: '50%', boxSizing: 'border-box', p: '8px', textAlign: 'center', alignSelf: 'center' }}>
-        <Typography component="div" sx={{ fontWeight: 400, fontSize: 40, lineHeight: 'normal', color: '#000', opacity: pending ? 0.35 : 1 }}>
+        <Typography component="div" sx={{ fontWeight: 400, fontSize: 40, lineHeight: 'normal', color: byMode('#000', '#f8f8f8'), opacity: pending ? 0.35 : 1 }}>
           <SmallCentsMoney value={total} />
         </Typography>
-        <Typography component="p" sx={{ fontSize: 24, fontWeight: 400, fontVariant: 'small-caps', lineHeight: 'normal', m: 0, color: '#000' }}>
+        <Typography component="p" sx={{ fontSize: 24, fontWeight: 400, fontVariant: 'small-caps', lineHeight: 'normal', m: 0, color: byMode('#000', '#f8f8f8') }}>
           Total
         </Typography>
         {pending && (
-          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Updating total…</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>Updating total…</Typography>
         )}
       </Box>
     </Box>
     {notes.filter(Boolean).map((n) => (
-      <Typography key={n} sx={{ fontSize: 14, color: '#000', textAlign: 'right', maxWidth: 560, mt: 0.5 }}>
+      <Typography key={n} sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8'), textAlign: 'right', maxWidth: 560, mt: 0.5 }}>
         {n}
       </Typography>
     ))}

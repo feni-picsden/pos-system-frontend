@@ -5,6 +5,7 @@ import { HelpOutline as HelpIcon, ArrowDropDown as ArrowDropDownIcon } from '@mu
 import favouriteReportService from '../../services/favouriteReportService';
 import ShopfrontSwitch from '../Common/ShopfrontSwitch';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference "Save Report" dialog:
 //   ? Save Report (light-blue header)
@@ -19,12 +20,12 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 const DYNAMIC_PERIODS = ['Day(s)', 'Week(s)', 'Month(s)', 'Year(s)'];
 
 const FIELD_SX = {
-  '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 42, fontSize: 16, bgcolor: '#fff' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
+  '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 42, fontSize: 16, bgcolor: byMode('#fff', '#121212') },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#f8f8f8'), borderWidth: 2 },
 };
-const LABEL_SX = { fontSize: 14, color: '#000', mb: 0.5 };
+const LABEL_SX = { fontSize: 14, color: byMode('#000', '#f8f8f8'), mb: 0.5 };
 
 // alwaysDynamic: reports whose reference dialog has no "Dynamic Time Period"
 // switch (Product Revision History) — Amount / Period / Include today show
@@ -100,8 +101,8 @@ const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defa
       onClose={handleClose}
       PaperProps={{ elevation: 0, sx: { width: 470, maxWidth: '95vw', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,.2), 0 8px 10px -6px rgba(0,0,0,.2)' } }}
     >
-      <Box sx={{ bgcolor: '#bfe3f8', color: '#0c4a6e', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 2, fontSize: 18, fontWeight: 700 }}>
-        <HelpIcon sx={{ fontSize: 22, color: '#0284c7' }} />
+      <Box sx={{ bgcolor: byMode('#bfe3f8', '#0c3a55'), color: byMode('#0c4a6e', '#74d4ff'), display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 2, fontSize: 18, fontWeight: 700 }}>
+        <HelpIcon sx={{ fontSize: 22, color: byMode('#0284c7', '#74d4ff') }} />
         Save Report
       </Box>
       <Box sx={{ px: 2, pt: 2.5, pb: 2 }}>
@@ -122,13 +123,13 @@ const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defa
             {!alwaysDynamic && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: dynamic ? 1.5 : 0 }}>
                 <ShopfrontSwitch checked={dynamic} onChange={(e) => setDynamic(e.target.checked)} />
-                <Typography sx={{ fontSize: 16, color: '#000' }}>Dynamic Time Period</Typography>
+                <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Dynamic Time Period</Typography>
               </Box>
             )}
             {dynamic && (
               <>
                 {!alwaysDynamic && (
-                  <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>(Note: The report will be modified)</Typography>
+                  <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 2 }}>(Note: The report will be modified)</Typography>
                 )}
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <Box sx={{ flex: 1 }}>
@@ -142,7 +143,7 @@ const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defa
                       value={period}
                       onChange={(e) => setPeriod(e.target.value)}
                       IconComponent={ArrowDropDownIcon}
-                      sx={{ borderRadius: '8px', height: 42, fontSize: 16, bgcolor: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 } }}
+                      sx={{ borderRadius: '8px', height: 42, fontSize: 16, bgcolor: byMode('#fff', '#121212'), '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#f8f8f8'), borderWidth: 2 } }}
                     >
                       {DYNAMIC_PERIODS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                     </Select>
@@ -150,7 +151,7 @@ const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defa
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <ShopfrontSwitch checked={includeToday} onChange={(e) => setIncludeToday(e.target.checked)} />
-                  <Typography sx={{ fontSize: 16, color: '#000' }}>Include today</Typography>
+                  <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Include today</Typography>
                 </Box>
               </>
             )}
@@ -158,10 +159,10 @@ const SaveReportDialog = ({ open, onClose, reportType, reportPath, filters, defa
         )}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-          <Button disableElevation onClick={handleClose} sx={{ minWidth: 118, height: 44, borderRadius: '10px', bgcolor: '#d4d4d4', color: '#000', fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#c4c4c4' } }}>
+          <Button disableElevation onClick={handleClose} sx={{ minWidth: 118, height: 44, borderRadius: '10px', bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a') } }}>
             Cancel
           </Button>
-          <Button disableElevation onClick={handleSave} disabled={loading} sx={{ minWidth: 118, height: 44, borderRadius: '10px', bgcolor: '#0ea5e9', color: '#fff', fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#0284c7' }, '&.Mui-disabled': { bgcolor: '#9ccfe8', color: '#fff' } }}>
+          <Button disableElevation onClick={handleSave} disabled={loading} sx={{ minWidth: 118, height: 44, borderRadius: '10px', bgcolor: '#0ea5e9', color: byMode('#fff', '#232323'), fontSize: 16, fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#0284c7' }, '&.Mui-disabled': { bgcolor: byMode('#9ccfe8', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') } }}>
             {loading ? 'Saving...' : 'Save'}
           </Button>
         </Box>

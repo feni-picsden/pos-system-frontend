@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import PageLoader from '../../components/Common/PageLoader';
 import {
   Box,
@@ -44,7 +45,7 @@ const IN_SALE_KEYS_TEXT = 'This Payment Method is being used in sales keys and c
 
 // '+ New': white, 1px light-blue border, blue text, ~120x40, 8px radius.
 const NEW_BUTTON_SX = {
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', 'transparent'),
   border: '1px solid #5ebbeb',
   color: '#5ebbeb',
   textTransform: 'none',
@@ -56,7 +57,7 @@ const NEW_BUTTON_SX = {
   minWidth: 120,
   px: 2,
   transition: INSTANT,
-  '&:hover': { bgcolor: '#f3faff', border: '1px solid #5ebbeb', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#f3faff', 'rgba(94,187,235,0.12)'), border: '1px solid #5ebbeb', boxShadow: 'none' },
 };
 
 // Inline row actions: coloured text + outline glyph; a blocked Delete stays
@@ -73,7 +74,7 @@ const rowActionSx = (color) => ({
   gap: 1,
   transition: INSTANT,
   '&:hover': { bgcolor: 'transparent', opacity: 0.7 },
-  '&.Mui-disabled': { bgcolor: '#e8e8e8', color: '#9e9e9e' },
+  '&.Mui-disabled': { bgcolor: byMode('#e8e8e8', '#3a3a3a'), color: byMode('#9e9e9e', '#757575') },
 });
 
 // Outline glyphs (same strokes as TemplateListActions).
@@ -100,28 +101,28 @@ const OutlineGlyph = ({ name }) => (
 const LIGHT_TOOLTIP = {
   tooltip: {
     sx: {
-      bgcolor: '#fff', color: '#000', border: '1px solid #d4d4d4', borderRadius: '8px',
+      bgcolor: byMode('#fff', '#232323'), color: byMode('#000', '#f8f8f8'), border: byMode('1px solid #d4d4d4', '1px solid #a1a1a1'), borderRadius: '8px',
       fontSize: 14, fontWeight: 400, px: 1.5, py: 1, boxShadow: '0 2px 8px rgba(0,0,0,0.12)', maxWidth: 320,
     },
   },
 };
 
-const FIELD_LABEL_SX = { fontSize: 16, color: '#000', mb: 0.5 };
+const FIELD_LABEL_SX = { fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 };
 
 // Square input, 1px black border (ref edit page).
 const SQUARE_INPUT_SX = {
   width: '100%',
   height: 42,
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: 0,
   px: 1.5,
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
   fontFamily: 'inherit',
   fontSize: 16,
-  color: '#000',
+  color: byMode('#000', '#f8f8f8'),
   outline: 'none',
   boxSizing: 'border-box',
-  '&::placeholder': { color: '#808080', opacity: 1 },
+  '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Integration-managed types (Linkly / Tyro tenders) stay undeletable. An
@@ -216,7 +217,7 @@ const ColourSwatch = ({ label, value, onChange }) => (
         position: 'relative',
         width: '100%',
         height: 40,
-        border: '5px solid #000',
+        border: byMode('5px solid #000', '5px solid #a1a1a1'),
         boxSizing: 'border-box',
         bgcolor: HEX.test(String(value || '')) ? value : '#ffffff',
       }}
@@ -232,11 +233,11 @@ const denomButtonSx = (kind) => ({
   minWidth: 52,
   height: 52,
   p: 0,
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderLeft: 0,
   borderRadius: 0,
-  bgcolor: '#f8f8f8',
-  color: kind === 'add' ? GREEN : RED,
+  bgcolor: byMode('#f8f8f8', '#232323'),
+  color: byMode(kind === 'add' ? GREEN : RED, kind === 'add' ? '#7bf1a8' : '#ffa2a2'),
   boxShadow: 'none',
   transition: INSTANT,
   '&:hover': { bgcolor: kind === 'add' ? GREEN : RED, color: '#fff', boxShadow: 'none' },
@@ -259,7 +260,7 @@ const DenominationsColumn = ({ values, onChange, error, setError }) => {
 
   return (
     <Box sx={{ width: 448 }}>
-      <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 2 }}>Close Register Denominations</Typography>
+      <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>Close Register Denominations</Typography>
       {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
       {values.map((v, i) => (
         <Box key={i} sx={{ display: 'flex', mb: 1.5 }}>
@@ -398,7 +399,7 @@ const EditPaymentMethodView = ({ method, cashMethods = [], onBack, onSaved }) =>
         >
           Back
         </Button>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', lineHeight: 1.2 }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>
           Editing Payment Method
         </Typography>
       </Box>
@@ -411,7 +412,7 @@ const EditPaymentMethodView = ({ method, cashMethods = [], onBack, onSaved }) =>
 
       <Box sx={{ display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <Box sx={{ width: 450, maxWidth: '100%' }}>
-          <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 2 }}>Payment Method Settings</Typography>
+          <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>Payment Method Settings</Typography>
 
           <Typography sx={FIELD_LABEL_SX}>Name</Typography>
           <Box
@@ -435,7 +436,7 @@ const EditPaymentMethodView = ({ method, cashMethods = [], onBack, onSaved }) =>
 
           {TOGGLE_FIELDS.map((field) => (
             <Box key={field.key} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Typography sx={{ fontSize: 16, color: '#000' }}>{field.label}</Typography>
+              <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{field.label}</Typography>
               <ShopfrontSwitch
                 checked={Boolean(settings[field.key])}
                 onChange={(e) => setSetting(field.key, e.target.checked)}
@@ -455,7 +456,7 @@ const EditPaymentMethodView = ({ method, cashMethods = [], onBack, onSaved }) =>
                 onChange={(e) => setSetting('cashOutMethod', e.target.value)}
                 MenuProps={REF_MENU_PROPS}
                 inputProps={{ 'aria-label': 'Cash Out Method' }}
-                sx={{ height: 42, borderRadius: '8px', bgcolor: '#fff', '& fieldset': { borderColor: '#000' } }}
+                sx={{ height: 42, borderRadius: '8px', bgcolor: byMode('#fff', '#121212'), '& fieldset': { borderColor: byMode('#000', '#a1a1a1') } }}
               >
                 {cashOutOptions.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
               </Select>
@@ -604,7 +605,7 @@ const PaymentMethods = () => {
     <Box sx={{ p: 3 }}>
       {/* Header: '+ New' sits inline, right of the H1 */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', lineHeight: 1.2 }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>
           Payment Methods
         </Typography>
         {canAddPaymentMethods && (
@@ -632,7 +633,7 @@ const PaymentMethods = () => {
           <TableHead>
             <TableRow
               sx={{
-                '& th': { bgcolor: '#5fb8ea', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                '& th': { bgcolor: byMode('#5fb8ea', '#333333'), color: byMode('#fff', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                 '& th:first-of-type': { borderTopLeftRadius: '10px', borderBottomLeftRadius: '10px', pl: '20px' },
                 '& th:last-of-type': { borderTopRightRadius: '10px', borderBottomRightRadius: '10px', pr: '20px' },
               }}
@@ -645,8 +646,8 @@ const PaymentMethods = () => {
           </TableHead>
           <TableBody
             sx={{
-              '& tr': { bgcolor: '#fff', height: 74 },
-              '& td': { border: 0, fontSize: 16, color: '#000', py: 0 },
+              '& tr': { bgcolor: byMode('#fff', '#232323'), height: 74 },
+              '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 0 },
             }}
           >
             {sortedMethods.map((paymentMethod) => {
@@ -666,7 +667,7 @@ const PaymentMethods = () => {
                       )}
                       {/* Not on the reference; kept (existing app feature). */}
                       {LOCKED_TYPES.includes(paymentMethod.type) && (
-                        <LockOutlinedIcon sx={{ fontSize: 16, color: '#737373' }} titleAccess="Managed by an integration" />
+                        <LockOutlinedIcon sx={{ fontSize: 16, color: byMode('#737373', '#a0a4aa') }} titleAccess="Managed by an integration" />
                       )}
                     </Box>
                   </TableCell>
@@ -678,7 +679,7 @@ const PaymentMethods = () => {
                           disableRipple
                           startIcon={<OutlineGlyph name="pencil" />}
                           onClick={() => setEditingMethod(paymentMethod)}
-                          sx={rowActionSx(GREEN)}
+                          sx={rowActionSx(byMode(GREEN, '#7bf1a8'))}
                         >
                           Edit
                         </Button>
@@ -692,7 +693,7 @@ const PaymentMethods = () => {
                               startIcon={<OutlineGlyph name="trash" />}
                               disabled={Boolean(blockReason)}
                               onClick={() => setMethodToDelete(paymentMethod)}
-                              sx={rowActionSx(RED)}
+                              sx={rowActionSx(byMode(RED, '#ffa2a2'))}
                             >
                               Delete
                             </Button>

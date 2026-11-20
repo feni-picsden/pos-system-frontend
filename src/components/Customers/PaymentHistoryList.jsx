@@ -4,6 +4,7 @@ import { formatCurrency } from "../../utils/currency";
 import CustomerPaymentPanel, { paymentActionSx } from "../SalesHistory/CustomerPaymentPanel";
 import { SplitPrice, customerName } from "../SalesHistory/SaleDetailCard";
 import { PaymentStatusGlyph, paymentStatusOf } from "./PaymentStatus";
+import { byMode } from "../../theme/sfPalette";
 
 // Reference Balance & Payments > Payment History: one row per payment (status
 // glyph, date / time, Outlet / Register / User, the amount with the customer
@@ -28,7 +29,7 @@ const PaymentHistoryList = ({ payments, customer, formatDate, formatTime, onPrin
         const status = paymentStatusOf(payment);
         const reversible = !payment.isReversal && status.key !== "CANCELLED" && !payment.refundedById;
         return (
-          <Box key={payment.id} sx={{ bgcolor: index % 2 ? "#ebebeb" : "#f8f8f8" }}>
+          <Box key={payment.id} sx={{ bgcolor: index % 2 ? byMode("#ebebeb", "#2a2a2a") : byMode("#f8f8f8", "#232323") }}>
             {!isOpen(payment) && (
               <Box
                 onClick={() => toggle(payment)}
@@ -38,11 +39,11 @@ const PaymentHistoryList = ({ payments, customer, formatDate, formatTime, onPrin
                   alignItems: "center",
                   height: 108,
                   p: "16px",
-                  color: "#000",
+                  color: byMode("#000", "#f8f8f8"),
                   cursor: "pointer",
                   position: "relative",
                   overflow: "hidden",
-                  "&:hover": { bgcolor: "#e3e3e3" },
+                  "&:hover": { bgcolor: byMode("#e3e3e3", "#2f2f2f") },
                 }}
               >
                 <Box sx={{ width: 40, flexShrink: 0, textAlign: "center", lineHeight: 0 }}>
@@ -59,7 +60,7 @@ const PaymentHistoryList = ({ payments, customer, formatDate, formatTime, onPrin
                 </Box>
                 <Box sx={{ width: 300, flexShrink: 0, textAlign: "right", fontSize: 32, position: "relative", zIndex: 1, color: status.key === "COMPLETED" ? "inherit" : status.color }}>
                   <SplitPrice value={payment.total} />
-                  <Box sx={{ fontSize: "13.44px", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#000" }}>
+                  <Box sx={{ fontSize: "13.44px", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: byMode("#000", "#f8f8f8") }}>
                     {name}
                   </Box>
                   {status.key === "INCOMPLETE" && payment.unallocated > 0 && (
@@ -71,14 +72,14 @@ const PaymentHistoryList = ({ payments, customer, formatDate, formatTime, onPrin
                 {/* faint "payment" watermark under the amount (reference) */}
                 <Box
                   aria-hidden
-                  sx={{ position: "absolute", right: 24, bottom: 4, fontSize: 44, fontWeight: 700, color: "rgba(0,0,0,0.07)", lineHeight: 1, pointerEvents: "none", userSelect: "none" }}
+                  sx={{ position: "absolute", right: 24, bottom: 4, fontSize: 44, fontWeight: 700, color: byMode("rgba(0,0,0,0.07)", "rgba(255,255,255,0.07)"), lineHeight: 1, pointerEvents: "none", userSelect: "none" }}
                 >
                   payment
                 </Box>
               </Box>
             )}
             <Collapse in={isOpen(payment)} timeout={400} easing="ease-in-out" unmountOnExit>
-              <Box data-payment-panel={payment.id} sx={{ p: "16px 0", boxShadow: "0 0 30px rgba(0,0,0,.35), 0 15px 30px rgba(0,0,0,.27)", bgcolor: "#f8f8f8", mb: "32px" }}>
+              <Box data-payment-panel={payment.id} sx={{ p: "16px 0", boxShadow: "0 0 30px rgba(0,0,0,.35), 0 15px 30px rgba(0,0,0,.27)", bgcolor: byMode("#f8f8f8", "#232323"), mb: "32px" }}>
                 <CustomerPaymentPanel
                   payment={{ ...payment, customer: payment.customer || customer }}
                   formatDate={formatDate}

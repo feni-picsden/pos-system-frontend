@@ -3,6 +3,7 @@ import { Box, Typography } from "@mui/material";
 import { Check as CheckIcon } from "@mui/icons-material";
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { formatAppPattern } from "../../utils/appDateTime";
+import { byMode } from "../../theme/sfPalette";
 
 // Promotion view > Revision History cell (reference, measured 05/11/2026):
 //   * "createdAt" rows print the time on the store clock ("04/11/2026 16:39:16").
@@ -10,10 +11,10 @@ import { formatAppPattern } from "../../utils/appDateTime";
 //     Included table (tick when included); the sentence sits in the other column.
 //   * everything else is plain text.
 const CELL_SX = {
-  border: "1px solid #000",
+  border: byMode("1px solid #000", "1px solid #373737"),
   padding: "4px 8px",
   fontSize: 16,
-  color: "#000",
+  color: byMode("#000", "#f8f8f8"),
 };
 
 export default function PromotionRevisionCell({ field, value }) {

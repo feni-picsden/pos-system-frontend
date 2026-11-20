@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, Tooltip } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, useTheme } from '@mui/material';
 import { ShowChart, PieChart as PieIcon, HelpOutline } from '@mui/icons-material';
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as ChartTooltip, PieChart, Pie, Cell } from 'recharts';
 import { kpiSeries, outletColor } from '../../utils/reportingDashboard';
 
 export default function ReportingKPI({ title, metric, description, outlets = [], history = [], format, compare, showOutletNames = true }) {
+  const isDark = useTheme().palette.mode === 'dark';
   const [mode, setMode] = useState(['revenue', 'discountAmount', 'profitPercentage'].includes(metric) ? 'pie' : 'line');
   const data = kpiSeries(outlets, metric);
   const pie = history.filter(b => Number(b[metric]) > 0).map(b => ({ name: b.time, value: Number(b[metric]) }));
@@ -45,10 +46,10 @@ export default function ReportingKPI({ title, metric, description, outlets = [],
         {mode === 'line' ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data} margin={{ top: 6, left: -12, right: 6, bottom: 26 }}>
-              <CartesianGrid stroke="#eee" />
-              <XAxis dataKey="time" tick={{ fontSize: 13 }} angle={-40} textAnchor="end" interval="preserveStartEnd" minTickGap={8} height={60} />
-              <YAxis tick={{ fontSize: 13 }} allowDecimals={!count} tickFormatter={v => format(v)} width={85} />
-              <ChartTooltip formatter={(v, name) => [format(v), name]} />
+              <CartesianGrid stroke={isDark ? '#333333' : '#eee'} />
+              <XAxis dataKey="time" tick={{ fontSize: 13, ...(isDark ? { fill: '#d4d4d4' } : {}) }} angle={-40} textAnchor="end" interval="preserveStartEnd" minTickGap={8} height={60} />
+              <YAxis tick={{ fontSize: 13, ...(isDark ? { fill: '#d4d4d4' } : {}) }} allowDecimals={!count} tickFormatter={v => format(v)} width={85} />
+              <ChartTooltip labelStyle={isDark ? { color: '#000' } : undefined} formatter={(v, name) => [format(v), name]} />
               {outlets.map(o => <Area key={o.id ?? 'global'} type="monotone" dataKey={`value_${o.id}`} name={showOutletNames ? o.name : title}
                 stroke={outletColor(o.id)} strokeWidth={1.5} fill={outletColor(o.id)} fillOpacity={0.08}
                 dot={{ r: 2, strokeWidth: 0 }} activeDot={{ r: 4 }}

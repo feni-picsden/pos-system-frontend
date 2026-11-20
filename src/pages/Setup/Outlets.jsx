@@ -48,13 +48,14 @@ import ConfirmDeleteDialog from "../../components/Common/ConfirmDeleteDialog";
 import ShopfrontSwitch from "../../components/Common/ShopfrontSwitch";
 import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 import { clearOutletProfileCache } from "../../utils/outletReceiptProfile";
+import { byMode } from "../../theme/sfPalette";
 
 // Reference has no transitions on its action links.
 const INSTANT = "all 0s ease";
 
 const PRIMARY_BUTTON_SX = {
   bgcolor: "#5ebbeb",
-  color: "#fff",
+  color: byMode("#fff", "#232323"),
   textTransform: "none",
   boxShadow: "none",
   borderRadius: "12px",
@@ -68,7 +69,7 @@ const PRIMARY_BUTTON_SX = {
 
 // Reference row action: green icon+text link, no underline, no bg, 0s transition.
 const EDIT_LINK_SX = {
-  color: "#32b643",
+  color: byMode("#32b643", "#7bf1a8"),
   textTransform: "none",
   fontWeight: 400,
   fontSize: 16,
@@ -76,7 +77,7 @@ const EDIT_LINK_SX = {
   px: 1,
   py: 0,
   transition: INSTANT,
-  "&:hover": { color: "#6dd77b", bgcolor: "transparent" },
+  "&:hover": { color: byMode("#6dd77b", "#b9f8cf"), bgcolor: "transparent" },
 };
 
 const rowActionSx = (color) => ({
@@ -89,9 +90,10 @@ const rowActionSx = (color) => ({
   py: 0,
   transition: INSTANT,
   "&:hover": { bgcolor: "transparent", opacity: 0.7 },
+  "&.Mui-disabled": { color: byMode(undefined, "#ffa2a2"), opacity: byMode(undefined, 0.5) },
 });
 
-const FIELD_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: "#000" };
+const FIELD_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode("#000", "#f8f8f8") };
 
 // Parity-system inputs: 42px, radius 8, #404040 1px outline, black 2px focused.
 const FIELD_SX = {
@@ -99,28 +101,28 @@ const FIELD_SX = {
     height: 42,
     borderRadius: "8px",
     fontSize: 16,
-    bgcolor: "#fff",
-    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" },
+    bgcolor: byMode("#fff", "#121212"),
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#000", "#2b7fff"), borderWidth: "2px" },
   },
-  "& .MuiOutlinedInput-input": { padding: "9px 16px", "&::placeholder": { color: "#808080", opacity: 1 } },
+  "& .MuiOutlinedInput-input": { padding: "9px 16px", "&::placeholder": { color: byMode("#808080", "#757575"), opacity: 1 } },
 };
 
 const MULTILINE_FIELD_SX = {
   "& .MuiOutlinedInput-root": {
     borderRadius: "8px",
     fontSize: 16,
-    bgcolor: "#fff",
-    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" },
+    bgcolor: byMode("#fff", "#121212"),
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#000", "#2b7fff"), borderWidth: "2px" },
   },
 };
 
 const CANCEL_BUTTON_SX = {
-  bgcolor: "#8a8d91",
-  color: "#fff",
+  bgcolor: byMode("#8a8d91", "#3a3a3a"),
+  color: byMode("#fff", "#f8f8f8"),
   textTransform: "none",
   borderRadius: "12px",
   fontWeight: 700,
@@ -129,7 +131,7 @@ const CANCEL_BUTTON_SX = {
   px: 3,
   boxShadow: "none",
   transition: INSTANT,
-  "&:hover": { bgcolor: "#76797d", boxShadow: "none" },
+  "&:hover": { bgcolor: byMode("#76797d", "#4a4a4a"), boxShadow: "none" },
 };
 
 const EMPTY_PROFILE = {
@@ -188,20 +190,23 @@ const EDITOR_TABS = [
 
 // Fixed app bar height (DashboardLayout HEADER_HEIGHT): the sticky tab row sits under it.
 const APP_BAR_HEIGHT = 50;
-const BAND_BG = "#e2e8f0";
+const BAND_BG = byMode("#e2e8f0", "#314158");
+// Editor page / active tab (dark: product edit form body).
+const EDITOR_PAGE_BG = byMode("#fff", "#202020");
+const EDITOR_TEXT = byMode("#313439", "#f8f8f8");
 const EDITOR_COLUMN = 764;
 
 // Reference editor fields: bold label above a full-width 42px input, 1px dark border, 6px corners.
-const EDITOR_LABEL_SX = { mb: 0.75, fontWeight: 700, fontSize: 16, color: "#000" };
+const EDITOR_LABEL_SX = { mb: 0.75, fontWeight: 700, fontSize: 16, color: byMode("#000", "#f8f8f8") };
 const EDITOR_FIELD_SX = {
   "& .MuiOutlinedInput-root": {
     height: 42,
     borderRadius: "6px",
     fontSize: 16,
-    bgcolor: "#fff",
-    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" },
+    bgcolor: byMode("#fff", "#121212"),
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#000", "#2b7fff"), borderWidth: "2px" },
   },
   "& .MuiOutlinedInput-input": { padding: "9px 12px" },
 };
@@ -209,8 +214,10 @@ const EDITOR_SELECT_SX = {
   height: 42,
   borderRadius: "6px",
   fontSize: 16,
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" },
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1") },
+  bgcolor: byMode(undefined, "#121212"),
+  "& .MuiSelect-icon": { color: byMode(undefined, "#a1a1a1") },
 };
 // ~70px field-to-field rhythm (label + 42px input + gap).
 const EDITOR_ROW_SX = { mb: 2 };
@@ -760,8 +767,8 @@ const Outlets = () => {
       return (
         <Box sx={{ position: "relative", mb: 3 }}>
           {/* Small grey icon hangs in the left margin, per reference */}
-          <Icon sx={{ position: "absolute", left: -36, top: 6, fontSize: 22, color: "#8a8d91" }} />
-          <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700, color: "#000" }}>
+          <Icon sx={{ position: "absolute", left: -36, top: 6, fontSize: 22, color: byMode("#8a8d91", "#a0a4aa") }} />
+          <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700, color: byMode("#000", "#f8f8f8") }}>
             {label}
           </Typography>
         </Box>
@@ -776,7 +783,7 @@ const Outlets = () => {
             checked={!!editData[key]}
             onChange={(e) => setEditData((prev) => ({ ...prev, [key]: e.target.checked }))}
           />
-          <Typography sx={{ ml: 1.5, fontSize: 14, color: "#676b72" }}>
+          <Typography sx={{ ml: 1.5, fontSize: 14, color: byMode("#676b72", "#d4d4d4") }}>
             {editData[key] ? onText : offText}
           </Typography>
         </Box>
@@ -787,19 +794,19 @@ const Outlets = () => {
       outlets.find((o) => o.id === register.outletId)?.name || null;
 
     return (
-      <Box sx={{ width: "100%", pb: 12, bgcolor: "#fff", minHeight: "100%" }}>
+      <Box sx={{ width: "100%", pb: 12, bgcolor: EDITOR_PAGE_BG, minHeight: "100%" }}>
         {/* Header band */}
         <Box sx={{ bgcolor: BAND_BG }}>
           <Box sx={{ maxWidth: EDITOR_COLUMN, mx: "auto", px: 2, pt: 3, pb: 2, display: "flex", alignItems: "center", gap: 1 }}>
             <Button
               disableRipple
               onClick={closeEditor}
-              sx={{ minWidth: 0, p: 0.5, color: "#313439", transition: INSTANT, "&:hover": { bgcolor: "rgba(0,0,0,0.06)" } }}
+              sx={{ minWidth: 0, p: 0.5, color: EDITOR_TEXT, transition: INSTANT, "&:hover": { bgcolor: byMode("rgba(0,0,0,0.06)", "rgba(255,255,255,0.08)") } }}
               aria-label="Back to outlets"
             >
               <ArrowBackIcon fontSize="small" />
             </Button>
-            <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: "#000" }}>
+            <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: byMode("#000", "#f8f8f8") }}>
               Editing {editingOutlet.name}
             </Typography>
           </Box>
@@ -813,8 +820,8 @@ const Outlets = () => {
             position: "sticky",
             top: APP_BAR_HEIGHT,
             zIndex: 5,
-            bgcolor: tabsStuck ? "#fff" : BAND_BG,
-            boxShadow: tabsStuck ? "0 1px 0 rgba(0,0,0,0.08)" : "none",
+            bgcolor: tabsStuck ? EDITOR_PAGE_BG : BAND_BG,
+            boxShadow: tabsStuck ? byMode("0 1px 0 rgba(0,0,0,0.08)", "0 1px 0 #373737") : "none",
           }}
         >
           <Box sx={{ maxWidth: EDITOR_COLUMN, mx: "auto", px: 2, display: "flex", gap: 0.5, pt: tabsStuck ? 0.75 : 0, pb: tabsStuck ? 0.75 : 0 }}>
@@ -839,16 +846,16 @@ const Outlets = () => {
                     fontFamily: "inherit",
                     fontSize: 15,
                     fontWeight: active ? 700 : 400,
-                    color: "#313439",
-                    bgcolor: active ? "#fff" : "transparent",
+                    color: EDITOR_TEXT,
+                    bgcolor: active ? EDITOR_PAGE_BG : "transparent",
                     // Folder tab joining the white page; outlined pill once stuck.
-                    border: active && tabsStuck ? "1px solid #000" : "1px solid transparent",
+                    border: active && tabsStuck ? byMode("1px solid #000", "1px solid #a1a1a1") : "1px solid transparent",
                     borderRadius: tabsStuck ? "8px" : "8px 8px 0 0",
                     transition: INSTANT,
-                    "&:hover": { bgcolor: active ? "#fff" : "rgba(255,255,255,0.5)" },
+                    "&:hover": { bgcolor: active ? EDITOR_PAGE_BG : byMode("rgba(255,255,255,0.5)", "rgba(255,255,255,0.08)") },
                   }}
                 >
-                  <Icon sx={{ fontSize: 18, color: active ? "#0084d1" : "#313439" }} />
+                  <Icon sx={{ fontSize: 18, color: active ? byMode("#0084d1", "#74d4ff") : EDITOR_TEXT }} />
                   {label}
                 </Box>
               );
@@ -881,7 +888,7 @@ const Outlets = () => {
 
               <Box sx={EDITOR_ROW_SX}>
                 <Typography sx={{ ...EDITOR_LABEL_SX, mb: 0.25 }}>Primary Ticketing Price Set</Typography>
-                <Typography sx={{ fontSize: 14, color: "#676b72", mb: 0.75 }}>
+                <Typography sx={{ fontSize: 14, color: byMode("#676b72", "#d4d4d4"), mb: 0.75 }}>
                   This is the default price set that will be used for tickets in this store
                 </Typography>
                 <FormControl fullWidth>
@@ -896,7 +903,7 @@ const Outlets = () => {
                     sx={EDITOR_SELECT_SX}
                   >
                     <MenuItem value="">
-                      <Typography component="span" sx={{ color: "#808080" }}>Select...</Typography>
+                      <Typography component="span" sx={{ color: byMode("#808080", "#757575") }}>Select...</Typography>
                     </MenuItem>
                     {priceSets.map((ps) => (
                       <MenuItem key={ps.id} value={String(ps.id)}>
@@ -924,7 +931,7 @@ const Outlets = () => {
                   sx={{
                     width: "100%",
                     height: 250,
-                    bgcolor: "#efefef",
+                    bgcolor: byMode("#efefef", "#2b2b2b"),
                     borderRadius: "6px",
                     display: "flex",
                     alignItems: "center",
@@ -937,7 +944,7 @@ const Outlets = () => {
                   {editData.logo ? (
                     <Box component="img" src={editData.logo} alt="Outlet logo" sx={{ maxWidth: "100%", maxHeight: "100%" }} />
                   ) : (
-                    <Typography sx={{ fontSize: 16, color: "#313439" }}>Select Image</Typography>
+                    <Typography sx={{ fontSize: 16, color: EDITOR_TEXT }}>Select Image</Typography>
                   )}
                 </Box>
                 <Button
@@ -952,11 +959,12 @@ const Outlets = () => {
                     textTransform: "none",
                     fontWeight: 400,
                     fontSize: 16,
-                    color: "#313439",
-                    borderColor: "#404040",
+                    color: byMode("#313439", "#d4d4d4"),
+                    borderColor: byMode("#404040", "#a1a1a1"),
                     borderRadius: "6px",
                     transition: INSTANT,
-                    "&:hover": { borderColor: "#000", bgcolor: "rgba(0,0,0,0.03)" },
+                    "&:hover": { borderColor: byMode("#000", "#d4d4d4"), bgcolor: byMode("rgba(0,0,0,0.03)", "rgba(255,255,255,0.08)") },
+                    "&.Mui-disabled": { color: byMode(undefined, "#757575"), borderColor: byMode(undefined, "#4a4a4a") },
                   }}
                 >
                   Remove Image
@@ -998,7 +1006,7 @@ const Outlets = () => {
                     <MenuItem value="Prevent">Prevent</MenuItem>
                   </Select>
                 </FormControl>
-                <Typography sx={{ mt: 0.5, fontSize: 14, color: "#676b72" }}>
+                <Typography sx={{ mt: 0.5, fontSize: 14, color: byMode("#676b72", "#d4d4d4") }}>
                   Allow permits selling below cost, Warn shows a warning that authorised users can
                   override, Prevent forces the price back up to at least cost
                 </Typography>
@@ -1035,7 +1043,7 @@ const Outlets = () => {
                     multiple
                     value={editData.registerIds}
                     onChange={setField("registerIds")}
-                    input={<OutlinedInput sx={{ minHeight: 42, borderRadius: "6px", "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" } }} />}
+                    input={<OutlinedInput sx={{ minHeight: 42, borderRadius: "6px", bgcolor: byMode(undefined, "#121212"), "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1") } }} />}
                     renderValue={(selected) => (
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {selected.map((value) => {
@@ -1055,14 +1063,14 @@ const Outlets = () => {
                     })}
                   </Select>
                 </FormControl>
-                <Typography sx={{ mt: 0.5, fontSize: 14, color: "#676b72" }}>
+                <Typography sx={{ mt: 0.5, fontSize: 14, color: byMode("#676b72", "#d4d4d4") }}>
                   Picking a register from another outlet moves it to this outlet (it must be closed).
                   A register can't be left without an outlet: to take one out, pick it in another
                   outlet or delete it.
                 </Typography>
               </Box>
 
-              <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#313439", mb: 2 }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 700, color: EDITOR_TEXT, mb: 2 }}>
                 Metcash Integration
               </Typography>
               <Box sx={EDITOR_ROW_SX}>
@@ -1123,7 +1131,7 @@ const Outlets = () => {
             bottom: 24,
             right: 24,
             zIndex: 1200,
-            "&.Mui-disabled": { bgcolor: "#5ebbeb", color: "#fff", opacity: 0.45 },
+            "&.Mui-disabled": { bgcolor: "#5ebbeb", color: byMode("#fff", "#232323"), opacity: 0.45 },
             "&:focus, &:focus-visible": { outline: "none", boxShadow: "none" },
           }}
         >
@@ -1138,7 +1146,7 @@ const Outlets = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: "#000" }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode("#000", "#f8f8f8") }}>
           Registers &amp; Outlets
         </Typography>
         <Button disableRipple startIcon={<AddIcon />} onClick={handleOpenDialog} sx={PRIMARY_BUTTON_SX}>
@@ -1163,17 +1171,17 @@ const Outlets = () => {
           </TableHead>
           <TableBody
             sx={{
-              "& td": { border: "1px solid #000", padding: "16px", fontSize: 16, color: "#000" },
-              "& tr": { transition: INSTANT },
-              "& tr:hover": { bgcolor: "rgb(223,223,223)" },
+              "& td": { border: byMode("1px solid #000", "1px solid #373737"), padding: "16px", fontSize: 16, color: byMode("#000", "#f8f8f8") },
+              "& tr": { transition: INSTANT, bgcolor: byMode(undefined, "#232323") },
+              "& tr:hover": { bgcolor: byMode("rgb(223,223,223)", "#2f2f2f") },
             }}
           >
             {outlets.map((outlet) => (
                 <React.Fragment key={outlet.id}>
                   {/* Outlet header row: bold 24px name on #f8f8f8, per reference grouping */}
-                  <TableRow sx={{ bgcolor: "#f8f8f8", height: 62 }}>
+                  <TableRow sx={{ bgcolor: byMode("#f8f8f8", "#232323"), height: 62 }}>
                     <TableCell>
-                      <Typography sx={{ fontSize: 24, fontWeight: 700, color: "#000" }}>{outlet.name}</Typography>
+                      <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode("#000", "#f8f8f8") }}>{outlet.name}</Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
@@ -1181,7 +1189,7 @@ const Outlets = () => {
                           disableRipple
                           startIcon={<ViewIcon />}
                           component={RouterLink} to={`/outlets/${outlet.id}`}
-                          sx={rowActionSx("#0084d1")}
+                          sx={rowActionSx(byMode("#0084d1", "#74d4ff"))}
                         >
                           View
                         </Button>
@@ -1197,7 +1205,7 @@ const Outlets = () => {
                           disableRipple
                           startIcon={<AddIcon />}
                           onClick={() => openRegisterDialog(outlet)}
-                          sx={rowActionSx("#0084d1")}
+                          sx={rowActionSx(byMode("#0084d1", "#74d4ff"))}
                         >
                           Add Register
                         </Button>
@@ -1214,7 +1222,7 @@ const Outlets = () => {
                               startIcon={<DeleteIcon />}
                               onClick={() => setDeleteTarget(outlet)}
                               disabled={outlet._count?.user_outlets > 0}
-                              sx={rowActionSx("#e33430")}
+                              sx={rowActionSx(byMode("#e33430", "#ffa2a2"))}
                             >
                               Delete
                             </Button>
@@ -1242,7 +1250,7 @@ const Outlets = () => {
                             disableRipple
                             startIcon={<DeleteIcon />}
                             onClick={() => setRegisterDeleteTarget(register)}
-                            sx={rowActionSx("#e33430")}
+                            sx={rowActionSx(byMode("#e33430", "#ffa2a2"))}
                           >
                             Delete
                           </Button>
@@ -1264,14 +1272,14 @@ const Outlets = () => {
         fullWidth
         PaperProps={{ sx: { borderRadius: "8px" } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: "#313439" }}>Add New Outlet</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, color: byMode("#313439", "#f8f8f8") }}>Add New Outlet</DialogTitle>
         <DialogContent
           sx={{
             "& .MuiOutlinedInput-root": {
               borderRadius: "8px",
-              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-              "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-              "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" },
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+              "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#000", "#2b7fff"), borderWidth: "2px" },
             },
           }}
         >
@@ -1362,7 +1370,7 @@ const Outlets = () => {
             </Box>
 
             <Box sx={{ mt: 3, mb: 2 }}>
-              <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#313439", mb: 1 }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode("#313439", "#f8f8f8"), mb: 1 }}>
                 Metcash Integration
               </Typography>
               <TextField
@@ -1439,7 +1447,7 @@ const Outlets = () => {
         fullWidth
         PaperProps={{ sx: { borderRadius: "8px" } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: "#313439" }}>
+        <DialogTitle sx={{ fontWeight: 700, color: byMode("#313439", "#f8f8f8") }}>
           Add Register — {registerDialogOutlet?.name || ""}
         </DialogTitle>
         <DialogContent>

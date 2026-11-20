@@ -16,6 +16,8 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDate as formatAppDate } from '../../utils/appDateTime';
+import { useTheme } from '@mui/material/styles';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference (Editing Order, expanded line - 15/10/2026):
 //   left   : 9-week Purchased / Sold chart ("8 weeks ago" .. "this week"),
@@ -34,6 +36,9 @@ import { formatDate as formatAppDate } from '../../utils/appDateTime';
 // isReturnOrTransfer } from the order screen.
 const ProductDetailView = ({ product, preloadedDetails, newCost = null, costInfo = null, onPrev = null, onNext = null }) => {
   const { getOutletName } = useAuth();
+  // Dark mode: style / SVG attributes cannot take an sx function, so resolve here.
+  const theme = useTheme();
+  const m = (light, dark) => byMode(light, dark)(theme);
 
   const productData = preloadedDetails?.productData || product;
   const WEEKS = 9;
@@ -80,14 +85,14 @@ const ProductDetailView = ({ product, preloadedDetails, newCost = null, costInfo
           <style>{`@keyframes pdvDraw{to{stroke-dashoffset:0}} @keyframes pdvFade{from{opacity:0}to{opacity:1}} .pdv-line{stroke-dasharray:2000;stroke-dashoffset:2000;animation:pdvDraw 1.2s ease-out forwards} .pdv-fade{opacity:0;animation:pdvFade .6s ease-out .6s forwards}`}</style>
           {/* grid */}
           {yTicks.map((v) => (
-            <line key={`h${v}`} x1={padL} y1={yAt(v)} x2={width - padR} y2={yAt(v)} stroke="#e0e0e0" strokeWidth={1} />
+            <line key={`h${v}`} x1={padL} y1={yAt(v)} x2={width - padR} y2={yAt(v)} stroke={m('#e0e0e0', '#333333')} strokeWidth={1} />
           ))}
           {Array.from({ length: n }).map((_, i) => (
-            <line key={`v${i}`} x1={xAt(i)} y1={padT} x2={xAt(i)} y2={padT + plotH} stroke="#e0e0e0" strokeWidth={1} />
+            <line key={`v${i}`} x1={xAt(i)} y1={padT} x2={xAt(i)} y2={padT + plotH} stroke={m('#e0e0e0', '#333333')} strokeWidth={1} />
           ))}
           {/* y labels */}
           {yTicks.map((v) => (
-            <text key={`t${v}`} x={padL - 6} y={yAt(v) + 4} fontSize={10} fill="#313439" textAnchor="end">{v}</text>
+            <text key={`t${v}`} x={padL - 6} y={yAt(v) + 4} fontSize={10} fill={m('#313439', '#f8f8f8')} textAnchor="end">{v}</text>
           ))}
           {/* sold: filled light blue area + line + dots */}
           <path className="pdv-fade" d={area} fill="#5ebbeb" fillOpacity={0.25} />
@@ -103,7 +108,7 @@ const ProductDetailView = ({ product, preloadedDetails, newCost = null, costInfo
               x={xAt(i)}
               y={padT + plotH + 14}
               fontSize={10}
-              fill="#313439"
+              fill={m('#313439', '#f8f8f8')}
               textAnchor="end"
               transform={`rotate(-45 ${xAt(i)} ${padT + plotH + 14})`}
             >
@@ -133,7 +138,7 @@ const ProductDetailView = ({ product, preloadedDetails, newCost = null, costInfo
   // Reference button: light blue, square, white text
   const refBtn = {
     backgroundColor: '#5ebbeb',
-    color: '#fff',
+    color: byMode('#fff', '#232323'),
     borderRadius: 0,
     textTransform: 'none',
     fontSize: 18,
@@ -146,11 +151,11 @@ const ProductDetailView = ({ product, preloadedDetails, newCost = null, costInfo
   // Bordered reference tables
   // App card style (user's choice over the reference's black grid): white card
   // with a rounded border, heading inside, rows separated by a thin line only.
-  const card = { backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: 2, p: 2, mb: 2, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
-  const cardTitle = { fontSize: 20, fontWeight: 700, color: '#000', mb: 1.5 };
-  const cell = { borderBottom: '1px solid #e0e0e0', padding: '8px 12px', fontSize: 14, color: '#000', backgroundColor: '#fff' };
+  const card = { backgroundColor: byMode('#fff', '#232323'), border: byMode('1px solid #e0e0e0', '1px solid #373737'), borderRadius: 2, p: 2, mb: 2, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
+  const cardTitle = { fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1.5 };
+  const cell = { borderBottom: m('1px solid #e0e0e0', '1px solid #373737'), padding: '8px 12px', fontSize: 14, color: m('#000', '#f8f8f8'), backgroundColor: m('#fff', '#232323') };
   const head = { ...cell, fontWeight: 400 };
-  const blueHead = { ...cell, backgroundColor: '#5ebbeb', color: '#fff', fontWeight: 700, textAlign: 'center', borderBottom: 0 };
+  const blueHead = { ...cell, backgroundColor: m('#5ebbeb', '#333333'), color: m('#fff', '#5ebbeb'), fontWeight: 700, textAlign: 'center', borderBottom: 0 };
   const na = { ...cell, color: '#9e9e9e', textAlign: 'center' };
   const num = { ...cell, textAlign: 'center' };
 
@@ -169,12 +174,12 @@ const ProductDetailView = ({ product, preloadedDetails, newCost = null, costInfo
     <Box sx={{ position: 'relative', px: { xs: 0, md: 6 } }}>
       {/* previous / next line */}
       {onPrev && (
-        <IconButton onClick={onPrev} sx={{ position: 'absolute', left: 0, top: '45%', backgroundColor: '#000', color: '#fff', '&:hover': { backgroundColor: '#313439' } }}>
+        <IconButton onClick={onPrev} sx={{ position: 'absolute', left: 0, top: '45%', backgroundColor: byMode('#000', '#3a3a3a'), color: '#fff', '&:hover': { backgroundColor: byMode('#313439', '#4a4a4a') } }}>
           <ArrowBackIcon />
         </IconButton>
       )}
       {onNext && (
-        <IconButton onClick={onNext} sx={{ position: 'absolute', right: 0, top: '45%', backgroundColor: '#000', color: '#fff', '&:hover': { backgroundColor: '#313439' } }}>
+        <IconButton onClick={onNext} sx={{ position: 'absolute', right: 0, top: '45%', backgroundColor: byMode('#000', '#3a3a3a'), color: '#fff', '&:hover': { backgroundColor: byMode('#313439', '#4a4a4a') } }}>
           <ArrowForwardIcon />
         </IconButton>
       )}
@@ -232,7 +237,7 @@ const ProductDetailView = ({ product, preloadedDetails, newCost = null, costInfo
               })}
             </tbody>
           </table>
-          <Typography sx={{ fontSize: 11, color: '#676b72', mt: 0.5 }}>Case quantity {cq}</Typography>
+          <Typography sx={{ fontSize: 11, color: byMode('#676b72', '#a0a4aa'), mt: 0.5 }}>Case quantity {cq}</Typography>
           </Box>
         </Grid>
 

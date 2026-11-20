@@ -56,6 +56,20 @@ import PageLoader from '../../components/Common/PageLoader';
 import statementTemplateService from '../../services/statementTemplateService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-mode overrides for the shared Setup template list (light values = TemplateListActions' own).
+const listHeadDarkSx = {
+  '& th': { bgcolor: byMode('transparent', '#333333'), color: byMode('#000', '#5ebbeb'), borderColor: byMode('#000', '#373737') },
+};
+const listBodyDarkSx = {
+  '& tr': { bgcolor: byMode('#f8f8f8', '#232323') },
+  '& td': { borderColor: byMode('#000', '#373737'), color: byMode('#000', '#f8f8f8') },
+  '& ul.actions li.action-edit': { color: byMode('#32b643', '#7bf1a8'), '&:hover': { color: byMode('#6dd77b', '#a4f6c4') } },
+  '& ul.actions li.action-view': { color: byMode('#1c86f2', '#74d4ff'), '&:hover': { color: byMode('#73b4f7', '#a6e4ff') } },
+  '& ul.actions li.action-delete': { color: byMode('#e3342f', '#ffa2a2'), '&:hover': { color: byMode('#f3aaa8', '#ffc9c9') } },
+  '& ul.actions li.action-clone': { color: byMode('#1c86f2', '#74d4ff'), '&:hover': { color: byMode('#73b4f7', '#a6e4ff') } },
+};
 
 const blankCanvas = () => ({ width: 210, padding: 10, fontFamily: 'Arial', fontSize: 12, backgroundColor: '#ffffff' });
 
@@ -79,29 +93,29 @@ const QuestionBadge = () => (
 );
 
 const questionPaperSx = (width) => ({
-  width, maxWidth: 'calc(100vw - 32px)', m: 0, mt: '60px', bgcolor: '#fff', borderRadius: 0, overflow: 'visible',
+  width, maxWidth: 'calc(100vw - 32px)', m: 0, mt: '60px', bgcolor: byMode('#fff', '#232323'), borderRadius: 0, overflow: 'visible',
   boxShadow: 'rgba(0,0,0,0.25) 0 0 30px 0, rgba(0,0,0,0.19) 0 15px 30px 0',
 });
 
-const dialogTitleSx = { fontSize: '18.72px', fontWeight: 700, color: '#000', textAlign: 'center', p: '8px 0 0', m: 0, mt: '60px' };
+const dialogTitleSx = { fontSize: '18.72px', fontWeight: 700, color: byMode('#000', '#f8f8f8'), textAlign: 'center', p: '8px 0 0', m: 0, mt: '60px' };
 
 // Reference name input: 1px black box with small rounded corners (2px when focused).
 const nameFieldSx = {
   '& .MuiOutlinedInput-root': {
-    height: 53, bgcolor: '#fff', borderRadius: '4px',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    height: 53, bgcolor: byMode('#fff', '#121212'), borderRadius: '4px',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input': { p: '16px', fontSize: 16, color: '#000' },
+  '& .MuiOutlinedInput-input': { p: '16px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
 };
 
 // Reference green Create / Clone button (32px text, dark when disabled).
 const addButtonSx = {
-  height: 48, bgcolor: '#32b643', color: '#f8f8f8', border: '1px solid #f8f8f8', borderRadius: 0,
+  height: 48, bgcolor: byMode('#32b643', '#7bf1a8'), color: byMode('#f8f8f8', '#232323'), border: byMode('1px solid #f8f8f8', '1px solid #7bf1a8'), borderRadius: 0,
   fontSize: 32, fontWeight: 400, lineHeight: 1, textTransform: 'none', boxShadow: 'none', p: '4px 8px',
   transition: 'background 0.2s ease, color 0.2s ease',
-  '&:hover': { bgcolor: '#f8f8f8', color: '#32b643', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#f8f8f8', '#232323'), color: byMode('#32b643', '#7bf1a8'), boxShadow: 'none' },
   '&.Mui-disabled': { bgcolor: '#404040', color: '#737373', border: '1px solid #404040' },
 };
 
@@ -118,23 +132,23 @@ const apiError = (err, fallback) => err?.response?.data?.error || fallback;
 
 // Reference Cancel: pale grey, grey outline, 32px text.
 const cancelButtonSx = {
-  height: 48, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', borderRadius: 0,
+  height: 48, bgcolor: byMode('#f8f8f8', 'transparent'), color: byMode('#676b72', '#d4d4d4'), border: byMode('1px solid #676b72', '1px solid #a1a1a1'), borderRadius: 0,
   fontSize: 32, fontWeight: 400, lineHeight: 1, textTransform: 'none', boxShadow: 'none', p: '4px 8px',
   transition: 'background 0.2s ease, color 0.2s ease',
-  '&:hover': { bgcolor: '#676b72', color: '#f8f8f8', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#676b72', '#3a3a3a'), color: '#f8f8f8', boxShadow: 'none' },
 };
 
 // Reference form inputs: label above, square 1px black box.
 const squareFieldSx = {
   '& .MuiOutlinedInput-root': {
-    height: 53, bgcolor: '#fff', borderRadius: 0,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+    height: 53, bgcolor: byMode('#fff', '#121212'), borderRadius: 0,
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '1px' },
   },
-  '& .MuiOutlinedInput-input': { p: '16px', fontSize: 16, color: '#000' },
+  '& .MuiOutlinedInput-input': { p: '16px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
 };
-const fieldLabelSx = { fontSize: 16, fontWeight: 400, color: '#000', lineHeight: '20px' };
+const fieldLabelSx = { fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8'), lineHeight: '20px' };
 
 const StatementTemplates = () => {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
@@ -409,7 +423,7 @@ const StatementTemplates = () => {
     <Box sx={{ px: '8px', pt: '15px', pb: 3 }}>
       <Typography
         component="h1"
-        sx={{ fontSize: 32, fontWeight: 700, color: '#000', height: 48, lineHeight: '48px', m: 0, mb: '22px' }}
+        sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), height: 48, lineHeight: '48px', m: 0, mb: '22px' }}
       >
         Statements
         <Button
@@ -419,9 +433,9 @@ const StatementTemplates = () => {
             width: 130,
             height: 48,
             minWidth: 130,
-            bgcolor: '#32b643',
-            color: '#f8f8f8',
-            border: '1px solid #f8f8f8',
+            bgcolor: byMode('#32b643', '#7bf1a8'),
+            color: byMode('#f8f8f8', '#232323'),
+            border: byMode('1px solid #f8f8f8', '1px solid #7bf1a8'),
             borderRadius: 0,
             fontSize: 32,
             fontWeight: 400,
@@ -435,7 +449,7 @@ const StatementTemplates = () => {
             top: '-3px',
             transition: 'background 0.2s ease, color 0.2s ease',
             // Reference .button-add:hover inverts green/near-white.
-            '&:hover': { bgcolor: '#f8f8f8', color: '#32b643', boxShadow: 'none' },
+            '&:hover': { bgcolor: byMode('#f8f8f8', '#232323'), color: byMode('#32b643', '#7bf1a8'), boxShadow: 'none' },
           }}
         >
           + New
@@ -451,14 +465,14 @@ const StatementTemplates = () => {
       <TableContainer>
         <Table sx={{ borderCollapse: 'collapse', tableLayout: 'fixed', bgcolor: 'transparent' }}>
           <TableHead>
-            <TableRow sx={templateListHeadSx}>
+            <TableRow sx={[templateListHeadSx, listHeadDarkSx]}>
               {/* 1512 / 391 split of the 1903px table = 79.4535% */}
               <TableCell sx={{ width: '79.4535%' }}>Name</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           {/* Reference rows alternate grey / white */}
-          <TableBody sx={{ ...templateListBodySx, '& tr:nth-of-type(even)': { bgcolor: '#fff' } }}>
+          <TableBody sx={[{ ...templateListBodySx, '& tr:nth-of-type(even)': { bgcolor: byMode('#fff', '#2a2a2a') } }, listBodyDarkSx]}>
             {templates.map((template) => (
               <TableRow key={template.id ?? 'default'}>
                 <TableCell>{template.name}</TableCell>
@@ -536,7 +550,7 @@ const StatementTemplates = () => {
         </Typography>
 
         <DialogContent sx={{ p: '16px', overflow: 'visible' }}>
-          <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000', mb: '8px', textAlign: 'center' }}>
+          <Typography sx={{ fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8'), mb: '8px', textAlign: 'center' }}>
             What should the statement be called?
           </Typography>
           <TextField
@@ -572,19 +586,21 @@ const StatementTemplates = () => {
                     sx: {
                       mt: 0.5,
                       borderRadius: '8px',
-                      border: '1px solid #e0e0e0',
+                      border: byMode('1px solid #e0e0e0', '1px solid #a1a1a1'),
                       boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
-                      '& .MuiMenuItem-root:hover': { bgcolor: '#5ebbeb' },
-                      '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent' },
-                      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#5ebbeb' }
+                      '& .MuiMenuItem-root': { color: byMode(undefined, '#f8f8f8') },
+                      '& .MuiMenuItem-root:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') },
+                      '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: byMode(undefined, '#00a6f4') },
+                      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') }
                     }
                   }
                 }}
                 sx={{
                   borderRadius: 0,
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' }
+                  bgcolor: byMode(undefined, '#121212'),
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '1px' }
                 }}
               >
                 <MenuItem value="">
@@ -668,7 +684,7 @@ const StatementTemplates = () => {
                 <Typography sx={fieldLabelSx}>
                   Template
                 </Typography>
-                <Box sx={{ border: '1px solid #000', borderRadius: 0 }}>
+                <Box sx={{ border: byMode('1px solid #000', '1px solid #a1a1a1'), borderRadius: 0 }}>
                   {/* Toolbar */}
                   {/* Reference: one row of tools, no dividers. */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: '2px', flexWrap: 'wrap', p: 1, borderBottom: '1px solid #000', bgcolor: '#f7f7f7', '& .MuiIconButton-root': { p: '5px' } }}>
@@ -698,7 +714,7 @@ const StatementTemplates = () => {
                       size="small"
                       defaultValue="p"
                       onChange={(e) => emailExec('formatBlock', e.target.value)}
-                      sx={{ minWidth: 92, height: 32, bgcolor: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
+                      sx={{ minWidth: 92, height: 32, bgcolor: '#fff', color: byMode(undefined, '#313439'), '& .MuiSelect-icon': { color: byMode(undefined, 'rgba(0,0,0,0.54)') }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
                     >
                       <MenuItem value="p">Normal</MenuItem>
                       <MenuItem value="h1">Heading 1</MenuItem>
@@ -709,7 +725,7 @@ const StatementTemplates = () => {
                       size="small"
                       defaultValue="3"
                       onChange={(e) => emailExec('fontSize', e.target.value)}
-                      sx={{ minWidth: 64, height: 32, bgcolor: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
+                      sx={{ minWidth: 64, height: 32, bgcolor: '#fff', color: byMode(undefined, '#313439'), '& .MuiSelect-icon': { color: byMode(undefined, 'rgba(0,0,0,0.54)') }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
                     >
                       {/* execCommand sizes 1-7 in px; reference shows 16 by default (size 3). */}
                       <MenuItem value="1">10</MenuItem>
@@ -809,10 +825,10 @@ const StatementTemplates = () => {
                     sx={{
                       minHeight: 220,
                       p: 2,
-                      bgcolor: '#fff',
+                      bgcolor: byMode('#fff', '#121212'),
                       outline: 'none',
                       fontSize: 14,
-                      color: '#000',
+                      color: byMode('#000', '#f8f8f8'),
                       overflow: 'auto',
                     }}
                   />
@@ -857,7 +873,7 @@ const StatementTemplates = () => {
           {cloneError && (
             <Alert severity="error" onClose={() => setCloneError('')} sx={{ mb: 2 }}>{cloneError}</Alert>
           )}
-          <Typography sx={{ fontSize: 16, color: '#000', mb: '16px', wordBreak: 'break-word' }}>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: '16px', wordBreak: 'break-word' }}>
             What do you want to name the clone of &quot;{cloneSource?.name}&quot;?
           </Typography>
           <TextField

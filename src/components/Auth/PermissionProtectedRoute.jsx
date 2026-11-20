@@ -4,6 +4,7 @@ import { Box, Typography, Paper, Button } from '@mui/material';
 import { Lock as LockIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { usePermissions } from '../../hooks/usePermissions';
 import PageLoader from '../Common/PageLoader';
+import { byMode } from '../../theme/sfPalette';
 
 const PermissionProtectedRoute = ({ 
   requiredPermissions = [], 
@@ -48,7 +49,7 @@ const PermissionProtectedRoute = ({
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        backgroundColor: '#f5f5f5',
+        backgroundColor: byMode('#f5f5f5', '#121212'),
         p: 3
       }}>
         <Paper sx={{ 
@@ -64,7 +65,7 @@ const PermissionProtectedRoute = ({
             mb: 2 
           }} />
           
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: '#333' }}>
+          <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: byMode('#333', '#f8f8f8') }}>
             Access Denied
           </Typography>
           
@@ -83,6 +84,7 @@ const PermissionProtectedRoute = ({
               onClick={() => window.history.back()}
               sx={{
                 backgroundColor: '#4fc3f7',
+                color: byMode(undefined, '#232323'),
                 '&:hover': {
                   backgroundColor: '#29b6f6',
                 }

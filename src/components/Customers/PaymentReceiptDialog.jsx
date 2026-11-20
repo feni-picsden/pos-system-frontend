@@ -6,6 +6,7 @@ import { printHtmlDocument } from '../../utils/printHtmlDocument';
 import { buildReceiptPrintHtml } from '../../utils/receiptPrintHtml';
 import receiptTemplateService from '../../services/receiptTemplateService';
 import ReceiptRenderer from '../Receipt/ReceiptRenderer';
+import { byMode } from '../../theme/sfPalette';
 
 // Payment panel "Print" (reference): the same square panel as the sale reprint —
 // the title bar IS a template select ("Payment Receipt - ARARAT" + chevron)
@@ -69,7 +70,7 @@ const PaymentReceiptDialog = ({ open, onClose, html, receiptData, title = 'Payme
       >
         <CloseIcon sx={{ fontSize: 20 }} />
       </IconButton>
-      <DialogTitle sx={{ p: 0, borderBottom: '1px solid #e0e0e0' }}>
+      <DialogTitle sx={{ p: 0, borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
         <FormControl fullWidth>
           <Select
             value={selected}
@@ -80,8 +81,8 @@ const PaymentReceiptDialog = ({ open, onClose, html, receiptData, title = 'Payme
             data-payment-receipt-template
             renderValue={() => (template ? template.name : title)}
             sx={{
-              '& .MuiSelect-select': { height: '41px !important', minHeight: '41px !important', boxSizing: 'border-box', display: 'flex', alignItems: 'center', px: 2, fontSize: 16, color: '#313439' },
-              '& .MuiSelect-icon': { right: 12, color: '#313439' },
+              '& .MuiSelect-select': { height: '41px !important', minHeight: '41px !important', boxSizing: 'border-box', display: 'flex', alignItems: 'center', px: 2, fontSize: 16, color: byMode('#313439', '#f8f8f8') },
+              '& .MuiSelect-icon': { right: 12, color: byMode('#313439', '#f8f8f8') },
             }}
           >
             <MenuItem value={BUILT_IN}>{title}</MenuItem>
@@ -91,7 +92,7 @@ const PaymentReceiptDialog = ({ open, onClose, html, receiptData, title = 'Payme
           </Select>
         </FormControl>
       </DialogTitle>
-      <DialogContent sx={{ p: '16px', bgcolor: '#f8f8f8', height: 'min(569px, calc(100vh - 185px))', minHeight: 220, overflow: 'auto' }}>
+      <DialogContent sx={{ p: '16px', bgcolor: byMode('#f8f8f8', '#121212'), height: 'min(569px, calc(100vh - 185px))', minHeight: 220, overflow: 'auto' }}>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           {/* Reference preview: a narrow ~302px receipt with the logo filling it. */}
           {template && receiptData ? (
@@ -100,7 +101,7 @@ const PaymentReceiptDialog = ({ open, onClose, html, receiptData, title = 'Payme
             // fell back to the dialog's 16px / 1.5 and spread the header lines.
             // Mounting also puts that CSS in <head> for the Print path to copy.
             <Box
-              sx={{ border: '1px solid #000', bgcolor: '#fff', width: 302, maxWidth: '100%', boxSizing: 'border-box' }}
+              sx={{ border: '1px solid #000', bgcolor: '#fff', color: byMode(undefined, '#000'), width: 302, maxWidth: '100%', boxSizing: 'border-box' }}
               data-payment-receipt
             >
               <ReceiptRenderer receiptData={receiptData} template={template} />
@@ -110,7 +111,7 @@ const PaymentReceiptDialog = ({ open, onClose, html, receiptData, title = 'Payme
               sx={{
                 // A fixed width: 'auto' inside the centring flex shrank the receipt
                 // to its min-content (~190px, labels wrapping).
-                border: '1px solid #000', bgcolor: '#fff', width: 302, maxWidth: '100%', boxSizing: 'border-box',
+                border: '1px solid #000', bgcolor: '#fff', color: byMode(undefined, '#000'), width: 302, maxWidth: '100%', boxSizing: 'border-box',
                 '& > div': { fontSize: '10px !important', padding: '15px !important' },
                 '& img': { maxWidth: '100% !important', width: '100%', maxHeight: 'none !important' },
               }}

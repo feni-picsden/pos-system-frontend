@@ -33,6 +33,7 @@ const Highlight = ({ text, term }) => {
 };
 
 import { GROUP_ORDER, GROUP_LABEL, groupOf } from '../../utils/itemSearchGroups';
+import { byMode } from '../../theme/sfPalette';
 
 const glyphFor = (g) => (g === 'PRODUCT' ? ImageIcon : g === 'FAMILY' ? FamilyIcon : g === 'CATEGORY' ? CategoryIcon : TagIcon);
 
@@ -41,7 +42,7 @@ const panelSx = {
   left: 0,
   right: 0,
   zIndex: 20,
-  border: '1px solid #404040',
+  border: byMode('1px solid #404040', '1px solid #a1a1a1'),
   borderBottom: '3px solid #5ebbeb',
   boxShadow: '0 6px 12px rgba(0,0,0,0.25)'
 };
@@ -56,7 +57,7 @@ const ItemSearchDropdown = ({ term, results, loading = false, top = 58, onPick, 
   if ((results || []).length === 0) {
     return (
       <Paper square elevation={0} sx={{ ...panelSx, top, px: '18px', py: '12px' }}>
-        <Typography sx={{ fontSize: 18, color: '#000', lineHeight: '24px' }}>
+        <Typography sx={{ fontSize: 18, color: byMode('#000', '#f8f8f8'), lineHeight: '24px' }}>
           {q.length < 2 ? 'Start typing to search...' : loading ? 'Searching...' : 'No search results found.'}
         </Typography>
       </Paper>
@@ -67,7 +68,7 @@ const ItemSearchDropdown = ({ term, results, loading = false, top = 58, onPick, 
     <Paper square elevation={0} sx={{ ...panelSx, top, maxHeight: 480, overflowY: 'scroll', px: '14px', pt: '8px', pb: '6px' }}>
       {GROUP_ORDER.filter((g) => results.some((r) => groupOf(r) === g)).map((g) => (
         <Box key={g}>
-          <Typography sx={{ fontSize: 16, color: '#9e9e9e', letterSpacing: 0.5, lineHeight: '20px', pt: '10px', pb: '4px' }}>{GROUP_LABEL[g]}</Typography>
+          <Typography sx={{ fontSize: 16, color: byMode('#9e9e9e', '#a0a4aa'), letterSpacing: 0.5, lineHeight: '20px', pt: '10px', pb: '4px' }}>{GROUP_LABEL[g]}</Typography>
           {results.map((r) => {
             if (groupOf(r) !== g) return null;
             flat += 1;
@@ -84,15 +85,15 @@ const ItemSearchDropdown = ({ term, results, loading = false, top = 58, onPick, 
                   gap: '12px',
                   height: 41,
                   cursor: 'pointer',
-                  bgcolor: active ? '#f0f0f0' : 'transparent',
-                  '&:hover': { backgroundColor: '#f5f5f5' }
+                  bgcolor: active ? byMode('#f0f0f0', '#2f2f2f') : 'transparent',
+                  '&:hover': { backgroundColor: byMode('#f5f5f5', '#2f2f2f') }
                 }}
               >
-                <Glyph sx={{ fontSize: 22, color: '#404040' }} />
-                <Typography sx={{ fontSize: 18, color: '#404040', lineHeight: '24px', flex: 1, minWidth: 0 }}>
+                <Glyph sx={{ fontSize: 22, color: byMode('#404040', '#d4d4d4') }} />
+                <Typography sx={{ fontSize: 18, color: byMode('#404040', '#f8f8f8'), lineHeight: '24px', flex: 1, minWidth: 0 }}>
                   <Highlight text={r.name} term={q} />
                 </Typography>
-                {inactive && <Typography sx={{ fontSize: 18, color: '#9e9e9e', pr: '14px' }}>Inactive</Typography>}
+                {inactive && <Typography sx={{ fontSize: 18, color: byMode('#9e9e9e', '#a0a4aa'), pr: '14px' }}>Inactive</Typography>}
               </Box>
             );
           })}

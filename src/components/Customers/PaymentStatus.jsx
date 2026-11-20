@@ -2,6 +2,7 @@ import React from "react";
 import { Box } from "@mui/material";
 import { CheckCircleOutlined, HighlightOff } from "@mui/icons-material";
 import { INCOMPLETE_PURPLE } from "../../utils/saleOutstanding";
+import { byMode } from "../../theme/sfPalette";
 
 // Reference payment status glyphs (same language as the sale rows): black tick
 // "Completed", purple hollow circle "Incomplete" (money still unallocated),
@@ -10,7 +11,9 @@ export const paymentStatusOf = (payment) => {
   const s = String(payment?.status || "COMPLETED").toUpperCase();
   if (s === "CANCELLED") return { key: "CANCELLED", label: "Cancelled", color: "rgb(227,52,47)" };
   if (s === "INCOMPLETE") return { key: "INCOMPLETE", label: "Incomplete", color: INCOMPLETE_PURPLE };
-  return { key: "COMPLETED", label: "Completed", color: "#000" };
+  // dark: currentColor, so the tick follows its row's text (dark rows here, the
+  // still-light shared CustomerPaymentPanel there).
+  return { key: "COMPLETED", label: "Completed", color: byMode("#000", "currentColor") };
 };
 
 export const PaymentStatusGlyph = ({ payment, size = 32 }) => {

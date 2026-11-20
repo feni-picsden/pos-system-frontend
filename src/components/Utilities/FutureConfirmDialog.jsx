@@ -17,6 +17,7 @@ import {
   PriorityHigh as PriorityHighIcon,
   QuestionMark as QuestionMarkIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // Confirm dialogs for the Future Prices / Future Costs pages, measured off the Shopfront
 // reference 2026-07-17. The reference uses TWO different shells on these sibling pages:
@@ -59,8 +60,8 @@ const RowTable = ({ row, columns, cellAlign }) => (
         <TableRow
           sx={{
             '& th': {
-              bgcolor: '#5ebbeb',
-              color: '#fff',
+              bgcolor: byMode('#5ebbeb', '#333333'),
+              color: byMode('#fff', '#5ebbeb'),
               fontWeight: 700,
               fontSize: 16,
               textAlign: 'center',
@@ -115,8 +116,8 @@ const FutureConfirmDialog = ({
 
   if (layout === 'bar') {
     // Reference tints the header bar and the title with the action's colour ramp.
-    const barBg = isDelete ? '#fecaca' : '#bae6fd';
-    const barFg = isDelete ? '#991b1b' : '#075985';
+    const barBg = isDelete ? byMode('#fecaca', '#492625') : byMode('#bae6fd', '#0c3a55');
+    const barFg = isDelete ? byMode('#991b1b', '#ffa2a2') : byMode('#075985', '#74d4ff');
     const confirmBg = isDelete ? '#ef4444' : '#0ea5e9';
     const confirmHoverBg = isDelete ? '#dc2626' : '#0284c7';
 
@@ -145,7 +146,7 @@ const FutureConfirmDialog = ({
         </Box>
 
         <DialogContent sx={{ p: 2 }}>
-          <Typography sx={{ fontSize: 16, color: '#171717', mb: 2 }}>{prompt}</Typography>
+          <Typography sx={{ fontSize: 16, color: byMode('#171717', '#f8f8f8'), mb: 2 }}>{prompt}</Typography>
           {showTable && <RowTable row={row} columns={columns} cellAlign="left" />}
         </DialogContent>
 
@@ -154,9 +155,9 @@ const FutureConfirmDialog = ({
             onClick={onCancel}
             sx={{
               ...BAR_FOOTER_SX,
-              bgcolor: '#d4d4d4',
-              color: '#000',
-              '&:hover': { bgcolor: '#c4c4c4', boxShadow: 'none' },
+              bgcolor: byMode('#d4d4d4', '#3a3a3a'),
+              color: byMode('#000', '#f8f8f8'),
+              '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a'), boxShadow: 'none' },
             }}
           >
             Cancel
@@ -169,7 +170,7 @@ const FutureConfirmDialog = ({
               bgcolor: confirmBg,
               color: '#fff',
               '&:hover': { bgcolor: confirmHoverBg, boxShadow: 'none' },
-              '&.Mui-disabled': { bgcolor: '#404040', color: '#737373' },
+              '&.Mui-disabled': { bgcolor: byMode('#404040', '#3a3a3a'), color: byMode('#737373', '#a0a4aa') },
             }}
           >
             {loading ? busyLabel : actionLabel}
@@ -220,11 +221,11 @@ const FutureConfirmDialog = ({
       <DialogContent sx={{ pt: '76px', px: 4, pb: 0 }}>
         <Typography
           component="h3"
-          sx={{ fontSize: '18.72px', fontWeight: 700, color: '#000', textAlign: 'center', mb: 2 }}
+          sx={{ fontSize: '18.72px', fontWeight: 700, color: byMode('#000', '#f8f8f8'), textAlign: 'center', mb: 2 }}
         >
           {title}
         </Typography>
-        <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'center', mb: 3 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), textAlign: 'center', mb: 3 }}>
           {prompt}
         </Typography>
         {showTable && <RowTable row={row} columns={columns} cellAlign="center" />}
@@ -235,10 +236,10 @@ const FutureConfirmDialog = ({
           onClick={onCancel}
           sx={{
             ...MEDALLION_FOOTER_SX,
-            bgcolor: '#f8f8f8',
-            color: '#676b72',
-            border: '1px solid #676b72',
-            '&:hover': { bgcolor: '#f0f0f0', boxShadow: 'none' },
+            bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+            color: byMode('#676b72', '#d4d4d4'),
+            border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
+            '&:hover': { bgcolor: byMode('#f0f0f0', '#4a4a4a'), boxShadow: 'none' },
           }}
         >
           Cancel
@@ -250,9 +251,9 @@ const FutureConfirmDialog = ({
             ...MEDALLION_FOOTER_SX,
             bgcolor: confirmBg,
             color: '#f8f8f8',
-            border: '1px solid #f8f8f8',
+            border: byMode('1px solid #f8f8f8', '1px solid #232323'),
             '&:hover': { bgcolor: confirmHoverBg, boxShadow: 'none' },
-            '&.Mui-disabled': { bgcolor: '#404040', color: '#737373' },
+            '&.Mui-disabled': { bgcolor: byMode('#404040', '#3a3a3a'), color: byMode('#737373', '#a0a4aa') },
           }}
         >
           {loading ? busyLabel : actionLabel}

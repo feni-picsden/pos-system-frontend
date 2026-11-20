@@ -28,6 +28,7 @@ import {
   ContentCopyOutlined as DuplicateIcon,
 } from '@mui/icons-material';
 import PageLoader from '../../components/Common/PageLoader';
+import { byMode } from '../../theme/sfPalette';
 import stocktakeService from '../../services/stocktakeService';
 import productService from '../../services/productService';
 
@@ -63,16 +64,16 @@ const footerBtn = {
   textTransform: 'none',
   boxShadow: 'none',
 };
-const cancelBtnSx = { ...footerBtn, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', '&:hover': { bgcolor: '#e8e8e8', boxShadow: 'none' } };
-const blueBtnSx = { ...footerBtn, bgcolor: '#5ebbeb', color: '#fff', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#bfe3f5', color: '#fff' } };
+const cancelBtnSx = { ...footerBtn, bgcolor: byMode('#f8f8f8', 'transparent'), color: byMode('#676b72', '#d4d4d4'), border: byMode('1px solid #676b72', '1px solid #a1a1a1'), '&:hover': { bgcolor: byMode('#e8e8e8', '#2f2f2f'), boxShadow: 'none' } };
+const blueBtnSx = { ...footerBtn, bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: byMode('#bfe3f5', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') } };
 
 const dlgBtn = { height: 42, borderRadius: '12px', fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', px: 2.5 };
-const dlgCancel = { ...dlgBtn, bgcolor: '#dddddd', color: '#000', '&:hover': { bgcolor: '#d0d0d0' } };
-const dlgPrimary = { ...dlgBtn, bgcolor: '#5ebbeb', color: '#fff', '&:hover': { bgcolor: '#4aa9dd' }, '&.Mui-disabled': { bgcolor: '#ebebeb', color: '#8e8e8e' } };
-const dlgHeader = { bgcolor: '#c9e8f8', color: '#1a5f86', fontSize: 18, fontWeight: 600, p: 2, display: 'flex', alignItems: 'center', gap: 1 };
+const dlgCancel = { ...dlgBtn, bgcolor: byMode('#dddddd', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), '&:hover': { bgcolor: byMode('#d0d0d0', '#4a4a4a') } };
+const dlgPrimary = { ...dlgBtn, bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), '&:hover': { bgcolor: '#4aa9dd' }, '&.Mui-disabled': { bgcolor: byMode('#ebebeb', '#3a3a3a'), color: byMode('#8e8e8e', '#a0a4aa') } };
+const dlgHeader = { bgcolor: byMode('#c9e8f8', '#0c3a55'), color: byMode('#1a5f86', '#74d4ff'), fontSize: 18, fontWeight: 600, p: 2, display: 'flex', alignItems: 'center', gap: 1 };
 
-const headCell = { fontSize: 16, fontWeight: 700, color: '#000', border: 'none', py: 1.5, px: 1, bgcolor: '#fff', whiteSpace: 'nowrap' };
-const bodyCell = { fontSize: 16, color: '#000', border: 'none', py: 0, px: 1, height: 52 };
+const headCell = { fontSize: 16, fontWeight: 700, color: byMode('#000', '#5ebbeb'), border: 'none', py: 1.5, px: 1, bgcolor: byMode('#fff', '#333333'), whiteSpace: 'nowrap' };
+const bodyCell = { fontSize: 16, color: byMode('#000', '#f8f8f8'), border: 'none', py: 0, px: 1, height: 52 };
 
 const productLabel = (p) => p?.name || '';
 
@@ -108,10 +109,10 @@ function UnmatchedDialog({ row, onClose, onAssociate, onCreate, busy }) {
     <Dialog open={Boolean(row)} onClose={busy ? undefined : onClose} PaperProps={{ sx: { width: 520, maxWidth: '100%', borderRadius: '8px', boxShadow: 'none' } }}>
       <DialogTitle sx={dlgHeader}><HelpIcon sx={{ fontSize: 20 }} />Unmatched Product</DialogTitle>
       <DialogContent sx={{ p: 2 }}>
-        <Typography sx={{ fontSize: 14, color: '#676b72', mt: 1 }}>
+        <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), mt: 1 }}>
           Barcode <b>{row?.barcode}</b> was not found on any product. Associate it with an existing product or create a new product.
         </Typography>
-        <Typography sx={{ fontSize: 14, color: '#676b72', mt: 2, mb: 1 }}>Associate with existing product</Typography>
+        <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), mt: 2, mb: 1 }}>Associate with existing product</Typography>
         <Autocomplete
           options={options}
           loading={searching}
@@ -125,7 +126,7 @@ function UnmatchedDialog({ row, onClose, onAssociate, onCreate, busy }) {
           noOptionsText={query.trim().length < 2 ? 'Type to search for a product' : 'No products found'}
           renderInput={(params) => <TextField {...params} placeholder="Search for product name or barcode..." size="small" />}
         />
-        <Typography sx={{ fontSize: 14, color: '#676b72', mt: 2.5, mb: 1 }}>Or create a new product</Typography>
+        <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), mt: 2.5, mb: 1 }}>Or create a new product</Typography>
         <TextField fullWidth size="small" placeholder="New product name" value={name} onChange={(e) => setName(e.target.value)} />
       </DialogContent>
       <DialogActions sx={{ p: 2, gap: 1 }}>
@@ -150,14 +151,14 @@ function DuplicateDialog({ row, onClose, onPick, busy }) {
     <Dialog open={Boolean(row)} onClose={busy ? undefined : onClose} PaperProps={{ sx: { width: 520, maxWidth: '100%', borderRadius: '8px', boxShadow: 'none' } }}>
       <DialogTitle sx={dlgHeader}><HelpIcon sx={{ fontSize: 20 }} />Duplicate Barcode</DialogTitle>
       <DialogContent sx={{ p: 2 }}>
-        <Typography sx={{ fontSize: 14, color: '#676b72', mt: 1, mb: 1 }}>
+        <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), mt: 1, mb: 1 }}>
           Barcode <b>{row?.barcode}</b> is on more than one product. Select which product to use.
         </Typography>
         {(row?.candidates || []).map((c, i) => (
           <Box key={`${c.productId}-${c.barcodeQuantity}-${i}`} onClick={() => setChoice(i)} sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', py: 0.5 }}>
             <Radio size="small" checked={choice === i} sx={{ p: 0.5, color: '#5ebbeb', '&.Mui-checked': { color: '#5ebbeb' } }} />
             <Typography sx={{ fontSize: 16 }}>{c.name}</Typography>
-            <Typography sx={{ fontSize: 14, color: '#676b72', ml: 'auto' }}>barcode qty {c.barcodeQuantity}</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), ml: 'auto' }}>barcode qty {c.barcodeQuantity}</Typography>
           </Box>
         ))}
       </DialogContent>
@@ -268,11 +269,11 @@ export default function ExternalStocktakeMatch() {
   const editable = head.status === 'Imported';
 
   return (
-    <Box sx={{ p: 1, minHeight: '100%', bgcolor: '#f0f0f0' }}>
+    <Box sx={{ p: 1, minHeight: '100%', bgcolor: byMode('#f0f0f0', '#121212') }}>
       {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError('')}>{error}</Alert>}
 
       {/* header strip */}
-      <Box sx={{ bgcolor: '#f8f8f8', border: '1px solid #d0d0d0', px: 1, pt: 1.5, pb: 1 }}>
+      <Box sx={{ bgcolor: byMode('#f8f8f8', '#232323'), color: byMode(undefined, '#f8f8f8'), border: byMode('1px solid #d0d0d0', '1px solid #373737'), px: 1, pt: 1.5, pb: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-around', alignItems: 'baseline', fontSize: 16, mb: 1.5 }}>
           <Box><b>Outlet</b>&nbsp;&nbsp;{head.outlet?.name}</Box>
           <Box><b>{head.zeroStockNotCounted ? 'Other stock will be zeroed' : 'Other stock will be ignored'}</b></Box>
@@ -289,23 +290,23 @@ export default function ExternalStocktakeMatch() {
               <InputAdornment position="end">
                 {filtering && <CircularProgress size={16} sx={{ color: '#9a9a9a', mr: 1 }} />}
                 {search && (
-                  <IconButton size="small" onClick={() => setSearch('')}><ClearIcon sx={{ color: '#404040' }} /></IconButton>
+                  <IconButton size="small" onClick={() => setSearch('')}><ClearIcon sx={{ color: byMode('#404040', '#a0a4aa') }} /></IconButton>
                 )}
               </InputAdornment>
             ),
           }}
           sx={{
-            bgcolor: '#fff',
-            '& .MuiOutlinedInput-root': { height: 52, fontSize: 16, borderRadius: '4px', '& fieldset': { borderColor: '#000', borderWidth: 2 }, '&:hover fieldset': { borderColor: '#000' }, '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 2 } },
+            bgcolor: byMode('#fff', '#121212'),
+            '& .MuiOutlinedInput-root': { height: 52, fontSize: 16, borderRadius: '4px', color: byMode(undefined, '#f8f8f8'), '& fieldset': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: 2 }, '&:hover fieldset': { borderColor: byMode('#000', '#a1a1a1') }, '&.Mui-focused fieldset': { borderColor: byMode('#000', '#f8f8f8'), borderWidth: 2 } },
           }}
         />
       </Box>
 
       {/* table */}
-      <Box sx={{ bgcolor: '#fff', mt: 1 }}>
+      <Box sx={{ bgcolor: byMode('#fff', '#232323'), mt: 1 }}>
         <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
-            <TableRow sx={{ '& th': { borderBottom: '2px solid #e0e0e0' } }}>
+            <TableRow sx={{ '& th': { borderBottom: byMode('2px solid #e0e0e0', '2px solid #373737') } }}>
               <TableCell sx={{ ...headCell, width: 130 }}>Status</TableCell>
               <TableCell sx={headCell}>Name</TableCell>
               <TableCell sx={{ ...headCell, width: 170 }} align="center">Barcode Quantity</TableCell>
@@ -317,7 +318,7 @@ export default function ExternalStocktakeMatch() {
           </TableHead>
           <TableBody>
             {visible.length === 0 ? (
-              <TableRow><TableCell colSpan={7} sx={{ ...bodyCell, textAlign: 'center', color: '#676b72', py: 3 }}>No products match your search</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} sx={{ ...bodyCell, textAlign: 'center', color: byMode('#676b72', '#a0a4aa'), py: 3 }}>No products match your search</TableCell></TableRow>
             ) : visible.map((r, i) => {
               const clickable = editable && (!r.matched || r.duplicate);
               return (
@@ -325,19 +326,19 @@ export default function ExternalStocktakeMatch() {
                   key={r.id}
                   onClick={() => { if (!clickable) return; if (!r.matched) setUnmatched(r); else setDup(r); }}
                   sx={{
-                    bgcolor: !r.matched ? '#d9f2d9' : i % 2 === 1 ? '#e5e5e5' : '#fff',
+                    bgcolor: !r.matched ? byMode('#d9f2d9', '#264029') : i % 2 === 1 ? byMode('#e5e5e5', '#2a2a2a') : byMode('#fff', '#232323'),
                     cursor: clickable ? 'pointer' : 'default',
                     '&:hover': clickable ? { filter: 'brightness(0.97)' } : {},
                   }}
                 >
                   <TableCell sx={{ ...bodyCell, whiteSpace: 'nowrap' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      {r.matched ? <FoundIcon sx={{ fontSize: 18 }} /> : <HelpIcon sx={{ fontSize: 18, color: '#2e7d32' }} />}
+                      {r.matched ? <FoundIcon sx={{ fontSize: 18 }} /> : <HelpIcon sx={{ fontSize: 18, color: byMode('#2e7d32', '#7bf1a8') }} />}
                       {r.matched ? 'Found' : 'Not Found'}
                     </Box>
                   </TableCell>
                   <TableCell sx={{ ...bodyCell, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {r.productName || r.providedName || <i style={{ color: '#676b72' }}>Unknown product</i>}
+                    {r.productName || r.providedName || <Box component="i" sx={{ color: byMode('#676b72', '#a0a4aa') }}>Unknown product</Box>}
                   </TableCell>
                   <TableCell sx={bodyCell} align="center">{r.barcodeQuantity}</TableCell>
                   <TableCell sx={{ ...bodyCell, whiteSpace: 'nowrap' }}>

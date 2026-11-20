@@ -57,12 +57,13 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format as formatDate, isValid as isValidDate } from 'date-fns';
+import { byMode } from '../../theme/sfPalette';
 
 // Calendar popover styled like the Promotions wizard picker.
 const PICKER_POPOVER_SX = {
   borderRadius: '12px',
-  backgroundColor: '#f5f5f5',
-  border: '1px solid #e5e5e5',
+  backgroundColor: byMode('#f5f5f5', '#2f2f2f'),
+  border: byMode('1px solid #e5e5e5', '1px solid #373737'),
   boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
 };
 // Slide dates are kept as local "yyyy-MM-ddTHH:mm" strings (what the renderer parses).
@@ -595,7 +596,7 @@ const CustomerDisplayEditor = () => {
   );
 
   return (
-    <Box sx={{ p: 1.25, height: 'calc(100vh - 72px)', bgcolor: '#ebebeb' }}>
+    <Box sx={{ p: 1.25, height: 'calc(100vh - 72px)', bgcolor: byMode('#ebebeb', '#121212') }}>
       <Grid container spacing={1} sx={{ height: '100%' }}>
         <Grid item xs={9.5} sx={{ height: '100%' }}>
           <Paper
@@ -614,7 +615,7 @@ const CustomerDisplayEditor = () => {
             }}
           > 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5,  px: 0.6, py: 0.2 }}>
-              <Typography component="h2" sx={{ fontWeight: 700, mr: 0.1, fontSize: 24, color: '#000' }}>
+              <Typography component="h2" sx={{ fontWeight: 700, mr: 0.1, fontSize: 24, color: byMode('#000', '#f8f8f8') }}>
                 {(template?.name || 'Customer Display')} Modify
               </Typography>
               <IconButton
@@ -626,10 +627,10 @@ const CustomerDisplayEditor = () => {
                   borderRadius: '8px',
                   bgcolor: 'transparent',
                   transition: 'none',
-                  '&:hover': { bgcolor: '#dedede' },
+                  '&:hover': { bgcolor: byMode('#dedede', '#2f2f2f') },
                 }}
               >
-                <SettingsIcon sx={{ fontSize: 24, color: '#000' }} />
+                <SettingsIcon sx={{ fontSize: 24, color: byMode('#000', '#f8f8f8') }} />
               </IconButton>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
@@ -723,13 +724,13 @@ const CustomerDisplayEditor = () => {
         </Grid>
 
         <Grid item xs={2.5} sx={{ height: '100%' }}>
-          <Paper sx={{ height: '100%', borderRadius: 0.5, border: '1px solid #9d9d9d', display: 'flex', flexDirection: 'column' }}>
+          <Paper sx={{ height: '100%', borderRadius: 0.5, border: byMode('1px solid #9d9d9d', '1px solid #373737'), display: 'flex', flexDirection: 'column' }}>
             <Tabs
               value={componentTab}
               onChange={(_, value) => setComponentTab(value)}
               variant="fullWidth"
               TabIndicatorProps={{ sx: { display: 'none' } }}
-              sx={{ minHeight: 64, bgcolor: '#ebebeb' }}
+              sx={{ minHeight: 64, bgcolor: byMode('#ebebeb', '#232323') }}
             >
               <Tab
                 label="Components"
@@ -740,10 +741,10 @@ const CustomerDisplayEditor = () => {
                   height: 64,
                   fontSize: 18,
                   textTransform: 'none',
-                  color: '#000',
+                  color: byMode('#000', '#f8f8f8'),
                   borderBottom: '4px solid',
-                  borderBottomColor: componentTab === 0 ? '#3b82f6' : '#9ca3af',
-                  '&.Mui-selected': { color: '#000' },
+                  borderBottomColor: componentTab === 0 ? '#3b82f6' : byMode('#9ca3af', '#373737'),
+                  '&.Mui-selected': { color: byMode('#000', '#f8f8f8') },
                 }}
               />
               <Tab
@@ -756,11 +757,11 @@ const CustomerDisplayEditor = () => {
                   height: 64,
                   fontSize: 18,
                   textTransform: 'none',
-                  color: '#000',
+                  color: byMode('#000', '#f8f8f8'),
                   borderBottom: '4px solid',
-                  borderBottomColor: componentTab === 1 ? '#3b82f6' : '#9ca3af',
-                  '&.Mui-selected': { color: '#000' },
-                  '&.Mui-disabled': { color: 'rgba(16,16,16,.3)', cursor: 'not-allowed', pointerEvents: 'auto' },
+                  borderBottomColor: componentTab === 1 ? '#3b82f6' : byMode('#9ca3af', '#373737'),
+                  '&.Mui-selected': { color: byMode('#000', '#f8f8f8') },
+                  '&.Mui-disabled': { color: byMode('rgba(16,16,16,.3)', '#757575'), cursor: 'not-allowed', pointerEvents: 'auto' },
                 }}
               />
             </Tabs>
@@ -778,9 +779,9 @@ const CustomerDisplayEditor = () => {
                         height: 80,
                         gap: 1.5,
                         transition: 'none',
-                        '&:hover': { bgcolor: '#bfdbfe' },
-                        '&.Mui-selected': { bgcolor: '#bfdbfe' },
-                        '&.Mui-selected:hover': { bgcolor: '#bfdbfe' },
+                        '&:hover': { bgcolor: byMode('#bfdbfe', '#0c3a55') },
+                        '&.Mui-selected': { bgcolor: byMode('#bfdbfe', '#0c3a55') },
+                        '&.Mui-selected:hover': { bgcolor: byMode('#bfdbfe', '#0c3a55') },
                       }}
                     >
                       <Box
@@ -823,14 +824,14 @@ const CustomerDisplayEditor = () => {
                             flexDirection: 'column',
                             gap: 0.25,
                             py: 1,
-                            border: '1px solid #9d9d9d',
+                            border: byMode('1px solid #9d9d9d', '1px solid #373737'),
                             borderRadius: '4px',
-                            bgcolor: '#f8f8f8',
-                            color: '#676b72',
+                            bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+                            color: byMode('#676b72', '#f8f8f8'),
                             textTransform: 'none',
                             fontSize: 14,
                             lineHeight: 1.2,
-                            '&:hover': { bgcolor: '#ebebeb' },
+                            '&:hover': { bgcolor: byMode('#ebebeb', '#4a4a4a') },
                           }}
                         >
                           {icon}
@@ -903,7 +904,7 @@ const CustomerDisplayEditor = () => {
                           sx={{
                             mb: 1.2,
                             p: 0.5,
-                            bgcolor: '#d0d0d0',
+                            bgcolor: byMode('#d0d0d0', '#333333'),
                             borderRadius: 1,
                             display: 'grid',
                             gridTemplateColumns: 'repeat(3, 1fr)',
@@ -915,7 +916,7 @@ const CustomerDisplayEditor = () => {
                             onClick={() => updateSelectedSettings({ bold: !(selectedComponent?.settings?.bold === true) })}
                             sx={{
                               minWidth: 0,
-                              color: selectedComponent?.settings?.bold ? '#1976d2' : '#4f4f4f',
+                              color: selectedComponent?.settings?.bold ? '#1976d2' : byMode('#4f4f4f', '#d4d4d4'),
                               bgcolor: selectedComponent?.settings?.bold ? '#ffffff' : 'transparent',
                             }}
                           >
@@ -926,7 +927,7 @@ const CustomerDisplayEditor = () => {
                             onClick={() => updateSelectedSettings({ italic: !(selectedComponent?.settings?.italic === true) })}
                             sx={{
                               minWidth: 0,
-                              color: selectedComponent?.settings?.italic ? '#1976d2' : '#4f4f4f',
+                              color: selectedComponent?.settings?.italic ? '#1976d2' : byMode('#4f4f4f', '#d4d4d4'),
                               bgcolor: selectedComponent?.settings?.italic ? '#ffffff' : 'transparent',
                             }}
                           >
@@ -937,7 +938,7 @@ const CustomerDisplayEditor = () => {
                             onClick={() => updateSelectedSettings({ underline: !(selectedComponent?.settings?.underline === true) })}
                             sx={{
                               minWidth: 0,
-                              color: selectedComponent?.settings?.underline ? '#1976d2' : '#4f4f4f',
+                              color: selectedComponent?.settings?.underline ? '#1976d2' : byMode('#4f4f4f', '#d4d4d4'),
                               bgcolor: selectedComponent?.settings?.underline ? '#ffffff' : 'transparent',
                             }}
                           >
@@ -1056,7 +1057,7 @@ const CustomerDisplayEditor = () => {
                           sx={{
                             mb: 1.2,
                             p: 0.5,
-                            bgcolor: '#d0d0d0',
+                            bgcolor: byMode('#d0d0d0', '#333333'),
                             borderRadius: 1,
                             display: 'grid',
                             gridTemplateColumns: 'repeat(3, 1fr)',
@@ -1069,7 +1070,7 @@ const CustomerDisplayEditor = () => {
                             onClick={() => updateSelectedSettings({ bold: selectedComponent?.settings?.bold === false })}
                             sx={{
                               minWidth: 0,
-                              color: selectedComponent?.settings?.bold !== false ? '#1976d2' : '#4f4f4f',
+                              color: selectedComponent?.settings?.bold !== false ? '#1976d2' : byMode('#4f4f4f', '#d4d4d4'),
                               bgcolor: selectedComponent?.settings?.bold !== false ? '#ffffff' : 'transparent',
                             }}
                           >
@@ -1080,7 +1081,7 @@ const CustomerDisplayEditor = () => {
                             onClick={() => updateSelectedSettings({ italic: !(selectedComponent?.settings?.italic === true) })}
                             sx={{
                               minWidth: 0,
-                              color: selectedComponent?.settings?.italic ? '#1976d2' : '#4f4f4f',
+                              color: selectedComponent?.settings?.italic ? '#1976d2' : byMode('#4f4f4f', '#d4d4d4'),
                               bgcolor: selectedComponent?.settings?.italic ? '#ffffff' : 'transparent',
                             }}
                           >
@@ -1091,7 +1092,7 @@ const CustomerDisplayEditor = () => {
                             onClick={() => updateSelectedSettings({ underline: !(selectedComponent?.settings?.underline === true) })}
                             sx={{
                               minWidth: 0,
-                              color: selectedComponent?.settings?.underline ? '#1976d2' : '#4f4f4f',
+                              color: selectedComponent?.settings?.underline ? '#1976d2' : byMode('#4f4f4f', '#d4d4d4'),
                               bgcolor: selectedComponent?.settings?.underline ? '#ffffff' : 'transparent',
                             }}
                           >
@@ -1200,7 +1201,7 @@ const CustomerDisplayEditor = () => {
                 )}
               </Box>
             )}
-            <Box sx={{ mt: 'auto', p: 0.75, borderTop: '1px solid #d0d0d0', display: 'grid', gap: 0.75 }}>
+            <Box sx={{ mt: 'auto', p: 0.75, borderTop: byMode('1px solid #d0d0d0', '1px solid #373737'), display: 'grid', gap: 0.75 }}>
               {/* Reference: blue Save with a save icon, grey outlined Cancel with an X */}
               <Button
                 fullWidth
@@ -1217,7 +1218,7 @@ const CustomerDisplayEditor = () => {
                 fullWidth
                 onClick={handleCancel}
                 startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
-                sx={{ height: 36, borderRadius: '4px', textTransform: 'none', fontSize: 16, color: '#676b72', bgcolor: '#f8f8f8', border: '1px solid #d0d0d0', '&:hover': { bgcolor: '#ebebeb' } }}
+                sx={{ height: 36, borderRadius: '4px', textTransform: 'none', fontSize: 16, color: byMode('#676b72', '#f8f8f8'), bgcolor: byMode('#f8f8f8', '#3a3a3a'), border: byMode('1px solid #d0d0d0', '1px solid #3a3a3a'), '&:hover': { bgcolor: byMode('#ebebeb', '#4a4a4a') } }}
               >
                 Cancel
               </Button>
@@ -1241,9 +1242,9 @@ const CustomerDisplayEditor = () => {
             mt: '2px',
             width: 400,
             borderRadius: 0,
-            border: '1px solid #000',
+            border: byMode('1px solid #000', '1px solid #a1a1a1'),
             boxShadow: 'none',
-            bgcolor: '#f8f8f8',
+            bgcolor: byMode('#f8f8f8', '#232323'),
           },
         }}
       >
@@ -1256,7 +1257,7 @@ const CustomerDisplayEditor = () => {
               px: 2,
               gap: 1.2,
               fontSize: 24,
-              color: 'rgb(49,52,57)',
+              color: byMode('rgb(49,52,57)', '#f8f8f8'),
               '& .MuiSvgIcon-root': { fontSize: 28, color: 'inherit' },
               '&:hover': { bgcolor: 'rgb(28,134,242)', color: '#f8f8f8' },
             }}
@@ -1326,7 +1327,7 @@ const CustomerDisplayEditor = () => {
         <DialogTitle sx={{ textAlign: 'center', fontWeight: 700, fontSize: 20, pt: 5, pb: 1 }}>Edit Slideshow</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', gap: 2, minHeight: 360 }}>
-            <Box sx={{ width: 320, borderRight: '1px solid #ddd', pr: 1 }}>
+            <Box sx={{ width: 320, borderRight: byMode('1px solid #ddd', '1px solid #373737'), pr: 1 }}>
               <Button
                 fullWidth
                 disableElevation
@@ -1456,7 +1457,7 @@ const CustomerDisplayEditor = () => {
         <DialogActions sx={{ px: 3, pb: 2.5, gap: 1.5 }}>
           <Button
             onClick={() => setSlideDialogOpen(false)}
-            sx={{ flex: 1, height: 48, borderRadius: 0, textTransform: 'none', fontSize: 16, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid currentColor', '&:hover': { bgcolor: '#676b72', color: '#f8f8f8' } }}
+            sx={{ flex: 1, height: 48, borderRadius: 0, textTransform: 'none', fontSize: 16, bgcolor: byMode('#f8f8f8', '#3a3a3a'), color: byMode('#676b72', '#f8f8f8'), border: '1px solid currentColor', '&:hover': { bgcolor: byMode('#676b72', '#f8f8f8'), color: byMode('#f8f8f8', '#3a3a3a') } }}
           >
             Cancel
           </Button>
@@ -1529,7 +1530,7 @@ const CustomerDisplayEditor = () => {
         </DialogTitle>
         <DialogContent sx={{ px: 2.5 }}>
           {configError && (
-            <Typography sx={{ color: '#e3342f', fontSize: 14, textAlign: 'center', mb: 1 }}>{configError}</Typography>
+            <Typography sx={{ color: byMode('#e3342f', '#ffa2a2'), fontSize: 14, textAlign: 'center', mb: 1 }}>{configError}</Typography>
           )}
           <Typography sx={{ textAlign: 'center', mb: 0.5 }}>Name</Typography>
           <TextField
@@ -1542,7 +1543,7 @@ const CustomerDisplayEditor = () => {
             sx={{
               mb: 1.5,
               '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53 },
-              '& fieldset, &:hover fieldset, & .Mui-focused fieldset': { border: '1px solid #000' },
+              '& fieldset, &:hover fieldset, & .Mui-focused fieldset': { border: byMode('1px solid #000', '1px solid #a1a1a1') },
             }}
           />
           {renderColorField(
@@ -1567,11 +1568,11 @@ const CustomerDisplayEditor = () => {
               borderRadius: 0,
               textTransform: 'none',
               fontSize: 16,
-              bgcolor: '#f8f8f8',
-              color: '#676b72',
+              bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+              color: byMode('#676b72', '#f8f8f8'),
               border: '1px solid currentColor',
               transition: 'background 0.2s, color 0.2s',
-              '&:hover': { bgcolor: '#676b72', color: '#f8f8f8' },
+              '&:hover': { bgcolor: byMode('#676b72', '#f8f8f8'), color: byMode('#f8f8f8', '#3a3a3a') },
             }}
           >
             Cancel

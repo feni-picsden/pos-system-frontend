@@ -49,10 +49,12 @@ import { formatDate as formatAppDate } from '../../utils/appDateTime';
 // import userService from '../../services/userService';
 // import roleService from '../../services/roleService';
 
+import { byMode } from '../../theme/sfPalette';
+
 // Parity-system primary button (matches Outlets.jsx / Dashboard rails).
 const PRIMARY_BUTTON_SX = {
   bgcolor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   textTransform: 'none',
   boxShadow: 'none',
   borderRadius: '12px',
@@ -64,8 +66,8 @@ const PRIMARY_BUTTON_SX = {
 };
 
 const CANCEL_BUTTON_SX = {
-  bgcolor: '#8a8d91',
-  color: '#fff',
+  bgcolor: byMode('#8a8d91', '#3a3a3a'),
+  color: byMode('#fff', '#f8f8f8'),
   textTransform: 'none',
   borderRadius: '12px',
   fontWeight: 700,
@@ -73,7 +75,7 @@ const CANCEL_BUTTON_SX = {
   height: 42,
   px: 3,
   boxShadow: 'none',
-  '&:hover': { bgcolor: '#76797d', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#76797d', '#4a4a4a'), boxShadow: 'none' },
 };
 
 const OutletDetails = () => {

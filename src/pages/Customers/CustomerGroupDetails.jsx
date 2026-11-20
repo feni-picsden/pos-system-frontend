@@ -41,6 +41,7 @@ import statementTemplateService from "../../services/statementTemplateService";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSelectedOutlet } from "../../contexts/SelectedOutletContext";
 import PageSaveBar from '../../components/Common/PageSaveBar';
+import { byMode } from '../../theme/sfPalette';
 
 // ---- Shopfront reference styling ------------------------------------------
 const FORM_WIDTH = 764;
@@ -50,18 +51,19 @@ const COLUMN_SX = { maxWidth: FORM_WIDTH, mx: 'auto', width: '100%' };
 
 const FIELD_SX = {
   width: '100%',
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
     fontSize: 16,
     minHeight: 42,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+    color: byMode(undefined, '#f8f8f8'),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
   },
   '& .MuiAutocomplete-inputRoot.MuiOutlinedInput-root': { padding: '0 9px' },
   '& .MuiOutlinedInput-input': { height: 40, py: 0, boxSizing: 'border-box', fontSize: 16 },
-  '& .MuiInputBase-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiInputBase-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Option panel: bordered, no elevation, no grow animation, 56px rows, full-row blue highlight
@@ -69,20 +71,21 @@ const PANEL_PROPS = {
   paper: {
     sx: {
       borderRadius: '8px',
-      border: '1px solid #171717',
+      border: byMode('1px solid #171717', '1px solid #a1a1a1'),
+      bgcolor: byMode(undefined, '#232323'),
       boxShadow: 'none',
       '& .MuiAutocomplete-listbox': { p: 0 },
       '& .MuiAutocomplete-option': {
         minHeight: 56,
         px: 2,
         fontSize: 16,
-        color: '#313439',
+        color: byMode('#313439', '#f8f8f8'),
         // !important: a global light-grey option tint (MUI's own focused colour)
         // otherwise won the background while the text stayed white, so the
         // hovered option ("Receipt") was unreadable.
         '&.Mui-focused, &[aria-selected="true"], &[aria-selected="true"].Mui-focused, &:hover': {
-          backgroundColor: '#5ebbeb !important',
-          color: '#f8f8f8',
+          backgroundColor: byMode('#5ebbeb !important', '#0084d1 !important'),
+          color: byMode('#f8f8f8', '#fafafa'),
         },
       },
     },
@@ -92,17 +95,17 @@ const PANEL_PROPS = {
 const SWITCH_SX = {
   '& .MuiSwitch-track': { borderRadius: '24px', transition: 'background-color 150ms cubic-bezier(.4,0,.2,1)' },
   // Reference switch keeps a constant ON colour — override the base component's hover-darken so it stays #5ebbeb.
-  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track, &:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#5ebbeb' },
+  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track, &:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: byMode('#5ebbeb', '#193cb8') },
 };
 
 // Module scope on purpose: nesting these in the page would remount (and unfocus) inputs on every keystroke.
 // Reference: the section icon hangs in the gutter LEFT of the column, so the
 // heading text lines up with the page title and tabs; fields sit a little in.
 const Section = ({ icon, title, first, children }) => (
-  <Box sx={{ mt: first ? 0 : 4, pt: first ? 0 : 4, borderTop: first ? 'none' : '1px solid #e2e8f0' }}>
+  <Box sx={{ mt: first ? 0 : 4, pt: first ? 0 : 4, borderTop: first ? 'none' : byMode('1px solid #e2e8f0', '1px solid #373737') }}>
     <Box sx={{ position: 'relative', mb: 3 }}>
-      {React.cloneElement(icon, { sx: { color: '#9e9e9e', fontSize: 22, position: 'absolute', left: -32, top: '50%', transform: 'translateY(-50%)' } })}
-      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000' }}>
+      {React.cloneElement(icon, { sx: { color: byMode('#9e9e9e', '#a0a4aa'), fontSize: 22, position: 'absolute', left: -32, top: '50%', transform: 'translateY(-50%)' } })}
+      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: byMode('#000', '#f8f8f8') }}>
         {title}
       </Typography>
     </Box>
@@ -122,8 +125,8 @@ const describePeriod = (value) => {
 
 const Field = ({ label, help, children }) => (
   <Box sx={{ mb: 3 }}>
-    <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#313439' }}>{label}</Typography>
-    {help && <Typography sx={{ fontSize: 14, color: '#676b72', mb: 1 }}>{help}</Typography>}
+    <Typography sx={{ fontWeight: 700, fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>{label}</Typography>
+    {help && <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#d4d4d4'), mb: 1 }}>{help}</Typography>}
     {children}
   </Box>
 );
@@ -131,11 +134,11 @@ const Field = ({ label, help, children }) => (
 // Toggle + live status caption to its right (reference describes the resulting behaviour, not the switch)
 const ToggleField = ({ label, help, checked, onChange, onText, offText }) => (
   <Box sx={{ mb: 3 }}>
-    <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#313439' }}>{label}</Typography>
-    {help && <Typography sx={{ fontSize: 14, color: '#676b72' }}>{help}</Typography>}
+    <Typography sx={{ fontWeight: 700, fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>{label}</Typography>
+    {help && <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#d4d4d4') }}>{help}</Typography>}
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1 }}>
       <ShopfrontSwitch sx={SWITCH_SX} checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
-      <Typography sx={{ fontSize: 14, color: '#676b72' }}>{checked ? onText : offText}</Typography>
+      <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#d4d4d4') }}>{checked ? onText : offText}</Typography>
     </Box>
   </Box>
 );
@@ -464,26 +467,26 @@ const CustomerGroupDetails = () => {
     fontWeight: 400,
     gap: 1,
     px: 3,
-    color: '#313439',
+    color: byMode('#313439', '#d4d4d4'),
     '& .MuiTab-iconWrapper': { mr: 0 },
     borderRadius: '8px 8px 0 0',
     transition: 'color 150ms cubic-bezier(.4,0,.2,1), background-color 150ms cubic-bezier(.4,0,.2,1)',
-    '&.Mui-selected': { color: '#313439', bgcolor: '#fff', boxShadow: '0 -2px 6px rgba(0,0,0,0.08)' },
+    '&.Mui-selected': { color: byMode('#313439', '#f8f8f8'), bgcolor: byMode('#fff', '#121212'), boxShadow: '0 -2px 6px rgba(0,0,0,0.08)' },
   };
 
   return (
-    <Box sx={{ bgcolor: '#fff', minHeight: '100%' }}>
+    <Box sx={{ bgcolor: byMode('#fff', '#121212'), minHeight: '100%' }}>
       {/* Sticky header band + tabs */}
       <Box sx={{ position: 'sticky', top: 0, zIndex: 3 }}>
         <Box
           sx={{
-            bgcolor: '#e2e8f0',
+            bgcolor: byMode('#e2e8f0', '#232323'),
             px: PAGE_PX,
             pt: '48px',
           }}
         >
           <Box sx={{ ...COLUMN_SX, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Typography sx={{ fontSize: 20, color: '#313439' }}>
+          <Typography sx={{ fontSize: 20, color: byMode('#313439', '#f8f8f8') }}>
             {isEditMode ? 'Editing ' : 'Creating '}
             <b>{formData.name || 'Customer Group'}</b>
           </Typography>
@@ -522,7 +525,7 @@ const CustomerGroupDetails = () => {
           onCancel={handleCancel}
         />
 
-        <Box sx={{ bgcolor: '#e2e8f0', px: PAGE_PX, pt: '40px' }}>
+        <Box sx={{ bgcolor: byMode('#e2e8f0', '#232323'), px: PAGE_PX, pt: '40px' }}>
           <Box sx={COLUMN_SX}>
           <Tabs
             value={tab}
@@ -699,16 +702,16 @@ const CustomerGroupDetails = () => {
                   {/* Reference: one ISO 8601 period per row (placeholder "Invalid Period"),
                       red outlined delete, full-width green "+ Add Credit Term". */}
                   <Box sx={{ mb: 3 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#000' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                       Credit Terms
                     </Typography>
-                    <Typography sx={{ fontSize: 14, color: '#313439', mb: 2 }}>
+                    <Typography sx={{ fontSize: 14, color: byMode('#313439', '#d4d4d4'), mb: 2 }}>
                       Specifies the time periods displayed with the amount of money owing during each period (e.g. 7 days, 30 days).{' '}
                       <Link
                         component="button"
                         type="button"
                         onClick={() => setIsoHelpOpen(true)}
-                        sx={{ fontSize: 14, color: 'rgb(0,0,238)', textDecorationColor: 'rgb(0,0,238)', verticalAlign: 'baseline', textAlign: 'left' }}
+                        sx={{ fontSize: 14, color: byMode('rgb(0,0,238)', '#4ca0f5'), textDecorationColor: byMode('rgb(0,0,238)', '#4ca0f5'), verticalAlign: 'baseline', textAlign: 'left' }}
                       >
                         It must be formatted as an ISO 8601 duration.
                       </Link>
@@ -731,7 +734,7 @@ const CustomerGroupDetails = () => {
                             error={invalid}
                             InputProps={{
                               endAdornment: term.duration ? (
-                                <Typography sx={{ fontSize: 14, color: invalid ? '#e33430' : '#676b72', whiteSpace: 'nowrap', pl: 1 }}>
+                                <Typography sx={{ fontSize: 14, color: invalid ? byMode('#e33430', '#ffa2a2') : byMode('#676b72', '#a0a4aa'), whiteSpace: 'nowrap', pl: 1 }}>
                                   {human || 'Invalid Period'}
                                 </Typography>
                               ) : null,
@@ -742,7 +745,7 @@ const CustomerGroupDetails = () => {
                             onClick={() => setCreditTerms(creditTerms.filter((_, i) => i !== index))}
                             title="Remove credit term"
                             disableRipple
-                            sx={{ width: 48, height: 42, borderRadius: '8px', border: '1px solid #e33430', color: '#e33430', '&:hover': { bgcolor: 'rgba(227,52,48,0.06)' } }}
+                            sx={{ width: 48, height: 42, borderRadius: '8px', border: byMode('1px solid #e33430', '1px solid #ffa2a2'), color: byMode('#e33430', '#ffa2a2'), '&:hover': { bgcolor: byMode('rgba(227,52,48,0.06)', 'rgba(255,162,162,0.10)') } }}
                           >
                             <DeleteIcon sx={{ fontSize: 22 }} />
                           </IconButton>
@@ -758,13 +761,13 @@ const CustomerGroupDetails = () => {
                       sx={{
                         height: 42,
                         borderRadius: '8px',
-                        border: '1px solid #16a34a',
-                        color: '#16a34a',
+                        border: byMode('1px solid #16a34a', '1px solid #7bf1a8'),
+                        color: byMode('#16a34a', '#7bf1a8'),
                         fontWeight: 700,
                         fontSize: 16,
                         textTransform: 'none',
-                        '&:hover': { bgcolor: 'rgba(22,163,74,0.05)', borderColor: '#16a34a' },
-                        '&:focus-visible': { border: '2px solid #000' },
+                        '&:hover': { bgcolor: byMode('rgba(22,163,74,0.05)', 'rgba(123,241,168,0.08)'), borderColor: byMode('#16a34a', '#7bf1a8') },
+                        '&:focus-visible': { border: byMode('2px solid #000', '2px solid #f8f8f8') },
                       }}
                     >
                       Add Credit Term

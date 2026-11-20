@@ -12,12 +12,13 @@ import salesService from '../services/salesService';
 import useHeaderScope from '../hooks/useHeaderScope';
 import { appTimeZone } from '../utils/appDateTime';
 import { activeTimeline, createRequestGate, money, outletColor, tableWithTotal } from '../utils/reportingDashboard';
+import { byMode } from '../theme/sfPalette';
 
 const formatCurrency = money;
 
 // Shopfront-parity segmented control (matches reference .inline-select / .inline-select-option)
 const SegmentedToggle = ({ value, options, onChange }) => (
-  <Box sx={{ display: 'inline-flex', flexWrap: 'wrap', border: '1px solid rgb(0, 0, 0)' }}>
+  <Box sx={{ display: 'inline-flex', flexWrap: 'wrap', border: byMode('1px solid rgb(0, 0, 0)', '1px solid #373737') }}>
     {options.map((opt) => {
       const selected = opt.value === value;
       return (
@@ -55,7 +56,7 @@ const FilterGroup = ({ label, children }) => (
   <Box sx={{ width: 'fit-content' }}>
     <Typography
       component="p"
-      sx={{ m: '16px 0', fontSize: 16, fontWeight: 400, color: 'rgb(0, 0, 0)', textAlign: 'center' }}
+      sx={{ m: '16px 0', fontSize: 16, fontWeight: 400, color: byMode('rgb(0, 0, 0)', '#f8f8f8'), textAlign: 'center' }}
     >
       {label}
     </Typography>

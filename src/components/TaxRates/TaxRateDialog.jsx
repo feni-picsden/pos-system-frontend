@@ -24,6 +24,7 @@ import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { REF_MENU_PROPS } from '../Common/refMenuProps';
+import { byMode } from '../../theme/sfPalette';
 
 const NAME_MAX = 100;
 
@@ -173,8 +174,8 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
     >
       <DialogTitle
         sx={{
-          backgroundColor: 'oklch(90.1% .058 230.902)',
-          color: 'oklch(44.3% .11 240.79)',
+          backgroundColor: byMode('oklch(90.1% .058 230.902)', '#0c3a55'),
+          color: byMode('oklch(44.3% .11 240.79)', '#74d4ff'),
           fontSize: 16,
           fontWeight: 700,
           display: 'flex',
@@ -326,8 +327,8 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
           disabled={loading}
           disableElevation
           sx={{
-            bgcolor: '#d9d9d9',
-            color: '#000',
+            bgcolor: byMode('#d9d9d9', '#3a3a3a'),
+            color: byMode('#000', '#f8f8f8'),
             textTransform: 'none',
             borderRadius: '12px',
             fontWeight: 700,
@@ -335,7 +336,7 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
             height: 42,
             px: 3,
             transition: 'all 0s ease',
-            '&:hover': { bgcolor: '#cccccc', boxShadow: 'none' },
+            '&:hover': { bgcolor: byMode('#cccccc', '#4a4a4a'), boxShadow: 'none' },
           }}
         >
           Cancel
@@ -347,7 +348,7 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
           disableElevation
           sx={{
             backgroundColor: '#0ea5e9',
-            color: '#fff',
+            color: byMode('#fff', '#232323'),
             textTransform: 'none',
             borderRadius: '12px',
             fontWeight: 700,
@@ -358,11 +359,11 @@ const TaxRateDialog = ({ open, onClose, onSave, taxRate = null, mode = 'create' 
             transition: 'all 0s ease',
             '&:hover': { backgroundColor: '#38bdf8', boxShadow: 'none' },
             // Keep the blue while saving so the spinner stays visible.
-            '&.Mui-disabled': { backgroundColor: '#0ea5e9', color: '#fff', opacity: 0.85 },
+            '&.Mui-disabled': { backgroundColor: '#0ea5e9', color: byMode('#fff', '#232323'), opacity: 0.85 },
           }}
         >
           {loading ? (
-            <CircularProgress size={20} thickness={5} sx={{ color: '#fff' }} />
+            <CircularProgress size={20} thickness={5} sx={{ color: byMode('#fff', '#232323') }} />
           ) : (isEditMode ? 'Update' : 'Create')}
         </Button>
       </DialogActions>

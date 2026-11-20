@@ -17,10 +17,11 @@ import NiceError from '../components/Common/NiceError';
 import { useHasPermission, useHasAnyPermission } from '../hooks/usePermissions';
 import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
 import { formatAppPattern } from '../utils/appDateTime';
+import { byMode } from '../theme/sfPalette';
 
 const ACTION_BTN_SX = {
   backgroundColor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   textTransform: 'none',
   fontSize: 16,
   fontWeight: 700,
@@ -29,7 +30,7 @@ const ACTION_BTN_SX = {
   borderRadius: '12px',
   boxShadow: 'none',
   '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' },
-  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: '#fff', opacity: 0.5 },
+  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: byMode('#fff', '#232323'), opacity: 0.5 },
 };
 
 const PRINT_BTN_SX = {
@@ -250,7 +251,7 @@ const ManageCash = () => {
 
   if (!canAccess) {
     return (
-      <Box sx={{ p: 1, backgroundColor: '#fff', minHeight: '100%' }}>
+      <Box sx={{ p: 1, backgroundColor: byMode('#fff', '#121212'), minHeight: '100%' }}>
         <Alert severity="warning">You do not have permission to access Manage Cash.</Alert>
       </Box>
     );
@@ -268,7 +269,7 @@ const ManageCash = () => {
   }
 
   return (
-    <Box sx={{ p: 1, backgroundColor: '#fff', minHeight: '100%' }}>
+    <Box sx={{ p: 1, backgroundColor: byMode('#fff', '#121212'), minHeight: '100%' }}>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
@@ -327,18 +328,18 @@ const ManageCash = () => {
           {/* Shift summary — inline label/value pairs */}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', mb: 4 }}>
             <Box sx={{ minWidth: 202 }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#000' }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
                 Open Time
               </Typography>
-              <Typography sx={{ fontSize: 18, fontWeight: 400, color: '#000' }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
                 {hasActiveShift ? formatDateTime(summary.openedAt) : '—'}
               </Typography>
             </Box>
             <Box>
-              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#000' }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
                 Received Cash In Drawer
               </Typography>
-              <Typography sx={{ fontSize: 18, fontWeight: 400, color: '#000' }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
                 {formatCurrency(summary?.cashReceivedDuringShift ?? 0)}
               </Typography>
             </Box>
@@ -348,7 +349,7 @@ const ManageCash = () => {
           <Box sx={{ maxWidth: 1024, mx: 'auto' }}>
             <Typography
               component="h2"
-              sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 4 }}
+              sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 4 }}
             >
               Recent Cash Movements
             </Typography>
@@ -550,7 +551,7 @@ const ManageCash = () => {
 function MovementsList({ movements }) {
   if (!movements?.length) {
     return (
-      <Typography sx={{ fontSize: 16, color: '#676b72' }}>No activity recorded</Typography>
+      <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>No activity recorded</Typography>
     );
   }
 
@@ -569,20 +570,20 @@ function MovementsList({ movements }) {
             }}
           >
             <Box>
-              <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000' }}>
+              <Typography sx={{ fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
                 {TYPE_LABELS[m.type] || m.type}
                 {m.reason ? `: ${m.reason}` : ''}
               </Typography>
-              <Typography sx={{ fontSize: 12, color: '#676b72' }}>
+              <Typography sx={{ fontSize: 12, color: byMode('#676b72', '#a0a4aa') }}>
                 {formatDateTime(m.createdAt)}
               </Typography>
-              <Typography sx={{ fontSize: 12, color: '#676b72' }}>
+              <Typography sx={{ fontSize: 12, color: byMode('#676b72', '#a0a4aa') }}>
                 {m.user?.name || '—'}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
               <Typography
-                sx={{ fontSize: 36, fontWeight: 400, color: '#000', lineHeight: 1 }}
+                sx={{ fontSize: 36, fontWeight: 400, color: byMode('#000', '#f8f8f8'), lineHeight: 1 }}
               >
                 {dollars}
                 <Box component="span" sx={{ fontSize: 20 }}>

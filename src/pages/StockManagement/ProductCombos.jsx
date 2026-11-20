@@ -36,6 +36,7 @@ import {
 import productService from '../../services/productService';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { byMode } from '../../theme/sfPalette';
 
 // Product Combos: several products sold together under one name.
 //
@@ -92,8 +93,8 @@ const SKY = '#5ebbeb';
 const SKY_HOVER = '#4aa9dd';
 
 const headerCellSx = {
-  bgcolor: SKY,
-  color: '#fff',
+  bgcolor: byMode(SKY, '#333333'),
+  color: byMode('#fff', '#5ebbeb'),
   fontWeight: 700,
   fontSize: 16,
   border: 0,
@@ -293,10 +294,10 @@ const ProductCombos = () => {
   const [deletingId, setDeletingId] = useState(null);
 
   return (
-    <Box sx={{ p: 2, bgcolor: '#f5f5f5', minHeight: '100%' }}>
-      <Paper sx={{ p: 2.5, mb: 2, borderRadius: '8px', boxShadow: 'none', border: '1px solid #e0e0e0' }}>
+    <Box sx={{ p: 2, bgcolor: byMode('#f5f5f5', '#121212'), minHeight: '100%' }}>
+      <Paper sx={{ p: 2.5, mb: 2, borderRadius: '8px', boxShadow: 'none', border: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 2 }}>
-          <Typography sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
+          <Typography sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
             Product Combos
           </Typography>
           <Button
@@ -305,6 +306,7 @@ const ProductCombos = () => {
             onClick={openCreate}
             sx={{
               bgcolor: SKY,
+              color: byMode(undefined, '#232323'),
               '&:hover': { bgcolor: SKY_HOVER, boxShadow: 'none' },
               borderRadius: '24px',
               textTransform: 'none',
@@ -327,13 +329,13 @@ const ProductCombos = () => {
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon sx={{ color: '#808080' }} />
+                <SearchIcon sx={{ color: byMode('#808080', '#a0a4aa') }} />
               </InputAdornment>
             ),
           }}
           sx={{
             width: 340,
-            '& .MuiOutlinedInput-root': { borderRadius: '12px', height: 56 },
+            '& .MuiOutlinedInput-root': { borderRadius: '12px', height: 56, bgcolor: byMode(undefined, '#121212') },
           }}
         />
       </Paper>
@@ -344,7 +346,7 @@ const ProductCombos = () => {
         </Alert>
       )}
 
-      <Paper sx={{ borderRadius: '8px', boxShadow: 'none', border: '1px solid #e0e0e0', overflow: 'hidden' }}>
+      <Paper sx={{ borderRadius: '8px', boxShadow: 'none', border: byMode('1px solid #e0e0e0', '1px solid #373737'), overflow: 'hidden' }}>
         <TableContainer>
           <Table>
             <TableHead>
@@ -357,16 +359,16 @@ const ProductCombos = () => {
                 <TableCell align="right" sx={{ pr: '20px' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody sx={{ '& td': { border: 0, fontSize: 16, color: '#000', py: 2 } }}>
+            <TableBody sx={{ '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 2 } }}>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                    <CircularProgress size={22} sx={{ color: '#737373' }} />
+                    <CircularProgress size={22} sx={{ color: byMode('#737373', '#a0a4aa') }} />
                   </TableCell>
                 </TableRow>
               ) : visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6, color: '#737373' }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6, color: byMode('#737373', '#a0a4aa') }}>
                     No product combos found
                   </TableCell>
                 </TableRow>
@@ -394,7 +396,7 @@ const ProductCombos = () => {
                         size="small"
                         startIcon={<EditIcon />}
                         onClick={() => openEdit(combo)}
-                        sx={{ color: '#2e7d32', textTransform: 'none', fontSize: 16 }}
+                        sx={{ color: byMode('#2e7d32', '#7bf1a8'), textTransform: 'none', fontSize: 16 }}
                       >
                         Edit
                       </Button>
@@ -403,7 +405,7 @@ const ProductCombos = () => {
                         startIcon={<DeleteIcon />}
                         onClick={() => remove(combo)}
                         disabled={deletingId != null}
-                        sx={{ color: '#d32f2f', textTransform: 'none', fontSize: 16, ml: 2, '&.Mui-disabled': { color: '#d32f2f', opacity: 0.6 } }}
+                        sx={{ color: byMode('#d32f2f', '#ffa2a2'), textTransform: 'none', fontSize: 16, ml: 2, '&.Mui-disabled': { color: byMode('#d32f2f', '#ffa2a2'), opacity: 0.6 } }}
                       >
                         {deletingId === combo.id ? 'Deleting...' : 'Delete'}
                       </Button>
@@ -516,7 +518,7 @@ const ProductCombos = () => {
                 </TableHead>
                 <TableBody
                   sx={{
-                    '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
+                    '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#2a2a2a') },
                     '& td': { border: 0, fontSize: 15, py: 1 },
                   }}
                 >
@@ -545,7 +547,7 @@ const ProductCombos = () => {
                           size="small"
                           onClick={() => removeItem(row.productId)}
                           aria-label={`remove ${row.product?.name || 'product'}`}
-                          sx={{ color: '#e53935' }}
+                          sx={{ color: byMode('#e53935', '#ffa2a2') }}
                         >
                           <RemoveIcon />
                         </IconButton>
@@ -562,8 +564,8 @@ const ProductCombos = () => {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              bgcolor: '#3fa9f5',
-              color: '#fff',
+              bgcolor: byMode('#3fa9f5', '#333333'),
+              color: byMode('#fff', '#5ebbeb'),
               fontWeight: 700,
               fontSize: 20,
               px: 2.5,
@@ -592,7 +594,7 @@ const ProductCombos = () => {
           <Button
             onClick={() => setDialogOpen(false)}
             disabled={saving}
-            sx={{ textTransform: 'none', color: '#1976d2', fontSize: 16 }}
+            sx={{ textTransform: 'none', color: byMode('#1976d2', '#4ca0f5'), fontSize: 16 }}
           >
             Cancel
           </Button>
@@ -602,6 +604,7 @@ const ProductCombos = () => {
             disabled={saving || !canSave}
             sx={{
               bgcolor: SKY,
+              color: byMode(undefined, '#232323'),
               '&:hover': { bgcolor: SKY_HOVER, boxShadow: 'none' },
               textTransform: 'none',
               boxShadow: 'none',

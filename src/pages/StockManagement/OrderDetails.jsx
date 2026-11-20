@@ -109,28 +109,31 @@ const toolbarBtnSx = {
 };
 
 // Reference table styles: header #5ebbeb / #f8f8f8 16px bold, 8px padding, cells 16px #000
+// Dark (ref dark SS 19/11): header + Total row #232323 with #5ebbeb text, body rows on the
+// #121212 page, #373737 grid lines round every cell.
+const darkGrid = { border: byMode(undefined, `1px solid ${DK.divider}`), borderBottom: byMode('none', `1px solid ${DK.divider}`) };
 const thSx = {
-  backgroundColor: byMode('#5ebbeb', DK.head),
-  color: byMode('rgb(248,248,248)', DK.text),
+  backgroundColor: byMode('#5ebbeb', DK.pane),
+  color: byMode('rgb(248,248,248)', '#5ebbeb'),
   fontSize: 16,
   fontWeight: 700,
   padding: '8px',
   borderRadius: 0,
-  borderBottom: 'none',
+  ...darkGrid,
 };
 const tdSx = {
   fontSize: 16,
   color: byMode('#000', DK.text),
   padding: '8px',
-  borderBottom: 'none',
+  ...darkGrid,
 };
 const totalTdSx = {
-  backgroundColor: byMode('rgb(94,187,235)', DK.head),
-  color: byMode('rgb(248,248,248)', DK.text),
+  backgroundColor: byMode('rgb(94,187,235)', DK.pane),
+  color: byMode('rgb(248,248,248)', '#5ebbeb'),
   fontWeight: 700,
   fontSize: 16,
   padding: '8px',
-  borderBottom: 'none',
+  ...darkGrid,
 };
 // Sub-caption under quantity numbers inside body cells (12.8px uppercase grey)
 const qtySubSx = {
@@ -1588,7 +1591,7 @@ const OrderDetails = () => {
       </Box>
 
       {/* Product Details Table — unsent orders/invoices show the simplified reference column set */}
-      <Paper sx={{ mx: 2, backgroundColor: byMode('#fff', DK.pane), borderRadius: 0, boxShadow: 'none' }}>
+      <Paper sx={{ mx: 2, backgroundColor: byMode('#fff', DK.page), borderRadius: 0, boxShadow: 'none' }}>
         <TableContainer>
           {amountOnlyCredit ? (
           <Table>

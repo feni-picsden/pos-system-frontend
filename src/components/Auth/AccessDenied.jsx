@@ -13,6 +13,7 @@ import {
   Home as HomeIcon,
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -63,14 +64,14 @@ const AccessDenied = ({ message = "Only admin can access users", requiredRole = 
           <Typography
             variant="h4"
             component="h1"
-            sx={{ mb: 2, fontWeight: 'bold', color: '#333' }}
+            sx={{ mb: 2, fontWeight: 'bold', color: byMode('#333', '#f8f8f8') }}
           >
             Access Denied
           </Typography>
 
           <Typography
             variant="h6"
-            sx={{ mb: 2, color: '#666' }}
+            sx={{ mb: 2, color: byMode('#666', '#d4d4d4') }}
           >
             {message}
           </Typography>
@@ -85,7 +86,7 @@ const AccessDenied = ({ message = "Only admin can access users", requiredRole = 
 
           <Typography
             variant="body1"
-            sx={{ mb: 4, color: '#777' }}
+            sx={{ mb: 4, color: byMode('#777', '#a0a4aa') }}
           >
             You don't have the necessary permissions to access this page. 
             Please contact your administrator if you believe this is an error.
@@ -97,11 +98,11 @@ const AccessDenied = ({ message = "Only admin can access users", requiredRole = 
               startIcon={<ArrowBackIcon />}
               onClick={handleGoBack}
               sx={{
-                borderColor: '#1976d2',
-                color: '#1976d2',
+                borderColor: byMode('#1976d2', '#74d4ff'),
+                color: byMode('#1976d2', '#74d4ff'),
                 '&:hover': {
-                  borderColor: '#1565c0',
-                  backgroundColor: '#f5f5f5',
+                  borderColor: byMode('#1565c0', '#a3e4ff'),
+                  backgroundColor: byMode('#f5f5f5', '#2f2f2f'),
                 },
               }}
             >
@@ -122,7 +123,7 @@ const AccessDenied = ({ message = "Only admin can access users", requiredRole = 
             </Button>
           </Box>
 
-          <Box sx={{ mt: 3, p: 2, backgroundColor: '#f5f5f5', borderRadius: 2 }}>
+          <Box sx={{ mt: 3, p: 2, backgroundColor: byMode('#f5f5f5', '#2a2a2a'), borderRadius: 2 }}>
             <Typography variant="caption" color="text.secondary">
               Need access? Contact your system administrator to upgrade your account permissions.
             </Typography>

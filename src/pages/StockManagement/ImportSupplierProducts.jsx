@@ -21,6 +21,7 @@ import masterDatabaseService from '../../services/masterDatabaseService';
 import { outletService } from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 const actionColor = {
   Copied: 'success',
@@ -29,15 +30,15 @@ const actionColor = {
   Failed: 'error',
 };
 
-const fieldLabelSx = { fontSize: 16, fontWeight: 700, color: '#000', mb: '20px' };
+const fieldLabelSx = { fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: '20px' };
 
 // Label-above outlined field matching the Supplier/Product List fields above.
 const outlinedFieldSx = {
-  '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px', bgcolor: '#fff', fontSize: 16 },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px', bgcolor: byMode('#fff', '#121212'), fontSize: 16 },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 const primaryButtonSx = {
@@ -47,7 +48,7 @@ const primaryButtonSx = {
   fontWeight: 700,
   textTransform: 'none',
   bgcolor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', '#232323'),
   boxShadow: 'none',
   '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
 };
@@ -310,17 +311,17 @@ const ImportSupplierProducts = () => {
     <Box sx={{ p: '32px', display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Typography
         component="h1"
-        sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: '16px' }}
+        sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: '16px' }}
       >
         Supplier Import
       </Typography>
 
       <Box sx={{ mb: '20px' }}>
-        <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000' }}>
+        <Typography sx={{ fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
           This will import all products provided from the Master Database, if the products already
           exist in your file they will be ignored.
         </Typography>
-        <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000' }}>
+        <Typography sx={{ fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
           Please provide one supplier code per line.
         </Typography>
       </Box>
@@ -347,7 +348,7 @@ const ImportSupplierProducts = () => {
           componentsProps={{
             paper: {
               sx: {
-                border: '1px solid #000',
+                border: byMode('1px solid #000', '1px solid #a1a1a1'),
                 borderRadius: '8px',
                 boxShadow: 'none',
                 mt: '4px',
@@ -367,7 +368,7 @@ const ImportSupplierProducts = () => {
               '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent' },
               '& .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-option[aria-selected="true"].Mui-focused':
                 {
-                  backgroundColor: '#7dd3fc',
+                  backgroundColor: byMode('#7dd3fc', '#0084d1'),
                 },
             },
           }}
@@ -379,17 +380,17 @@ const ImportSupplierProducts = () => {
                 '& .MuiOutlinedInput-root': {
                   height: 42,
                   borderRadius: '8px',
-                  bgcolor: '#fff',
+                  bgcolor: byMode('#fff', '#121212'),
                   py: 0,
                   fontSize: 16,
                 },
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
                 '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#000',
+                  borderColor: byMode('#000', '#2b7fff'),
                   borderWidth: 2,
                 },
-                '& input::placeholder': { color: '#808080', opacity: 1 },
+                '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
               }}
             />
           )}
@@ -409,7 +410,7 @@ const ImportSupplierProducts = () => {
             onChange={(event, option) => setImportOutletId(option ? option.id : '')}
             disabled={importing}
             noOptionsText="No outlets"
-            componentsProps={{ paper: { sx: { border: '1px solid #000', borderRadius: '8px', boxShadow: 'none', mt: '4px' } } }}
+            componentsProps={{ paper: { sx: { border: byMode('1px solid #000', '1px solid #a1a1a1'), borderRadius: '8px', boxShadow: 'none', mt: '4px' } } }}
             ListboxProps={{
               sx: {
                 py: 0,
@@ -417,7 +418,7 @@ const ImportSupplierProducts = () => {
                 // only the row under the mouse / keyboard is blue; the picked row
                 // painting blue too showed two highlighted rows at once
                 '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'transparent' },
-                '& .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: '#7dd3fc' },
+                '& .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-option[aria-selected="true"].Mui-focused': { backgroundColor: byMode('#7dd3fc', '#0084d1') },
               },
             }}
             renderInput={(params) => (
@@ -439,7 +440,7 @@ const ImportSupplierProducts = () => {
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: 0,
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#121212'),
               fontSize: 16,
               p: 0,
             },
@@ -449,10 +450,10 @@ const ImportSupplierProducts = () => {
               p: '0 2px',
               resize: 'vertical',
             },
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: 1 },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') },
             '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#000',
+              borderColor: byMode('#000', '#2b7fff'),
               borderWidth: 1,
             },
           }}
@@ -485,12 +486,12 @@ const ImportSupplierProducts = () => {
         <TableContainer sx={{ borderRadius: 0 }}>
           <Table>
             <TableHead>
-              <TableRow sx={{ bgcolor: '#5ebbeb' }}>
+              <TableRow sx={{ bgcolor: byMode('#5ebbeb', '#333333') }}>
                 {['Supplier Code', 'Action', 'Description', 'Product ID'].map((head) => (
                   <TableCell
                     key={head}
                     sx={{
-                      color: '#f8f8f8',
+                      color: byMode('#f8f8f8', '#5ebbeb'),
                       fontSize: 16,
                       fontWeight: 700,
                       textTransform: 'uppercase',
@@ -507,9 +508,9 @@ const ImportSupplierProducts = () => {
               {importResponse.results.map((item, index) => (
                 <TableRow
                   key={`${item.code}-${index}`}
-                  sx={{ bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8' }}
+                  sx={{ bgcolor: index % 2 === 0 ? byMode('#fff', '#232323') : byMode('#f8f8f8', '#2a2a2a') }}
                 >
-                  <TableCell sx={{ fontSize: 16, color: '#000', padding: '8px 8px 8px 10px', border: 'none' }}>
+                  <TableCell sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), padding: '8px 8px 8px 10px', border: 'none' }}>
                     {item.code}
                   </TableCell>
                   <TableCell sx={{ padding: '8px 8px 8px 10px', border: 'none' }}>
@@ -519,10 +520,10 @@ const ImportSupplierProducts = () => {
                       color={actionColor[item.action] || 'default'}
                     />
                   </TableCell>
-                  <TableCell sx={{ fontSize: 16, color: '#000', padding: '8px 8px 8px 10px', border: 'none' }}>
+                  <TableCell sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), padding: '8px 8px 8px 10px', border: 'none' }}>
                     {item.description}
                   </TableCell>
-                  <TableCell sx={{ fontSize: 16, color: '#000', padding: '8px 8px 8px 10px', border: 'none' }}>
+                  <TableCell sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), padding: '8px 8px 8px 10px', border: 'none' }}>
                     {item.productId || '-'}
                   </TableCell>
                 </TableRow>
@@ -605,11 +606,11 @@ const ImportSupplierProducts = () => {
                 'XYZ789,Sample Product 2,,12,5.75,8.99',
               ].join('\n')}
               sx={{
-                '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: '#fff', fontSize: 16 },
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
-                '& textarea::placeholder': { color: '#808080', opacity: 1 },
+                '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: byMode('#fff', '#121212'), fontSize: 16 },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+                '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 },
+                '& textarea::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
               }}
             />
           </Box>

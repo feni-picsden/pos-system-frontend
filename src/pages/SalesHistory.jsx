@@ -38,10 +38,11 @@ import useHeaderScope from '../hooks/useHeaderScope';
 import ShopfrontDialog, { DialogButton } from '../components/Common/ShopfrontDialog';
 import SaleDetailCard, { SplitPrice, customerName } from '../components/SalesHistory/SaleDetailCard';
 import { usePermissions } from '../hooks/usePermissions';
+import { byMode } from '../theme/sfPalette';
 
 // Reference filter chrome: the field label lives INSIDE the 42px box and floats
 // into the notch on focus/value; 1px #404040 rail that does NOT change on hover.
-const labelSx = { fontSize: 12, color: "#676b72", mb: 0.5, lineHeight: 1.2 };
+const labelSx = { fontSize: 12, color: byMode("#676b72", "#a0a4aa"), mb: 0.5, lineHeight: 1.2 };
 
 // .sales-history-filter — one grid cell, 1rem of padding.
 const cellSx = { p: "16px", minWidth: 0 };
@@ -56,22 +57,23 @@ const fieldSx = {
     borderRadius: "8px",
     minHeight: 42,
     fontSize: 16,
-    bgcolor: "#fff",
-    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000000", borderWidth: "2px" },
+    bgcolor: byMode("#fff", "#121212"),
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#000000", "#2b7fff"), borderWidth: "2px" },
   },
-  "& .MuiInputLabel-root": { color: "#808080", fontSize: 16 },
-  "& .MuiInputLabel-root.MuiInputLabel-shrink": { fontSize: 14, color: "#676b72" },
-  "& .MuiInputLabel-root.Mui-focused": { color: "#000000" },
-  "& input::placeholder": { color: "#808080", opacity: 1 },
+  "& .MuiInputLabel-root": { color: byMode("#808080", "#a0a4aa"), fontSize: 16 },
+  "& .MuiInputLabel-root.MuiInputLabel-shrink": { fontSize: 14, color: byMode("#676b72", "#a0a4aa") },
+  "& .MuiInputLabel-root.Mui-focused": { color: byMode("#000000", "#f8f8f8") },
+  "& input::placeholder": { color: byMode("#808080", "#757575"), opacity: 1 },
 };
 
 // Reference combobox menu: radius 8, 1px black border, NO shadow, 288px scroll
 // cap, 56px rows and a sky-300 highlight (no Material elevation / Grow).
 const comboPaperSx = {
   borderRadius: "8px",
-  border: "1px solid #000",
+  border: byMode("1px solid #000", "1px solid #a1a1a1"),
+  bgcolor: byMode(undefined, "#232323"),
   boxShadow: "none",
   "& .MuiAutocomplete-noOptions": {
     // Reference row is exactly 53px: vertical padding is dropped so the 24px
@@ -82,7 +84,7 @@ const comboPaperSx = {
     alignItems: "center",
     p: "0 16px",
     fontSize: 16,
-    color: "#0a0a0a",
+    color: byMode("#0a0a0a", "#f8f8f8"),
   },
 };
 
@@ -91,7 +93,7 @@ const comboListboxSx = {
   p: 0,
   "& .MuiAutocomplete-option": { minHeight: 56, p: "16px", fontSize: 16 },
   '& .MuiAutocomplete-option[aria-selected="true"], & .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-option[aria-selected="true"].Mui-focused':
-    { bgcolor: "#7dd3fc !important", color: "#0a0a0a" },
+    { bgcolor: byMode("#7dd3fc !important", "#0084d1 !important"), color: byMode("#0a0a0a", "#fafafa") },
 };
 
 // The two flush bars under the filter grid (left = advanced toggle, right = Filter).
@@ -118,12 +120,12 @@ const actionButtonSx = (primary) => ({
   fontWeight: 400,
   textTransform: "none",
   boxShadow: "none",
-  bgcolor: primary ? "#1c86f2" : "#f8f8f8",
-  color: primary ? "#f8f8f8" : "#313439",
-  border: `1px solid ${primary ? "#f8f8f8" : "#313439"}`,
+  bgcolor: primary ? "#1c86f2" : byMode("#f8f8f8", "#232323"),
+  color: primary ? "#f8f8f8" : byMode("#313439", "#d4d4d4"),
+  border: primary ? byMode("1px solid #f8f8f8", "1px solid #1c86f2") : byMode("1px solid #313439", "1px solid #a1a1a1"),
   "&:hover": {
     boxShadow: "none",
-    bgcolor: primary ? "#0f6fd0" : "#313439",
+    bgcolor: primary ? "#0f6fd0" : byMode("#313439", "#3a3a3a"),
     color: "#f8f8f8",
   },
 });
@@ -725,8 +727,8 @@ const SalesHistory = () => {
         <Box sx={{ mb: "0.5rem", flexShrink: 0 }}>
           <Box
             sx={{
-              bgcolor: "#f8f8f8",
-              border: "1px solid #e0e0e0",
+              bgcolor: byMode("#f8f8f8", "#232323"),
+              border: byMode("1px solid #e0e0e0", "1px solid #373737"),
               p: "0.5rem",
             }}
           >
@@ -845,9 +847,9 @@ const SalesHistory = () => {
               // Expanded = the reference's `.hide` state (pressed tint); hover is
               // the same slate swap in both states.
               sx={barButtonSx(
-                showAdvancedFilters ? "rgb(223,223,224)" : "#f8f8f8",
-                showAdvancedFilters ? "rgb(74,77,81)" : "#313439",
-                "#313439",
+                showAdvancedFilters ? byMode("rgb(223,223,224)", "#3a3a3a") : byMode("#f8f8f8", "#232323"),
+                showAdvancedFilters ? byMode("rgb(74,77,81)", "#f8f8f8") : byMode("#313439", "#f8f8f8"),
+                byMode("#313439", "#444444"),
                 "#f8f8f8"
               )}
             >
@@ -860,7 +862,7 @@ const SalesHistory = () => {
               disableElevation
               onClick={handleApplyFilters}
               disabled={loading}
-              sx={barButtonSx("#5ebbeb", "#f8f8f8")}
+              sx={barButtonSx("#5ebbeb", byMode("#f8f8f8", "#232323"))}
             >
               Filter
             </Button>
@@ -894,7 +896,7 @@ const SalesHistory = () => {
                       <Box
                         // .sale-line-wrapper: 89px tall, zebra #f8f8f8 / #ebebeb (odd).
                         sx={{
-                          bgcolor: saleIndex % 2 ? "#ebebeb" : "#f8f8f8",
+                          bgcolor: saleIndex % 2 ? byMode("#ebebeb", "#2a2a2a") : byMode("#f8f8f8", "#232323"),
                           cursor: "pointer",
                         }}
                         onClick={() => handleSaleClick(sale)}
@@ -906,7 +908,7 @@ const SalesHistory = () => {
                             alignItems: "center",
                             height: 89,
                             p: "16px",
-                            color: "#000",
+                            color: byMode("#000", "#f8f8f8"),
                           }}
                         >
                           {/* .sale-line-status — 40px fixed-width 32px glyph */}
@@ -937,7 +939,7 @@ const SalesHistory = () => {
                                 sx={{ width: 28, height: 28, m: "2px auto", borderRadius: "50%", border: `2px solid ${INCOMPLETE_PURPLE}` }}
                               />
                             ) : (
-                              <CheckCircleOutlined sx={{ fontSize: 32, color: "#000" }} />
+                              <CheckCircleOutlined sx={{ fontSize: 32, color: byMode("#000", "#f8f8f8") }} />
                             )}
                           </Box>
 
@@ -972,7 +974,7 @@ const SalesHistory = () => {
                                 note - that is not a sale note (reference lists no reason). */}
                             {sale.notes && String(sale.notes).trim() && !(sale.status === "CANCELLED" && !sale.cancelReason) && (
                               <Box sx={{ flex: 1, minWidth: 0, pl: 4 }}>
-                                <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#757575", lineHeight: "13px" }}>SALE NOTE</Box>
+                                <Box sx={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: byMode("#757575", "#a0a4aa"), lineHeight: "13px" }}>SALE NOTE</Box>
                                 <Box sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sale.notes}</Box>
                               </Box>
                             )}
@@ -1014,7 +1016,7 @@ const SalesHistory = () => {
                         renders the same one in editing mode. */}
                     {/* Collapse: the card slides open / closed instead of snapping in. */}
                     <Collapse in={openSaleIds.includes(sale.id)} timeout={400} easing="ease-in-out" unmountOnExit>
-                      <Box sx={{ bgcolor: saleIndex % 2 ? "#ebebeb" : "#f8f8f8", p: "16px 0" }}>
+                      <Box sx={{ bgcolor: saleIndex % 2 ? byMode("#ebebeb", "#2a2a2a") : byMode("#f8f8f8", "#232323"), p: "16px 0" }}>
                         <SaleDetailCard
                           sale={selectedSale?.id === sale.id ? selectedSale : sale}
                           formatDate={formatDate}
@@ -1104,7 +1106,7 @@ const SalesHistory = () => {
               // search without the date range when one was used.
               <Box data-testid="sales-empty" sx={{ display: "flex", justifyContent: "center", py: 20 }}>
                 <Box>
-                  <Typography sx={{ fontSize: 32, color: "#000", lineHeight: 1.25 }}>
+                  <Typography sx={{ fontSize: 32, color: byMode("#000", "#f8f8f8"), lineHeight: 1.25 }}>
                     No sales found
                   </Typography>
                   {searchedWithDate && (
@@ -1118,7 +1120,7 @@ const SalesHistory = () => {
                         setPagination((prev) => ({ ...prev, page: 1 }));
                         loadSales({ ignoreDates: true, page: 1 });
                       }}
-                      sx={{ display: "block", fontSize: 32, color: "#0000ee", textDecoration: "underline", lineHeight: 1.25 }}
+                      sx={{ display: "block", fontSize: 32, color: byMode("#0000ee", "#4ca0f5"), textDecoration: "underline", lineHeight: 1.25 }}
                     >
                       Would you like to search without the date period?
                     </Box>
@@ -1265,7 +1267,9 @@ const SalesHistory = () => {
                 boxSizing: "border-box",
                 p: "16px",
                 fontSize: 16,
-                border: "1px solid #000",
+                border: byMode("1px solid #000", "1px solid #a1a1a1"),
+                bgcolor: byMode(undefined, "#121212"),
+                color: byMode(undefined, "#f8f8f8"),
                 borderRadius: 0,
                 outline: "none",
               }}

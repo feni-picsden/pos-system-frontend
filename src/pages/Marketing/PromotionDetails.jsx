@@ -62,6 +62,7 @@ import EditScheduleDialog from '../../components/Marketing/EditScheduleDialog';
 import PromotionSimulatorPanel, { SIMULATOR_WIDTH, BOTTOM_BAR_HEIGHT } from '../../components/Marketing/PromotionSimulatorPanel';
 import ItemSearchDropdown from '../../components/Marketing/ItemSearchDropdown';
 import { sortByGroup } from '../../utils/itemSearchGroups';
+import { byMode } from '../../theme/sfPalette';
 
 // Recurring schedule editing lives in components/Marketing/EditScheduleDialog.
 
@@ -180,7 +181,7 @@ const DateTimeField = ({ value, onChange }) => {
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        slotProps={{ paper: { sx: { borderRadius: 0, boxShadow: 'none', border: '1px solid #d9d9d9', p: 2 } } }}
+        slotProps={{ paper: { sx: { borderRadius: 0, boxShadow: 'none', border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1'), p: 2 } } }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
           <Box sx={{ display: 'flex' }}>
@@ -193,9 +194,9 @@ const DateTimeField = ({ value, onChange }) => {
                   minWidth: 44,
                   borderRadius: 0,
                   boxShadow: 'none',
-                  bgcolor: tab === key ? '#5ebbeb' : '#ececec',
-                  color: tab === key ? '#f8f8f8' : '#313439',
-                  '&:hover': { bgcolor: tab === key ? '#4aa9dd' : '#e0e0e0', boxShadow: 'none' }
+                  bgcolor: tab === key ? '#5ebbeb' : byMode('#ececec', '#3a3a3a'),
+                  color: tab === key ? '#f8f8f8' : byMode('#313439', '#f8f8f8'),
+                  '&:hover': { bgcolor: tab === key ? '#4aa9dd' : byMode('#e0e0e0', '#4a4a4a'), boxShadow: 'none' }
                 }}
               >
                 {icon}
@@ -235,7 +236,7 @@ const DateTimeField = ({ value, onChange }) => {
                   </Box>
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
                     {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => (
-                      <Typography key={d} sx={{ fontSize: 11, textAlign: 'center', color: '#676b72' }}>{d}</Typography>
+                      <Typography key={d} sx={{ fontSize: 11, textAlign: 'center', color: byMode('#676b72', '#a0a4aa') }}>{d}</Typography>
                     ))}
                     {monthGrid(date).map((day, i) => {
                       const isSelected = isSameDay(day, selected);
@@ -250,12 +251,12 @@ const DateTimeField = ({ value, onChange }) => {
                             justifyContent: 'center',
                             fontSize: 12,
                             cursor: day ? 'pointer' : 'default',
-                            color: isSelected ? '#f8f8f8' : '#313439',
+                            color: isSelected ? '#f8f8f8' : byMode('#313439', '#f8f8f8'),
                             bgcolor: day
-                              ? (isSelected ? '#5ebbeb' : (isSameDay(day, new Date()) ? '#d6ecfa' : '#ececec'))
+                              ? (isSelected ? '#5ebbeb' : (isSameDay(day, new Date()) ? byMode('#d6ecfa', '#0c3a55') : byMode('#ececec', '#3a3a3a')))
                               : 'transparent',
                             transition: 'background 0.2s',
-                            '&:hover': day ? { bgcolor: isSelected ? '#4aa9dd' : '#d6ecfa' } : {}
+                            '&:hover': day ? { bgcolor: isSelected ? '#4aa9dd' : byMode('#d6ecfa', '#0c3a55') } : {}
                           }}
                         >
                           {day ? day.getDate() : ''}
@@ -293,13 +294,13 @@ const DateTimeField = ({ value, onChange }) => {
 // Reference labels its fields above the box (no notched legend, no placeholder)
 const LabeledField = ({ label, children }) => (
   <Box>
-    <Typography sx={{ fontSize: 14, color: '#676b72', mb: 0.5 }}>{label}</Typography>
+    <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#d4d4d4'), mb: 0.5 }}>{label}</Typography>
     {children}
   </Box>
 );
 
 const headerFieldSx = {
-  '& .MuiOutlinedInput-root': { minHeight: 42, borderRadius: '8px', backgroundColor: '#fff' }
+  '& .MuiOutlinedInput-root': { minHeight: 42, borderRadius: '8px', backgroundColor: byMode('#fff', '#121212') }
 };
 
 // reference leaves ~10px between the switch and its label
@@ -1048,9 +1049,9 @@ const PromotionDetails = () => {
   const activeItemsOf = (criterion) => ({ ...criterion, items: (criterion.items || []).filter((i) => !i.excluded) });
   const criterionProfitColor = (criterion) => {
     const live = activeItemsOf(criterion);
-    if (live.items.length === 0 || profitHidden(criterion)) return '#313439';
+    if (live.items.length === 0 || profitHidden(criterion)) return byMode('#313439', '#f8f8f8');
     const avg = calculateAverageItemProfit(live);
-    return avg == null || avg <= 0 ? '#e33430' : '#313439';
+    return avg == null || avg <= 0 ? byMode('#e33430', '#ffa2a2') : byMode('#313439', '#f8f8f8');
   };
 
   const getCriterionSummary = (criterion) => criterionSummary(criterion);
@@ -1329,18 +1330,18 @@ const PromotionDetails = () => {
   return (
     <Box sx={{ 
       minHeight: '100vh', 
-      backgroundColor: '#f5f5f5',
+      backgroundColor: byMode('#f5f5f5', '#121212'),
       display: 'flex',
       flexDirection: 'column',
       pb: `${BOTTOM_BAR_HEIGHT}px` // the bar is fixed (same as the Express editor)
     }}>
       {/* The simulator panel sits down the right edge (reference), so the page keeps clear of it. */}
       <Box sx={{ flex: 1, p: 3, pr: showSimulator ? `${SIMULATOR_WIDTH + 24}px` : 3, transition: 'padding-right 300ms' }}>
-        <Paper sx={{ p: 3, mb: 2, backgroundColor: 'white',
+        <Paper sx={{ p: 3, mb: 2, backgroundColor: byMode('white', '#232323'),
           '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-          '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' }
         }}>
           <Grid container spacing={3} alignItems="flex-end">
             <Grid item xs={12} md={3}>
@@ -1422,7 +1423,7 @@ const PromotionDetails = () => {
                       component="li"
                       {...props}
                       key={option.id}
-                      sx={{ fontSize: 16, color: selected ? '#5ebbeb' : '#111', minHeight: '46px' }}
+                      sx={{ fontSize: 16, color: selected ? '#5ebbeb' : byMode('#111', '#f8f8f8'), minHeight: '46px' }}
                     >
                       {option.name}
                     </Box>
@@ -1433,7 +1434,7 @@ const PromotionDetails = () => {
                       sx: {
                         borderRadius: 0,
                         boxShadow: 'none',
-                        border: '1px solid #d9d9d9'
+                        border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1')
                       }
                     },
                     // ponytail: descendant selector needed to beat MUI's own .MuiAutocomplete-option rule
@@ -1471,9 +1472,9 @@ const PromotionDetails = () => {
                         px: '8px',
                         py: '2px',
                         borderRadius: '4px',
-                        bgcolor: '#e5e5e5',
+                        bgcolor: byMode('#e5e5e5', '#3a3a3a'),
                         fontSize: 16,
-                        color: '#000',
+                        color: byMode('#000', '#f8f8f8'),
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis'
@@ -1498,7 +1499,7 @@ const PromotionDetails = () => {
                       sx: {
                         borderRadius: 0,
                         boxShadow: 'none',
-                        border: '1px solid #d9d9d9'
+                        border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1')
                       }
                     },
                     listbox: {
@@ -1572,7 +1573,7 @@ const PromotionDetails = () => {
         <Box sx={{ my: 2 }} />
 
         {isComboDeal ? (
-          <Paper sx={{ p: 3, backgroundColor: 'white', borderRadius: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+          <Paper sx={{ p: 3, backgroundColor: byMode('white', '#232323'), borderRadius: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
               Combo Deal
             </Typography>
@@ -1600,8 +1601,8 @@ const PromotionDetails = () => {
                     sx={{
                       p: 1.5,
                       cursor: 'pointer',
-                      borderBottom: '1px solid #f0f0f0',
-                      '&:hover': { bgcolor: '#f5f5f5' }
+                      borderBottom: byMode('1px solid #f0f0f0', '1px solid #373737'),
+                      '&:hover': { bgcolor: byMode('#f5f5f5', '#2f2f2f') }
                     }}
                   >
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -1628,7 +1629,7 @@ const PromotionDetails = () => {
                   gridTemplateColumns: '1fr 100px 120px 120px 48px',
                   gap: 2,
                   p: 1.5,
-                  bgcolor: '#e3f2fd',
+                  bgcolor: byMode('#e3f2fd', '#0c3a55'),
                   borderRadius: 1,
                   mb: 1,
                   fontWeight: 'bold',
@@ -1649,7 +1650,7 @@ const PromotionDetails = () => {
                       gridTemplateColumns: '1fr 100px 120px 120px 48px',
                       gap: 2,
                       p: 1.5,
-                      borderBottom: '1px solid #f0f0f0',
+                      borderBottom: byMode('1px solid #f0f0f0', '1px solid #373737'),
                       alignItems: 'center'
                     }}
                   >
@@ -1702,12 +1703,12 @@ const PromotionDetails = () => {
                   Normal total: ${comboNormalTotal.toFixed(2)}
                 </Typography>
                 {comboPriceNum > 0 && comboSavings > 0 && (
-                  <Typography variant="body2" sx={{ color: '#32b643', fontWeight: 600 }}>
+                  <Typography variant="body2" sx={{ color: byMode('#32b643', '#7bf1a8'), fontWeight: 600 }}>
                     Customer saves ${comboSavings.toFixed(2)}
                   </Typography>
                 )}
                 {comboPriceNum > 0 && comboSavings < 0 && (
-                  <Typography variant="body2" sx={{ color: '#e33430' }}>
+                  <Typography variant="body2" sx={{ color: byMode('#e33430', '#ffa2a2') }}>
                     Combo price is higher than the normal total.
                   </Typography>
                 )}
@@ -1724,11 +1725,11 @@ const PromotionDetails = () => {
             disableRipple
             disableFocusRipple
             sx={{
-              color: '#32b643',
+              color: byMode('#32b643', '#7bf1a8'),
               textTransform: 'none',
               fontSize: 16,
               fontWeight: 600,
-              '&:hover': { backgroundColor: 'transparent', color: '#2ba33c' },
+              '&:hover': { backgroundColor: 'transparent', color: byMode('#2ba33c', '#7bf1a8') },
               '&.Mui-focusVisible': { outline: 'none', boxShadow: 'none', backgroundColor: 'transparent' }
             }}
           >
@@ -1750,7 +1751,7 @@ const PromotionDetails = () => {
                 key={criterion.id} 
                 sx={{ 
                   mb: 2,
-                  backgroundColor: 'white',
+                  backgroundColor: byMode('white', '#232323'),
                   borderRadius: 2,
                   // visible: the items search dropdown overlays past the card's bottom edge
                   overflow: 'visible',
@@ -1764,7 +1765,7 @@ const PromotionDetails = () => {
                     sx={{
                       width: expandedItems[criterion.id] ? '45%' : '260px',
                       flexShrink: 0,
-                      borderRight: '1px solid #e0e0e0',
+                      borderRight: byMode('1px solid #e0e0e0', '1px solid #373737'),
                       transition: 'width 0.25s ease'
                     }}
                   >
@@ -1800,7 +1801,7 @@ const PromotionDetails = () => {
                             onKeyDown={resultKeys.handleKeyDown(criterion.id, searchResults[criterion.id], (r) => handleAddItemToCriterion(criterion.id, r), () => setSearchResults((prev) => ({ ...prev, [criterion.id]: [] })), { loading: Boolean(searchLoading[criterion.id]) })}
                             InputProps={{
                               endAdornment: searchLoading[criterion.id] ? (
-                                <CircularProgress size={20} sx={{ color: '#404040', mr: '2px' }} />
+                                <CircularProgress size={20} sx={{ color: byMode('#404040', '#a0a4aa'), mr: '2px' }} />
                               ) : searchTerms[criterion.id] ? (
                                 <IconButton size="small" onClick={() => { searchSeq.current[criterion.id] = (searchSeq.current[criterion.id] || 0) + 1; setSearchTerms((prev) => ({ ...prev, [criterion.id]: '' })); setSearchResults((prev) => ({ ...prev, [criterion.id]: [] })); setSearchLoading((prev) => ({ ...prev, [criterion.id]: false })); }} sx={{ color: '#404040', p: '2px', mr: '-4px' }}>
                                   <CancelIcon sx={{ fontSize: 24 }} />
@@ -1808,10 +1809,10 @@ const PromotionDetails = () => {
                               ) : null
                             }}
                             sx={{
-                              '& .MuiOutlinedInput-root': { minHeight: 50, borderRadius: '6px', fontSize: 16, bgcolor: '#fff', pr: '12px' },
-                              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                              '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                              '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
+                              '& .MuiOutlinedInput-root': { minHeight: 50, borderRadius: '6px', fontSize: 16, bgcolor: byMode('#fff', '#121212'), pr: '12px' },
+                              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+                              '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+                              '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' }
                             }}
                           />
                           <ItemSearchDropdown
@@ -1833,10 +1834,10 @@ const PromotionDetails = () => {
                               alignItems: 'center',
                               px: '8px',
                               height: 38,
-                              bgcolor: '#a9d9f2',
+                              bgcolor: byMode('#a9d9f2', '#0c3a55'),
                               fontWeight: 700,
                               fontSize: 16,
-                              color: '#000'
+                              color: byMode('#000', '#f8f8f8')
                             }}>
                               <Box>Exclude</Box>
                               <Box>Item</Box>
@@ -1866,7 +1867,7 @@ const PromotionDetails = () => {
                                     py: '14px',
                                     alignItems: 'center',
                                     // Reference: an excluded item turns the row pink and hides its rebate and %.
-                                    bgcolor: row.excluded ? '#f8d7da' : 'transparent'
+                                    bgcolor: row.excluded ? byMode('#f8d7da', '#492625') : 'transparent'
                                   }}
                                 >
                                   <ShopfrontSwitch
@@ -1874,10 +1875,10 @@ const PromotionDetails = () => {
                                     onChange={(e) => handleUpdateRow(criterion.id, row, 'excluded', e.target.checked)}
                                   />
                                   <Box>
-                                    <Typography sx={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2, color: '#000' }}>
+                                    <Typography sx={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2, color: byMode('#000', '#f8f8f8') }}>
                                       {row.name}
                                     </Typography>
-                                    <Typography sx={{ fontSize: 10, letterSpacing: 1, color: '#404040', textTransform: 'uppercase' }}>
+                                    <Typography sx={{ fontSize: 10, letterSpacing: 1, color: byMode('#404040', '#a0a4aa'), textTransform: 'uppercase' }}>
                                       {row.label}
                                     </Typography>
                                   </Box>
@@ -1888,15 +1889,16 @@ const PromotionDetails = () => {
                                     onChange={(e) => handleUpdateRow(criterion.id, row, 'rebateAmount', e.target.value)}
                                     placeholder="0"
                                     InputProps={{
-                                      startAdornment: <Typography sx={{ mr: '6px', color: '#404040' }}>$</Typography>
+                                      startAdornment: <Typography sx={{ mr: '6px', color: byMode('#404040', '#a0a4aa') }}>$</Typography>
                                     }}
                                     inputProps={{ style: { color: '#000' } }}
                                     sx={{
                                       width: 100,
                                       '& .MuiOutlinedInput-root': { height: 52, borderRadius: '4px', fontSize: 16 },
-                                      '& input::placeholder': { color: '#000', opacity: 1 },
-                                      '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
-                                      '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' }
+                                      '& input': { color: byMode(undefined, '#f8f8f8 !important') },
+                                      '& input::placeholder': { color: byMode('#000', '#f8f8f8'), opacity: 1 },
+                                      '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') },
+                                      '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') }
                                     }}
                                   />}
                                   {/* Reference "%": the item's profit after the rebate. */}
@@ -1904,9 +1906,9 @@ const PromotionDetails = () => {
                                     sx={{
                                       // Reference: 0% or a loss is red, a profit dark; a spend
                                       // criterion has no per-item margin and shows a dark 0.00%.
-                                      color: profitHidden(criterion) ? '#313439'
-                                        : itemProfit == null || itemProfit <= 0 ? '#e33430'
-                                        : '#313439',
+                                      color: profitHidden(criterion) ? byMode('#313439', '#f8f8f8')
+                                        : itemProfit == null || itemProfit <= 0 ? byMode('#e33430', '#ffa2a2')
+                                        : byMode('#313439', '#f8f8f8'),
                                       fontSize: 16,
                                       textAlign: 'center'
                                     }}
@@ -1916,7 +1918,7 @@ const PromotionDetails = () => {
                                   </Typography>}
                                   <DeleteOutlineIcon
                                     onClick={() => handleRemoveRow(criterion.id, row)}
-                                    sx={{ fontSize: 22, color: '#e33430', cursor: 'pointer', justifySelf: 'center' }}
+                                    sx={{ fontSize: 22, color: byMode('#e33430', '#ffa2a2'), cursor: 'pointer', justifySelf: 'center' }}
                                   />
                                 </Box>
                               );
@@ -1936,12 +1938,12 @@ const PromotionDetails = () => {
                                 outline tick, faded when excluded; scrolls inside the panel. */}
                             {displayRowsFor(criterion).map((row) => (
                               <Box key={row.key} sx={{ display: 'flex', alignItems: 'center', gap: '8px', mb: '6px' }}>
-                                {row.excluded ? <HighlightOffOutlinedIcon sx={{ color: '#e33430', fontSize: 18 }} /> : <CheckCircleOutlineIcon sx={{ color: '#32b643', fontSize: 18 }} />}
+                                {row.excluded ? <HighlightOffOutlinedIcon sx={{ color: byMode('#e33430', '#ffa2a2'), fontSize: 18 }} /> : <CheckCircleOutlineIcon sx={{ color: byMode('#32b643', '#7bf1a8'), fontSize: 18 }} />}
                                 <Box>
-                                  <Typography sx={{ fontSize: 16, lineHeight: 1.2, color: '#000' }}>
+                                  <Typography sx={{ fontSize: 16, lineHeight: 1.2, color: byMode('#000', '#f8f8f8') }}>
                                     {row.name && row.name.length > 30 ? `${row.name.substring(0, 30)}...` : row.name}
                                   </Typography>
-                                  <Typography sx={{ fontSize: 10, letterSpacing: 1, color: '#404040', textTransform: 'uppercase' }}>
+                                  <Typography sx={{ fontSize: 10, letterSpacing: 1, color: byMode('#404040', '#a0a4aa'), textTransform: 'uppercase' }}>
                                     {row.label}
                                   </Typography>
                                 </Box>
@@ -1992,10 +1994,10 @@ const PromotionDetails = () => {
                               px: '8px',
                               textTransform: 'none',
                               fontSize: 16,
-                              color: criterion.isOptional ? '#313439' : '#9e9e9e',
-                              borderColor: criterion.isOptional ? '#313439' : '#9e9e9e',
-                              bgcolor: criterion.isOptional ? '#e8e8e8' : '#f0f0f0',
-                              '&:hover': { borderColor: criterion.isOptional ? '#313439' : '#9e9e9e', bgcolor: criterion.isOptional ? '#dcdcdc' : '#e8e8e8' },
+                              color: criterion.isOptional ? byMode('#313439', '#f8f8f8') : '#9e9e9e',
+                              borderColor: criterion.isOptional ? byMode('#313439', '#a1a1a1') : '#9e9e9e',
+                              bgcolor: criterion.isOptional ? byMode('#e8e8e8', '#3a3a3a') : byMode('#f0f0f0', '#2a2a2a'),
+                              '&:hover': { borderColor: criterion.isOptional ? byMode('#313439', '#a1a1a1') : '#9e9e9e', bgcolor: criterion.isOptional ? byMode('#dcdcdc', '#4a4a4a') : byMode('#e8e8e8', '#3a3a3a') },
                               '&.Mui-focusVisible': { outline: 'none', boxShadow: 'none' }
                             }}
                           >
@@ -2087,7 +2089,7 @@ const PromotionDetails = () => {
                       </Box>
                     ) : (
                       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', flex: 1 }}>
-                        <Typography sx={{ color: '#313439', fontSize: 16, flex: 1 }}>
+                        <Typography sx={{ color: byMode('#313439', '#f8f8f8'), fontSize: 16, flex: 1 }}>
                           {getCriterionSummary(criterion)}
                         </Typography>
                         {renderExcludeCountToggle(criterion)}
@@ -2097,8 +2099,8 @@ const PromotionDetails = () => {
 
                   {/* Reference: PROFIT panel - light blue-grey, no header, value then
                       plain-text Clone / Delete links; red once the margin is 0% or a loss. */}
-                  <Box sx={{ width: 140, flexShrink: 0, bgcolor: '#eef6fb', px: 2, py: 2, textAlign: 'right', display: 'flex', flexDirection: 'column' }}>
-                    <Typography sx={{ fontSize: 12, letterSpacing: 1, color: '#6b7076', mb: 0.5 }}>
+                  <Box sx={{ width: 140, flexShrink: 0, bgcolor: byMode('#eef6fb', '#2a2a2a'), px: 2, py: 2, textAlign: 'right', display: 'flex', flexDirection: 'column' }}>
+                    <Typography sx={{ fontSize: 12, letterSpacing: 1, color: byMode('#6b7076', '#a0a4aa'), mb: 0.5 }}>
                       PROFIT
                     </Typography>
                     <Typography sx={{ fontSize: 28, lineHeight: 1.2, color: criterionProfitColor(criterion), mb: 1.5 }}>
@@ -2106,13 +2108,13 @@ const PromotionDetails = () => {
                     </Typography>
                     <Typography
                       onClick={() => handleCloneCriterion(criterion)}
-                      sx={{ mt: 'auto', fontSize: 16, color: '#32b643', cursor: 'pointer', mb: 0.5, '&:hover': { textDecoration: 'underline' } }}
+                      sx={{ mt: 'auto', fontSize: 16, color: byMode('#32b643', '#7bf1a8'), cursor: 'pointer', mb: 0.5, '&:hover': { textDecoration: 'underline' } }}
                     >
                       Clone Criteria
                     </Typography>
                     <Typography
                       onClick={() => handleRemoveCriterion(criterion.id)}
-                      sx={{ fontSize: 16, color: '#e33430', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                      sx={{ fontSize: 16, color: byMode('#e33430', '#ffa2a2'), cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                     >
                       Delete Criteria
                     </Typography>

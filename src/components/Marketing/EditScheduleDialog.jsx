@@ -9,6 +9,7 @@ import {
 } from '@mui/icons-material';
 import DateTimeField from '../Common/DateTimeField';
 import { toZonedDate, zonedInstant } from '../../utils/dateFormat';
+import { byMode } from '../../theme/sfPalette';
 import { validateSchedule, parseAnchor, formatAnchor, occurrencesBetween, FIELD_ORDER } from '../../utils/promotionSchedule';
 
 // Reference "Edit Schedule" modal (Recurring Promotion ON) - shared by the
@@ -204,16 +205,16 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
           {/* Left: warning, preview switch, ISO note, the four schedule fields */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {v.warning && (
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: '6px', color: '#b3261e', mb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: '6px', color: byMode('#b3261e', '#ffa2a2'), mb: 1 }}>
                 <WarningIcon sx={{ fontSize: 20, mt: '1px' }} />
                 <Typography sx={{ fontSize: 16, lineHeight: 1.2 }}>
                   Repeating Period must be longer than Time to Start and Enabled Duration combined
                 </Typography>
               </Box>
             )}
-            <Typography sx={{ fontSize: 14, color: '#313439', mb: 0.5 }}>Preview</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode('#313439', '#d4d4d4'), mb: 0.5 }}>Preview</Typography>
             {/* Segmented Month | Week control: grey track, sky active half with white text */}
-            <Box sx={{ display: 'flex', bgcolor: '#e8e8e8', borderRadius: '4px', p: 0, mb: 2 }}>
+            <Box sx={{ display: 'flex', bgcolor: byMode('#e8e8e8', '#3a3a3a'), borderRadius: '4px', p: 0, mb: 2 }}>
               {['Month', 'Week'].map((mode) => {
                 const on = preview === mode;
                 return (
@@ -231,8 +232,8 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                       borderRadius: '4px',
                       boxShadow: 'none',
                       bgcolor: on ? '#3fb0ea' : 'transparent',
-                      color: on ? '#fff' : '#313439',
-                      '&:hover': { bgcolor: on ? '#2ea3e0' : '#dedede', boxShadow: 'none' }
+                      color: on ? '#fff' : byMode('#313439', '#f8f8f8'),
+                      '&:hover': { bgcolor: on ? '#2ea3e0' : byMode('#dedede', '#4a4a4a'), boxShadow: 'none' }
                     }}
                   >
                     {mode}
@@ -240,14 +241,14 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                 );
               })}
             </Box>
-            <Typography sx={{ fontSize: 16, color: '#313439', mb: 2 }}>
+            <Typography sx={{ fontSize: 16, color: byMode('#313439', '#f8f8f8'), mb: 2 }}>
               The values must be formatted as an{' '}
               <Box
                 component="a"
                 href="https://en.wikipedia.org/wiki/ISO_8601"
                 target="_blank"
                 rel="noreferrer"
-                sx={{ color: '#2f6fe0', textDecoration: 'underline' }}
+                sx={{ color: byMode('#2f6fe0', '#4ca0f5'), textDecoration: 'underline' }}
               >
                 ISO 8601
               </Box>{' '}
@@ -283,10 +284,10 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                       transition: 'opacity 160ms ease, transform 160ms ease'
                     },
                     '&:focus-within .sched-label': { opacity: 1, transform: 'translateY(0)' },
-                    '&:focus-within .sched-input': { borderColor: '#000', borderWidth: 2 }
+                    '&:focus-within .sched-input': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 }
                   }}
                 >
-                  <Typography className="sched-label" sx={{ fontSize: 14, lineHeight: '18px', height: 18, color: bad ? '#e33430' : '#313439', mb: '2px', pointerEvents: 'none' }}>
+                  <Typography className="sched-label" sx={{ fontSize: 14, lineHeight: '18px', height: 18, color: bad ? byMode('#e33430', '#ffa2a2') : byMode('#313439', '#d4d4d4'), mb: '2px', pointerEvents: 'none' }}>
                     {label}
                   </Typography>
                   <Box
@@ -304,14 +305,14 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                       height: 42,
                       boxSizing: 'border-box',
                       px: '14px',
-                      border: '1px solid #404040',
+                      border: byMode('1px solid #404040', '1px solid #a1a1a1'),
                       borderRadius: '8px',
                       outline: 'none',
                       fontFamily: 'inherit',
                       fontSize: 16,
-                      color: '#000',
-                      bgcolor: '#fff',
-                      '&::placeholder': { color: '#808080', opacity: 1 }
+                      color: byMode('#000', '#f8f8f8'),
+                      bgcolor: byMode('#fff', '#121212'),
+                      '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 }
                     }}
                   />
                 </Box>
@@ -319,23 +320,23 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
             })}
           </Box>
 
-          <Box sx={{ width: '1px', bgcolor: '#d4d4d4', alignSelf: 'stretch' }} />
+          <Box sx={{ width: '1px', bgcolor: byMode('#d4d4d4', '#373737'), alignSelf: 'stretch' }} />
 
           {/* Right: calendar preview - month grid, or a week grid with hour lines */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 1.5 }}>
-              <IconButton size="small" disableRipple onClick={() => step(-1)} sx={{ color: '#313439', '&.Mui-focusVisible': { outline: 'none' } }}>
+              <IconButton size="small" disableRipple onClick={() => step(-1)} sx={{ color: byMode('#313439', '#f8f8f8'), '&.Mui-focusVisible': { outline: 'none' } }}>
                 <ChevronLeftIcon fontSize="small" />
               </IconButton>
-              <Typography sx={{ fontSize: 16, color: '#313439' }}>{title}</Typography>
-              <IconButton size="small" disableRipple onClick={() => step(1)} sx={{ color: '#313439', '&.Mui-focusVisible': { outline: 'none' } }}>
+              <Typography sx={{ fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>{title}</Typography>
+              <IconButton size="small" disableRipple onClick={() => step(1)} sx={{ color: byMode('#313439', '#f8f8f8'), '&.Mui-focusVisible': { outline: 'none' } }}>
                 <ChevronRightIcon fontSize="small" />
               </IconButton>
             </Box>
             {isMonth ? (
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', columnGap: '8px', rowGap: '8px', overflow: 'hidden' }}>
                 {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => (
-                  <Typography key={d} sx={{ fontSize: 16, textAlign: 'center', color: '#313439' }}>{d}</Typography>
+                  <Typography key={d} sx={{ fontSize: 16, textAlign: 'center', color: byMode('#313439', '#f8f8f8') }}>{d}</Typography>
                 ))}
                 {monthGrid(month).map((day, i) => {
                   const on = day && dayHasOccurrence(day);
@@ -350,12 +351,12 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                         pt: '4px',
                         textAlign: 'center',
                         fontSize: 12,
-                        color: '#313439',
+                        color: byMode('#313439', '#f8f8f8'),
                         borderRadius: '2px',
-                        bgcolor: day ? (isSameDay(day, today) ? '#cfe8f9' : '#e8e8e8') : 'transparent'
+                        bgcolor: day ? (isSameDay(day, today) ? byMode('#cfe8f9', '#0c3a55') : byMode('#e8e8e8', '#3a3a3a')) : 'transparent'
                       }}
                     >
-                      <Box component="span" sx={{ color: '#313439 !important' }}>{day ? ordinal(day.getDate()) : ''}</Box>
+                      <Box component="span" sx={{ color: byMode('#313439 !important', '#f8f8f8 !important') }}>{day ? ordinal(day.getDate()) : ''}</Box>
                       {/* Reference: green underline on every day an occurrence touches, run
                           edge to edge so consecutive days read as one bar. */}
                       {on && (
@@ -370,7 +371,7 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                         }} />
                       )}
                       {anchor && isSameDay(anchor, day) && (
-                        <AnchorIcon sx={{ position: 'absolute', left: 'calc(50% - 8px)', top: 22, fontSize: 16, color: '#313439' }} />
+                        <AnchorIcon sx={{ position: 'absolute', left: 'calc(50% - 8px)', top: 22, fontSize: 16, color: byMode('#313439', '#f8f8f8') }} />
                       )}
                     </Box>
                   );
@@ -385,8 +386,8 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                       fontSize: 16,
                       textAlign: 'center',
                       pb: '4px',
-                      borderBottom: '1px solid #d4d4d4',
-                      color: isSameDay(d, today) ? '#2f8fe0' : '#313439'
+                      borderBottom: byMode('1px solid #d4d4d4', '1px solid #373737'),
+                      color: isSameDay(d, today) ? byMode('#2f8fe0', '#74d4ff') : byMode('#313439', '#f8f8f8')
                     }}
                   >
                     {d.toLocaleString('en-AU', { weekday: 'short' })}
@@ -395,9 +396,9 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                 <Box />
                 {/* 2-hour bands 00:00 .. 24:00 with the occurrence bars laid over each day */}
                 {week.map((d) => (
-                  <Box key={`col-${d.toISOString()}`} sx={{ position: 'relative', height: GRID_H, borderLeft: '1px solid #f0f0f0' }}>
+                  <Box key={`col-${d.toISOString()}`} sx={{ position: 'relative', height: GRID_H, borderLeft: byMode('1px solid #f0f0f0', '1px solid #2f2f2f') }}>
                     {Array.from({ length: 12 }, (_, row) => (
-                      <Box key={row} sx={{ height: ROW_H, borderBottom: '1px solid #e5e5e5' }} />
+                      <Box key={row} sx={{ height: ROW_H, borderBottom: byMode('1px solid #e5e5e5', '1px solid #373737') }} />
                     ))}
                     {segmentsFor(d).map((seg, i) => (
                       <Box
@@ -417,17 +418,17 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
                       </Box>
                     ))}
                     {anchor && isSameDay(anchor, d) && (
-                      <AnchorIcon sx={{ position: 'absolute', left: 'calc(50% + 4px)', top: pxOf(anchor, d) - 8, fontSize: 16, color: '#313439' }} />
+                      <AnchorIcon sx={{ position: 'absolute', left: 'calc(50% + 4px)', top: pxOf(anchor, d) - 8, fontSize: 16, color: byMode('#313439', '#f8f8f8') }} />
                     )}
                   </Box>
                 ))}
                 <Box sx={{ position: 'relative', height: GRID_H }}>
                   {Array.from({ length: 12 }, (_, row) => (
-                    <Typography key={row} sx={{ position: 'absolute', right: 0, top: (row + 1) * ROW_H - 8, fontSize: 11, color: '#313439' }}>
+                    <Typography key={row} sx={{ position: 'absolute', right: 0, top: (row + 1) * ROW_H - 8, fontSize: 11, color: byMode('#313439', '#d4d4d4') }}>
                       {`${String((row + 1) * 2).padStart(2, '0')}:00`}
                     </Typography>
                   ))}
-                  <Typography sx={{ position: 'absolute', right: 0, top: -8, fontSize: 11, color: '#313439' }}>00:00</Typography>
+                  <Typography sx={{ position: 'absolute', right: 0, top: -8, fontSize: 11, color: byMode('#313439', '#d4d4d4') }}>00:00</Typography>
                 </Box>
               </Box>
             )}
@@ -445,10 +446,10 @@ const EditScheduleDialog = ({ open, value, onClose, onContinue }) => {
               textTransform: 'none',
               fontSize: 28,
               fontWeight: 400,
-              bgcolor: '#f1f1f1',
-              border: '1px solid #c9c9c9',
-              color: '#555',
-              '&:hover': { bgcolor: '#e4e4e4' }
+              bgcolor: byMode('#f1f1f1', '#3a3a3a'),
+              border: byMode('1px solid #c9c9c9', '1px solid #a1a1a1'),
+              color: byMode('#555', '#d4d4d4'),
+              '&:hover': { bgcolor: byMode('#e4e4e4', '#4a4a4a') }
             }}
           >
             Cancel

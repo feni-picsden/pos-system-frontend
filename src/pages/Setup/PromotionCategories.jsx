@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Box,
   Button,
@@ -61,10 +62,10 @@ const rowActionSx = (color) => ({
   borderRadius: 0,
   transition: INSTANT,
   '& .MuiButton-startIcon': { mr: 0.75, '& svg': { fontSize: 20 } },
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 });
 
-const BORDER = '1px solid #9e9e9e';
+const BORDER = byMode('1px solid #9e9e9e', '1px solid #373737');
 
 const PromotionCategories = () => {
   const { globalMode, outletNameOf } = useGlobalOutlet();
@@ -129,15 +130,15 @@ const PromotionCategories = () => {
   };
 
   const Mark = ({ on }) => (on
-    ? <CheckIcon sx={{ fontSize: 20, color: '#000' }} aria-label="yes" />
-    : <CloseIcon sx={{ fontSize: 20, color: '#000' }} aria-label="no" />);
+    ? <CheckIcon sx={{ fontSize: 20, color: byMode('#000', '#f8f8f8') }} aria-label="yes" />
+    : <CloseIcon sx={{ fontSize: 20, color: byMode('#000', '#f8f8f8') }} aria-label="no" />);
 
   const colCount = 6 + (globalMode ? 1 : 0);
 
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', lineHeight: 1.2 }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>
           Promotion Categories
         </Typography>
         {canAddPromotionCategories && (
@@ -161,7 +162,7 @@ const PromotionCategories = () => {
         <TableContainer>
           <Table sx={{ borderCollapse: 'collapse', border: BORDER }}>
             <TableHead>
-              <TableRow sx={{ '& th': { border: BORDER, bgcolor: '#fff', color: '#000', fontWeight: 700, fontSize: 16, textAlign: 'center', py: 1, px: 1 } }}>
+              <TableRow sx={{ '& th': { border: BORDER, bgcolor: byMode('#fff', '#333333'), color: byMode('#000', '#5ebbeb'), fontWeight: 700, fontSize: 16, textAlign: 'center', py: 1, px: 1 } }}>
                 <TableCell sx={{ width: '15%' }}>Name</TableCell>
                 <TableCell sx={{ width: '20%' }}>Promotion Source</TableCell>
                 <TableCell>Show on Order</TableCell>
@@ -171,11 +172,11 @@ const PromotionCategories = () => {
                 <TableCell sx={{ width: 200 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody sx={{ '& td': { border: BORDER, fontSize: 16, color: '#000', py: 1.5, px: 2 }, '& tr': { bgcolor: '#f8f8f8' }, '& tr:hover': { bgcolor: '#e5e5e5' } }}>
+            <TableBody sx={{ '& td': { border: BORDER, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5, px: 2 }, '& tr': { bgcolor: byMode('#f8f8f8', '#232323') }, '& tr:hover': { bgcolor: byMode('#e5e5e5', '#2f2f2f') } }}>
               {promotionCategories.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={colCount} align="center" sx={{ py: 4 }}>
-                    <Typography sx={{ color: '#676b72' }}>
+                    <Typography sx={{ color: byMode('#676b72', '#a0a4aa') }}>
                       No promotion categories found. {canAddPromotionCategories && 'Click "New" to create your first promotion category.'}
                     </Typography>
                   </TableCell>
@@ -185,7 +186,7 @@ const PromotionCategories = () => {
                   <TableRow key={promotionCategory.id} data-testid={`promocat-row-${promotionCategory.id}`} sx={{ opacity: promotionCategory.isActive ? 1 : 0.55 }}>
                     <TableCell>
                       {promotionCategory.name}
-                      {!promotionCategory.isActive && <Typography component="span" sx={{ fontSize: 13, color: '#676b72', ml: 1 }}>(Inactive)</Typography>}
+                      {!promotionCategory.isActive && <Typography component="span" sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa'), ml: 1 }}>(Inactive)</Typography>}
                     </TableCell>
                     <TableCell>{promotionCategory.promotionSource || ''}</TableCell>
                     <TableCell><Mark on={!!promotionCategory.showOnOrder} /></TableCell>
@@ -195,12 +196,12 @@ const PromotionCategories = () => {
                     <TableCell sx={{ py: 0.5 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                         {canEditPromotionCategories && (
-                          <Button disableRipple startIcon={<EditIcon />} onClick={() => handleEditPromotionCategory(promotionCategory)} sx={rowActionSx('#28a745')}>
+                          <Button disableRipple startIcon={<EditIcon />} onClick={() => handleEditPromotionCategory(promotionCategory)} sx={rowActionSx(byMode('#28a745', '#7bf1a8'))}>
                             Edit
                           </Button>
                         )}
                         {canDeletePromotionCategories && (
-                          <Button disableRipple startIcon={<DeleteIcon />} onClick={() => setDeleteTarget(promotionCategory)} sx={rowActionSx('#dc3545')}>
+                          <Button disableRipple startIcon={<DeleteIcon />} onClick={() => setDeleteTarget(promotionCategory)} sx={rowActionSx(byMode('#dc3545', '#ffa2a2'))}>
                             Delete
                           </Button>
                         )}

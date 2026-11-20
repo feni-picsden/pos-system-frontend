@@ -1,5 +1,6 @@
 import React from 'react';
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
+import { byMode } from '../../theme/sfPalette';
 import ShopfrontSwitch from './ShopfrontSwitch';
 import { useAppPages } from '../../hooks/useAppPages';
 import { isExternalUrl } from '../../utils/quickLinks';
@@ -65,7 +66,7 @@ const QuickLinkTargetField = ({ value, onChange, disabled = false, sx, inputSx }
             onChange('', null); // the old target belongs to the other kind
           }}
         />
-        <Typography sx={{ fontSize: 13, color: '#676b72' }}>External</Typography>
+        <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>External</Typography>
       </Box>
     </Box>
   );

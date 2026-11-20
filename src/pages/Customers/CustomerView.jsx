@@ -79,11 +79,13 @@ import { formatSettingsDate, formatSettingsTime, formatDateTime as formatAppDate
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { GRID_TABLE_SX, WIDGET_SHADOW, SECTION_ROOT_SX } from "../../components/StockManagement/productViewStyles";
 import { formatCurrency } from "../../utils/currency";
+import { byMode } from "../../theme/sfPalette";
 
 // Make Payment dialog styling - the same set the Balance page's dialog uses,
 // so the two Make Payment dialogs look identical.
 const primaryButtonSx = {
   bgcolor: "#5ebbeb",
+  color: byMode(undefined, "#232323"),
   "&:hover": { bgcolor: "#4aa9dd", boxShadow: "none" },
   borderRadius: "12px",
   textTransform: "none",
@@ -95,9 +97,10 @@ const primaryButtonSx = {
 };
 const outlinedFieldSx = {
   borderRadius: "8px",
-  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#404040", borderWidth: "1px" },
-  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#000", borderWidth: "2px" },
+  bgcolor: byMode(undefined, "#121212"),
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1"), borderWidth: "1px" },
+  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#000", "#2b7fff"), borderWidth: "2px" },
 };
 const textFieldSx = {
   "& .MuiOutlinedInput-root": { fontSize: 16, ...outlinedFieldSx },
@@ -105,25 +108,25 @@ const textFieldSx = {
 const selectSx = {
   fontSize: 16,
   ...outlinedFieldSx,
-  "& .MuiSelect-icon": { color: "#404040" },
+  "& .MuiSelect-icon": { color: byMode("#404040", "#a1a1a1") },
 };
 const selectMenuProps = {
   PaperProps: {
     sx: {
       mt: 0.5,
       borderRadius: "8px",
-      border: "1px solid #e0e0e0",
+      border: byMode("1px solid #e0e0e0", "1px solid #a1a1a1"),
       boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
     },
   },
 };
 const menuItemSx = {
   fontSize: 16,
-  color: "#000",
-  "&:hover": { bgcolor: "#5ebbeb" },
+  color: byMode("#000", "#f8f8f8"),
+  "&:hover": { bgcolor: byMode("#5ebbeb", "#0084d1") },
   "&.Mui-selected": { bgcolor: "transparent" },
-  "&.Mui-selected:hover": { bgcolor: "#5ebbeb" },
-  "&.Mui-focusVisible": { bgcolor: "#5ebbeb" },
+  "&.Mui-selected:hover": { bgcolor: byMode("#5ebbeb", "#0084d1") },
+  "&.Mui-focusVisible": { bgcolor: byMode("#5ebbeb", "#0084d1") },
 };
 import { useAppDialogs } from "../../components/Common/AppDialogProvider";
 
@@ -588,7 +591,7 @@ const CustomerView = () => {
     ["Customer Group", customer.customerGroup?.name],
     // reference: the price list name links to that list
     ["Price List", effectivePriceList?.name && (
-      <Link component={RouterLink} to={`/customers/price-lists/${effectivePriceList.id}`} sx={{ color: "#0000ee", textDecorationColor: "#0000ee" }}>
+      <Link component={RouterLink} to={`/customers/price-lists/${effectivePriceList.id}`} sx={{ color: byMode("#0000ee", "#4ca0f5"), textDecorationColor: byMode("#0000ee", "#4ca0f5") }}>
         {effectivePriceList.name}
       </Link>
     )],
@@ -630,7 +633,7 @@ const CustomerView = () => {
       sx={{
         display: "flex",
         height: "calc(100vh - 50px)",
-        bgcolor: "#464a4e",
+        bgcolor: byMode("#464a4e", "#121212"),
         overflow: "hidden",
       }}
     >
@@ -660,13 +663,13 @@ const CustomerView = () => {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#fff",
-            border: "1px solid #000",
+            backgroundColor: byMode("#fff", "#232323"),
+            border: byMode("1px solid #000", "1px solid #232323"),
             borderRadius: 0,
           }}
         >
           <Typography
-            sx={{ fontWeight: 400, fontSize: "24px", color: "#000" }}
+            sx={{ fontWeight: 400, fontSize: "24px", color: byMode("#000", "#f8f8f8") }}
           >
             {customer.firstName} {customer.lastName}
           </Typography>
@@ -681,7 +684,7 @@ const CustomerView = () => {
             flexDirection: "column",
             minHeight: 0,
             borderRadius: 0,
-            border: "1px solid #000",
+            border: byMode("1px solid #000", "1px solid #373737"),
             overflowY: "auto",
           }}
         >
@@ -723,14 +726,14 @@ const CustomerView = () => {
                     onClick={openPaymentDialog}
                     disableElevation
                     sx={{
-                      bgcolor: "#32b643",
-                      color: "#f8f8f8",
+                      bgcolor: byMode("#32b643", "#7bf1a8"),
+                      color: byMode("#f8f8f8", "#232323"),
                       fontSize: "16px",
                       fontWeight: 700,
                       textTransform: "none",
                       borderRadius: 0,
                       transition: "background-color 0.2s, color 0.2s",
-                      "&:hover": { bgcolor: "#2a9c39" },
+                      "&:hover": { bgcolor: byMode("#2a9c39", "#5ee08f") },
                       px: 3,
                     }}
                   >
@@ -741,14 +744,14 @@ const CustomerView = () => {
                     disableElevation
                     // same shape as Make Payment beside it (reference: both square)
                     sx={{
-                      bgcolor: "#1976d2",
-                      color: "#f8f8f8",
+                      bgcolor: byMode("#1976d2", "#5ebbeb"),
+                      color: byMode("#f8f8f8", "#232323"),
                       fontSize: "16px",
                       fontWeight: 700,
                       textTransform: "none",
                       borderRadius: 0,
                       transition: "background-color 0.2s, color 0.2s",
-                      "&:hover": { bgcolor: "#115293" },
+                      "&:hover": { bgcolor: byMode("#115293", "#4aa9dd") },
                       px: 3,
                     }}
                     component={RouterLink} to={`/customers/balance?customerId=${id}&returnTo=customer`}
@@ -773,20 +776,20 @@ const CustomerView = () => {
                 <TableContainer sx={{ flexShrink: 0 }}>
                   <Table>
                     <TableHead>
-                      <TableRow sx={{ bgcolor: "#5ebbeb" }}>
-                        <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                      <TableRow sx={{ bgcolor: byMode("#5ebbeb", "#333333") }}>
+                        <TableCell sx={{ color: byMode("white", "#5ebbeb"), fontWeight: 600 }}>
                           Timestamp
                         </TableCell>
-                        <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                        <TableCell sx={{ color: byMode("white", "#5ebbeb"), fontWeight: 600 }}>
                           Invoice Number
                         </TableCell>
-                        <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                        <TableCell sx={{ color: byMode("white", "#5ebbeb"), fontWeight: 600 }}>
                           User
                         </TableCell>
-                        <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                        <TableCell sx={{ color: byMode("white", "#5ebbeb"), fontWeight: 600 }}>
                           Total
                         </TableCell>
-                        <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                        <TableCell sx={{ color: byMode("white", "#5ebbeb"), fontWeight: 600 }}>
                           Outstanding
                         </TableCell>
                       </TableRow>
@@ -917,7 +920,7 @@ const CustomerView = () => {
               // grid, white header row carrying the widget shadow.
               <TableContainer sx={{ flex: 1, ...SECTION_ROOT_SX }}>
                 {/* fixed widths (reference): auto layout gave From/To most of the row */}
-                <Table sx={{ ...GRID_TABLE_SX, tableLayout: "fixed", "& thead tr": { backgroundColor: "#fff", boxShadow: WIDGET_SHADOW } }}>
+                <Table sx={{ ...GRID_TABLE_SX, tableLayout: "fixed", "& thead tr": { backgroundColor: byMode("#fff", "#232323"), boxShadow: WIDGET_SHADOW } }}>
                   <TableHead>
                     <TableRow>
                       {[["Field", "31%"], ["From", "13.5%"], ["To", "13.5%"], ["User", "14%"], ["Timestamp", "28%"]].map(([h, w]) => (
@@ -988,7 +991,7 @@ const CustomerView = () => {
               <TableContainer
                 sx={{
                   flex: 1,
-                  border: "1px solid #000",
+                  border: byMode("1px solid #000", "1px solid #373737"),
                   borderRadius: 0,
                 }}
               >
@@ -998,9 +1001,9 @@ const CustomerView = () => {
                 <Table
                   sx={{
                     "& td, & th": { border: "none" },
-                    "& td": { fontSize: "16px", color: "#000", padding: "8px 8px 8px 10px", textAlign: "center" },
+                    "& td": { fontSize: "16px", color: byMode("#000", "#f8f8f8"), padding: "8px 8px 8px 10px", textAlign: "center" },
                     "& td.cv-item": { textAlign: "left" },
-                    "& tr.cv-last td": { borderBottom: "1px solid #6b6b6b" },
+                    "& tr.cv-last td": { borderBottom: byMode("1px solid #6b6b6b", "1px solid #373737") },
                   }}
                 >
                   <TableHead>
@@ -1010,13 +1013,13 @@ const CustomerView = () => {
                           <TableCell
                             key={h}
                             sx={{
-                              bgcolor: "#5ebbeb",
-                              color: "#f8f8f8",
+                              bgcolor: byMode("#5ebbeb", "#333333"),
+                              color: byMode("#f8f8f8", "#5ebbeb"),
                               fontSize: "16px",
                               fontWeight: 700,
                               padding: "8px",
                               textAlign: "center",
-                              ...(i < all.length - 1 && { borderRight: "1px solid #3d8fbd !important" }),
+                              ...(i < all.length - 1 && { borderRight: byMode("1px solid #3d8fbd !important", "1px solid #4a4a4a !important") }),
                             }}
                           >
                             {h}
@@ -1033,7 +1036,7 @@ const CustomerView = () => {
                           <TableRow
                             key={`${sale.id}-${itemIndex}`}
                             className={itemIndex === sale.items.length - 1 ? "cv-last" : undefined}
-                            sx={{ bgcolor: saleIndex % 2 === 0 ? "#e8e8e8" : "#fff" }}
+                            sx={{ bgcolor: saleIndex % 2 === 0 ? byMode("#e8e8e8", "#2a2a2a") : byMode("#fff", "#232323") }}
                           >
                             <TableCell>{when}</TableCell>
                             <TableCell>{sale.user?.name || "-"}</TableCell>
@@ -1045,7 +1048,7 @@ const CustomerView = () => {
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} align="center" sx={{ fontSize: "16px", color: "#000" }}>
+                        <TableCell colSpan={5} align="center" sx={{ fontSize: "16px", color: byMode("#000", "#f8f8f8") }}>
                           No sales found
                         </TableCell>
                       </TableRow>
@@ -1076,8 +1079,8 @@ const CustomerView = () => {
             height: 62,
             display: "flex",
             alignItems: "center",
-            backgroundColor: "#f8f8f8",
-            border: "1px solid #000",
+            backgroundColor: byMode("#f8f8f8", "#232323"),
+            border: byMode("1px solid #000", "1px solid #232323"),
             borderRadius: 0,
             boxShadow: "rgba(0,0,0,0.25) 0 0 30px 0",
           }}
@@ -1093,9 +1096,9 @@ const CustomerView = () => {
               bgcolor: "transparent",
               borderRadius: 0,
               boxShadow: "unset",
-              color: "#32b643",
+              color: byMode("#32b643", "#7bf1a8"),
               transition: "color 0.2s",
-              "&:hover": { bgcolor: "transparent", color: "#16a34a" },
+              "&:hover": { bgcolor: "transparent", color: byMode("#16a34a", "#5ee08f") },
             }}
           >
             Edit
@@ -1114,17 +1117,17 @@ const CustomerView = () => {
             sx={{
               width: 292,
               p: 2,
-              bgcolor: "#f8f8f8",
+              bgcolor: byMode("#f8f8f8", "#232323"),
               borderRadius: 0,
               height: "fit-content",
-              border: "1px solid #000",
+              border: byMode("1px solid #000", "1px solid #232323"),
               boxShadow: "rgba(0,0,0,0.25) 0 0 30px 0",
             }}
           >
             <List sx={{ py: 0 }}>
               {navigationItems.map((item) => {
                 const active = activeTab === item.id;
-                const color = active ? "#5ebbeb" : "#000";
+                const color = active ? "#5ebbeb" : byMode("#000", "#f8f8f8");
                 const hoverColor = active ? "#31a8e5" : "#5ebbeb";
                 return (
                   <ListItem
@@ -1163,7 +1166,7 @@ const CustomerView = () => {
                         },
                         "& .MuiTypography-body2": {
                           fontSize: "12px",
-                          color: active ? "#5ebbeb" : "#676b72",
+                          color: active ? "#5ebbeb" : byMode("#676b72", "#d4d4d4"),
                         },
                       }}
                     />
@@ -1179,8 +1182,8 @@ const CustomerView = () => {
               height: 62,
               display: "flex",
               alignItems: "center",
-              backgroundColor: "#f8f8f8",
-              border: "1px solid #000",
+              backgroundColor: byMode("#f8f8f8", "#232323"),
+              border: byMode("1px solid #000", "1px solid #232323"),
               borderRadius: 0,
               boxShadow: "rgba(0,0,0,0.25) 0 0 30px 0",
             }}
@@ -1196,9 +1199,9 @@ const CustomerView = () => {
                 bgcolor: "transparent",
                 borderRadius: 0,
                 boxShadow: "unset",
-                color: "#e33430",
+                color: byMode("#e33430", "#ffa2a2"),
                 transition: "color 0.2s",
-                "&:hover": { bgcolor: "transparent", color: "#dc2626" },
+                "&:hover": { bgcolor: "transparent", color: byMode("#dc2626", "#ffb8b8") },
               }}
             >
               Delete
@@ -1422,7 +1425,7 @@ const CustomerView = () => {
                   Outstanding Invoices
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Typography variant="body2" sx={{ color: "#676b72" }}>
+                  <Typography variant="body2" sx={{ color: byMode("#676b72", "#a0a4aa") }}>
                     {formatCurrency(outstandingTotal - allocatedTotal)} Outstanding and{" "}
                     {formatCurrency(unallocatedTotal)} Unallocated
                   </Typography>
@@ -1436,7 +1439,7 @@ const CustomerView = () => {
                   <TableHead>
                     <TableRow
                       sx={{
-                        "& th": { bgcolor: "#5ebbeb", color: "white", fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                        "& th": { bgcolor: byMode("#5ebbeb", "#333333"), color: byMode("white", "#5ebbeb"), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                         "& th:first-of-type": { borderTopLeftRadius: "12px", borderBottomLeftRadius: "12px" },
                         "& th:last-of-type": { borderTopRightRadius: "12px", borderBottomRightRadius: "12px" },
                       }}
@@ -1451,9 +1454,9 @@ const CustomerView = () => {
                   </TableHead>
                   <TableBody
                     sx={{
-                      "& tr:nth-of-type(odd)": { bgcolor: "#ffffff" },
-                      "& tr:nth-of-type(even)": { bgcolor: "#f5f5f5" },
-                      "& td": { border: 0, fontSize: 16, color: "#000" },
+                      "& tr:nth-of-type(odd)": { bgcolor: byMode("#ffffff", "#232323") },
+                      "& tr:nth-of-type(even)": { bgcolor: byMode("#f5f5f5", "#2a2a2a") },
+                      "& td": { border: 0, fontSize: 16, color: byMode("#000", "#f8f8f8") },
                     }}
                   >
                     {/* Return credits (negative lines) show in the balance table but
@@ -1492,7 +1495,7 @@ const CustomerView = () => {
                   </TableBody>
                   {outstandingSales.length > 0 && (
                     <TableFooter>
-                      <TableRow sx={{ "& td": { border: 0, fontSize: 16, color: "#000", fontWeight: 700 } }}>
+                      <TableRow sx={{ "& td": { border: 0, fontSize: 16, color: byMode("#000", "#f8f8f8"), fontWeight: 700 } }}>
                         <TableCell colSpan={3}>TOTAL</TableCell>
                         <TableCell>{formatCurrency(invoicesTotal)}</TableCell>
                         <TableCell>{formatCurrency(outstandingTotal)}</TableCell>
@@ -1509,7 +1512,7 @@ const CustomerView = () => {
         <DialogActions sx={{ p: 2, borderTop: 1, borderColor: "divider" }}>
           <Button
             onClick={() => setPaymentDialogOpen(false)}
-            sx={{ ...primaryButtonSx, color: "white" }}
+            sx={{ ...primaryButtonSx, color: byMode("white", "#232323") }}
           >
             Cancel
           </Button>

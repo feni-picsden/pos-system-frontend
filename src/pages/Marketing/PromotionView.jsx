@@ -37,6 +37,7 @@ import {
   RAIL_FOCUS_SX,
   activateOnKey,
 } from "../../components/StockManagement/productViewStyles";
+import { byMode } from "../../theme/sfPalette";
 
 const PromotionView = () => {
   const { id } = useParams();
@@ -149,7 +150,7 @@ const PromotionView = () => {
   const HEADER_LABEL_SX = {
     fontSize: 16,
     fontVariant: "all-small-caps",
-    color: "#676b72",
+    color: byMode("#676b72", "#a0a4aa"),
     lineHeight: 1.2,
   };
   // Reference section label ("CRITERIA" / "MISSING ITEMS").
@@ -222,7 +223,7 @@ const PromotionView = () => {
 
   // Reference prints an unknown / zero margin as a red "0.00%" (user 05/11/2026), never N/A.
   const formatProfitPct = (v) => (v == null || isNaN(v) ? '0.00%' : `${v.toFixed(2)}%`);
-  const profitColor = (v) => (v == null || isNaN(v) || v <= 0 ? '#e33430' : '#313439');
+  const profitColor = (v) => (v == null || isNaN(v) || v <= 0 ? byMode('#e33430', '#ffa2a2') : byMode('#313439', '#f8f8f8'));
 
   // Same wording as the editor's collapsed summary ("Spend $70.00 (amount only)",
   // "Purchase 2 to receive a total price of $15.00").
@@ -266,7 +267,7 @@ const PromotionView = () => {
 
   return (
     <Box
-      sx={{ display: "flex", height: "calc(100vh - 50px)", bgcolor: "#464a4e" }}
+      sx={{ display: "flex", height: "calc(100vh - 50px)", bgcolor: byMode("#464a4e", "#121212") }}
     >
       {/* Main Content */}
       <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -281,8 +282,8 @@ const PromotionView = () => {
           sx={{
             textAlign: "center",
             mb: 1,
-            backgroundColor: "#f8f8f8",
-            border: "1px solid #000",
+            backgroundColor: byMode("#f8f8f8", "#232323"),
+            border: byMode("1px solid #000", "1px solid #232323"),
             padding: "16px",
             boxShadow: WIDGET_SHADOW,
           }}
@@ -291,7 +292,7 @@ const PromotionView = () => {
             sx={{
               fontWeight: 400,
               fontSize: 24,
-              color: "#000",
+              color: byMode("#000", "#f8f8f8"),
               lineHeight: "29px",
             }}
           >
@@ -305,7 +306,7 @@ const PromotionView = () => {
             flex: 1,
             display: "flex",
             flexDirection: "column",
-            bgcolor: "#fff",
+            bgcolor: byMode("#fff", "#121212"),
             overflow: "auto",
           }}
         >
@@ -324,7 +325,7 @@ const PromotionView = () => {
                     </TableRow>
                     <TableRow>
                       {/* Reference: a plain centred note line, no shading. */}
-                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: "400 !important", color: "#000" }}>
+                      <TableCell colSpan={5} sx={{ textAlign: "center", fontSize: 16, fontWeight: "400 !important", color: byMode("#000", "#f8f8f8") }}>
                         Please Note: Revisions may take up to five minutes to appear
                       </TableCell>
                     </TableRow>
@@ -387,17 +388,17 @@ const PromotionView = () => {
                             mt: "6px",
                             px: "10px",
                             py: "3px",
-                            border: "1px solid #a3a3a3",
+                            border: byMode("1px solid #a3a3a3", "1px solid #a1a1a1"),
                             borderRadius: "4px",
                             fontSize: 16,
-                            color: "#313439",
+                            color: byMode("#313439", "#f8f8f8"),
                             lineHeight: 1.3,
                           }}
                         >
                           {h.value}
                         </Box>
                       ) : (
-                        <Typography sx={{ fontSize: 24, color: "#313439", lineHeight: 1.3 }}>
+                        <Typography sx={{ fontSize: 24, color: byMode("#313439", "#f8f8f8"), lineHeight: 1.3 }}>
                           {h.value}
                         </Typography>
                       )}
@@ -430,14 +431,14 @@ const PromotionView = () => {
                         fontSize: 12,
                         letterSpacing: "1px",
                         textTransform: "uppercase",
-                        color: "#676b72",
+                        color: byMode("#676b72", "#a0a4aa"),
                         mb: 1.5,
                       }}
                     >
                       Combo Deal
                     </Typography>
                     {comboViewItems.length === 0 ? (
-                      <Typography sx={{ color: "#676b72", fontStyle: "italic" }}>
+                      <Typography sx={{ color: byMode("#676b72", "#a0a4aa"), fontStyle: "italic" }}>
                         No products configured in this combo.
                       </Typography>
                     ) : (
@@ -452,16 +453,16 @@ const PromotionView = () => {
                             mt: 0.75,
                           }}
                         >
-                          <Typography sx={{ color: "#313439" }}>
+                          <Typography sx={{ color: byMode("#313439", "#f8f8f8") }}>
                             {item.productName || "Unknown Product"} x {item.quantity || 1}
                           </Typography>
-                          <Typography sx={{ color: "#313439", whiteSpace: "nowrap" }}>
+                          <Typography sx={{ color: byMode("#313439", "#f8f8f8"), whiteSpace: "nowrap" }}>
                             ${(parseFloat(item.unitPrice) || 0).toFixed(2)} each
                           </Typography>
                         </Box>
                       ))
                     )}
-                    <Typography sx={{ fontWeight: 700, color: "#313439", mt: 1.5 }}>
+                    <Typography sx={{ fontWeight: 700, color: byMode("#313439", "#f8f8f8"), mt: 1.5 }}>
                       Combo Price ${isNaN(comboPriceVal) ? "0.00" : comboPriceVal.toFixed(2)}{" "}
                       (normally ${normalTotal.toFixed(2)})
                     </Typography>
@@ -475,7 +476,7 @@ const PromotionView = () => {
               {/* Reference: the CRITERIA label always renders; with none, a plain line says so. */}
               <Typography sx={SECTION_LABEL_SX}>Criteria</Typography>
               {criteria.length === 0 && (
-                <Typography sx={{ fontSize: 16, color: "#313439" }}>This promotion has no criteria</Typography>
+                <Typography sx={{ fontSize: 16, color: byMode("#313439", "#f8f8f8") }}>This promotion has no criteria</Typography>
               )}
               {criteria.map((criterion, criterionIndex) => {
                 const criterionProfit = calculateCriterionProfit(criterion);
@@ -483,7 +484,7 @@ const PromotionView = () => {
                 return (
                   <Box key={criterionIndex} sx={{ mb: 3 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
-                      <Typography sx={{ fontSize: 16, fontWeight: 700, color: "#313439" }}>
+                      <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode("#313439", "#f8f8f8") }}>
                         {getCriterionSummary(criterion)}
                       </Typography>
                       <Typography
@@ -511,7 +512,7 @@ const PromotionView = () => {
                                 fontSize: 16,
                                 fontVariant: "all-small-caps",
                                 letterSpacing: "1px",
-                                color: "#676b72",
+                                color: byMode("#676b72", "#a0a4aa"),
                                 flexShrink: 0,
                                 minWidth: 96,
                                 textAlign: "right",
@@ -523,7 +524,7 @@ const PromotionView = () => {
                                 ? `${item.type || "Product"}s`
                                 : ""}
                             </Typography>
-                            <Typography component="span" sx={{ fontSize: 16, color: "#313439" }}>
+                            <Typography component="span" sx={{ fontSize: 16, color: byMode("#313439", "#f8f8f8") }}>
                               {item.name || item.productName || "Unknown Product"}
                             </Typography>
                           </Box>
@@ -544,7 +545,7 @@ const PromotionView = () => {
               {missingItems.length > 0 && (
                 <Box sx={{ mt: 4 }}>
                   <Typography sx={SECTION_LABEL_SX}>Missing Items</Typography>
-                  <Typography sx={{ fontSize: 16, color: "#313439", mb: 2 }}>
+                  <Typography sx={{ fontSize: 16, color: byMode("#313439", "#f8f8f8"), mb: 2 }}>
                     We&apos;ve detected the following items exist in the promotion, however
                     aren&apos;t available in this promotion for your store.
                   </Typography>
@@ -559,10 +560,10 @@ const PromotionView = () => {
                         fontSize: 16,
                         fontVariant: "all-small-caps",
                         letterSpacing: "1px",
-                        color: "#676b72",
+                        color: byMode("#676b72", "#a0a4aa"),
                         textAlign: "center",
                       },
-                      "& .mi-cell": { fontSize: 16, color: "#313439", textAlign: "center" },
+                      "& .mi-cell": { fontSize: 16, color: byMode("#313439", "#f8f8f8"), textAlign: "center" },
                     }}
                   >
                     <Typography className="mi-head">Item</Typography>
@@ -581,17 +582,17 @@ const PromotionView = () => {
                         <Button
                           component={RouterLink} to={`/marketing/promotions/${id}/edit`}
                           sx={{
-                            border: "1px solid #e0e0e0",
+                            border: byMode("1px solid #e0e0e0", "1px solid #a1a1a1"),
                             borderRadius: "12px",
                             height: 42,
                             padding: "8px 32px",
                             fontSize: 16,
                             fontWeight: 700,
                             textTransform: "none",
-                            color: "#16a34a",
+                            color: byMode("#16a34a", "#7bf1a8"),
                             backgroundColor: "transparent",
                             boxShadow: "none",
-                            "&:hover": { backgroundColor: "transparent", borderColor: "#16a34a" },
+                            "&:hover": { backgroundColor: "transparent", borderColor: byMode("#16a34a", "#7bf1a8") },
                           }}
                         >
                           Add to Promotion
@@ -630,7 +631,7 @@ const PromotionView = () => {
             height: 62,
             minHeight: 62,
             mb: 1,
-            backgroundColor: "#f8f8f8",
+            backgroundColor: byMode("#f8f8f8", "#232323"),
             boxShadow: WIDGET_SHADOW,
             display: "flex",
             alignItems: "center",
@@ -638,7 +639,7 @@ const PromotionView = () => {
             p: 1,
             gap: 1,
             cursor: "pointer",
-            color: "#32b643",
+            color: byMode("#32b643", "#7bf1a8"),
             // Reference transitions colour only - no movement, no bg change.
             transition: "color 0.2s ease",
             "&:hover": { color: "rgb(85, 201, 100)" },
@@ -666,7 +667,7 @@ const PromotionView = () => {
             role="tablist"
             aria-label="Promotion sections"
             sx={{
-              backgroundColor: "#f8f8f8",
+              backgroundColor: byMode("#f8f8f8", "#232323"),
               boxShadow: WIDGET_SHADOW,
               // Reference card hugs its two rows; it does not fill the rail.
               flex: "0 0 auto",
@@ -694,7 +695,7 @@ const PromotionView = () => {
                     borderRadius: 0,
                     cursor: "pointer",
                     overflow: "hidden",
-                    color: isActive ? "#5ebbeb" : "#000",
+                    color: isActive ? "#5ebbeb" : byMode("#000", "#f8f8f8"),
                     transition: "color 0.2s ease",
                     "&:hover": {
                       color: isActive ? "rgb(49, 168, 229)" : "#5ebbeb",
@@ -738,7 +739,7 @@ const PromotionView = () => {
                       sx={{
                         fontSize: 12,
                         lineHeight: 1.2,
-                        color: isActive ? "inherit" : "#676b72",
+                        color: isActive ? "inherit" : byMode("#676b72", "#d4d4d4"),
                         transition: "color 0.2s ease",
                       }}
                     >
@@ -762,14 +763,14 @@ const PromotionView = () => {
               height: 62,
               minHeight: 62,
               mt: 1,
-              backgroundColor: "#f8f8f8",
+              backgroundColor: byMode("#f8f8f8", "#232323"),
               boxShadow: WIDGET_SHADOW,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 1,
               cursor: "pointer",
-              color: "#e3342f",
+              color: byMode("#e3342f", "#ffa2a2"),
               transition: "color 0.2s ease",
               "&:hover": { color: "rgb(243, 170, 168)" },
             }}

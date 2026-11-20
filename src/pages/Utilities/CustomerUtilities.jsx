@@ -34,11 +34,12 @@ import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { FileSearchGlyph } from '../../components/Common/EmptyResults';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 const NO_GROUP = '__none__';
 
 // Reference: plain black label above every control, 16px fw400
-const labelSx = { color: '#000', fontSize: 16, fontWeight: 400, mb: 0.5 };
+const labelSx = { color: byMode('#000', '#f8f8f8'), fontSize: 16, fontWeight: 400, mb: 0.5 };
 
 // Parity system input chrome — reference select control is h=42
 // `&.` matches a bare <Select> (its root IS the OutlinedInput); `& .` matches a TextField's inner root.
@@ -46,20 +47,21 @@ const inputSx = {
   '&.MuiOutlinedInput-root, & .MuiOutlinedInput-root': {
     borderRadius: '8px',
     height: 42,
-    bgcolor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    bgcolor: byMode('#fff', '#121212'),
+    '& fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   },
   '& .MuiSelect-select': { py: 0 },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Reference open list (same as Product Utilities): 10px under the field, 1px dark
 // border, 8px radius, 56px rows (five visible), picked row in blue, faint grey hover.
-const activeRowSx = { bgcolor: 'rgba(0, 0, 0, 0.04)' };
+const activeRowSx = { bgcolor: byMode('rgba(0, 0, 0, 0.04)', '#0084d1'), color: byMode(undefined, '#fafafa') };
 const listPaperSx = {
   mt: '10px',
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
+  bgcolor: byMode(undefined, '#232323'),
   borderRadius: '8px',
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
 };
@@ -71,7 +73,7 @@ const menuProps = {
       ...listPaperSx,
       maxHeight: 289,
       '& .MuiMenu-list': { py: '2px' },
-      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
       // .Mui-focusVisible is auto-applied to the selected item on open
       '& .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': { bgcolor: 'transparent', color: '#00a6f4' },
       '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover': activeRowSx,
@@ -82,7 +84,7 @@ const menuProps = {
 const autocompletePaperSx = {
   ...listPaperSx,
   '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
-  '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, fontWeight: 400, color: '#000' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8') },
   '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent', color: '#00a6f4' },
   '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': activeRowSx,
 };
@@ -91,8 +93,8 @@ const autocompletePaperSx = {
 const tagChipSx = {
   height: 26,
   borderRadius: '4px',
-  bgcolor: '#e5e5e5',
-  color: '#000',
+  bgcolor: byMode('#e5e5e5', '#3a3a3a'),
+  color: byMode('#000', '#f8f8f8'),
   fontSize: 16,
   '& .MuiChip-label': { px: 1 },
 };
@@ -103,9 +105,9 @@ const rowCheckSx = {
   height: 32,
   p: 0,
   borderRadius: '4px',
-  color: '#000',
-  '&.Mui-checked': { color: '#000' },
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
+  color: byMode('#000', '#f8f8f8'),
+  '&.Mui-checked': { color: byMode('#000', '#f8f8f8') },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.1)', 'rgba(255,255,255,0.1)') },
 };
 
 const CustomerUtilities = () => {
@@ -273,10 +275,10 @@ const CustomerUtilities = () => {
   return (
     // pt 29px: reference title sits at y=79 (21px lower than an 8px top pad)
     // pb 74px: the last row clears the fixed 58px footer bar (same as Product Utilities)
-    <Box sx={{ px: 1, pt: '29px', pb: '74px', bgcolor: '#fff', minHeight: 'calc(100vh - 50px)' }}>
+    <Box sx={{ px: 1, pt: '29px', pb: '74px', bgcolor: byMode('#fff', '#121212'), minHeight: 'calc(100vh - 50px)' }}>
         <Typography
           variant="h1"
-          sx={{ color: '#000', fontSize: 32, fontWeight: 700, mb: 2 }}
+          sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 32, fontWeight: 700, mb: 2 }}
         >
           Customer Utilities
         </Typography>
@@ -300,7 +302,7 @@ const CustomerUtilities = () => {
                   onChange={(_e, value) => setSelectedOutlets(value)}
                   sx={{
                     '& .MuiAutocomplete-clearIndicator': { visibility: selectedOutlets.length ? 'visible' : 'hidden', p: '2px' },
-                    '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: '#000' },
+                    '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: byMode('#000', '#f8f8f8') },
                     // multi-select input root pads 6px; line the placeholder up with the
                     // 14px text inset of the other fields (chips sit at the same edge)
                     '& .MuiAutocomplete-inputRoot': { pl: '14px', py: 0 },
@@ -316,7 +318,7 @@ const CustomerUtilities = () => {
                           checked={selected}
                           icon={<SquareIcon />}
                           checkedIcon={<CheckSquareIcon />}
-                          sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                          sx={{ p: 0, mr: '6px', color: byMode('#000', '#f8f8f8'), '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
                         />
                         {option.name}
                       </li>
@@ -354,7 +356,7 @@ const CustomerUtilities = () => {
                 onChange={(_e, value) => setSelectedCustomerGroup(value ? value.id : '')}
                 sx={{
                   '& .MuiAutocomplete-clearIndicator': { visibility: 'visible', p: '2px' },
-                  '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: '#000' },
+                  '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: byMode('#000', '#f8f8f8') },
                   // same 14px text inset as the Select / date fields beside it
                   '& .MuiAutocomplete-inputRoot': { pl: '14px', py: 0 },
                   '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': { pl: 0 },
@@ -425,7 +427,7 @@ const CustomerUtilities = () => {
                 disableRipple
                 sx={{
                   bgcolor: '#5ebbeb',
-                  color: '#fff',
+                  color: byMode('#fff', '#232323'),
                   width: 153,
                   height: 42,
                   borderRadius: '12px',
@@ -443,14 +445,14 @@ const CustomerUtilities = () => {
           </Grid>
         </Box>
 
-        {error && <Typography sx={{ color: '#dc2626', mb: 2 }}>{error}</Typography>}
+        {error && <Typography sx={{ color: byMode('#dc2626', '#ffa2a2'), mb: 2 }}>{error}</Typography>}
 
         {/* Customers Table - an empty result drops the table for the reference
             centred icon + hint (same as Product Utilities) */}
         {!loading && customers.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 5, gap: 1.5 }}>
             <FileSearchGlyph />
-            <Typography sx={{ fontSize: 16, color: '#000' }}>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
               No results found. Change search filters and try again.
             </Typography>
           </Box>
@@ -463,8 +465,8 @@ const CustomerUtilities = () => {
                 <TableRow
                   sx={{
                     '& th': {
-                      bgcolor: '#5ebbeb',
-                      color: '#fff',
+                      bgcolor: byMode('#5ebbeb', '#333333'),
+                      color: byMode('#fff', '#5ebbeb'),
                       fontWeight: 700,
                       fontSize: 16,
                       border: 0,
@@ -494,7 +496,7 @@ const CustomerUtilities = () => {
                         icon={<SquareIcon />}
                         checkedIcon={<CheckSquareSolidIcon />}
                         inputProps={{ 'aria-label': 'Select all customers' }}
-                        sx={{ ...rowCheckSx, color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                        sx={{ ...rowCheckSx, color: byMode('#fff', '#5ebbeb'), '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: byMode('#fff', '#5ebbeb') } }}
                       />
                       Name
                     </Box>
@@ -509,16 +511,16 @@ const CustomerUtilities = () => {
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={2} align="center" sx={{ py: 4, border: 0 }}>
-                      <Typography sx={{ color: '#676b72' }}>Loading customers...</Typography>
+                      <Typography sx={{ color: byMode('#676b72', '#a0a4aa') }}>Loading customers...</Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
                   customers.map((customer) => (
                     <TableRow
                       key={customer.id}
-                      sx={{ bgcolor: '#fff', height: 74, '& td': { border: 0, py: 0 } }}
+                      sx={{ bgcolor: byMode('#fff', '#232323'), height: 74, '& td': { border: 0, py: 0 } }}
                     >
-                      <TableCell sx={{ color: '#000', fontSize: 16 }}>
+                      <TableCell sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 16 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Checkbox
                             checked={selectedCustomers.includes(customer.id)}
@@ -545,7 +547,7 @@ const CustomerUtilities = () => {
                             py: 1,
                             minWidth: 0,
                             borderRadius: '12px',
-                            color: '#0284c7',
+                            color: byMode('#0284c7', '#74d4ff'),
                             fontSize: 16,
                             fontWeight: 700,
                             textTransform: 'none',
@@ -602,7 +604,7 @@ const CustomerUtilities = () => {
               textTransform: 'none',
               boxShadow: 'none',
               '&:hover': { bgcolor: '#e7000b', boxShadow: 'none' },
-              '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#8e8e8e', cursor: 'not-allowed', pointerEvents: 'auto' },
+              '&.Mui-disabled': { bgcolor: byMode('#e5e5e5', '#3a3a3a'), color: byMode('#8e8e8e', '#a0a4aa'), cursor: 'not-allowed', pointerEvents: 'auto' },
             }}
           >
             Delete Customers

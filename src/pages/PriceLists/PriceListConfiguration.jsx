@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { byMode } from '../../theme/sfPalette';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import ProductPricesDialog from '../../components/PriceLists/ProductPricesDialog';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
@@ -84,7 +85,7 @@ const actionButtonSx = (bg, hover = bg) => ({
   px: 3,
   transition: 'background 0.2s ease, color 0.2s ease',
   '&:hover': { bgcolor: hover, borderColor: hover, boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#9ca3af', borderColor: '#9ca3af', color: '#f3f4f6' },
+  '&.Mui-disabled': { bgcolor: byMode('#9ca3af', '#3a3a3a'), borderColor: byMode('#9ca3af', '#3a3a3a'), color: byMode('#f3f4f6', '#a0a4aa') },
 });
 
 // Keyboard focus ring on the toggles (sky-400, 2px offset) — reference spec.
@@ -98,7 +99,7 @@ const switchSx = {
 const toggleLabelSx = {
   m: 0,
   gap: '.5rem',
-  '& .MuiFormControlLabel-label': { fontSize: 16, color: '#313439' },
+  '& .MuiFormControlLabel-label': { fontSize: 16, color: byMode('#313439', '#f8f8f8') },
 };
 
 // Every price-list line fades in, matching `animation: priceListLineFade 1s ease`.
@@ -202,13 +203,13 @@ const adornmentFor = (method) => {
 };
 
 // Reference inputs: label above, rounded box, black border on focus.
-const fieldLabelSx = { fontSize: 13, color: '#000', mb: 0.5, display: 'block' };
+const fieldLabelSx = { fontSize: 13, color: byMode('#000', '#f8f8f8'), mb: 0.5, display: 'block' };
 const inputSx = {
-  '& .MuiOutlinedInput-root': { height: 46, borderRadius: '8px', fontSize: 16, bgcolor: '#fff' },
+  '& .MuiOutlinedInput-root': { height: 46, borderRadius: '8px', fontSize: 16, bgcolor: byMode('#fff', '#121212') },
   '& .MuiOutlinedInput-input': { p: '8px 16px' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
 };
 // Reference dropdown: selected option in blue text, hovered row light blue.
 const selectMenuProps = {
@@ -216,12 +217,13 @@ const selectMenuProps = {
     sx: {
       mt: 0.5,
       borderRadius: '8px',
-      border: '1px solid #404040',
+      border: byMode('1px solid #404040', '1px solid #a1a1a1'),
+      bgcolor: byMode(undefined, '#232323'),
       boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
       maxHeight: 300,
-      '& .MuiMenuItem-root': { fontSize: 16, py: 1.75, px: 2, color: '#000' },
-      '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#1c9cf0' },
-      '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#7dd3fc', color: '#000' },
+      '& .MuiMenuItem-root': { fontSize: 16, py: 1.75, px: 2, color: byMode('#000', '#f8f8f8') },
+      '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: byMode('#1c9cf0', '#00a6f4') },
+      '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover': { bgcolor: byMode('#7dd3fc', '#0084d1'), color: byMode('#000', '#fafafa') },
     },
   },
 };
@@ -826,30 +828,30 @@ const PriceListConfiguration = () => {
           minHeight: 74,
           boxSizing: 'border-box',
           position: 'relative',
-          bgcolor: active ? '#fff' : '#e2e8f0',
-          border: `1px solid ${active ? '#000' : '#cbd5e1'}`,
+          bgcolor: active ? byMode('#fff', '#333333') : byMode('#e2e8f0', '#232323'),
+          border: active ? byMode('1px solid #000', '1px solid #a1a1a1') : byMode('1px solid #cbd5e1', '1px solid #373737'),
           borderRadius: '8px',
           cursor: 'pointer',
           boxShadow: active ? '0 2px 8px rgba(0,0,0,0.18)' : 'none',
           transition: 'background 0.15s ease, border-color 0.15s ease',
-          '&:hover': { bgcolor: '#fff' },
+          '&:hover': { bgcolor: byMode('#fff', '#333333') },
           '&:focus-visible': { outline: '2px solid #5ebbeb', outlineOffset: '-2px' },
         }}
       >
         {/* reference: green "+" (in the list), red "−" when excluded */}
         {excluded
-          ? <RemoveIcon sx={{ color: '#e33430', fontSize: 22, flexShrink: 0 }} />
-          : <AddIcon sx={{ color: '#32b643', fontSize: 22, flexShrink: 0 }} />}
+          ? <RemoveIcon sx={{ color: byMode('#e33430', '#ffa2a2'), fontSize: 22, flexShrink: 0 }} />
+          : <AddIcon sx={{ color: byMode('#32b643', '#7bf1a8'), fontSize: 22, flexShrink: 0 }} />}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: 12, color: '#6b7280', lineHeight: 1.3 }}>
+          <Typography sx={{ fontSize: 12, color: byMode('#6b7280', '#a0a4aa'), lineHeight: 1.3 }}>
             {typeText}{costText ? ` – Cost $${money(costText)}` : ''}
           </Typography>
-          <Typography sx={{ fontSize: 16, color: '#000', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {name}
           </Typography>
         </Box>
-        <Box sx={{ width: 150, textAlign: 'center', flexShrink: 0, color: '#000' }}>
-          <Typography sx={{ fontSize: 16, lineHeight: 1.3, color: top === 'Invalid' ? '#e33430' : 'inherit' }}>{top}</Typography>
+        <Box sx={{ width: 150, textAlign: 'center', flexShrink: 0, color: byMode('#000', '#f8f8f8') }}>
+          <Typography sx={{ fontSize: 16, lineHeight: 1.3, color: top === 'Invalid' ? byMode('#e33430', '#ffa2a2') : 'inherit' }}>{top}</Typography>
           {bottom && <Typography sx={{ fontSize: 16, lineHeight: 1.3 }}>{bottom}</Typography>}
         </Box>
         {/* reference: orange dot top-right on an unsaved card */}
@@ -875,12 +877,13 @@ const PriceListConfiguration = () => {
     const hasPrices = isProduct || rule.entityType === 'family';
     const unitCost = hasPrices ? unitCostOf(rule) : 0;
     const tierInputSx = { ...inputSx, '& .MuiOutlinedInput-root': { ...inputSx['& .MuiOutlinedInput-root'], height: 42 } };
-    const outlineButtonSx = (color) => ({
+    const outlineButtonSx = (color, darkColor) => ({
       ...actionButtonSx('#fff'),
-      color,
-      borderColor: color,
+      bgcolor: byMode('#fff', 'transparent'),
+      color: byMode(color, darkColor),
+      borderColor: byMode(color, darkColor),
       borderRadius: '8px',
-      '&:hover': { bgcolor: color, color: '#fff', borderColor: color },
+      '&:hover': { bgcolor: byMode(color, darkColor), color: byMode('#fff', '#232323'), borderColor: byMode(color, darkColor) },
     });
 
     return (
@@ -888,18 +891,18 @@ const PriceListConfiguration = () => {
         {/* Header (reference): "Product – Cost $x" over the name; See Prices / Remove Item */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, mb: 2 }}>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: 12, color: '#6b7280' }}>
+            <Typography sx={{ fontSize: 12, color: byMode('#6b7280', '#a0a4aa') }}>
               {subtitle}{hasPrices && unitCost ? ` – Cost $${money(unitCost)}` : ''}
             </Typography>
-            <Typography sx={{ fontSize: 20, color: '#000' }}>{title}</Typography>
+            <Typography sx={{ fontSize: 20, color: byMode('#000', '#f8f8f8') }}>{title}</Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexShrink: 0 }}>
             {hasPrices && (
-              <Button startIcon={<EyeIcon />} onClick={() => handleSeePrices(rule)} disableElevation sx={outlineButtonSx('#1c9cf0')}>
+              <Button startIcon={<EyeIcon />} onClick={() => handleSeePrices(rule)} disableElevation sx={outlineButtonSx('#1c9cf0', '#74d4ff')}>
                 See Prices
               </Button>
             )}
-            <Button startIcon={<DeleteIcon />} onClick={() => handleRemoveRule(rule.id)} disableElevation sx={outlineButtonSx('#e33430')}>
+            <Button startIcon={<DeleteIcon />} onClick={() => handleRemoveRule(rule.id)} disableElevation sx={outlineButtonSx('#e33430', '#ffa2a2')}>
               Remove Item
             </Button>
           </Box>
@@ -950,8 +953,8 @@ const PriceListConfiguration = () => {
                     gridTemplateColumns: '1fr 1fr 1fr 1fr 56px',
                     columnGap: 2,
                     alignItems: 'center',
-                    bgcolor: '#5ebbeb',
-                    color: '#f8f8f8',
+                    bgcolor: byMode('#5ebbeb', '#333333'),
+                    color: byMode('#f8f8f8', '#5ebbeb'),
                     fontWeight: 700,
                     fontSize: 16,
                     textAlign: 'center',
@@ -988,7 +991,7 @@ const PriceListConfiguration = () => {
                         disabled
                         inputProps={{ 'aria-label': 'Cost' }}
                         InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                        sx={{ ...tierInputSx, '& .MuiOutlinedInput-root.Mui-disabled': { bgcolor: '#d9d9d9' }, '& .Mui-disabled': { WebkitTextFillColor: '#000' } }}
+                        sx={{ ...tierInputSx, '& .MuiOutlinedInput-root.Mui-disabled': { bgcolor: byMode('#d9d9d9', '#3a3a3a') }, '& .Mui-disabled': { WebkitTextFillColor: byMode('#000', '#f8f8f8') } }}
                       />
                       <TextField
                         value={tier.percent || ''}
@@ -999,7 +1002,7 @@ const PriceListConfiguration = () => {
                       <IconButton
                         aria-label="Remove price"
                         onClick={() => handleRemoveQuantityTier(rule.id, index)}
-                        sx={{ width: 42, height: 42, border: '1px solid #e33430', borderRadius: '8px', color: '#e33430', '&:hover': { bgcolor: '#fde8e8' } }}
+                        sx={{ width: 42, height: 42, border: byMode('1px solid #e33430', '1px solid #ffa2a2'), borderRadius: '8px', color: byMode('#e33430', '#ffa2a2'), '&:hover': { bgcolor: byMode('#fde8e8', '#492625') } }}
                       >
                         <DeleteIcon sx={{ fontSize: 20 }} />
                       </IconButton>
@@ -1035,12 +1038,12 @@ const PriceListConfiguration = () => {
   };
 
   return (
-    <Box sx={{ bgcolor: '#fff' }}>
+    <Box sx={{ bgcolor: byMode('#fff', '#121212') }}>
       <Box sx={{ height: 'calc(100vh - 50px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Grey header band: name, toggles, add buttons */}
-        <Box sx={{ bgcolor: '#e2e8f0', px: 2, pt: 2, pb: 1.5, flexShrink: 0 }}>
+        <Box sx={{ bgcolor: byMode('#e2e8f0', '#232323'), px: 2, pt: 2, pb: 1.5, flexShrink: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-            <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: '#000', m: 0 }}>Editing</Typography>
+            <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8'), m: 0 }}>Editing</Typography>
             <Box
               component="input"
               type="text"
@@ -1054,12 +1057,12 @@ const PriceListConfiguration = () => {
                 width: 450,
                 maxWidth: '100%',
                 p: '0 16px',
-                border: '1px solid #404040',
+                border: byMode('1px solid #404040', '1px solid #a1a1a1'),
                 borderRadius: '8px',
-                backgroundColor: '#fff',
-                color: '#000',
+                backgroundColor: byMode('#fff', '#121212'),
+                color: byMode('#000', '#f8f8f8'),
                 boxSizing: 'border-box',
-                '&:focus': { outline: 'none', borderColor: '#000', borderWidth: 2 },
+                '&:focus': { outline: 'none', borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 },
               }}
             />
           </Box>
@@ -1099,7 +1102,7 @@ const PriceListConfiguration = () => {
         {/* Two panes */}
         <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
           {/* Left: search + cards */}
-          <Box sx={{ width: '48.5%', flexShrink: 0, bgcolor: '#eef2f7', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Box sx={{ width: '48.5%', flexShrink: 0, bgcolor: byMode('#eef2f7', '#1a1a1a'), display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <ClickAwayListener onClickAway={() => setSearchOpen(false)}>
               <Box sx={{ p: 1, flexShrink: 0, position: 'relative', zIndex: 3 }}>
                 <Box sx={{ position: 'relative' }}>
@@ -1119,22 +1122,22 @@ const PriceListConfiguration = () => {
                       width: '100%',
                       height: 42,
                       boxSizing: 'border-box',
-                      border: '1px solid #404040',
+                      border: byMode('1px solid #404040', '1px solid #a1a1a1'),
                       borderRadius: '8px',
-                      backgroundColor: '#fff',
-                      color: '#000',
+                      backgroundColor: byMode('#fff', '#121212'),
+                      color: byMode('#000', '#f8f8f8'),
                       fontSize: 16,
                       fontFamily: 'inherit',
                       padding: '0 3rem 0 1rem',
-                      '&:focus': { outline: 'none', borderColor: '#000' },
-                      '&::placeholder': { color: '#808080', opacity: 1 },
+                      '&:focus': { outline: 'none', borderColor: byMode('#000', '#2b7fff') },
+                      '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
                     }}
                   />
                   {searchTerm && (
                     <IconButton
                       aria-label="Clear search"
                       onClick={handleClearSearch}
-                      sx={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 26, height: 26, p: 0, color: '#404040' }}
+                      sx={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 26, height: 26, p: 0, color: byMode('#404040', '#a1a1a1') }}
                     >
                       <CloseIcon sx={{ fontSize: 18 }} />
                     </IconButton>
@@ -1149,8 +1152,8 @@ const PriceListConfiguration = () => {
                         left: 0,
                         right: 0,
                         zIndex: 2,
-                        backgroundColor: '#fff',
-                        border: '1px solid #404040',
+                        backgroundColor: byMode('#fff', '#232323'),
+                        border: byMode('1px solid #404040', '1px solid #a1a1a1'),
                         borderRadius: '8px',
                         boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
                         fontSize: 16,
@@ -1160,14 +1163,14 @@ const PriceListConfiguration = () => {
                       }}
                     >
                       {showTypeMore ? (
-                        <Box sx={{ px: 2, py: 1, color: '#000' }}>Keep Typing to Search...</Box>
+                        <Box sx={{ px: 2, py: 1, color: byMode('#000', '#f8f8f8') }}>Keep Typing to Search...</Box>
                       ) : (
                         RESULT_GROUPS.map((group) => {
                           const items = searchResults.filter((r) => r.entityType === group.key);
                           if (!items.length) return null;
                           return (
                             <Box key={group.key}>
-                              <Box sx={{ px: 2, py: 1, fontWeight: 700, color: '#000', borderBottom: '1px solid #e5e7eb' }}>
+                              <Box sx={{ px: 2, py: 1, fontWeight: 700, color: byMode('#000', '#f8f8f8'), borderBottom: byMode('1px solid #e5e7eb', '1px solid #373737') }}>
                                 {group.label}
                               </Box>
                               {items.map((item) => {
@@ -1185,16 +1188,16 @@ const PriceListConfiguration = () => {
                                       px: 2,
                                       py: 1.5,
                                       cursor: 'pointer',
-                                      color: '#000',
-                                      backgroundColor: active ? '#7dd3fc' : 'transparent',
+                                      color: active ? byMode('#000', '#fafafa') : byMode('#000', '#f8f8f8'),
+                                      backgroundColor: active ? byMode('#7dd3fc', '#0084d1') : 'transparent',
                                       '& .matching-search': { fontWeight: 700 },
-                                      '&:hover': { backgroundColor: '#7dd3fc' },
+                                      '&:hover': { backgroundColor: byMode('#7dd3fc', '#0084d1'), color: byMode(undefined, '#fafafa') },
                                     }}
                                   >
                                     {item.imageUrl ? (
                                       <Box component="img" src={item.imageUrl} alt="" sx={{ width: 22, height: 22, objectFit: 'cover', flexShrink: 0 }} />
                                     ) : (
-                                      <ImageOutlinedIcon sx={{ width: 22, height: 22, flexShrink: 0, color: '#9ca3af' }} />
+                                      <ImageOutlinedIcon sx={{ width: 22, height: 22, flexShrink: 0, color: byMode('#9ca3af', '#a0a4aa') }} />
                                     )}
                                     <Box component="span">{highlightMatch(item.name, trimmedSearch)}</Box>
                                   </Box>
@@ -1213,7 +1216,7 @@ const PriceListConfiguration = () => {
             <Box sx={{ flex: 1, overflow: 'auto', px: 1, pb: `${BOTTOM_BAR_HEIGHT + 16}px` }}>
               {rules.length === 0 && !fallbackRule && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
-                  <Typography sx={{ fontSize: 16, color: '#6b7280' }}>This price list is empty</Typography>
+                  <Typography sx={{ fontSize: 16, color: byMode('#6b7280', '#a0a4aa') }}>This price list is empty</Typography>
                 </Box>
               )}
               {rules.map((rule) =>
@@ -1243,7 +1246,7 @@ const PriceListConfiguration = () => {
           </Box>
 
           {/* Right: editor */}
-          <Box sx={{ flex: 1, minWidth: 0, p: 3, pb: `${BOTTOM_BAR_HEIGHT + 16}px`, overflow: 'auto', bgcolor: '#fff' }}>
+          <Box sx={{ flex: 1, minWidth: 0, p: 3, pb: `${BOTTOM_BAR_HEIGHT + 16}px`, overflow: 'auto', bgcolor: byMode('#fff', '#121212') }}>
             {activeRuleCard ? (
               renderEditor()
             ) : (
@@ -1254,9 +1257,9 @@ const PriceListConfiguration = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  border: '2px dashed #cbd5e1',
+                  border: byMode('2px dashed #cbd5e1', '2px dashed #a1a1a1'),
                   borderRadius: '8px',
-                  color: '#6b7280',
+                  color: byMode('#6b7280', '#a0a4aa'),
                   fontSize: 16,
                 }}
               >
@@ -1323,21 +1326,21 @@ const PriceListConfiguration = () => {
             width: 400,
             maxWidth: '92vw',
             overflow: 'hidden',
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#232323'),
             borderRadius: '12px',
             boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)',
           },
         }}
       >
         {/* reference: light-blue "? Add All Categories" title bar, same as Create dialog */}
-        <Box sx={{ bgcolor: '#bfe6fb', px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography component="span" aria-hidden sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
-          <Typography component="h3" sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 18, m: 0 }}>
+        <Box sx={{ bgcolor: byMode('#bfe6fb', '#0c3a55'), px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography component="span" aria-hidden sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
+          <Typography component="h3" sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 18, m: 0 }}>
             Add All Categories
           </Typography>
         </Box>
         <DialogContent sx={{ px: 2, pt: 3, pb: 1 }}>
-          <Typography component="p" sx={{ m: '0 0 12px', fontSize: 16, color: '#000' }}>
+          <Typography component="p" sx={{ m: '0 0 12px', fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
             What options should all the added categories have?
           </Typography>
 
@@ -1394,7 +1397,7 @@ const PriceListConfiguration = () => {
           <Button
             onClick={handleCancelAddAllCategories}
             disableElevation
-            sx={{ flex: 1, height: 40, textTransform: 'none', fontWeight: 700, fontSize: 16, borderRadius: '8px', bgcolor: '#d5d5d5', color: '#000', boxShadow: 'none', '&:hover': { bgcolor: '#c4c4c4' } }}
+            sx={{ flex: 1, height: 40, textTransform: 'none', fontWeight: 700, fontSize: 16, borderRadius: '8px', bgcolor: byMode('#d5d5d5', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), boxShadow: 'none', '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a') } }}
           >
             Cancel
           </Button>

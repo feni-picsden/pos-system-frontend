@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Popover } from '@mui/material';
+import { byMode } from '../../theme/sfPalette';
 import { CustomPicker } from 'react-color';
 import { Saturation, Hue, Alpha } from 'react-color/lib/components/common';
 
@@ -21,7 +22,7 @@ const PickerBody = CustomPicker(({ hex, hsl, hsv, rgb, onChange, onDone }) => {
   };
 
   return (
-    <Box sx={{ width: 250, bgcolor: '#fff', border: '1px solid #000' }}>
+    <Box sx={{ width: 250, bgcolor: byMode('#fff', '#232323'), border: byMode('1px solid #000', '1px solid #a1a1a1') }}>
       <Box sx={{ position: 'relative', height: 150 }}>
         <Saturation hsl={hsl} hsv={hsv} onChange={onChange} pointer={Pointer} />
       </Box>
@@ -38,13 +39,13 @@ const PickerBody = CustomPicker(({ hex, hsl, hsv, rgb, onChange, onDone }) => {
           onChange={(e) => setText(e.target.value)}
           onBlur={(e) => commitText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { commitText(e.target.value); onDone(); } }}
-          sx={{ flex: 1, minWidth: 0, border: 0, px: 2, fontSize: 16, outline: 'none', fontFamily: 'inherit' }}
+          sx={{ flex: 1, minWidth: 0, border: 0, px: 2, fontSize: 16, outline: 'none', fontFamily: 'inherit', bgcolor: byMode(undefined, '#121212'), color: byMode(undefined, '#f8f8f8') }}
         />
         <Box
           component="button"
           type="button"
           onClick={() => { commitText(text); onDone(); }}
-          sx={{ width: 54, border: 0, bgcolor: '#5ebbeb', color: '#fff', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}
+          sx={{ width: 54, border: 0, bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}
         >
           Done
         </Box>

@@ -100,6 +100,23 @@ import {
 } from '../../utils/statementDefaults';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import statementTemplateService from '../../services/statementTemplateService';
+import { byMode } from '../../theme/sfPalette';
+
+// Shared REF_MENU_PROPS list is light-only (black option text); dark layer on top of it.
+const EDITOR_MENU_PROPS = {
+  ...REF_MENU_PROPS,
+  PaperProps: {
+    ...REF_MENU_PROPS.PaperProps,
+    sx: [REF_MENU_PROPS.PaperProps.sx, {
+      bgcolor: byMode(undefined, '#232323'),
+      border: byMode(undefined, '1px solid #a1a1a1'),
+      '& .MuiMenuItem-root': { color: byMode(undefined, '#f8f8f8') },
+      '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible': { bgcolor: byMode(undefined, '#0084d1'), color: byMode(undefined, '#fafafa') },
+      '& .MuiMenuItem-root.Mui-selected': { color: byMode(undefined, '#00a6f4') },
+      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: byMode(undefined, '#0084d1'), color: byMode(undefined, '#fafafa') },
+    }],
+  },
+};
 
 const COMPONENT_TYPES = {
   OVERVIEW: 'overview',
@@ -133,9 +150,10 @@ const squareInputSx = (width, height) => ({
     height,
     borderRadius: 0,
     fontSize: 16,
-    '& fieldset': { borderColor: '#000000', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#000000' },
-    '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '1px' },
+    bgcolor: byMode(undefined, '#121212'),
+    '& fieldset': { borderColor: byMode('#000000', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#000000', '#a1a1a1') },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '1px' },
   },
 });
 
@@ -179,7 +197,7 @@ const PaddingControl = ({ value, onChange }) => {
         {box('top')}
         <Box />
         {box('left')}
-        <Box sx={{ width: 56, height: 40, bgcolor: '#e5e5e5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box sx={{ width: 56, height: 40, bgcolor: byMode('#e5e5e5', '#3a3a3a'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Tooltip title={linked ? 'Unlink sides' : 'Link all sides'}>
             <IconButton
               size="small"
@@ -188,10 +206,10 @@ const PaddingControl = ({ value, onChange }) => {
               sx={{
                 width: 30,
                 height: 30,
-                bgcolor: linked ? BLUE : '#fff',
+                bgcolor: linked ? BLUE : byMode('#fff', '#121212'),
                 color: linked ? '#fff' : BLUE,
                 border: `1px solid ${BLUE}`,
-                '&:hover': { bgcolor: linked ? '#1670d0' : '#e8f1fd' },
+                '&:hover': { bgcolor: linked ? '#1670d0' : byMode('#e8f1fd', '#1f3a4a') },
               }}
             >
               {linked ? <LinkIcon fontSize="small" /> : <LinkOffIcon fontSize="small" />}
@@ -851,7 +869,7 @@ const StatementEditor = () => {
     const caption = (Icon, text) => (
       <>
         <Icon sx={{ fontSize: '2rem' }} />
-        <Typography variant="caption" color="text.secondary">{text}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ color: byMode('text.secondary', 'rgba(0, 0, 0, 0.6)') }}>{text}</Typography>
       </>
     );
     if (component.type === COMPONENT_TYPES.OUTLET_LOGO) {
@@ -884,7 +902,7 @@ const StatementEditor = () => {
           <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', ...chromeOutline('#d9d9d9') }}>
             {/* Reference: I-beam marker beside the size */}
             <HeightOutlined sx={{ fontSize: 14, color: '#9e9e9e', mr: 0.25 }} />
-            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1, color: byMode('text.secondary', 'rgba(0, 0, 0, 0.6)') }}>
               {component.properties?.height || 30}px
             </Typography>
           </Box>
@@ -1283,7 +1301,7 @@ const StatementEditor = () => {
     const renderColour = (label, key, fallback) => (
       <Box>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>{label}</Typography>
-        <Box sx={{ position: 'relative', width: '100%', height: 40, bgcolor: props[key] || fallback, border: '5px solid #000', boxSizing: 'border-box', cursor: 'pointer' }}>
+        <Box sx={{ position: 'relative', width: '100%', height: 40, bgcolor: props[key] || fallback, border: byMode('5px solid #000', '5px solid #a1a1a1'), boxSizing: 'border-box', cursor: 'pointer' }}>
           <ColorInput
             aria-label={label}
             value={props[key] || fallback}
@@ -1319,7 +1337,7 @@ const StatementEditor = () => {
             value: statementBorder(props.border, borderOptions),
             apply: (border) => updateComponentProperty(componentId, 'border', border),
           })}
-          sx={{ textTransform: 'none', borderRadius: 0, color: '#676b72', borderColor: '#676b72', '&:hover': { borderColor: '#676b72', bgcolor: '#f8f8f8' } }}
+          sx={{ textTransform: 'none', borderRadius: 0, color: byMode('#676b72', '#d4d4d4'), borderColor: byMode('#676b72', '#a1a1a1'), '&:hover': { borderColor: byMode('#676b72', '#a1a1a1'), bgcolor: byMode('#f8f8f8', '#2f2f2f') } }}
         >
           Edit Border
         </Button>
@@ -1328,10 +1346,10 @@ const StatementEditor = () => {
 
     return (
       <Box sx={{ p: 2 }}>
-        <Typography component="div" sx={{ mb: 2, fontWeight: 700, fontSize: 24, lineHeight: 1.3, color: '#000' }}>
+        <Typography component="div" sx={{ mb: 2, fontWeight: 700, fontSize: 24, lineHeight: 1.3, color: byMode('#000', '#f8f8f8') }}>
           {AVAILABLE_COMPONENTS.find(c => c.type === component.type)?.label || 'Component'}
           {isNested && (
-            <Typography variant="caption" sx={{ ml: 1, px: 1, py: 0.25, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+            <Typography variant="caption" sx={{ ml: 1, px: 1, py: 0.25, bgcolor: byMode('#e3f2fd', '#0c3a55'), color: byMode(undefined, '#74d4ff'), borderRadius: 1 }}>
               In Column
             </Typography>
           )}
@@ -1367,8 +1385,8 @@ const StatementEditor = () => {
                 }}
                 sx={{
                   textTransform: 'none',
-                  bgcolor: '#32b643',
-                  color: '#fff',
+                  bgcolor: byMode('#32b643', '#7bf1a8'),
+                  color: byMode('#fff', '#232323'),
                   fontSize: 16,
                   fontWeight: 400,
                   borderRadius: 0,
@@ -1377,7 +1395,7 @@ const StatementEditor = () => {
                   py: 0,
                   px: 1.5,
                   boxShadow: 'none',
-                  '&:hover': { bgcolor: '#2a9d3a', boxShadow: 'none' },
+                  '&:hover': { bgcolor: byMode('#2a9d3a', '#5ee08f'), boxShadow: 'none' },
                 }}
               >
                 Edit Text
@@ -1408,7 +1426,7 @@ const StatementEditor = () => {
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
               <FormControl fullWidth size="small">
                 <Select
-                  MenuProps={REF_MENU_PROPS}
+                  MenuProps={EDITOR_MENU_PROPS}
                   value={props.fontSize || 12}
                   onChange={(e) => updateComponentProperty(componentId, 'fontSize', e.target.value)}
                   displayEmpty
@@ -1425,7 +1443,7 @@ const StatementEditor = () => {
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Weight</Typography>
               <FormControl fullWidth size="small">
                 <Select
-                  MenuProps={REF_MENU_PROPS}
+                  MenuProps={EDITOR_MENU_PROPS}
                   value={props.fontWeight || 'normal'}
                   onChange={(e) => updateComponentProperty(componentId, 'fontWeight', e.target.value)}
                   displayEmpty
@@ -1487,7 +1505,7 @@ const StatementEditor = () => {
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Size</Typography>
               <FormControl fullWidth size="small">
                 <Select
-                  MenuProps={REF_MENU_PROPS}
+                  MenuProps={EDITOR_MENU_PROPS}
                   value={props.fontSize || 12}
                   onChange={(e) => updateComponentProperty(componentId, 'fontSize', e.target.value)}
                   displayEmpty
@@ -1504,7 +1522,7 @@ const StatementEditor = () => {
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Font Weight</Typography>
               <FormControl fullWidth size="small">
                 <Select
-                  MenuProps={REF_MENU_PROPS}
+                  MenuProps={EDITOR_MENU_PROPS}
                   value={props.fontWeight || 'normal'}
                   onChange={(e) => updateComponentProperty(componentId, 'fontWeight', e.target.value)}
                   displayEmpty
@@ -1579,14 +1597,14 @@ const StatementEditor = () => {
               ) : (
                 <Box
                   sx={{
-                    border: '2px dashed #ccc',
+                    border: byMode('2px dashed #ccc', '2px dashed #a1a1a1'),
                     borderRadius: 1,
                     p: 3,
                     textAlign: 'center',
                     cursor: 'pointer',
                     '&:hover': {
                       borderColor: '#1976d2',
-                      backgroundColor: '#f5f5f5'
+                      backgroundColor: byMode('#f5f5f5', '#2f2f2f')
                     }
                   }}
                 >
@@ -1613,7 +1631,7 @@ const StatementEditor = () => {
                     }}
                     sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, cursor: 'pointer' }}
                   >
-                    <ImageIcon sx={{ fontSize: '2rem', color: '#999' }} />
+                    <ImageIcon sx={{ fontSize: '2rem', color: byMode('#999', '#a0a4aa') }} />
                     <Typography variant="body2" color="text.secondary">
                       Select to Add Image
                     </Typography>
@@ -1720,12 +1738,12 @@ const StatementEditor = () => {
                 <Box
                   sx={{
                     width: '100%',
-                    border: '1px solid #ccc',
+                    border: byMode('1px solid #ccc', '1px solid #373737'),
                     borderRadius: 1,
                     p: 1,
                     display: 'flex',
                     justifyContent: 'center',
-                    bgcolor: '#f5f5f5',
+                    bgcolor: byMode('#f5f5f5', '#2f2f2f'),
                   }}
                 >
                   <img
@@ -1933,12 +1951,12 @@ const StatementEditor = () => {
           justifyContent: 'center',
           p: 2,
           pr: '400px',
-          bgcolor: '#f7f7f7',
+          bgcolor: byMode('#f7f7f7', '#232323'),
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" sx={{ color: '#1a1a1a', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            <Typography variant="h6" sx={{ color: byMode('#1a1a1a', '#f8f8f8'), fontWeight: 500, whiteSpace: 'nowrap' }}>
               Statement -
             </Typography>
             <TextField
@@ -1948,24 +1966,24 @@ const StatementEditor = () => {
               size="small"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'white',
+                  backgroundColor: byMode('white', '#121212'),
                   borderRadius: 0,
                   height: 37,
                   width: 200,
                   '& fieldset': {
-                    borderColor: '#000',
+                    borderColor: byMode('#000', '#a1a1a1'),
                     borderWidth: '1px',
                   },
                   '&:hover fieldset': {
-                    borderColor: '#000',
+                    borderColor: byMode('#000', '#a1a1a1'),
                   },
                   '&.Mui-focused fieldset': {
-                    borderColor: '#000',
+                    borderColor: byMode('#000', '#2b7fff'),
                     borderWidth: '1px',
                   },
                 },
                 '& .MuiInputBase-input': {
-                  color: '#000',
+                  color: byMode('#000', '#f8f8f8'),
                   fontSize: 16,
                   fontWeight: 400,
                 },
@@ -2033,7 +2051,7 @@ const StatementEditor = () => {
         <Paper sx={{ width: 400, borderRadius: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {/* Tab Header — receipt: no container rule; active tab black on neutral-200
               with the 4px blue-500 underline, inactive/disabled neutral-500. */}
-          <Box sx={{ bgcolor: '#f8f9fa' }}>
+          <Box sx={{ bgcolor: byMode('#f8f9fa', '#232323') }}>
             <Tabs
               value={activeTab}
               onChange={(e, newValue) => setActiveTab(newValue)}
@@ -2047,19 +2065,19 @@ const StatementEditor = () => {
                   py: 2,
                   fontSize: '1.125rem',
                   gap: '8px',
-                  color: '#737373',
+                  color: byMode('#737373', '#a0a4aa'),
                   bgcolor: 'transparent',
                   '& .MuiSvgIcon-root': { fontSize: 20, marginBottom: 0 },
                   '&.Mui-selected': {
-                    color: '#000',
+                    color: byMode('#000', '#f8f8f8'),
                     fontWeight: 400,
-                    bgcolor: '#e5e5e5',
+                    bgcolor: byMode('#e5e5e5', '#333333'),
                   },
                   '&.Mui-disabled': {
                     cursor: 'not-allowed',
                     pointerEvents: 'auto',
                     backgroundColor: 'transparent',
-                    color: '#737373',
+                    color: byMode('#737373', '#757575'),
                     opacity: 1,
                   },
                 },
@@ -2075,7 +2093,7 @@ const StatementEditor = () => {
           </Box>
 
           {/* Tab Content — white panel; the tiles are transparent on it. */}
-          <Box sx={{ flex: 1, overflow: 'auto', bgcolor: '#fff' }}>
+          <Box sx={{ flex: 1, overflow: 'auto', bgcolor: byMode('#fff', '#232323') }}>
             {activeTab === 0 && (
               <Box sx={{ p: 2 }}>
                 <Grid container spacing={1.5}>
@@ -2092,14 +2110,14 @@ const StatementEditor = () => {
                           transition: 'none',
                           boxShadow: 'none',
                           '&:hover': {
-                            bgcolor: previewOpen ? 'transparent' : '#ebebeb',
+                            bgcolor: previewOpen ? 'transparent' : byMode('#ebebeb', '#2f2f2f'),
                           },
                           // Receipt tile: 96x96 square, transparent, 1px #ddd, radius 4.
                           width: 96,
                           height: 96,
                           mx: 'auto',
                           bgcolor: 'transparent',
-                          border: '1px solid #ddd',
+                          border: byMode('1px solid #ddd', '1px solid #373737'),
                           opacity: draggedFromPalette === comp.type ? 0.5 : 1,
                           borderRadius: 1,
                         }}
@@ -2121,14 +2139,14 @@ const StatementEditor = () => {
                             justifyContent: 'center',
                             width: 27,
                             height: 27,
-                            color: '#676b72'
+                            color: byMode('#676b72', '#a0a4aa')
                           }}>
                             <comp.Icon sx={{ fontSize: 27 }} />
                           </Box>
                           <Typography variant="caption" sx={{
                             fontSize: '1rem',
                             lineHeight: 1.15,
-                            color: '#000',
+                            color: byMode('#000', '#f8f8f8'),
                             fontWeight: 400
                           }}>
                             {comp.label}
@@ -2145,10 +2163,10 @@ const StatementEditor = () => {
                 sx={{
                   p: 2,
                   // Receipt Settings inputs/selects: radius 8, #404040 1px notch, #000 2px focus.
-                  '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-                  '& .MuiInputBase-input::placeholder': { color: '#808080', opacity: 1 },
+                  '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: byMode(undefined, '#121212') },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+                  '& .MuiInputBase-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
                 }}
               >
                 {renderPropertiesPanel()}
@@ -2165,7 +2183,7 @@ const StatementEditor = () => {
               alignItems: 'center',
               gap: 1,
               p: 2,
-              borderTop: '1px solid #000',
+              borderTop: byMode('1px solid #000', '1px solid #373737'),
             }}
           >
             <Button
@@ -2181,16 +2199,16 @@ const StatementEditor = () => {
               }}
               sx={{
                 borderRadius: 0,
-                bgcolor: '#f8f8f8',
-                color: '#676b72',
-                border: '1px solid #676b72',
+                bgcolor: byMode('#f8f8f8', 'transparent'),
+                color: byMode('#676b72', '#d4d4d4'),
+                border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
                 fontSize: 18,
                 fontWeight: 400,
                 textTransform: 'none',
                 minHeight: 32,
                 height: 32,
                 p: '4px 8px',
-                '&:hover': { bgcolor: '#eee' },
+                '&:hover': { bgcolor: byMode('#eee', '#2f2f2f') },
               }}
             >
               {previewOpen ? 'Edit' : 'Preview'}
@@ -2200,16 +2218,16 @@ const StatementEditor = () => {
                 onClick={handleCancel}
                 sx={{
                   borderRadius: 0,
-                  bgcolor: '#f8f8f8',
-                  color: '#676b72',
-                  border: '1px solid #676b72',
+                  bgcolor: byMode('#f8f8f8', 'transparent'),
+                  color: byMode('#676b72', '#d4d4d4'),
+                  border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
                   fontSize: 18,
                   fontWeight: 400,
                   textTransform: 'none',
                   minHeight: 32,
                   height: 32,
                   p: '4px 8px',
-                  '&:hover': { bgcolor: '#eee' },
+                  '&:hover': { bgcolor: byMode('#eee', '#2f2f2f') },
                 }}
               >
                 Cancel
@@ -2252,7 +2270,7 @@ const StatementEditor = () => {
           PaperProps={{
             // Width follows the content (reference: ~915 / 1047 / 1350px for the
             // Header / Address / Footer blocks): long lines grow the paper, up to 90vw.
-            sx: { width: 'auto', minWidth: 900, maxWidth: '90vw', borderRadius: 0, bgcolor: '#fff', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', m: 2 },
+            sx: { width: 'auto', minWidth: 900, maxWidth: '90vw', borderRadius: 0, bgcolor: byMode('#fff', '#232323'), boxShadow: '0 8px 32px rgba(0,0,0,0.12)', m: 2 },
           }}
         >
           <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
@@ -2287,8 +2305,8 @@ const StatementEditor = () => {
               <Select
                 size="small"
                 defaultValue="Normal"
-                MenuProps={REF_MENU_PROPS}
-                sx={{ width: 110, height: 30, bgcolor: '#fff', borderRadius: 0, fontSize: 14, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#bdbdbd' } }}
+                MenuProps={EDITOR_MENU_PROPS}
+                sx={{ width: 110, height: 30, bgcolor: '#fff', color: byMode(undefined, '#313439'), '& .MuiSelect-icon': { color: byMode(undefined, 'rgba(0,0,0,0.54)') }, borderRadius: 0, fontSize: 14, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#bdbdbd' } }}
                 onChange={(e) => {
                   const value = e.target.value;
                   if (value === 'Heading 1') {
@@ -2307,11 +2325,11 @@ const StatementEditor = () => {
               <Select
                 size="small"
                 defaultValue="5"
-                MenuProps={REF_MENU_PROPS}
+                MenuProps={EDITOR_MENU_PROPS}
                 sx={{
-                  minWidth: 40, height: 30, bgcolor: '#fff', borderRadius: 0, fontSize: 14,
+                  minWidth: 40, height: 30, bgcolor: '#fff', color: byMode(undefined, '#313439'), borderRadius: 0, fontSize: 14,
                   '& .MuiSelect-select': { pl: '6px', pr: '20px !important' },
-                  '& .MuiSelect-icon': { right: 0 },
+                  '& .MuiSelect-icon': { right: 0, color: byMode(undefined, 'rgba(0,0,0,0.54)') },
                   '& .MuiOutlinedInput-notchedOutline': { border: 0 },
                 }}
                 onChange={(e) => execCommand('fontSize', e.target.value)}
@@ -2421,14 +2439,14 @@ const StatementEditor = () => {
               }}
             />
           </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 2, borderTop: '1px solid #000', '& > :not(:first-of-type)': { ml: 0 } }}>
+          <DialogActions sx={{ p: 2, gap: 2, borderTop: byMode('1px solid #000', '1px solid #373737'), '& > :not(:first-of-type)': { ml: 0 } }}>
             <Button
               disableRipple
               onClick={() => setTextEditorOpen(false)}
               sx={{
-                flex: 1, height: 48, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', borderRadius: 0,
+                flex: 1, height: 48, bgcolor: byMode('#f8f8f8', 'transparent'), color: byMode('#676b72', '#d4d4d4'), border: byMode('1px solid #676b72', '1px solid #a1a1a1'), borderRadius: 0,
                 fontSize: 32, fontWeight: 400, lineHeight: 1, textTransform: 'none', boxShadow: 'none', p: '4px 8px',
-                '&:hover': { bgcolor: '#676b72', color: '#f8f8f8', boxShadow: 'none' },
+                '&:hover': { bgcolor: byMode('#676b72', '#3a3a3a'), color: '#f8f8f8', boxShadow: 'none' },
               }}
             >
               Cancel

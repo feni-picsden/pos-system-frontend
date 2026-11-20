@@ -31,6 +31,7 @@ import ReportTable from '../components/Reports/ReportTable';
 import ReportEditor from '../components/Reports/ReportEditor';
 import ReportBox from '../components/Reports/ReportBox';
 import ResizableReportBox from '../components/Reports/ResizableReportBox';
+import { byMode } from '../theme/sfPalette';
 
 const Reports = () => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -133,7 +134,7 @@ const Reports = () => {
               display: 'flex', 
               flexWrap: 'wrap', 
               borderBottom: '1px solid #1976d2',
-              bgcolor: '#fff'
+              bgcolor: byMode('#fff', '#232323')
             }}>
               <Box sx={{ 
                 flex: '1 1 33%', 

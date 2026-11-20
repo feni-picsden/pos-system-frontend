@@ -44,6 +44,7 @@ import apiClient from '../../services/apiClient';
 import SaveReportDialog from '../../components/Reports/SaveReportDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { reportPrintTitle } from '../../utils/reportPrint';
+import { byMode } from '../../theme/sfPalette';
 import {
   format,
   parse,
@@ -67,7 +68,7 @@ import {
 // Reference toolbar buttons: flat filled sky, square, invert on hover over 200ms ease.
 const TOOLBAR_BUTTON_SX = {
   bgcolor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', '#232323'),
   border: '1px solid #5ebbeb',
   borderRadius: 0,
   boxShadow: 'none',
@@ -79,7 +80,7 @@ const TOOLBAR_BUTTON_SX = {
   whiteSpace: 'nowrap',
   transition: 'background 200ms ease, color 200ms ease',
   '&:hover': {
-    bgcolor: '#f8f8f8',
+    bgcolor: byMode('#f8f8f8', '#232323'),
     color: '#5ebbeb',
     border: '1px solid #5ebbeb',
     boxShadow: 'none',
@@ -96,18 +97,18 @@ const PILL_BUTTON_SX = {
 
 // Parity input outline: #404040 1px, focused #000 2px, radius 8px.
 const FIELD_SX = {
-  '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 43 },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 43, bgcolor: byMode(undefined, '#121212'), color: byMode(undefined, '#f8f8f8') },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Data table chrome — identical to components/Reports/ReportTable.jsx.
 const TABLE_HEAD_SX = {
   '& th': {
-    backgroundColor: '#5ebbeb',
-    color: '#f8f8f8',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     textTransform: 'uppercase',
@@ -121,7 +122,7 @@ const TABLE_HEAD_SX = {
 
 const TABLE_ROW_SX = {
   '& td': {
-    color: '#000',
+    color: byMode('#000', '#f8f8f8'),
     fontWeight: 400,
     fontSize: 16,
     padding: '8px 8px 8px 10px',
@@ -131,26 +132,26 @@ const TABLE_ROW_SX = {
 };
 
 const TABLE_TOTAL_SX = {
-  bgcolor: '#5ebbeb',
+  bgcolor: byMode('#5ebbeb', '#333333'),
   '& td': {
-    color: '#f8f8f8',
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
     position: 'sticky',
     bottom: 0,
-    backgroundColor: '#5ebbeb',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
     zIndex: 1,
   },
   '& td:first-of-type': { zIndex: 3 },
 };
 
 // Reference filter caption sits above its field in small dark text.
-const LABEL_SX = { fontSize: 13, color: '#313439', mb: '4px', lineHeight: 1.2 };
+const LABEL_SX = { fontSize: 13, color: byMode('#313439', '#f8f8f8'), mb: '4px', lineHeight: 1.2 };
 
 // Reference odd-row stripe is a visible grey (same as InventoryReport.jsx).
-const ROW_ALT_BG = '#e8e8e8';
+const ROW_ALT_BG = byMode('#e8e8e8', '#2a2a2a');
 
 // Reference header: ⇕ after every label; `active` = 'asc' | 'desc' fills the
 // triangle of the current sort direction (same as InventoryReport.jsx).
@@ -220,15 +221,15 @@ const MonthGrid = ({ month, value, maxDate, onPick, onPrev, onNext }) => {
     <Box sx={{ flex: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: '8px' }}>
         {onPrev ? (
-          <IconButton size="small" onClick={onPrev} sx={{ color: '#404040' }}>
+          <IconButton size="small" onClick={onPrev} sx={{ color: byMode('#404040', '#d4d4d4') }}>
             <ChevronLeft />
           </IconButton>
         ) : (
           <Box sx={{ width: 34 }} />
         )}
-        <Box sx={{ fontSize: 18, fontWeight: 700, color: '#313439' }}>{format(month, 'MMMM yyyy')}</Box>
+        <Box sx={{ fontSize: 18, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>{format(month, 'MMMM yyyy')}</Box>
         {onNext ? (
-          <IconButton size="small" onClick={onNext} sx={{ color: '#404040' }}>
+          <IconButton size="small" onClick={onNext} sx={{ color: byMode('#404040', '#d4d4d4') }}>
             <ChevronRight />
           </IconButton>
         ) : (
@@ -246,7 +247,7 @@ const MonthGrid = ({ month, value, maxDate, onPick, onPrev, onNext }) => {
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 14,
-              color: '#676b72',
+              color: byMode('#676b72', '#a0a4aa'),
             }}
           >
             {label}
@@ -273,11 +274,11 @@ const MonthGrid = ({ month, value, maxDate, onPick, onPrev, onNext }) => {
                 fontWeight: 700,
                 cursor: disabled ? 'default' : 'pointer',
                 opacity: outside || disabled ? 0.5 : 1,
-                color: selected ? '#f8f8f8' : '#3898de',
+                color: selected ? '#f8f8f8' : byMode('#3898de', '#74d4ff'),
                 bgcolor: selected ? '#5ebbeb' : 'transparent',
-                border: isToday && !selected ? '1px solid #3898de' : '1px solid transparent',
+                border: isToday && !selected ? byMode('1px solid #3898de', '1px solid #74d4ff') : '1px solid transparent',
                 transition: 'background 200ms ease, color 200ms ease',
-                '&:hover': disabled || selected ? {} : { bgcolor: '#f8f8f8' },
+                '&:hover': disabled || selected ? {} : { bgcolor: byMode('#f8f8f8', '#2f2f2f') },
               }}
             >
               {format(day, 'd')}
@@ -711,7 +712,7 @@ const InventoryAtDate = () => {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px', mb: '16px' }}>
-          <CalendarIcon sx={{ color: '#404040' }} />
+          <CalendarIcon sx={{ color: byMode('#404040', '#d4d4d4') }} />
           <TextField
             placeholder="dd/mm/yyyy"
             value={dateText}
@@ -721,13 +722,13 @@ const InventoryAtDate = () => {
           <Button
             onClick={() => pickDate(new Date())}
             sx={{
-              color: '#6f6f6f',
+              color: byMode('#6f6f6f', '#d4d4d4'),
               fontSize: 16,
               fontWeight: 700,
               textTransform: 'none',
               borderRadius: '12px',
               transition: 'background 200ms ease, color 200ms ease',
-              '&:hover': { bgcolor: '#f8f8f8' },
+              '&:hover': { bgcolor: byMode('#f8f8f8', '#2f2f2f') },
             }}
           >
             Current Day
@@ -760,7 +761,7 @@ const InventoryAtDate = () => {
           sx={{
             ...PILL_BUTTON_SX,
             minWidth: 125,
-            '&.Mui-disabled': { bgcolor: '#404040', color: '#737373', border: '1px solid #404040' },
+            '&.Mui-disabled': { bgcolor: '#404040', color: byMode('#737373', '#a0a4aa'), border: '1px solid #404040' },
           }}
         >
           Run
@@ -777,7 +778,7 @@ const InventoryAtDate = () => {
       </Box>
 
       {!hasRun && (
-        <Typography sx={{ fontSize: 16, color: '#676b72', mb: '16px' }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa'), mb: '16px' }}>
           Please select a previous date and press run.
         </Typography>
       )}
@@ -785,7 +786,7 @@ const InventoryAtDate = () => {
       {/* Search — reference only shows it after the report has been run */}
       {hasRun && reportData.some(row => row.costHistoryComplete === false
         || row.children?.some(child => child.costHistoryComplete === false)) && (
-        <Typography sx={{ color: '#8a5700', mb: '16px' }}>
+        <Typography sx={{ color: byMode('#8a5700', '#f6c26b'), mb: '16px' }}>
           Some historical average costs are estimated because opening stock or earlier stock adjustments are missing.
         </Typography>
       )}
@@ -799,7 +800,7 @@ const InventoryAtDate = () => {
           InputProps={{
             endAdornment: searchTerm ? (
               <InputAdornment position="end">
-                <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: '#404040' }}>
+                <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: byMode('#404040', '#d4d4d4') }}>
                   <ClearIcon />
                 </IconButton>
               </InputAdornment>
@@ -817,17 +818,17 @@ const InventoryAtDate = () => {
         onClose={() => { setColumnsAnchorEl(null); setColumnsChipsExpanded(false); setColumnsSearch(''); }}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{ sx: { width: 544, mt: '6px', p: '16px', borderRadius: '8px', border: '1px solid #404040', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' } }}
+        PaperProps={{ sx: { width: 544, mt: '6px', p: '16px', borderRadius: '8px', border: byMode('1px solid #404040', '1px solid #a1a1a1'), boxShadow: '0 6px 18px rgba(0,0,0,0.18)' } }}
       >
-        <Box onClick={() => setColumnsChipsExpanded((v) => !v)} sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', border: '1px solid #404040', borderRadius: '8px', px: '12px', py: '8px', mb: '12px', cursor: 'pointer', minHeight: 44 }}>
+        <Box onClick={() => setColumnsChipsExpanded((v) => !v)} sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', border: byMode('1px solid #404040', '1px solid #a1a1a1'), borderRadius: '8px', px: '12px', py: '8px', mb: '12px', cursor: 'pointer', minHeight: 44 }}>
           {shownChips.map((c) => (
-            <Box key={c.key} sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{c.label}</Box>
+            <Box key={c.key} sx={{ bgcolor: byMode('#e8e8e8', '#3a3a3a'), borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>{c.label}</Box>
           ))}
-          {remainingChips > 0 && <Box sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: '#313439' }}>{remainingChips} More...</Box>}
-          <Box component="input" value={columnsSearch} onClick={(e) => e.stopPropagation()} onChange={(e) => setColumnsSearch(e.target.value)} placeholder="" sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 16, color: '#313439', fontFamily: 'inherit' }} />
-          <Box sx={{ ml: 'auto', display: 'inline-flex', color: '#313439' }}>{columnsChipsExpanded ? <ArrowDropDown /> : <ArrowDropUp />}</Box>
+          {remainingChips > 0 && <Box sx={{ bgcolor: byMode('#e8e8e8', '#3a3a3a'), borderRadius: '4px', px: '8px', py: '2px', fontSize: 16, color: byMode('#313439', '#f8f8f8') }}>{remainingChips} More...</Box>}
+          <Box component="input" value={columnsSearch} onClick={(e) => e.stopPropagation()} onChange={(e) => setColumnsSearch(e.target.value)} placeholder="" sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 16, color: byMode('#313439', '#f8f8f8'), fontFamily: 'inherit' }} />
+          <Box sx={{ ml: 'auto', display: 'inline-flex', color: byMode('#313439', '#f8f8f8') }}>{columnsChipsExpanded ? <ArrowDropDown /> : <ArrowDropUp />}</Box>
         </Box>
-        <Box sx={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #404040', borderRadius: '8px' }}>
+        <Box sx={{ maxHeight: 300, overflowY: 'auto', border: byMode('1px solid #404040', '1px solid #a1a1a1'), borderRadius: '8px' }}>
           {pickerColumns.length === 0 && (
             <Box sx={{ px: '16px', height: 56, display: 'flex', alignItems: 'center', fontSize: 16, color: '#757575' }}>No Options</Box>
           )}
@@ -837,7 +838,7 @@ const InventoryAtDate = () => {
               <Box
                 key={column.key}
                 onClick={() => toggleColumn(column.key)}
-                sx={{ display: 'flex', alignItems: 'center', gap: '10px', px: '16px', height: 56, cursor: 'pointer', fontSize: 16, color: checked ? '#0284c7' : '#313439', '&:hover': { bgcolor: '#5ebbeb', color: '#000' } }}
+                sx={{ display: 'flex', alignItems: 'center', gap: '10px', px: '16px', height: 56, cursor: 'pointer', fontSize: 16, color: checked ? byMode('#0284c7', '#74d4ff') : byMode('#313439', '#f8f8f8'), '&:hover': { bgcolor: '#5ebbeb', color: '#000' } }}
               >
                 {checked ? <CheckBoxIcon sx={{ fontSize: 20 }} /> : <CheckBoxOutlineBlankIcon sx={{ fontSize: 20 }} />}
                 {column.label}
@@ -856,7 +857,7 @@ const InventoryAtDate = () => {
         // Same chrome as the Inventory Report: table scrolls inside the page, header and
         // NAME column pinned, total row pinned at the bottom.
         <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 0, maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
-          <Table size="small" stickyHeader sx={{ width: '100%', '& .MuiTableCell-stickyHeader': { backgroundColor: '#5ebbeb' }, '& th': { cursor: 'pointer', userSelect: 'none' }, '& td:first-of-type': { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'inherit' } }}>
+          <Table size="small" stickyHeader sx={{ width: '100%', '& .MuiTableCell-stickyHeader': { backgroundColor: byMode('#5ebbeb', '#333333') }, '& th': { cursor: 'pointer', userSelect: 'none' }, '& td:first-of-type': { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'inherit' } }}>
             <TableHead>
               <TableRow sx={TABLE_HEAD_SX}>
                 {activeColumns.map((column, i) => (
@@ -896,14 +897,14 @@ const InventoryAtDate = () => {
                     </TableRow>
                   );
                 }
-                const shade = stripe++ % 2 === 0 ? '#fff' : ROW_ALT_BG;
+                const shade = stripe++ % 2 === 0 ? byMode('#fff', '#232323') : ROW_ALT_BG;
                 return (
                   <TableRow key={`p-${index}`} sx={{ ...TABLE_ROW_SX, bgcolor: shade }}>
                     {activeColumns.map((column) => (
                       column.key === 'name' && row.isChild ? (
                         <TableCell key={column.key} sx={{ pl: '14px !important' }}>
                           <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 24 }}>
-                            <Box sx={{ width: 14, flexShrink: 0, borderLeft: '2px solid #000', position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: '2px solid #000' } }} />
+                            <Box sx={{ width: 14, flexShrink: 0, borderLeft: byMode('2px solid #000', '2px solid #a1a1a1'), position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: byMode('2px solid #000', '2px solid #a1a1a1') } }} />
                             <Box sx={{ pl: '12px', display: 'flex', alignItems: 'center' }}>{row.name}</Box>
                           </Box>
                         </TableCell>
@@ -925,7 +926,7 @@ const InventoryAtDate = () => {
           </Table>
         </TableContainer>
       ) : hasRun ? (
-        <Typography sx={{ fontSize: 16, color: '#676b72', p: '16px' }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa'), p: '16px' }}>
           No inventory data found for the selected date.
         </Typography>
       ) : null}

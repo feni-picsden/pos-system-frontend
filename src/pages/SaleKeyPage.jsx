@@ -8796,7 +8796,7 @@ const SaleKeyPage = () => {
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center',
-        bgcolor: '#f5f5f5'
+        bgcolor: byMode('#f5f5f5', '#121212')
       }}>
         <Alert severity="error">{error}</Alert>
       </Box>
@@ -10194,7 +10194,7 @@ const SaleKeyPage = () => {
                       <Box sx={{ height: 40, borderBottom: lineBy('#000', '#373737'), display: 'flex', alignItems: 'stretch' }}>
                         <Box
                           onClick={() => setShowDetailCosts(v => !v)}
-                          sx={{ width: 130, flexShrink: 0, px: '8px', bgcolor: showDetailCosts ? '#d1d5db' : '#e5e7eb', color: '#000', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRight: lineBy('#000', '#373737'), cursor: 'pointer', transition: 'background-color 0.2s', userSelect: 'none' }}
+                          sx={{ width: 130, flexShrink: 0, px: '8px', bgcolor: showDetailCosts ? byMode('#d1d5db', '#4a4a4a') : byMode('#e5e7eb', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRight: lineBy('#000', '#373737'), cursor: 'pointer', transition: 'background-color 0.2s', userSelect: 'none' }}
                         >
                           {showDetailCosts ? <VisibilityOffOutlinedIcon sx={{ fontSize: 18 }} /> : <VisibilityOutlinedIcon sx={{ fontSize: 18 }} />}
                           {showDetailCosts ? 'Hide Costs' : 'Show Costs'}
@@ -10464,8 +10464,8 @@ const SaleKeyPage = () => {
         PaperProps={{ sx: { width: 380 } }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <Box sx={{ bgcolor: '#90CAF9', color: '#0d47a1', p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton onClick={closeProductDetails} size="small" sx={{ color: '#0d47a1' }}>
+          <Box sx={{ bgcolor: byMode('#90CAF9', '#0c3a55'), color: byMode('#0d47a1', '#74d4ff'), p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton onClick={closeProductDetails} size="small" sx={{ color: byMode('#0d47a1', '#74d4ff') }}>
               <ArrowBackIcon />
             </IconButton>
             <Typography variant="subtitle1" sx={{ flex: 1 }}>

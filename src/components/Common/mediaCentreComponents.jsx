@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, Button, Dialog, SvgIcon } from '@mui/material';
 import { HelpOutline as HelpIcon } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront "Media Centre" components shared by the full page (Marketing/Media.jsx)
 // and the picker dialog (Common/MediaDialog.jsx). Styles / helpers live in
@@ -45,6 +46,7 @@ export const QuestionDialog = ({ open, title, body, value, onChange, onCancel, o
         boxShadow: '0 0 30px rgba(0,0,0,0.25)',
         overflow: 'visible',
         mt: '48px',
+        bgcolor: byMode(undefined, '#232323'),
       },
     }}
   >
@@ -66,8 +68,8 @@ export const QuestionDialog = ({ open, title, body, value, onChange, onCancel, o
       <HelpIcon sx={{ fontSize: 56, color: '#f8f8f8' }} />
     </Box>
     <Box sx={{ pt: '60px', px: 2, pb: 2, textAlign: 'center' }}>
-      <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#313439', mb: 1 }}>{title}</Typography>
-      <Typography sx={{ fontSize: 14, color: '#676b72', mb: 2 }}>{body}</Typography>
+      <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#313439', '#f8f8f8'), mb: 1 }}>{title}</Typography>
+      <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa'), mb: 2 }}>{body}</Typography>
       <Box
         component="input"
         autoFocus
@@ -81,7 +83,9 @@ export const QuestionDialog = ({ open, title, body, value, onChange, onCancel, o
           width: 257,
           maxWidth: '100%',
           height: 53,
-          border: '1px solid #000000',
+          border: byMode('1px solid #000000', '1px solid #a1a1a1'),
+          bgcolor: byMode(undefined, '#121212'),
+          color: byMode(undefined, '#f8f8f8'),
           borderRadius: 0,
           fontSize: 16,
           fontFamily: 'inherit',
@@ -98,17 +102,17 @@ export const QuestionDialog = ({ open, title, body, value, onChange, onCancel, o
             width: 121,
             height: 48,
             borderRadius: 0,
-            bgcolor: '#f8f8f8',
-            color: '#676b72',
-            border: '1px solid #676b72',
+            bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+            color: byMode('#676b72', '#f8f8f8'),
+            border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
             textTransform: 'none',
             fontSize: 16,
             boxShadow: 'none',
-            '&:hover': { bgcolor: '#f8f8f8', boxShadow: 'none' },
+            '&:hover': { bgcolor: byMode('#f8f8f8', '#4a4a4a'), boxShadow: 'none' },
             '&.Mui-disabled': {
-              bgcolor: '#f8f8f8',
-              color: '#b3b3b3',
-              border: '1px solid #676b72',
+              bgcolor: byMode('#f8f8f8', '#3a3a3a'),
+              color: byMode('#b3b3b3', '#a0a4aa'),
+              border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
             },
           }}
         >
@@ -122,15 +126,15 @@ export const QuestionDialog = ({ open, title, body, value, onChange, onCancel, o
             width: 121,
             height: 48,
             borderRadius: 0,
-            bgcolor: '#32b643',
-            color: '#f8f8f8',
+            bgcolor: byMode('#32b643', '#7bf1a8'),
+            color: byMode('#f8f8f8', '#232323'),
             textTransform: 'none',
             fontSize: 16,
             boxShadow: 'none',
-            '&:hover': { bgcolor: '#32b643', boxShadow: 'none' },
+            '&:hover': { bgcolor: byMode('#32b643', '#7bf1a8'), boxShadow: 'none' },
             '&.Mui-disabled': {
-              bgcolor: '#e0e0e0',
-              color: '#a6a6a6',
+              bgcolor: byMode('#e0e0e0', '#3a3a3a'),
+              color: byMode('#a6a6a6', '#a0a4aa'),
               boxShadow: 'none',
             },
           }}

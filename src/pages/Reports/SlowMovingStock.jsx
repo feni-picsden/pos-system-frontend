@@ -30,25 +30,28 @@ import inventoryReportService from '../../services/inventoryReportService';
 import productService from '../../services/productService';
 import { format } from 'date-fns';
 import { formatDate as formatAppDate } from '../../utils/appDateTime';
+import { useTheme } from '@mui/material/styles';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference (26/10/2026 screenshots): 42px fields, 8px radius, #404040 rail, the
 // field name as small text ABOVE the box and a grey placeholder inside when empty.
 const fieldSx = {
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
   '& .MuiOutlinedInput-root': {
     minHeight: 42,
     borderRadius: '8px',
     fontSize: 16,
     py: '3px',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-    '& input::placeholder': { color: '#676b72', opacity: 1 },
+    color: byMode(undefined, '#f8f8f8'),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+    '& input::placeholder': { color: byMode('#676b72', '#a0a4aa'), opacity: 1 },
   },
-  '& .MuiAutocomplete-popupIndicator': { color: '#313439' },
-  '& .MuiAutocomplete-clearIndicator': { color: '#313439', visibility: 'visible' },
+  '& .MuiAutocomplete-popupIndicator': { color: byMode('#313439', '#f8f8f8') },
+  '& .MuiAutocomplete-clearIndicator': { color: byMode('#313439', '#f8f8f8'), visibility: 'visible' },
 };
-const LABEL_SX = { fontSize: 13, color: '#313439', mb: '4px', lineHeight: 1.2 };
+const LABEL_SX = { fontSize: 13, color: byMode('#313439', '#f8f8f8'), mb: '4px', lineHeight: 1.2 };
 
 // Reference header: ⇕ after every label; `active` = 'asc' | 'desc' fills the
 // triangle of the current sort direction (same as InventoryReport.jsx).
@@ -67,36 +70,37 @@ const BLOCK_BUTTON_SX = {
   borderRadius: 0,
   border: '1px solid #5ebbeb',
   bgcolor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', '#232323'),
   fontSize: 16,
   fontWeight: 400,
   textTransform: 'none',
   boxShadow: 'none',
   transition: 'background 0.2s ease, color 0.2s ease',
-  '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
-  '&:focus-visible': { outline: '2px solid #000', outlineOffset: 0 },
-  '&.Mui-disabled': { bgcolor: '#5ebbeb', color: '#f8f8f8', opacity: 0.6 },
+  '&:hover': { bgcolor: byMode('#f8f8f8', '#232323'), color: '#5ebbeb', boxShadow: 'none' },
+  '&:focus-visible': { outline: byMode('2px solid #000', '2px solid #2b7fff'), outlineOffset: 0 },
+  '&.Mui-disabled': { bgcolor: '#5ebbeb', color: byMode('#f8f8f8', '#232323'), opacity: 0.6 },
 };
 
 // Reference dropdown: white panel, 1px SOLID BLACK, 8px radius, 288px scroll,
 // xl shadow, no open/close transition, 56px option rows with 16px padding.
-const panelSx = (selectedSx, focusedSx = { backgroundColor: 'rgba(0,0,0,0.04)' }) => ({
+const panelSx = (selectedSx, focusedSx = { backgroundColor: byMode('rgba(0,0,0,0.04)', '#0084d1') }) => ({
   paper: {
     sx: {
-      border: '1px solid #000',
+      border: byMode('1px solid #000', '1px solid #a1a1a1'),
       borderRadius: '8px',
       boxShadow: '0 20px 25px -5px rgba(0,0,0,0.10), 0 8px 10px -6px rgba(0,0,0,0.10)',
       mt: '4px',
       '& .MuiAutocomplete-listbox': { maxHeight: 288, py: 0 },
-      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: '#262626' },
+      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: byMode('#262626', '#f8f8f8') },
       '& .MuiAutocomplete-option': {
         minHeight: 56,
         padding: '16px',
         fontSize: 16,
-        color: '#262626',
+        color: byMode('#262626', '#f8f8f8'),
         '&.Mui-focused': focusedSx,
         "&[aria-selected='true']": selectedSx,
-        "&[aria-selected='true'].Mui-focused": { ...selectedSx, ...focusedSx },
+        // Both callers pick '#38bdf8' text; dark: white text on the #0084d1 focus row.
+        "&[aria-selected='true'].Mui-focused": { ...selectedSx, ...focusedSx, color: byMode('#38bdf8', '#fafafa') },
       },
     },
   },
@@ -104,8 +108,8 @@ const panelSx = (selectedSx, focusedSx = { backgroundColor: 'rgba(0,0,0,0.04)' }
 
 // Reference (26/10 ss): picked rows show blue text on white; the hovered/focused
 // row (picked or not) is sky. The single outlet panel just recolours the label.
-const multiPanelSlotProps = panelSx({ backgroundColor: '#fff', color: '#38bdf8' }, { backgroundColor: '#7dd3fc' });
-const singlePanelSlotProps = panelSx({ backgroundColor: '#fff', color: '#38bdf8' });
+const multiPanelSlotProps = panelSx({ backgroundColor: byMode('#fff', '#232323'), color: byMode('#38bdf8', '#00a6f4') }, { backgroundColor: byMode('#7dd3fc', '#0084d1') });
+const singlePanelSlotProps = panelSx({ backgroundColor: byMode('#fff', '#232323'), color: byMode('#38bdf8', '#00a6f4') });
 
 // Reference requires two characters before it will search a filter list.
 const MIN_SEARCH = 2;
@@ -118,6 +122,7 @@ const HINT_ROW = { id: '__hint', name: 'Keep Typing to Search...' };
 const SearchMultiSelect = ({ label, options, value, onChange }) => {
   const [inputValue, setInputValue] = useState('');
   const searching = inputValue.trim().length >= MIN_SEARCH;
+  const isDark = useTheme().palette.mode === 'dark';
 
   return (
     <Box sx={{ flex: '1 1 0', minWidth: 220 }}>
@@ -149,7 +154,7 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
         const { key, ...optionProps } = props;
         if (option.id === HINT_ROW.id) {
           return (
-            <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#262626', cursor: 'default' }}>
+            <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: isDark ? '#f8f8f8' : '#262626', cursor: 'default' }}>
               {HINT_ROW.name}
             </li>
           );
@@ -161,7 +166,7 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
               checkedIcon={<CheckSquareIcon />}
               checked={selected}
               disableRipple
-              sx={{ p: 0, mr: '8px', color: '#262626', '&.Mui-checked': { color: '#262626' } }}
+              sx={{ p: 0, mr: '8px', color: byMode('#262626', '#f8f8f8'), '&.Mui-checked': { color: byMode('#262626', '#f8f8f8') } }}
             />
             {option.name}
           </li>
@@ -173,7 +178,7 @@ const SearchMultiSelect = ({ label, options, value, onChange }) => {
         <Chip
           label={vals.length === 1 ? vals[0].name : `${vals.length} Selected...`}
           size="small"
-          sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#262626', fontSize: 16, height: 26, ml: '4px' }}
+          sx={{ bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'), borderRadius: '4px', color: byMode('#262626', '#f8f8f8'), fontSize: 16, height: 26, ml: '4px' }}
         />
       )}
       renderInput={(params) => <TextField {...params} placeholder={value.length ? '' : label} />}
@@ -380,9 +385,9 @@ const SlowMovingStock = () => {
   );
 
   return (
-    <Box sx={{ px: '16px', pt: '16px', pb: 4, bgcolor: '#fff', minHeight: 'calc(100vh - 50px)' }}>
+    <Box sx={{ px: '16px', pt: '16px', pb: 4, bgcolor: byMode('#fff', '#121212'), minHeight: 'calc(100vh - 50px)' }}>
       {/* Reference opens straight on the Export button; the heading is local chrome. */}
-      <Typography sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}>
+      <Typography sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>
         Slow Moving Stock
       </Typography>
 
@@ -437,11 +442,11 @@ const SlowMovingStock = () => {
           disableRipple
           sx={BLOCK_BUTTON_SX}
         >
-          {loading ? <CircularProgress size={20} sx={{ color: '#f8f8f8' }} /> : 'Run'}
+          {loading ? <CircularProgress size={20} sx={{ color: byMode('#f8f8f8', '#232323') }} /> : 'Run'}
         </Button>
       </Box>
 
-      <Typography sx={{ mt: '16px', mb: '16px', fontSize: 16, color: '#000' }}>
+      <Typography sx={{ mt: '16px', mb: '16px', fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
         Please Note: This report presumes that your inventory is correct.
       </Typography>
 
@@ -458,8 +463,8 @@ const SlowMovingStock = () => {
               <TableRow
                 sx={{
                   '& th': {
-                    backgroundColor: '#5ebbeb',
-                    color: '#f8f8f8',
+                    backgroundColor: byMode('#5ebbeb', '#333333'),
+                    color: byMode('#f8f8f8', '#5ebbeb'),
                     fontWeight: 700,
                     fontSize: 16,
                     textTransform: 'uppercase',
@@ -486,9 +491,9 @@ const SlowMovingStock = () => {
                     key={row.id || index}
                     sx={{
                       // Reference stripes: grey first row, white next.
-                      bgcolor: index % 2 === 0 ? '#e8e8e8' : '#fff',
+                      bgcolor: index % 2 === 0 ? byMode('#e8e8e8', '#2a2a2a') : byMode('#fff', '#232323'),
                       '& td': {
-                        color: '#000',
+                        color: byMode('#000', '#f8f8f8'),
                         fontSize: 16,
                         padding: '8px 8px 8px 10px',
                         borderBottom: 'none',
@@ -501,7 +506,7 @@ const SlowMovingStock = () => {
                         <Box
                           component={RouterLink}
                           to={`/products/${row.id}/view`}
-                          sx={{ color: '#2563eb', textDecoration: 'underline', '&:hover': { color: '#1d4ed8' } }}
+                          sx={{ color: byMode('#2563eb', '#4ca0f5'), textDecoration: 'underline', '&:hover': { color: byMode('#1d4ed8', '#74d4ff') } }}
                         >
                           {row.name || ''}
                         </Box>
@@ -518,7 +523,7 @@ const SlowMovingStock = () => {
               ))}
               {/* Reference: a sky bar closes the table (taller when the run is empty). */}
               <TableRow>
-                <TableCell colSpan={8} sx={{ bgcolor: '#5ebbeb', borderBottom: 'none', padding: 0, height: sortedData.length ? 36 : 56 }} />
+                <TableCell colSpan={8} sx={{ bgcolor: byMode('#5ebbeb', '#333333'), borderBottom: 'none', padding: 0, height: sortedData.length ? 36 : 56 }} />
               </TableRow>
             </TableBody>
           </Table>
@@ -526,7 +531,7 @@ const SlowMovingStock = () => {
       )}
 
       {!loading && !hasRun && (
-        <Typography sx={{ fontSize: 16, color: '#000' }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
           Please select your parameters and press run.
         </Typography>
       )}

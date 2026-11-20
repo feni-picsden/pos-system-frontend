@@ -52,21 +52,22 @@ import { handlePrintPreview, renderPrintElement } from '../../utils/shelfTicketP
 import MediaDialog from '../../components/Common/MediaDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { ChromePicker } from 'react-color';
+import { byMode } from '../../theme/sfPalette';
 
 // One menu look for every dropdown in the designer (same as Setup > Price Sets):
 // 8px radius, grey border, no shadow, compact rows, blue selected/hover, and no
 // global focus outline on the items.
 // Preview dialog buttons (PrintTicketsDialog palette).
-const PREVIEW_BTN_SX = { bgcolor: '#5ebbeb', color: '#fff', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' } };
+const PREVIEW_BTN_SX = { bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' } };
 
 const MENU_PROPS = {
   marginThreshold: 0,
   PaperProps: {
     sx: {
-      borderRadius: '8px', border: '1px solid #d0d5dd', boxShadow: 'none', mt: '2px', maxHeight: 280,
+      borderRadius: '8px', border: byMode('1px solid #d0d5dd', '1px solid #a1a1a1'), boxShadow: 'none', mt: '2px', maxHeight: 280,
       '& li': { fontSize: 14, minHeight: 36 },
-      '& li.Mui-selected': { bgcolor: '#dbeafe !important' },
-      '& li:hover': { bgcolor: '#eff6ff' },
+      '& li.Mui-selected': { bgcolor: byMode('#dbeafe !important', 'transparent !important'), color: byMode(undefined, '#00a6f4') },
+      '& li:hover': { bgcolor: byMode('#eff6ff', '#0084d1'), color: byMode(undefined, '#fafafa') },
       '& li:focus-visible': { outline: 'none' },
     },
   },
@@ -333,7 +334,7 @@ const ColorPickerButton = ({ color, onChange, onLive, label }) => {
         onClose={close}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{ sx: { borderRadius: '8px', border: '1px solid #d0d5dd', boxShadow: 'none' } }}
+        PaperProps={{ sx: { borderRadius: '8px', border: byMode('1px solid #d0d5dd', '1px solid #a1a1a1'), boxShadow: 'none' } }}
       >
         <Box sx={{ p: 1.5, width: 250 }} data-testid="color-popover">
           <ChromePicker
@@ -347,7 +348,7 @@ const ColorPickerButton = ({ color, onChange, onLive, label }) => {
               size="small"
               fullWidth
               onClick={() => { setAnchorEl(null); onChange('transparent'); }}
-              sx={{ textTransform: 'none', height: 36, borderRadius: '12px', border: '1px solid #d0d5dd', color: '#344054', fontWeight: 600 }}
+              sx={{ textTransform: 'none', height: 36, borderRadius: '12px', border: byMode('1px solid #d0d5dd', '1px solid #a1a1a1'), color: byMode('#344054', '#d4d4d4'), fontWeight: 600 }}
             >
               Transparent
             </Button>
@@ -1144,7 +1145,7 @@ const ShelfTicketEditor = () => {
           ].map(([title, icon, calc]) => (
             <Tooltip key={title} title={title}>
               <span>
-                <IconButton size="small" disabled={el.locked} onClick={() => updateElHistory(calc())} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, '&:focus-visible': { outline: 'none' } }}>
+                <IconButton size="small" disabled={el.locked} onClick={() => updateElHistory(calc())} sx={{ border: byMode('1px solid #e0e0e0', '1px solid #373737'), borderRadius: 1, '&:focus-visible': { outline: 'none' } }}>
                   {icon}
                 </IconButton>
               </span>
@@ -1195,7 +1196,7 @@ const ShelfTicketEditor = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', backgroundColor: '#f0f2f5' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', backgroundColor: byMode('#f0f2f5', '#121212') }}>
       {/* Toolbar */}
       <Paper elevation={2} sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1, zIndex: 100, borderRadius: 0, flexShrink: 0 }}>
         <Tooltip title="Back to Templates">
@@ -1277,7 +1278,7 @@ const ShelfTicketEditor = () => {
 
       <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
         {/* Left Panel - Palette */}
-        <Paper elevation={1} sx={{ width: 240, display: 'flex', flexDirection: 'column', borderRadius: 0, overflowY: 'auto', flexShrink: 0, borderRight: '1px solid #e0e0e0' }}>
+        <Paper elevation={1} sx={{ width: 240, display: 'flex', flexDirection: 'column', borderRadius: 0, overflowY: 'auto', flexShrink: 0, borderRight: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
           <Box sx={{ p: 1.5 }}>
             <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 1, textTransform: 'uppercase', fontSize: 12, letterSpacing: 0.5 }}>
               Elements
@@ -1404,7 +1405,7 @@ const ShelfTicketEditor = () => {
         </Box>
 
         {/* Right Panel - Properties */}
-        <Paper elevation={1} sx={{ width: 360, display: 'flex', flexDirection: 'column', borderRadius: 0, overflowY: 'auto', flexShrink: 0, borderLeft: '1px solid #e0e0e0' }}>
+        <Paper elevation={1} sx={{ width: 360, display: 'flex', flexDirection: 'column', borderRadius: 0, overflowY: 'auto', flexShrink: 0, borderLeft: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
           {renderPropertiesPanel()}
         </Paper>
       </Box>
@@ -1463,7 +1464,7 @@ const ShelfTicketEditor = () => {
         </DialogContent>
         <Divider />
         <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-          <Button disableElevation onClick={() => setPreviewDialog(false)} sx={{ ...PREVIEW_BTN_SX, bgcolor: '#d4d4d4', color: '#000', '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' } }}>Close</Button>
+          <Button disableElevation onClick={() => setPreviewDialog(false)} sx={{ ...PREVIEW_BTN_SX, bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), '&:hover': { bgcolor: byMode('#a3a3a3', '#4a4a4a'), boxShadow: 'none' } }}>Close</Button>
           <Box sx={{ flexGrow: 1 }} />
           <Button variant="contained" disableElevation startIcon={<PrintIcon />} onClick={() => { setPreviewDialog(false); handlePrintPreview(template, [PREVIEW_VALUES]); }} sx={PREVIEW_BTN_SX}>
             Print Sample

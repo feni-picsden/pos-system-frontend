@@ -20,6 +20,18 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import orderInvoiceService from '../../services/orderInvoiceService';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (no own ref): the app's dark question dialog frame (AppDialogProvider)
+// plus the Orders & Invoices dark values.
+const DK = {
+  pane: '#232323', edge: '#373737', text: '#f8f8f8', body: '#d4d4d4', sub: '#bdbdbd',
+  input: '#121212', inputText: '#ffffff', border: '#a1a1a1', focus: '#eeeeee', placeholder: '#757575',
+  link: '#4ca0f5', green: '#81dc8d', warn: '#f6993f', danger: '#ffa2a2', tip: '#2b2b2b',
+  hover: '#0084d1', onHover: '#fafafa', selected: '#00a6f4',
+};
+const DK_OK = { bg: '#a3cefa', hover: '#8bc0f5', fg: '#313439' };
+const DK_CANCEL = { bg: '#313439', hover: '#3a3f47', fg: '#d4d4d4', border: `1px solid ${DK.border}` };
 
 // Receive an in-transit transfer. Same frame as the app's confirm dialog
 // (AppDialogProvider). When every line already exists at the destination it is a
@@ -36,20 +48,22 @@ const PAPER_SX = {
   width: 560,
   maxWidth: '92vw',
   overflow: 'hidden',
-  bgcolor: '#f8f8f8',
+  bgcolor: byMode('#f8f8f8', DK.pane),
   borderRadius: 0,
-  border: '1px solid #000',
+  border: byMode('1px solid #000', `1px solid ${DK.edge}`),
   boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)',
 };
-const btnSx = (bg, hover) => ({
-  bgcolor: bg,
-  color: '#fff',
+// dark = { bg, hover, fg, border } for dark mode only (light is unchanged).
+const btnSx = (bg, hover, dark = {}) => ({
+  bgcolor: byMode(bg, dark.bg ?? bg),
+  color: byMode('#fff', dark.fg ?? '#fff'),
+  border: byMode(undefined, dark.border),
   textTransform: 'none',
   borderRadius: '6px',
   fontWeight: 600,
   px: 3,
-  '&:hover': { bgcolor: hover },
-  '&.Mui-disabled': { bgcolor: bg, color: '#fff', opacity: 0.5 },
+  '&:hover': { bgcolor: byMode(hover, dark.hover ?? hover) },
+  '&.Mui-disabled': { bgcolor: byMode(bg, dark.bg ?? bg), color: byMode('#fff', dark.fg ?? '#fff'), opacity: 0.5 },
 });
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -119,14 +133,14 @@ const InfoTip = ({ children }) => (
       popper: { sx: { zIndex: DIALOG_Z + 100 } },
       tooltip: {
         sx: {
-          bgcolor: '#fff', color: '#313439', border: '1px solid #d9d9d9', p: 1, maxWidth: 400,
+          bgcolor: byMode('#fff', DK.tip), color: byMode('#313439', DK.text), border: byMode('1px solid #d9d9d9', `1px solid ${DK.edge}`), p: 1, maxWidth: 400,
           boxShadow: '0 4px 14px rgba(0,0,0,.15)',
         },
       },
-      arrow: { sx: { color: '#fff', '&::before': { border: '1px solid #d9d9d9' } } },
+      arrow: { sx: { color: byMode('#fff', DK.tip), '&::before': { border: byMode('1px solid #d9d9d9', `1px solid ${DK.edge}`) } } },
     }}
   >
-    <InfoOutlinedIcon sx={{ fontSize: 18, color: '#1c86f2', cursor: 'help', flexShrink: 0 }} />
+    <InfoOutlinedIcon sx={{ fontSize: 18, color: byMode('#1c86f2', DK.link), cursor: 'help', flexShrink: 0 }} />
   </Tooltip>
 );
 
@@ -143,7 +157,7 @@ const DetailList = ({ product }) => {
       <tbody>
         {rows.map(([label, value]) => (
           <tr key={label}>
-            <Box component="td" sx={{ fontSize: 12.5, color: '#676b72', pr: 1.5, py: 0.25 }}>{label}</Box>
+            <Box component="td" sx={{ fontSize: 12.5, color: byMode('#676b72', DK.sub), pr: 1.5, py: 0.25 }}>{label}</Box>
             <Box component="td" sx={{ fontSize: 12.5, py: 0.25 }}>{value}</Box>
           </tr>
         ))}
@@ -155,7 +169,7 @@ const DetailList = ({ product }) => {
 // Shown inline (not only in the tooltip): receiving into a product with another
 // case size is the one mismatch worth stopping for.
 const CaseWarning = ({ source, target }) => (caseDiffers(source, target) ? (
-  <Typography sx={{ fontSize: 12.5, color: '#c2410c', mt: 0.5 }}>
+  <Typography sx={{ fontSize: 12.5, color: byMode('#c2410c', DK.warn), mt: 0.5 }}>
     Different case size ({source.caseQuantity} vs {target.caseQuantity}) - check it is the same product.
   </Typography>
 ) : null);
@@ -163,12 +177,12 @@ const CaseWarning = ({ source, target }) => (caseDiffers(source, target) ? (
 // Side-by-side check of what was sent against the product it lands on.
 const MatchDetails = ({ source, target, fromName, toName }) => {
   if (!source || !target) return null;
-  const same = (ok) => ({ color: ok ? '#16a34a' : '#313439', fontWeight: ok ? 600 : 400 });
+  const same = (ok) => ({ color: ok ? byMode('#16a34a', DK.green) : byMode('#313439', DK.text), fontWeight: ok ? 600 : 400 });
   // A row is shown only when at least one side has that detail.
   const rows = [
     (source.barcodes.length || target.barcodes.length)
       && ['Barcode', codesText(source), codesText(target), same(shareBarcode(source, target))],
-    ['Case size', source.caseQuantity, target.caseQuantity, caseDiffers(source, target) ? { color: '#c2410c', fontWeight: 700 } : same(true)],
+    ['Case size', source.caseQuantity, target.caseQuantity, caseDiffers(source, target) ? { color: byMode('#c2410c', DK.warn), fontWeight: 700 } : same(true)],
     (source.price != null || target.price != null)
       && ['Price', money(source.price), money(target.price), same(source.price === target.price)],
     (source.category || target.category)
@@ -181,14 +195,14 @@ const MatchDetails = ({ source, target, fromName, toName }) => {
         <thead>
           <tr>
             <Box component="th" sx={{ ...cell, width: 80 }} />
-            <Box component="th" sx={{ ...cell, textAlign: 'left', color: '#676b72', fontWeight: 600 }}>{fromName || 'Sent'}</Box>
-            <Box component="th" sx={{ ...cell, textAlign: 'left', color: '#676b72', fontWeight: 600 }}>{toName || 'Receiving'}</Box>
+            <Box component="th" sx={{ ...cell, textAlign: 'left', color: byMode('#676b72', DK.sub), fontWeight: 600 }}>{fromName || 'Sent'}</Box>
+            <Box component="th" sx={{ ...cell, textAlign: 'left', color: byMode('#676b72', DK.sub), fontWeight: 600 }}>{toName || 'Receiving'}</Box>
           </tr>
         </thead>
         <tbody>
           {rows.map(([label, a, b, bSx]) => (
             <tr key={label}>
-              <Box component="td" sx={{ ...cell, color: '#676b72' }}>{label}</Box>
+              <Box component="td" sx={{ ...cell, color: byMode('#676b72', DK.sub) }}>{label}</Box>
               <Box component="td" sx={cell}>{a}</Box>
               <Box component="td" sx={{ ...cell, ...bSx }}>{b}</Box>
             </tr>
@@ -238,7 +252,19 @@ const DestinationProductPicker = ({ outletId, value, onChange, disabled }) => {
       onChange={(_, v) => onChange(v)}
       onInputChange={(_, v) => setInput(v)}
       noOptionsText={input.trim().length < 2 ? 'Type to search...' : 'No products found'}
-      slotProps={{ popper: { sx: { zIndex: DIALOG_Z + 100 } } }}
+      slotProps={{
+        popper: { sx: { zIndex: DIALOG_Z + 100 } },
+        paper: {
+          sx: {
+            bgcolor: byMode(undefined, DK.pane),
+            color: byMode(undefined, DK.text),
+            boxShadow: byMode(undefined, '0 0 0 1px #ffffff'),
+            '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { color: byMode(undefined, DK.selected) },
+            '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused': { backgroundColor: byMode(undefined, DK.hover), color: byMode(undefined, DK.onHover) },
+            '& .MuiAutocomplete-noOptions, & .MuiAutocomplete-loading': { color: byMode(undefined, DK.text) },
+          },
+        },
+      }}
       renderOption={(props, o) => {
         // Keyed by id - two products can share a name; MUI's key is the label.
         const liProps = { ...props };
@@ -248,7 +274,7 @@ const DestinationProductPicker = ({ outletId, value, onChange, disabled }) => {
             <Box>
               <Typography sx={{ fontSize: 14 }}>{o.name}</Typography>
               {detailText(o) && (
-                <Typography sx={{ fontSize: 12, color: '#676b72' }}>{detailText(o)}</Typography>
+                <Typography sx={{ fontSize: 12, color: byMode('#676b72', DK.sub) }}>{detailText(o)}</Typography>
               )}
             </Box>
           </li>
@@ -258,7 +284,12 @@ const DestinationProductPicker = ({ outletId, value, onChange, disabled }) => {
         <TextField
           {...params}
           placeholder="Search product..."
-          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: '#fff' } }}
+          sx={{
+            '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: byMode('#fff', DK.input), color: byMode(undefined, DK.inputText) },
+            '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode(undefined, DK.border) },
+            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode(undefined, DK.focus) },
+            '& input::placeholder': { color: byMode(undefined, DK.placeholder), opacity: byMode(undefined, 1) },
+          }}
         />
       )}
     />
@@ -374,11 +405,13 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReview
       PaperProps={{ elevation: 0, sx: { ...PAPER_SX, ...(unmatched.length > 1 && { width: 680 }) } }}
       sx={{ zIndex: DIALOG_Z }}
     >
-      <Box sx={{ bgcolor: done ? '#e8f6ec' : '#e8f1fd', px: 3, py: 1.75, display: 'flex', alignItems: 'center', gap: 1 }}>
+      {/* Dark: the question header goes #232323 / #f8f8f8 like the app's dark question
+          dialog; the success header keeps its light tint (as AppDialogProvider). */}
+      <Box sx={{ bgcolor: done ? '#e8f6ec' : byMode('#e8f1fd', DK.pane), px: 3, py: 1.75, display: 'flex', alignItems: 'center', gap: 1 }}>
         {done
           ? <CheckCircleOutlineIcon sx={{ color: '#16a34a', fontSize: 22 }} />
           : <HelpOutlineIcon sx={{ color: '#1c86f2', fontSize: 22 }} />}
-        <Typography sx={{ color: done ? '#16a34a' : '#1c86f2', fontWeight: 700, fontSize: 18 }}>
+        <Typography sx={{ color: done ? '#16a34a' : byMode('#1c86f2', DK.text), fontWeight: 700, fontSize: 18 }}>
           {done ? 'Transfer received' : 'Receive transfer'}
         </Typography>
       </Box>
@@ -392,7 +425,7 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReview
           <>
             {/* Every product already exists at the destination: the plain confirm, as
                 before this dialog - nothing to decide, no product list. */}
-            <Typography sx={{ color: '#313439', fontSize: 16, mb: unmatched.length ? 2.5 : 0 }}>
+            <Typography sx={{ color: byMode('#313439', DK.body), fontSize: 16, mb: unmatched.length ? 2.5 : 0 }}>
               {unmatched.length
                 ? `Receive ${preview.orderNumber} from ${preview.fromName || 'the source outlet'} to ${toName}?`
                 : `Receive transfer ${preview.orderNumber} (${preview.fromName || 'source'} → ${toName})? The stock is added to ${toName}.`}
@@ -401,9 +434,9 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReview
             {unmatched.length > 0 && (
               <>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.5 }}>
-                  <Typography sx={{ color: '#313439', fontSize: 15, fontWeight: 700 }}>Check before receiving:</Typography>
+                  <Typography sx={{ color: byMode('#313439', DK.text), fontSize: 15, fontWeight: 700 }}>Check before receiving:</Typography>
                   {notFound.length > 1 && (
-                    <Button size="small" variant="outlined" onClick={createAllNew} disabled={submitting} sx={{ textTransform: 'none' }}>
+                    <Button size="small" variant="outlined" onClick={createAllNew} disabled={submitting} sx={{ textTransform: 'none', color: byMode(undefined, DK.body), borderColor: byMode(undefined, DK.border) }}>
                       Create all {notFound.length} as new
                     </Button>
                   )}
@@ -413,14 +446,14 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReview
                 {unmatched.map((l) => {
                   const c = choices[l.sourceProductId] || { mode: 'new' };
                   const found = l.suggestion;
-                  const link = { color: '#1c86f2', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' };
+                  const link = { color: byMode('#1c86f2', DK.link), cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' };
                   const into = c.mode === 'existing' && c.product;
                   return (
-                    <Box key={l.sourceProductId} sx={{ border: '1px solid #d9d9d9', bgcolor: '#fff', px: 2, py: 1.5, mb: 1.5 }}>
+                    <Box key={l.sourceProductId} sx={{ border: byMode('1px solid #d9d9d9', `1px solid ${DK.edge}`), bgcolor: byMode('#fff', DK.pane), px: 2, py: 1.5, mb: 1.5 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                         <Typography sx={{ fontSize: 15, fontWeight: 600 }}>
                           {l.name}
-                          <Box component="span" sx={{ fontSize: 14, color: '#676b72', fontWeight: 400 }}> · {unitsText(l.units, l.caseQuantity)}</Box>
+                          <Box component="span" sx={{ fontSize: 14, color: byMode('#676b72', DK.sub), fontWeight: 400 }}> · {unitsText(l.units, l.caseQuantity)}</Box>
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           {/* The (i) explains the option that is selected right now. */}
@@ -454,10 +487,10 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReview
                       {found && !c.changing && (
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 0.5 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <CheckCircleIcon sx={{ fontSize: 18, color: '#16a34a' }} />
-                            <Typography sx={{ fontSize: 14, color: '#16a34a', fontWeight: 600 }}>
+                            <CheckCircleIcon sx={{ fontSize: 18, color: byMode('#16a34a', DK.green) }} />
+                            <Typography sx={{ fontSize: 14, color: byMode('#16a34a', DK.green), fontWeight: 600 }}>
                               {c.product?.name}
-                              <Box component="span" sx={{ color: '#676b72', fontWeight: 400 }}>
+                              <Box component="span" sx={{ color: byMode('#676b72', DK.sub), fontWeight: 400 }}>
                                 {' '}({found.reason === 'barcode' ? 'same barcode' : 'similar name'})
                               </Box>
                             </Typography>
@@ -523,23 +556,23 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReview
                 <Button
                   size="small"
                   onClick={() => setShowMatched(!matchedOpen)}
-                  sx={{ textTransform: 'none', px: 0, minWidth: 0, fontWeight: 600, mb: 0.75 }}
+                  sx={{ textTransform: 'none', px: 0, minWidth: 0, fontWeight: 600, mb: 0.75, color: byMode(undefined, DK.link) }}
                 >
                   {matchedOpen ? 'Hide' : 'Show'} {plural(matched.length, 'product')} with the same name
                 </Button>
                 {matchedOpen && (
-                  <Box sx={{ maxHeight: '30vh', overflowY: 'auto', border: '1px solid #e5e7eb', bgcolor: '#fff' }}>
+                  <Box sx={{ maxHeight: '30vh', overflowY: 'auto', border: byMode('1px solid #e5e7eb', `1px solid ${DK.edge}`), bgcolor: byMode('#fff', DK.pane) }}>
                     {matched.map((l) => (
-                      <Box key={l.sourceProductId} sx={{ px: 2, py: 1.25, borderBottom: '1px solid #f0f0f0' }}>
+                      <Box key={l.sourceProductId} sx={{ px: 2, py: 1.25, borderBottom: byMode('1px solid #f0f0f0', `1px solid ${DK.edge}`) }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                            <CheckCircleIcon sx={{ fontSize: 18, color: '#16a34a', flexShrink: 0 }} />
+                            <CheckCircleIcon sx={{ fontSize: 18, color: byMode('#16a34a', DK.green), flexShrink: 0 }} />
                             <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>
                               {l.name}
                               {l.match.name !== l.name && (
-                                <Box component="span" sx={{ color: '#676b72', fontWeight: 400 }}> → {l.match.name}</Box>
+                                <Box component="span" sx={{ color: byMode('#676b72', DK.sub), fontWeight: 400 }}> → {l.match.name}</Box>
                               )}
-                              <Box component="span" sx={{ fontSize: 13, color: '#676b72', fontWeight: 400 }}> · {unitsText(l.units, l.caseQuantity)}</Box>
+                              <Box component="span" sx={{ fontSize: 13, color: byMode('#676b72', DK.sub), fontWeight: 400 }}> · {unitsText(l.units, l.caseQuantity)}</Box>
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -561,7 +594,7 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReview
         {done && (
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
             {(done.results || []).map((r, i) => (
-              <Typography key={i} sx={{ fontSize: 15, color: r.success ? '#313439' : '#e0393e' }}>
+              <Typography key={i} sx={{ fontSize: 15, color: r.success ? byMode('#313439', DK.body) : byMode('#e0393e', DK.danger) }}>
                 {r.success
                   ? `${r.source && r.source !== r.product ? `${r.source} → ` : ''}${r.product} (+${r.received})`
                   : `${r.product}: ${r.error}`}
@@ -575,17 +608,17 @@ const TransferReceiveDialog = ({ open, transferId, onClose, onReceived, onReview
 
       <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1.25 }}>
         {done ? (
-          <Button onClick={close} disableElevation sx={btnSx('#5ebbeb', '#48a9dc')}>OK</Button>
+          <Button onClick={close} disableElevation sx={btnSx('#5ebbeb', '#48a9dc', DK_OK)}>OK</Button>
         ) : (
           <>
-            <Button onClick={close} disabled={submitting} disableElevation sx={btnSx('#8a8d91', '#76797d')}>
+            <Button onClick={close} disabled={submitting} disableElevation sx={btnSx('#8a8d91', '#76797d', DK_CANCEL)}>
               Cancel
             </Button>
             <Button
               onClick={handleReceive}
               disabled={loading || !preview || submitting || missingPick}
               disableElevation
-              sx={btnSx('#5ebbeb', '#48a9dc')}
+              sx={btnSx('#5ebbeb', '#48a9dc', DK_OK)}
             >
               {submitting ? 'Receiving…' : 'Receive'}
             </Button>

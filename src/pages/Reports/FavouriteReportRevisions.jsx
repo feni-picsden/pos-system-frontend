@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { byMode } from '../../theme/sfPalette';
 import { ArrowBack as BackIcon } from '@mui/icons-material';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import favouriteReportService from '../../services/favouriteReportService';
@@ -21,7 +23,9 @@ const SETTING_ROWS = [
 ];
 const FROM_BG = '#f8d7da';
 const TO_BG = '#d4edda';
-const BORDER = '1px solid #000';
+const FROM_BG_DARK = '#492625';
+const TO_BG_DARK = '#264029';
+const BORDER = byMode('1px solid #000', '1px solid #373737');
 
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const text = (v) => {
@@ -32,6 +36,7 @@ const text = (v) => {
 };
 
 const SettingsTable = ({ value, other, isFrom }) => {
+  const isDark = useTheme().palette.mode === 'dark';
   if (!value || typeof value !== 'object') return <span>{text(value)}</span>;
   return (
     <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', border: BORDER, '& th, & td': { border: BORDER, px: 1, py: '6px', fontSize: 16, textAlign: 'left', verticalAlign: 'middle' }, '& th': { fontWeight: 700, textAlign: 'center' } }}>
@@ -39,7 +44,7 @@ const SettingsTable = ({ value, other, isFrom }) => {
       <tbody>
         {SETTING_ROWS.filter(([k]) => value[k] !== undefined).map(([k, label]) => {
           const changed = !same(value[k], other?.[k]);
-          const bg = changed ? (isFrom ? FROM_BG : TO_BG) : 'transparent';
+          const bg = changed ? (isFrom ? (isDark ? FROM_BG_DARK : FROM_BG) : (isDark ? TO_BG_DARK : TO_BG)) : 'transparent';
           const v = text(value[k]);
           return (
             <tr key={k}>
@@ -89,7 +94,7 @@ const FavouriteReportRevisions = () => {
         >
           Back
         </Button>
-        <Typography component="h1" sx={{ fontSize: 30, fontWeight: 700, color: '#000' }}>Report Revision History</Typography>
+        <Typography component="h1" sx={{ fontSize: 30, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>Report Revision History</Typography>
       </Box>
 
       {loading ? (
@@ -98,7 +103,7 @@ const FavouriteReportRevisions = () => {
         <Box sx={{ bgcolor: 'rgb(227,52,47)', color: '#fff', px: 2, py: 1.5, fontSize: 15 }}>{error}</Box>
       ) : (
         <Box sx={{ maxHeight: 'calc(100vh - 140px)', overflow: 'auto', border: BORDER }}>
-          <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', '& th, & td': { border: BORDER, px: 1, py: '8px', fontSize: 16, color: '#000', verticalAlign: 'middle' }, '& th': { fontWeight: 700, textAlign: 'center', bgcolor: '#fff', position: 'sticky', top: 0, zIndex: 1, boxShadow: 'inset 0 -1px 0 #000, inset 0 1px 0 #000' } }}>
+          <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', '& th, & td': { border: BORDER, px: 1, py: '8px', fontSize: 16, color: byMode('#000', '#f8f8f8'), verticalAlign: 'middle' }, '& th': { fontWeight: 700, textAlign: 'center', bgcolor: byMode('#fff', '#232323'), position: 'sticky', top: 0, zIndex: 1, boxShadow: byMode('inset 0 -1px 0 #000, inset 0 1px 0 #000', 'inset 0 -1px 0 #373737, inset 0 1px 0 #373737') } }}>
             <thead>
               <tr>
                 <th style={{ width: '11.5%' }}>Field</th>

@@ -59,8 +59,9 @@ import {
 import trashedItemsService from '../../services/trashedItemsService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { FileSearchGlyph } from '../../components/Common/EmptyResults';
+import { byMode } from '../../theme/sfPalette';
 
-const FILTER_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' };
+const FILTER_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode('#000', '#f8f8f8') };
 
 // Reference checkbox is a 28x32 / radius-4 light square, not MUI's default 42x42 hit area.
 const CHECKBOX_SX = {
@@ -111,32 +112,32 @@ const CHECKBOX_ICONS = {
 };
 
 const FIELD_SX = {
-  backgroundColor: '#fff',
+  backgroundColor: byMode('#fff', '#121212'),
   width: '100%',
   '& .MuiOutlinedInput-root': {
     height: 42,
     borderRadius: '8px',
     fontSize: 16,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
   },
   '& .MuiOutlinedInput-input': { padding: '9px 16px' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Select's sx lands ON the OutlinedInput root, not a descendant of it, so FIELD_SX's
 // `& .MuiOutlinedInput-root` rules never matched and it fell back to MUI defaults
 // (radius 4px / rgba(0,0,0,0.23)). Same tokens, addressed from the root.
 const SELECT_SX = {
-  backgroundColor: '#fff',
+  backgroundColor: byMode('#fff', '#121212'),
   width: '100%',
   height: 42,
   borderRadius: '8px',
   fontSize: 16,
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
   '& .MuiSelect-select': { padding: '9px 16px' },
 };
 
@@ -393,7 +394,7 @@ const TrashedItems = () => {
     height: 41,
     fontSize: 16,
     px: 2,
-    '& input::placeholder': { color: '#808080', opacity: 1 },
+    '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
   };
 
   const today = new Date();
@@ -416,12 +417,12 @@ const TrashedItems = () => {
     const days = getDaysInMonth(monthDate);
     return (
       <Box key={format(monthDate, 'yyyy-MM')} sx={{ width: 252 }}>
-        <Typography sx={{ textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#313439', mb: 1 }}>
+        <Typography sx={{ textAlign: 'center', fontWeight: 700, fontSize: 14, color: byMode('#313439', '#f8f8f8'), mb: 1 }}>
           {format(monthDate, 'MMMM yyyy')}
         </Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 36px)' }}>
           {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-            <Typography key={d} sx={{ textAlign: 'center', fontSize: 12, color: '#676b72', lineHeight: '24px' }}>
+            <Typography key={d} sx={{ textAlign: 'center', fontSize: 12, color: byMode('#676b72', '#a0a4aa'), lineHeight: '24px' }}>
               {d}
             </Typography>
           ))}
@@ -446,11 +447,11 @@ const TrashedItems = () => {
                   fontFamily: 'inherit',
                   cursor: 'pointer',
                   bgcolor: selected ? '#5ebbeb' : inRange ? 'rgba(94,187,235,0.15)' : 'transparent',
-                  color: selected ? '#fff' : '#313439',
+                  color: selected ? '#fff' : byMode('#313439', '#f8f8f8'),
                   // Current day circled blue, as on the reference.
                   border: isSameDay(day, today) && !selected ? '1px solid #5ebbeb' : 0,
                   borderRadius: '50%',
-                  '&:hover': { bgcolor: selected ? '#4aa9dd' : 'rgba(0,0,0,0.05)' },
+                  '&:hover': { bgcolor: selected ? '#4aa9dd' : byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.1)') },
                 }}
               >
                 {i + 1}
@@ -463,22 +464,22 @@ const TrashedItems = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pb: 10, backgroundColor: '#f5f5f5', minHeight: 'calc(100vh - 50px)' }}>
+    <Box sx={{ p: 3, pb: 10, backgroundColor: byMode('#f5f5f5', '#121212'), minHeight: 'calc(100vh - 50px)' }}>
       {/* Header like the Products / Customer Group lists: title left, count top right */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
-          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 0.5 }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>
             Trashed Items
           </Typography>
-          <Typography sx={{ fontSize: 14, color: '#374151' }}>
+          <Typography sx={{ fontSize: 14, color: byMode('#374151', '#d4d4d4') }}>
             Trashed items are limited to the last 100 days
           </Typography>
         </Box>
         <Box sx={{ textAlign: 'right' }}>
-          <Typography component="h2" sx={{ fontSize: 32, fontWeight: 700, color: '#000', lineHeight: 1.1 }}>
+          <Typography component="h2" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), lineHeight: 1.1 }}>
             {totalCount}
           </Typography>
-          <Typography sx={{ fontSize: 14, color: '#374151' }}>Results</Typography>
+          <Typography sx={{ fontSize: 14, color: byMode('#374151', '#d4d4d4') }}>Results</Typography>
         </Box>
       </Box>
 
@@ -545,18 +546,18 @@ const TrashedItems = () => {
                   mt: '2px',
                   maxHeight: 236,
                   borderRadius: '8px',
-                  border: '1px solid #404040',
+                  border: byMode('1px solid #404040', '1px solid #a1a1a1'),
                   boxShadow: 'none',
-                  bgcolor: '#fff',
-                  '&& .MuiMenuItem-root': { minHeight: 46, height: 46, px: 2, fontSize: 16, color: '#313439', borderBottom: 0, outline: 'none' },
+                  bgcolor: byMode('#fff', '#232323'),
+                  '&& .MuiMenuItem-root': { minHeight: 46, height: 46, px: 2, fontSize: 16, color: byMode('#313439', '#f8f8f8'), borderBottom: 0, outline: 'none' },
                   '&& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#38bdf8' },
                   '&& .MuiMenuItem-root:hover, && .MuiMenuItem-root.Mui-focusVisible, && .MuiMenuItem-root.Mui-selected:hover': {
-                    bgcolor: '#5ebbeb',
-                    color: '#f8f8f8',
+                    bgcolor: byMode('#5ebbeb', '#0084d1'),
+                    color: byMode('#f8f8f8', '#fafafa'),
                   },
                   // Opening focuses the first row; once the mouse is in the list
                   // only the hovered row carries the band (two blue rows looked odd).
-                  '&&:hover .MuiMenuItem-root.Mui-focusVisible:not(:hover)': { bgcolor: 'transparent', color: '#313439' },
+                  '&&:hover .MuiMenuItem-root.Mui-focusVisible:not(:hover)': { bgcolor: 'transparent', color: byMode('#313439', '#f8f8f8') },
                   '&&:hover .MuiMenuItem-root.Mui-focusVisible.Mui-selected:not(:hover)': { color: '#38bdf8' },
                 },
               },
@@ -592,8 +593,8 @@ const TrashedItems = () => {
             sx={{
               display: 'flex',
               alignItems: 'center',
-              backgroundColor: '#fff',
-              border: '1px solid #404040',
+              backgroundColor: byMode('#fff', '#121212'),
+              border: byMode('1px solid #404040', '1px solid #a1a1a1'),
               borderRadius: '8px',
             }}
           >
@@ -604,7 +605,7 @@ const TrashedItems = () => {
               inputProps={{ 'aria-label': 'Deleted at from' }}
               sx={dateInputSx}
             />
-            <Box component="span" sx={{ color: '#676b72', fontSize: 16 }}>—</Box>
+            <Box component="span" sx={{ color: byMode('#676b72', '#a0a4aa'), fontSize: 16 }}>—</Box>
             <InputBase
               value={endText}
               onChange={(e) => setEndText(e.target.value)}
@@ -648,7 +649,7 @@ const TrashedItems = () => {
                 { value: endText, set: setEndText, label: 'Calendar to' },
               ].map((f, i) => (
                 <React.Fragment key={f.label}>
-                  {i === 1 && <Box component="span" sx={{ color: '#676b72', fontSize: 16 }}>—</Box>}
+                  {i === 1 && <Box component="span" sx={{ color: byMode('#676b72', '#a0a4aa'), fontSize: 16 }}>—</Box>}
                   <InputBase
                     value={f.value}
                     onChange={(e) => f.set(e.target.value)}
@@ -667,7 +668,7 @@ const TrashedItems = () => {
                       ) : null
                     }
                     // the two boxes share the line's width with "Current Day"
-                    sx={{ flex: 1, minWidth: 0, height: 32, fontSize: 14, pl: 1, pr: 0.5, border: '1px solid #404040', borderRadius: '8px', boxSizing: 'border-box' }}
+                    sx={{ flex: 1, minWidth: 0, height: 32, fontSize: 14, pl: 1, pr: 0.5, border: byMode('1px solid #404040', '1px solid #a1a1a1'), borderRadius: '8px', boxSizing: 'border-box' }}
                   />
                 </React.Fragment>
               ))}
@@ -687,7 +688,7 @@ const TrashedItems = () => {
                   p: 0,
                   border: 0,
                   bgcolor: 'transparent',
-                  color: '#32b643',
+                  color: byMode('#32b643', '#7bf1a8'),
                   fontSize: 14,
                   fontFamily: 'inherit',
                   cursor: 'pointer',
@@ -744,8 +745,8 @@ const TrashedItems = () => {
             <TableRow
               sx={{
                 '& th': {
-                  bgcolor: '#5ebbeb',
-                  color: '#fff',
+                  bgcolor: byMode('#5ebbeb', '#333333'),
+                  color: byMode('#fff', '#5ebbeb'),
                   fontWeight: 700,
                   fontSize: 16,
                   border: 0,
@@ -767,7 +768,7 @@ const TrashedItems = () => {
                   checked={allSelected}
                   onChange={handleSelectAll}
                   {...CHECKBOX_ICONS}
-                  sx={{ ...CHECKBOX_SX, color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                  sx={{ ...CHECKBOX_SX, color: byMode('#fff', '#5ebbeb'), '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: byMode('#fff', '#5ebbeb') } }}
                   inputProps={{ 'aria-label': 'Select all trashed items' }}
                 />
               </TableCell>
@@ -782,16 +783,16 @@ const TrashedItems = () => {
           )}
           <TableBody
             sx={{
-              '& tr': { bgcolor: '#fff' },
+              '& tr': { bgcolor: byMode('#fff', '#232323') },
               // Reference row pitch is 56px.
-              '& td': { border: 0, bgcolor: '#fff', height: 56, py: 0, fontSize: 16, color: '#313439' },
+              '& td': { border: 0, bgcolor: byMode('#fff', '#232323'), height: 56, py: 0, fontSize: 16, color: byMode('#313439', '#f8f8f8') },
             }}
           >
             {/* Loading sits inside the grid, where the rows will appear */}
             {loading && trashedItems.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  <Typography sx={{ color: '#000', fontSize: 16 }}>Loading...</Typography>
+                  <Typography sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 16 }}>Loading...</Typography>
                 </TableCell>
               </TableRow>
             ) : trashedItems.length === 0 ? (
@@ -799,7 +800,7 @@ const TrashedItems = () => {
                 <TableCell colSpan={5} align="center" sx={{ py: 4, bgcolor: 'transparent !important' }}>
                   {/* Reference empty state: document-search icon above the text */}
                   <Box sx={{ display: 'flex', justifyContent: 'center', mb: 0.5 }}><FileSearchGlyph /></Box>
-                  <Typography sx={{ color: '#000', fontSize: 16 }}>No trash found.</Typography>
+                  <Typography sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 16 }}>No trash found.</Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -808,7 +809,7 @@ const TrashedItems = () => {
                   key={`${item.id}-${item.type}`}
                   // Reference: a ticked row turns light blue (same tint as the header)
                   sx={isItemSelected(item.id, item.type)
-                    ? { '& td': { bgcolor: '#a9dcf5 !important' } }
+                    ? { '& td': { bgcolor: byMode('#a9dcf5 !important', '#0c3a55 !important') } }
                     : undefined}
                 >
                   <TableCell padding="checkbox" sx={{ pl: '20px' }}>
@@ -843,7 +844,7 @@ const TrashedItems = () => {
                       disableRipple
                       startIcon={<RecoverIcon />}
                       sx={{
-                        color: '#00a63e',
+                        color: byMode('#00a63e', '#7bf1a8'),
                         textTransform: 'none',
                         fontWeight: 700,
                         fontSize: 16,
@@ -852,7 +853,7 @@ const TrashedItems = () => {
                         borderRadius: '12px',
                         minWidth: 0,
                         transition: 'all 0s ease',
-                        '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', color: '#00a63e' },
+                        '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.1)'), color: byMode('#00a63e', '#7bf1a8') },
                       }}
                     >
                       Recover
@@ -904,8 +905,8 @@ const TrashedItems = () => {
             // Reference is explicit here (light-grey pill + not-allowed), so it beats the
             // parity-system dark-rail disabled token.
             '&.Mui-disabled': {
-              backgroundColor: '#e5e5e5',
-              color: '#737373',
+              backgroundColor: byMode('#e5e5e5', '#3a3a3a'),
+              color: byMode('#737373', '#a0a4aa'),
               border: '1px solid #737373',
               pointerEvents: 'auto',
               cursor: 'not-allowed',

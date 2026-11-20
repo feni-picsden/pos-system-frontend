@@ -22,6 +22,7 @@ import {
   FormControl,
   Snackbar,
   Alert,
+  useTheme,
 } from '@mui/material';
 import {
   FileDownload as ExportIcon,
@@ -51,6 +52,7 @@ import { printReportTable, reportPrintTitle, reportPrintRange } from '../../util
 import FavouriteRevisionsButton from './FavouriteRevisionsButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useGlobalOutlet } from '../Common/GlobalOutletFilter';
+import { byMode } from '../../theme/sfPalette';
 
 // ───────────────────────────────────────────── reference styles
 const INSTANT = 'none';
@@ -66,18 +68,18 @@ const outlinedBtnSx = {
   fontWeight: 700,
   textTransform: 'none',
   transition: INSTANT,
-  color: '#0284c7',
+  color: byMode('#0284c7', '#74d4ff'),
   borderColor: '#0ea5e9',
-  bgcolor: '#fff',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', borderColor: '#0ea5e9' },
-  '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373', borderColor: '#a3a3a3', cursor: 'not-allowed' },
+  bgcolor: byMode('#fff', 'transparent'),
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), borderColor: '#0ea5e9' },
+  '&.Mui-disabled': { bgcolor: byMode('#e5e5e5', '#333333'), color: byMode('#737373', '#a0a4aa'), borderColor: byMode('#a3a3a3', '#555555'), cursor: 'not-allowed' },
 };
 
 const neutralBtnSx = {
   ...outlinedBtnSx,
-  color: '#313439',
-  borderColor: '#404040',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', borderColor: '#404040' },
+  color: byMode('#313439', '#d4d4d4'),
+  borderColor: byMode('#404040', '#a1a1a1'),
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), borderColor: byMode('#404040', '#a1a1a1') },
 };
 
 const primaryBtnSx = {
@@ -89,28 +91,28 @@ const primaryBtnSx = {
   textTransform: 'none',
   transition: INSTANT,
   boxShadow: 'none',
-  bgcolor: '#0ea5e9',
-  color: '#fff',
-  '&:hover': { bgcolor: '#0284c7', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373', cursor: 'not-allowed' },
+  bgcolor: byMode('#0ea5e9', '#73d4ff'),
+  color: byMode('#fff', '#232323'),
+  '&:hover': { bgcolor: byMode('#0284c7', '#5ebbeb'), boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: byMode('#e5e5e5', '#333333'), color: byMode('#737373', '#a0a4aa'), cursor: 'not-allowed' },
 };
 
 const inputSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
-    bgcolor: '#fff',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
+    bgcolor: byMode('#fff', '#121212'),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 },
   },
-  '& input::placeholder, & textarea::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder, & textarea::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Data table chrome — same as SalesReport.jsx / ReportTable.jsx.
 const TABLE_HEAD_SX = {
   '& th': {
-    backgroundColor: '#5ebbeb',
-    color: '#f8f8f8',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     textTransform: 'uppercase',
@@ -123,11 +125,11 @@ const TABLE_HEAD_SX = {
   },
 };
 const TABLE_ROW_SX = {
-  '& td': { color: '#000', fontWeight: 400, fontSize: 16, padding: '8px 8px 8px 10px', borderBottom: 'none', whiteSpace: 'nowrap' },
+  '& td': { color: byMode('#000', '#f8f8f8'), fontWeight: 400, fontSize: 16, padding: '8px 8px 8px 10px', borderBottom: 'none', whiteSpace: 'nowrap' },
 };
 const TABLE_TOTAL_SX = {
-  bgcolor: '#5ebbeb',
-  '& td': { color: '#f8f8f8', fontWeight: 700, fontSize: 16, padding: '8px 8px 8px 10px', borderBottom: 'none', position: 'sticky', bottom: 0, backgroundColor: '#5ebbeb', zIndex: 1 },
+  bgcolor: byMode('#5ebbeb', '#333333'),
+  '& td': { color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700, fontSize: 16, padding: '8px 8px 8px 10px', borderBottom: 'none', position: 'sticky', bottom: 0, backgroundColor: byMode('#5ebbeb', '#333333'), zIndex: 1 },
 };
 
 // ───────────────────────────────────────────── reference schema (view-only dictionary)
@@ -353,6 +355,9 @@ const KEYWORDS = new Set([
 ]);
 const FUNCTIONS = new Set(['FORMAT', 'TOTAL', 'ROUND', 'ABS', 'FLOOR', 'CEIL', 'LINK', 'CONCAT', 'DATE_FORMAT']);
 
+// Dark mode: the same token roles in a dark-editor palette (light values untouched).
+const DARK_TOKEN = { '#669900': '#96d0ff', '#990055': '#6cb6ff', '#dd4a68': '#6cb6ff', '#0077aa': '#f47067', '#000000': '#adbac7', '#999999': '#adbac7' };
+
 const colourToken = (token) => {
   if (/^["']/.test(token)) return '#669900';
   if (/^\d/.test(token)) return '#990055';
@@ -366,12 +371,13 @@ const colourToken = (token) => {
   return undefined;
 };
 
-const highlightLine = (line) =>
+const highlightLine = (line, dark) =>
   line
     .split(/("[^"]*"?|'[^']*'?|\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_]*|[^\sA-Za-z0-9_"']+)/g)
     .filter(Boolean)
     .map((token, i) => {
-      const color = colourToken(token);
+      const light = colourToken(token);
+      const color = dark && light ? DARK_TOKEN[light] : light;
       return <span key={i} style={color ? { color } : undefined}>{token}</span>;
     });
 
@@ -411,6 +417,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
   // a saved report still arrives as ?query=&dateTime=… from the Reports list.
   const handover = useLocation().state || {};
   const dialogs = useAppDialogs();
+  const isDark = useTheme().palette.mode === 'dark';
   const headerScope = useHeaderScope();
   const headerRegisterId = !headerScope.showOutletFilter && !headerScope.showRegisterFilter ? headerScope.headerRegisterId : null;
 
@@ -719,9 +726,9 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
         disableRipple
         sx={{
           flex: 1, height: 52, borderRadius: 0, textTransform: 'none', fontWeight: 700, fontSize: 14,
-          bgcolor: active ? '#f3f3f3' : '#f3f3f3', color: active ? '#1e40af' : '#000',
-          borderBottom: `4px solid ${active ? '#1e40af' : '#b3b3b3'}`, transition: INSTANT,
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+          bgcolor: active ? byMode('#f3f3f3', '#202020') : byMode('#f3f3f3', '#202020'), color: active ? byMode('#1e40af', '#8ec5ff') : byMode('#000', '#ffffff'),
+          borderBottom: byMode(`4px solid ${active ? '#1e40af' : '#b3b3b3'}`, `4px solid ${active ? '#8ec5ff' : '#525252'}`), transition: INSTANT,
+          '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', '#3a3a3a') },
         }}
       >
         {label}
@@ -730,11 +737,11 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
   };
 
   return (
-    <Box sx={{ p: '8px', bgcolor: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ p: '8px', bgcolor: byMode('#fff', '#121212'), minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {editorVisible && (
         <Box sx={{ display: 'flex', gap: '16px', height: 500, mb: '16px' }}>
           {/* Schema / Popular */}
-          <Box sx={{ width: 384, flexShrink: 0, border: '1px solid #404040', borderRadius: '8px', bgcolor: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box sx={{ width: 384, flexShrink: 0, border: byMode('1px solid #404040', '1px solid #373737'), borderRadius: '8px', bgcolor: byMode('#fff', '#202020'), display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <Box sx={{ display: 'flex' }}>
               {tabButton('schema', 'Schema', SchemaGlyph)}
               {tabButton('popular', 'Popular', PopularGlyph)}
@@ -756,24 +763,24 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
                     <Box key={t.table} sx={{ mb: '6px' }}>
                       <Box
                         onClick={() => setExpanded((prev) => ({ ...prev, [t.table]: !prev[t.table] }))}
-                        sx={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', py: '6px', px: '4px', borderRadius: '4px', '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' } }}
+                        sx={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', py: '6px', px: '4px', borderRadius: '4px', '&:hover': { bgcolor: byMode('rgba(0,0,0,0.04)', 'rgba(255,255,255,0.08)') } }}
                       >
                         {open ? <ExpandMoreIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}
-                        <Typography sx={{ fontFamily: "'Roboto Mono', monospace", fontWeight: 700, fontSize: 17, color: '#000' }}>{t.table}</Typography>
+                        <Typography sx={{ fontFamily: "'Roboto Mono', monospace", fontWeight: 700, fontSize: 17, color: byMode('#000', '#f8f8f8') }}>{t.table}</Typography>
                       </Box>
                       {open && t.columns.map((c) => (
-                        <Typography key={c} sx={{ fontFamily: "'Roboto Mono', monospace", fontSize: 15, color: '#000', pl: '24px', py: '3px', cursor: 'default' }}>{c}</Typography>
+                        <Typography key={c} sx={{ fontFamily: "'Roboto Mono', monospace", fontSize: 15, color: byMode('#000', '#d4d4d4'), pl: '24px', py: '3px', cursor: 'default' }}>{c}</Typography>
                       ))}
                     </Box>
                   );
                 })
               ) : (
                 <>
-                  <Typography sx={{ fontWeight: 700, fontSize: 17, color: '#000', mb: '28px', lineHeight: 1.2 }}>Popular Queries</Typography>
+                  <Typography sx={{ fontWeight: 700, fontSize: 17, color: byMode('#000', '#f8f8f8'), mb: '28px', lineHeight: 1.2 }}>Popular Queries</Typography>
                   {visiblePopular.map((q) => (
                     <Box key={q.name} onClick={() => applyPopularQuery(q)} sx={{ mb: '26px', pr: '8px', cursor: 'pointer', '&:hover': { opacity: 0.75 } }}>
-                      <Typography sx={{ fontSize: 16, color: '#000', lineHeight: 1.3 }}>{q.name}</Typography>
-                      <Typography sx={{ fontSize: 13, color: '#676b72', lineHeight: 1.35, mt: '6px' }}>{q.description}</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: 1.3 }}>{q.name}</Typography>
+                      <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa'), lineHeight: 1.35, mt: '6px' }}>{q.description}</Typography>
                     </Box>
                   ))}
                 </>
@@ -782,8 +789,8 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
           </Box>
 
           {/* Code editor: line gutter + coloured overlay + transparent textarea */}
-          <Box sx={{ flex: 1, minWidth: 0, border: '1px solid #404040', borderRadius: '8px', bgcolor: '#fff', display: 'flex', overflow: 'hidden', position: 'relative', fontFamily: "'Roboto Mono', monospace", fontSize: 14, lineHeight: '20px' }}>
-            <Box ref={gutterRef} sx={{ width: 36, flexShrink: 0, bgcolor: '#f3f3f3', color: '#777', textAlign: 'right', pr: '4px', pt: '8px', overflow: 'hidden', userSelect: 'none' }}>
+          <Box sx={{ flex: 1, minWidth: 0, border: byMode('1px solid #404040', '1px solid #373737'), borderRadius: '8px', bgcolor: byMode('#fff', '#121212'), display: 'flex', overflow: 'hidden', position: 'relative', fontFamily: "'Roboto Mono', monospace", fontSize: 14, lineHeight: '20px' }}>
+            <Box ref={gutterRef} sx={{ width: 36, flexShrink: 0, bgcolor: byMode('#f3f3f3', '#202020'), color: byMode('#777', '#d4d2ce'), textAlign: 'right', pr: '4px', pt: '8px', overflow: 'hidden', userSelect: 'none' }}>
               {lines.map((_, i) => (
                 <Box key={i} sx={{ height: 20 }}>{i + 1}</Box>
               ))}
@@ -792,7 +799,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
               <Box ref={preRef} component="pre" aria-hidden sx={{ m: 0, p: '8px 8px 8px 4px', position: 'absolute', inset: 0, overflow: 'hidden', whiteSpace: 'pre', fontFamily: EDITOR_FONT, fontSize: '14px', lineHeight: '20px', letterSpacing: 0, fontVariantLigatures: 'none', pointerEvents: 'none' }}>
                 {lines.map((line, i) => (
                   <Box key={i} component="span" sx={{ display: 'block', height: 20, bgcolor: i + 1 === cursorLine ? 'rgba(94,187,235,0.14)' : 'transparent', px: '4px', mx: '-4px' }}>
-                    {highlightLine(line)}{line === '' ? ' ' : ''}
+                    {highlightLine(line, isDark)}{line === '' ? ' ' : ''}
                   </Box>
                 ))}
               </Box>
@@ -808,16 +815,16 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
                 onKeyDown={handleEditorKeyDown}
                 sx={{
                   position: 'absolute', inset: 0, width: '100%', height: '100%', m: 0, p: '8px 8px 8px 4px', boxSizing: 'border-box',
-                  border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: 'transparent', caretColor: '#000',
+                  border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: 'transparent', caretColor: byMode('#000', '#d4d4d4'),
                   fontFamily: EDITOR_FONT, fontSize: '14px', lineHeight: '20px', letterSpacing: 0, fontVariantLigatures: 'none', whiteSpace: 'pre', overflow: 'auto',
                 }}
               />
               {/* Reference: a failed Execute shows the reason inside the editor box (pink bar, ! and ×). */}
               {loadError && (
-                <Box sx={{ position: 'absolute', left: 16, right: 16, bottom: 16, bgcolor: '#fde8e8', border: '1px solid #e4a0a0', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px', px: '16px', py: '18px', fontFamily: 'Roboto, Helvetica, Arial, sans-serif', fontSize: 15, color: '#8b1a1a', zIndex: 2 }}>
-                  <ErrorMarkIcon sx={{ fontSize: 20, color: '#c62828' }} />
+                <Box sx={{ position: 'absolute', left: 16, right: 16, bottom: 16, bgcolor: byMode('#fde8e8', '#492625'), border: byMode('1px solid #e4a0a0', '1px solid #7a3a38'), borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px', px: '16px', py: '18px', fontFamily: 'Roboto, Helvetica, Arial, sans-serif', fontSize: 15, color: byMode('#8b1a1a', '#ffa2a2'), zIndex: 2 }}>
+                  <ErrorMarkIcon sx={{ fontSize: 20, color: byMode('#c62828', '#ffa2a2') }} />
                   <Box sx={{ flex: 1, whiteSpace: 'normal' }}>{loadError}</Box>
-                  <CloseIcon onClick={() => setLoadError('')} sx={{ fontSize: 20, color: '#c62828', cursor: 'pointer' }} />
+                  <CloseIcon onClick={() => setLoadError('')} sx={{ fontSize: 20, color: byMode('#c62828', '#ffa2a2'), cursor: 'pointer' }} />
                 </Box>
               )}
             </Box>
@@ -825,10 +832,10 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
         </Box>
       )}
       {!editorVisible && loadError && (
-        <Box sx={{ bgcolor: '#fde8e8', border: '1px solid #e4a0a0', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px', px: '16px', py: '18px', fontSize: 15, color: '#8b1a1a', mb: '16px' }}>
-          <ErrorMarkIcon sx={{ fontSize: 20, color: '#c62828' }} />
+        <Box sx={{ bgcolor: byMode('#fde8e8', '#492625'), border: byMode('1px solid #e4a0a0', '1px solid #7a3a38'), borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px', px: '16px', py: '18px', fontSize: 15, color: byMode('#8b1a1a', '#ffa2a2'), mb: '16px' }}>
+          <ErrorMarkIcon sx={{ fontSize: 20, color: byMode('#c62828', '#ffa2a2') }} />
           <Box sx={{ flex: 1 }}>{loadError}</Box>
-          <CloseIcon onClick={() => setLoadError('')} sx={{ fontSize: 20, color: '#c62828', cursor: 'pointer' }} />
+          <CloseIcon onClick={() => setLoadError('')} sx={{ fontSize: 20, color: byMode('#c62828', '#ffa2a2'), cursor: 'pointer' }} />
         </Box>
       )}
 
@@ -859,7 +866,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
       {/* Results (a failed Execute clears the table — reference) */}
       {hasRun && columns.length > 0 ? (
         <TableContainer sx={{ maxHeight: 'calc(100vh - 140px)', overflow: 'auto' }}>
-          <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'auto', '& .MuiTableCell-stickyHeader': { backgroundColor: '#5ebbeb' }, '& th, & td': { px: '14px' }, '& th': { fontSize: 15 } }}>
+          <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'auto', '& .MuiTableCell-stickyHeader': { backgroundColor: byMode('#5ebbeb', '#333333') }, '& th, & td': { px: '14px' }, '& th': { fontSize: 15 } }}>
             <TableHead>
               <TableRow sx={TABLE_HEAD_SX}>
                 {columns.map((col, ci) => {
@@ -880,7 +887,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
                 if (row._group) {
                   stripe = 0;
                   return (
-                    <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: '#e8e8e8' }}>
+                    <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: byMode('#e8e8e8', '#333333') }}>
                       <TableCell colSpan={columns.length} onClick={() => toggleGroup(row.name)} sx={{ cursor: 'pointer', userSelect: 'none', py: '10px !important' }}>
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           {collapsed[row.name] ? <ChevronRightIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
@@ -892,14 +899,14 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
                 }
                 if (row._groupTotal) {
                   return (
-                    <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: '#e8e8e8' }}>
+                    <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: byMode('#e8e8e8', '#333333') }}>
                       {columns.map((col, ci) => (
                         <TableCell key={col.key} align={cellAlign(col, ci)} sx={ci === 0 ? { fontSize: '13px !important', pl: '10px !important' } : undefined}>{ci === 0 ? groupTotalLabel(row) : formatCell(row[col.key], col)}</TableCell>
                       ))}
                     </TableRow>
                   );
                 }
-                const shade = stripe++ % 2 === 0 ? '#fff' : '#e8e8e8';
+                const shade = stripe++ % 2 === 0 ? byMode('#fff', '#232323') : byMode('#e8e8e8', '#2a2a2a');
                 return (
                   <TableRow key={idx} sx={{ ...TABLE_ROW_SX, bgcolor: shade }}>
                     {columns.map((col, ci) => {
@@ -909,17 +916,17 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
                       const orderMatch = link && String(link.href || '').match(/^\/order\/(\d+)/);
                       const content = link
                         ? (saleMatch
-                          ? <RouterLink to={`/register/history?saleId=${saleMatch[1]}`} style={{ color: '#0284c7' }}>{link.text}</RouterLink>
+                          ? <RouterLink to={`/register/history?saleId=${saleMatch[1]}`} style={{ color: isDark ? '#74d4ff' : '#0284c7' }}>{link.text}</RouterLink>
                           : orderMatch
-                            ? <RouterLink to={`/orders-invoices/${orderMatch[1]}`} style={{ color: '#0284c7' }}>{link.text}</RouterLink>
-                            : <a href={link.href} style={{ color: '#0284c7' }}>{link.text}</a>)
+                            ? <RouterLink to={`/orders-invoices/${orderMatch[1]}`} style={{ color: isDark ? '#74d4ff' : '#0284c7' }}>{link.text}</RouterLink>
+                            : <a href={link.href} style={{ color: isDark ? '#74d4ff' : '#0284c7' }}>{link.text}</a>)
                         : formatCell(value, col);
                       // Reference tree line: a child row's name hangs off a "├─" guide.
                       if (ci === 0 && row._child) {
                         return (
                           <TableCell key={col.key} align={cellAlign(col, ci)} sx={{ pl: '14px !important' }}>
                             <Box sx={{ display: 'flex', alignItems: 'stretch', minHeight: 24 }}>
-                              <Box sx={{ width: 14, flexShrink: 0, borderLeft: '2px solid #000', position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: '2px solid #000' } }} />
+                              <Box sx={{ width: 14, flexShrink: 0, borderLeft: byMode('2px solid #000', '2px solid #f8f8f8'), position: 'relative', '&::after': { content: '""', position: 'absolute', top: '50%', left: 0, width: 10, borderTop: byMode('2px solid #000', '2px solid #f8f8f8') } }} />
                               <Box sx={{ pl: '12px', display: 'flex', alignItems: 'center' }}>{content}</Box>
                             </Box>
                           </TableCell>
@@ -942,11 +949,11 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
 
       {/* Export dialog */}
       <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
-        <DialogTitle sx={{ py: 2, px: 3, fontSize: 20, fontWeight: 700, color: '#313439' }}>Export Report</DialogTitle>
+        <DialogTitle sx={{ py: 2, px: 3, fontSize: 20, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>Export Report</DialogTitle>
         <DialogContent sx={{ px: 3, py: 3 }}>
-          <Typography sx={{ mb: 1.5, color: '#676b72', fontSize: 16, fontWeight: 700 }}>Export Type</Typography>
+          <Typography sx={{ mb: 1.5, color: byMode('#676b72', '#d4d4d4'), fontSize: 16, fontWeight: 700 }}>Export Type</Typography>
           <FormControl fullWidth>
-            <Select value={exportType} onChange={(e) => setExportType(e.target.value)} sx={{ bgcolor: 'white', borderRadius: '8px' }}>
+            <Select value={exportType} onChange={(e) => setExportType(e.target.value)} sx={{ bgcolor: byMode('white', '#121212'), borderRadius: '8px' }}>
               <MenuItem value="pdf"><Box sx={{ display: 'flex', alignItems: 'center' }}><PdfIcon sx={{ mr: 1.5, color: '#d32f2f' }} />PDF</Box></MenuItem>
               <MenuItem value="xlsx"><Box sx={{ display: 'flex', alignItems: 'center' }}><XlsxIcon sx={{ mr: 1.5, color: '#2e7d32' }} />XLSX</Box></MenuItem>
               <MenuItem value="csv"><Box sx={{ display: 'flex', alignItems: 'center' }}><CsvIcon sx={{ mr: 1.5, color: '#ed6c02' }} />CSV</Box></MenuItem>
@@ -955,7 +962,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
           </FormControl>
           {exportType === 'pdf' && (
             <Box sx={{ mt: 3 }}>
-              <Typography sx={{ mb: 1.5, color: '#676b72', fontSize: 16, fontWeight: 700 }}>Orientation</Typography>
+              <Typography sx={{ mb: 1.5, color: byMode('#676b72', '#d4d4d4'), fontSize: 16, fontWeight: 700 }}>Orientation</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 {['portrait', 'landscape'].map((o) => (
                   <Button key={o} fullWidth variant={exportOrientation === o ? 'contained' : 'outlined'} onClick={() => setExportOrientation(o)} sx={exportOrientation === o ? primaryBtnSx : neutralBtnSx}>
@@ -974,9 +981,9 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
 
       {/* Save dialog */}
       <Dialog open={saveDialogOpen} onClose={() => { setSaveDialogOpen(false); setQueryName(''); }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
-        <DialogTitle sx={{ py: 2, px: 3, fontSize: 20, fontWeight: 700, color: '#313439' }}>Save Query</DialogTitle>
+        <DialogTitle sx={{ py: 2, px: 3, fontSize: 20, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>Save Query</DialogTitle>
         <DialogContent sx={{ px: 3, py: 3 }}>
-          <Typography sx={{ mb: 1.5, color: '#676b72', fontSize: 16, fontWeight: 700 }}>Report Name</Typography>
+          <Typography sx={{ mb: 1.5, color: byMode('#676b72', '#d4d4d4'), fontSize: 16, fontWeight: 700 }}>Report Name</Typography>
           <TextField
             autoFocus
             fullWidth

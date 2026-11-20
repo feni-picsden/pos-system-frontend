@@ -2,6 +2,7 @@ import React from 'react';
 import { Box } from '@mui/material';
 import { DescriptionOutlined } from '@mui/icons-material';
 import ReceiptRenderer from './ReceiptRenderer';
+import { byMode } from '../../theme/sfPalette';
 
 /**
  * The reference cannot render an A4 / Email template into the receipt preview and
@@ -24,7 +25,7 @@ const WidePreviewNotice = ({ template, receiptData }) => {
         alignItems: 'center',
         justifyContent: 'center',
         gap: 1,
-        color: '#313439',
+        color: byMode('#313439', '#f8f8f8'),
       }}
     >
       <DescriptionOutlined sx={{ fontSize: 56, color: '#f5a623' }} />

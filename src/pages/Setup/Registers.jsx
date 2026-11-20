@@ -32,11 +32,15 @@ import posLocalDb from '../../services/posLocalDb';
 import settingsService from '../../services/settingsService';
 import PageLoader from '../../components/Common/PageLoader';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { byMode } from '../../theme/sfPalette';
 
 // ─── Reference register-editor styling ─────────────────────────────────────
 const COLUMN_WIDTH = 764;
-const HEADER_BG = '#e2e8f0';
+const HEADER_BG = byMode('#e2e8f0', '#314158');
 const BLUE = '#5ebbeb';
+// Dark: product edit form body / text.
+const PAGE_BG = byMode('#fff', '#202020');
+const TEXT = byMode('#313439', '#f8f8f8');
 
 const saveBtnSx = {
   position: 'fixed',
@@ -46,7 +50,7 @@ const saveBtnSx = {
   height: 36,
   px: 2.5,
   bgcolor: BLUE,
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   borderRadius: '12px',
   fontWeight: 700,
   fontSize: 14,
@@ -54,53 +58,55 @@ const saveBtnSx = {
   boxShadow: 'none',
   transition: 'none',
   '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#a9d8f2', color: '#fff' },
+  '&.Mui-disabled': { bgcolor: byMode('#a9d8f2', '#2f5a72'), color: byMode('#fff', '#a0a4aa') },
   '&:focus, &:focus-visible': { outline: 'none', boxShadow: 'none' },
 };
 
 const fieldBorder = {
-  '& fieldset': { borderColor: '#404040', borderWidth: 1 },
-  '&:hover fieldset': { borderColor: '#404040' },
-  '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 2 },
+  '& fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+  '&:hover fieldset': { borderColor: byMode('#404040', '#a1a1a1') },
+  '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 },
 };
 
 const inputSx = {
-  '& .MuiOutlinedInput-root': { borderRadius: '6px', height: 42, backgroundColor: '#fff', ...fieldBorder },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-root': { borderRadius: '6px', height: 42, backgroundColor: byMode('#fff', '#121212'), ...fieldBorder },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 const selectSx = {
   borderRadius: '6px',
   height: 42,
-  backgroundColor: '#fff',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
+  backgroundColor: byMode('#fff', '#121212'),
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 },
+  '& .MuiSelect-icon': { color: byMode(undefined, '#a1a1a1') },
 };
 
 // Dropdown list: 1px black frame, rounded, ~5 rows then scroll, hover #6fd0ff.
 const listPaperSx = {
-  bgcolor: '#fff',
-  border: '1px solid #000',
+  bgcolor: byMode('#fff', '#232323'),
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: '6px',
   boxShadow: 'none',
   mt: '4px',
   '& .MuiAutocomplete-listbox, & .MuiMenu-list': { maxHeight: 5 * 42, overflowY: 'auto', py: 0 },
-  '& .MuiAutocomplete-option, & .MuiMenuItem-root': { minHeight: 42, fontSize: 16 },
-  '& .MuiAutocomplete-option.Mui-focused, & .MuiMenuItem-root:hover': { bgcolor: '#6fd0ff !important' },
-  '& .MuiAutocomplete-option[aria-selected="true"], & .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: BLUE },
+  '& .MuiAutocomplete-option, & .MuiMenuItem-root': { minHeight: 42, fontSize: 16, color: byMode(undefined, '#f8f8f8') },
+  '& .MuiAutocomplete-option.Mui-focused, & .MuiMenuItem-root:hover': { bgcolor: byMode('#6fd0ff !important', '#0084d1 !important'), color: byMode(undefined, '#fafafa') },
+  '& .MuiAutocomplete-option[aria-selected="true"], & .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: byMode(BLUE, '#00a6f4') },
+  '& .MuiAutocomplete-noOptions': { color: byMode(undefined, '#a0a4aa') },
 };
 
-const fieldLabelSx = { color: '#313439', fontSize: 16, fontWeight: 700, mb: 0.5 };
-const subHeadingSx = { fontSize: 20, fontWeight: 700, color: '#313439', mt: 3, mb: 1 };
-const helperSx = { fontSize: 14, color: '#676b72' };
+const fieldLabelSx = { color: TEXT, fontSize: 16, fontWeight: 700, mb: 0.5 };
+const subHeadingSx = { fontSize: 20, fontWeight: 700, color: TEXT, mt: 3, mb: 1 };
+const helperSx = { fontSize: 14, color: byMode('#676b72', '#d4d4d4') };
 
 // Section heading: grey icon hanging in the left margin, bold ~24px text,
 // a thin rule above every section but the first.
 const SectionHeading = ({ icon, children, first = false }) => (
-  <Box sx={{ position: 'relative', pt: first ? 0 : 3, mt: first ? 0 : 3, borderTop: first ? 0 : '1px solid #e5e7eb', mb: 2 }}>
-    {React.createElement(icon, { sx: { position: 'absolute', left: -40, top: first ? 4 : 28, fontSize: 24, color: '#9ca3af' } })}
-    <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#313439' }}>{children}</Typography>
+  <Box sx={{ position: 'relative', pt: first ? 0 : 3, mt: first ? 0 : 3, borderTop: first ? 0 : byMode('1px solid #e5e7eb', '1px solid #373737'), mb: 2 }}>
+    {React.createElement(icon, { sx: { position: 'absolute', left: -40, top: first ? 4 : 28, fontSize: 24, color: byMode('#9ca3af', '#a0a4aa') } })}
+    <Typography sx={{ fontSize: 24, fontWeight: 700, color: TEXT }}>{children}</Typography>
   </Box>
 );
 
@@ -495,19 +501,19 @@ const Registers = () => {
 
   // ─── Edit page (General | Register Closures) ──────────────────────────────
   return (
-    <Box sx={{ pb: 20, bgcolor: '#fff', minHeight: '100%' }}>
+    <Box sx={{ pb: 20, bgcolor: PAGE_BG, minHeight: '100%' }}>
       {/* Header band: outlet line, title, folder tabs (sticky) */}
       <Box sx={{ bgcolor: HEADER_BG, position: 'sticky', top: 0, zIndex: 10 }}>
         <Box sx={{ maxWidth: 760, mx: 'auto', px: 2, pt: 2 }}>
           <Typography
             component="span"
             onClick={closeEditPage}
-            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: 14, fontWeight: 700, color: '#313439', cursor: 'pointer', '&:hover': { color: '#32b643' } }}
+            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: 14, fontWeight: 700, color: TEXT, cursor: 'pointer', '&:hover': { color: byMode('#32b643', '#7bf1a8') } }}
           >
             <StorefrontOutlinedIcon sx={{ fontSize: 18 }} />
             {outletName || 'Registers'}
           </Typography>
-          <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#313439', mt: 0.5, mb: 1.5 }}>
+          <Typography sx={{ fontSize: 20, fontWeight: 700, color: TEXT, mt: 0.5, mb: 1.5 }}>
             Editing {formData.name || editingRegister.name}
           </Typography>
           <Box role="tablist" sx={{ display: 'flex', gap: 0.5 }}>
@@ -526,9 +532,9 @@ const Registers = () => {
                     height: 48, px: 2.5, border: 0, cursor: 'pointer',
                     fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
                     borderRadius: '8px 8px 0 0',
-                    bgcolor: active ? '#fff' : 'transparent',
-                    color: active ? '#313439' : '#676b72',
-                    '&:hover': { color: '#313439' },
+                    bgcolor: active ? PAGE_BG : 'transparent',
+                    color: active ? TEXT : byMode('#676b72', '#d4d4d4'),
+                    '&:hover': { color: TEXT },
                   }}
                 >
                   <tab.icon sx={{ fontSize: 20, color: active ? BLUE : 'inherit' }} />
@@ -584,12 +590,12 @@ const Registers = () => {
               />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, height: 42 }}>
-                <Typography sx={{ fontSize: 16, color: '#313439' }}>
+                <Typography sx={{ fontSize: 16, color: TEXT }}>
                   {editSettings.invoiceNumber || '1'}
                 </Typography>
                 <EditOutlinedIcon
                   onClick={() => setInvoiceEditing(true)}
-                  sx={{ fontSize: 18, color: '#32b643', cursor: 'pointer', '&:hover': { color: 'rgb(109,215,123)' } }}
+                  sx={{ fontSize: 18, color: byMode('#32b643', '#7bf1a8'), cursor: 'pointer', '&:hover': { color: byMode('rgb(109,215,123)', '#b9f8cf') } }}
                 />
               </Box>
             )}
@@ -733,7 +739,7 @@ const Registers = () => {
                 <TextField
                   {...params}
                   placeholder={(editSettings.closure?.closeTags || []).length ? '' : 'Select...'}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', minHeight: 42, ...fieldBorder }, '& input::placeholder': { color: '#808080', opacity: 1 } }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', minHeight: 42, backgroundColor: byMode(undefined, '#121212'), ...fieldBorder }, '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 } }}
                 />
               )}
               sx={{ mb: 2 }}

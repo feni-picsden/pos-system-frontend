@@ -4,6 +4,7 @@ import SaleDetailCard from "../SalesHistory/SaleDetailCard";
 import SaleListRow from "../SalesHistory/SaleListRow";
 import { paymentActionSx } from "../SalesHistory/CustomerPaymentPanel";
 import { formatSettingsDate, formatSettingsTime } from "../../utils/appDateTime";
+import { byMode } from "../../theme/sfPalette";
 
 // Sales History on the customer and customer-group pages: the SAME rows and
 // expanded card as the Sales History page (reference), with the action rail
@@ -65,7 +66,7 @@ const CustomerSalesHistory = ({
             />
           )}
           <Collapse in={openSaleIds.includes(sale.id)} timeout={400} easing="ease-in-out" unmountOnExit>
-            <Box sx={{ bgcolor: index % 2 ? "#ebebeb" : "#f8f8f8", p: "16px 0" }}>
+            <Box sx={{ bgcolor: index % 2 ? byMode("#ebebeb", "#2a2a2a") : byMode("#f8f8f8", "#232323"), p: "16px 0" }}>
               <SaleDetailCard
                 sale={sale}
                 formatDate={formatSettingsDate}

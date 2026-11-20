@@ -22,6 +22,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-mode colours (light values = what the page used before).
+const TXT = byMode('#000000', '#f8f8f8');
+const PAGE = byMode('#f5f5f5', '#121212');
+const PANE = byMode('white', '#232323');
+const ROW_RULE = byMode('1px solid #e0e0e0', '1px solid #373737');
 
 const DAYS_OF_WEEK = [
   'MONDAY',
@@ -400,18 +407,18 @@ const Surcharging = () => {
   });
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: PAGE }}>
       {/* Header */}
       <Box sx={{
         p: 2,
-        bgcolor: 'white',
-        borderBottom: '1px solid #e0e0e0',
+        bgcolor: PANE,
+        borderBottom: ROW_RULE,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <Typography sx={{ fontSize: 32, fontWeight: 700, color: '#000000' }}>
+          <Typography sx={{ fontSize: 32, fontWeight: 700, color: TXT }}>
             Surcharging
           </Typography>
 
@@ -419,12 +426,12 @@ const Surcharging = () => {
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Box sx={{ width: 24, height: 5, bgcolor: '#16a34a', borderRadius: '2px' }} />
-              <Typography sx={{ fontSize: 16, color: '#000000' }}>All Products</Typography>
+              <Typography sx={{ fontSize: 16, color: TXT }}>All Products</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               {/* Dashed amber swatch (two dashes, like the reference) */}
               <Box sx={{ width: 24, height: 0, borderTop: '5px dashed #d97706' }} />
-              <Typography sx={{ fontSize: 16, color: '#000000' }}>Limited</Typography>
+              <Typography sx={{ fontSize: 16, color: TXT }}>Limited</Typography>
             </Box>
           </Box>
         </Box>
@@ -433,7 +440,7 @@ const Surcharging = () => {
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
           {pinnedRegisterId ? (
             // Navbar outlet + register: this page is pinned to that register (no selector).
-            <Typography sx={{ fontSize: 18, fontWeight: 600, color: '#000000', height: 42, display: 'flex', alignItems: 'center' }}>
+            <Typography sx={{ fontSize: 18, fontWeight: 600, color: TXT, height: 42, display: 'flex', alignItems: 'center' }}>
               {selectedRegister?.name || navRegister?.name}
             </Typography>
           ) : (
@@ -455,24 +462,25 @@ const Surcharging = () => {
               paper: {
                 sx: {
                   mt: 0.5,
-                  border: '1px solid #000000',
+                  border: byMode('1px solid #000000', '1px solid #a1a1a1'),
                   borderRadius: '8px',
                   boxShadow: 'none',
+                  bgcolor: byMode(undefined, '#232323'),
                   // Reference rows: tall, divided, light-blue hover/selected
                   '& .MuiAutocomplete-option': {
                     minHeight: 56,
                     fontSize: 16,
-                    color: '#000000',
-                    borderBottom: '1px solid #e0e0e0',
+                    color: TXT,
+                    borderBottom: ROW_RULE,
                     '&:last-of-type': { borderBottom: 'none' },
-                    '&.Mui-focused, &[aria-selected="true"], &[aria-selected="true"].Mui-focused': { bgcolor: '#7fd3f7' },
+                    '&.Mui-focused, &[aria-selected="true"], &[aria-selected="true"].Mui-focused': { bgcolor: byMode('#7fd3f7', '#0084d1'), color: byMode(undefined, '#fafafa') },
                   },
                 },
               },
             }}
             renderGroup={(params) => (
               <li key={params.key}>
-                <Box sx={{ px: 2, py: 1.25, fontWeight: 700, fontSize: 16, color: '#000000', borderBottom: '1px solid #e0e0e0' }}>
+                <Box sx={{ px: 2, py: 1.25, fontWeight: 700, fontSize: 16, color: TXT, borderBottom: ROW_RULE }}>
                   {params.group}
                 </Box>
                 <ul style={{ padding: 0, margin: 0 }}>{params.children}</ul>
@@ -487,11 +495,12 @@ const Surcharging = () => {
                   '& .MuiOutlinedInput-root': {
                     height: 42,
                     borderRadius: '8px',
-                    '& fieldset': { borderColor: '#454545', borderWidth: 1 },
-                    '&:hover fieldset': { borderColor: '#454545' },
-                    '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: 2 },
+                    bgcolor: byMode(undefined, '#121212'),
+                    '& fieldset': { borderColor: byMode('#454545', '#a1a1a1'), borderWidth: 1 },
+                    '&:hover fieldset': { borderColor: byMode('#454545', '#a1a1a1') },
+                    '&.Mui-focused fieldset': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: 2 },
                   },
-                  '& input::placeholder': { color: '#808080', opacity: 1 },
+                  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
                 }}
               />
             )}
@@ -509,7 +518,7 @@ const Surcharging = () => {
             }
             label="Schedule Active"
             sx={{
-              color: '#000000',
+              color: TXT,
               gap: 1,
               ml: 0,
               '& .MuiSwitch-root:has(.Mui-disabled)': { cursor: 'not-allowed' },
@@ -525,16 +534,16 @@ const Surcharging = () => {
           display: 'flex',
           alignItems: 'center',
           gap: 2,
-          bgcolor: '#e3f3fb',
-          border: '1px solid #7cc3ea',
+          bgcolor: byMode('#e3f3fb', '#0c3a55'),
+          border: byMode('1px solid #7cc3ea', '1px solid #1d6a94'),
           borderRadius: '8px',
           mx: 2,
           mt: 2,
           px: 2.5,
           py: 2,
         }}>
-          <Typography sx={{ color: '#1a73b8', fontSize: 20, fontWeight: 700, fontFamily: 'Georgia, serif', lineHeight: 1 }}>i</Typography>
-          <Typography sx={{ fontSize: 14, color: '#1a4f7a' }}>
+          <Typography sx={{ color: byMode('#1a73b8', '#74d4ff'), fontSize: 20, fontWeight: 700, fontFamily: 'Georgia, serif', lineHeight: 1 }}>i</Typography>
+          <Typography sx={{ fontSize: 14, color: byMode('#1a4f7a', '#74d4ff') }}>
             Please select a register above.
           </Typography>
         </Box>
@@ -547,23 +556,23 @@ const Surcharging = () => {
           display: 'flex',
           alignItems: 'center',
           gap: 2,
-          bgcolor: '#fdf3c4',
-          border: '1px solid #f0c419',
+          bgcolor: byMode('#fdf3c4', '#433a10'),
+          border: byMode('1px solid #f0c419', '1px solid #a68a1c'),
           borderRadius: '8px',
           mx: 2,
           mt: 2,
           px: 2.5,
           py: 2,
         }}>
-          <Typography sx={{ color: '#d19a00', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>!</Typography>
-          <Typography sx={{ fontSize: 14, color: '#7a5a00' }}>
+          <Typography sx={{ color: byMode('#d19a00', '#ffd230'), fontSize: 20, fontWeight: 700, lineHeight: 1 }}>!</Typography>
+          <Typography sx={{ fontSize: 14, color: byMode('#7a5a00', '#fff085') }}>
             The schedule is not currently active, you&apos;ll need to enable it before any surcharge will take affect
           </Typography>
         </Box>
       )}
 
       {/* Main Schedule Grid (hidden until a register is chosen) */}
-      <Box sx={{ flex: 1, overflow: 'auto', bgcolor: '#f5f5f5', p: 2 }}>
+      <Box sx={{ flex: 1, overflow: 'auto', bgcolor: PAGE, p: 2 }}>
         {selectedRegister && (loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
           <CircularProgress />
@@ -578,20 +587,20 @@ const Surcharging = () => {
                   // horizontal scroll at desktop widths).
                   flex: '1 1 0',
                   minWidth: 200,
-                  border: '2px solid #000000',
+                  border: byMode('2px solid #000000', '2px solid #a1a1a1'),
                   borderRadius: '8px',
-                  bgcolor: 'white',
+                  bgcolor: PANE,
                   overflow: 'hidden',
                 }}
               >
                 {/* Day Header */}
                 <Box sx={{
                   p: 1.5,
-                  bgcolor: 'white',
-                  borderBottom: '1px solid #000000',
+                  bgcolor: PANE,
+                  borderBottom: byMode('1px solid #000000', '1px solid #a1a1a1'),
                   textAlign: 'center'
                 }}>
-                  <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000000', mb: 1 }}>
+                  <Typography sx={{ fontSize: 24, fontWeight: 700, color: TXT, mb: 1 }}>
                     {day}
                   </Typography>
                   <Button
@@ -599,8 +608,8 @@ const Surcharging = () => {
                     onClick={() => handleAddSchedule(day)}
                     sx={{
                       bgcolor: 'transparent',
-                      border: '1px solid #8a8a8a',
-                      color: '#6e6e6e',
+                      border: byMode('1px solid #8a8a8a', '1px solid #a1a1a1'),
+                      color: byMode('#6e6e6e', '#d4d4d4'),
                       height: 42,
                       px: 2.5,
                       fontSize: 16,
@@ -609,8 +618,8 @@ const Surcharging = () => {
                       textTransform: 'none',
                       transition: 'none',
                       '&:hover': {
-                        bgcolor: 'rgba(0,0,0,0.05)',
-                        border: '1px solid #8a8a8a',
+                        bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'),
+                        border: byMode('1px solid #8a8a8a', '1px solid #a1a1a1'),
                       },
                     }}
                   >
@@ -622,7 +631,7 @@ const Surcharging = () => {
                 <Box sx={{
                   minHeight: 600,
                   position: 'relative',
-                  bgcolor: 'white'
+                  bgcolor: PANE
                 }}>
                   {/* Time rows */}
                   {TIME_SLOTS.map((timeSlot, index) => {
@@ -632,16 +641,16 @@ const Surcharging = () => {
                         key={timeSlot}
                       sx={{
                         height: 48, // reference: 48px per hour
-                          borderBottom: '1px solid #e0e0e0',
+                          borderBottom: ROW_RULE,
                         display: 'flex',
                         alignItems: 'center',
                         px: 1,
-                          bgcolor: isEven ? '#fafafa' : 'white',
+                          bgcolor: isEven ? byMode('#fafafa', '#2a2a2a') : PANE,
                         }}
                       >
                         <Typography
                           sx={{
-                            color: '#64748b',
+                            color: byMode('#64748b', '#a0a4aa'),
                             fontSize: 16,
                             minWidth: 48
                           }}
@@ -690,14 +699,14 @@ const Surcharging = () => {
                       <Tooltip
                         key={schedule.id}
                         placement="right-start"
-                        componentsProps={{ tooltip: { sx: { bgcolor: 'white', color: '#000', border: '1px solid #ddd', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', borderRadius: '6px', px: 1.5, py: 1, fontSize: 13 } } }}
+                        componentsProps={{ tooltip: { sx: { bgcolor: byMode('white', '#232323'), color: byMode('#000', '#f8f8f8'), border: byMode('1px solid #ddd', '1px solid #a1a1a1'), boxShadow: byMode('0 2px 8px rgba(0,0,0,0.2)', '0 2px 8px rgba(0,0,0,0.6)'), borderRadius: '6px', px: 1.5, py: 1, fontSize: 13 } } }}
                         title={(
                           <Box>
-                            <Typography sx={{ fontSize: 11, color: '#000' }}>{schedule.startTime} - {schedule.endTime}</Typography>
-                            <Typography sx={{ fontSize: 15, color: '#000' }}>{sur.name || 'Surcharge'}</Typography>
-                            <Typography sx={{ fontSize: 15, color: '#000', mt: 0.5 }}>{amountText}</Typography>
-                            <Typography sx={{ fontSize: 11, color: '#000', mt: 0.5 }}>Applies To</Typography>
-                            <Typography sx={{ fontSize: 14, color: '#000' }}>{appliesText}</Typography>
+                            <Typography sx={{ fontSize: 11, color: byMode('#000', '#f8f8f8') }}>{schedule.startTime} - {schedule.endTime}</Typography>
+                            <Typography sx={{ fontSize: 15, color: byMode('#000', '#f8f8f8') }}>{sur.name || 'Surcharge'}</Typography>
+                            <Typography sx={{ fontSize: 15, color: byMode('#000', '#f8f8f8'), mt: 0.5 }}>{amountText}</Typography>
+                            <Typography sx={{ fontSize: 11, color: byMode('#000', '#f8f8f8'), mt: 0.5 }}>Applies To</Typography>
+                            <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8') }}>{appliesText}</Typography>
                           </Box>
                         )}
                       >
@@ -750,7 +759,7 @@ const Surcharging = () => {
           <Button
             onClick={openSaveToDialog}
             disabled={saving}
-            sx={{ bgcolor: '#d4d4d4', color: '#000000', '&:hover': { bgcolor: '#c4c4c4' }, textTransform: 'none', minWidth: 118, height: 42, borderRadius: '12px', fontWeight: 700, fontSize: 16 }}
+            sx={{ bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#000000', '#f8f8f8'), '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a') }, textTransform: 'none', minWidth: 118, height: 42, borderRadius: '12px', fontWeight: 700, fontSize: 16 }}
           >
             Save to...
           </Button>

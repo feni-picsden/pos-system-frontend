@@ -25,6 +25,17 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import ReviewerSelectDialog from '../../components/StockManagement/ReviewerSelectDialog';
 import { formatDate as formatAppDate, formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (no own ref): values copied from the reference dark Orders & Invoices /
+// Create Order screenshots (same as OrderDetails / CreateOrder). Light is unchanged.
+const DK = {
+  page: '#121212', pane: '#232323', text: '#f8f8f8', sub: '#bdbdbd', desc: '#d4d4d4', band: '#314158',
+  divider: '#373737', onBlue: '#313439', link: '#4ca0f5', input: '#121212', inputText: '#ffffff',
+  border: '#a1a1a1', focus: '#eeeeee', placeholder: '#757575', onActive: '#232323',
+};
+// Review status colours on the dark page (Approve green / Decline pink as the list's actions).
+const STATUS_DARK = { APPROVED: '#81dc8d', DECLINED: '#ffa2a2', CHANGES_REQUESTED: '#f59e0b' };
 
 // Shopfront reference styles (same tokens as OrderDetails)
 const metaLabelSx = {
@@ -33,15 +44,17 @@ const metaLabelSx = {
   color: 'rgb(189,189,189)',
   textTransform: 'uppercase',
 };
-const metaValueSx = { fontSize: 15, color: '#000' };
+const metaValueSx = { fontSize: 15, color: byMode('#000', DK.text) };
 const sectionTitleSx = { fontSize: 18, fontWeight: 700, mb: 1.5 };
 const grayBtnSx = {
   textTransform: 'none',
-  color: '#676b72',
-  borderColor: '#bdbdbd',
-  backgroundColor: '#f8f8f8',
-  '&:hover': { borderColor: '#bdbdbd', backgroundColor: '#eee' },
+  color: byMode('#676b72', DK.desc),
+  borderColor: byMode('#bdbdbd', DK.border),
+  backgroundColor: byMode('#f8f8f8', 'transparent'),
+  '&:hover': { borderColor: byMode('#bdbdbd', DK.border), backgroundColor: byMode('#eee', 'rgba(255,255,255,0.08)') },
 };
+// Blue Edit Order / View Order buttons: dark text on the blue in dark mode.
+const blueNavBtnSx = { color: byMode(undefined, DK.onBlue) };
 
 const STATUS_ACTIONS = [
   { status: 'APPROVED', label: 'Approve', color: '#16a34a', icon: <CheckIcon sx={{ fontSize: 16 }} /> },
@@ -92,7 +105,12 @@ const CommentComposer = ({ userName, value, onChange, onSubmit, saving }) => (
         placeholder="Add your comment..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 0, backgroundColor: '#fff' } }}
+        sx={{
+          '& .MuiOutlinedInput-root': { borderRadius: 0, backgroundColor: byMode('#fff', DK.input), color: byMode(undefined, DK.inputText) },
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode(undefined, DK.border) },
+          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode(undefined, DK.focus) },
+          '& textarea::placeholder': { color: byMode(undefined, DK.placeholder), opacity: byMode(undefined, 1) },
+        }}
       />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
         <Button
@@ -116,7 +134,7 @@ const CommentList = ({ comments }) =>
       <Box>
         <Typography sx={{ fontSize: 14, fontWeight: 700 }}>{c.user?.name || 'Unknown'}</Typography>
         <Typography sx={{ fontSize: 14, whiteSpace: 'pre-wrap' }}>{c.comment}</Typography>
-        <Typography sx={{ fontSize: 12, color: '#9e9e9e' }}>{formatDateTime(c.createdAt)}</Typography>
+        <Typography sx={{ fontSize: 12, color: byMode('#9e9e9e', DK.sub) }}>{formatDateTime(c.createdAt)}</Typography>
       </Box>
     </Box>
   ));
@@ -312,10 +330,10 @@ const ReviewOrder = () => {
   ];
 
   return (
-    <Box sx={{ backgroundColor: '#f5f5f5', minHeight: '100vh', p: 2 }}>
+    <Box sx={{ backgroundColor: byMode('#f5f5f5', DK.page), minHeight: '100vh', p: 2 }}>
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
         {/* Main content */}
-        <Paper sx={{ flex: 1, backgroundColor: '#fff', borderRadius: 0, boxShadow: 'none', p: 3 }}>
+        <Paper sx={{ flex: 1, backgroundColor: byMode('#fff', DK.pane), borderRadius: 0, boxShadow: 'none', p: 3 }}>
           <Typography sx={{ fontSize: 24, fontWeight: 700, mb: 2 }}>Reviewing Order</Typography>
 
           {/* Header meta grid */}
@@ -332,7 +350,7 @@ const ReviewOrder = () => {
           <Typography sx={sectionTitleSx}>Totals</Typography>
           <Box
             sx={{
-              backgroundColor: '#eef3f7',
+              backgroundColor: byMode('#eef3f7', DK.band),
               px: 2,
               py: 1.5,
               display: 'flex',
@@ -374,13 +392,13 @@ const ReviewOrder = () => {
                   href={resolveAssetUrl(att.url)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  sx={{ display: 'block', fontSize: 15, color: '#5ebbeb', textDecoration: 'none', py: 0.25 }}
+                  sx={{ display: 'block', fontSize: 15, color: byMode('#5ebbeb', DK.link), textDecoration: 'none', py: 0.25 }}
                 >
                   {att.name}
                 </Box>
               ))
             ) : (
-              <Typography sx={{ fontSize: 14, color: '#9e9e9e' }}>No attachments</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#9e9e9e', DK.sub) }}>No attachments</Typography>
             )}
           </Box>
 
@@ -414,7 +432,7 @@ const ReviewOrder = () => {
             ];
             return (
               <Box key={item.id} sx={{ mb: 2.5 }}>
-                <Box sx={{ backgroundColor: '#eef3f7', px: 2, py: 1.5 }}>
+                <Box sx={{ backgroundColor: byMode('#eef3f7', DK.band), px: 2, py: 1.5 }}>
                   <Typography sx={{ fontSize: 16, fontWeight: 700, mb: 1 }}>{item.product}</Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: '32px', rowGap: 1 }}>
                     {fields.map(([label, value]) => (
@@ -442,7 +460,7 @@ const ReviewOrder = () => {
 
         {/* Right sidebar */}
         <Box sx={{ width: 320, flexShrink: 0 }}>
-          <Paper sx={{ backgroundColor: '#fff', borderRadius: 0, boxShadow: 'none', p: 2 }}>
+          <Paper sx={{ backgroundColor: byMode('#fff', DK.pane), borderRadius: 0, boxShadow: 'none', p: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
               <Button
                 fullWidth
@@ -450,7 +468,7 @@ const ReviewOrder = () => {
                 variant="contained"
                 disableElevation
                 component={RouterLink} to={`/orders-invoices/${id}/edit`}
-                sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
+                sx={{ ...blueNavBtnSx, textTransform: 'none', backgroundColor: '#5ebbeb', borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
               >
                 Edit Order
               </Button>
@@ -460,7 +478,7 @@ const ReviewOrder = () => {
                 variant="contained"
                 disableElevation
                 component={RouterLink} to={`/orders-invoices/${id}`}
-                sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
+                sx={{ ...blueNavBtnSx, textTransform: 'none', backgroundColor: '#5ebbeb', borderRadius: 0, boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
               >
                 View Order
               </Button>
@@ -511,10 +529,10 @@ const ReviewOrder = () => {
                         textTransform: 'none',
                         justifyContent: 'flex-start',
                         borderRadius: 0,
-                        color: active ? '#fff' : color,
-                        borderColor: color,
-                        backgroundColor: active ? color : 'transparent',
-                        '&:hover': { borderColor: color, backgroundColor: active ? color : `${color}14` },
+                        color: active ? byMode('#fff', DK.onActive) : byMode(color, STATUS_DARK[status]),
+                        borderColor: byMode(color, STATUS_DARK[status]),
+                        backgroundColor: active ? byMode(color, STATUS_DARK[status]) : 'transparent',
+                        '&:hover': { borderColor: byMode(color, STATUS_DARK[status]), backgroundColor: active ? byMode(color, STATUS_DARK[status]) : byMode(`${color}14`, `${STATUS_DARK[status]}14`) },
                       }}
                     >
                       {label}
@@ -529,10 +547,10 @@ const ReviewOrder = () => {
               {activity.map((entry) => (
                 <Box
                   key={entry.key}
-                  sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.75, borderTop: '1px solid #eee' }}
+                  sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.75, borderTop: byMode('1px solid #eee', `1px solid ${DK.divider}`) }}
                 >
                   <Typography sx={{ fontSize: 13 }}>{entry.text}</Typography>
-                  <Typography sx={{ fontSize: 12, color: '#9e9e9e', whiteSpace: 'nowrap' }}>
+                  <Typography sx={{ fontSize: 12, color: byMode('#9e9e9e', DK.sub), whiteSpace: 'nowrap' }}>
                     {formatDateTime(entry.at)}
                   </Typography>
                 </Box>

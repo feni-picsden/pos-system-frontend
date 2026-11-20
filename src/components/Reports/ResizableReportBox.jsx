@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import ResizableBox from '../Dashboard/ResizableBox';
 import PropTypes from 'prop-types';
+import { byMode } from '../../theme/sfPalette';
 
 const ResizableReportBox = ({
   title,
@@ -120,7 +121,7 @@ const ResizableReportBox = ({
               justifyContent: 'center',
               zIndex: 2,
               '&:hover': {
-                backgroundColor: 'rgba(0,0,0,0.04)'
+                backgroundColor: byMode('rgba(0,0,0,0.04)', 'rgba(255,255,255,0.08)')
               }
             }}
           >
@@ -135,7 +136,7 @@ const ResizableReportBox = ({
             alignItems: 'center',
             p: 2,
             borderBottom: '1px solid #1976d2',
-            bgcolor: '#fff'
+            bgcolor: byMode('#fff', '#232323')
           }}
         >
           <Typography variant="h6" sx={{ ml: isDraggable ? 4 : 0 }}>{title}</Typography>

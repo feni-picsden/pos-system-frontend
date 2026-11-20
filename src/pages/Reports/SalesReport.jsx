@@ -77,6 +77,7 @@ import { chipsToParam, chipsFromParams } from '../../utils/reportChips';
 import FavouriteRevisionsButton from '../../components/Reports/FavouriteRevisionsButton';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference formats $11,686.18 / 1,914 (thousands separators).
 const formatCurrency = (value) => {
@@ -100,13 +101,13 @@ const SortIcon = ({ active }) => (
   </svg>
 );
 // Reference odd-row stripe is a visible grey.
-const ROW_ALT_BG = '#e8e8e8';
+const ROW_ALT_BG = byMode('#e8e8e8', '#2a2a2a');
 
 // Search suggestion rows: type label + icon (reference: barcode for products, % badge
 // for promotions, person for users, folder for categories; a deleted product shows a bin).
 const SUGGEST_LABELS = { product: 'Product', promotion: 'Promotion', user: 'User', category: 'Category', brand: 'Brand', family: 'Family', tag: 'Tag', supplier: 'Supplier', customer: 'Customer', outlet: 'Outlet', register: 'Register' };
 const SuggestIcon = ({ type, deleted }) => {
-  const sx = { fontSize: 34, color: '#111' };
+  const sx = { fontSize: 34, color: byMode('#111', '#f8f8f8') };
   if (deleted) return <DeleteOutlineIcon sx={sx} />;
   switch (type) {
     case 'product': return <QrCodeIcon sx={sx} />;
@@ -262,7 +263,7 @@ const REPORT_COLUMNS = [
     render: (row) => row.invoiceNumber || '',
     // Blue link to the sale (Register > History deep link).
     renderCell: (row) => (row.saleId
-      ? <RouterLink to={`/register/history?saleId=${row.saleId}`} style={{ color: '#0284c7' }}>{row.invoiceNumber || ''}</RouterLink>
+      ? <Box component={RouterLink} to={`/register/history?saleId=${row.saleId}`} sx={{ color: byMode('#0284c7', '#74d4ff') }}>{row.invoiceNumber || ''}</Box>
       : (row.invoiceNumber || ''))
   },
   { key: 'reference', label: 'Reference', headerLabel: 'REFERENCE', detailOnly: true, text: true, render: (row) => row.reference || '' },
@@ -331,31 +332,31 @@ const INSTANT = 'all 0s ease';
 
 // Sky-outlined toolbar buttons (Export / Print / Save / Columns / Edit Query).
 const SKY_BUTTON_SX = {
-  color: '#0284c7',
-  borderColor: '#0284c7',
+  color: byMode('#0284c7', '#74d4ff'),
+  borderColor: byMode('#0284c7', '#74d4ff'),
   textTransform: 'none',
   fontWeight: 700,
   fontSize: 16,
   height: 42,
   borderRadius: '12px',
   transition: INSTANT,
-  '&:hover': { borderColor: '#0284c7', bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { borderColor: byMode('#0284c7', '#74d4ff'), bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 };
 
 // Parity input/select outline: #404040 1px, focused #000 2px, radius 8px.
 const FIELD_SX = {
   '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
-  '& input::placeholder, & textarea::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
+  '& input::placeholder, & textarea::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Data table chrome — identical to components/Reports/ReportTable.jsx.
 const TABLE_HEAD_SX = {
   '& th': {
-    backgroundColor: '#5ebbeb',
-    color: '#f8f8f8',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     textTransform: 'uppercase',
@@ -369,7 +370,7 @@ const TABLE_HEAD_SX = {
 
 const TABLE_ROW_SX = {
   '& td': {
-    color: '#000',
+    color: byMode('#000', '#f8f8f8'),
     fontWeight: 400,
     fontSize: 16,
     padding: '8px 8px 8px 10px',
@@ -379,9 +380,9 @@ const TABLE_ROW_SX = {
 };
 
 const TABLE_TOTAL_SX = {
-  bgcolor: '#5ebbeb',
+  bgcolor: byMode('#5ebbeb', '#333333'),
   '& td': {
-    color: '#f8f8f8',
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     padding: '8px 8px 8px 10px',
@@ -389,7 +390,7 @@ const TABLE_TOTAL_SX = {
     // Total row pinned to the bottom of the scrolling table (reference).
     position: 'sticky',
     bottom: 0,
-    backgroundColor: '#5ebbeb',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
     zIndex: 1,
   },
   '& td:first-of-type': { zIndex: 3 },
@@ -399,8 +400,8 @@ const TABLE_TOTAL_SX = {
 const FILTER_BLOCK_SX = {
   height: 80,
   boxSizing: 'border-box',
-  bgcolor: '#676b72',
-  border: '1px solid #f8f8f8',
+  bgcolor: byMode('#676b72', '#333333'),
+  border: byMode('1px solid #f8f8f8', '1px solid #121212'),
   borderRadius: 0,
   color: '#f8f8f8',
   fontSize: 16,
@@ -416,7 +417,7 @@ const FILTER_BLOCK_SX = {
 // Date and Time uses the same flush slate block (DateRangePicker's outlined TextField).
 const FILTER_DATE_SX = {
   '& .MuiOutlinedInput-root': {
-    backgroundColor: '#676b72',
+    backgroundColor: byMode('#676b72', '#333333'),
     borderRadius: 0,
     height: 80,
     color: '#f8f8f8',
@@ -424,9 +425,9 @@ const FILTER_DATE_SX = {
     alignItems: 'flex-end',
     padding: '0 16px 14px 16px',
   },
-  '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #f8f8f8' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #f8f8f8' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { border: '1px solid #f8f8f8' },
+  '& .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #f8f8f8', '1px solid #121212') },
+  '&:hover .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #f8f8f8', '1px solid #121212') },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #f8f8f8', '1px solid #121212') },
   '& .MuiOutlinedInput-notchedOutline legend': { display: 'none' },
   '& .MuiInputLabel-root, & .MuiInputLabel-root.MuiInputLabel-shrink': {
     color: '#f8f8f8',
@@ -454,13 +455,13 @@ const highlightSQL = (sql) =>
     .filter(Boolean)
     .map((token, i) => {
       let color;
-      if (/^["']/.test(token)) color = '#669900';
-      else if (/^[A-Za-z_]/.test(token)) color = SQL_KEYWORDS.has(token.toUpperCase()) ? '#0077aa' : '#000000';
-      else if (!/^\s+$/.test(token)) color = '#999999';
+      if (/^["']/.test(token)) color = byMode('#669900', '#96d0ff');
+      else if (/^[A-Za-z_]/.test(token)) color = SQL_KEYWORDS.has(token.toUpperCase()) ? byMode('#0077aa', '#f47067') : byMode('#000000', '#adbac7');
+      else if (!/^\s+$/.test(token)) color = byMode('#999999', '#adbac7');
       return (
-        <span key={i} style={color ? { color } : undefined}>
+        <Box component="span" key={i} sx={color ? { color } : undefined}>
           {token}
-        </span>
+        </Box>
       );
     });
 
@@ -519,7 +520,7 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, disabled
             width: 'calc(100% - 2px)',
             zIndex: 8,
             boxSizing: 'border-box',
-            bgcolor: '#f8f8f8',
+            bgcolor: byMode('#f8f8f8', '#232323'),
             borderRadius: 0,
             boxShadow: 'none',
             // 11px vertical padding + 29px option rows land the panel on the reference 823px height
@@ -529,7 +530,7 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, disabled
           {groups.map((group, gi) => (
             <Box key={group.label || `g${gi}`}>
               {group.label && (
-                <Box sx={{ fontWeight: 700, fontSize: '19.2px', color: '#313439', mb: '8px' }}>
+                <Box sx={{ fontWeight: 700, fontSize: '19.2px', color: byMode('#313439', '#f8f8f8'), mb: '8px' }}>
                   {group.label}
                 </Box>
               )}
@@ -547,9 +548,9 @@ const ShopfrontFilter = ({ label, value, groups, onChange, renderValue, disabled
                       p: '3px 4px',
                       cursor: 'pointer',
                       bgcolor: option.value === value ? '#5ebbeb' : 'transparent',
-                      color: option.value === value ? '#f8f8f8' : '#313439',
+                      color: option.value === value ? '#f8f8f8' : byMode('#313439', '#f8f8f8'),
                       transition: 'background 0.1s, color 0.1s',
-                      '&:hover': { bgcolor: '#313439', color: '#f8f8f8' },
+                      '&:hover': { bgcolor: byMode('#313439', '#0084d1'), color: byMode('#f8f8f8', '#fafafa') },
                     }}
                   >
                     {option.label}
@@ -1530,7 +1531,7 @@ const SalesReport = () => {
             pl: '16px',
             mb: '8px',
             bgcolor: 'rgba(0,0,0,0)',
-            border: '1px solid #404040',
+            border: byMode('1px solid #404040', '1px solid #a1a1a1'),
             borderRadius: '8px',
             boxShadow: 'none',
             overflow: 'hidden',
@@ -1544,7 +1545,7 @@ const SalesReport = () => {
               whiteSpace: 'nowrap',
               fontFamily: "'Roboto Mono', monospace",
               fontSize: 16,
-              color: '#000000',
+              color: byMode('#000000', '#adbac7'),
             }}
           >
             {highlightSQL(customQuery.replace(/\n/g, ' '))}
@@ -1566,7 +1567,7 @@ const SalesReport = () => {
             sx={{
               ml: 2,
               minWidth: 88,
-              color: '#00a63e',
+              color: byMode('#00a63e', '#7bf1a8'),
               textTransform: 'none',
               whiteSpace: 'nowrap',
               fontWeight: 700,
@@ -1575,7 +1576,7 @@ const SalesReport = () => {
               border: '1px solid transparent',
               bgcolor: 'transparent',
               transition: INSTANT,
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid transparent' },
+              '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), border: '1px solid transparent' },
             }}
           >
             Edit
@@ -1667,16 +1668,16 @@ const SalesReport = () => {
                 sx={FIELD_SX}
                 InputProps={{
                   endAdornment: searchTerm ? (
-                    <CancelIcon onClick={() => { setSearchTerm(''); setSuggestions([]); }} sx={{ cursor: 'pointer', color: '#333', fontSize: 22 }} />
+                    <CancelIcon onClick={() => { setSearchTerm(''); setSuggestions([]); }} sx={{ cursor: 'pointer', color: byMode('#333', '#d4d4d4'), fontSize: 22 }} />
                   ) : null,
                 }}
               />
               {suggestOpen && (
-                <Paper elevation={4} sx={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20, maxHeight: 520, overflowY: 'auto', borderRadius: 0, bgcolor: '#f8f8f8' }}>
+                <Paper elevation={4} sx={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 20, maxHeight: 520, overflowY: 'auto', borderRadius: 0, bgcolor: byMode('#f8f8f8', '#232323') }}>
                   {!searchTerm.trim() ? (
                     <Box sx={{ px: 2, py: 1.5, fontSize: 22 }}>Start typing to search...</Box>
                   ) : suggestLoading ? (
-                    <Box sx={{ px: 2, py: 1.5, fontSize: 18, color: '#666' }}>Searching...</Box>
+                    <Box sx={{ px: 2, py: 1.5, fontSize: 18, color: byMode('#666', '#d4d4d4') }}>Searching...</Box>
                   ) : suggestions.length === 0 ? (
                     <Box sx={{ px: 2, py: 1.5, fontSize: 22 }}>No search results found.</Box>
                   ) : (
@@ -1684,7 +1685,7 @@ const SalesReport = () => {
                       <Box
                         key={`${s.type}-${s.id}`}
                         onClick={() => addChip(s)}
-                        sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1.5, py: 1, cursor: 'pointer', bgcolor: i % 2 ? '#e8e8e8' : '#f8f8f8', '&:hover': { bgcolor: '#5ebbeb', color: '#fff' } }}
+                        sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1.5, py: 1, cursor: 'pointer', bgcolor: i % 2 ? byMode('#e8e8e8', '#2a2a2a') : byMode('#f8f8f8', '#232323'), '&:hover': { bgcolor: '#5ebbeb', color: '#fff' } }}
                       >
                         <SuggestIcon type={s.type} deleted={s.deleted} />
                         <Box sx={{ flex: 1 }}>
@@ -1709,10 +1710,10 @@ const SalesReport = () => {
           {chips.length > 0 && (
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
               {chips.map((c) => (
-                <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid #404040', bgcolor: '#fff' }}>
+                <Box key={`${c.type}-${c.id}`} sx={{ display: 'flex', alignItems: 'stretch', border: byMode('1px solid #404040', '1px solid #a1a1a1'), bgcolor: byMode('#fff', '#232323') }}>
                   {/* Reference: clicking the chip's icon (bin for a deleted item) removes the chip. */}
-                  <Box onClick={() => removeChip(c)} sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: '1px solid #404040', cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' } }}>
-                    <DeleteOutlineIcon sx={{ fontSize: 34, color: '#111' }} />
+                  <Box onClick={() => removeChip(c)} sx={{ display: 'flex', alignItems: 'center', px: 1.5, borderRight: byMode('1px solid #404040', '1px solid #a1a1a1'), cursor: 'pointer', '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') } }}>
+                    <DeleteOutlineIcon sx={{ fontSize: 34, color: byMode('#111', '#f8f8f8') }} />
                   </Box>
                   {/* Reference chip: type label (+ ⊘ "This item no longer exists in your store" for a
                       deleted item), the name, then a switch labelled "Included" — OFF stops the chip
@@ -1722,11 +1723,11 @@ const SalesReport = () => {
                       {SUGGEST_LABELS[c.type] || c.type}
                       {c.deleted ? (
                         <Tooltip title="This item no longer exists in your store" arrow placement="top">
-                          <BlockIcon sx={{ fontSize: 18, color: '#333' }} />
+                          <BlockIcon sx={{ fontSize: 18, color: byMode('#333', '#d4d4d4') }} />
                         </Tooltip>
                       ) : (
                         <Tooltip title="This item exists in your store" arrow placement="top">
-                          <ExistsIcon sx={{ fontSize: 18, color: '#333' }} />
+                          <ExistsIcon sx={{ fontSize: 18, color: byMode('#333', '#d4d4d4') }} />
                         </Tooltip>
                       )}
                     </Box>
@@ -1791,28 +1792,28 @@ const SalesReport = () => {
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           PaperProps={{ sx: { width: 540, p: 1.5, mt: 1, borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' } }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, border: '1px solid #c8c8c8', borderRadius: '6px', px: 1.5, py: 0.75, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, border: byMode('1px solid #c8c8c8', '1px solid #373737'), borderRadius: '6px', px: 1.5, py: 0.75, mb: 1 }}>
             {selectedPickerLabels.slice(0, 2).map((label) => (
-              <Box key={label} sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: 1, py: 0.25, fontSize: 15, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Box key={label} sx={{ bgcolor: byMode('#e8e8e8', '#3a3a3a'), borderRadius: '4px', px: 1, py: 0.25, fontSize: 15, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {label}
               </Box>
             ))}
             {selectedPickerLabels.length > 2 && (
-              <Box sx={{ bgcolor: '#e8e8e8', borderRadius: '4px', px: 1, py: 0.25, fontSize: 15, whiteSpace: 'nowrap' }}>
+              <Box sx={{ bgcolor: byMode('#e8e8e8', '#3a3a3a'), borderRadius: '4px', px: 1, py: 0.25, fontSize: 15, whiteSpace: 'nowrap' }}>
                 {selectedPickerLabels.length - 2} More...
               </Box>
             )}
-            <Box component="input" value={columnsSearch} onChange={(e) => setColumnsSearch(e.target.value)} sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 15, color: '#313439', fontFamily: 'inherit' }} />
-            <ArrowDropUp sx={{ color: '#555', fontSize: 20 }} />
+            <Box component="input" value={columnsSearch} onChange={(e) => setColumnsSearch(e.target.value)} sx={{ flex: 1, minWidth: 60, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: 15, color: byMode('#313439', '#f8f8f8'), fontFamily: 'inherit' }} />
+            <ArrowDropUp sx={{ color: byMode('#555', '#d4d4d4'), fontSize: 20 }} />
           </Box>
-          <Box sx={{ border: '1px solid #c8c8c8', borderRadius: '6px', maxHeight: 290, overflowY: 'auto' }}>
+          <Box sx={{ border: byMode('1px solid #c8c8c8', '1px solid #373737'), borderRadius: '6px', maxHeight: 290, overflowY: 'auto' }}>
             {/* Reference: a search with no match reads "No Options". */}
             {pickerRows.length === 0 && (
               <Box sx={{ px: 1.5, height: 56, display: 'flex', alignItems: 'center', fontSize: 17, color: '#757575' }}>No Options</Box>
             )}
             {/* Consolidate = No: reference pins Outlet / Register / Customer / User above a divider. */}
             {pickerRows.map((column, idx) => {
-              if (column.divider) return <Box key={`divider-${idx}`} sx={{ borderTop: '1px solid #c8c8c8', mx: 1.5 }} />;
+              if (column.divider) return <Box key={`divider-${idx}`} sx={{ borderTop: byMode('1px solid #c8c8c8', '1px solid #373737'), mx: 1.5 }} />;
               const on = !!visibleColumns[column.key];
               return (
                 <Box
@@ -1820,8 +1821,8 @@ const SalesReport = () => {
                   onClick={() => toggleColumn(column.key)}
                   sx={{
                     display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, height: 56, cursor: 'pointer',
-                    color: on ? '#2aa9e0' : '#000', fontSize: 17,
-                    '&:hover': { bgcolor: '#7fd3f7', color: '#000' },
+                    color: on ? byMode('#2aa9e0', '#00a6f4') : byMode('#000', '#f8f8f8'), fontSize: 17,
+                    '&:hover': { bgcolor: byMode('#7fd3f7', '#0084d1'), color: byMode('#000', '#fafafa') },
                   }}
                 >
                   <Checkbox
@@ -1847,7 +1848,7 @@ const SalesReport = () => {
             // Reference: rows scroll inside the table; header stays at the top and the
             // total row at the bottom (Consolidate = No can list hundreds of lines).
             <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)' }}>
-              <Table size="small" stickyHeader sx={{ '& .MuiTableCell-stickyHeader': { backgroundColor: '#5ebbeb' } }}>
+              <Table size="small" stickyHeader sx={{ '& .MuiTableCell-stickyHeader': { backgroundColor: byMode('#5ebbeb', '#333333') } }}>
                 <TableHead>
                   <TableRow sx={TABLE_HEAD_SX}>
                     <TableCell onClick={() => handleSort('name')} sx={{ ...STICKY_NAME_SX, zIndex: 3 }}>
@@ -1881,7 +1882,7 @@ const SalesReport = () => {
                         <TableRow
                           sx={{
                             ...TABLE_ROW_SX,
-                            bgcolor: row.children ? ROW_ALT_BG : index % 2 === 0 ? '#fff' : ROW_ALT_BG,
+                            bgcolor: row.children ? ROW_ALT_BG : index % 2 === 0 ? byMode('#fff', '#232323') : ROW_ALT_BG,
                             cursor: row.children ? 'pointer' : 'default',
                             '& td': { ...TABLE_ROW_SX['& td'], fontWeight: row.children ? 700 : 400 },
                           }}
@@ -1911,10 +1912,10 @@ const SalesReport = () => {
                               key={`${index}-child-${childIndex}`}
                               sx={{
                                 ...TABLE_ROW_SX,
-                                bgcolor: child.isTotalRow ? '#5ebbeb' : childIndex % 2 === 0 ? '#fff' : ROW_ALT_BG,
+                                bgcolor: child.isTotalRow ? byMode('#5ebbeb', '#333333') : childIndex % 2 === 0 ? byMode('#fff', '#232323') : ROW_ALT_BG,
                                 '& td': {
                                   ...TABLE_ROW_SX['& td'],
-                                  color: child.isTotalRow ? '#f8f8f8' : '#000',
+                                  color: child.isTotalRow ? byMode('#f8f8f8', '#5ebbeb') : byMode('#000', '#f8f8f8'),
                                   fontWeight: child.isTotalRow ? 700 : 400,
                                 },
                                 '& td:first-of-type': { paddingLeft: '34px' },
@@ -2005,17 +2006,17 @@ const SalesReport = () => {
         >
           {/* Header */}
           <DialogTitle sx={{ 
-            bgcolor: '#b3e5fc', 
-            display: 'flex', 
-            alignItems: 'center', 
+            bgcolor: byMode('#b3e5fc', '#0c3a55'),
+            display: 'flex',
+            alignItems: 'center',
             gap: 1.5,
             py: 2,
             px: 3,
-            borderBottom: '1px solid #e0e0e0'
+            borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737')
           }}>
-            <HelpIcon sx={{ color: '#0288d1', fontSize: 28 }} />
+            <HelpIcon sx={{ color: byMode('#0288d1', '#74d4ff'), fontSize: 28 }} />
             {/* component="span": DialogTitle already renders an h2, an h6 child is invalid DOM nesting */}
-            <Typography variant="h6" component="span" sx={{ color: '#0288d1', fontWeight: 600, fontSize: '1.25rem' }}>
+            <Typography variant="h6" component="span" sx={{ color: byMode('#0288d1', '#74d4ff'), fontWeight: 600, fontSize: '1.25rem' }}>
               Export Report
             </Typography>
           </DialogTitle>
@@ -2027,8 +2028,8 @@ const SalesReport = () => {
               <Typography 
                 variant="subtitle2" 
                 sx={{ 
-                  mb: 1.5, 
-                  color: '#666',
+                  mb: 1.5,
+                  color: byMode('#666', '#d4d4d4'),
                   fontSize: '0.9rem',
                   fontWeight: 500
                 }}
@@ -2041,15 +2042,16 @@ const SalesReport = () => {
                   onChange={(e) => setExportType(e.target.value)}
                   displayEmpty
                   sx={{
-                    bgcolor: 'white',
+                    bgcolor: byMode('white', '#121212'),
+                    color: byMode(undefined, '#f8f8f8'),
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#ddd'
+                      borderColor: byMode('#ddd', '#a1a1a1')
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#bbb'
+                      borderColor: byMode('#bbb', '#a1a1a1')
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#0288d1'
+                      borderColor: byMode('#0288d1', '#2b7fff')
                     }
                   }}
                   renderValue={(value) => {
@@ -2107,8 +2109,8 @@ const SalesReport = () => {
                 <Typography 
                   variant="subtitle2" 
                   sx={{ 
-                    mb: 1.5, 
-                    color: '#666',
+                    mb: 1.5,
+                    color: byMode('#666', '#d4d4d4'),
                     fontSize: '0.9rem',
                     fontWeight: 500
                   }}
@@ -2127,22 +2129,22 @@ const SalesReport = () => {
                       fontSize: '0.875rem',
                       letterSpacing: '0.5px',
                       ...(exportOrientation === 'portrait' ? {
-                        bgcolor: 'white',
-                        color: '#333',
-                        border: '2px solid #0288d1',
+                        bgcolor: byMode('white', '#232323'),
+                        color: byMode('#333', '#f8f8f8'),
+                        border: byMode('2px solid #0288d1', '2px solid #74d4ff'),
                         boxShadow: '0 2px 8px rgba(2, 136, 209, 0.15)',
                         '&:hover': {
-                          bgcolor: '#f5f5f5',
-                          border: '2px solid #0277bd',
+                          bgcolor: byMode('#f5f5f5', '#2f2f2f'),
+                          border: byMode('2px solid #0277bd', '2px solid #74d4ff'),
                           boxShadow: '0 2px 12px rgba(2, 136, 209, 0.25)',
                         }
                       } : {
-                        bgcolor: 'white',
-                        color: '#666',
-                        border: '1px solid #ddd',
+                        bgcolor: byMode('white', '#232323'),
+                        color: byMode('#666', '#d4d4d4'),
+                        border: byMode('1px solid #ddd', '1px solid #a1a1a1'),
                         '&:hover': {
-                          bgcolor: '#fafafa',
-                          border: '1px solid #bbb'
+                          bgcolor: byMode('#fafafa', '#2f2f2f'),
+                          border: byMode('1px solid #bbb', '1px solid #a1a1a1')
                         }
                       })
                     }}
@@ -2160,22 +2162,22 @@ const SalesReport = () => {
                       fontSize: '0.875rem',
                       letterSpacing: '0.5px',
                       ...(exportOrientation === 'landscape' ? {
-                        bgcolor: '#e0e0e0',
-                        color: '#333',
-                        border: '2px solid #9e9e9e',
+                        bgcolor: byMode('#e0e0e0', '#3a3a3a'),
+                        color: byMode('#333', '#f8f8f8'),
+                        border: byMode('2px solid #9e9e9e', '2px solid #a1a1a1'),
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                         '&:hover': {
-                          bgcolor: '#d5d5d5',
-                          border: '2px solid #757575',
+                          bgcolor: byMode('#d5d5d5', '#4a4a4a'),
+                          border: byMode('2px solid #757575', '2px solid #a1a1a1'),
                           boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)',
                         }
                       } : {
-                        bgcolor: 'white',
-                        color: '#666',
-                        border: '1px solid #ddd',
+                        bgcolor: byMode('white', '#232323'),
+                        color: byMode('#666', '#d4d4d4'),
+                        border: byMode('1px solid #ddd', '1px solid #a1a1a1'),
                         '&:hover': {
-                          bgcolor: '#fafafa',
-                          border: '1px solid #bbb'
+                          bgcolor: byMode('#fafafa', '#2f2f2f'),
+                          border: byMode('1px solid #bbb', '1px solid #a1a1a1')
                         }
                       })
                     }}
@@ -2188,22 +2190,22 @@ const SalesReport = () => {
           </DialogContent>
 
           {/* Actions */}
-          <DialogActions sx={{ px: 3, py: 2.5, bgcolor: '#fafafa', borderTop: '1px solid #e0e0e0' }}>
-            <Button 
+          <DialogActions sx={{ px: 3, py: 2.5, bgcolor: byMode('#fafafa', '#232323'), borderTop: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
+            <Button
               onClick={handleExportDialogClose}
               variant="outlined"
               disabled={isExporting}
-              sx={{ 
+              sx={{
                 minWidth: 100,
                 py: 1,
                 textTransform: 'none',
                 fontSize: '0.95rem',
                 fontWeight: 500,
-                color: '#666',
-                borderColor: '#ccc',
+                color: byMode('#666', '#d4d4d4'),
+                borderColor: byMode('#ccc', '#a1a1a1'),
                 '&:hover': {
-                  borderColor: '#999',
-                  bgcolor: '#f5f5f5'
+                  borderColor: byMode('#999', '#a1a1a1'),
+                  bgcolor: byMode('#f5f5f5', '#2f2f2f')
                 }
               }}
             >
@@ -2220,15 +2222,15 @@ const SalesReport = () => {
                 textTransform: 'none',
                 fontSize: '0.95rem',
                 fontWeight: 600,
-                bgcolor: '#00bcd4',
+                bgcolor: '#00bcd4', color: byMode(undefined, '#232323'),
                 boxShadow: '0 2px 8px rgba(0, 188, 212, 0.3)',
                 '&:hover': {
                   bgcolor: '#00acc1',
                   boxShadow: '0 4px 12px rgba(0, 188, 212, 0.4)',
                 },
                 '&:disabled': {
-                  bgcolor: '#b2ebf2',
-                  color: 'white'
+                  bgcolor: byMode('#b2ebf2', '#404040'),
+                  color: byMode('white', '#a0a4aa')
                 }
               }}
             >

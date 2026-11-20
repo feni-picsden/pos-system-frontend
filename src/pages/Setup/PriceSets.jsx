@@ -33,6 +33,7 @@ import { useHasPermission } from '../../hooks/usePermissions';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
+import { byMode } from '../../theme/sfPalette';
 
 // Settings > Price Sets — named alternative price schedules (reference parity,
 // Shopfront help art. 360000040771 + live reference 16/11/2026). Every product's
@@ -48,6 +49,12 @@ import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 const INSTANT = 'all 0s ease';
 const BLUE = '#2d8ff5';
 const GREEN = '#32b643';
+// Dark-mode colours (light values = what the page used before).
+const TXT = byMode('#000', '#f8f8f8');
+const GRID_LINE = byMode('1px solid #000', '1px solid #373737');
+const LINK_BLUE = byMode('#2d8ff5', '#74d4ff');
+const LINK_GREEN = byMode(GREEN, '#7bf1a8');
+const LINK_RED = byMode('#e33430', '#ffa2a2');
 
 const PILL_SX = {
   color: '#fff',
@@ -73,14 +80,14 @@ const LINK_SX = (color) => ({
   transition: INSTANT,
   '& .MuiButton-startIcon': { mr: 0.5 },
   '&:hover': { bgcolor: 'transparent', opacity: 0.75 },
-  '&.Mui-disabled': { color: '#8a8d91' },
+  '&.Mui-disabled': { color: byMode('#8a8d91', '#a0a4aa') },
 });
 
 // Reference list table: black 1px grid, bold black header text, grey striping.
 const GRID_TABLE_SX = {
   borderCollapse: 'collapse',
-  '& th, & td': { border: '1px solid #000', fontSize: 16, color: '#000', padding: '12px 16px' },
-  '& th': { fontWeight: 700, textAlign: 'center' },
+  '& th, & td': { border: GRID_LINE, fontSize: 16, color: TXT, padding: '12px 16px' },
+  '& th': { fontWeight: 700, textAlign: 'center', bgcolor: byMode(undefined, '#333333'), color: byMode(undefined, '#5ebbeb') },
 };
 
 const DEFAULT_PRICE_VALUE = '';
@@ -116,7 +123,7 @@ const BadgeDialog = ({ open, onClose, title, children }) => (
       ?
     </Box>
     <Box sx={{ pt: 8.5, px: 2, pb: 2, textAlign: 'center' }}>
-      <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', mb: 1 }}>{title}</Typography>
+      <Typography sx={{ fontSize: 16, fontWeight: 700, color: TXT, mb: 1 }}>{title}</Typography>
       {children}
     </Box>
   </Dialog>
@@ -125,37 +132,40 @@ const BadgeDialog = ({ open, onClose, title, children }) => (
 const FIELD_INPUT_SX = {
   width: '100%',
   height: 48,
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: '4px',
   px: 1.5,
   fontFamily: 'inherit',
   fontSize: 16,
-  color: '#000',
-  bgcolor: '#fff',
+  color: TXT,
+  bgcolor: byMode('#fff', '#121212'),
   outline: 'none',
   boxSizing: 'border-box',
-  '&:focus': { border: '2px solid #000' },
+  '&:focus': { border: byMode('2px solid #000', '2px solid #2b7fff') },
 };
 
 // Dropdown list look shared by Inherit Prices From + Select Group: compact
 // rows, scrolls after ~7 items, light-blue selected row.
 const MENU_PAPER_SX = {
-  maxHeight: 232, overflowY: 'auto', border: '1px solid #767676', borderRadius: '4px',
-  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+  maxHeight: 232, overflowY: 'auto', border: byMode('1px solid #767676', '1px solid #a1a1a1'), borderRadius: '4px',
+  boxShadow: byMode('0 2px 6px rgba(0,0,0,0.2)', '0 2px 6px rgba(0,0,0,0.6)'),
+  bgcolor: byMode(undefined, '#232323'),
   '& ul': { py: 0 },
-  '& li': { fontSize: 14, minHeight: 32, py: 0.5, px: 1.5, color: '#111', border: 0, outline: 'none' },
+  '& li': { fontSize: 14, minHeight: 32, py: 0.5, px: 1.5, color: byMode('#111', '#f8f8f8'), border: 0, outline: 'none' },
   '& li:focus-visible': { outline: 'none' },
-  '& li.Mui-selected': { bgcolor: '#dbeafe !important', color: '#111' },
-  '& li:hover, & li.Mui-focusVisible': { bgcolor: '#eff6ff !important' },
+  '& li.Mui-selected': { bgcolor: byMode('#dbeafe !important', 'transparent !important'), color: byMode('#111', '#00a6f4') },
+  '& li:hover, & li.Mui-focusVisible': { bgcolor: byMode('#eff6ff !important', '#0084d1 !important'), color: byMode(undefined, '#fafafa') },
 };
 const SELECT_SX = {
   width: '100%',
   height: 40,
   borderRadius: '4px',
   fontSize: 16,
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  bgcolor: byMode(undefined, '#121212'),
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+  '& .MuiSelect-icon': { color: byMode(undefined, '#a1a1a1') },
 };
 
 const DIALOG_BTN_SX = {
@@ -198,7 +208,7 @@ const PriceSetDialog = ({ open, mode, initial, sets, onClose, onSubmit, saving }
   const options = (sets || []).filter((s) => !initial || s.id !== initial.id);
   return (
     <BadgeDialog open={open} onClose={saving ? undefined : onClose} title={title}>
-      <Typography component="label" htmlFor="price-set-name" sx={{ display: 'block', fontSize: 16, color: '#000' }}>Name</Typography>
+      <Typography component="label" htmlFor="price-set-name" sx={{ display: 'block', fontSize: 16, color: TXT }}>Name</Typography>
       <Box
         component="input"
         id="price-set-name"
@@ -214,7 +224,7 @@ const PriceSetDialog = ({ open, mode, initial, sets, onClose, onSubmit, saving }
       {!isEdit && <CreatingForOutlet outletId={isClone ? initial?.outletId : undefined} sx={{ mt: 1, textAlign: 'left' }} />}
       {!isClone && (
         <>
-          <Typography sx={{ fontSize: 16, color: '#000', mt: 1 }}>Inherit Prices From</Typography>
+          <Typography sx={{ fontSize: 16, color: TXT, mt: 1 }}>Inherit Prices From</Typography>
           <Select
             value={inherit}
             onChange={(e) => setInherit(e.target.value)}
@@ -232,13 +242,13 @@ const PriceSetDialog = ({ open, mode, initial, sets, onClose, onSubmit, saving }
           </Select>
         </>
       )}
-      {error && <Typography sx={{ mt: 1, fontSize: 14, color: '#dc2626' }}>{error}</Typography>}
+      {error && <Typography sx={{ mt: 1, fontSize: 14, color: byMode('#dc2626', '#ffa2a2') }}>{error}</Typography>}
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
         <Button
           disableRipple
           onClick={onClose}
           disabled={saving}
-          sx={{ ...DIALOG_BTN_SX, color: '#676b72', bgcolor: '#f0f0f0', border: '1px solid #000', '&:hover': { bgcolor: '#e4e4e4' } }}
+          sx={{ ...DIALOG_BTN_SX, color: byMode('#676b72', '#d4d4d4'), bgcolor: byMode('#f0f0f0', '#3a3a3a'), border: byMode('1px solid #000', '1px solid #a1a1a1'), '&:hover': { bgcolor: byMode('#e4e4e4', '#4a4a4a') } }}
         >
           Cancel
         </Button>
@@ -311,9 +321,9 @@ const PriceSetView = ({ id }) => {
           >
             Back
           </Button>
-          <Typography component="h1" sx={{ fontSize: 28, fontWeight: 700, color: '#000' }}>{data.priceSet?.name}</Typography>
+          <Typography component="h1" sx={{ fontSize: 28, fontWeight: 700, color: TXT }}>{data.priceSet?.name}</Typography>
         </Box>
-        <Typography sx={{ fontSize: 22, fontWeight: 700, color: '#000' }}>Total Count: {data.totalCount ?? (data.prices || []).length}</Typography>
+        <Typography sx={{ fontSize: 22, fontWeight: 700, color: TXT }}>Total Count: {data.totalCount ?? (data.prices || []).length}</Typography>
       </Box>
 
       <Select
@@ -327,9 +337,9 @@ const PriceSetView = ({ id }) => {
           anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
           transformOrigin: { vertical: 'top', horizontal: 'left' },
           marginThreshold: 0, // the box sits 8px from the page edge; don't push the list right
-          PaperProps: { sx: { width: 230, minWidth: 230, mt: '2px', border: '1px solid #000', borderRadius: '8px', boxShadow: 'none', '& li': { fontSize: 16, minHeight: 48 }, '& li:focus-visible': { outline: 'none' } } },
+          PaperProps: { sx: { width: 230, minWidth: 230, mt: '2px', border: byMode('1px solid #000', '1px solid #a1a1a1'), borderRadius: '8px', boxShadow: 'none', '& li': { fontSize: 16, minHeight: 48 }, '& li:focus-visible': { outline: 'none' } } },
         }}
-        renderValue={(v) => (v ? GROUP_OPTIONS.find((o) => o.value === v)?.label : <Box component="span" sx={{ color: '#404040' }}>Select Group...</Box>)}
+        renderValue={(v) => (v ? GROUP_OPTIONS.find((o) => o.value === v)?.label : <Box component="span" sx={{ color: byMode('#404040', '#757575') }}>Select Group...</Box>)}
         endAdornment={group ? (
           <IconButton size="small" aria-label="Clear group" sx={{ mr: 2 }} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setGroup(''); }}>
             <ClearIcon fontSize="small" />
@@ -340,9 +350,9 @@ const PriceSetView = ({ id }) => {
       </Select>
 
       <TableContainer>
-        <Table sx={{ ...GRID_TABLE_SX, '& td': { border: '1px solid #000', fontSize: 16, color: '#000', padding: '8px 8px' } }}>
+        <Table sx={{ ...GRID_TABLE_SX, '& td': { border: GRID_LINE, fontSize: 16, color: TXT, padding: '8px 8px' } }}>
           <TableHead>
-            <TableRow sx={{ '& th': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, border: '1px solid #000', padding: '8px' } }}>
+            <TableRow sx={{ '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#fff', '#5ebbeb'), fontWeight: 700, border: GRID_LINE, padding: '8px' } }}>
               <TableCell sx={{ width: '42%' }}>Product</TableCell>
               <TableCell>Quantity</TableCell>
               <TableCell>Price (ex. tax)</TableCell>
@@ -352,19 +362,19 @@ const PriceSetView = ({ id }) => {
           </TableHead>
           <TableBody>
             {(data.prices || []).length === 0 && (
-              <TableRow><TableCell colSpan={5} align="center" sx={{ color: '#676b72' }}>No prices in this price set.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} align="center" sx={{ color: byMode('#676b72', '#a0a4aa') }}>No prices in this price set.</TableCell></TableRow>
             )}
             {groups.map((g) => (
               <React.Fragment key={g.key}>
                 {g.label != null && (
                   <TableRow data-testid="price-set-group">
-                    <TableCell colSpan={5} sx={{ fontWeight: 400, color: '#313439' }}>{g.label}</TableCell>
+                    <TableCell colSpan={5} sx={{ fontWeight: 400, color: byMode('#313439', '#f8f8f8') }}>{g.label}</TableCell>
                   </TableRow>
                 )}
                 {g.rows.map((row, i) => (
-                  <TableRow key={row.id} sx={{ bgcolor: i % 2 === 1 ? '#ebebeb' : '#fff' }} data-testid="price-set-row">
+                  <TableRow key={row.id} sx={{ bgcolor: byMode(i % 2 === 1 ? '#ebebeb' : '#fff', i % 2 === 1 ? '#2a2a2a' : '#232323') }} data-testid="price-set-row">
                     <TableCell>
-                      <Box component={RouterLink} to={`/products/${row.productId}/view`} sx={{ color: '#2d8ff5', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                      <Box component={RouterLink} to={`/products/${row.productId}/view`} sx={{ color: LINK_BLUE, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
                         {row.productName}
                       </Box>
                     </TableCell>
@@ -372,7 +382,7 @@ const PriceSetView = ({ id }) => {
                     <TableCell align="center">{money(row.priceExTax)}</TableCell>
                     <TableCell align="center">{money(row.priceIncTax)}</TableCell>
                     <TableCell align="center">
-                      <Button disableRipple component={RouterLink} to={`/products/${row.productId}/edit`} startIcon={<EditIcon />} sx={LINK_SX('#2d8ff5')}>
+                      <Button disableRipple component={RouterLink} to={`/products/${row.productId}/edit`} startIcon={<EditIcon />} sx={LINK_SX(LINK_BLUE)}>
                         Edit
                       </Button>
                     </TableCell>
@@ -462,7 +472,7 @@ const PriceSets = () => {
   return (
     <Box sx={{ p: 1, pt: 1.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>Price Sets</Typography>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: TXT }}>Price Sets</Typography>
         {canEdit && (
           <Button
             disableRipple
@@ -493,24 +503,24 @@ const PriceSets = () => {
             <TableBody>
               {priceSets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={globalMode ? 4 : 3} align="center" sx={{ color: '#676b72' }}>
+                  <TableCell colSpan={globalMode ? 4 : 3} align="center" sx={{ color: byMode('#676b72', '#a0a4aa') }}>
                     No price sets yet. {canEdit && 'Click "New" to create your first one.'}
                   </TableCell>
                 </TableRow>
               ) : (
                 priceSets.map((ps, i) => (
-                  <TableRow key={ps.id} sx={{ bgcolor: i % 2 === 0 ? '#f8f8f8' : '#fff' }} data-testid="price-set-row">
+                  <TableRow key={ps.id} sx={{ bgcolor: byMode(i % 2 === 0 ? '#f8f8f8' : '#fff', i % 2 === 0 ? '#2a2a2a' : '#232323') }} data-testid="price-set-row">
                     <TableCell>{ps.name}</TableCell>
                     {globalMode && <TableCell data-testid="price-set-outlet">{outletNameOf(ps.outletId)}</TableCell>}
                     <TableCell>{ps.priceCount}</TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5 }}>
-                        <Button disableRipple startIcon={<ViewIcon />} onClick={() => navigate(`/settings/pricesets/${ps.id}`)} sx={LINK_SX('#2d8ff5')}>
+                        <Button disableRipple startIcon={<ViewIcon />} onClick={() => navigate(`/settings/pricesets/${ps.id}`)} sx={LINK_SX(LINK_BLUE)}>
                           View
                         </Button>
                         {canEdit && (
                           <>
-                            <Button disableRipple startIcon={<EditIcon />} onClick={() => setDialog({ mode: 'edit', set: ps })} sx={LINK_SX(GREEN)}>
+                            <Button disableRipple startIcon={<EditIcon />} onClick={() => setDialog({ mode: 'edit', set: ps })} sx={LINK_SX(LINK_GREEN)}>
                               Edit
                             </Button>
                             {/* Reference: Delete is greyed out while the set still holds prices */}
@@ -528,13 +538,13 @@ const PriceSets = () => {
                                   startIcon={<DeleteIcon />}
                                   onClick={() => handleDelete(ps)}
                                   disabled={ps.priceCount > 0 || deletingId != null}
-                                  sx={LINK_SX('#e33430')}
+                                  sx={LINK_SX(LINK_RED)}
                                 >
                                   {deletingId === ps.id ? 'Deleting...' : 'Delete'}
                                 </Button>
                               </span>
                             </Tooltip>
-                            <Button disableRipple startIcon={<CloneIcon />} onClick={() => setDialog({ mode: 'clone', set: { ...ps, name: `${ps.name} (Copy)` } })} sx={LINK_SX('#2d8ff5')}>
+                            <Button disableRipple startIcon={<CloneIcon />} onClick={() => setDialog({ mode: 'clone', set: { ...ps, name: `${ps.name} (Copy)` } })} sx={LINK_SX(LINK_BLUE)}>
                               Clone
                             </Button>
                           </>

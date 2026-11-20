@@ -84,6 +84,7 @@ import useAutoLogout from '../../hooks/useAutoLogout';
 import { useAppDialogs } from '../Common/AppDialogProvider';
 import { playNotificationSound } from '../../utils/notificationSounds';
 import useAutoFocusFirstInput from '../../utils/useAutoFocusFirstInput';
+import { byMode } from '../../theme/sfPalette';
 
 // Team Message is admin-set HTML but still crosses a trust boundary: keep text
 // and plain <a href="http(s)://..."> links, drop every other tag and attribute.
@@ -1420,7 +1421,7 @@ const DashboardLayout = ({ children }) => {
             disableElevation
             sx={{
               bgcolor: '#5ebbeb',
-              color: '#fff',
+              color: byMode('#fff', '#232323'),
               borderRadius: '12px',
               height: 42,
               fontWeight: 700,

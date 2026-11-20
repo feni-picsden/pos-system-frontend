@@ -18,6 +18,7 @@ import {
   Autocomplete,
   Checkbox,
   Chip,
+  useTheme,
 } from '@mui/material';
 import {
   FileDownload as ExportIcon,
@@ -61,6 +62,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { reportPrintTitle, reportPrintRange } from '../../utils/reportPrint';
+import { byMode } from '../../theme/sfPalette';
 
 // ponytail: reference chrome is copied per page (parallel parity agents own one page each),
 // same constants as pages/Reports/InventoryAtDate.jsx.
@@ -68,7 +70,7 @@ import { reportPrintTitle, reportPrintRange } from '../../utils/reportPrint';
 // Toolbar: flat filled sky, square, invert on hover over 200ms ease.
 const TOOLBAR_BUTTON_SX = {
   bgcolor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', '#232323'),
   border: '1px solid #5ebbeb',
   borderRadius: 0,
   boxShadow: 'none',
@@ -80,14 +82,14 @@ const TOOLBAR_BUTTON_SX = {
   whiteSpace: 'nowrap',
   transition: 'background 200ms ease, color 200ms ease',
   '&:hover': {
-    bgcolor: '#f8f8f8',
+    bgcolor: byMode('#f8f8f8', '#232323'),
     color: '#5ebbeb',
     border: '1px solid #5ebbeb',
     boxShadow: 'none',
   },
 };
 
-const FIELD_LABEL_SX = { fontSize: '12.8px', fontWeight: 400, color: '#000', mb: '4px' };
+const FIELD_LABEL_SX = { fontSize: '12.8px', fontWeight: 400, color: byMode('#000', '#f8f8f8'), mb: '4px' };
 
 // Reference filter control: 358x42 outlined box, 1px #5e5e5e, radius 8px.
 const FIELD_BOX_SX = {
@@ -97,8 +99,9 @@ const FIELD_BOX_SX = {
   alignItems: 'center',
   gap: '8px',
   px: '12px',
-  bgcolor: '#fff',
-  border: '1px solid #5e5e5e',
+  bgcolor: byMode('#fff', '#121212'),
+  color: byMode(undefined, '#f8f8f8'),
+  border: byMode('1px solid #5e5e5e', '1px solid #a1a1a1'),
   borderRadius: '8px',
   fontSize: 16,
   cursor: 'pointer',
@@ -109,8 +112,8 @@ const panelSx = (width) => ({
   mt: '4px',
   maxHeight: 288,
   overflowY: 'auto',
-  bgcolor: '#fff',
-  border: '1px solid #000',
+  bgcolor: byMode('#fff', '#232323'),
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: '8px',
   boxShadow: 'none',
 });
@@ -125,16 +128,16 @@ const optionSx = (selected) => ({
   fontSize: 16,
   fontWeight: 400,
   cursor: 'pointer',
-  color: selected ? '#38bdf8' : '#252525',
+  color: selected ? byMode('#38bdf8', '#00a6f4') : byMode('#252525', '#f8f8f8'),
   transition: 'background 200ms ease, color 200ms ease',
-  '&:hover': { bgcolor: '#f8f8f8' },
+  '&:hover': { bgcolor: byMode('#f8f8f8', '#0084d1'), color: byMode(undefined, '#fafafa') },
 });
 
 // Data table chrome — identical to components/Reports/ReportTable.jsx.
 const TABLE_HEAD_SX = {
   '& th': {
-    backgroundColor: '#5ebbeb',
-    color: '#f8f8f8',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     textTransform: 'uppercase',
@@ -146,7 +149,7 @@ const TABLE_HEAD_SX = {
 };
 
 const TABLE_CELL_SX = {
-  color: '#000',
+  color: byMode('#000', '#f8f8f8'),
   fontWeight: 400,
   fontSize: 16,
   padding: '8px 8px 8px 10px',
@@ -155,8 +158,8 @@ const TABLE_CELL_SX = {
 };
 
 const TABLE_TOTAL_SX = {
-  bgcolor: '#5ebbeb',
-  '& td': { ...TABLE_CELL_SX, color: '#f8f8f8', fontWeight: 700 },
+  bgcolor: byMode('#5ebbeb', '#333333'),
+  '& td': { ...TABLE_CELL_SX, color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700 },
 };
 
 const DATE_FORMAT = 'dd/MM/yyyy';
@@ -255,15 +258,15 @@ const MonthGrid = ({ month, startDate, endDate, onPick, onPrev, onNext }) => {
     <Box sx={{ flex: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: '8px' }}>
         {onPrev ? (
-          <IconButton size="small" onClick={onPrev} sx={{ color: '#404040' }}>
+          <IconButton size="small" onClick={onPrev} sx={{ color: byMode('#404040', '#d4d4d4') }}>
             <ChevronLeft />
           </IconButton>
         ) : (
           <Box sx={{ width: 34 }} />
         )}
-        <Box sx={{ fontSize: 18, fontWeight: 700, color: '#313439' }}>{format(month, 'MMMM yyyy')}</Box>
+        <Box sx={{ fontSize: 18, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>{format(month, 'MMMM yyyy')}</Box>
         {onNext ? (
-          <IconButton size="small" onClick={onNext} sx={{ color: '#404040' }}>
+          <IconButton size="small" onClick={onNext} sx={{ color: byMode('#404040', '#d4d4d4') }}>
             <ChevronRight />
           </IconButton>
         ) : (
@@ -281,7 +284,7 @@ const MonthGrid = ({ month, startDate, endDate, onPick, onPrev, onNext }) => {
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 14,
-              color: '#676b72',
+              color: byMode('#676b72', '#a0a4aa'),
             }}
           >
             {label}
@@ -309,10 +312,10 @@ const MonthGrid = ({ month, startDate, endDate, onPick, onPrev, onNext }) => {
                 fontWeight: 700,
                 cursor: 'pointer',
                 opacity: outside ? 0.5 : 1,
-                color: selected ? '#f8f8f8' : '#1c9ee1',
-                bgcolor: selected ? '#1c9ee1' : inRange ? '#e8f4fc' : 'transparent',
+                color: selected ? '#f8f8f8' : byMode('#1c9ee1', '#74d4ff'),
+                bgcolor: selected ? '#1c9ee1' : inRange ? byMode('#e8f4fc', '#1f3a4a') : 'transparent',
                 transition: 'background 200ms ease, color 200ms ease',
-                '&:hover': selected ? {} : { bgcolor: '#f8f8f8' },
+                '&:hover': selected ? {} : { bgcolor: byMode('#f8f8f8', '#2f2f2f') },
               }}
             >
               {format(day, 'd')}
@@ -344,12 +347,12 @@ const RefSelect = ({ label, value, options, onChange, width = 358, clearValue })
               e.stopPropagation();
               onChange(clearValue);
             }}
-            sx={{ color: '#404040', p: '2px' }}
+            sx={{ color: byMode('#404040', '#d4d4d4'), p: '2px' }}
           >
             <CloseIcon fontSize="small" />
           </IconButton>
         )}
-        <ArrowDropDown sx={{ color: '#404040' }} />
+        <ArrowDropDown sx={{ color: byMode('#404040', '#d4d4d4') }} />
       </Box>
       <Popover
         open={Boolean(anchorEl)}
@@ -381,7 +384,7 @@ const RefSelect = ({ label, value, options, onChange, width = 358, clearValue })
 // is blue, the others dark.
 const RefToggle = ({ label, value, options, onChange, width = 358 }) => (
   <Box sx={{ width }}>
-    <Typography sx={{ fontSize: 16, color: '#000', mb: '4px' }}>{label}</Typography>
+    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: '4px' }}>{label}</Typography>
     <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
       {options.map((option) => {
         const active = option.value === value;
@@ -423,11 +426,11 @@ const OutletMultiSelect = ({ outlets, value, onChange, width = 358 }) => {
       <Typography sx={FIELD_LABEL_SX}>&nbsp;</Typography>
       <Box sx={{ ...FIELD_BOX_SX, flexWrap: 'wrap', gap: '4px', py: '4px' }} onClick={(e) => setAnchorEl(e.currentTarget)}>
         {picked.map((o) => (
-          <Box key={o.id} sx={{ bgcolor: 'rgba(0,0,0,0.10)', borderRadius: '4px', px: '8px', fontSize: 16, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Box key={o.id} sx={{ bgcolor: byMode('rgba(0,0,0,0.10)', '#3a3a3a'), borderRadius: '4px', px: '8px', fontSize: 16, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {o.name}
           </Box>
         ))}
-        <Box sx={{ flex: 1, minWidth: 60, color: '#808080' }}>{picked.length ? '' : 'Outlets'}</Box>
+        <Box sx={{ flex: 1, minWidth: 60, color: byMode('#808080', '#757575') }}>{picked.length ? '' : 'Outlets'}</Box>
         {picked.length > 0 && (
           <IconButton
             size="small"
@@ -435,12 +438,12 @@ const OutletMultiSelect = ({ outlets, value, onChange, width = 358 }) => {
               e.stopPropagation();
               onChange([]);
             }}
-            sx={{ color: '#404040', p: '2px' }}
+            sx={{ color: byMode('#404040', '#d4d4d4'), p: '2px' }}
           >
             <CloseIcon fontSize="small" />
           </IconButton>
         )}
-        <ArrowDropDown sx={{ color: '#404040' }} />
+        <ArrowDropDown sx={{ color: byMode('#404040', '#d4d4d4') }} />
       </Box>
       <Popover
         open={Boolean(anchorEl)}
@@ -452,7 +455,7 @@ const OutletMultiSelect = ({ outlets, value, onChange, width = 358 }) => {
       >
         {outlets.map((o) => (
           <Box key={o.id} sx={optionSx(false)} onClick={() => toggle(o.id)}>
-            {value.includes(o.id) ? <CheckBoxIcon sx={{ color: '#38a9e2' }} /> : <CheckBoxOutlineBlankIcon sx={{ color: '#404040' }} />}
+            {value.includes(o.id) ? <CheckBoxIcon sx={{ color: '#38a9e2' }} /> : <CheckBoxOutlineBlankIcon sx={{ color: byMode('#404040', '#d4d4d4') }} />}
             <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.name}</Box>
           </Box>
         ))}
@@ -470,40 +473,42 @@ const MIN_SEARCH = 2;
 const HINT_ROW = { key: '__hint', name: 'Keep Typing to Search...' };
 
 const PCF_FIELD_SX = {
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
   '& .MuiOutlinedInput-root': {
     minHeight: 42,
     borderRadius: '8px',
     fontSize: 16,
     py: '3px',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#5e5e5e', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#5e5e5e', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-    '& input::placeholder': { color: '#808080', opacity: 1 },
+    color: byMode(undefined, '#f8f8f8'),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#5e5e5e', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#5e5e5e', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+    '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
   },
-  '& .MuiAutocomplete-popupIndicator': { color: '#404040' },
-  '& .MuiAutocomplete-clearIndicator': { color: '#404040', visibility: 'visible' },
+  '& .MuiAutocomplete-popupIndicator': { color: byMode('#404040', '#d4d4d4') },
+  '& .MuiAutocomplete-clearIndicator': { color: byMode('#404040', '#d4d4d4'), visibility: 'visible' },
 };
 
 // Panel identical to Slow Moving Stock's multi-select (pages/Reports/SlowMovingStock.jsx).
 const PCF_PANEL_PROPS = {
   paper: {
     sx: {
-      border: '1px solid #000',
+      border: byMode('1px solid #000', '1px solid #a1a1a1'),
+      bgcolor: byMode(undefined, '#232323'),
       borderRadius: '8px',
       boxShadow: '0 20px 25px -5px rgba(0,0,0,0.10), 0 8px 10px -6px rgba(0,0,0,0.10)',
       mt: '4px',
       '& .MuiAutocomplete-listbox': { maxHeight: 288, py: 0 },
-      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: '#262626' },
-      '& .MuiAutocomplete-loading': { padding: '16px', fontSize: 16, color: '#262626' },
+      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: byMode('#262626', '#f8f8f8') },
+      '& .MuiAutocomplete-loading': { padding: '16px', fontSize: 16, color: byMode('#262626', '#f8f8f8') },
       '& .MuiAutocomplete-option': {
         minHeight: 56,
         padding: '16px',
         fontSize: 16,
-        color: '#262626',
-        '&.Mui-focused': { backgroundColor: '#7dd3fc' },
-        "&[aria-selected='true']": { backgroundColor: '#fff', color: '#38bdf8' },
-        "&[aria-selected='true'].Mui-focused": { backgroundColor: '#7dd3fc', color: '#38bdf8' },
+        color: byMode('#262626', '#f8f8f8'),
+        '&.Mui-focused': { backgroundColor: byMode('#7dd3fc', '#0084d1') },
+        "&[aria-selected='true']": { backgroundColor: byMode('#fff', '#232323'), color: byMode('#38bdf8', '#00a6f4') },
+        "&[aria-selected='true'].Mui-focused": { backgroundColor: byMode('#7dd3fc', '#0084d1'), color: byMode('#38bdf8', '#fafafa') },
       },
     },
   },
@@ -513,6 +518,7 @@ const ProductClassificationFilter = ({ selection, onChange, suppliers = [], widt
   const [inputValue, setInputValue] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const isDark = useTheme().palette.mode === 'dark';
   const term = inputValue.trim();
   const searching = term.length >= MIN_SEARCH;
 
@@ -599,7 +605,7 @@ const ProductClassificationFilter = ({ selection, onChange, suppliers = [], widt
         sx={PCF_FIELD_SX}
         renderGroup={(params) => (
           <li key={params.key}>
-            <Box sx={{ p: '16px', fontSize: 16, fontWeight: 700, color: '#000' }}>{params.group}</Box>
+            <Box sx={{ p: '16px', fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>{params.group}</Box>
             <Box component="ul" sx={{ p: 0 }}>{params.children}</Box>
           </li>
         )}
@@ -607,7 +613,7 @@ const ProductClassificationFilter = ({ selection, onChange, suppliers = [], widt
           const { key, ...optionProps } = props;
           if (option.key === HINT_ROW.key) {
             return (
-              <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#262626', cursor: 'default' }}>
+              <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: isDark ? '#a0a4aa' : '#262626', cursor: 'default' }}>
                 {HINT_ROW.name}
               </li>
             );
@@ -619,7 +625,7 @@ const ProductClassificationFilter = ({ selection, onChange, suppliers = [], widt
                 checkedIcon={<CheckSquareIcon />}
                 checked={selected}
                 disableRipple
-                sx={{ p: 0, mr: '8px', color: '#262626', '&.Mui-checked': { color: '#262626' } }}
+                sx={{ p: 0, mr: '8px', color: byMode('#262626', '#d4d4d4'), '&.Mui-checked': { color: byMode('#262626', '#d4d4d4') } }}
               />
               {option.name}
             </li>
@@ -629,7 +635,7 @@ const ProductClassificationFilter = ({ selection, onChange, suppliers = [], widt
           <Chip
             label={vals.length === 1 ? vals[0].name : `${vals.length} Selected...`}
             size="small"
-            sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#262626', fontSize: 16, height: 26, ml: '4px', maxWidth: 220 }}
+            sx={{ bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'), borderRadius: '4px', color: byMode('#262626', '#f8f8f8'), fontSize: 16, height: 26, ml: '4px', maxWidth: 220 }}
           />
         )}
         renderInput={(params) => (
@@ -945,11 +951,11 @@ const InventoryMovement = () => {
                 setActiveField('start');
                 setDateAnchorEl(e.currentTarget.parentElement);
               }}
-              sx={{ cursor: 'default', color: '#000' }}
+              sx={{ cursor: 'default', color: byMode('#000', '#f8f8f8') }}
             >
               {rangeLabel(startDate)}
             </Box>
-            <Box component="span" sx={{ color: '#000' }}>
+            <Box component="span" sx={{ color: byMode('#000', '#f8f8f8') }}>
               —
             </Box>
             <Box
@@ -958,7 +964,7 @@ const InventoryMovement = () => {
                 setActiveField('end');
                 setDateAnchorEl(e.currentTarget.parentElement);
               }}
-              sx={{ cursor: 'default', color: '#000' }}
+              sx={{ cursor: 'default', color: byMode('#000', '#f8f8f8') }}
             >
               {rangeLabel(endDate)}
             </Box>
@@ -996,8 +1002,8 @@ const InventoryMovement = () => {
               width: 622,
               boxSizing: 'border-box',
               p: '16px',
-              bgcolor: '#f7f7f7',
-              border: '1px solid #e5e5e5',
+              bgcolor: byMode('#f7f7f7', '#232323'),
+              border: byMode('1px solid #e5e5e5', '1px solid #373737'),
               borderRadius: '12px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             },
@@ -1008,7 +1014,7 @@ const InventoryMovement = () => {
           <IconButton
             size="small"
             onClick={() => setCalendarVisible((visible) => !visible)}
-            sx={{ color: calendarVisible ? '#1c9ee1' : '#404040' }}
+            sx={{ color: calendarVisible ? '#1c9ee1' : byMode('#404040', '#d4d4d4') }}
           >
             <CalendarIcon fontSize="small" />
           </IconButton>
@@ -1022,32 +1028,32 @@ const InventoryMovement = () => {
               onChange={(e) => handleTypedDate(field, e.target.value)}
               InputProps={{
                 endAdornment: (field === 'start' ? startText : endText) ? (
-                  <IconButton size="small" onClick={() => handleTypedDate(field, '')} sx={{ color: '#404040' }}>
+                  <IconButton size="small" onClick={() => handleTypedDate(field, '')} sx={{ color: byMode('#404040', '#d4d4d4') }}>
                     <CloseIcon fontSize="small" />
                   </IconButton>
                 ) : null,
               }}
               sx={{
                 flex: 1,
-                bgcolor: '#fff',
-                '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+                bgcolor: byMode('#fff', '#121212'),
+                '& .MuiOutlinedInput-root': { borderRadius: '8px', color: byMode(undefined, '#f8f8f8') },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+                '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
               }}
             />
           ))}
           <Button
             onClick={applyCurrentDay}
             sx={{
-              bgcolor: isCurrentDay ? 'rgba(0,0,0,0.12)' : 'transparent',
-              color: '#6f6f6f',
+              bgcolor: isCurrentDay ? byMode('rgba(0,0,0,0.12)', 'rgba(255,255,255,0.12)') : 'transparent',
+              color: byMode('#6f6f6f', '#d4d4d4'),
               fontSize: 16,
               fontWeight: 700,
               textTransform: 'none',
               borderRadius: '12px',
               whiteSpace: 'nowrap',
               transition: 'background 200ms ease, color 200ms ease',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.16)' },
+              '&:hover': { bgcolor: byMode('rgba(0,0,0,0.16)', 'rgba(255,255,255,0.16)') },
             }}
           >
             Current Day
@@ -1080,7 +1086,7 @@ const InventoryMovement = () => {
         </Button>
       </Box>
       {taxMode === 'exclusive' && (
-        <Typography sx={{ fontSize: 16, color: '#000', mb: '16px' }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: '16px' }}>
           Exclusive costs are shown using the product&apos;s current tax rate, not the tax rate at the time of the movement.
         </Typography>
       )}
@@ -1092,7 +1098,7 @@ const InventoryMovement = () => {
       ) : displayRows.length === 0 ? (
         // Reference: before Run, and when Run finds nothing, there is no table —
         // just this line under the Run button, at the left edge.
-        <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'left' }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), textAlign: 'left' }}>
           No inventory movements found, check the filters above and press run
         </Typography>
       ) : (
@@ -1112,7 +1118,7 @@ const InventoryMovement = () => {
                 <TableRow
                   key={`group-${row.productName}`}
                   onClick={() => toggleGroup(row.productName)}
-                  sx={{ bgcolor: '#e4e4e4', cursor: 'pointer', '& td': TABLE_CELL_SX }}
+                  sx={{ bgcolor: byMode('#e4e4e4', '#2a2a2a'), cursor: 'pointer', '& td': TABLE_CELL_SX }}
                 >
                   <TableCell colSpan={COLUMNS.length}>
                     <Box component="span" sx={{ display: 'inline-block', width: 16, mr: '8px', fontSize: 12 }}>
@@ -1124,7 +1130,7 @@ const InventoryMovement = () => {
               ) : (
                 <TableRow
                   key={`${row.id}-${index}`}
-                  sx={{ bgcolor: index % 2 === 0 ? '#e4e4e4' : '#f8f8f8', '& td': TABLE_CELL_SX }}
+                  sx={{ bgcolor: index % 2 === 0 ? byMode('#e4e4e4', '#2a2a2a') : byMode('#f8f8f8', '#232323'), '& td': TABLE_CELL_SX }}
                 >
                   {COLUMNS.map((column) => (
                     <TableCell
@@ -1134,8 +1140,8 @@ const InventoryMovement = () => {
                       sx={column.key === 'productId' && row.grouped ? {
                         position: 'relative',
                         pl: '42px !important',
-                        '&::before': { content: '""', position: 'absolute', left: 16, top: 0, bottom: 0, borderLeft: '1px solid #000' },
-                        '&::after': { content: '""', position: 'absolute', left: 16, width: 16, top: '50%', borderTop: '1px solid #000' },
+                        '&::before': { content: '""', position: 'absolute', left: 16, top: 0, bottom: 0, borderLeft: byMode('1px solid #000', '1px solid #a1a1a1') },
+                        '&::after': { content: '""', position: 'absolute', left: 16, width: 16, top: '50%', borderTop: byMode('1px solid #000', '1px solid #a1a1a1') },
                       } : undefined}
                     >
                       {cellText(row, column)}

@@ -13,17 +13,19 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import productService from '../../services/productService';
 import posLocalDb from '../../services/posLocalDb';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference input style: 1px solid black, radius 0
 const actualInputStyle = {
   width: 179,
   height: 37,
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: 0,
   textAlign: 'center',
   fontSize: 16,
   outline: 'none',
-  backgroundColor: '#fff',
+  backgroundColor: byMode('#fff', '#121212'),
+  color: byMode(undefined, '#f8f8f8'),
   boxSizing: 'border-box',
 };
 
@@ -260,12 +262,12 @@ export default function ExpressStocktake() {
   const expectedItems = expectedUnits - expectedCases * expectedCaseQty;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#fff' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: byMode('#fff', '#121212') }}>
       {/* Centered 800px content column */}
       <Box sx={{ maxWidth: 800, mx: 'auto', pt: 4, px: 2 }}>
         {/* Title row: title left, Show Prices toggle right (switch before label) */}
         <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
             Express Stocktake
           </Typography>
           <Stack
@@ -276,10 +278,10 @@ export default function ExpressStocktake() {
             onClick={() => setShowPrices(!showPrices)}
           >
             <ShopfrontSwitch checked={showPrices} onChange={(e) => setShowPrices(e.target.checked)} />
-            <Typography sx={{ fontSize: 16, color: '#000' }}>Show Prices</Typography>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Show Prices</Typography>
           </Stack>
         </Stack>
-        <Typography sx={{ fontSize: '14.4px', color: '#676b72', mb: 3 }}>
+        <Typography sx={{ fontSize: '14.4px', color: byMode('#676b72', '#a0a4aa'), mb: 3 }}>
           Scanning {selectedOutlet?.name || ''}
         </Typography>
 
@@ -305,14 +307,15 @@ export default function ExpressStocktake() {
               height: 53,
               boxSizing: 'border-box',
               // Reference: 2px black outline, slightly rounded
-              border: '2px solid #000',
+              border: byMode('2px solid #000', '2px solid #a1a1a1'),
               borderRadius: '4px',
-              bgcolor: selectedProduct ? '#d4d4d4' : '#fff',
+              bgcolor: selectedProduct ? byMode('#d4d4d4', '#3a3a3a') : byMode('#fff', '#121212'),
               fontSize: 16,
               px: 2,
               pr: 6,
-              '&:focus': { outline: '1px solid rgb(16,16,16)' },
-              '&::placeholder': { color: '#808080' },
+              '&:focus': { outline: byMode('1px solid rgb(16,16,16)', '1px solid #2b7fff') },
+              '&::placeholder': { color: byMode('#808080', '#757575') },
+              color: byMode(undefined, '#f8f8f8'),
             }}
           />
           {searchTerm && !selectedProduct && (
@@ -324,7 +327,7 @@ export default function ExpressStocktake() {
                 top: '50%',
                 transform: 'translateY(-50%)',
                 cursor: 'pointer',
-                color: '#313439',
+                color: byMode('#313439', '#f8f8f8'),
                 display: 'flex',
                 alignItems: 'center',
               }}
@@ -340,9 +343,9 @@ export default function ExpressStocktake() {
                 left: 0,
                 width: '100%',
                 zIndex: 10,
-                border: '1px solid #000',
+                border: byMode('1px solid #000', '1px solid #a1a1a1'),
                 borderTop: 'none',
-                bgcolor: '#fff',
+                bgcolor: byMode('#fff', '#232323'),
                 maxHeight: 470,
                 overflowY: 'auto',
               }}
@@ -360,7 +363,7 @@ export default function ExpressStocktake() {
                 Products
               </Typography>
               {searchTerm.length < 2 ? (
-                <Typography sx={{ px: 2, py: 1, fontSize: '19.2px', color: '#676b72' }}>
+                <Typography sx={{ px: 2, py: 1, fontSize: '19.2px', color: byMode('#676b72', '#a0a4aa') }}>
                   Start typing to search...
                 </Typography>
               ) : results.map((r) => (
@@ -377,7 +380,7 @@ export default function ExpressStocktake() {
                     boxSizing: 'border-box',
                     cursor: 'pointer',
                     fontSize: '19.2px',
-                    color: '#676b72',
+                    color: byMode('#676b72', '#a0a4aa'),
                     // Reference shows no row pre-highlighted (Enter still takes the first).
                     '&:hover': {
                       bgcolor: 'rgb(139,206,241)',
@@ -399,10 +402,10 @@ export default function ExpressStocktake() {
         {/* Product quantity entry panel — flat, no card */}
         {selectedProduct ? (
           <Box onKeyDown={handlePanelKeyDown} sx={{ mb: 4 }}>
-            <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#313439' }}>
+            <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>
               {selectedProduct.name}
             </Typography>
-            <Typography sx={{ fontSize: 16, color: '#676b72', mb: 2 }}>
+            <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa'), mb: 2 }}>
               Case Quantity {selectedProduct.caseQuantity}
             </Typography>
 
@@ -420,25 +423,25 @@ export default function ExpressStocktake() {
               >
                 <Box />
                 {hasCases && (
-                  <Typography sx={{ fontSize: 16, fontWeight: 700, textAlign: 'center', color: '#000' }}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 700, textAlign: 'center', color: byMode('#000', '#f8f8f8') }}>
                     CASES
                   </Typography>
                 )}
-                <Typography sx={{ fontSize: 16, fontWeight: 700, textAlign: 'center', color: '#000' }}>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, textAlign: 'center', color: byMode('#000', '#f8f8f8') }}>
                   ITEMS
                 </Typography>
 
-                <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>EXPECTED</Typography>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>EXPECTED</Typography>
                 {hasCases && (
-                  <Typography sx={{ fontSize: 16, textAlign: 'center', color: '#000' }}>
+                  <Typography sx={{ fontSize: 16, textAlign: 'center', color: byMode('#000', '#f8f8f8') }}>
                     {expectedCases}
                   </Typography>
                 )}
-                <Typography sx={{ fontSize: 16, textAlign: 'center', color: '#000' }}>
+                <Typography sx={{ fontSize: 16, textAlign: 'center', color: byMode('#000', '#f8f8f8') }}>
                   {expectedItems}
                 </Typography>
 
-                <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>ACTUAL</Typography>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>ACTUAL</Typography>
                 {hasCases && (
                   <Box
                     component="input"
@@ -446,7 +449,7 @@ export default function ExpressStocktake() {
                     value={actualCases}
                     autoFocus
                     onChange={(e) => setActualCases(e.target.value)}
-                    sx={{ ...actualInputStyle, '&:focus': { outline: '1px solid #000' } }}
+                    sx={{ ...actualInputStyle, '&:focus': { outline: byMode('1px solid #000', '1px solid #2b7fff') } }}
                   />
                 )}
                 <Box
@@ -455,16 +458,16 @@ export default function ExpressStocktake() {
                   value={actualItems}
                   autoFocus={!hasCases}
                   onChange={(e) => setActualItems(e.target.value)}
-                  sx={{ ...actualInputStyle, '&:focus': { outline: '1px solid #000' } }}
+                  sx={{ ...actualInputStyle, '&:focus': { outline: byMode('1px solid #000', '1px solid #2b7fff') } }}
                 />
 
-                <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>CALCULATED</Typography>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>CALCULATED</Typography>
                 {hasCases && (
-                  <Typography sx={{ fontSize: 16, textAlign: 'center', color: '#000' }}>
+                  <Typography sx={{ fontSize: 16, textAlign: 'center', color: byMode('#000', '#f8f8f8') }}>
                     {Math.trunc(calculateTotal() / (selectedProduct.caseQuantity || 1))}
                   </Typography>
                 )}
-                <Typography sx={{ fontSize: 16, textAlign: 'center', color: '#000' }}>
+                <Typography sx={{ fontSize: 16, textAlign: 'center', color: byMode('#000', '#f8f8f8') }}>
                   {/* remainder after the floored cases, so a negative count reads -2 / 23 (what Override saves), not -2 / -1 */}
                   {hasCases
                     ? calculateTotal() - Math.trunc(calculateTotal() / (selectedProduct.caseQuantity || 1)) * (selectedProduct.caseQuantity || 1)
@@ -482,9 +485,9 @@ export default function ExpressStocktake() {
                   sx={{
                     ...actionButtonSx,
                     bgcolor: 'rgb(94,187,235)',
-                    color: '#fff',
+                    color: byMode('#fff', '#232323'),
                     '&:hover': { bgcolor: 'rgb(14,165,233)', boxShadow: 'none' },
-                    '&.Mui-disabled': { bgcolor: 'rgb(163,213,239)', color: '#fff' },
+                    '&.Mui-disabled': { bgcolor: byMode('rgb(163,213,239)', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') },
                   }}
                 >
                   {saving ? 'Saving...' : 'Override'}
@@ -497,9 +500,9 @@ export default function ExpressStocktake() {
                   sx={{
                     ...actionButtonSx,
                     bgcolor: 'rgb(94,187,235)',
-                    color: '#fff',
+                    color: byMode('#fff', '#232323'),
                     '&:hover': { bgcolor: 'rgb(14,165,233)', boxShadow: 'none' },
-                    '&.Mui-disabled': { bgcolor: 'rgb(163,213,239)', color: '#fff' },
+                    '&.Mui-disabled': { bgcolor: byMode('rgb(163,213,239)', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') },
                   }}
                 >
                   Add
@@ -511,9 +514,9 @@ export default function ExpressStocktake() {
                   disabled={saving}
                   sx={{
                     ...actionButtonSx,
-                    bgcolor: '#d9d9d9',
-                    color: '#000',
-                    '&:hover': { bgcolor: '#c9c9c9', boxShadow: 'none' },
+                    bgcolor: byMode('#d9d9d9', '#3a3a3a'),
+                    color: byMode('#000', '#f8f8f8'),
+                    '&:hover': { bgcolor: byMode('#c9c9c9', '#444444'), boxShadow: 'none' },
                   }}
                 >
                   Cancel
@@ -524,14 +527,14 @@ export default function ExpressStocktake() {
             {/* PRICE POINTS (Show Prices on): "1 for" over the price, one block per tier */}
             {showPrices && pricePoints.length > 0 && (
               <Box sx={{ mt: 3, pl: 2 }}>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#313439', letterSpacing: '0.04em', mb: 1.5 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: byMode('#313439', '#f8f8f8'), letterSpacing: '0.04em', mb: 1.5 }}>
                   PRICE POINTS
                 </Typography>
                 <Stack direction="row" spacing={5} flexWrap="wrap">
                   {pricePoints.map((pp) => (
                     <Box key={pp.quantity} sx={{ textAlign: 'center', minWidth: 80 }}>
-                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#676b72' }}>{pp.quantity} for</Typography>
-                      <Typography sx={{ fontSize: 28, color: '#313439', lineHeight: 1.2 }}>${pp.price.toFixed(2)}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: 700, color: byMode('#676b72', '#a0a4aa') }}>{pp.quantity} for</Typography>
+                      <Typography sx={{ fontSize: 28, color: byMode('#313439', '#f8f8f8'), lineHeight: 1.2 }}>${pp.price.toFixed(2)}</Typography>
                     </Box>
                   ))}
                 </Stack>
@@ -541,7 +544,7 @@ export default function ExpressStocktake() {
             {/* RECENT STOCKTAKES: this product's stocktake rows from its inventory log */}
             {recentStocktakes.length > 0 && (
               <Box sx={{ mt: 3, pl: 2 }}>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#313439', letterSpacing: '0.04em', mb: 0.5 }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, color: byMode('#313439', '#f8f8f8'), letterSpacing: '0.04em', mb: 0.5 }}>
                   RECENT STOCKTAKES
                 </Typography>
                 {recentStocktakes.map((l, idx) => (
@@ -550,15 +553,15 @@ export default function ExpressStocktake() {
                     direction="row"
                     justifyContent="space-between"
                     alignItems="center"
-                    sx={{ py: 1.5, px: 2, bgcolor: idx % 2 ? '#ebebeb' : 'transparent' }}
+                    sx={{ py: 1.5, px: 2, bgcolor: idx % 2 ? byMode('#ebebeb', '#2a2a2a') : 'transparent' }}
                   >
                     <Box>
-                      <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>Counted by {l.user}</Typography>
-                      <Typography sx={{ fontSize: '14.4px', color: '#676b72' }}>{formatTimeAgo(l.timestamp)}</Typography>
+                      <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>Counted by {l.user}</Typography>
+                      <Typography sx={{ fontSize: '14.4px', color: byMode('#676b72', '#a0a4aa') }}>{formatTimeAgo(l.timestamp)}</Typography>
                     </Box>
                     <Stack direction="row" spacing={3} alignItems="center">
-                      <Typography sx={{ fontSize: 16, color: '#676b72' }}>{l.after?.cases ?? 0} Cases</Typography>
-                      <Typography sx={{ fontSize: 16, color: '#676b72' }}>{l.after?.items ?? 0} Items</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>{l.after?.cases ?? 0} Cases</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>{l.after?.items ?? 0} Items</Typography>
                     </Stack>
                   </Stack>
                 ))}
@@ -572,26 +575,26 @@ export default function ExpressStocktake() {
               sx={{
                 fontSize: 24,
                 fontWeight: 400,
-                color: '#676b72',
+                color: byMode('#676b72', '#a0a4aa'),
                 textAlign: 'center',
                 textTransform: 'uppercase',
               }}
             >
               Select a Product
             </Typography>
-            <Box sx={{ borderBottom: '1px solid #e0e0e0', mt: 1, mb: 3 }} />
+            <Box sx={{ borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737'), mt: 1, mb: 3 }} />
           </>
         )}
 
         {/* Scan History — this session's counts. Stays on screen under the selected
             product's panel too (reference: RECENT STOCKTAKES, a rule, then this). */}
-        {selectedProduct && <Box sx={{ borderBottom: '1px solid #e0e0e0', mt: 3, mb: 1 }} />}
+        {selectedProduct && <Box sx={{ borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737'), mt: 3, mb: 1 }} />}
         {stocktakedProducts.length === 0 ? (
           (
             <Typography
               sx={{
                 fontSize: 24,
-                color: '#676b72',
+                color: byMode('#676b72', '#a0a4aa'),
                 textAlign: 'center',
                 textTransform: 'uppercase',
                 py: 4,
@@ -603,7 +606,7 @@ export default function ExpressStocktake() {
         ) : (
           <Stack spacing={0} sx={{ mt: selectedProduct ? 3 : 0 }}>
             {/* Reference heading over the history list */}
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#313439', letterSpacing: '0.04em', mb: 0.5 }}>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, color: byMode('#313439', '#f8f8f8'), letterSpacing: '0.04em', mb: 0.5 }}>
               SCAN HISTORY
             </Typography>
             {stocktakedProducts.map((p, idx) => (
@@ -612,18 +615,18 @@ export default function ExpressStocktake() {
                 direction="row"
                 justifyContent="space-between"
                 alignItems="center"
-                sx={{ py: 1.5, borderBottom: '1px solid #e0e0e0' }}
+                sx={{ py: 1.5, borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737') }}
               >
                 <Box>
-                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439' }}>{p.name}</Typography>
+                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>{p.name}</Typography>
                   {/* Reference row text is just the relative time ("A few seconds ago"). */}
-                  <Typography sx={{ fontSize: '14.4px', color: '#676b72' }}>
+                  <Typography sx={{ fontSize: '14.4px', color: byMode('#676b72', '#a0a4aa') }}>
                     {formatTimeAgo(p.timestamp)}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={3} alignItems="center">
-                  <Typography sx={{ fontSize: 16, color: '#676b72' }}>{p.historyCases} Cases</Typography>
-                  <Typography sx={{ fontSize: 16, color: '#676b72' }}>{p.historyItems} Items</Typography>
+                  <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>{p.historyCases} Cases</Typography>
+                  <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>{p.historyItems} Items</Typography>
                 </Stack>
               </Stack>
             ))}

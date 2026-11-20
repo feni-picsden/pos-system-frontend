@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import NumberField from '../../components/Common/NumberField';
 import {
@@ -777,7 +778,7 @@ const SaleKey = () => {
   };
 
   return (
-    <Box sx={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', gap: '8px', p: '8px', pt: '58px', boxSizing: 'border-box', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', gap: '8px', p: '8px', pt: '58px', boxSizing: 'border-box', bgcolor: byMode('#f5f5f5', '#121212') }}>
       {/* Header */}
       <Box
         sx={{
@@ -786,8 +787,8 @@ const SaleKey = () => {
           left: 0,
           right: 0,
           height: 50,
-          bgcolor: '#fff',
-          color: '#000',
+          bgcolor: byMode('#fff', '#232323'),
+          color: byMode('#000', '#f8f8f8'),
           display: 'flex',
           alignItems: 'center',
           px: '14px',
@@ -804,10 +805,10 @@ const SaleKey = () => {
           sx={{
             m: 0, minHeight: 50, boxSizing: 'border-box', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            px: 2, py: 1, bgcolor: '#fff', color: '#000',
+            px: 2, py: 1, bgcolor: byMode('#fff', '#232323'), color: byMode('#000', '#f8f8f8'),
             fontSize: 16, fontWeight: 700, textAlign: 'center',
             whiteSpace: 'normal', overflowWrap: 'anywhere',
-            borderBottom: '1px solid #000',
+            borderBottom: byMode('1px solid #000', '1px solid #373737'),
           }}
         >
           {`Modify Sale Key - ${currentSet?.name || 'Loading...'}`}
@@ -824,7 +825,7 @@ const SaleKey = () => {
               ...saleKeyCanvasSx,
               borderRadius: 0,
               boxShadow: 'none',
-              bgcolor: 'white',
+              bgcolor: byMode('white', '#121212'),
               position: 'relative',
               overflow: 'hidden',
             }}
@@ -834,10 +835,13 @@ const SaleKey = () => {
             sx={{
               width: '100%',
               height: '100%',
-              backgroundImage: `
+              backgroundImage: byMode(`
                 linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)
-              `,
+              `, `
+                linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px)
+              `),
               backgroundSize: `${100 / gridSize.cols}% ${100 / gridSize.rows}%`,
               position: 'relative',
             }}
@@ -873,16 +877,16 @@ const SaleKey = () => {
                        top: `${(row / gridSize.rows) * 100}%`,
                        width: `${100 / gridSize.cols}%`,
                        height: `${100 / gridSize.rows}%`,
-                       border: '1px dashed rgba(0,0,0,0.1)',
+                       border: byMode('1px dashed rgba(0,0,0,0.1)', '1px dashed rgba(255,255,255,0.12)'),
                        boxSizing: 'border-box',
                        display: 'flex',
                        alignItems: 'center',
                        justifyContent: 'center',
                        fontSize: '0.75rem',
-                       color: 'rgba(0,0,0,0.3)',
+                       color: byMode('rgba(0,0,0,0.3)', 'rgba(255,255,255,0.4)'),
                        cursor: isOccupied ? 'default' : 'pointer',
                        '&:hover': {
-                         backgroundColor: isOccupied ? 'transparent' : 'rgba(0,0,0,0.05)',
+                         backgroundColor: isOccupied ? 'transparent' : byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'),
                        },
                      }}
                      onClick={() => handleGridCellClick(row, col)}
@@ -964,8 +968,8 @@ const SaleKey = () => {
             flex: '1 1 0',
             minWidth: 300,
             boxSizing: 'border-box',
-            bgcolor: 'white',
-            border: '1px solid #000',
+            bgcolor: byMode('white', '#232323'),
+            border: byMode('1px solid #000', '1px solid #373737'),
             p: 2,
             overflowY: 'auto',
             minHeight: 0,
@@ -1033,7 +1037,7 @@ const SaleKey = () => {
               setSelectedKey(null);
               setSnackbar({ open: true, message: 'Grid cleared', severity: 'info' });
             }}
-            sx={{ color: '#d32f2f', borderColor: '#d32f2f', '&:hover': { borderColor: '#b71c1c' } }}
+            sx={{ color: byMode('#d32f2f', '#ffa2a2'), borderColor: byMode('#d32f2f', '#ffa2a2'), '&:hover': { borderColor: byMode('#b71c1c', '#ffa2a2') } }}
           >
             Clear Grid
           </Button>

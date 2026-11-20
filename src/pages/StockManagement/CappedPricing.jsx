@@ -17,6 +17,7 @@ import {
   Autocomplete,
   Checkbox,
   Button,
+  useTheme,
 } from '@mui/material';
 import {
   CloudOutlined as CloudOutlinedIcon,
@@ -35,6 +36,7 @@ import { rowsFromCappedPricingCsv, programNameFromFile } from '../../utils/cappe
 import { queueEverydayTicket } from '../../utils/priceChangeTicket';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference Capped Pricing (help centre art. 360000099231 "Capped Pricing (Core
 // or Maximum Shelf Price)", art. 360029656231 "Importing a Capped Pricing File"):
@@ -51,6 +53,7 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB') : '-');
 
 const CappedPricing = () => {
   const { selectedOutletId } = useSelectedOutlet();
+  const isDark = useTheme().palette.mode === 'dark';
   const [activeTab, setActiveTab] = useState('provided');
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
@@ -184,22 +187,22 @@ const CappedPricing = () => {
     textTransform: 'none',
     fontSize: 14,
     fontWeight: 400,
-    color: '#000000',
+    color: byMode('#000000', '#f8f8f8'),
     borderRadius: '8px 8px 0px 0px',
     transition: 'color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1)',
     '&.Mui-selected': {
-      color: '#000000',
-      bgcolor: '#ffffff',
+      color: byMode('#000000', '#f8f8f8'),
+      bgcolor: byMode('#ffffff', '#121212'),
       boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.12), 0px 1px 2px rgba(0, 0, 0, 0.08)',
     },
   };
 
   // Reference (live app): bold title-case labels on a blue band with rounded ends
   const headCellSx = {
-    color: '#ffffff',
+    color: byMode('#ffffff', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
-    bgcolor: '#5ebbeb',
+    bgcolor: byMode('#5ebbeb', '#333333'),
     border: 'none',
     py: 0,
     height: 51,
@@ -210,9 +213,9 @@ const CappedPricing = () => {
 
   const bodyCellSx = {
     fontSize: 16,
-    color: '#000000',
+    color: byMode('#000000', '#f8f8f8'),
     border: 'none',
-    borderBottom: '1px solid #e5e7eb',
+    borderBottom: byMode('1px solid #e5e7eb', '1px solid #373737'),
     py: 1.5,
     verticalAlign: 'middle',
   };
@@ -220,17 +223,17 @@ const CappedPricing = () => {
   const EmptyState = ({ title, description }) => (
     // Reference: big icon on the left, title + description beside it
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, py: 8 }}>
-      <BlockIcon sx={{ fontSize: 140, color: '#000' }} />
+      <BlockIcon sx={{ fontSize: 140, color: byMode('#000', '#f8f8f8') }} />
       <Box>
-        <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 3 }}>{title}</Typography>
-        <Typography sx={{ fontSize: 16, color: '#000' }}>{description}</Typography>
+        <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 3 }}>{title}</Typography>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{description}</Typography>
       </Box>
     </Box>
   );
 
   const uploadZone = (
     <Box>
-      <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>
+      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 2, '& a': { color: byMode(undefined, '#4ca0f5') } }}>
         Looking for the file format?{' '}
         <a href={HELP_URL} target="_blank" rel="noreferrer">Click here</a>.
       </Typography>
@@ -252,20 +255,20 @@ const CappedPricing = () => {
           gap: 1,
           px: 3,
           py: 4,
-          border: '1px dashed rgba(17, 24, 39, 0.25)',
+          border: byMode('1px dashed rgba(17, 24, 39, 0.25)', '1px dashed #a1a1a1'),
           borderRadius: '8px',
-          bgcolor: dragActive ? 'rgba(64, 64, 64, 0.05)' : 'transparent',
+          bgcolor: dragActive ? byMode('rgba(64, 64, 64, 0.05)', 'rgba(255,255,255,0.08)') : 'transparent',
           boxShadow: 'inset 0px 2px 4px rgba(0, 0, 0, 0.05)',
           cursor: 'pointer',
           textAlign: 'center',
-          '&:hover': { bgcolor: 'rgba(64, 64, 64, 0.05)' },
+          '&:hover': { bgcolor: byMode('rgba(64, 64, 64, 0.05)', 'rgba(255,255,255,0.08)') },
         }}
       >
-        <OutboxIcon sx={{ fontSize: 56, color: '#a3a3a3' }} />
+        <OutboxIcon sx={{ fontSize: 56, color: byMode('#a3a3a3', '#a0a4aa') }} />
         {dragActive ? (
-          <Typography sx={{ fontSize: 14, color: '#525252' }}>Drop file to upload</Typography>
+          <Typography sx={{ fontSize: 14, color: byMode('#525252', '#d4d4d4') }}>Drop file to upload</Typography>
         ) : (
-          <Typography sx={{ fontSize: 14, color: '#525252' }}>
+          <Typography sx={{ fontSize: 14, color: byMode('#525252', '#d4d4d4') }}>
             <Box component="span" sx={{ color: '#5ebbeb' }}>Upload a file</Box>
             {' or drag and drop'}
           </Typography>
@@ -292,7 +295,7 @@ const CappedPricing = () => {
       // Reference chips: grey, no delete cross, at most two then "N More..." -
       // open or closed (MUI's limitTags shows them all while focused).
       renderTags={(value) => {
-        const chipSx = { display: 'inline-flex', alignItems: 'center', borderRadius: '4px', bgcolor: '#e5e7eb', color: '#000', fontSize: 15, height: 26, px: 1, mr: 1, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+        const chipSx = { display: 'inline-flex', alignItems: 'center', borderRadius: '4px', bgcolor: byMode('#e5e7eb', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), fontSize: 15, height: 26, px: 1, mr: 1, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
         return [
           ...value.slice(0, 2).map((o) => <Box key={o.name} component="span" sx={chipSx}>{o.name}</Box>),
           ...(value.length > 2 ? [<Box key="more" component="span" sx={chipSx}>{value.length - 2} More...</Box>] : []),
@@ -305,18 +308,18 @@ const CappedPricing = () => {
       groupBy={(o) => (o.top ? 'picked' : 'all')}
       renderGroup={(params) => (
         <li key={params.key}>
-          {params.group === 'all' && selectedSets.length > 0 && <Box sx={{ borderTop: '1px solid #000', mx: 0 }} />}
+          {params.group === 'all' && selectedSets.length > 0 && <Box sx={{ borderTop: byMode('1px solid #000', '1px solid #a1a1a1'), mx: 0 }} />}
           <ul style={{ padding: 0 }}>{params.children}</ul>
         </li>
       )}
-      popupIcon={<ArrowDropDownIcon sx={{ color: '#808080' }} />}
+      popupIcon={<ArrowDropDownIcon sx={{ color: byMode('#808080', '#a0a4aa') }} />}
       renderOption={(props, option, { selected }) => (
-        <li {...props} key={`${option.top ? 'p' : 'a'}-${option.name}`} style={{ fontSize: 16, minHeight: 56, color: selected ? '#29b6f6' : '#000' }}>
+        <li {...props} key={`${option.top ? 'p' : 'a'}-${option.name}`} style={{ fontSize: 16, minHeight: 56, color: selected ? (isDark ? '#00a6f4' : '#29b6f6') : (isDark ? '#f8f8f8' : '#000') }}>
           <Checkbox
             icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
             checkedIcon={<CheckBoxIcon fontSize="small" />}
             checked={selected}
-            sx={{ mr: 1, p: 0, color: selected ? '#29b6f6 !important' : '#404040' }}
+            sx={{ mr: 1, p: 0, color: selected ? byMode('#29b6f6 !important', '#00a6f4 !important') : byMode('#404040', '#a1a1a1') }}
           />
           {option.name}
         </li>
@@ -324,7 +327,7 @@ const CappedPricing = () => {
       slotProps={{
         paper: {
           sx: {
-            border: '1px solid #000',
+            border: byMode('1px solid #000', '1px solid #a1a1a1'),
             borderRadius: '8px',
             // smooth open: fade + slight drop instead of popping in
             '@keyframes cpPickerIn': {
@@ -334,8 +337,8 @@ const CappedPricing = () => {
             animation: 'cpPickerIn 180ms ease-out',
             '& .MuiAutocomplete-listbox': { padding: 0 },
             // option rows only - the group wrapper is an <li> too
-            '&& li.MuiAutocomplete-option': { minHeight: 56, padding: '16px', backgroundColor: '#fff' },
-            '&& li.MuiAutocomplete-option.Mui-focused, && li.MuiAutocomplete-option:hover': { backgroundColor: '#7dd3fc', color: '#000' },
+            '&& li.MuiAutocomplete-option': { minHeight: 56, padding: '16px', backgroundColor: byMode('#fff', '#232323') },
+            '&& li.MuiAutocomplete-option.Mui-focused, && li.MuiAutocomplete-option:hover': { backgroundColor: byMode('#7dd3fc', '#0084d1'), color: byMode('#000', '#fafafa') },
           },
         },
       }}
@@ -352,13 +355,13 @@ const CappedPricing = () => {
               paddingTop: '0 !important',
               paddingBottom: '0 !important',
               borderRadius: '8px',
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#121212'),
               fontSize: 16,
-              '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover fieldset': { borderColor: '#404040' },
-              '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '2px' },
+              '& fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover fieldset': { borderColor: byMode('#404040', '#a1a1a1') },
+              '&.Mui-focused fieldset': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
             },
-            '& input::placeholder': { color: '#808080', opacity: 1, fontSize: 16 },
+            '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1, fontSize: 16 },
             '& .MuiAutocomplete-popupIndicator': { transform: 'none' },
             '& .MuiAutocomplete-popupIndicatorOpen': { transform: 'none' },
           }}
@@ -399,13 +402,13 @@ const CappedPricing = () => {
             const cost = round2((row.itemCost || 0) * (Number(row.quantity) || 1));
             const marginPct = hasCurrent ? ((current - cost) / current) * 100 : null;
             return (
-              <TableRow key={row.id} sx={{ bgcolor: '#ffffff' }}>
+              <TableRow key={row.id} sx={{ bgcolor: byMode('#ffffff', '#232323') }}>
                 <TableCell sx={bodyCellSx}>
-                  <Typography sx={{ fontSize: 12, color: '#676b72' }}>{row.priceSet || DEFAULT_SET}</Typography>
-                  <Typography sx={{ fontSize: 16, fontWeight: 600, color: '#000' }}>{row.productName || row.name}</Typography>
-                  {!matched && <Typography sx={{ fontSize: 12, color: '#dc2626' }}>Not matched to a product</Typography>}
+                  <Typography sx={{ fontSize: 12, color: byMode('#676b72', '#a0a4aa') }}>{row.priceSet || DEFAULT_SET}</Typography>
+                  <Typography sx={{ fontSize: 16, fontWeight: 600, color: byMode('#000', '#f8f8f8') }}>{row.productName || row.name}</Typography>
+                  {!matched && <Typography sx={{ fontSize: 12, color: byMode('#dc2626', '#ffa2a2') }}>Not matched to a product</Typography>}
                   {matched && !hasTier && (
-                    <Typography sx={{ fontSize: 12, color: '#dc2626' }}>
+                    <Typography sx={{ fontSize: 12, color: byMode('#dc2626', '#ffa2a2') }}>
                       No price for quantity {row.quantity || 1} on this product - add it on the product page
                     </Typography>
                   )}
@@ -427,7 +430,7 @@ const CappedPricing = () => {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Box component="span" sx={{ color: '#676b72' }}>$</Box>
+                          <Box component="span" sx={{ color: byMode('#676b72', '#a0a4aa') }}>$</Box>
                         </InputAdornment>
                       ),
                     }}
@@ -437,17 +440,17 @@ const CappedPricing = () => {
                       '& .MuiOutlinedInput-root': {
                         height: 53,
                         borderRadius: '8px',
-                        bgcolor: editable ? '#fff' : '#f3f4f6',
+                        bgcolor: editable ? byMode('#fff', '#121212') : byMode('#f3f4f6', '#2a2a2a'),
                         fontSize: 16,
-                        color: overCap ? '#dc2626' : '#000000',
-                        '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-                        '&:hover fieldset': { borderColor: '#404040' },
-                        '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '2px' },
+                        color: overCap ? byMode('#dc2626', '#ffa2a2') : byMode('#000000', '#f8f8f8'),
+                        '& fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                        '&:hover fieldset': { borderColor: byMode('#404040', '#a1a1a1') },
+                        '&.Mui-focused fieldset': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
                       },
                     }}
                   />
                 </TableCell>
-                <TableCell sx={{ ...bodyCellSx, color: overCap ? '#dc2626' : '#000000', fontWeight: 600 }} align="center">
+                <TableCell sx={{ ...bodyCellSx, color: overCap ? byMode('#dc2626', '#ffa2a2') : byMode('#000000', '#f8f8f8'), fontWeight: 600 }} align="center">
                   {marginPct == null ? '-' : `${marginPct.toFixed(2)}%`}
                 </TableCell>
               </TableRow>
@@ -462,8 +465,8 @@ const CappedPricing = () => {
 
   return (
     // Reference: grey band holds the title + tabs; the white content runs full width below
-    <Box sx={{ bgcolor: '#ffffff', minHeight: '100vh' }}>
-      <Box sx={{ bgcolor: '#e2e8f0', px: 3, pt: 3 }}>
+    <Box sx={{ bgcolor: byMode('#ffffff', '#121212'), minHeight: '100vh' }}>
+      <Box sx={{ bgcolor: byMode('#e2e8f0', '#314158'), px: 3, pt: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight={700}>Capped Pricing</Typography>
@@ -472,8 +475,8 @@ const CappedPricing = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            bgcolor: '#dcfce7',
-            color: '#15803d',
+            bgcolor: byMode('#dcfce7', '#264029'),
+            color: byMode('#15803d', '#7bf1a8'),
             fontSize: 12,
             fontWeight: 500,
             borderRadius: '9999px',
@@ -498,7 +501,7 @@ const CappedPricing = () => {
       </Box>
 
       {/* Content */}
-      <Box sx={{ bgcolor: '#ffffff', p: 3 }}>
+      <Box sx={{ bgcolor: byMode('#ffffff', '#121212'), p: 3 }}>
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
 
@@ -510,7 +513,7 @@ const CappedPricing = () => {
             <Typography
               sx={{
                 fontSize: 12,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 mb: '4px',
                 // label floats up from the box rather than snapping in
                 opacity: pickerOpen || selectedSets.length ? 1 : 0,
@@ -530,7 +533,7 @@ const CappedPricing = () => {
             <Button
               variant="outlined"
               onClick={handleImportCSV}
-              sx={{ height: 42, px: 4, textTransform: 'none', fontSize: 16, fontWeight: 600, borderRadius: '8px', color: '#000', borderColor: '#404040', '&:hover': { borderColor: '#404040' } }}
+              sx={{ height: 42, px: 4, textTransform: 'none', fontSize: 16, fontWeight: 600, borderRadius: '8px', color: byMode('#000', '#d4d4d4'), borderColor: byMode('#404040', '#a1a1a1'), '&:hover': { borderColor: byMode('#404040', '#a1a1a1') } }}
             >
               Use Different File
             </Button>

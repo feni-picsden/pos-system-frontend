@@ -16,6 +16,7 @@ import {
   ChevronLeft as PrevIcon,
   ChevronRight as NextIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference: "Looking for the file format? Click here." on the Import Gift
 // Cards page opens the help article in a right-hand drawer (left table of
@@ -120,7 +121,7 @@ export default function GiftCardsHelpDrawer({ open, onClose, initialSection = 'i
       PaperProps={{ sx: { width: 'min(1120px, 100vw)', display: 'flex', flexDirection: 'row', boxShadow: 'none' } }}
     >
       {/* table of contents */}
-      <Box sx={{ width: 350, flexShrink: 0, bgcolor: '#e1e8ee', p: 2.5, overflowY: 'auto' }}>
+      <Box sx={{ width: 350, flexShrink: 0, bgcolor: byMode('#e1e8ee', '#2a2a2a'), p: 2.5, overflowY: 'auto' }}>
         {SECTIONS.map((s) => (
           <Typography
             key={s.id}
@@ -130,7 +131,7 @@ export default function GiftCardsHelpDrawer({ open, onClose, initialSection = 'i
               pl: s.level ? 2 : 0,
               py: 0.5,
               cursor: 'pointer',
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               textDecoration: current === s.id ? 'underline' : 'none',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -150,7 +151,7 @@ export default function GiftCardsHelpDrawer({ open, onClose, initialSection = 'i
           <Button
             onClick={onClose}
             startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
-            sx={{ ml: 'auto', color: '#000', fontSize: 16, fontWeight: 700, textTransform: 'none' }}
+            sx={{ ml: 'auto', color: byMode('#000', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none' }}
           >
             Close
           </Button>

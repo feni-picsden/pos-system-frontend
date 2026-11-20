@@ -25,6 +25,7 @@ import {
   isEmailTemplate,
   isTextOnlyTemplate,
 } from '../../utils/receiptTemplateShape';
+import { byMode } from '../../theme/sfPalette';
 
 // The ONE Configure dialog. Measured 2026-08-07 (docs/parity/receipt-editor-measured-2026-08-07.md):
 // the list page's `Configure` action and the editor's gear open the SAME dialog, titled
@@ -40,8 +41,8 @@ import {
 const padInputSx = {
   width: 156,
   '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53 },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '1px' },
 };
 
 // Measured: 223×48 with 32px labels.
@@ -219,7 +220,7 @@ const ConfigureReceiptDialog = ({
                     </FormControl>
                     <IconButton
                       onClick={() => setAttachments(attachments.filter((_, i) => i !== index))}
-                      sx={{ color: '#e33430' }}
+                      sx={{ color: byMode('#e33430', '#ffa2a2') }}
                       title="Remove attachment"
                     >
                       <DeleteIcon />
@@ -230,7 +231,7 @@ const ConfigureReceiptDialog = ({
                   size="small"
                   startIcon={<AddIcon />}
                   onClick={() => setAttachments([...attachments, { name: DEFAULT_ATTACHMENT_NAME, receiptTemplateId: '' }])}
-                  sx={{ textTransform: 'none', color: '#1c86f2', borderRadius: 0 }}
+                  sx={{ textTransform: 'none', color: byMode('#1c86f2', '#74d4ff'), borderRadius: 0 }}
                 >
                   Add Attachment
                 </Button>
@@ -242,14 +243,14 @@ const ConfigureReceiptDialog = ({
       <DialogActions sx={{ p: 2 }}>
         <Button
           onClick={onCancel}
-          sx={{ ...actionSx, bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #676b72', '&:hover': { bgcolor: '#efefef' } }}
+          sx={{ ...actionSx, bgcolor: byMode('#f8f8f8', 'transparent'), color: byMode('#676b72', '#d4d4d4'), border: byMode('1px solid #676b72', '1px solid #a1a1a1'), '&:hover': { bgcolor: byMode('#efefef', '#3a3a3a') } }}
         >
           Cancel
         </Button>
         <Button
           onClick={onConfirm}
           disabled={loading || saving}
-          sx={{ ...actionSx, bgcolor: '#1c86f2', color: '#fff', '&:hover': { bgcolor: '#1670d0' } }}
+          sx={{ ...actionSx, bgcolor: '#1c86f2', color: byMode('#fff', '#232323'), '&:hover': { bgcolor: '#1670d0' } }}
         >
           {saving ? 'Saving...' : 'Confirm'}
         </Button>

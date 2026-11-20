@@ -33,12 +33,13 @@ import { useHasPermission } from '../../hooks/usePermissions';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import posLocalDb from '../../services/posLocalDb';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront reference has no transitions anywhere.
 const INSTANT = 'all 0s ease';
 
 const PILL_BUTTON_SX = {
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   textTransform: 'none',
   boxShadow: 'none',
   borderRadius: '12px',
@@ -60,7 +61,7 @@ const ROW_ACTION_SX = {
   minWidth: 0,
   px: 1.5,
   transition: INSTANT,
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
   '& .MuiButton-startIcon': { mr: '6px' },
   '& i.fal': { display: 'inline-flex', alignItems: 'center', '& svg': { width: 18, height: 18 } },
 };
@@ -243,7 +244,7 @@ const TaxRates = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'left', alignItems: 'center', mb: 3, gap: 2 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#000' }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', color: byMode('#000', '#f8f8f8') }}>
           Tax Rates
         </Typography>
         {canAddTaxRates && (
@@ -254,8 +255,8 @@ const TaxRates = () => {
             onClick={handleAddTaxRate}
             sx={{
               ...PILL_BUTTON_SX,
-              backgroundColor: '#22c55e',
-              '&:hover': { backgroundColor: '#4ade80', boxShadow: 'none' },
+              backgroundColor: byMode('#22c55e', '#7bf1a8'),
+              '&:hover': { backgroundColor: byMode('#4ade80', '#5ee08e'), boxShadow: 'none' },
             }}
           >
             New
@@ -279,10 +280,10 @@ const TaxRates = () => {
         <Box sx={{ flexGrow: 1 }} />
         {/* Live results counter, like the Products / Stocktakes pages */}
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: '#000' }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: byMode('#000', '#f8f8f8') }}>
             {taxRates.length}
           </Typography>
-          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>Results</Typography>
         </Box>
       </Box>
 
@@ -305,7 +306,7 @@ const TaxRates = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5fb8ea', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: byMode('#5fb8ea', '#333333'), color: byMode('#fff', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px', pl: '20px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px', pr: '20px' },
                 }}
@@ -331,14 +332,14 @@ const TaxRates = () => {
                 taxRates.map((taxRate) => (
                   <TableRow
                     key={taxRate.id}
-                    sx={{ height: 70, '& td': { borderBottom: '1px solid #e0e0e0' } }}
+                    sx={{ height: 70, '& td': { borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737') } }}
                   >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {/* Reference row glyph: padlock for the system rate, copy icon otherwise. */}
                         {isLockedRate(taxRate) ? (
                           <Tooltip title="This is defined by the system and cannot be modified." placement="top-start">
-                            <LockOutlinedIcon sx={{ fontSize: 18, color: '#000', cursor: 'default' }} />
+                            <LockOutlinedIcon sx={{ fontSize: 18, color: byMode('#000', '#f8f8f8'), cursor: 'default' }} />
                           </Tooltip>
                         ) : (
                           <Tooltip title="Copy ID">
@@ -349,9 +350,9 @@ const TaxRates = () => {
                               sx={{
                                 p: 0.25,
                                 borderRadius: '8px',
-                                color: '#000',
+                                color: byMode('#000', '#f8f8f8'),
                                 transition: INSTANT,
-                                '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                                '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
                               }}
                             >
                               <ContentCopyOutlinedIcon sx={{ fontSize: 18 }} />
@@ -363,12 +364,12 @@ const TaxRates = () => {
                         </Typography>
                         {/* Reference: " - Default" in blue, or " - Set as Default" link */}
                         {taxRate.isDefault ? (
-                          <Typography component="span" sx={{ color: '#3b82f6', fontSize: 16 }}>
+                          <Typography component="span" sx={{ color: byMode('#3b82f6', '#74d4ff'), fontSize: 16 }}>
                             {' - Default'}
                           </Typography>
                         ) : (
                           canEditTaxRates && taxRate.isActive && (
-                            <Typography component="span" sx={{ fontSize: 16, color: '#000' }}>
+                            <Typography component="span" sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                               {' - '}
                               <Box
                                 component="button"
@@ -377,7 +378,7 @@ const TaxRates = () => {
                                 sx={{
                                   border: 0,
                                   bgcolor: 'transparent',
-                                  color: '#000',
+                                  color: byMode('#000', '#f8f8f8'),
                                   textDecoration: 'underline',
                                   fontSize: 16,
                                   fontFamily: 'inherit',
@@ -386,7 +387,7 @@ const TaxRates = () => {
                                   py: 0.25,
                                   borderRadius: '8px',
                                   transition: INSTANT,
-                                  '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
+                                  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.1)', 'rgba(255,255,255,0.12)') },
                                 }}
                               >
                                 Set as Default
@@ -436,7 +437,7 @@ const TaxRates = () => {
                             disableRipple
                             startIcon={<Glyph name="pencil" />}
                             onClick={() => handleEditTaxRate(taxRate)}
-                            sx={{ ...ROW_ACTION_SX, color: '#16a34a' }}
+                            sx={{ ...ROW_ACTION_SX, color: byMode('#16a34a', '#7bf1a8') }}
                           >
                             Edit
                           </Button>
@@ -461,13 +462,13 @@ const TaxRates = () => {
                             disabled={Boolean(taxRate.isDefault) || Boolean(taxRate.inUse)}
                             sx={{
                               ...ROW_ACTION_SX,
-                              color: '#dc2626',
+                              color: byMode('#dc2626', '#ffa2a2'),
                               '&.Mui-disabled': {
-                                bgcolor: 'rgba(0,0,0,0.1)',
-                                color: '#b5b5b5',
+                                bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'),
+                                color: byMode('#b5b5b5', '#a0a4aa'),
                                 pointerEvents: 'auto',
                                 cursor: 'not-allowed',
-                                '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
+                                '&:hover': { bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a') },
                               },
                             }}
                           >

@@ -18,6 +18,7 @@ import settingsService from '../../services/settingsService';
 import paymentMethodService, { getPaymentMethodSettings } from '../../services/paymentMethodService';
 import NiceError from '../../components/Common/NiceError';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference tokens (topdrops.onshopfront.com/close). Tailwind palette values the
 // reference resolves to, kept literal so nothing depends on the MUI theme.
@@ -45,14 +46,14 @@ const BTN_SX = {
 };
 const BTN_GREEN_SX = {
   ...BTN_SX,
-  color: GREEN_TEXT,
-  border: `1px solid ${GREEN_BORDER}`,
+  color: byMode(GREEN_TEXT, '#7bf1a8'),
+  border: byMode(`1px solid ${GREEN_BORDER}`, '1px solid #7bf1a8'),
   bgcolor: 'transparent',
   '&:hover': { boxShadow: 'none', bgcolor: 'rgba(34,197,94,0.06)' },
 };
 const BTN_PRIMARY_SX = {
   ...BTN_SX,
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   bgcolor: PRIMARY,
   border: `1px solid ${PRIMARY}`,
   '&:hover': { boxShadow: 'none', bgcolor: '#4aa9db' },
@@ -61,15 +62,15 @@ const BTN_PRIMARY_SX = {
 // Reference table header: solid #5ebbeb band, white bold, 16px pad, the outer
 // corners rounded 12px and nothing else.
 const TH_SX = {
-  bgcolor: PRIMARY,
-  color: '#fff',
+  bgcolor: byMode(PRIMARY, '#333333'),
+  color: byMode('#fff', '#5ebbeb'),
   fontWeight: 700,
   fontSize: 16,
   p: '16px',
   border: 0,
   whiteSpace: 'nowrap',
 };
-const TD_SX = { p: '16px', border: 0, fontSize: 16, color: '#000' };
+const TD_SX = { p: '16px', border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8') };
 
 // Reference help texts, verbatim (brand name swapped, as everywhere).
 const HELP = {
@@ -79,7 +80,7 @@ const HELP = {
 };
 const HelpTip = ({ title, light = false }) => (
   <Tooltip title={title} arrow placement="bottom">
-    <HelpOutlineIcon sx={{ fontSize: 16, color: light ? '#fff' : N500, cursor: 'help', ml: '4px', verticalAlign: 'middle' }} />
+    <HelpOutlineIcon sx={{ fontSize: 16, color: light ? byMode('#fff', '#5ebbeb') : byMode(N500, '#a0a4aa'), cursor: 'help', ml: '4px', verticalAlign: 'middle' }} />
   </Tooltip>
 );
 const SEVEN_DAYS_MS = 7 * 86400000;
@@ -129,13 +130,13 @@ const MoneyInput = ({ value, onChange, width = 136, grey = false, readOnly = fal
       maxWidth: '100%',
       height: 40,
       borderRadius: '8px',
-      border: `1px solid ${N200}`,
-      bgcolor: grey ? N200 : '#fff',
+      border: byMode(`1px solid ${N200}`, '1px solid #a1a1a1'),
+      bgcolor: grey ? byMode(N200, '#333333') : byMode('#fff', '#121212'),
       px: '16px',
       gap: '8px',
     }}
   >
-    {!count && <Box component="span" sx={{ color: N500, fontSize: 16 }}>$</Box>}
+    {!count && <Box component="span" sx={{ color: byMode(N500, '#a0a4aa'), fontSize: 16 }}>$</Box>}
     <InputBase
       value={value}
       onChange={onChange}
@@ -396,7 +397,7 @@ const CloseRegister = () => {
               <Box
                 component="span"
                 onClick={() => setExpanded((p) => ({ ...p, [row.key]: !open }))}
-                sx={{ display: 'flex', cursor: 'pointer', color: N600 }}
+                sx={{ display: 'flex', cursor: 'pointer', color: byMode(N600, '#d4d4d4') }}
               >
                 {open ? <ExpandMoreIcon /> : <ChevronRightIcon />}
               </Box>
@@ -442,7 +443,7 @@ const CloseRegister = () => {
               return (
                 <Box key={name} sx={ROW_GRID}>
                   <Box sx={{ ...TD_SX, display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
-                    <SubRowIcon sx={{ fontSize: 16, color: '#000', width: 24, flexShrink: 0 }} />
+                    <SubRowIcon sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), width: 24, flexShrink: 0 }} />
                     <Box component="span" title={name} sx={NAME_SX}>{name}</Box>
                   </Box>
                   <Box sx={{ ...TD_SX, textAlign: 'center' }}>{fmt(subExpected)}</Box>
@@ -469,7 +470,7 @@ const CloseRegister = () => {
         height: 'calc(100vh - 50px)',
         overflow: 'auto',
         p: 2,
-        bgcolor: '#fff',
+        bgcolor: byMode('#fff', '#121212'),
         display: 'flex',
         gap: 4,
       }}
@@ -485,8 +486,8 @@ const CloseRegister = () => {
               width: 30,
               height: 42,
               borderRadius: '12px',
-              border: `1px solid ${N500}`,
-              color: N600,
+              border: byMode(`1px solid ${N500}`, '1px solid #a1a1a1'),
+              color: byMode(N600, '#d4d4d4'),
               cursor: 'pointer',
             }}
           >
@@ -508,8 +509,8 @@ const CloseRegister = () => {
               p: '16px',
               borderRadius: '12px',
               border: '1px solid #facc15',
-              bgcolor: '#fefce8',
-              color: '#854d0e',
+              bgcolor: byMode('#fefce8', '#3d3110'),
+              color: byMode('#854d0e', '#fde68a'),
               fontSize: 14,
             }}
           >
@@ -520,14 +521,14 @@ const CloseRegister = () => {
 
         <Box sx={{ display: 'flex', gap: 4, px: '4px', mt: 1, mb: 2 }}>
           <Box>
-            <Typography sx={{ fontSize: 14, color: N600 }}>Open Time</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode(N600, '#d4d4d4') }}>Open Time</Typography>
             <Typography sx={{ fontSize: 16 }}>{timeAgo(preview?.openedAt)}</Typography>
           </Box>
           <Box>
-            <Typography sx={{ fontSize: 14, color: N600 }}>Sale Upload Status</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode(N600, '#d4d4d4') }}>Sale Upload Status</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Typography sx={{ fontSize: 16 }}>All Uploaded</Typography>
-              <CheckCircleOutlineIcon sx={{ fontSize: 18, color: GREEN_TEXT }} />
+              <CheckCircleOutlineIcon sx={{ fontSize: 18, color: byMode(GREEN_TEXT, '#7bf1a8') }} />
             </Box>
           </Box>
         </Box>
@@ -596,7 +597,7 @@ const CloseRegister = () => {
         </Popover>
 
         <Box sx={{ mt: 3 }}>
-          <Typography sx={{ fontSize: 12, color: N600, mb: '4px' }}>
+          <Typography sx={{ fontSize: 12, color: byMode(N600, '#d4d4d4'), mb: '4px' }}>
             Register Closure Note
           </Typography>
           <InputBase
@@ -607,7 +608,7 @@ const CloseRegister = () => {
             sx={{
               width: '100%',
               borderRadius: '12px',
-              border: `1px solid ${N200}`,
+              border: byMode(`1px solid ${N200}`, '1px solid #a1a1a1'),
               p: '12px',
               fontSize: 16,
             }}
@@ -633,8 +634,8 @@ const CloseRegister = () => {
               mt: 2,
               p: '12px',
               borderRadius: '12px',
-              border: `1px solid ${N200}`,
-              bgcolor: N100,
+              border: byMode(`1px solid ${N200}`, '1px solid #373737'),
+              bgcolor: byMode(N100, '#2a2a2a'),
               fontSize: 13,
               overflowX: 'auto',
             }}
@@ -665,7 +666,7 @@ const CloseRegister = () => {
           display: { xs: 'none', md: 'block' },
           m: -2,
           p: 2,
-          borderLeft: `1px solid ${N200}`,
+          borderLeft: byMode(`1px solid ${N200}`, '1px solid #373737'),
           boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
         }}
       >
@@ -682,7 +683,7 @@ const CloseRegister = () => {
           <Box className="hd" sx={TH_SX}>Value</Box>
           {DENOMINATIONS.map((d, i) => {
             // Reference stripes every second denomination across all three cells.
-            const stripe = i % 2 === 1 ? { bgcolor: N100 } : {};
+            const stripe = i % 2 === 1 ? { bgcolor: byMode(N100, '#2a2a2a') } : {};
             const value = d * (parseFloat(qty[d]) || 0);
             return (
               <React.Fragment key={d}>
@@ -729,7 +730,7 @@ const CloseRegister = () => {
           <Box
             sx={{
               ...TD_SX,
-              color: total < 0 ? RED : '#000',
+              color: total < 0 ? byMode(RED, '#ffa2a2') : byMode('#000', '#f8f8f8'),
               textDecoration: inDrawer === 0 && !floatAmount ? 'line-through' : 'none',
             }}
           >

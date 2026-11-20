@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Alert,
@@ -49,6 +50,7 @@ import { resolveCustomPageRuleCode } from '../../utils/pageRuleDefaults';
 import PageRuleWizard from '../../components/Common/PageRuleWizard';
 import productService from '../../services/productService';
 import classificationService from '../../services/classificationService';
+import { byMode } from '../../theme/sfPalette';
 
 const GRADIENT = 'linear-gradient(to bottom right,#5da2ba,#2193b0,#283c86,#4bc0c8,#283c86,#2193b0)';
 const NEAR_WHITE = '#f8f8f8';
@@ -159,21 +161,22 @@ const promotionTypes = [
 ];
 
 // Reference: name/quantity/price inputs are white, square, 1px solid #000, 53px tall.
+// Dark (reference wizard): the box turns #232323 with light text on the same blue backdrop.
 const blockFieldSx = {
-  '& .MuiOutlinedInput-root': { height: 53, borderRadius: 0, backgroundColor: '#fff' },
+  '& .MuiOutlinedInput-root': { height: 53, borderRadius: 0, backgroundColor: byMode('#fff', '#232323') },
   '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #000' },
   '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #000' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: '1px solid #000' },
-  '& input::placeholder': { color: '#808080', opacity: 1 }
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #000', '1px solid #f8f8f8') },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 }
 };
 
 // Reference: the async item select and the date pickers are 8px-rounded, 1px #404040.
 const roundFieldSx = {
-  '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#fff', py: '2px' },
-  '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' },
-  '& input::placeholder': { color: '#808080', opacity: 1 }
+  '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: byMode('#fff', '#232323'), py: '2px' },
+  '& .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #f8f8f8') },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 }
 };
 
 // Reference: the two date inputs are plain white squares (1px #000, no radius,
@@ -183,7 +186,7 @@ const dateFieldSx = {
   '& .MuiOutlinedInput-root': {
     height: 37,
     borderRadius: 0,
-    backgroundColor: '#fff',
+    backgroundColor: byMode('#fff', '#232323'),
     cursor: 'pointer'
   },
   '& .MuiOutlinedInput-input': { padding: '6px 12px', fontSize: 16, cursor: 'pointer' }
@@ -192,24 +195,24 @@ const dateFieldSx = {
 // Reference: the option menus are white, 1px #000, square and un-shadowed, with
 // bold group headers separated by dividers and a light-blue fill on picked rows.
 const menuPaperSx = {
-  backgroundColor: '#fff',
-  border: '1px solid #000',
+  backgroundColor: byMode('#fff', '#232323'),
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: 0,
   boxShadow: 'none',
   '& .MuiAutocomplete-listbox': { padding: 0 },
-  '& .MuiAutocomplete-option': { fontSize: 16, color: '#000', minHeight: 36 },
+  '& .MuiAutocomplete-option': { fontSize: 16, color: byMode('#000', '#f8f8f8'), minHeight: 36 },
   '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: 'rgba(94,187,235,0.25)' },
   '& .MuiAutocomplete-option[aria-selected="true"].Mui-focused': {
     backgroundColor: 'rgba(94,187,235,0.35)'
   },
-  '& .MuiAutocomplete-noOptions, & .MuiAutocomplete-loading': { fontSize: 16, color: '#000' }
+  '& .MuiAutocomplete-noOptions, & .MuiAutocomplete-loading': { fontSize: 16, color: byMode('#000', '#f8f8f8') }
 };
 
 // Reference: the picker popover — 12px radius, #f5f5f5, 1px #e5e5e5, shadow-xl.
 const pickerPopoverSx = {
   borderRadius: '12px',
-  backgroundColor: '#f5f5f5',
-  border: '1px solid #e5e5e5',
+  backgroundColor: byMode('#f5f5f5', '#232323'),
+  border: byMode('1px solid #e5e5e5', '1px solid #373737'),
   boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)'
 };
 
@@ -934,10 +937,10 @@ const CreatePromotion = () => {
             sx={{
               fontSize: 16,
               fontWeight: 700,
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               padding: '6px 10px',
-              borderBottom: '1px solid #000',
-              backgroundColor: '#fff'
+              borderBottom: byMode('1px solid #000', '1px solid #a1a1a1'),
+              backgroundColor: byMode('#fff', '#232323')
             }}
           >
             {params.group}
@@ -1000,7 +1003,7 @@ const CreatePromotion = () => {
             No products in the combo yet. Search and add products, or start from an existing Product Combo.
           </Alert>
         ) : (
-          <TableContainer component={Paper} sx={{ backgroundColor: 'white', borderRadius: 1 }}>
+          <TableContainer component={Paper} sx={{ backgroundColor: byMode('white', '#232323'), borderRadius: 1 }}>
             <Table size="small">
               <TableBody>
                 {comboItems.map((item, index) => (
@@ -1525,10 +1528,10 @@ const CreatePromotion = () => {
             <Typography sx={{ color: NEAR_WHITE, fontWeight: 700, fontSize: '2.5rem' }}>?</Typography>
           </Box>
 
-          <Typography sx={{ fontWeight: 700, fontSize: 24, lineHeight: '28px', mb: '20px', color: '#313439' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 24, lineHeight: '28px', mb: '20px', color: byMode('#313439', '#f8f8f8') }}>
             Promotion Type
           </Typography>
-          <Typography sx={{ color: '#676b72', fontSize: 16, lineHeight: '22px' }}>
+          <Typography sx={{ color: byMode('#676b72', '#d4d4d4'), fontSize: 16, lineHeight: '22px' }}>
             What type of promotion would you like to create?
           </Typography>
         </DialogContent>
@@ -1544,8 +1547,8 @@ const CreatePromotion = () => {
               fontWeight: 700,
               fontSize: 17,
               textTransform: 'none',
-              borderColor: '#404040',
-              color: '#313439'
+              borderColor: byMode('#404040', '#a1a1a1'),
+              color: byMode('#313439', '#d4d4d4')
             }}
           >
             Cancel
@@ -1563,6 +1566,7 @@ const CreatePromotion = () => {
               fontSize: 17,
               textTransform: 'none',
               backgroundColor: '#5ebbeb',
+              color: byMode(undefined, '#232323'),
               '&:hover': { backgroundColor: '#4aa9dd' }
             }}
           >
@@ -1581,6 +1585,7 @@ const CreatePromotion = () => {
               fontSize: 17,
               textTransform: 'none',
               backgroundColor: '#5ebbeb',
+              color: byMode(undefined, '#232323'),
               '&:hover': { backgroundColor: '#4aa9dd' }
             }}
           >

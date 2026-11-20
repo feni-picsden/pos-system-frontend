@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import outletService from '../../services/outletService';
+import { byMode } from '../../theme/sfPalette';
 
 /**
  * Calculate distance between two coordinates using Haversine formula
@@ -310,7 +311,7 @@ const GeofenceValidator = ({ onValidationComplete }) => {
           left: 0,
           right: 0,
           bottom: 0,
-          bgcolor: '#f5f5f5',
+          bgcolor: byMode('#f5f5f5', '#121212'),
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -339,7 +340,7 @@ const GeofenceValidator = ({ onValidationComplete }) => {
           left: 0,
           right: 0,
           bottom: 0,
-          bgcolor: '#f5f5f5',
+          bgcolor: byMode('#f5f5f5', '#121212'),
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -350,7 +351,7 @@ const GeofenceValidator = ({ onValidationComplete }) => {
       >
         <Box
           sx={{
-            bgcolor: 'white',
+            bgcolor: byMode('white', '#232323'),
             borderRadius: 2,
             p: 4,
             maxWidth: 500,
@@ -392,7 +393,7 @@ const GeofenceValidator = ({ onValidationComplete }) => {
                 You are outside the allowed area for this outlet.
               </Alert>
               {userLocation && outletLocation && distance !== null && (
-                <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Box sx={{ mb: 3, p: 2, bgcolor: byMode('#f5f5f5', '#2a2a2a'), borderRadius: 1 }}>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     <strong>Your Location:</strong> {userLocation.lat.toFixed(6)},{' '}
                     {userLocation.lng.toFixed(6)}

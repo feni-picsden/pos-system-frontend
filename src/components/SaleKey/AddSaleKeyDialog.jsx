@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { productOptionLabel, productOptionDetail } from '../../utils/productOptionLabel';
 import { formatMoney } from '../../utils/currency';
+import { byMode } from '../../theme/sfPalette';
 import { DEFAULT_PREVIOUS_DATE_FORMAT, DEFAULT_TIME_FORMAT, getSaleKeyLiveText } from '../../utils/saleKeyDisplay';
 import { appTimeZone } from '../../utils/appDateTime';
 
@@ -73,7 +74,7 @@ const AddSaleKeyDialog = ({
       <DialogContent sx={{ p: 3 }}>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#1976d2' }}>
+            <Typography variant="h6" sx={{ mb: 2, color: byMode('#1976d2', '#74d4ff') }}>
               Basic Information
             </Typography>
           </Grid>
@@ -251,7 +252,7 @@ const AddSaleKeyDialog = ({
           {newSaleKey.action === 'view-promotions' && (
             <>
               <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 2, color: '#9C27B0' }}>
+                <Typography variant="h6" sx={{ mb: 2, color: byMode('#9C27B0', '#b28cea') }}>
                   Promotion Type
                 </Typography>
               </Grid>
@@ -420,7 +421,7 @@ const AddSaleKeyDialog = ({
           )}
 
           <Grid item xs={12}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#9C27B0' }}>
+            <Typography variant="h6" sx={{ mb: 2, color: byMode('#9C27B0', '#b28cea') }}>
               Appearance
             </Typography>
           </Grid>
@@ -549,7 +550,7 @@ const AddSaleKeyDialog = ({
           </Grid>
 
           <Grid item xs={12}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#607D8B' }}>
+            <Typography variant="h6" sx={{ mb: 2, color: byMode('#607D8B', '#a0a4aa') }}>
               Preview
             </Typography>
             <Box

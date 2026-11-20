@@ -9,6 +9,7 @@ import {
   AssessmentOutlined as MovementIcon,
   MonetizationOnOutlined as MetcashIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // ponytail: route paths kept as existing (/reports/...) — changing them breaks navigation.
 const reports = [
@@ -59,7 +60,7 @@ const reports = [
   },
 ].filter((report) => !report.hidden);
 
-const SLATE = 'rgb(49,52,57)';
+const SLATE = byMode('rgb(49,52,57)', '#f8f8f8');
 
 const MiscellaneousReports = () => (
   <Box
@@ -85,10 +86,10 @@ const MiscellaneousReports = () => (
             height: 250,
             width: 400,
             maxWidth: '100%',
-            border: '1px solid #000',
+            border: byMode('1px solid #000', '1px solid #373737'),
             borderRadius: 0,
             color: SLATE,
-            backgroundColor: '#fff',
+            backgroundColor: byMode('#fff', '#232323'),
             boxShadow: '0 0 30px rgba(0,0,0,.25), 0 15px 30px rgba(0,0,0,.19)',
             userSelect: 'none',
             transition: 'color .2s',

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import { Box, Typography, Button, TextField, Alert, CircularProgress } from '@mui/material';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import BlockIcon from '@mui/icons-material/Block';
@@ -24,28 +25,28 @@ const refFieldSx = {
     height: 53,
     fontSize: 16,
     backgroundColor: 'transparent',
-    '& fieldset': { border: '1px solid #000' },
-    '&:hover fieldset': { border: '1px solid #000' },
-    '&.Mui-focused fieldset': { border: '2px solid #000' },
+    '& fieldset': { border: byMode('1px solid #000', '1px solid #a1a1a1') },
+    '&:hover fieldset': { border: byMode('1px solid #000', '1px solid #a1a1a1') },
+    '&.Mui-focused fieldset': { border: byMode('2px solid #000', '2px solid #2b7fff') },
   },
   // Rates are plain text inputs (reference): no number spinners, blank allowed.
   '& input': { padding: '0 14px', height: 53, boxSizing: 'border-box' },
 };
-const refFieldLabelSx = { fontSize: 16, color: '#000', mb: 0.5, lineHeight: 1.2 };
+const refFieldLabelSx = { fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5, lineHeight: 1.2 };
 
 // "Customise": light grey outlined, goes dark on hover (reference).
 const customiseSx = {
   ml: 2,
   height: 39,
   px: 1.25,
-  backgroundColor: '#f8f8f8',
-  color: '#676b72',
+  backgroundColor: byMode('#f8f8f8', 'transparent'),
+  color: byMode('#676b72', '#d4d4d4'),
   fontSize: 24,
   fontWeight: 400,
   lineHeight: 1,
   textTransform: 'none',
   borderRadius: 0,
-  border: '1px solid #676b72',
+  border: byMode('1px solid #676b72', '1px solid #a1a1a1'),
   transition: 'background-color 0.15s ease, color 0.15s ease',
   '&:hover': { backgroundColor: '#595959', color: '#f8f8f8', border: '1px solid #595959' },
 };
@@ -175,10 +176,10 @@ const LoyaltyPanels = ({ panelOutletIds, allOutletsMode, outlets, userOutletName
 
   return (
     <Box p={2} pb={12}>
-      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 1 }}>
+      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>
         Loyalty Settings
       </Typography>
-      <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>
+      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 2 }}>
         Please note: The highest earn value will be selected and the lowest redeem value will be selected on conflicts, however values with zero will take highest priority.
       </Typography>
 
@@ -195,21 +196,21 @@ const LoyaltyPanels = ({ panelOutletIds, allOutletsMode, outlets, userOutletName
       )}
 
       {keys.length > 0 && (
-        <Box sx={{ border: '1px solid #000', borderRadius: 0 }}>
+        <Box sx={{ border: byMode('1px solid #000', '1px solid #373737'), borderRadius: 0 }}>
           {keys.map((key, idx) => {
             const form = forms[key];
             const title = key === GLOBAL_KEY ? 'All Outlets (Global)' : outletName(Number(key));
             return (
-              <Box key={key} data-testid={`loyalty-panel-${key}`} sx={{ px: 2, pt: 1.5, pb: 2, borderBottom: idx < keys.length - 1 ? '1px solid #000' : 0 }}>
+              <Box key={key} data-testid={`loyalty-panel-${key}`} sx={{ px: 2, pt: 1.5, pb: 2, borderBottom: idx < keys.length - 1 ? byMode('1px solid #000', '1px solid #373737') : 0 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="center">
                   <Box display="flex" alignItems="center">
-                    <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', lineHeight: 1.2 }}>{title}</Typography>
+                    <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>{title}</Typography>
                     <Button disableRipple onClick={() => handleCustomise(key)} sx={customiseSx}>
                       Customise
                     </Button>
                   </Box>
                   <Box display="flex" alignItems="center" gap={1}>
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>Enable Loyalty</Typography>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Enable Loyalty</Typography>
                     <ShopfrontSwitch
                       checked={form.isEnabled}
                       onChange={(e) => setField(key, 'isEnabled', e.target.checked)}

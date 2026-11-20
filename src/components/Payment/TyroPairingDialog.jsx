@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { CreditCard as CardIcon } from '@mui/icons-material';
 import tyroService from '../../services/tyroService';
+import { byMode } from '../../theme/sfPalette';
 
 // Tyro terminal pairing (reference art. 360020096032): the pairing screen
 // appears the first time a Tyro payment is attempted on a device. The pairing
@@ -56,7 +57,7 @@ const TyroPairingDialog = ({ open, onClose, onPaired }) => {
           onChange={(e) => setTerminalId(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handlePair(); }}
         />
-        <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#f5f7f7', borderRadius: 1 }}>
+        <Box sx={{ mt: 1.5, p: 1.5, bgcolor: byMode('#f5f7f7', '#2a2a2a'), borderRadius: 1 }}>
           <Typography variant="caption" color="text.secondary">
             The pairing is stored on this device. To move to a replacement terminal,
             clear the pairing under Settings &gt; Hardware and pair the new terminal here.

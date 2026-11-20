@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Box,
   Typography,
@@ -60,17 +61,17 @@ const HAS_OPTIONS = (type) => type === 'select' || type === 'multi_select';
 // Reference field look: white, thin grey border, 8px radius, 42px tall.
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
-    bgcolor: '#fff',
+    bgcolor: byMode('#fff', '#121212'),
     borderRadius: '8px',
     minHeight: 42,
-    '& fieldset': { borderColor: '#c7c7c7', borderWidth: 1 },
-    '&:hover fieldset': { borderColor: '#8a8a8a' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 1 },
+    '& fieldset': { borderColor: byMode('#c7c7c7', '#a1a1a1'), borderWidth: 1 },
+    '&:hover fieldset': { borderColor: byMode('#8a8a8a', '#d4d4d4') },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 1 },
   },
   '& .MuiOutlinedInput-input': { py: '9.5px', fontSize: 16 },
-  '& input::placeholder, & textarea::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder, & textarea::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
-const labelSx = { fontSize: 13, color: '#000', mb: 0.25 };
+const labelSx = { fontSize: 13, color: byMode('#000', '#f8f8f8'), mb: 0.25 };
 
 // Reference dropdown: white rounded panel under the box, plain rows, the chosen
 // row on a light-blue band with a blue line above and below.
@@ -82,9 +83,9 @@ const MENU_PROPS = {
       mt: 0,
       borderRadius: '0 0 8px 8px',
       boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
-      '& .MuiMenuItem-root': { fontSize: 16, color: '#000', minHeight: 36, px: 2, borderTop: '1px solid transparent', borderBottom: '1px solid transparent' },
-      '& .MuiMenuItem-root:hover': { bgcolor: '#f1f1f1' },
-      '& .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#e8f3fb', borderTop: '1px solid #5ebbeb', borderBottom: '1px solid #5ebbeb' },
+      '& .MuiMenuItem-root': { fontSize: 16, color: byMode('#000', '#f8f8f8'), minHeight: 36, px: 2, borderTop: '1px solid transparent', borderBottom: '1px solid transparent' },
+      '& .MuiMenuItem-root:hover': { bgcolor: byMode('#f1f1f1', '#0084d1') },
+      '& .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected:hover': { bgcolor: byMode('#e8f3fb', '#0c3a55'), borderTop: '1px solid #5ebbeb', borderBottom: '1px solid #5ebbeb' },
     },
   },
   MenuListProps: { sx: { py: 1.5 } },
@@ -420,10 +421,10 @@ const AdditionalInformation = () => {
     return (
       <Box sx={{ mt: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000' }}>Select Options</Typography>
+          <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>Select Options</Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button disableRipple startIcon={<SortIcon />} onClick={autoSort} disabled={!canEdit}
-              sx={{ textTransform: 'none', color: '#000', bgcolor: '#f5f5f5', border: '1px solid #c7c7c7', borderRadius: '6px', px: 1.5, '&:hover': { bgcolor: '#e9e9e9' } }}>
+              sx={{ textTransform: 'none', color: byMode('#000', '#f8f8f8'), bgcolor: byMode('#f5f5f5', '#3a3a3a'), border: byMode('1px solid #c7c7c7', '1px solid #a1a1a1'), borderRadius: '6px', px: 1.5, '&:hover': { bgcolor: byMode('#e9e9e9', '#4a4a4a') } }}>
               Auto-sort
             </Button>
             <Button disableRipple startIcon={<AddIcon />} onClick={addOption} disabled={!canEdit}
@@ -444,7 +445,7 @@ const AdditionalInformation = () => {
                 {/* Only the handle starts a drag (reference); the row is the drop target. */}
                 <Box component="span" draggable={canEdit} onDragStart={(e) => { dragFrom.current = i; e.dataTransfer.effectAllowed = 'move'; }}
                   aria-label="Drag option" sx={{ display: 'inline-flex', cursor: 'grab', mt: 2.5 }}>
-                  <DragIcon sx={{ color: '#000', fontSize: 22 }} />
+                  <DragIcon sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 22 }} />
                 </Box>
                 <Box sx={{ flex: 1 }}>
                 <FloatingLabel show={focusedOption === i || Boolean(String(o).trim())}>{`Option ${i + 1}`}</FloatingLabel>
@@ -454,8 +455,8 @@ const AdditionalInformation = () => {
                     inputProps={{ 'aria-label': `Option ${i + 1}` }}
                     sx={{ ...fieldSx, '& .MuiOutlinedInput-root': { ...fieldSx['& .MuiOutlinedInput-root'], borderTopRightRadius: 0, borderBottomRightRadius: 0 } }} />
                   <IconButton onClick={() => removeOption(i)} aria-label={`Remove option ${i + 1}`} disabled={!canEdit}
-                    sx={{ border: '1px solid #c7c7c7', borderLeft: 0, borderRadius: '0 8px 8px 0', bgcolor: '#fff', px: 1.25, '&:hover': { bgcolor: '#f3f3f3' } }}>
-                    <TrashIcon sx={{ fontSize: 20, color: '#000' }} />
+                    sx={{ border: byMode('1px solid #c7c7c7', '1px solid #a1a1a1'), borderLeft: 0, borderRadius: '0 8px 8px 0', bgcolor: byMode('#fff', '#232323'), px: 1.25, '&:hover': { bgcolor: byMode('#f3f3f3', '#2f2f2f') } }}>
+                    <TrashIcon sx={{ fontSize: 20, color: byMode('#000', '#f8f8f8') }} />
                   </IconButton>
                 </Box>
                 </Box>
@@ -471,7 +472,7 @@ const AdditionalInformation = () => {
     // Fixed to the viewport (reference): the field list scrolls inside the left
     // column with its own scrollbar while Save and the editor panel stay put.
     <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', boxSizing: 'border-box', overflow: 'hidden' }}>
-      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}>
+      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>
         Edit Additional Information
       </Typography>
 
@@ -496,19 +497,19 @@ const AdditionalInformation = () => {
                 <Box key={keyOf(f)} data-testid="field-card" data-selected={isSel ? 'true' : 'false'}
                   onClick={() => setSelectedKey(keyOf(f))}
                   sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1.25, mb: 1, borderRadius: '6px', cursor: 'pointer',
-                    bgcolor: isSel ? '#d6ecf9' : 'transparent', '&:hover': { bgcolor: isSel ? '#d6ecf9' : '#f1f1f1' } }}>
+                    bgcolor: isSel ? byMode('#d6ecf9', '#333333') : 'transparent', '&:hover': { bgcolor: isSel ? byMode('#d6ecf9', '#333333') : byMode('#f1f1f1', '#2f2f2f') } }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <IconButton size="small" aria-label="Move up" disabled={!canEdit || i === 0} onClick={(e) => { e.stopPropagation(); move(i, -1); }} sx={{ p: 0, color: '#000', fontSize: 10 }}>▲</IconButton>
-                    <IconButton size="small" aria-label="Move down" disabled={!canEdit || i === fields.length - 1} onClick={(e) => { e.stopPropagation(); move(i, 1); }} sx={{ p: 0, color: '#000', fontSize: 10 }}>▼</IconButton>
+                    <IconButton size="small" aria-label="Move up" disabled={!canEdit || i === 0} onClick={(e) => { e.stopPropagation(); move(i, -1); }} sx={{ p: 0, color: byMode('#000', '#f8f8f8'), fontSize: 10 }}>▲</IconButton>
+                    <IconButton size="small" aria-label="Move down" disabled={!canEdit || i === fields.length - 1} onClick={(e) => { e.stopPropagation(); move(i, 1); }} sx={{ p: 0, color: byMode('#000', '#f8f8f8'), fontSize: 10 }}>▼</IconButton>
                   </Box>
                   <Box sx={{ flex: 1, pl: 1 }}>
-                    <Typography sx={{ fontSize: 16, color: unnamed ? '#9a9a9a' : '#000', fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: 16, color: unnamed ? '#9a9a9a' : byMode('#000', '#f8f8f8'), fontWeight: 600 }}>
                       {unnamed ? 'Unnamed Field' : f.name}
-                      <Box component="span" sx={{ color: '#000', fontWeight: 400 }}> - </Box>
-                      <Box component="span" sx={{ color: f.safeName ? '#000' : '#9a9a9a', fontWeight: 600 }}>{f.safeName || 'unnamed_field'}</Box>
+                      <Box component="span" sx={{ color: byMode('#000', '#f8f8f8'), fontWeight: 400 }}> - </Box>
+                      <Box component="span" sx={{ color: f.safeName ? byMode('#000', '#f8f8f8') : '#9a9a9a', fontWeight: 600 }}>{f.safeName || 'unnamed_field'}</Box>
                     </Typography>
-                    <Typography sx={{ fontSize: 14, color: '#000' }}>{typeShort(f.type)}</Typography>
-                    <Typography sx={{ fontSize: 14, color: '#000' }}>{f.required ? 'Required' : 'Not required'}</Typography>
+                    <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8') }}>{typeShort(f.type)}</Typography>
+                    <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8') }}>{f.required ? 'Required' : 'Not required'}</Typography>
                   </Box>
                   <ChevronRightIcon sx={{ color: isSel ? '#5ebbeb' : '#9a9a9a', fontSize: 30 }} />
                 </Box>
@@ -524,16 +525,16 @@ const AdditionalInformation = () => {
         </Box>
 
         {/* ---- right: editor panel ---- */}
-        <Box sx={{ flex: 1, bgcolor: '#f5f5f5', borderRadius: '6px', p: 2, minHeight: 0, overflowY: 'auto' }} data-testid="field-panel">
+        <Box sx={{ flex: 1, bgcolor: byMode('#f5f5f5', '#232323'), borderRadius: '6px', p: 2, minHeight: 0, overflowY: 'auto' }} data-testid="field-panel">
           {!selected ? (
             <Box sx={{ height: '100%', minHeight: 460, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#555' }}>No additional field selected</Typography>
-              <Typography sx={{ fontSize: 15, color: '#666', mt: 1 }}>Select an additional field from the left or add a new field to begin editing</Typography>
+              <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#555', '#d4d4d4') }}>No additional field selected</Typography>
+              <Typography sx={{ fontSize: 15, color: byMode('#666', '#a0a4aa'), mt: 1 }}>Select an additional field from the left or add a new field to begin editing</Typography>
             </Box>
           ) : (
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Typography sx={{ fontSize: 22, fontWeight: 700, color: '#000' }}>Additional Field</Typography>
+                <Typography sx={{ fontSize: 22, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>Additional Field</Typography>
                 {canEdit && (
                   <Button disableRipple startIcon={<DeleteIcon />} onClick={handleDelete}
                     sx={{ textTransform: 'none', color: '#fff', bgcolor: '#e33430', borderRadius: '4px', px: 1.5, '&:hover': { bgcolor: '#c62828' } }}>
@@ -566,7 +567,7 @@ const AdditionalInformation = () => {
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pt: 2.5 }}>
                   <ShopfrontSwitch checked={selected.required} onChange={(e) => patchSelected({ required: e.target.checked })} inputProps={{ 'aria-label': 'Required' }} disabled={!canEdit} />
-                  <Typography sx={{ fontSize: 16, color: '#000' }}>Required</Typography>
+                  <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Required</Typography>
                 </Box>
                 <Box sx={{ mt: 1 }}>{renderDefault()}</Box>
               </Box>

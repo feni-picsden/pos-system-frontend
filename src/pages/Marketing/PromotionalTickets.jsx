@@ -6,6 +6,7 @@ import promotionService from '../../services/promotionService';
 import promotionCategoryService from '../../services/promotionCategoryService';
 import { SquareCheckButton, TicketCounter } from '../../components/ShelfTickets/TicketControls';
 import TicketSelect from '../../components/ShelfTickets/TicketSelect';
+import { byMode } from '../../theme/sfPalette';
 import PrintTicketsDialog from '../../components/ShelfTickets/PrintTicketsDialog';
 import {
   INSTANT,
@@ -57,11 +58,11 @@ const EmptyGlyph = () => (
   <Box
     component="svg"
     viewBox="0 0 100 100"
-    sx={{ width: 140, height: 140, flexShrink: 0 }}
+    sx={{ width: 140, height: 140, flexShrink: 0, color: byMode('#000', '#f8f8f8') }}
     aria-hidden="true"
   >
-    <circle cx="50" cy="50" r="40" fill="none" stroke="#000" strokeWidth="6" />
-    <line x1="14" y1="86" x2="90" y2="10" stroke="#000" strokeWidth="6" strokeLinecap="round" />
+    <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="6" />
+    <line x1="14" y1="86" x2="90" y2="10" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
   </Box>
 );
 
@@ -236,7 +237,7 @@ const PromotionalTickets = () => {
         <Typography variant="h1" sx={{ fontSize: 32, fontWeight: 700, mb: 1 }}>
           Promotional Tickets
         </Typography>
-        <Typography sx={{ fontSize: 16, color: '#313439', mb: 3 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#313439', '#f8f8f8'), mb: 3 }}>
           Only promotions that are express or have a single criteria and uses the type of &quot;Sell Total&quot;.
         </Typography>
 
@@ -256,20 +257,20 @@ const PromotionalTickets = () => {
 
         {loading ? (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, py: 10 }}>
-            <CircularProgress size={22} sx={{ color: '#737373' }} />
-            <Typography sx={{ fontSize: 16, color: '#737373' }}>Loading results...</Typography>
+            <CircularProgress size={22} sx={{ color: byMode('#737373', '#a0a4aa') }} />
+            <Typography sx={{ fontSize: 16, color: byMode('#737373', '#a0a4aa') }}>Loading results...</Typography>
           </Box>
         ) : tree.length === 0 ? (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, pt: 5 }}>
             <EmptyGlyph />
             <Box>
-              <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 2 }}>No Promotions</Typography>
-              <Typography sx={{ fontSize: 16, color: '#000' }}>There are no promotions available to export.</Typography>
+              <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>No Promotions</Typography>
+              <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>There are no promotions available to export.</Typography>
             </Box>
           </Box>
         ) : (
           <Box>
-            <Box sx={{ ...LINE_SX, bgcolor: 'transparent', color: '#313439', cursor: 'default' }}>
+            <Box sx={{ ...LINE_SX, bgcolor: 'transparent', color: byMode('#313439', '#f8f8f8'), cursor: 'default' }}>
               <SquareCheckButton
                 checked={anySelected}
                 onClick={toggleAll}
@@ -324,7 +325,7 @@ const PromotionalTickets = () => {
                   <Collapse in={open} timeout={200} unmountOnExit>
                     <>
                       {promotion.criterionLabel && (
-                        <Box sx={{ ...LINE_SX, bgcolor: 'transparent', color: '#313439', fontWeight: 700, cursor: 'default' }}>
+                        <Box sx={{ ...LINE_SX, bgcolor: 'transparent', color: byMode('#313439', '#f8f8f8'), fontWeight: 700, cursor: 'default' }}>
                           <SquareCheckButton
                             checked={some}
                             onClick={() => toggleKeys(keys)}
@@ -336,7 +337,7 @@ const PromotionalTickets = () => {
                       {promotion.products.map((product) => (
                         <Box
                           key={product.key}
-                          sx={{ ...LINE_SX, bgcolor: 'transparent', color: '#676b72', pl: 4, cursor: 'default' }}
+                          sx={{ ...LINE_SX, bgcolor: 'transparent', color: byMode('#676b72', '#d4d4d4'), pl: 4, cursor: 'default' }}
                         >
                           <SquareCheckButton
                             checked={isSelected(product.key)}
@@ -366,7 +367,7 @@ const PromotionalTickets = () => {
           onClick={() => setPrintOpen(true)}
           disabled={visibleSelected.length === 0}
           data-testid="tickets-print"
-          sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#fff', borderColor: '#d4d4d4', opacity: 1 } }}
+          sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#fff', '#a0a4aa'), borderColor: byMode('#d4d4d4', '#3a3a3a'), opacity: 1 } }}
         >
           Print
         </Button>
@@ -375,7 +376,7 @@ const PromotionalTickets = () => {
           disableElevation
           onClick={handleExport}
           disabled={visibleSelected.length === 0}
-          sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#fff', borderColor: '#d4d4d4', opacity: 1 } }}
+          sx={{ ...EXPORT_BUTTON_SX, '&.Mui-disabled': { bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#fff', '#a0a4aa'), borderColor: byMode('#d4d4d4', '#3a3a3a'), opacity: 1 } }}
         >
           Export
         </Button>

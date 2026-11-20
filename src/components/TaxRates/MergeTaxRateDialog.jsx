@@ -11,22 +11,23 @@ import {
   TextField,
 } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference look (16/10/2026): small label above the field, searchable field
 // with a clear (×) button, options grouped under a bold percentage heading and
 // listed by name only. Design only - merge rules unchanged.
-const LABEL_SX = { fontSize: 13, color: '#000', mb: 0.5, display: 'block' };
+const LABEL_SX = { fontSize: 13, color: byMode('#000', '#f8f8f8'), mb: 0.5, display: 'block' };
 
 const FIELD_SX = {
   '& .MuiOutlinedInput-root': {
-    backgroundColor: '#fff',
+    backgroundColor: byMode('#fff', '#121212'),
     borderRadius: '8px',
     fontSize: 15,
-    '& fieldset': { borderColor: '#9e9e9e', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#555' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    '& fieldset': { borderColor: byMode('#9e9e9e', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#555', '#a1a1a1') },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', '#f8f8f8'), borderWidth: '2px' },
   },
-  '& .MuiInputBase-input::placeholder': { color: '#666', opacity: 1 },
+  '& .MuiInputBase-input::placeholder': { color: byMode('#666', '#757575'), opacity: 1 },
 };
 
 const LISTBOX_SX = {
@@ -35,15 +36,15 @@ const LISTBOX_SX = {
     fontSize: 15,
     minHeight: 44,
     paddingLeft: '14px !important',
-    borderTop: '1px solid #e0e0e0',
+    borderTop: byMode('1px solid #e0e0e0', '1px solid #373737'),
   },
-  '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: '#74d4fc !important' },
-  '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: '#e8f6fe' },
+  '& .MuiAutocomplete-option[aria-selected="true"]': { backgroundColor: byMode('#74d4fc !important', '#0084d1 !important') },
+  '& .MuiAutocomplete-option.Mui-focused': { backgroundColor: byMode('#e8f6fe', '#2f2f2f') },
 };
 
 const PAPER_SX = {
   mt: 1,
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: '8px',
   boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
   overflow: 'hidden',
@@ -52,10 +53,10 @@ const PAPER_SX = {
 const GROUP_HEADER_SX = {
   fontSize: 15,
   fontWeight: 700,
-  color: '#000',
+  color: byMode('#000', '#f8f8f8'),
   px: '14px',
   py: '12px',
-  backgroundColor: '#fff',
+  backgroundColor: byMode('#fff', '#232323'),
 };
 
 const MergeTaxRateDialog = ({
@@ -152,8 +153,8 @@ const MergeTaxRateDialog = ({
     >
       <DialogTitle
         sx={{
-          backgroundColor: 'oklch(90.1% .058 230.902)',
-          color: 'oklch(44.3% .11 240.79)',
+          backgroundColor: byMode('oklch(90.1% .058 230.902)', '#0c3a55'),
+          color: byMode('oklch(44.3% .11 240.79)', '#74d4ff'),
           fontSize: 16,
           fontWeight: 700,
           display: 'flex',
@@ -167,7 +168,7 @@ const MergeTaxRateDialog = ({
       <DialogContent sx={{ pt: '16px !important' }}>
         {hasMergeable ? (
           <>
-            <Typography sx={{ fontSize: 14, color: '#000', mb: 2 }}>
+            <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8'), mb: 2 }}>
               Merge tax rates with matching tax rate percentages. Only showing
               tax rates that can be merged
             </Typography>
@@ -205,8 +206,8 @@ const MergeTaxRateDialog = ({
           onClick={onClose}
           disableElevation
           sx={{
-            bgcolor: '#d9d9d9',
-            color: '#000',
+            bgcolor: byMode('#d9d9d9', '#3a3a3a'),
+            color: byMode('#000', '#f8f8f8'),
             textTransform: 'none',
             borderRadius: '12px',
             fontWeight: 700,
@@ -214,7 +215,7 @@ const MergeTaxRateDialog = ({
             height: 42,
             px: 3,
             transition: 'all 0s ease',
-            '&:hover': { bgcolor: '#cccccc', boxShadow: 'none' },
+            '&:hover': { bgcolor: byMode('#cccccc', '#4a4a4a'), boxShadow: 'none' },
           }}
         >
           Cancel
@@ -226,7 +227,7 @@ const MergeTaxRateDialog = ({
           disabled={!hasMergeable || !fromId || !toId}
           sx={{
             backgroundColor: '#0ea5e9',
-            color: '#fff',
+            color: byMode('#fff', '#232323'),
             textTransform: 'none',
             borderRadius: '12px',
             fontWeight: 700,
@@ -236,11 +237,11 @@ const MergeTaxRateDialog = ({
             transition: 'all 0s ease',
             '&:hover': { backgroundColor: '#38bdf8', boxShadow: 'none' },
             '&.Mui-disabled': {
-              backgroundColor: '#ebebeb',
-              color: '#8e8e8e',
+              backgroundColor: byMode('#ebebeb', '#3a3a3a'),
+              color: byMode('#8e8e8e', '#a0a4aa'),
               pointerEvents: 'auto',
               cursor: 'not-allowed',
-              '&:hover': { backgroundColor: '#ebebeb' },
+              '&:hover': { backgroundColor: byMode('#ebebeb', '#3a3a3a') },
             },
           }}
         >

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
 import apiClient from '../../services/apiClient';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { byMode } from '../../theme/sfPalette';
 
 // Outlet filter for report pages. Lists exactly the outlets the signed-in user may
 // report on (Setup > Users > Reporting Access switches; a global admin gets them
@@ -33,7 +34,7 @@ const ReportOutletSelect = ({ value, onChange, sx }) => {
   if (!showOutletFilter) return null;
 
   return (
-    <FormControl size="small" sx={{ minWidth: 200, bgcolor: '#fff', ...sx }}>
+    <FormControl size="small" sx={{ minWidth: 200, bgcolor: byMode('#fff', '#121212'), ...sx }}>
       <InputLabel shrink>Outlet</InputLabel>
       <Select
         label="Outlet"

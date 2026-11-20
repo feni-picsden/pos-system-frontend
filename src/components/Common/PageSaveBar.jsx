@@ -42,7 +42,7 @@ const saveButtonSx = {
   // Ref swaps the hover colour instantly (transition: all 0s)
   transitionDuration: '0ms',
   '&:hover': { backgroundColor: '#0ea5e9', borderColor: '#0ea5e9', boxShadow: 'none' },
-  '&.Mui-disabled': { backgroundColor: '#9fd6ef', borderColor: '#9fd6ef', color: '#ffffff' },
+  '&.Mui-disabled': { backgroundColor: byMode('#9fd6ef', '#3a3a3a'), borderColor: byMode('#9fd6ef', '#3a3a3a'), color: byMode('#ffffff', '#a0a4aa') },
 };
 
 const cancelButtonSx = {

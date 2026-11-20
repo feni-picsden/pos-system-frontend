@@ -34,6 +34,7 @@ import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import ReportTable from '../../components/Reports/ReportTable';
 import GiftCardsHelpDrawer from '../../components/Customers/GiftCardsHelpDrawer';
+import { byMode } from '../../theme/sfPalette';
 
 const FORMAT_HELP_URL =
   'https://support.onshopfront.com/hc/en-us/articles/115003889472#h_01J1XSTXFWP56RWPDKP6WTDZ87';
@@ -46,8 +47,8 @@ const backButtonSx = {
   p: '4px 8px',
   gap: '4px',
   borderRadius: 0,
-  bgcolor: '#1c86f2',
-  color: '#f8f8f8',
+  bgcolor: byMode('#1c86f2', '#5ebbeb'),
+  color: byMode('#f8f8f8', '#232323'),
   border: '1px solid currentColor',
   boxShadow: 'none',
   fontSize: 'inherit',
@@ -55,7 +56,7 @@ const backButtonSx = {
   lineHeight: 1,
   textTransform: 'none',
   transition: 'background 200ms ease, color 200ms ease',
-  '&:hover': { bgcolor: '#f8f8f8', color: '#1c86f2', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#f8f8f8', '#232323'), color: byMode('#1c86f2', '#5ebbeb'), boxShadow: 'none' },
 };
 
 // Border/icon/text all ride one inherited `color`, so hover moves them together.
@@ -70,7 +71,7 @@ const dropzoneSx = {
   gap: '16px',
   p: 0,
   bgcolor: 'transparent',
-  color: '#bdbdbd',
+  color: byMode('#bdbdbd', '#a1a1a1'),
   border: '2px dashed currentColor',
   borderRadius: 0,
   boxShadow: 'none',
@@ -80,7 +81,7 @@ const dropzoneSx = {
   fontSize: 24,
   fontWeight: 400,
   transition: 'background 200ms ease, color 200ms ease',
-  '&:hover': { color: '#676b72' },
+  '&:hover': { color: byMode('#676b72', '#d4d4d4') },
 };
 
 const primaryBtnSx = {
@@ -92,7 +93,7 @@ const primaryBtnSx = {
   textTransform: 'none',
   boxShadow: 'none',
   bgcolor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
 };
 
@@ -104,9 +105,9 @@ const cancelBtnSx = {
   fontWeight: 700,
   textTransform: 'none',
   boxShadow: 'none',
-  bgcolor: '#dddddd',
-  color: '#000',
-  '&:hover': { bgcolor: '#cccccc', boxShadow: 'none' },
+  bgcolor: byMode('#dddddd', '#3a3a3a'),
+  color: byMode('#000', '#f8f8f8'),
+  '&:hover': { bgcolor: byMode('#cccccc', '#4a4a4a'), boxShadow: 'none' },
 };
 
 const money = (value) => (Number.isFinite(value) ? `$${value.toFixed(2)}` : '$0.00');
@@ -318,7 +319,7 @@ const ImportGiftCards = () => {
     <Box
       sx={{
         minHeight: 'calc(100vh - 50px)',
-        bgcolor: '#f5f5f5',
+        bgcolor: byMode('#f5f5f5', '#121212'),
         px: '8px',
         pb: '8px',
         display: 'flex',
@@ -335,7 +336,7 @@ const ImportGiftCards = () => {
           m: '21.44px 4px',
           fontSize: 32,
           fontWeight: 700,
-          color: '#000',
+          color: byMode('#000', '#f8f8f8'),
           lineHeight: 1,
         }}
       >
@@ -358,7 +359,7 @@ const ImportGiftCards = () => {
           <>
             {/* File Format Link */}
             {/* Reference: "Click here." opens the help article in an in-app drawer */}
-            <Typography component="p" sx={{ fontSize: 16, color: '#000', m: '0 0 16px' }}>
+            <Typography component="p" sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), m: '0 0 16px' }}>
               Looking for the file format?{' '}
               <Link
                 component="button"
@@ -366,11 +367,11 @@ const ImportGiftCards = () => {
                 onClick={() => setHelpOpen(true)}
                 sx={{
                   fontSize: 16,
-                  color: 'rgb(0,0,238)',
+                  color: byMode('rgb(0,0,238)', '#4ca0f5'),
                   textDecoration: 'underline',
                   transition: 'none',
                   verticalAlign: 'baseline',
-                  '&:hover': { color: 'rgb(0,0,238)' },
+                  '&:hover': { color: byMode('rgb(0,0,238)', '#4ca0f5') },
                 }}
               >
                 Click here.
@@ -396,7 +397,7 @@ const ImportGiftCards = () => {
             <Box
               component="button"
               type="button"
-              sx={{ ...dropzoneSx, ...(dragActive ? { color: '#676b72' } : {}) }}
+              sx={{ ...dropzoneSx, ...(dragActive ? { color: byMode('#676b72', '#d4d4d4') } : {}) }}
               onDrop={handleDrop}
               onDragOver={handleDrag}
               onDragEnter={handleDrag}
@@ -417,7 +418,7 @@ const ImportGiftCards = () => {
           <>
             {/* Preview Section */}
             <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              <Typography component="p" sx={{ fontSize: 16, color: '#000', m: '0 0 16px' }}>
+              <Typography component="p" sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), m: '0 0 16px' }}>
                 Loaded the first 10 lines from the import.
               </Typography>
 
@@ -434,14 +435,14 @@ const ImportGiftCards = () => {
                       disabled={loadingOutlets || loading}
                       displayEmpty
                       sx={{
-                        bgcolor: '#fff',
+                        bgcolor: byMode('#fff', '#121212'),
                         borderRadius: '8px',
                         fontSize: 16,
                         '& .MuiSelect-select': { py: 1.5 },
-                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: 1 },
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#000',
+                          borderColor: byMode('#000', '#f8f8f8'),
                           borderWidth: 2,
                         },
                       }}
@@ -539,7 +540,7 @@ const ImportGiftCards = () => {
           <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                <TableRow sx={{ bgcolor: byMode('#f5f5f5', '#333333') }}>
                   <TableCell sx={{ fontWeight: 600 }}>Column</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Required</TableCell>
@@ -591,7 +592,7 @@ const ImportGiftCards = () => {
             Example CSV
           </Typography>
 
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: byMode('#f9f9f9', '#2a2a2a'), fontFamily: 'monospace', fontSize: '0.85rem' }}>
             code,balance,outlet,original,expiry<br/>
             GC001,50.00,,50.00,2025-12-31<br/>
             GC002,100.00,,100.00,2025-12-31<br/>
@@ -606,7 +607,7 @@ const ImportGiftCards = () => {
               display: 'inline-block',
               mt: 3,
               fontSize: 16,
-              color: 'rgb(0,0,238)',
+              color: byMode('rgb(0,0,238)', '#4ca0f5'),
               textDecoration: 'underline',
             }}
           >

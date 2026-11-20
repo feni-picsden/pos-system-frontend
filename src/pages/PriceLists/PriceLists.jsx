@@ -24,6 +24,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { SearchGlyph } from '../../components/Common/EmptyResults';
+import { byMode } from '../../theme/sfPalette';
 import { Link as RouterLink } from 'react-router-dom';
 import PriceListDialog from '../../components/PriceLists/PriceListDialog';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
@@ -126,7 +127,7 @@ const PriceLists = () => {
       {/* Header (reference: "Price Lists" title + Add Price List on one row, N Results right) */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: 0, lineHeight: 1.2 }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), m: 0, lineHeight: 1.2 }}>
             Price Lists
           </Typography>
           <Button
@@ -135,7 +136,7 @@ const PriceLists = () => {
             onClick={handleAddList}
             sx={{
               bgcolor: '#5ebbeb',
-              color: '#f8f8f8',
+              color: byMode('#f8f8f8', '#232323'),
               border: '1px solid #5ebbeb',
               borderRadius: '12px',
               textTransform: 'none',
@@ -145,7 +146,7 @@ const PriceLists = () => {
               px: 4,
               height: 42,
               transition: 'background 0.2s ease, color 0.2s ease',
-              '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' }
+              '&:hover': { bgcolor: byMode('#f8f8f8', '#232323'), color: '#5ebbeb', boxShadow: 'none' }
             }}
           >
             Add Price List
@@ -164,7 +165,7 @@ const PriceLists = () => {
       {/* Search (reference: "Search" label above the box); Outlet filter only on All Outlets */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'flex-end' }}>
         <Box sx={{ width: globalMode ? 420 : '100%' }}>
-        <Typography component="label" htmlFor="price-list-search" sx={{ display: 'block', fontSize: 16, fontWeight: 700, color: '#000', mb: 0.5 }}>
+        <Typography component="label" htmlFor="price-list-search" sx={{ display: 'block', fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>
           Search
         </Typography>
         <TextField
@@ -180,7 +181,7 @@ const PriceLists = () => {
                 <IconButton
                   aria-label="Clear search"
                   onClick={handleClearSearch}
-                  sx={{ width: 25, height: 24, p: 0, borderRadius: 0, color: '#404040' }}
+                  sx={{ width: 25, height: 24, p: 0, borderRadius: 0, color: byMode('#404040', '#a1a1a1') }}
                 >
                   <ClearIcon sx={{ fontSize: 20 }} />
                 </IconButton>
@@ -188,18 +189,19 @@ const PriceLists = () => {
             ) : null,
           }}
           sx={{
-            backgroundColor: 'white',
+            backgroundColor: byMode('white', '#121212'),
             '& .MuiOutlinedInput-root': {
               height: 40,
               pr: '8px',
               borderRadius: '8px',
               fontSize: 16,
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' }
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' }
             },
             '& .MuiOutlinedInput-input': {
               p: '8px 16px',
+              color: byMode(undefined, '#f8f8f8'),
               '&::placeholder': { color: '#757575', opacity: 1 }
             },
           }}
@@ -216,7 +218,7 @@ const PriceLists = () => {
 
       {/* reference: no rows = no table at all, just the centred message */}
       {filteredLists.length === 0 ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 6, color: '#6b7280', fontSize: 20 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 6, color: byMode('#6b7280', '#a0a4aa'), fontSize: 20 }}>
           <SearchGlyph />
           No results found. Try changing the search filters
         </Box>
@@ -226,7 +228,7 @@ const PriceLists = () => {
           <TableHead>
             <TableRow
               sx={{
-                '& th': { bgcolor: '#5ebbeb', color: '#f8f8f8', fontWeight: 400, fontSize: 16, border: 0, height: 51, py: 0 },
+                '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 400, fontSize: 16, border: 0, height: 51, py: 0 },
                 '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                 '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' }
               }}
@@ -239,25 +241,25 @@ const PriceLists = () => {
           </TableHead>
           <TableBody
             sx={{
-              '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-              '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-              '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 }
+              '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+              '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#2a2a2a') },
+              '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5 }
             }}
           >
             {filteredLists.map((list) => (
               <TableRow key={list.id}>
                 <TableCell>
-                  <Typography sx={{ fontSize: 16, color: '#000' }}>
+                  <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                     {list.name}
                   </Typography>
                 </TableCell>
                 {globalMode && (
                   <TableCell>
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>{outletNameOf(list.outletId)}</Typography>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{outletNameOf(list.outletId)}</Typography>
                   </TableCell>
                 )}
                 <TableCell>
-                  <Typography sx={{ fontSize: 16, color: '#000' }}>
+                  <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                     {Number(list.customerCount) || 0}
                   </Typography>
                 </TableCell>
@@ -267,7 +269,7 @@ const PriceLists = () => {
                       disableRipple
                       startIcon={<ViewIcon />}
                       component={RouterLink} to={`/customers/price-lists/${list.id}`}
-                      sx={rowActionSx('#1c86f2')}
+                      sx={rowActionSx(byMode('#1c86f2', '#74d4ff'))}
                     >
                       View
                     </Button>
@@ -275,7 +277,7 @@ const PriceLists = () => {
                       disableRipple
                       startIcon={<EditIcon />}
                       component={RouterLink} to={`/customers/price-lists/${list.id}/configuration`}
-                      sx={rowActionSx('#32b643')}
+                      sx={rowActionSx(byMode('#32b643', '#7bf1a8'))}
                     >
                       Edit
                     </Button>
@@ -283,7 +285,7 @@ const PriceLists = () => {
                       disableRipple
                       startIcon={<DeleteIcon />}
                       onClick={() => handleDeleteList(list.id)}
-                      sx={rowActionSx('#e33430')}
+                      sx={rowActionSx(byMode('#e33430', '#ffa2a2'))}
                     >
                       Delete
                     </Button>

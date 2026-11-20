@@ -37,6 +37,7 @@ import CustomerSalesHistory from "../../components/Customers/CustomerSalesHistor
 import { formatRevisionValue } from "../../utils/revisionValue";
 import { formatCurrency } from "../../utils/currency";
 import { formatAppPattern } from "../../utils/appDateTime";
+import { byMode } from "../../theme/sfPalette";
 
 const CustomerGroupView = () => {
   const { id } = useParams();
@@ -252,8 +253,8 @@ const CustomerGroupView = () => {
 
   const roundedHeaderSx = {
     '& th': {
-      bgcolor: '#5ebbeb',
-      color: '#fff',
+      bgcolor: byMode('#5ebbeb', '#333333'),
+      color: byMode('#fff', '#5ebbeb'),
       fontWeight: 700,
       fontSize: 16,
       textTransform: 'none',
@@ -265,19 +266,19 @@ const CustomerGroupView = () => {
   };
 
   const zebraBodySx = {
-    '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-    '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-    '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5, px: 2 },
+    '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+    '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#2a2a2a') },
+    '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5, px: 2 },
   };
 
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 50px)', bgcolor: '#fff' }}>
+    <Box sx={{ display: 'flex', height: 'calc(100vh - 50px)', bgcolor: byMode('#fff', '#121212') }}>
       {/* Left action rail */}
       <Box
         sx={{
           width: 320,
           flexShrink: 0,
-          bgcolor: '#f5f7f9',
+          bgcolor: byMode('#f5f7f9', '#232323'),
           display: 'flex',
           flexDirection: 'column',
           pt: 2.5,
@@ -286,10 +287,10 @@ const CustomerGroupView = () => {
       >
         {/* Rail header: View <group name> */}
         <Box sx={{ px: 2, mb: 2 }}>
-          <Typography sx={{ fontSize: 14, color: '#737373', lineHeight: 1.4 }}>
+          <Typography sx={{ fontSize: 14, color: byMode('#737373', '#a0a4aa'), lineHeight: 1.4 }}>
             Customer Group
           </Typography>
-          <Typography noWrap sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+          <Typography noWrap sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
             View {customerGroup.name}
           </Typography>
         </Box>
@@ -311,19 +312,19 @@ const CustomerGroupView = () => {
                   flexDirection: 'column',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  bgcolor: active ? '#fff' : 'transparent',
+                  bgcolor: active ? byMode('#fff', '#333333') : 'transparent',
                   boxShadow: active ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
                   transition: 'none',
-                  '&:hover': { bgcolor: active ? '#fff' : 'transparent' },
+                  '&:hover': { bgcolor: active ? byMode('#fff', '#333333') : 'transparent' },
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ItemIcon sx={{ fontSize: 20, color: '#000' }} />
-                  <Typography sx={{ fontSize: 16, fontWeight: 600, color: '#000', lineHeight: 1.3 }}>
+                  <ItemIcon sx={{ fontSize: 20, color: byMode('#000', '#f8f8f8') }} />
+                  <Typography sx={{ fontSize: 16, fontWeight: 600, color: byMode('#000', '#f8f8f8'), lineHeight: 1.3 }}>
                     {item.label}
                   </Typography>
                 </Box>
-                <Typography noWrap sx={{ fontSize: 12, color: '#676b72', lineHeight: 1.3 }}>
+                <Typography noWrap sx={{ fontSize: 12, color: byMode('#676b72', '#d4d4d4'), lineHeight: 1.3 }}>
                   {item.description}
                 </Typography>
               </Box>
@@ -341,9 +342,9 @@ const CustomerGroupView = () => {
             onClick={handleEdit}
             sx={{
               ...pillButtonSx,
-              border: '1px solid #22c55e',
-              color: '#16a34a',
-              '&:hover': { bgcolor: 'transparent', border: '1px solid #22c55e' },
+              border: byMode('1px solid #22c55e', '1px solid #7bf1a8'),
+              color: byMode('#16a34a', '#7bf1a8'),
+              '&:hover': { bgcolor: 'transparent', border: byMode('1px solid #22c55e', '1px solid #7bf1a8') },
             }}
           >
             Edit
@@ -354,9 +355,9 @@ const CustomerGroupView = () => {
             onClick={() => setDeleteOpen(true)}
             sx={{
               ...pillButtonSx,
-              border: '1px solid #ef4444',
-              color: '#dc2626',
-              '&:hover': { bgcolor: 'transparent', border: '1px solid #ef4444' },
+              border: byMode('1px solid #ef4444', '1px solid #ffa2a2'),
+              color: byMode('#dc2626', '#ffa2a2'),
+              '&:hover': { bgcolor: 'transparent', border: byMode('1px solid #ef4444', '1px solid #ffa2a2') },
             }}
           >
             Delete
@@ -370,7 +371,7 @@ const CustomerGroupView = () => {
           flex: 1,
           minWidth: 0,
           p: 3,
-          bgcolor: '#fff',
+          bgcolor: byMode('#fff', '#121212'),
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -387,8 +388,8 @@ const CustomerGroupView = () => {
             {/* Summary card: Loyalty / Promotions / Account Sales / Account Limit */}
             <Box
               sx={{
-                bgcolor: '#fff',
-                border: '1px solid #e5e5e5',
+                bgcolor: byMode('#fff', '#232323'),
+                border: byMode('1px solid #e5e5e5', '1px solid #373737'),
                 borderRadius: '12px',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                 p: 2,
@@ -399,7 +400,7 @@ const CustomerGroupView = () => {
             >
               {summaryStatuses.map((status) => (
                 <Box key={status.label} sx={{ textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
                     {status.label}
                   </Typography>
                   <Box
@@ -408,7 +409,7 @@ const CustomerGroupView = () => {
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: 0.5,
-                      color: status.enabled ? '#16a34a' : '#dc2626',
+                      color: status.enabled ? byMode('#16a34a', '#7bf1a8') : byMode('#dc2626', '#ffa2a2'),
                     }}
                   >
                     {status.enabled
@@ -421,10 +422,10 @@ const CustomerGroupView = () => {
                 </Box>
               ))}
               <Box sx={{ textAlign: 'center' }}>
-                <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000' }}>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
                   Account Limit
                 </Typography>
-                <Typography sx={{ fontSize: 16, color: accountLimit > 0 ? '#000' : '#9ca3af' }}>
+                <Typography sx={{ fontSize: 16, color: accountLimit > 0 ? byMode('#000', '#f8f8f8') : byMode('#9ca3af', '#a0a4aa') }}>
                   {accountLimit > 0 ? formatCurrency(accountLimit) : 'Unlimited'}
                 </Typography>
               </Box>
@@ -443,7 +444,7 @@ const CustomerGroupView = () => {
                   {customers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                        <Typography sx={{ fontSize: 16, color: '#737373' }}>
+                        <Typography sx={{ fontSize: 16, color: byMode('#737373', '#a0a4aa') }}>
                           No customers in this group
                         </Typography>
                       </TableCell>
@@ -458,7 +459,7 @@ const CustomerGroupView = () => {
                               size="small"
                               startIcon={<VisibilityOutlinedIcon />}
                               onClick={() => handleViewCustomer(customer)}
-                              sx={{ color: '#0284c7', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                              sx={{ color: byMode('#0284c7', '#74d4ff'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                             >
                               View
                             </Button>
@@ -466,7 +467,7 @@ const CustomerGroupView = () => {
                               size="small"
                               startIcon={<EditOutlinedIcon />}
                               onClick={() => handleEditCustomer(customer)}
-                              sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                              sx={{ color: byMode('#16a34a', '#7bf1a8'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                             >
                               Edit
                             </Button>
@@ -529,8 +530,8 @@ const CustomerGroupView = () => {
                       <TableCell>Timestamp</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell colSpan={5} sx={{ bgcolor: '#f5f5f5', border: 0, py: 1, px: 2 }}>
-                        <Typography sx={{ fontSize: 14, fontWeight: 400, color: '#676b72' }}>
+                      <TableCell colSpan={5} sx={{ bgcolor: byMode('#f5f5f5', '#2a2a2a'), border: 0, py: 1, px: 2 }}>
+                        <Typography sx={{ fontSize: 14, fontWeight: 400, color: byMode('#676b72', '#a0a4aa') }}>
                           Please Note: Revisions may take up to five minutes to appear
                         </Typography>
                       </TableCell>
@@ -550,7 +551,7 @@ const CustomerGroupView = () => {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                          <Typography sx={{ fontSize: 16, color: '#737373' }}>
+                          <Typography sx={{ fontSize: 16, color: byMode('#737373', '#a0a4aa') }}>
                             No revisions found
                           </Typography>
                         </TableCell>

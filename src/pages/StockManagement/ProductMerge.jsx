@@ -450,7 +450,7 @@ const ProductMerge = () => {
             data-testid="complete-merge"
             disabled={!canMerge}
             onClick={() => setConfirmOpen(true)}
-            sx={{ width: 400, height: 42, mt: 1, bgcolor: byMode('#e0e0e0', '#3a3a3a'), color: byMode('#555', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none', borderRadius: '8px', boxShadow: 'none', '&:hover': { bgcolor: byMode('#cfcfcf', '#4a4a4a') }, '&.Mui-disabled': { bgcolor: byMode('#e0e0e0', '#3a3a3a'), color: byMode('#9e9e9e', '#757575') } }}
+            sx={{ width: 400, height: 42, mt: 1, bgcolor: byMode('#e0e0e0', '#3a3a3a'), color: byMode('#555', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none', borderRadius: '8px', boxShadow: 'none', '&:hover': { bgcolor: byMode('#cfcfcf', '#4a4a4a') }, '&.Mui-disabled': { bgcolor: byMode('#e0e0e0', '#3a3a3a'), color: byMode('#9e9e9e', '#a0a4aa') } }}
           >
             {loading ? <CircularProgress size={22} sx={{ color: byMode('#555', '#f8f8f8') }} /> : 'Complete Merge'}
           </Button>

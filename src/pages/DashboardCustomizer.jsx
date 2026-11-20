@@ -33,6 +33,7 @@ import posLocalDb from '../services/posLocalDb';
 import { useAuth } from '../contexts/AuthContext';
 import { useSelectedOutlet } from '../contexts/SelectedOutletContext';
 import { useNavigate } from 'react-router-dom';
+import { byMode } from '../theme/sfPalette';
 const GRID_COLS = 10;
 const GRID_ROWS = 5;
 const RESIZE_HANDLES = [
@@ -295,10 +296,10 @@ const DashboardCustomizer = () => {
         sx={{
           flex: 1,
           position: 'relative',
-          border: '1px solid #000',
+          border: byMode('1px solid #000', '1px solid #a1a1a1'),
           borderRadius: 0,
           overflow: 'hidden',
-          bgcolor: '#fff',
+          bgcolor: byMode('#fff', '#121212'),
           mr: '48px',
         }}
       >
@@ -328,8 +329,8 @@ const DashboardCustomizer = () => {
               <Box
                 key={i}
                 sx={{
-                  borderRight: (i + 1) % GRID_COLS === 0 ? 'none' : '1px dashed #d9d9d9',
-                  borderBottom: i >= GRID_COLS * (gridRows - 1) ? 'none' : '1px dashed #d9d9d9',
+                  borderRight: (i + 1) % GRID_COLS === 0 ? 'none' : byMode('1px dashed #d9d9d9', '1px dashed #373737'),
+                  borderBottom: i >= GRID_COLS * (gridRows - 1) ? 'none' : byMode('1px dashed #d9d9d9', '1px dashed #373737'),
                 }}
               />
             ))}
@@ -356,7 +357,7 @@ const DashboardCustomizer = () => {
                 sx={{
                   gridColumn: `${w.x + 1} / span ${w.w}`,
                   gridRow: `${w.y + 1} / span ${w.h}`,
-                  border: '1px solid #000',
+                  border: byMode('1px solid #000', '1px solid #a1a1a1'),
                   borderRadius: 0,
                   m: 0.25,
                   p: 2,
@@ -364,7 +365,7 @@ const DashboardCustomizer = () => {
                   flexDirection: 'column',
                   justifyContent: 'center',
                   alignItems: 'center',
-                  bgcolor: '#f7f7f7',
+                  bgcolor: byMode('#f7f7f7', '#232323'),
                   boxShadow: sel ? '0 0 0 3px #1976d2' : 'none',
                   position: 'relative',
                   zIndex: sel ? 2 : 1,
@@ -392,7 +393,7 @@ const DashboardCustomizer = () => {
                           startAdornment: (
                             <>
                               <InputAdornment position="start" sx={{ ml: 0.5, mr: 0 }}>
-                                <GridOnOutlinedIcon sx={{ fontSize: 18, color: '#676b72' }} />
+                                <GridOnOutlinedIcon sx={{ fontSize: 18, color: byMode('#676b72', '#a0a4aa') }} />
                               </InputAdornment>
                               {params.InputProps.startAdornment}
                             </>
@@ -402,12 +403,12 @@ const DashboardCustomizer = () => {
                           '& .MuiOutlinedInput-root': {
                             height: 42,
                             borderRadius: '8px',
-                            backgroundColor: '#fff',
-                            '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+                            backgroundColor: byMode('#fff', '#121212'),
+                            '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
                           },
-                          '& input::placeholder': { color: '#808080', opacity: 1 },
+                          '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
                         }}
                       />
                     )}
@@ -416,7 +417,7 @@ const DashboardCustomizer = () => {
 
                 {/* Filter-by-user toggle */}
                 <FormControlLabel
-                  sx={{ mt: 1, mx: 0, '& .MuiFormControlLabel-label': { fontSize: 16, color: '#000' } }}
+                  sx={{ mt: 1, mx: 0, '& .MuiFormControlLabel-label': { fontSize: 16, color: byMode('#000', '#f8f8f8') } }}
                   control={
                     <ShopfrontSwitch
                       checked={w.filterByUser}
@@ -588,7 +589,7 @@ const DashboardCustomizer = () => {
             transform: 'translateX(96px)',
             transition: 'transform 300ms',
             '&:hover': { transform: 'translateX(0)' },
-            '&:disabled': { bgcolor: '#404040', color: '#737373', cursor: 'not-allowed' },
+            '&:disabled': { bgcolor: '#404040', color: byMode('#737373', '#a0a4aa'), cursor: 'not-allowed' },
           }}
         >
           <Box sx={{ width: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -618,7 +619,7 @@ const DashboardCustomizer = () => {
           <Typography variant="h6" fontWeight={700}>
             Configure Dashboard
           </Typography>
-          <Typography variant="body2" sx={{ color: '#000', mt: 0.5 }}>
+          <Typography variant="body2" sx={{ color: byMode('#000', '#f8f8f8'), mt: 0.5 }}>
             Select additional users to save this dashboard to
           </Typography>
         </DialogTitle>

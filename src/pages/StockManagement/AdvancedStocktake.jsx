@@ -30,6 +30,7 @@ import productService from '../../services/productService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { byMode } from '../../theme/sfPalette';
 
 export default function AdvancedStocktake() {
   // In-app dialogs — these shadow window.alert/confirm/prompt on purpose.
@@ -579,15 +580,15 @@ export default function AdvancedStocktake() {
   };
 
   return (
-    <Box sx={{ bgcolor: '#f5f5f5', minHeight: '100vh' }}>
+    <Box sx={{ bgcolor: byMode('#f5f5f5', '#121212'), minHeight: '100vh' }}>
       {/* Header */}
-      <Box sx={{ bgcolor: 'white', p: 2.5, borderBottom: '1px solid #e0e0e0' }}>
+      <Box sx={{ bgcolor: byMode('white', '#232323'), p: 2.5, borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="h6" fontWeight={600}>{stocktake?.name || 'Advanced Stocktake'}</Typography>
             <Typography variant="caption" color="text.secondary">{stocktake?.outlet?.name || getOutletName() || 'N/A'}</Typography>
           </Box>
-          <Avatar sx={{ bgcolor: '#e0e0e0', width: 48, height: 48 }} />
+          <Avatar sx={{ bgcolor: byMode('#e0e0e0', '#3a3a3a'), width: 48, height: 48 }} />
         </Stack>
       </Box>
 
@@ -630,15 +631,15 @@ export default function AdvancedStocktake() {
                   width: '100%',
                   height: 53,
                   boxSizing: 'border-box',
-                  border: '1px solid #000',
+                  border: byMode('1px solid #000', '1px solid #a1a1a1'),
                   borderRadius: 0,
                   fontSize: 16,
                   px: '12px',
                   pr: searchTerm ? '44px' : '12px',
-                  bgcolor: selectedProduct ? '#d4d4d4' : '#fff',
+                  bgcolor: selectedProduct ? byMode('#d4d4d4', '#3a3a3a') : byMode('#fff', '#121212'),
                   outline: 'none',
-                  '&::placeholder': { color: '#808080' },
-                  '&:focus': { border: '2px solid #000' },
+                  '&::placeholder': { color: byMode('#808080', '#757575') }, color: byMode(undefined, '#f8f8f8'),
+                  '&:focus': { border: byMode('2px solid #000', '2px solid #2b7fff') },
                 }}
               />
               {searchTerm && !selectedProduct && (
@@ -655,8 +656,8 @@ export default function AdvancedStocktake() {
                 </IconButton>
               )}
               {!selectedProduct && searchTerm.length > 0 && searchTerm.length < 3 && (
-                <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #d9d9d9', p: 1.5 }}>
-                  <Typography sx={{ fontSize: 14, color: '#676b72' }}>Start typing to search...</Typography>
+                <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: byMode('#fff', '#232323'), border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1'), p: 1.5 }}>
+                  <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>Start typing to search...</Typography>
                 </Box>
               )}
               {showResults && !selectedProduct && searchTerm.length >= 3 && (
@@ -708,13 +709,13 @@ export default function AdvancedStocktake() {
                   <IconButton
                     size="small"
                     onClick={() => { setSelectedProduct(null); setQuantity(''); }}
-                    sx={{ color: '#808080', p: 0.5 }}
+                    sx={{ color: byMode('#808080', '#a0a4aa'), p: 0.5 }}
                   >
                     <Close sx={{ fontSize: 18 }} />
                   </IconButton>
                   <Box sx={{ textAlign: 'right' }}>
                     <Typography sx={{ fontSize: 16, fontWeight: 600 }}>{selectedProduct.name}</Typography>
-                    <Typography sx={{ fontSize: 13, color: '#676b72' }}>
+                    <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>
                       Barcode quantity {selectedProduct.barcodeQuantity || 1}
                       {showExpected && ` · Expected ${selectedProduct.currentStock ?? 0}`}
                     </Typography>
@@ -741,14 +742,14 @@ export default function AdvancedStocktake() {
                   width: 298,
                   height: 53,
                   boxSizing: 'border-box',
-                  border: '1px solid #000',
+                  border: byMode('1px solid #000', '1px solid #a1a1a1'),
                   borderRadius: 0,
                   fontSize: 16,
                   px: '12px',
-                  bgcolor: selectedProduct ? '#fff' : '#d4d4d4',
+                  bgcolor: selectedProduct ? byMode('#fff', '#121212') : byMode('#d4d4d4', '#3a3a3a'),
                   outline: 'none',
-                  '&::placeholder': { color: '#808080' },
-                  '&:focus': { border: '2px solid #000' },
+                  '&::placeholder': { color: byMode('#808080', '#757575') }, color: byMode(undefined, '#f8f8f8'),
+                  '&:focus': { border: byMode('2px solid #000', '2px solid #2b7fff') },
                 }}
               />
               <Box
@@ -758,14 +759,14 @@ export default function AdvancedStocktake() {
                   width: 76,
                   height: 53,
                   bgcolor: '#5ebbeb',
-                  color: '#f8f8f8',
+                  color: byMode('#f8f8f8', '#232323'),
                   fontSize: 16,
                   fontWeight: 400,
                   borderRadius: 0,
                   border: '1px solid #f8f8f8',
                   cursor: 'pointer',
                   transition: 'background-color 0.2s, color 0.2s',
-                  '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb' },
+                  '&:hover': { bgcolor: byMode('#f8f8f8', '#232323'), color: '#5ebbeb' },
                 }}
               >
                 Count
@@ -777,15 +778,15 @@ export default function AdvancedStocktake() {
           <TableContainer sx={{ boxShadow: 'none', borderRadius: 0 }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: '#5ebbeb', height: 50 }}>
-                  <TableCell sx={{ color: '#f8f8f8', fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }}>PRODUCT</TableCell>
+                <TableRow sx={{ bgcolor: byMode('#5ebbeb', '#333333'), height: 50 }}>
+                  <TableCell sx={{ color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }}>PRODUCT</TableCell>
                   {/* Reference "Display expected": "determines whether the expected
                       inventory is visible for each scanned product". */}
                   {showExpected && (
-                    <TableCell sx={{ color: '#f8f8f8', fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">EXPECTED</TableCell>
+                    <TableCell sx={{ color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">EXPECTED</TableCell>
                   )}
-                  <TableCell sx={{ color: '#f8f8f8', fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">SCANNED</TableCell>
-                  <TableCell sx={{ color: '#f8f8f8', fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">ACCUMULATED</TableCell>
+                  <TableCell sx={{ color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">SCANNED</TableCell>
+                  <TableCell sx={{ color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700, fontSize: 20, textTransform: 'uppercase', py: 0, borderBottom: 'none' }} align="center">ACCUMULATED</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -794,7 +795,7 @@ export default function AdvancedStocktake() {
                       key={item.id}
                       sx={{
                         opacity: item.cancelled ? 0.5 : 1,
-                        bgcolor: item.cancelled ? '#f5f5f5' : 'transparent'
+                        bgcolor: item.cancelled ? byMode('#f5f5f5', '#2a2a2a') : 'transparent'
                       }}
                     >
                       <TableCell sx={{ py: 2 }}>
@@ -855,7 +856,7 @@ export default function AdvancedStocktake() {
         </Grid>
 
         {/* Right Side - Activity Feed */}
-        <Grid item xs={12} md={4} sx={{ bgcolor: 'white', p: 3, borderLeft: '1px solid #e0e0e0', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Grid item xs={12} md={4} sx={{ bgcolor: byMode('white', '#232323'), p: 3, borderLeft: byMode('1px solid #e0e0e0', '1px solid #373737'), height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ position: 'relative', mb: 3 }}>
             <Box
               component="input"
@@ -866,15 +867,15 @@ export default function AdvancedStocktake() {
                 width: '100%',
                 height: 53,
                 boxSizing: 'border-box',
-                border: '1px solid #000',
+                border: byMode('1px solid #000', '1px solid #a1a1a1'),
                 borderRadius: 0,
                 fontSize: 16,
                 px: '12px',
                 pr: (eventSearch || eventProduct) ? '44px' : '12px',
-                bgcolor: '#fff',
+                bgcolor: byMode('#fff', '#121212'),
                 outline: 'none',
-                '&::placeholder': { color: '#808080' },
-                '&:focus': { border: '2px solid #000' },
+                '&::placeholder': { color: byMode('#808080', '#757575') }, color: byMode(undefined, '#f8f8f8'),
+                '&:focus': { border: byMode('2px solid #000', '2px solid #2b7fff') },
               }}
             />
             {(eventSearch || eventProduct) && (
@@ -891,8 +892,8 @@ export default function AdvancedStocktake() {
               </IconButton>
             )}
             {!eventProduct && eventSearch.length > 0 && eventSearch.length < 3 && (
-              <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #d9d9d9', p: 1.5 }}>
-                <Typography sx={{ fontSize: 14, color: '#676b72' }}>Start typing to search...</Typography>
+              <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: byMode('#fff', '#232323'), border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1'), p: 1.5 }}>
+                <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>Start typing to search...</Typography>
               </Box>
             )}
             {showEventResults && !eventProduct && eventSearch.length >= 3 && (
@@ -910,7 +911,7 @@ export default function AdvancedStocktake() {
                 <Paper key={activity.id} variant="outlined" sx={{ p: 2 }}>
                   <Stack direction="row" spacing={2} alignItems="flex-start">
                     <Box sx={{
-                      bgcolor: activity.type === 'scan' ? '#e3f2fd' : activity.type === 'sale' ? '#fff3e0' : '#f3e5f5',
+                      bgcolor: activity.type === 'scan' ? byMode('#e3f2fd', '#0c3a55') : activity.type === 'sale' ? byMode('#fff3e0', '#4a3520') : byMode('#f3e5f5', '#3b2a45'),
                       p: 1.5,
                       borderRadius: 1,
                       minWidth: 48,
@@ -951,7 +952,7 @@ export default function AdvancedStocktake() {
               mt: 2,
               flexShrink: 0,
               bgcolor: '#5ebbeb',
-              color: '#f8f8f8',
+              color: byMode('#f8f8f8', '#232323'),
               fontSize: 16,
               fontWeight: 400,
               border: 'none',
@@ -985,28 +986,28 @@ export default function AdvancedStocktake() {
         ]} />
 
       {/* Finalise page (reference: a full page, not a popup) */}
-      <Dialog fullScreen open={completeStep === 'finalise'} onClose={() => {}} PaperProps={{ sx: { bgcolor: '#fff' } }}>
+      <Dialog fullScreen open={completeStep === 'finalise'} onClose={() => {}} PaperProps={{ sx: { bgcolor: byMode('#fff', '#121212'), backgroundImage: byMode(undefined, 'none') } }}>
         <Box sx={{ maxWidth: 700, mx: 'auto', px: 2, py: 3, display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, color: '#000', mb: 2 }}>Finalise Stocktake</Typography>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>Finalise Stocktake</Typography>
           <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
             <ShopfrontSwitch checked={applyToAll} onChange={(e) => setApplyToAll(e.target.checked)} />
             <Typography sx={{ fontSize: 15 }}>Apply the stocktake to all products</Typography>
           </Stack>
           {!applyToAll && (
             <>
-              <Typography sx={{ fontSize: 15, color: '#000', mb: 1 }}>Select which categories that should be affected by applying the stocktake</Typography>
+              <Typography sx={{ fontSize: 15, color: byMode('#000', '#f8f8f8'), mb: 1 }}>Select which categories that should be affected by applying the stocktake</Typography>
               <Box sx={{ position: 'relative', mb: 1.5 }}>
                 <Box
                   component="input"
                   placeholder="Search for category..."
                   value={categorySearch}
                   onChange={(e) => setCategorySearch(e.target.value)}
-                  sx={{ width: '100%', height: 50, boxSizing: 'border-box', border: '1px solid #000', borderRadius: 0, fontSize: 15, px: '16px', outline: 'none', '&:focus': { border: '2px solid #000' } }}
+                  sx={{ width: '100%', height: 50, boxSizing: 'border-box', border: byMode('1px solid #000', '1px solid #a1a1a1'), borderRadius: 0, fontSize: 15, px: '16px', outline: 'none', bgcolor: byMode(undefined, '#121212'), color: byMode(undefined, '#f8f8f8'), '&:focus': { border: byMode('2px solid #000', '2px solid #2b7fff') } }}
                 />
                 {categoryMatches.length > 0 && (
-                  <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #d9d9d9', maxHeight: 200, overflow: 'auto' }}>
+                  <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: byMode('#fff', '#232323'), border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1'), maxHeight: 200, overflow: 'auto' }}>
                     {categoryMatches.map((c) => (
-                      <Typography key={c.id} onClick={() => { setFinaliseCategories((prev) => [...prev, c]); setCategorySearch(''); }} sx={{ px: 1.5, py: 1, fontSize: 15, cursor: 'pointer', '&:hover': { bgcolor: '#f8f8f8' } }}>
+                      <Typography key={c.id} onClick={() => { setFinaliseCategories((prev) => [...prev, c]); setCategorySearch(''); }} sx={{ px: 1.5, py: 1, fontSize: 15, cursor: 'pointer', '&:hover': { bgcolor: byMode('#f8f8f8', '#2f2f2f') } }}>
                         {c.name}
                       </Typography>
                     ))}
@@ -1015,10 +1016,10 @@ export default function AdvancedStocktake() {
               </Box>
               <Stack spacing={1}>
                 {finaliseCategories.length === 0 && (
-                  <Typography sx={{ fontSize: 14, color: '#676b72' }}>No categories selected - only the counted products will be applied.</Typography>
+                  <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>No categories selected - only the counted products will be applied.</Typography>
                 )}
                 {finaliseCategories.map((c) => (
-                  <Stack key={c.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ border: '1px solid #000', px: 2, py: 1.5 }}>
+                  <Stack key={c.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ border: byMode('1px solid #000', '1px solid #a1a1a1'), px: 2, py: 1.5 }}>
                     <Typography sx={{ fontSize: 15 }}>{c.name}</Typography>
                     <ShopfrontSwitch checked onChange={() => setFinaliseCategories((prev) => prev.filter((x) => x.id !== c.id))} />
                   </Stack>
@@ -1027,7 +1028,7 @@ export default function AdvancedStocktake() {
             </>
           )}
           <Box sx={{ flex: 1 }} />
-          <Button fullWidth disabled={finishing} onClick={() => setCompleteStep('categories')} sx={{ ...FINISH_PRIMARY_SX, bgcolor: '#1c86f2', borderRadius: 0, height: 44, fontSize: 18, mt: 3, '&:hover': { bgcolor: '#1565c0' } }}>
+          <Button fullWidth disabled={finishing} onClick={() => setCompleteStep('categories')} sx={{ ...FINISH_PRIMARY_SX, bgcolor: '#1c86f2', color: '#fff', borderRadius: 0, height: 44, fontSize: 18, mt: 3, '&:hover': { bgcolor: '#1565c0' } }}>
             Complete
           </Button>
         </Box>
@@ -1037,22 +1038,22 @@ export default function AdvancedStocktake() {
       <Dialog open={completeStep === 'categories'} onClose={() => {}} PaperProps={{ sx: { borderRadius: 0, width: 620, maxWidth: '95vw', overflow: 'visible' } }}>
         <Box sx={{ textAlign: 'center', px: 2, pt: 3, pb: 2 }}>
           <Box sx={{ width: 108, height: 108, borderRadius: '50%', bgcolor: '#1c86f2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mt: -9, mb: 1.5, fontSize: 56, fontWeight: 700 }}>i</Box>
-          <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 1.5 }}>Confirm Categories</Typography>
-          <Typography sx={{ fontSize: 15, color: '#000', mb: 1 }}>
+          <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1.5 }}>Confirm Categories</Typography>
+          <Typography sx={{ fontSize: 15, color: byMode('#000', '#f8f8f8'), mb: 1 }}>
             {applyToAll ? "You've chosen to apply the stocktake to all products." : "You've selected the following categories to apply the stocktake to:"}
           </Typography>
           {!applyToAll && (
             <Stack direction="row" justifyContent="center" flexWrap="wrap" gap={1} sx={{ mb: 1.5 }}>
-              {finaliseCategories.length === 0 && <Typography sx={{ fontSize: 14, color: '#676b72' }}>(counted products only)</Typography>}
+              {finaliseCategories.length === 0 && <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>(counted products only)</Typography>}
               {finaliseCategories.map((c) => (
-                <Box key={c.id} sx={{ border: '1px solid #bdbdbd', px: 1, py: 0.25, fontSize: 13, color: '#313439' }}>{c.name}</Box>
+                <Box key={c.id} sx={{ border: '1px solid #bdbdbd', px: 1, py: 0.25, fontSize: 13, color: byMode('#313439', '#f8f8f8') }}>{c.name}</Box>
               ))}
             </Stack>
           )}
-          <Typography sx={{ fontSize: 15, color: '#000', mb: 1.5 }}>Is this correct?</Typography>
-          <Typography sx={{ fontSize: 15, color: '#000', mb: 2.5 }}>Note, you'll be able to decide whether to zero or ignore stock not scanned on the next screen.</Typography>
+          <Typography sx={{ fontSize: 15, color: byMode('#000', '#f8f8f8'), mb: 1.5 }}>Is this correct?</Typography>
+          <Typography sx={{ fontSize: 15, color: byMode('#000', '#f8f8f8'), mb: 2.5 }}>Note, you'll be able to decide whether to zero or ignore stock not scanned on the next screen.</Typography>
           <Stack direction="row" spacing={2}>
-            <Button fullWidth disabled={finishing} onClick={() => setCompleteStep('finalise')} sx={{ ...FINISH_OPTION_SX, borderRadius: 0, border: '1px solid #000', fontSize: 24, fontWeight: 400, bgcolor: '#f3f3f3' }}>No</Button>
+            <Button fullWidth disabled={finishing} onClick={() => setCompleteStep('finalise')} sx={{ ...FINISH_OPTION_SX, borderRadius: 0, border: byMode('1px solid #000', '1px solid #a1a1a1'), fontSize: 24, fontWeight: 400, bgcolor: byMode('#f3f3f3', '#3a3a3a') }}>No</Button>
             <Button fullWidth disabled={finishing} onClick={checkVariancesThenComplete} sx={{ ...FINISH_PRIMARY_SX, borderRadius: 0, fontSize: 24, fontWeight: 400 }}>{finishing ? 'Completing...' : 'Yes'}</Button>
           </Stack>
         </Box>
@@ -1066,13 +1067,13 @@ export default function AdvancedStocktake() {
           <Typography sx={{ color: '#92400e', fontWeight: 700, fontSize: 17 }}>Potential Variances</Typography>
         </Box>
         <Box sx={{ p: 2 }}>
-          <Typography sx={{ fontSize: 15, color: '#313439', mb: 2 }}>
+          <Typography sx={{ fontSize: 15, color: byMode('#313439', '#f8f8f8'), mb: 2 }}>
             These products were counted and then had a count reversed, or were counted more than once with a sale in between. Please confirm their counts are correct before completing the stocktake.
           </Typography>
           <Box sx={{ maxHeight: 380, overflowY: 'auto' }}>
             <Table size="small" sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
               <TableHead>
-                <TableRow sx={{ '& th': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 15, borderBottom: 'none', position: 'sticky', top: 0, zIndex: 1 } }}>
+                <TableRow sx={{ '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#fff', '#5ebbeb'), fontWeight: 700, fontSize: 15, borderBottom: 'none', position: 'sticky', top: 0, zIndex: 1 } }}>
                   <TableCell>Product</TableCell>
                   <TableCell align="right">Expected</TableCell>
                   <TableCell align="right">Calculated</TableCell>
@@ -1083,23 +1084,23 @@ export default function AdvancedStocktake() {
               <TableBody>
                 {variances.map((v) => (
                   <React.Fragment key={v.productId}>
-                    <TableRow sx={{ '& td': { fontSize: 15, borderBottom: '1px solid #eee' } }}>
+                    <TableRow sx={{ '& td': { fontSize: 15, borderBottom: byMode('1px solid #eee', '1px solid #373737') } }}>
                       <TableCell>{v.name}</TableCell>
                       <TableCell align="right">{v.expected}</TableCell>
                       <TableCell align="right">{v.calculated}</TableCell>
                       <TableCell align="right">{v.actual}</TableCell>
                       <TableCell align="right">
-                        <Button size="small" onClick={() => { setVarianceEventsFor(varianceEventsFor === v.productId ? null : v.productId); setVarianceEvents(v.events); }} sx={{ textTransform: 'none', fontWeight: 700, color: '#0284c7' }}>
+                        <Button size="small" onClick={() => { setVarianceEventsFor(varianceEventsFor === v.productId ? null : v.productId); setVarianceEvents(v.events); }} sx={{ textTransform: 'none', fontWeight: 700, color: byMode('#0284c7', '#74d4ff') }}>
                           Events
                         </Button>
                       </TableCell>
                     </TableRow>
                     {varianceEventsFor === v.productId && (
                       <TableRow>
-                        <TableCell colSpan={5} sx={{ bgcolor: '#f8f8f8' }}>
-                          {varianceEvents.length === 0 && <Typography sx={{ fontSize: 14, color: '#676b72' }}>No events recorded.</Typography>}
+                        <TableCell colSpan={5} sx={{ bgcolor: byMode('#f8f8f8', '#2a2a2a') }}>
+                          {varianceEvents.length === 0 && <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>No events recorded.</Typography>}
                           {varianceEvents.map((e) => (
-                            <Typography key={e.id} sx={{ fontSize: 14, color: '#313439' }}>
+                            <Typography key={e.id} sx={{ fontSize: 14, color: byMode('#313439', '#f8f8f8') }}>
                               {e.user} {e.type === 'sale' ? 'sold' : 'scanned'} {e.quantity} · {formatTimeAgo(e.timestamp)}
                             </Typography>
                           ))}
@@ -1112,8 +1113,8 @@ export default function AdvancedStocktake() {
             </Table>
           </Box>
           <Stack direction="row" justifyContent="flex-end" spacing={1.5} sx={{ mt: 2 }}>
-            <Button disabled={finishing} onClick={() => setCompleteStep(null)} sx={{ bgcolor: '#d9d9d9', color: '#000', textTransform: 'none', fontWeight: 700, borderRadius: '8px', px: 3, '&:hover': { bgcolor: '#c9c9c9' } }}>Cancel</Button>
-            <Button disabled={finishing} onClick={finaliseComplete} sx={{ bgcolor: '#5ebbeb', color: '#fff', textTransform: 'none', fontWeight: 700, borderRadius: '8px', px: 3, '&:hover': { bgcolor: '#4aa9dd' } }}>
+            <Button disabled={finishing} onClick={() => setCompleteStep(null)} sx={{ bgcolor: byMode('#d9d9d9', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), textTransform: 'none', fontWeight: 700, borderRadius: '8px', px: 3, '&:hover': { bgcolor: byMode('#c9c9c9', '#444444') } }}>Cancel</Button>
+            <Button disabled={finishing} onClick={finaliseComplete} sx={{ bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), textTransform: 'none', fontWeight: 700, borderRadius: '8px', px: 3, '&:hover': { bgcolor: '#4aa9dd' } }}>
               {finishing ? 'Completing...' : 'Complete Stocktake'}
             </Button>
           </Stack>
@@ -1125,12 +1126,12 @@ export default function AdvancedStocktake() {
 
 const FINISH_OPTION_SX = {
   textTransform: 'none', fontSize: 15, fontWeight: 600, borderRadius: '6px', px: 2.5,
-  bgcolor: '#e5e5e5', color: '#313439', boxShadow: 'none', '&:hover': { bgcolor: '#d4d4d4', boxShadow: 'none' },
+  bgcolor: byMode('#e5e5e5', '#3a3a3a'), color: byMode('#313439', '#f8f8f8'), boxShadow: 'none', '&:hover': { bgcolor: byMode('#d4d4d4', '#444444'), boxShadow: 'none' },
 };
 const FINISH_PRIMARY_SX = {
   textTransform: 'none', fontSize: 15, fontWeight: 600, borderRadius: '6px', px: 2.5,
-  bgcolor: '#5ebbeb', color: '#fff', boxShadow: 'none', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#a3d5ef', color: '#fff' },
+  bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), boxShadow: 'none', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: byMode('#a3d5ef', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') },
 };
 
 // Reference question popup: big blue "?" badge, title, one full-width blue
@@ -1140,7 +1141,7 @@ function QuestionDialog({ open, title, options, disabled }) {
     <Dialog open={open} onClose={() => {}} PaperProps={{ sx: { borderRadius: 0, width: 420, maxWidth: '95vw', overflow: 'visible' } }}>
       <Box sx={{ textAlign: 'center', px: 2, pt: 3, pb: 2 }}>
         <Box sx={{ width: 108, height: 108, borderRadius: '50%', bgcolor: '#1c86f2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mt: -9, mb: 1.5, fontSize: 64, fontWeight: 700 }}>?</Box>
-        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', mb: 2 }}>{title}</Typography>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>{title}</Typography>
         <Stack spacing={1.25}>
           {options.map((o) => (
             <Button key={o.label} fullWidth disabled={disabled} onClick={o.onClick} sx={{ ...FINISH_PRIMARY_SX, borderRadius: 0, fontSize: 16, minHeight: 48, py: 1.25, lineHeight: 1.3 }}>{o.label}</Button>
@@ -1155,9 +1156,9 @@ function QuestionDialog({ open, title, options, disabled }) {
 function FinishDialog({ open, onClose, title, icon, children, width = 420, headerBg, headerColor }) {
   return (
     <Dialog open={open} onClose={onClose} PaperProps={{ sx: { borderRadius: '8px', width, maxWidth: '95vw' } }}>
-      <Box sx={{ bgcolor: headerBg || 'rgb(190,227,248)', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25 }}>
+      <Box sx={{ bgcolor: headerBg || byMode('rgb(190,227,248)', '#0c3a55'), display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25 }}>
         {icon}
-        <Typography sx={{ color: headerColor || 'rgb(38,99,143)', fontSize: 18, fontWeight: 700 }}>{title}</Typography>
+        <Typography sx={{ color: headerColor || byMode('rgb(38,99,143)', '#74d4ff'), fontSize: 18, fontWeight: 700 }}>{title}</Typography>
       </Box>
       <Box sx={{ px: 2, py: 2 }}>{children}</Box>
     </Dialog>
@@ -1168,14 +1169,14 @@ function FinishDialog({ open, onClose, title, icon, children, width = 420, heade
 // image icon rows, matched term highlighted in #5ebbeb)
 function ProductsDropdown({ term, results, onSelect }) {
   return (
-    <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: '#fff', border: '1px solid #d9d9d9', maxHeight: 320, overflow: 'auto' }}>
+    <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, bgcolor: byMode('#fff', '#232323'), border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1'), maxHeight: 320, overflow: 'auto' }}>
       {results.length > 0 && (
-        <Typography sx={{ px: 1.5, pt: 1, pb: 0.5, fontSize: 12, fontWeight: 700, color: '#676b72', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        <Typography sx={{ px: 1.5, pt: 1, pb: 0.5, fontSize: 12, fontWeight: 700, color: byMode('#676b72', '#a0a4aa'), textTransform: 'uppercase', letterSpacing: 0.5 }}>
           Products
         </Typography>
       )}
       {results.length === 0 && (
-        <Typography sx={{ px: 1.5, py: 1, fontSize: 14, color: '#676b72' }}>No products found</Typography>
+        <Typography sx={{ px: 1.5, py: 1, fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>No products found</Typography>
       )}
       {results.map((r) => {
         const i = r.name.toLowerCase().indexOf(term.toLowerCase());
@@ -1186,10 +1187,10 @@ function ProductsDropdown({ term, results, onSelect }) {
             spacing={1.5}
             alignItems="center"
             onClick={() => onSelect(r)}
-            sx={{ px: 1.5, py: 1, cursor: 'pointer', '&:hover': { bgcolor: '#f8f8f8' } }}
+            sx={{ px: 1.5, py: 1, cursor: 'pointer', '&:hover': { bgcolor: byMode('#f8f8f8', '#2f2f2f') } }}
           >
-            <ImageOutlined sx={{ color: '#808080', fontSize: 22 }} />
-            <Typography sx={{ fontSize: 16, color: '#000' }}>
+            <ImageOutlined sx={{ color: byMode('#808080', '#a0a4aa'), fontSize: 22 }} />
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
               {i >= 0 ? (
                 <>
                   {r.name.slice(0, i)}
@@ -1315,19 +1316,19 @@ function StatisticsView({ statistics, loading }) {
       {/* Activity Log */}
       {statistics.activities && statistics.activities.length > 0 && (
         <Paper variant="outlined">
-          <Box sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+          <Box sx={{ p: 2, bgcolor: byMode('#f5f5f5', '#333333') }}>
             <Typography variant="h6" fontWeight={600}>Activity Log</Typography>
           </Box>
           <Divider />
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: '#39a1f4' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 600 }}>PRODUCT</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 600 }}>EVENT</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 600 }}>COUNT</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 600 }}>USER</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 600 }}>TIMESTAMP</TableCell>
+                <TableRow sx={{ bgcolor: byMode('#39a1f4', '#333333') }}>
+                  <TableCell sx={{ color: byMode('white', '#5ebbeb'), fontWeight: 600 }}>PRODUCT</TableCell>
+                  <TableCell sx={{ color: byMode('white', '#5ebbeb'), fontWeight: 600 }}>EVENT</TableCell>
+                  <TableCell sx={{ color: byMode('white', '#5ebbeb'), fontWeight: 600 }}>COUNT</TableCell>
+                  <TableCell sx={{ color: byMode('white', '#5ebbeb'), fontWeight: 600 }}>USER</TableCell>
+                  <TableCell sx={{ color: byMode('white', '#5ebbeb'), fontWeight: 600 }}>TIMESTAMP</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1354,7 +1355,7 @@ function StatisticsView({ statistics, loading }) {
             </Table>
           </TableContainer>
           {statistics.activities.length > 20 && (
-            <Box sx={{ p: 2, textAlign: 'center', bgcolor: '#fafafa' }}>
+            <Box sx={{ p: 2, textAlign: 'center', bgcolor: byMode('#fafafa', '#232323') }}>
               <Typography variant="body2" color="text.secondary">
                 Showing 20 of {statistics.activities.length} activities
               </Typography>

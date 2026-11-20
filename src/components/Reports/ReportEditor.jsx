@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Dialog,
   DialogTitle,
@@ -168,7 +169,7 @@ const ReportEditor = ({ open, onClose, report }) => {
                               alignItems: 'center',
                               p: 1,
                               mb: 1,
-                              border: '1px solid #e0e0e0',
+                              border: byMode('1px solid #e0e0e0', '1px solid #373737'),
                               borderRadius: 1,
                               bgcolor: 'background.paper'
                             }}
@@ -261,7 +262,7 @@ const ReportEditor = ({ open, onClose, report }) => {
                   alignItems: 'center',
                   p: 1,
                   mb: 1,
-                  border: '1px solid #e0e0e0',
+                  border: byMode('1px solid #e0e0e0', '1px solid #373737'),
                   borderRadius: 1,
                   bgcolor: 'background.paper'
                 }}

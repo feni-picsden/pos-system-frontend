@@ -36,6 +36,7 @@ import { roleService } from '../../services/roleService';
 
 import apiClient, { resolveAssetUrl } from '../../services/apiClient';
 import posLocalDb from '../../services/posLocalDb';
+import { byMode } from '../../theme/sfPalette';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const TabPanel = ({ children, value, index }) => (
@@ -306,7 +307,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
                   bgcolor: '#1976d2',
                   fontSize: 30,
                   cursor: 'pointer',
-                  border: '2px solid #e0e0e0',
+                  border: byMode('2px solid #e0e0e0', '2px solid #373737'),
                 }}
                 onClick={handleAvatarClick}
               >
@@ -393,7 +394,7 @@ const ModifyUserDialog = ({ open, onClose, user, onUserUpdated, asPage = false }
                   textTransform: 'none',
                   borderColor: '#4caf50',
                   color: '#4caf50',
-                  '&:hover': { borderColor: '#388e3c', color: '#388e3c', bgcolor: '#f1f8f1' },
+                  '&:hover': { borderColor: '#388e3c', color: '#388e3c', bgcolor: byMode('#f1f8f1', '#264029') },
                 }}
               >
                 Update Password

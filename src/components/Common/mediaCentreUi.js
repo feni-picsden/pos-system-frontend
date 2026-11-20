@@ -7,6 +7,7 @@ import {
 } from '@mui/icons-material';
 import { formatDistanceToNowStrict } from 'date-fns';
 import apiClient from '../../services/apiClient';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront "Media Centre" look, shared by the full page (Marketing/Media.jsx)
 // and the picker dialog (Common/MediaDialog.jsx) so the two never drift apart.
@@ -81,25 +82,25 @@ export const treeRowSx = (current) => ({
   fontSize: '1.25rem',
   lineHeight: '2rem',
   transition: 'none',
-  color: current ? '#1c86f2' : 'rgb(0,0,0)',
+  color: current ? byMode('#1c86f2', '#74d4ff') : byMode('rgb(0,0,0)', '#f8f8f8'),
   '& .MuiListItemText-primary': { fontSize: 'inherit', lineHeight: 'inherit' },
-  '& .MuiSvgIcon-root': { color: current ? '#1c86f2' : '#676b72' },
+  '& .MuiSvgIcon-root': { color: current ? byMode('#1c86f2', '#74d4ff') : byMode('#676b72', '#a0a4aa') },
   // Row hover lightens the row; the current folder gets a stronger fill
   '&&:hover': {
-    bgcolor: current ? '#d9d9d9' : '#e6e6e6',
-    color: current ? 'rgb(12,109,207)' : '#313439',
+    bgcolor: current ? byMode('#d9d9d9', '#333333') : byMode('#e6e6e6', '#2f2f2f'),
+    color: current ? byMode('rgb(12,109,207)', '#74d4ff') : byMode('#313439', '#f8f8f8'),
   },
   // ...and the chevron / label recolour on their own when hovered directly
   '& .folder-close-toggle:hover .MuiSvgIcon-root': {
-    color: current ? 'rgb(12,109,207)' : '#1c86f2',
+    color: current ? byMode('rgb(12,109,207)', '#74d4ff') : byMode('#1c86f2', '#74d4ff'),
   },
-  '& .folder-heading:hover': { color: current ? 'rgb(12,109,207)' : '#1c86f2' },
+  '& .folder-heading:hover': { color: current ? byMode('rgb(12,109,207)', '#74d4ff') : byMode('#1c86f2', '#74d4ff') },
 });
 
 export const tileSx = (selected) => ({
   width: 227,
   height: 200,
-  bgcolor: selected ? '#bdbdbd' : '#f8f8f8',
+  bgcolor: selected ? byMode('#bdbdbd', '#3a3a3a') : byMode('#f8f8f8', '#232323'),
   borderRadius: 0,
   boxShadow: 'none',
   display: 'flex',
@@ -111,13 +112,13 @@ export const tileSx = (selected) => ({
   userSelect: 'none',
   transition: 'background-color 200ms ease-in-out',
   // Reference: hovering greys the tile and lifts the dark overlay off the picture
-  '&:hover': { bgcolor: '#bdbdbd' },
+  '&:hover': { bgcolor: byMode('#bdbdbd', '#3a3a3a') },
   '&:hover .media-overlay': { opacity: 0 },
 });
 
 export const captionSx = {
   fontSize: 16,
-  color: '#313439',
+  color: byMode('#313439', '#f8f8f8'),
   maxWidth: 207,
   textAlign: 'center',
   whiteSpace: 'nowrap',
@@ -130,18 +131,18 @@ export const chipBtnSx = {
   width: 36,
   height: 34,
   borderRadius: '6px',
-  bgcolor: '#f8f8f8',
-  color: '#313439',
+  bgcolor: byMode('#f8f8f8', '#232323'),
+  color: byMode('#313439', '#f8f8f8'),
   p: '8px',
   transition: 'background 0.2s ease',
-  '&&:hover': { bgcolor: '#d9d9d9' },
+  '&&:hover': { bgcolor: byMode('#d9d9d9', '#3a3a3a') },
 };
 
 export const railBtnSx = (disabled) => ({
   height: 35,
   borderRadius: '6px',
-  bgcolor: '#f8f8f8',
-  color: '#676b72',
+  bgcolor: byMode('#f8f8f8', '#232323'),
+  color: byMode('#676b72', '#d4d4d4'),
   fontSize: 16,
   fontWeight: 400,
   textTransform: 'none',
@@ -150,18 +151,19 @@ export const railBtnSx = (disabled) => ({
   px: 1.5,
   transition: 'background 200ms ease, color 200ms ease',
   '&:hover': {
-    bgcolor: disabled ? '#f8f8f8' : '#d9d9d9',
-    color: disabled ? '#bdbdbd' : '#313439',
+    bgcolor: disabled ? byMode('#f8f8f8', '#232323') : byMode('#d9d9d9', '#3a3a3a'),
+    color: disabled ? byMode('#bdbdbd', '#757575') : byMode('#313439', '#f8f8f8'),
     boxShadow: 'none',
   },
-  '&.Mui-disabled': { bgcolor: '#f8f8f8', color: '#bdbdbd' },
+  '&.Mui-disabled': { bgcolor: byMode('#f8f8f8', '#232323'), color: byMode('#bdbdbd', '#757575') },
 });
 
 // Sort-by select, sized to sit beside the two chip buttons
 export const sortSelectSx = {
   width: 150,
   height: 34,
-  bgcolor: '#f8f8f8',
+  bgcolor: byMode('#f8f8f8', '#232323'),
+  color: byMode(undefined, '#f8f8f8'),
   borderRadius: '6px',
   fontSize: 14,
   p: 0,
@@ -177,9 +179,9 @@ export const sortSelectSx = {
   '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
   '&:hover .MuiOutlinedInput-notchedOutline': { border: 'none' },
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 'none' },
-  '& .MuiSelect-icon': { color: '#676b72', transition: 'color 0.2s' },
-  '&:hover': { bgcolor: '#d9d9d9' },
-  '&:hover .MuiSelect-icon': { color: '#313439' },
+  '& .MuiSelect-icon': { color: byMode('#676b72', '#a0a4aa'), transition: 'color 0.2s' },
+  '&:hover': { bgcolor: byMode('#d9d9d9', '#3a3a3a') },
+  '&:hover .MuiSelect-icon': { color: byMode('#313439', '#f8f8f8') },
 };
 
 export const sortMenuProps = {
@@ -191,9 +193,9 @@ export const sortMenuProps = {
       mt: '11px',
       borderRadius: 0,
       boxShadow: 'none',
-      '& .MuiMenuItem-root': { minHeight: 56, px: 2, fontSize: 16, color: '#313439' },
-      '& .MuiMenuItem-root.Mui-selected': { color: '#38bdf8', bgcolor: 'transparent' },
-      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
+      '& .MuiMenuItem-root': { minHeight: 56, px: 2, fontSize: 16, color: byMode('#313439', '#f8f8f8') },
+      '& .MuiMenuItem-root.Mui-selected': { color: byMode('#38bdf8', '#00a6f4'), bgcolor: 'transparent' },
+      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: byMode('rgba(0,0,0,0.04)', 'rgba(255,255,255,0.08)') },
     },
   },
 };
@@ -203,7 +205,8 @@ export const searchFieldSx = {
   mt: 2,
   '& .MuiInputBase-root': {
     height: 48,
-    bgcolor: '#ededed',
+    bgcolor: byMode('#ededed', '#232323'),
+    color: byMode(undefined, '#f8f8f8'),
     borderRadius: '24px',
     fontSize: 16,
     padding: '0 16px 0 24px',
@@ -212,11 +215,11 @@ export const searchFieldSx = {
 };
 
 // Breadcrumb pieces: "/ Home / Product Images"
-export const crumbSeparatorSx = { color: '#313439', fontSize: 14, fontWeight: 700, m: '0 2px', p: '4px 0' };
+export const crumbSeparatorSx = { color: byMode('#313439', '#f8f8f8'), fontSize: 14, fontWeight: 700, m: '0 2px', p: '4px 0' };
 export const crumbButtonSx = {
   border: 0,
   bgcolor: 'transparent',
-  color: '#313439',
+  color: byMode('#313439', '#f8f8f8'),
   fontSize: 14,
   fontFamily: 'inherit',
   display: 'inline-block',
@@ -227,7 +230,7 @@ export const crumbButtonSx = {
   cursor: 'pointer',
   textDecoration: 'none',
   transition: 'background 200ms ease-in-out',
-  '&&:hover': { bgcolor: '#d9d9d9' },
+  '&&:hover': { bgcolor: byMode('#d9d9d9', '#3a3a3a') },
 };
 
 // Left-column buttons: green Upload (64px) and blue New Folder (48px); both invert on hover

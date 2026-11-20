@@ -15,6 +15,7 @@ import {
   Close as CloseIcon,
   Help as HelpIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 import loyaltyService from '../../services/loyaltyService';
 
 const LoyaltyPaymentDialog = ({
@@ -287,14 +288,14 @@ const LoyaltyPaymentDialog = ({
       </DialogTitle>
       
       <DialogContent>
-        <Typography variant="body2" sx={{ textAlign: 'center', mb: 3, color: '#666' }}>
+        <Typography variant="body2" sx={{ textAlign: 'center', mb: 3, color: byMode('#666', '#a0a4aa') }}>
           Please enter dollars or loyalty points to redeem
         </Typography>
 
         {/* Sale Total and Customer Points */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
           <Box>
-            <Typography variant="caption" sx={{ color: '#666', display: 'block' }}>
+            <Typography variant="caption" sx={{ color: byMode('#666', '#a0a4aa'), display: 'block' }}>
               Sale Total
             </Typography>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
@@ -302,7 +303,7 @@ const LoyaltyPaymentDialog = ({
             </Typography>
           </Box>
           <Box sx={{ textAlign: 'right' }}>
-            <Typography variant="caption" sx={{ color: '#666', display: 'block' }}>
+            <Typography variant="caption" sx={{ color: byMode('#666', '#a0a4aa'), display: 'block' }}>
               Customer Points
             </Typography>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
@@ -325,7 +326,7 @@ const LoyaltyPaymentDialog = ({
               type="number"
               inputProps={{ min: 0, step: 0.01 }}
             />
-            <Typography variant="caption" sx={{ color: '#666', mt: 0.5, display: 'block' }}>
+            <Typography variant="caption" sx={{ color: byMode('#666', '#a0a4aa'), mt: 0.5, display: 'block' }}>
               Sale Remaining: ${saleRemaining.toFixed(2)}
             </Typography>
           </Box>
@@ -338,7 +339,7 @@ const LoyaltyPaymentDialog = ({
               type="number"
               inputProps={{ min: 0, step: 1 }}
             />
-            <Typography variant="caption" sx={{ color: '#666', mt: 0.5, display: 'block' }}>
+            <Typography variant="caption" sx={{ color: byMode('#666', '#a0a4aa'), mt: 0.5, display: 'block' }}>
               Points Remaining: {pointsRemaining.toFixed(2)}
             </Typography>
           </Box>
@@ -347,15 +348,15 @@ const LoyaltyPaymentDialog = ({
         {/* Error Message */}
         {error && (
           <Box sx={{ mt: 2, mb: 1 }}>
-            <Typography variant="body2" sx={{ color: '#f44336', textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: byMode('#f44336', '#ffa2a2'), textAlign: 'center' }}>
               {error}
             </Typography>
           </Box>
         )}
 
         {/* Redemption Rate Info */}
-        <Box sx={{ mt: 2, p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-          <Typography variant="caption" sx={{ color: '#666', display: 'block', textAlign: 'center' }}>
+        <Box sx={{ mt: 2, p: 1.5, bgcolor: byMode('#f5f5f5', '#2a2a2a'), borderRadius: 1 }}>
+          <Typography variant="caption" sx={{ color: byMode('#666', '#a0a4aa'), display: 'block', textAlign: 'center' }}>
             Redemption Rate: {redemptionRate} points = $1.00
           </Typography>
         </Box>
@@ -368,11 +369,11 @@ const LoyaltyPaymentDialog = ({
           sx={{
             flex: 1,
             textTransform: 'none',
-            borderColor: '#ddd',
-            color: '#666',
+            borderColor: byMode('#ddd', '#a1a1a1'),
+            color: byMode('#666', '#d4d4d4'),
             '&:hover': {
-              borderColor: '#999',
-              bgcolor: '#f5f5f5'
+              borderColor: byMode('#999', '#a1a1a1'),
+              bgcolor: byMode('#f5f5f5', '#2f2f2f')
             }
           }}
         >

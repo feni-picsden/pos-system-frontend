@@ -7,6 +7,7 @@ import {
   NICE_ERROR_HEADING_SX,
   NICE_ERROR_BODY_SX,
 } from '../StockManagement/productViewStyles';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference ".nice-error": a 160px glyph beside a 24px/700 heading and a 16px
 // body, the pair centred in the content area. Same component the reference uses
@@ -18,7 +19,7 @@ const NiceError = ({ icon, heading, body }) => (
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: 'calc(100vh - 50px)',
-      bgcolor: '#fff',
+      bgcolor: byMode('#fff', '#121212'),
     }}
   >
     <Box sx={NICE_ERROR_SX}>

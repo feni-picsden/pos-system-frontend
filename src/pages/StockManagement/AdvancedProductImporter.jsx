@@ -23,6 +23,7 @@ import {
   AccordionSummary,
   AccordionDetails
 } from '@mui/material';
+import { byMode } from '../../theme/sfPalette';
 import {
   ArrowBack as ArrowBackIcon,
   CloudUpload as UploadIcon,
@@ -367,12 +368,12 @@ const AdvancedProductImporter = () => {
             borderRadius: 2,
             p: 4,
             textAlign: 'center',
-            backgroundColor: dragActive ? '#f5f5f5' : 'transparent',
+            backgroundColor: dragActive ? byMode('#f5f5f5', '#2f2f2f') : 'transparent',
             cursor: 'pointer',
             transition: 'all 0.3s ease',
             '&:hover': {
               borderColor: '#1976d2',
-              backgroundColor: '#f5f5f5',
+              backgroundColor: byMode('#f5f5f5', '#2f2f2f'),
             }
           }}
           onDragEnter={handleDrag}

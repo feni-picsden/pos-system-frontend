@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Dialog,
   TextField,
@@ -27,24 +28,24 @@ const FIELD_SX = {
     borderRadius: '8px',
     height: 53,
     fontSize: 16,
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#000', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#000' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', '#121212'),
+    '& fieldset': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#000', '#a1a1a1') },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   },
   '& input': { padding: '0 14px', height: 53, boxSizing: 'border-box' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 const SELECT_SX = {
   height: 42,
   borderRadius: '8px',
   fontSize: 16,
-  backgroundColor: '#fff',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  backgroundColor: byMode('#fff', '#121212'),
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
 };
-const LABEL_SX = { fontSize: 16, color: '#000', textAlign: 'center', mb: 0.5, lineHeight: 1.2, whiteSpace: 'nowrap' };
+const LABEL_SX = { fontSize: 16, color: byMode('#000', '#f8f8f8'), textAlign: 'center', mb: 0.5, lineHeight: 1.2, whiteSpace: 'nowrap' };
 
 const PROMOTION_SOURCES = [
   'Banner Group Promotion', 'Cellar Savers', 'Cellar Select', 'IBA Platinum', "Manager's Special",
@@ -171,7 +172,7 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
         ?
       </Box>
       <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} sx={{ px: 2, pt: 8, pb: 2 }}>
-        <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000', textAlign: 'center', mb: 1 }}>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', '#f8f8f8'), textAlign: 'center', mb: 1 }}>
           {isEditMode ? 'Edit Promotion Category' : 'Create Promotion Category'}
         </Typography>
 
@@ -192,7 +193,7 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
           sx={SELECT_SX}
         >
           <MenuItem value="">Select...</MenuItem>
-          <MenuItem disabled sx={{ fontWeight: 700, color: '#000', opacity: '1 !important' }}>Master Database</MenuItem>
+          <MenuItem disabled sx={{ fontWeight: 700, color: byMode('#000', '#f8f8f8'), opacity: '1 !important' }}>Master Database</MenuItem>
           {PROMOTION_SOURCES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </Select>
 
@@ -224,7 +225,7 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
             <Typography sx={LABEL_SX}>Outlets to receive promotions</Typography>
             {receiveOutlets.map((o) => (
               <Box key={o.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 0.5 }}>
-                <Typography sx={{ fontSize: 16, color: '#000' }}>{o.name}</Typography>
+                <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{o.name}</Typography>
                 <ShopfrontSwitch checked={formData.outletIds.includes(o.id)} onChange={(e) => toggleReceiveOutlet(o.id, e.target.checked)} inputProps={{ 'aria-label': `Receive ${o.name}` }} />
               </Box>
             ))}
@@ -237,7 +238,7 @@ const PromotionCategoryDialog = ({ open, onClose, onSave, promotionCategory = nu
             disableRipple
             onClick={handleClose}
             disabled={loading}
-            sx={{ flex: 1, height: 48, fontSize: 28, fontWeight: 400, lineHeight: 1, textTransform: 'none', color: '#555', bgcolor: '#f8f8f8', border: '1px solid #8a8f98', borderRadius: 0, '&:hover': { bgcolor: '#e9e9e9' } }}
+            sx={{ flex: 1, height: 48, fontSize: 28, fontWeight: 400, lineHeight: 1, textTransform: 'none', color: byMode('#555', '#d4d4d4'), bgcolor: byMode('#f8f8f8', '#3a3a3a'), border: byMode('1px solid #8a8f98', '1px solid #a1a1a1'), borderRadius: 0, '&:hover': { bgcolor: byMode('#e9e9e9', '#4a4a4a') } }}
           >
             Cancel
           </Button>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Button, Dialog, TextField } from '@mui/material';
 import SaleDetailCard from './SaleDetailCard';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference "Modify Details": the SAME expanded sale card, in a frameless
 // dialog, with the editing message on top, an editable sale date, one payment
@@ -23,10 +24,10 @@ const railButtonSx = {
   fontWeight: 400,
   textTransform: 'none',
   boxShadow: 'none',
-  bgcolor: '#f8f8f8',
-  color: '#313439',
-  border: '1px solid #313439',
-  '&:hover': { boxShadow: 'none', bgcolor: '#313439', color: '#f8f8f8' },
+  bgcolor: byMode('#f8f8f8', '#232323'),
+  color: byMode('#313439', '#d4d4d4'),
+  border: byMode('1px solid #313439', '1px solid #a1a1a1'),
+  '&:hover': { boxShadow: 'none', bgcolor: byMode('#313439', '#3a3a3a'), color: '#f8f8f8' },
 };
 
 const EditSaleDetailsDialog = ({ open, onClose, sale, onSave, paymentMethods = [] }) => {
@@ -74,7 +75,7 @@ const EditSaleDetailsDialog = ({ open, onClose, sale, onSave, paymentMethods = [
           width: 910,
           maxWidth: '95vw',
           m: 0,
-          bgcolor: '#f8f8f8',
+          bgcolor: byMode('#f8f8f8', '#232323'),
           boxShadow: '0 0 30px rgba(0,0,0,.25),0 15px 30px rgba(0,0,0,.2)',
         },
       }}
@@ -107,7 +108,7 @@ const EditSaleDetailsDialog = ({ open, onClose, sale, onSave, paymentMethods = [
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 inputProps={{ maxLength: 200 }}
-                sx={{ bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 0 } }}
+                sx={{ bgcolor: byMode('#fff', '#121212'), '& .MuiOutlinedInput-root': { borderRadius: 0 } }}
               />
             </Box>
           </>

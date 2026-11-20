@@ -7,6 +7,7 @@ import {
   CheckBoxOutlined as SquareCheckedIcon,
 } from '@mui/icons-material';
 import { INSTANT } from './ticketChrome';
+import { byMode } from '../../theme/sfPalette';
 
 /**
  * Reference shelf-ticket filter control (Everyday Tickets, Promotional Tickets): a 42px
@@ -69,15 +70,15 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
           border: 0,
           // Reference: pinned (selected) rows sit on white with sky text and a rule
           // beneath; the hover band is sky.
-          borderBottom: pinned ? '1px solid #e5e5e5' : 0,
+          borderBottom: pinned ? byMode('1px solid #e5e5e5', '1px solid #373737') : 0,
           bgcolor: 'transparent',
           cursor: 'pointer',
           textAlign: 'left',
           fontFamily: 'inherit',
           fontSize: 16,
-          color: checked ? '#38bdf8' : '#252525',
+          color: checked ? byMode('#38bdf8', '#00a6f4') : byMode('#252525', '#f8f8f8'),
           transition: INSTANT,
-          '&:hover': { bgcolor: '#74d4ff' },
+          '&:hover': { bgcolor: byMode('#74d4ff', '#0084d1'), color: byMode(undefined, '#fafafa') },
         }}
       >
         {multiple &&
@@ -94,7 +95,7 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
   return (
     <ClickAwayListener onClickAway={close}>
       <Box sx={{ width: fullWidth ? '100%' : 422, maxWidth: '100%' }}>
-        <Typography sx={{ fontSize: '12.8px', fontWeight: 400, lineHeight: '16px', color: '#313439' }}>
+        <Typography sx={{ fontSize: '12.8px', fontWeight: 400, lineHeight: '16px', color: byMode('#313439', '#f8f8f8') }}>
           {label}
         </Typography>
         <Box
@@ -106,8 +107,8 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
             height: 42,
             pl: '16px',
             pr: '4px',
-            bgcolor: '#fff',
-            border: '1px solid #404040',
+            bgcolor: byMode('#fff', '#121212'),
+            border: byMode('1px solid #404040', '1px solid #a1a1a1'),
             borderRadius: '8px',
             cursor: 'text',
           }}
@@ -120,9 +121,9 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
                 px: '8px',
                 py: '2px',
                 borderRadius: '4px',
-                bgcolor: '#e5e5e5',
+                bgcolor: byMode('#e5e5e5', '#3a3a3a'),
                 fontSize: 16,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 whiteSpace: 'nowrap',
               }}
             >
@@ -149,8 +150,8 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
               bgcolor: 'transparent',
               fontFamily: 'inherit',
               fontSize: 16,
-              color: '#000',
-              '&::placeholder': { color: '#808080', opacity: 1 },
+              color: byMode('#000', '#f8f8f8'),
+              '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
             }}
           />
           {/* Reference clear control: a '×' inside the field, to the LEFT of the caret. */}
@@ -170,7 +171,7 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
                 p: 0,
                 border: 0,
                 bgcolor: 'transparent',
-                color: '#404040',
+                color: byMode('#404040', '#a1a1a1'),
                 cursor: 'pointer',
                 transition: INSTANT,
               }}
@@ -181,7 +182,7 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
           <ArrowDropDownIcon
             sx={{
               flexShrink: 0,
-              color: '#404040',
+              color: byMode('#404040', '#a1a1a1'),
               transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 150ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}
@@ -198,11 +199,11 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
           <Box
             sx={{
               width: anchorRef.current ? anchorRef.current.offsetWidth : 'auto',
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#232323'),
               // Reference panel: 1px black outline only — square corners, no drop shadow.
               // Only a multi-select panel is capped at 250px; single-select menus size to
               // their options, bounded by the viewport so a long list still scrolls.
-              border: '1px solid #000',
+              border: byMode('1px solid #000', '1px solid #a1a1a1'),
               borderRadius: 0,
               boxShadow: 'none',
               maxHeight: multiple ? 250 : '70vh',
@@ -212,7 +213,7 @@ const TicketSelect = ({ label, placeholder, value, options, onChange, clearable,
           >
             {selected.map((option) => renderOption(option, true))}
             {filtered.length === 0 ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', height: 53, px: '16px', fontSize: 16, color: '#252525' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', height: 53, px: '16px', fontSize: 16, color: byMode('#252525', '#f8f8f8') }}>
                 No Options
               </Box>
             ) : (

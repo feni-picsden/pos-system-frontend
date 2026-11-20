@@ -20,6 +20,7 @@ import {
 import linklyService from '../../services/linklyService';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
 
 // Admin screen to pair a Linkly PIN pad and run a Logon test.
 // Pairing is one-time per PIN pad; the secret is stored encrypted server-side.
@@ -330,13 +331,13 @@ const LinklySettings = () => {
           <Box sx={{ overflowX: 'auto' }}>
             <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <Box component="thead">
-                <Box component="tr" sx={{ '& th': { textAlign: 'left', p: 1, bgcolor: '#f8f8f8', whiteSpace: 'nowrap' } }}>
+                <Box component="tr" sx={{ '& th': { textAlign: 'left', p: 1, bgcolor: byMode('#f8f8f8', '#333333'), whiteSpace: 'nowrap' } }}>
                   <th>When</th><th>Type</th><th>Amount</th><th>Status</th><th>Code</th><th>Card</th><th>Reference</th><th />
                 </Box>
               </Box>
               <Box component="tbody">
                 {journal.map((t) => (
-                  <Box component="tr" key={t.txnRef} sx={{ '& td': { p: 1, borderTop: '1px solid #eee', whiteSpace: 'nowrap' } }}>
+                  <Box component="tr" key={t.txnRef} sx={{ '& td': { p: 1, borderTop: byMode('1px solid #eee', '1px solid #373737'), whiteSpace: 'nowrap' } }}>
                     <td>{formatAppDateTime(t.createdAt)}</td>
                     <td>{t.type}</td>
                     <td>${(((t.approvedAmountCents ?? t.amountCents) || 0) / 100).toFixed(2)}</td>

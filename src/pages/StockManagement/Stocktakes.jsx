@@ -40,10 +40,16 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import DateRangePicker from '../../components/Common/DateRangePicker';
+import { useTheme } from '@mui/material/styles';
+import { byMode } from '../../theme/sfPalette';
+
+// Reference dark (Force Dark Mode) colours
+const DK_TEXT = '#f8f8f8';
+const DK_ON_BLUE = '#232323';
 
 const primaryButtonSx = {
   bgcolor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', DK_ON_BLUE),
   '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
   borderRadius: '12px',
   textTransform: 'none',
@@ -57,9 +63,9 @@ const primaryButtonSx = {
 // Reference secondary buttons: transparent bg, 1px #8c8c8c border, #6f6f6f text
 const outlinedButtonSx = {
   bgcolor: 'transparent',
-  color: '#6f6f6f',
-  border: '1px solid #8c8c8c',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #8c8c8c', boxShadow: 'none' },
+  color: byMode('#6f6f6f', DK_TEXT),
+  border: byMode('1px solid #8c8c8c', `1px solid ${DK_TEXT}`),
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), border: byMode('1px solid #8c8c8c', `1px solid ${DK_TEXT}`), boxShadow: 'none' },
   borderRadius: '12px',
   textTransform: 'none',
   boxShadow: 'none',
@@ -70,42 +76,43 @@ const outlinedButtonSx = {
 };
 
 const SectionLabel = ({ children }) => (
-  <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' }}>
+  <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode('#000', DK_TEXT) }}>
     {children}
   </Typography>
 );
 
 // Match Shopfront: dark-gray outlined border, turns solid black on focus
 const inputSx = {
-  backgroundColor: 'white',
+  backgroundColor: byMode('white', '#121212'),
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
     fontSize: 16,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
   },
+  '& input::placeholder': { color: byMode(undefined, '#757575'), opacity: byMode(undefined, 1) },
 };
 
 // Sky-blue hover for select dropdown options
 const menuItemSx = {
   fontSize: 16,
-  color: '#000',
-  '&:hover': { bgcolor: '#5ebbeb' },
-  '&.Mui-selected': { bgcolor: 'transparent' },
-  '&.Mui-selected:hover': { bgcolor: '#5ebbeb' },
-  '&.Mui-focusVisible': { bgcolor: '#5ebbeb' },
+  color: byMode('#000', DK_TEXT),
+  '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') },
+  '&.Mui-selected': { bgcolor: 'transparent', color: byMode(undefined, '#00a6f4') },
+  '&.Mui-selected:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') },
+  '&.Mui-focusVisible': { bgcolor: byMode('#5ebbeb', '#0084d1') },
 };
 
 const selectSx = {
-  backgroundColor: 'white',
+  backgroundColor: byMode('white', '#121212'),
   borderRadius: '8px',
   fontSize: 16,
   height: 41,
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
-  '& .MuiSelect-icon': { color: '#404040' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
+  '& .MuiSelect-icon': { color: byMode('#404040', '#a1a1a1') },
 };
 
 const selectMenuProps = {
@@ -113,7 +120,8 @@ const selectMenuProps = {
     sx: {
       mt: 0.5,
       borderRadius: '8px',
-      border: '1px solid #e0e0e0',
+      bgcolor: byMode(undefined, '#232323'),
+      border: byMode('1px solid #e0e0e0', '1px solid #a1a1a1'),
       boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
       '& .MuiList-root': { py: 0.5 },
     },
@@ -158,6 +166,7 @@ export default function Stocktakes() {
   const navigate = useNavigate();
   const { confirm, notify } = useAppDialogs();
   const { outlets, selectedOutletId } = useSelectedOutlet();
+  const placeholderColor = useTheme().palette.mode === 'dark' ? '#757575' : '#808080';
 
   const [status, setStatus] = useState('');
   const [created, setCreated] = useState({ startDate: null, endDate: null });
@@ -295,10 +304,10 @@ export default function Stocktakes() {
         <Box sx={{ flexGrow: 1 }} />
         {/* Live results counter */}
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: '#000' }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: byMode('#000', DK_TEXT) }}>
             {rows.length}
           </Typography>
-          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#676b72', DK_TEXT) }}>Results</Typography>
         </Box>
       </Stack>
 
@@ -314,7 +323,7 @@ export default function Stocktakes() {
               input={<OutlinedInput />}
               IconComponent={ArrowDropDown}
               renderValue={(selected) =>
-                selected ? selected : <span style={{ color: '#808080' }}>Select...</span>
+                selected ? selected : <span style={{ color: placeholderColor }}>Select...</span>
               }
               endAdornment={
                 status ? (
@@ -376,7 +385,7 @@ export default function Stocktakes() {
               IconComponent={ArrowDropDown}
               renderValue={(selected) =>
                 outlets.find((o) => String(o.id) === String(selected))?.name || (
-                  <span style={{ color: '#808080' }}>Select...</span>
+                  <span style={{ color: placeholderColor }}>Select...</span>
                 )
               }
               endAdornment={
@@ -406,9 +415,9 @@ export default function Stocktakes() {
 
       {/* Table - reference hides it entirely when the filters match nothing */}
       {rows.length === 0 ? (
-        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ py: 6, color: '#676b72' }}>
+        <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ py: 6, color: byMode('#676b72', '#a0a4aa') }}>
           <SearchGlyph />
-          <Typography sx={{ fontSize: 19, color: '#676b72' }}>No results found. Try changing the search filters</Typography>
+          <Typography sx={{ fontSize: 19, color: byMode('#676b72', '#a0a4aa') }}>No results found. Try changing the search filters</Typography>
         </Stack>
       ) : (
       <TableContainer>
@@ -416,7 +425,7 @@ export default function Stocktakes() {
           <TableHead>
             <TableRow
               sx={{
-                '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('white', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                 '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                 '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
               }}
@@ -431,15 +440,15 @@ export default function Stocktakes() {
           </TableHead>
           <TableBody
             sx={{
-              '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-              '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-              '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 },
+              '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+              '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#232323') },
+              '& td': { border: 0, fontSize: 16, color: byMode('#000', DK_TEXT), py: 1.5 },
             }}
           >
             {rows.map((r) => (
               <TableRow key={r.id}>
                 {/* Reference: a nameless stocktake reads "Not named" in grey */}
-                <TableCell sx={r.name ? undefined : { color: '#808080 !important' }}>{r.name || 'Not named'}</TableCell>
+                <TableCell sx={r.name ? undefined : { color: byMode('#808080 !important', '#a0a4aa !important') }}>{r.name || 'Not named'}</TableCell>
                 {showOutletFilter && <TableCell>{r.outlet?.name || r.outlet || ''}</TableCell>}
                 <TableCell>{formatDate(r.createdAt)}</TableCell>
                 <TableCell><StatusCell row={r} /></TableCell>
@@ -450,15 +459,15 @@ export default function Stocktakes() {
                       size="small"
                       startIcon={<VisibilityOutlined />}
                       component={RouterLink} to={`/stock-management/stocktakes/${r.id}`}
-                      sx={{ color: '#0284c7', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                      sx={{ color: byMode('#0284c7', '#5ebbeb'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                     >
                       View
                     </Button>
                   )}
                   {statusOf(r) === 'In Progress' && (
                     <Stack direction="row" spacing={1}>
-                      <Button size="small" onClick={() => continueStocktake(r.id)} sx={{ color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}>Continue</Button>
-                      <Button size="small" onClick={() => cancelStocktake(r)} sx={{ color: '#dc2626', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}>Cancel</Button>
+                      <Button size="small" onClick={() => continueStocktake(r.id)} sx={{ color: byMode('#16a34a', '#7bf1a8'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}>Continue</Button>
+                      <Button size="small" onClick={() => cancelStocktake(r)} sx={{ color: byMode('#dc2626', '#ffa2a2'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}>Cancel</Button>
                     </Stack>
                   )}
                 </TableCell>
@@ -477,7 +486,7 @@ export default function Stocktakes() {
       >
         <Box
           sx={{
-            bgcolor: 'rgb(190,227,248)',
+            bgcolor: byMode('rgb(190,227,248)', '#024a70'),
             display: 'flex',
             alignItems: 'center',
             gap: 1,
@@ -485,8 +494,8 @@ export default function Stocktakes() {
             py: 1.25,
           }}
         >
-          <HelpOutline sx={{ color: 'rgb(38,99,143)', fontSize: 20 }} />
-          <Typography sx={{ color: 'rgb(38,99,143)', fontSize: 18, fontWeight: 700 }}>
+          <HelpOutline sx={{ color: byMode('rgb(38,99,143)', '#00a6f4'), fontSize: 20 }} />
+          <Typography sx={{ color: byMode('rgb(38,99,143)', '#00a6f4'), fontSize: 18, fontWeight: 700 }}>
             New Stocktake
           </Typography>
         </Box>
@@ -504,10 +513,12 @@ export default function Stocktakes() {
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '8px',
                     fontSize: 16,
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+                    bgcolor: byMode(undefined, '#121212'),
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
                   },
+                  '& input::placeholder': { color: byMode(undefined, '#757575'), opacity: byMode(undefined, 1) },
                 }}
               />
             </Box>
@@ -524,7 +535,7 @@ export default function Stocktakes() {
                   sx={selectSx}
                   displayEmpty
                   renderValue={(v) => outlets.find((o) => String(o.id) === String(v))?.name || (
-                    <Box component="span" sx={{ color: '#808080' }}>Select outlet...</Box>
+                    <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>Select outlet...</Box>
                   )}
                 >
                   {outlets.map((o) => (
@@ -544,9 +555,9 @@ export default function Stocktakes() {
           <Button
             onClick={() => setNewDialogOpen(false)}
             sx={{
-              bgcolor: '#d9d9d9',
-              color: '#000',
-              '&:hover': { bgcolor: '#c9c9c9', boxShadow: 'none' },
+              bgcolor: byMode('#d9d9d9', '#3a3a3a'),
+              color: byMode('#000', DK_TEXT),
+              '&:hover': { bgcolor: byMode('#c9c9c9', '#4a4a4a'), boxShadow: 'none' },
               borderRadius: '12px',
               textTransform: 'none',
               boxShadow: 'none',
@@ -563,8 +574,9 @@ export default function Stocktakes() {
             disabled={creating || !newName.trim() || !(selectedOutletId || newOutletId)}
             sx={{
               bgcolor: '#5ebbeb',
-              color: '#fff',
+              color: byMode('#fff', DK_ON_BLUE),
               '&:hover': { bgcolor: '#79c7ef', boxShadow: 'none' },
+              '&.Mui-disabled': { bgcolor: byMode(undefined, '#3a3a3a'), color: byMode(undefined, '#757575') },
               borderRadius: '12px',
               textTransform: 'none',
               boxShadow: 'none',

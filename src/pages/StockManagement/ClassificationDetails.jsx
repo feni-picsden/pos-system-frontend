@@ -990,7 +990,7 @@ const ClassificationDetails = () => {
           {/* Hidden for now with the product's Metcash MSC (user 19/10/2026) - kept, not removed. */}
           {false && classification.type === 'CATEGORY' && (
             <>
-              <Typography sx={{ fontSize: 14, color: '#000', mt: 2, mb: 0.5 }}>MSC Mapping</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#000', '#f8f8f8'), mt: 2, mb: 0.5 }}>MSC Mapping</Typography>
               <Autocomplete
                 options={MSC_OPTIONS}
                 groupBy={(option) => option.group}
@@ -1006,7 +1006,7 @@ const ClassificationDetails = () => {
                 slotProps={{
                   paper: {
                     sx: {
-                      '& .MuiAutocomplete-groupLabel': { fontWeight: 700, color: '#000' },
+                      '& .MuiAutocomplete-groupLabel': { fontWeight: 700, color: byMode('#000', '#f8f8f8') },
                       '& .MuiAutocomplete-option': { pl: 3 },
                     },
                   },

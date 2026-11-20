@@ -17,6 +17,7 @@ import usePageCache from '../../hooks/usePageCache';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { renderPrintElement } from '../../utils/shelfTicketPrint.jsx';
+import { byMode } from '../../theme/sfPalette';
 
 // Sample data for the card thumbnail (same figures the editor's Preview uses).
 const THUMB_SAMPLE = {
@@ -183,7 +184,7 @@ const ShelfTicketTemplates = () => {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setNewTemplateDialog(true)}
-          sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42, flexShrink: 0 }}
+          sx={{ bgcolor: '#5ebbeb', color: byMode(undefined, '#232323'), '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42, flexShrink: 0 }}
         >
           New Template
         </Button>
@@ -226,7 +227,7 @@ const ShelfTicketTemplates = () => {
                       variant="caption"
                       sx={{
                         position: 'absolute', bottom: 4, right: 4,
-                        color: 'text.secondary', backgroundColor: 'rgba(255,255,255,0.85)',
+                        color: byMode('text.secondary', '#676b72'), backgroundColor: 'rgba(255,255,255,0.85)',
                         px: 0.5, borderRadius: 0.5,
                       }}
                     >
@@ -267,7 +268,7 @@ const ShelfTicketTemplates = () => {
                     size="small"
                     startIcon={<EditIcon />}
                     component={RouterLink} to={`/setup/shelf-tickets/${template.id}/edit`}
-                    sx={{ flexGrow: 1, color: '#16a34a', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
+                    sx={{ flexGrow: 1, color: byMode('#16a34a', '#7bf1a8'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0 }}
                   >
                     Design
                   </Button>
@@ -283,7 +284,7 @@ const ShelfTicketTemplates = () => {
                       <IconButton
                         size="small"
                         onClick={() => setDeleteDialog({ open: true, template })}
-                        sx={{ color: '#dc2626' }}
+                        sx={{ color: byMode('#dc2626', '#ffa2a2') }}
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -309,7 +310,7 @@ const ShelfTicketTemplates = () => {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => setNewTemplateDialog(true)}
-                sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
+                sx={{ bgcolor: '#5ebbeb', color: byMode(undefined, '#232323'), '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' }, borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
               >
                 Create Template
               </Button>
@@ -328,7 +329,7 @@ const ShelfTicketTemplates = () => {
       >
         <DialogTitle sx={{ fontSize: 20, fontWeight: 700, px: 3, pt: 3, pb: 1 }}>New Shelf Ticket Template</DialogTitle>
         <DialogContent sx={{ px: 3 }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#344054', mb: 0.75 }}>Template Name</Typography>
+          <Typography sx={{ fontSize: 14, fontWeight: 600, color: byMode('#344054', '#d4d4d4'), mb: 0.75 }}>Template Name</Typography>
           <TextField
             autoFocus
             fullWidth
@@ -342,9 +343,9 @@ const ShelfTicketTemplates = () => {
               '& .MuiOutlinedInput-root': {
                 borderRadius: '8px',
                 fontSize: 16,
-                bgcolor: '#fff',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d0d5dd' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#98a2b3' },
+                bgcolor: byMode('#fff', '#121212'),
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#d0d5dd', '#a1a1a1') },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#98a2b3', '#a1a1a1') },
                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#5ebbeb', borderWidth: '1px' },
               },
             }}
@@ -357,7 +358,7 @@ const ShelfTicketTemplates = () => {
           <Button
             disableElevation
             onClick={() => { setNewTemplateDialog(false); setNewTemplateName(''); }}
-            sx={{ bgcolor: '#d4d4d4', color: '#000', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#a3a3a3', boxShadow: 'none' } }}
+            sx={{ bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: byMode('#a3a3a3', '#4a4a4a'), boxShadow: 'none' } }}
           >
             Cancel
           </Button>
@@ -367,7 +368,7 @@ const ShelfTicketTemplates = () => {
             onClick={handleCreateTemplate}
             disabled={!newTemplateName.trim() || creating}
             startIcon={creating ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : null}
-            sx={{ bgcolor: '#5ebbeb', color: '#fff', height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#cfe9f7', color: '#fff' } }}
+            sx={{ bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), height: 42, borderRadius: '12px', px: 3, fontSize: 16, fontWeight: 700, textTransform: 'none', boxShadow: 'none', '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: byMode('#cfe9f7', '#2a4a5a'), color: byMode('#fff', '#a0a4aa') } }}
           >
             Create & Design
           </Button>

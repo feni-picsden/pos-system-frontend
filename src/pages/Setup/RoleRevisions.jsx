@@ -17,6 +17,7 @@ import PageLoader from '../../components/Common/PageLoader';
 import { roleService } from '../../services/roleService';
 import { formatRevisionValue } from '../../utils/revisionValue';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -59,7 +60,7 @@ const RoleRevisions = () => {
           component={RouterLink} to={`/setup/roles/${roleId}/permissions`}
           sx={{
             bgcolor: '#5ebbeb',
-            color: '#fff',
+            color: byMode('#fff', '#232323'),
             textTransform: 'none',
             fontWeight: 700,
             fontSize: 16,
@@ -87,7 +88,7 @@ const RoleRevisions = () => {
       <TableContainer>
         <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
           <TableHead>
-            <TableRow sx={{ '& th': { fontWeight: 700, fontSize: 16, color: '#313439' } }}>
+            <TableRow sx={{ '& th': { fontWeight: 700, fontSize: 16, color: byMode('#313439', '#5ebbeb') } }}>
               <TableCell>Field</TableCell>
               <TableCell>From</TableCell>
               <TableCell>To</TableCell>
@@ -95,7 +96,7 @@ const RoleRevisions = () => {
               <TableCell>Timestamp</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody sx={{ '& tr:nth-of-type(odd)': { bgcolor: '#f8f8f8' } }}>
+          <TableBody sx={{ '& tr:nth-of-type(odd)': { bgcolor: byMode('#f8f8f8', '#2a2a2a') } }}>
             {revisions.length > 0 ? (
               revisions.map((rev, idx) => (
                 <TableRow key={`rev-${idx}`}>
@@ -111,7 +112,7 @@ const RoleRevisions = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  <Typography sx={{ fontSize: 16, color: '#676b72' }}>
+                  <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>
                     No revisions found
                   </Typography>
                 </TableCell>

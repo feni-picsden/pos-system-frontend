@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import {
   ChevronRight as ChevronRightIcon,
@@ -122,22 +123,22 @@ const PageRules = () => {
   if (selected) {
     return (
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', boxSizing: 'border-box' }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}>{selected.title}</Typography>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>{selected.title}</Typography>
         <Box sx={{ flex: 1, minHeight: 0 }}>
           <CodeEditor value={code} onChange={setCode} readOnly={!canEdit} height="100%" ariaLabel={`${selected.title} code`} />
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 2 }}>
           <Button disableRipple startIcon={<ResetIcon />} onClick={handleReset} disabled={!canEdit || saving}
-            sx={{ textTransform: 'none', color: '#e33430', border: '1px solid #e33430', borderRadius: '6px', px: 2, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: '#fff0f0', borderColor: '#e33430' } }}>
+            sx={{ textTransform: 'none', color: byMode('#e33430', '#ffa2a2'), border: byMode('1px solid #e33430', '1px solid #ffa2a2'), borderRadius: '6px', px: 2, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: byMode('#fff0f0', 'rgba(255,162,162,0.12)'), borderColor: byMode('#e33430', '#ffa2a2') } }}>
             Reset Wizard
           </Button>
           <Box sx={{ display: 'flex', gap: 1.5 }}>
             <Button disableRipple startIcon={<CloseIcon />} onClick={handleCancel} disabled={saving}
-              sx={{ textTransform: 'none', color: '#000', border: '1px solid #c7c7c7', borderRadius: '6px', px: 2, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: '#f3f3f3' } }}>
+              sx={{ textTransform: 'none', color: byMode('#000', '#f8f8f8'), border: byMode('1px solid #c7c7c7', '1px solid #a1a1a1'), borderRadius: '6px', px: 2, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: byMode('#f3f3f3', 'rgba(255,255,255,0.08)') } }}>
               Cancel
             </Button>
             <Button disableRipple variant="contained" disableElevation startIcon={<SaveIcon />} onClick={handleSave} disabled={!canEdit || saving}
-              sx={{ textTransform: 'none', bgcolor: '#5ebbeb', color: '#fff', borderRadius: '6px', px: 2.5, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: '#4aa9dd' }, '&.Mui-disabled': { bgcolor: '#a9dcf3', color: '#fff' } }}>
+              sx={{ textTransform: 'none', bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), borderRadius: '6px', px: 2.5, fontSize: 16, fontWeight: 600, '&:hover': { bgcolor: '#4aa9dd' }, '&.Mui-disabled': { bgcolor: byMode('#a9dcf3', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') } }}>
               {saving ? 'Saving…' : 'Save'}
             </Button>
           </Box>
@@ -149,18 +150,18 @@ const PageRules = () => {
   // ── list view ───────────────────────────────────────────────────────────────
   return (
     <Box sx={{ p: 2 }}>
-      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}>Page Rules</Typography>
-      <Typography sx={{ fontSize: 22, fontWeight: 700, color: '#000', mb: 1.5 }}>Creation Wizards</Typography>
+      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>Page Rules</Typography>
+      <Typography sx={{ fontSize: 22, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1.5 }}>Creation Wizards</Typography>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}><CircularProgress /></Box>
       ) : (
-        <Box sx={{ border: '1px solid #000', borderRadius: '2px' }}>
+        <Box sx={{ border: byMode('1px solid #000', '1px solid #373737'), borderRadius: '2px' }}>
           {PAGE_RULES.map((rule, i) => (
             <Box key={rule.key} data-testid={`page-rule-${rule.key}`} onClick={() => openRule(rule)} role="button"
-              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, height: 66, cursor: 'pointer', bgcolor: '#f5f5f5',
-                borderTop: i > 0 ? '1px solid #000' : 0, '&:hover': { bgcolor: '#e9e9e9' } }}>
-              <Typography sx={{ fontSize: 16, color: '#000' }}>{rule.label}</Typography>
-              <ChevronRightIcon sx={{ color: '#000' }} />
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, height: 66, cursor: 'pointer', bgcolor: byMode('#f5f5f5', '#232323'),
+                borderTop: i > 0 ? byMode('1px solid #000', '1px solid #373737') : 0, '&:hover': { bgcolor: byMode('#e9e9e9', '#2f2f2f') } }}>
+              <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{rule.label}</Typography>
+              <ChevronRightIcon sx={{ color: byMode('#000', '#f8f8f8') }} />
             </Box>
           ))}
         </Box>

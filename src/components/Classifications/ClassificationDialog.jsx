@@ -227,7 +227,7 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
               '&:hover': { bgcolor: 'sf.overlayPress' },
               '&.Mui-selected': {
                 backgroundColor: '#5ebbeb',
-                color: '#fff',
+                color: byMode('#fff', '#232323'),
                 '&:hover': { backgroundColor: '#5ebbeb' },
               },
             }
@@ -324,20 +324,20 @@ const ClassificationDialog = ({ open, onClose, onSave, editingClassification, sa
         {/* Hidden for now with the product's Metcash MSC (user 19/10/2026) - kept, not removed. */}
         {false && formData.type === 'CATEGORY' && (
           <Box sx={{ mt: 2 }}>
-            <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>MSC Mapping</Typography>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>MSC Mapping</Typography>
             <FormControl fullWidth>
               <Select
                 value={formData.mscMapping || ''}
                 onChange={(e) => handleInputChange('mscMapping', e.target.value)}
                 displayEmpty
                 sx={{
-                  backgroundColor: 'white',
+                  backgroundColor: byMode('white', '#121212'),
                   borderRadius: '8px',
                   fontSize: 16,
                   height: 42,
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
                 }}
               >
                 <MenuItem value="">

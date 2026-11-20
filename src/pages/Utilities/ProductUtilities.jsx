@@ -37,6 +37,7 @@ import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { FileSearchGlyph } from '../../components/Common/EmptyResults';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference checkboxes are thin-outline square / check-square glyphs; the
 // checked state stays an outline glyph (no filled blue).
@@ -53,33 +54,34 @@ const checkboxGlyphs = {
 const tagChipSx = {
   height: 26,
   borderRadius: '4px',
-  bgcolor: '#e5e5e5',
-  color: '#000',
+  bgcolor: byMode('#e5e5e5', '#3a3a3a'),
+  color: byMode('#000', '#f8f8f8'),
   fontSize: 16,
   '& .MuiChip-label': { px: 1 },
 };
 
 // Reference tokens: static label above every control, no floating MUI labels.
 const FieldLabel = ({ children }) => (
-  <Typography component="label" sx={{ display: 'block', fontSize: 16, fontWeight: 400, color: '#000', mb: 0.5 }}>
+  <Typography component="label" sx={{ display: 'block', fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>
     {children}
   </Typography>
 );
 
 const fieldSx = {
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
+  '& .MuiInputBase-input': { color: byMode(undefined, '#f8f8f8') },
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Every open list (Select and Autocomplete): 10px under the field, 1px dark
 // border, 8px radius, 56px rows (five visible), picked row in blue, and the
 // hovered / keyboard row marked by a faint grey fill (no rule lines).
-const activeRowSx = { bgcolor: 'rgba(0, 0, 0, 0.04)' };
+const activeRowSx = { bgcolor: byMode('rgba(0, 0, 0, 0.04)', '#0084d1'), color: byMode(undefined, '#fafafa') };
 const selectMenuProps = {
   anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
   transformOrigin: { vertical: 'top', horizontal: 'left' },
@@ -87,11 +89,12 @@ const selectMenuProps = {
     sx: {
       mt: '10px',
       maxHeight: 289,
-      border: '1px solid #000',
+      border: byMode('1px solid #000', '1px solid #a1a1a1'),
+      bgcolor: byMode(undefined, '#232323'),
       borderRadius: '8px',
       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
       '& .MuiMenu-list': { py: '2px' },
-      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
       '& .MuiMenuItem-root.Mui-selected': { color: '#00a6f4', bgcolor: 'transparent' },
       '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': activeRowSx,
     },
@@ -100,7 +103,7 @@ const selectMenuProps = {
 
 // Reference: a field with a value always shows a small black × before its arrow
 // (MUI only shows the Autocomplete one on hover/focus, and Select has none).
-const clearIconSx = { fontSize: 18, color: '#000' };
+const clearIconSx = { fontSize: 18, color: byMode('#000', '#f8f8f8') };
 const clearAdornment = (show, onClear) =>
   show ? (
     <IconButton
@@ -165,8 +168,8 @@ const barButtonSx = (enabledBg, width) => ({
   border: `1px solid ${enabledBg}`,
   '&:hover': { bgcolor: enabledBg, boxShadow: 'none', filter: 'brightness(0.94)' },
   '&.Mui-disabled': {
-    bgcolor: '#e5e5e5',
-    color: '#737373',
+    bgcolor: byMode('#e5e5e5', '#3a3a3a'),
+    color: byMode('#737373', '#a0a4aa'),
     border: '1px solid #737373',
     cursor: 'not-allowed',
     pointerEvents: 'auto',
@@ -178,9 +181,9 @@ const barButtonSx = (enabledBg, width) => ({
 // (grey Cancel + sky-blue action) right-aligned.
 const bulkDialogPaperSx = { borderRadius: '8px', m: 2, maxWidth: 'calc(100% - 32px)' };
 const BulkDialogTitle = ({ children }) => (
-  <Box sx={{ height: 60, px: 2, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#bae6fd' }}>
+  <Box sx={{ height: 60, px: 2, display: 'flex', alignItems: 'center', gap: 1, bgcolor: byMode('#bae6fd', '#0c3a55') }}>
     <QuestionIcon sx={{ fontSize: 24, color: '#5ebbeb' }} />
-    <Typography component="h2" sx={{ fontSize: 18, fontWeight: 700, color: '#075985' }}>
+    <Typography component="h2" sx={{ fontSize: 18, fontWeight: 700, color: byMode('#075985', '#74d4ff') }}>
       {children}
     </Typography>
   </Box>
@@ -197,13 +200,13 @@ const dialogButtonSx = (bg, color) => ({
   color,
   border: `1px solid ${bg}`,
   '&:hover': { bgcolor: bg, boxShadow: 'none', filter: 'brightness(0.94)' },
-  '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373', border: '1px solid #737373', cursor: 'not-allowed', pointerEvents: 'auto' },
+  '&.Mui-disabled': { bgcolor: byMode('#e5e5e5', '#3a3a3a'), color: byMode('#737373', '#a0a4aa'), border: '1px solid #737373', cursor: 'not-allowed', pointerEvents: 'auto' },
 });
 const BulkDialogActions = ({ onCancel, onConfirm, confirmLabel, disabled }) => (
   // grid columns of 1fr make both buttons as wide as the longer label
   <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 2, pb: 2, pt: 3 }}>
     <Box sx={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: '1fr', gap: 2 }}>
-      <Button onClick={onCancel} sx={dialogButtonSx('#d4d4d4', '#000')}>Cancel</Button>
+      <Button onClick={onCancel} sx={{ ...dialogButtonSx('#d4d4d4', '#000'), bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), border: byMode('1px solid #d4d4d4', '1px solid #3a3a3a'), '&:hover': { bgcolor: byMode('#d4d4d4', '#3a3a3a'), boxShadow: 'none', filter: 'brightness(0.94)' } }}>Cancel</Button>
       <Button onClick={onConfirm} disabled={disabled} sx={dialogButtonSx('#00a6f4', '#fff')}>{confirmLabel}</Button>
     </Box>
   </Box>
@@ -652,11 +655,12 @@ const ProductUtilities = () => {
             paper: {
               sx: {
                 mt: '10px',
-                border: '1px solid #000',
+                border: byMode('1px solid #000', '1px solid #a1a1a1'),
+                bgcolor: byMode(undefined, '#232323'),
                 borderRadius: '8px',
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                 '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
-                '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+                '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
                 '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent' },
                 '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': activeRowSx,
               },
@@ -673,7 +677,7 @@ const ProductUtilities = () => {
                 <Checkbox
                   {...checkboxGlyphs}
                   checked={selected}
-                  sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                  sx={{ p: 0, mr: '6px', color: byMode('#000', '#f8f8f8'), '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
                 />
                 {option.name || option}
               </li>
@@ -700,9 +704,9 @@ const ProductUtilities = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ px: '8px', pt: 3, pb: '74px', bgcolor: '#ffffff', minHeight: 'calc(100vh - 50px)' }}>
+      <Box sx={{ px: '8px', pt: 3, pb: '74px', bgcolor: byMode('#ffffff', '#121212'), minHeight: 'calc(100vh - 50px)' }}>
         {/* Header */}
-        <Typography variant="h1" sx={{ fontWeight: 700, color: '#000000', fontSize: 32, mb: 2 }}>
+        <Typography variant="h1" sx={{ fontWeight: 700, color: byMode('#000000', '#f8f8f8'), fontSize: 32, mb: 2 }}>
           Product Utilities
         </Typography>
 
@@ -756,7 +760,7 @@ const ProductUtilities = () => {
                     <Checkbox
                       {...checkboxGlyphs}
                       checked={selectedStatuses.includes(status)}
-                      sx={{ p: 0, mr: '6px', color: '#000', '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
+                      sx={{ p: 0, mr: '6px', color: byMode('#000', '#f8f8f8'), '& .MuiSvgIcon-root': { fontSize: 18 }, '&.Mui-checked': { color: '#00a6f4' } }}
                     />
                     {status}
                   </MenuItem>
@@ -837,8 +841,8 @@ const ProductUtilities = () => {
                     {stockLocationOptions.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
                         <Box>
-                          <Typography sx={{ fontSize: 16, color: '#000' }}>{option.value}</Typography>
-                          <Typography sx={{ fontSize: 12, color: '#676b72', whiteSpace: 'normal' }}>
+                          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{option.value}</Typography>
+                          <Typography sx={{ fontSize: 12, color: byMode('#676b72', '#a0a4aa'), whiteSpace: 'normal' }}>
                             {option.desc}
                           </Typography>
                         </Box>
@@ -863,7 +867,7 @@ const ProductUtilities = () => {
             onClick={handleApplyFilter}
             sx={{
               bgcolor: '#5ebbeb',
-              color: '#fff',
+              color: byMode('#fff', '#232323'),
               height: 42,
               width: 153,
               minWidth: 153,
@@ -886,7 +890,7 @@ const ProductUtilities = () => {
         {!loading && products.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 5, gap: 1.5 }}>
             <FileSearchGlyph />
-            <Typography sx={{ fontSize: 16, color: '#000' }}>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
               No results found. Change search filters and try again.
             </Typography>
           </Box>
@@ -896,7 +900,7 @@ const ProductUtilities = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#fff', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
                 }}
@@ -909,7 +913,7 @@ const ProductUtilities = () => {
                       indeterminate={selectedProducts.length > 0 && !allSelected}
                       onChange={handleSelectAll}
                       inputProps={{ 'aria-label': 'Select all products' }}
-                      sx={{ ...checkboxBoxSx, color: '#fff', '&.Mui-checked': { color: '#fff' }, '&.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                      sx={{ ...checkboxBoxSx, color: byMode('#fff', '#5ebbeb'), '&.Mui-checked': { color: byMode('#fff', '#5ebbeb') }, '&.MuiCheckbox-indeterminate': { color: byMode('#fff', '#5ebbeb') } }}
                     />
                     Name
                   </Box>
@@ -927,21 +931,21 @@ const ProductUtilities = () => {
             >
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={2} align="center" sx={{ py: 4, color: '#676b72' }}>
+                  <TableCell colSpan={2} align="center" sx={{ py: 4, color: byMode('#676b72', '#a0a4aa') }}>
                     Loading products...
                   </TableCell>
                 </TableRow>
               ) : (
                 products.map((product) => (
-                  <TableRow key={product.id} sx={{ bgcolor: '#ffffff', height: 74, '& td': { height: 74, py: 0 } }}>
-                    <TableCell sx={{ fontSize: 16, color: '#000' }}>
+                  <TableRow key={product.id} sx={{ bgcolor: byMode('#ffffff', '#232323'), height: 74, '& td': { height: 74, py: 0 } }}>
+                    <TableCell sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Checkbox
                           {...checkboxGlyphs}
                           checked={selectedProducts.includes(product.id)}
                           onChange={() => handleSelectProduct(product.id)}
                           inputProps={{ 'aria-label': `Select ${product.name}` }}
-                          sx={{ ...checkboxBoxSx, color: '#000', '&.Mui-checked': { color: '#000' } }}
+                          sx={{ ...checkboxBoxSx, color: byMode('#000', '#f8f8f8'), '&.Mui-checked': { color: byMode('#000', '#f8f8f8') } }}
                         />
                         {product.name}
                       </Box>
@@ -952,7 +956,7 @@ const ProductUtilities = () => {
                         to={`/products/${product.id}/view`}
                         startIcon={<VisibilityIcon />}
                         sx={{
-                          color: '#0284c7',
+                          color: byMode('#0284c7', '#74d4ff'),
                           fontWeight: 700,
                           fontSize: 16,
                           textTransform: 'none',
@@ -978,7 +982,7 @@ const ProductUtilities = () => {
         )}
 
         {error && (
-          <Typography sx={{ color: '#dc2626', mt: 2 }}>{error}</Typography>
+          <Typography sx={{ color: byMode('#dc2626', '#ffa2a2'), mt: 2 }}>{error}</Typography>
         )}
 
         {/* Footer Action Bar — pinned to the viewport bottom, full bleed */}
@@ -1043,10 +1047,10 @@ const ProductUtilities = () => {
         >
           <BulkDialogTitle>Bulk Change Case</BulkDialogTitle>
           <Box sx={{ px: 2, pt: '20px' }}>
-            <Typography sx={{ fontSize: 16, color: '#000', mb: '18px' }}>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: '18px' }}>
               Which case would you like the product names to be?
             </Typography>
-            <Typography component="label" sx={{ display: 'block', fontSize: 12, color: '#000', mb: '4px' }}>
+            <Typography component="label" sx={{ display: 'block', fontSize: 12, color: byMode('#000', '#f8f8f8'), mb: '4px' }}>
               Casing
             </Typography>
             <FormControl fullWidth size="small" sx={fieldSx}>
@@ -1064,7 +1068,7 @@ const ProductUtilities = () => {
                   <MenuItem key={option.value} value={option.value} sx={{ minHeight: '72px !important' }}>
                     <Box>
                       <Typography sx={{ fontSize: 16, color: 'inherit', lineHeight: 1.4 }}>{option.label}</Typography>
-                      <Typography sx={{ fontSize: 12, color: '#676b72' }}>{option.example}</Typography>
+                      <Typography sx={{ fontSize: 12, color: byMode('#676b72', '#a0a4aa') }}>{option.example}</Typography>
                     </Box>
                   </MenuItem>
                 ))}
@@ -1088,7 +1092,7 @@ const ProductUtilities = () => {
         >
           <BulkDialogTitle>Bulk Change Status</BulkDialogTitle>
           <Box sx={{ px: 2, pt: '20px' }}>
-            <Typography sx={{ fontSize: 16, color: '#000', mb: '8px' }}>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: '8px' }}>
               Select the status to apply to all the selected products.
             </Typography>
             <FormControl fullWidth size="small" sx={fieldSx}>

@@ -138,7 +138,8 @@ const SaleDetailCard = ({
         gridTemplateRows: message ? "min-content min-content 1fr" : "min-content 1fr",
         gap: "32px",
         p: "16px",
-        color: "#000",
+        color: byMode("#000", "#f8f8f8"),
+        bgcolor: byMode(undefined, "#232323"),
         boxShadow: editing
           ? "none"
           : "0 0 30px rgba(0,0,0,.35),0 15px 30px rgba(0,0,0,.27)",
@@ -178,9 +179,9 @@ const SaleDetailCard = ({
                 value={{ startDate: dateValue ? new Date(dateValue) : null, endDate: dateValue ? new Date(dateValue) : null }}
                 onChange={({ startDate }) => startDate && onDateChange(toLocalInput(startDate))}
                 inputSx={{
-                  "& .MuiOutlinedInput-root": { height: 40, fontSize: 16, borderRadius: "8px", bgcolor: "#fff", cursor: "pointer" },
+                  "& .MuiOutlinedInput-root": { height: 40, fontSize: 16, borderRadius: "8px", bgcolor: byMode("#fff", "#121212"), cursor: "pointer" },
                   "& .MuiOutlinedInput-input": { textAlign: "center", cursor: "pointer", p: "8px" },
-                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#404040" },
+                  "& .MuiOutlinedInput-notchedOutline": { borderColor: byMode("#404040", "#a1a1a1") },
                 }}
               />
             </Box>
@@ -345,7 +346,7 @@ const SaleDetailCard = ({
                     fullWidth
                     value={paymentValues[idx] ?? p.paymentMethod ?? ""}
                     onChange={(e) => onPaymentChange(idx, e.target.value)}
-                    sx={{ borderRadius: "8px", fontSize: 16, bgcolor: "#fff", "& .MuiSelect-select": { textAlign: "left" } }}
+                    sx={{ borderRadius: "8px", fontSize: 16, bgcolor: byMode("#fff", "#121212"), "& .MuiSelect-select": { textAlign: "left" } }}
                   >
                     {methodOptions(paymentMethods, p.paymentMethod).map((name) => (
                       <MenuItem key={name} value={name}>
@@ -360,7 +361,7 @@ const SaleDetailCard = ({
                     component="a"
                     href="#"
                     onClick={(e) => { e.preventDefault(); setOpenPaymentId(p.id); }}
-                    sx={{ color: "#1a73e8", textDecoration: "underline", cursor: "pointer" }}
+                    sx={{ color: byMode("#1a73e8", "#4ca0f5"), textDecoration: "underline", cursor: "pointer" }}
                   >
                     {paymentLabel(p)}
                   </Box>
@@ -423,7 +424,7 @@ const SaleDetailCard = ({
             width: "30%",
             ml: "auto",
             pt: "8px",
-            borderTop: "3px solid #000",
+            borderTop: byMode("3px solid #000", "3px solid #f8f8f8"),
             fontSize: 24,
             lineHeight: "29px",
           }}

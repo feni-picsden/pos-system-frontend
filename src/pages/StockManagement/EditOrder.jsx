@@ -58,11 +58,31 @@ import ProductDetailView from '../../components/OrdersInvoices/ProductDetailView
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import stocktakeService from '../../services/stocktakeService';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (no own ref): values copied from the reference dark Orders & Invoices
+// list / Create Order screenshots (same as OrderDetails / CreateOrder).
+const DK = {
+  page: '#121212', pane: '#232323', text: '#f8f8f8', sub: '#bdbdbd', desc: '#d4d4d4', muted: '#a0a4aa',
+  onBlue: '#313439', onSave: '#232323', head: '#3d4147', divider: '#373737', grey: '#3a3a3a',
+  input: '#121212', inputText: '#ffffff', border: '#a1a1a1', focus: '#eeeeee', placeholder: '#757575',
+  hover: '#0084d1', onHover: '#fafafa', selected: '#00a6f4', green: '#81dc8d', danger: '#ffa2a2',
+};
+
+// Dropdown paper (Select menu / Autocomplete list): #232323 with a 1px white edge.
+const darkMenuPaperSx = {
+  bgcolor: byMode(undefined, DK.pane),
+  color: byMode(undefined, DK.text),
+  boxShadow: byMode(undefined, '0 0 0 1px #ffffff'),
+  '& .MuiMenuItem-root.Mui-selected, & .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { color: byMode(undefined, DK.selected) },
+  '& .MuiMenuItem-root:hover, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused': { backgroundColor: byMode(undefined, DK.hover), color: byMode(undefined, DK.onHover) },
+  '& .MuiAutocomplete-noOptions, & .MuiAutocomplete-loading': { color: byMode(undefined, DK.text) },
+};
 
 // Shopfront reference button: #5ebbeb, square, h53, fs16 fw400, hover inverts colors over 0.2s
 const sfBtn = {
   backgroundColor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', DK.onBlue),
   height: 53,
   borderRadius: 0,
   fontSize: 16,
@@ -72,7 +92,7 @@ const sfBtn = {
   px: 3,
   whiteSpace: 'nowrap',
   transition: 'background 0.2s ease, color 0.2s ease',
-  '&:hover': { backgroundColor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
+  '&:hover': { backgroundColor: byMode('#f8f8f8', '#4aa9dd'), color: byMode('#5ebbeb', DK.onBlue), boxShadow: 'none' },
 };
 
 // Shopfront reference input: square, h53
@@ -80,23 +100,23 @@ const sfBtn = {
 // so each rule needs the picker twin - otherwise a date box sits 56px tall with
 // rounded corners next to 53px square fields.
 const sfField = {
-  backgroundColor: '#fff',
-  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': { borderRadius: 0, height: 53 },
-  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: 1 },
-  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-root:hover .MuiPickersOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-root.Mui-focused .MuiPickersOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 2 },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  backgroundColor: byMode('#fff', DK.input),
+  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': { borderRadius: 0, height: 53, color: byMode(undefined, DK.inputText) },
+  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': { borderColor: byMode('#404040', DK.border), borderWidth: 1 },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-root:hover .MuiPickersOutlinedInput-notchedOutline': { borderColor: byMode('#404040', DK.border) },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-root.Mui-focused .MuiPickersOutlinedInput-notchedOutline': { borderColor: byMode('#000', DK.focus), borderWidth: 2 },
+  '& input::placeholder': { color: byMode('#808080', DK.placeholder), opacity: 1 },
 };
 
 // The notes boxes take the same rail as sfField, minus its fixed height.
 const sfTextarea = {
   ...sfField,
-  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': { borderRadius: 0, height: 'auto' },
+  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': { borderRadius: 0, height: 'auto', color: byMode(undefined, DK.inputText) },
 };
 
 const sfCaption = {
   fontSize: 11,
-  color: '#676b72',
+  color: byMode('#676b72', DK.sub),
   textTransform: 'uppercase',
   textAlign: 'center',
   display: 'block',
@@ -105,7 +125,7 @@ const sfCaption = {
 
 const parityBtn = {
   backgroundColor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', DK.onSave),
   height: 42,
   borderRadius: '12px',
   fontSize: 16,
@@ -115,14 +135,14 @@ const parityBtn = {
   px: 3,
   whiteSpace: 'nowrap',
   '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' },
-  '&.Mui-disabled': { backgroundColor: '#e0e0e0', color: '#9e9e9e' },
+  '&.Mui-disabled': { backgroundColor: byMode('#e0e0e0', '#404040'), color: byMode('#9e9e9e', '#737373') },
 };
 
 // Edit Details Save (reference): blue stays blue on hover (darker), white text;
 // while saving it is disabled and shows a spinner + "Saving...".
 const sfDialogSave = {
   backgroundColor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', DK.onSave),
   height: 42,
   minWidth: 100,
   borderRadius: 0,
@@ -134,21 +154,23 @@ const sfDialogSave = {
   whiteSpace: 'nowrap',
   transition: 'background 0.2s ease',
   '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' },
-  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: '#fff', opacity: 0.7 },
+  '&.Mui-disabled': { backgroundColor: '#5ebbeb', color: byMode('#fff', DK.onSave), opacity: 0.7 },
 };
 
-// Gray boxed button (dialog Cancel / OK)
+// Gray boxed button (dialog Cancel / OK). Dark: outlined (#a1a1a1 edge drawn
+// as an inset shadow, so the size does not change) with #d4d4d4 text.
 const grayBtn = {
-  backgroundColor: '#e5e5e5',
-  color: '#313439',
+  backgroundColor: byMode('#e5e5e5', 'transparent'),
+  color: byMode('#313439', DK.desc),
   borderRadius: 0,
   textTransform: 'none',
   fontSize: 16,
   fontWeight: 400,
-  boxShadow: 'none',
+  boxShadow: byMode('none', `inset 0 0 0 1px ${DK.border}`),
   px: 3,
   transition: 'background 0.2s ease, color 0.2s ease',
-  '&:hover': { backgroundColor: '#d4d4d4', boxShadow: 'none' },
+  '&:hover': { backgroundColor: byMode('#d4d4d4', 'rgba(255,255,255,0.08)'), boxShadow: byMode('none', `inset 0 0 0 1px ${DK.border}`) },
+  '&.Mui-disabled': { color: byMode(undefined, 'rgba(212,212,212,0.5)') },
 };
 
 const highlightMatch = (text, query) => {
@@ -2118,10 +2140,10 @@ const EditOrder = () => {
       : getDocumentOutletName();
 
   return (
-    <Box sx={{ p: 3, backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
+    <Box sx={{ p: 3, backgroundColor: byMode('#f5f5f5', DK.page), minHeight: '100vh' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', textAlign: 'center', flex: 1 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', textAlign: 'center', flex: 1, color: byMode(undefined, DK.text) }}>
           {order?.type === 'TRANSFER'
             ? 'Editing Transfer'
             : order?.type === 'RETURN' ? 'Editing Return' : 'Editing Order'}
@@ -2138,7 +2160,7 @@ const EditOrder = () => {
 
       {/* Options Panel - full-width inline (reference parity) */}
       {optionsOpen && (
-        <Paper sx={{ p: 2, mb: 3, borderRadius: 0, backgroundColor: '#fff', boxShadow: 'none', border: '1px solid #e0e0e0' }}>
+        <Paper sx={{ p: 2, mb: 3, borderRadius: 0, backgroundColor: byMode('#fff', DK.pane), boxShadow: 'none', border: byMode('1px solid #e0e0e0', `1px solid ${DK.divider}`) }}>
           {/* Fees / freight / discount / payment fee only ever apply when an
               order or invoice is RECEIVED. On a return or transfer the boxes are
               still here but nothing reads them - say so, in red once something
@@ -2168,7 +2190,7 @@ const EditOrder = () => {
               </Button>
             )}
             <Box>
-              <Typography sx={{ fontSize: 13, color: '#676b72', mb: 0.5 }}>
+              <Typography sx={{ fontSize: 13, color: byMode('#676b72', DK.sub), mb: 0.5 }}>
                 Payment Fee Percentage
               </Typography>
               <TextField
@@ -2187,7 +2209,7 @@ const EditOrder = () => {
             {!landedApplies && (
               <>
             <Box>
-              <Typography sx={{ fontSize: 13, color: '#676b72', mb: 0.5 }}>
+              <Typography sx={{ fontSize: 13, color: byMode('#676b72', DK.sub), mb: 0.5 }}>
                 Invoice Fees ({usePctFees ? '%' : '$'})
               </Typography>
               <TextField
@@ -2201,7 +2223,7 @@ const EditOrder = () => {
               />
             </Box>
             <Box>
-              <Typography sx={{ fontSize: 13, color: '#676b72', mb: 0.5 }}>
+              <Typography sx={{ fontSize: 13, color: byMode('#676b72', DK.sub), mb: 0.5 }}>
                 Invoice Freight ($)
               </Typography>
               <TextField
@@ -2216,7 +2238,7 @@ const EditOrder = () => {
               />
             </Box>
             <Box>
-              <Typography sx={{ fontSize: 13, color: '#676b72', mb: 0.5 }}>
+              <Typography sx={{ fontSize: 13, color: byMode('#676b72', DK.sub), mb: 0.5 }}>
                 Invoice Discount ({usePctFees ? '%' : '$'})
               </Typography>
               <TextField
@@ -2235,22 +2257,22 @@ const EditOrder = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, mt: 2, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <ShopfrontSwitch checked={usePctFees} onChange={(e) => setUsePctFees(e.target.checked)} />
-              <Typography sx={{ fontSize: 14, color: '#313439' }}>Use percentage for fees and discounts</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#313439', DK.text) }}>Use percentage for fees and discounts</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <ShopfrontSwitch checked={costsIncTax} onChange={(e) => setCostsIncTax(e.target.checked)} />
-              <Typography sx={{ fontSize: 14, color: '#313439' }}>Costs on supplier invoice is inclusive of tax</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#313439', DK.text) }}>Costs on supplier invoice is inclusive of tax</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <ShopfrontSwitch checked={freightIncluded} onChange={(e) => setFreightIncluded(e.target.checked)} />
-              <Typography sx={{ fontSize: 14, color: '#313439' }}>Freight is included on supplier invoice</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#313439', DK.text) }}>Freight is included on supplier invoice</Typography>
             </Box>
           </Box>
         </Paper>
       )}
 
       {/* Order Details */}
-      <Paper sx={{ p: 2, mb: 3, backgroundColor: '#fff' }}>
+      <Paper sx={{ p: 2, mb: 3, backgroundColor: byMode('#fff', DK.pane) }}>
         <Grid container spacing={2}>
           <Grid item xs={6} sm={3}>
             <Typography variant="body2" color="text.secondary">TYPE:</Typography>
@@ -2311,7 +2333,7 @@ const EditOrder = () => {
             <Typography variant="body1" sx={{ fontWeight: 500, ...(order.expectedTotal != null ? {} : landedFigureSx) }}>
               {formatCurrency(order.expectedTotal != null ? order.expectedTotal : displayGrandTotal())}
               {order.expectedTotal != null && Math.abs(order.expectedTotal - displayGrandTotal()) >= 0.005 && (
-                <Typography component="span" variant="body2" sx={{ color: '#dc2626', ml: 1 }}>
+                <Typography component="span" variant="body2" sx={{ color: byMode('#dc2626', DK.danger), ml: 1 }}>
                   (actual {formatCurrency(displayGrandTotal())})
                 </Typography>
               )}
@@ -2369,9 +2391,9 @@ const EditOrder = () => {
                   py: 0.75,
                   fontSize: 12,
                   fontWeight: 700,
-                  color: '#676b72',
+                  color: byMode('#676b72', DK.sub),
                   textTransform: 'uppercase',
-                  backgroundColor: '#f8f8f8',
+                  backgroundColor: byMode('#f8f8f8', DK.head),
                 }}
               >
                 {params.group}
@@ -2434,6 +2456,7 @@ const EditOrder = () => {
             />
           )}
           sx={{ flex: 1 }}
+          slotProps={{ paper: { sx: darkMenuPaperSx } }}
         />
         <Button
           startIcon={<AddIcon />}
@@ -2456,7 +2479,7 @@ const EditOrder = () => {
                 }
               }}
             />
-            <Typography sx={{ whiteSpace: 'nowrap', fontSize: 14, color: '#313439' }}>
+            <Typography sx={{ whiteSpace: 'nowrap', fontSize: 14, color: byMode('#313439', DK.text) }}>
               All Suppliers
             </Typography>
           </Box>
@@ -2464,7 +2487,7 @@ const EditOrder = () => {
       </Box>
       {/* A freeSolo Autocomplete shows nothing at all when a search comes back empty. */}
       {showNoResults && (
-        <Typography sx={{ mt: -2, mb: 3, fontSize: 14, color: '#676b72' }}>
+        <Typography sx={{ mt: -2, mb: 3, fontSize: 14, color: byMode('#676b72', DK.sub) }}>
           {noResultsText}
         </Typography>
       )}
@@ -2493,7 +2516,7 @@ const EditOrder = () => {
       {Object.entries(groupedProducts).map(([groupKey, group]) => (
         <Paper key={groupKey} sx={{ mb: 2 }}>
           {/* Group Header */}
-          <Box sx={{ backgroundColor: '#424242', color: 'white', p: 1.5 }}>
+          <Box sx={{ backgroundColor: byMode('#424242', DK.head), color: byMode('white', DK.text), p: 1.5 }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
               {/* A transfer moves stock between outlets: the band names the
                   sending outlet, not whichever supplier the product happens to have. */}
@@ -2529,7 +2552,7 @@ const EditOrder = () => {
                   value={Math.round((Number(value) || 0) * 10000) === 0 ? '' : money4(value, label)}
                   disabled
                   fullWidth
-                  sx={{ ...sfField, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439', ...landedFigureSx }, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0', paddingLeft: '8px' }, '& input': { px: 0.5 } }}
+                  sx={{ ...sfField, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: byMode('#313439', DK.text), ...landedFigureSx }, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: byMode('#e0e0e0', DK.grey), paddingLeft: '8px' }, '& input': { px: 0.5 } }}
                   InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                 />
                 <Typography sx={{ ...sfCaption, whiteSpace: 'nowrap', fontSize: 10 }}>{label}</Typography>
@@ -2543,7 +2566,7 @@ const EditOrder = () => {
             const taxInline = landedApplies && showTaxes;
 
             return (
-              <Box key={product.id} sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+              <Box key={product.id} sx={{ p: 2, borderBottom: byMode('1px solid #e0e0e0', `1px solid ${DK.divider}`) }}>
                 <Grid container spacing={2} alignItems="center">
                   {/* Checkbox - unchecked by default; checking reveals footer bulk actions */}
                   <Grid item xs={12} sm={inline ? 0.4 : 0.5}>
@@ -2584,7 +2607,7 @@ const EditOrder = () => {
                     )}
                     {/* Reference: the line's purchase tax ("GST") under the name */}
                     {landedApplies && productTaxTag(product) ? (
-                      <Typography sx={{ fontSize: 11, color: '#676b72', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography sx={{ fontSize: 11, color: byMode('#676b72', DK.sub), textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         {productTaxTag(product)}
                       </Typography>
                     ) : (
@@ -2596,7 +2619,7 @@ const EditOrder = () => {
 
                   {/* Reference: Case Quantity as its own column (figure + caption) */}
                   <Grid item xs={6} sm={inline ? 0.6 : (taxInline ? 0.7 : 0.8)} sx={{ textAlign: 'center' }}>
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>{product.caseQuantity || 1}</Typography>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', DK.text) }}>{product.caseQuantity || 1}</Typography>
                     <Typography sx={sfCaption}>Case Quantity</Typography>
                   </Grid>
 
@@ -2606,7 +2629,7 @@ const EditOrder = () => {
                   <Grid item xs={12} sm={inline ? 0.9 : 1.3} sx={{ alignSelf: 'flex-start' }}>
                     {/* Label above the box, like "To Order" / "Stock on Hand": the
                         placeholder disappears once the code is pre-filled (QA N03). */}
-                    <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>Supplier Code</Typography>
+                    <Typography sx={{ fontSize: 12, color: byMode('#676b72', DK.sub), mb: 0.5 }}>Supplier Code</Typography>
                     <TextField
                       value={quantities.supplierCode || ''}
                       onChange={(e) => handleSupplierTextChange(product.id, e.target.value)}
@@ -2619,7 +2642,7 @@ const EditOrder = () => {
                   {/* Details View: ordered quantities (disabled gray) */}
                   {detailsView && (
                     <Grid item xs={6} sm={taxInline ? 0.9 : 1.0} sx={{ alignSelf: 'flex-start' }}>
-                      <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>Ordered</Typography>
+                      <Typography sx={{ fontSize: 12, color: byMode('#676b72', DK.sub), mb: 0.5 }}>Ordered</Typography>
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Box sx={{ flex: 1 }}>
                           <TextField value={ordered.cases || 0} disabled fullWidth sx={sfField} />
@@ -2636,7 +2659,7 @@ const EditOrder = () => {
                   {/* To Receive - Cases & Items (captions below, header above) */}
                   <Grid item xs={6} sm={inline ? (taxInline ? 1.0 : 1.2) : (taxInline ? 1.6 : 1.8)} sx={{ alignSelf: 'flex-start' }}>
                     {/* A return sends stock back - nothing is being received */}
-                    <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>
+                    <Typography sx={{ fontSize: 12, color: byMode('#676b72', DK.sub), mb: 0.5 }}>
                       {/* Reference: an open ORDER says "To Order"; once sent (receive
                           surface) and on an invoice it says "To Receive". */}
                       {order?.type === 'RETURN'
@@ -2679,7 +2702,7 @@ const EditOrder = () => {
                       away while the Details View / Show Taxes boxes sit inline. */}
                   {!inline && (
                   <Grid item xs={6} sm={taxInline ? 0.9 : 1}>
-                    <Typography sx={{ fontSize: 12, color: '#676b72', mb: 0.5 }}>Stock on Hand</Typography>
+                    <Typography sx={{ fontSize: 12, color: byMode('#676b72', DK.sub), mb: 0.5 }}>Stock on Hand</Typography>
                     <Typography variant="body2" color="text.secondary">
                       CASES: {product.currentStockCases || 0}
                     </Typography>
@@ -2745,7 +2768,7 @@ const EditOrder = () => {
                   <Grid item xs={6} sm={inline ? 0.5 : 0.8} sx={{ textAlign: 'center' }}>
                     {costChangePct !== 0 && !landedPending && (
                       /* Cost went up: green; cost went down: red. Arrow + % side by side. */
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: costChangePct > 0 ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: costChangePct > 0 ? byMode('#16a34a', DK.green) : byMode('#dc2626', DK.danger), whiteSpace: 'nowrap' }}>
                         <Typography component="span" sx={{ fontSize: 14, lineHeight: 1 }}>
                           {costChangePct > 0 ? '↑' : '↓'}
                         </Typography>
@@ -2759,7 +2782,7 @@ const EditOrder = () => {
 
                 {/* Product Detail View - Inline */}
                 <Collapse in={selectedProductForDetail?.id === product.id} timeout={400} unmountOnExit>
-                  <Box sx={{ mt: 2, pt: 2, borderTop: '2px solid #e0e0e0' }}>
+                  <Box sx={{ mt: 2, pt: 2, borderTop: byMode('2px solid #e0e0e0', `2px solid ${DK.divider}`) }}>
                     <ProductDetailView
                       product={product}
                       quantities={productQuantities[product.id] || null}
@@ -2806,16 +2829,16 @@ const EditOrder = () => {
               onClick={handleRemoveSelected}
               startIcon={<DeleteOutlineIcon />}
               sx={{
-                backgroundColor: '#fff',
-                color: '#dc2626',
-                border: '1px solid #e0e0e0',
+                backgroundColor: byMode('#fff', DK.pane),
+                color: byMode('#dc2626', DK.danger),
+                border: byMode('1px solid #e0e0e0', `1px solid ${DK.border}`),
                 borderRadius: 0,
                 textTransform: 'none',
                 fontSize: 14,
                 fontWeight: 400,
                 px: 2,
                 transition: 'background 0.2s ease, color 0.2s ease',
-                '&:hover': { backgroundColor: '#f8f8f8' },
+                '&:hover': { backgroundColor: byMode('#f8f8f8', '#303030') },
               }}
             >
               Remove Products
@@ -2824,16 +2847,16 @@ const EditOrder = () => {
               onClick={handleAverageCost}
               startIcon={<BalanceOutlinedIcon />}
               sx={{
-                backgroundColor: '#fff',
-                color: '#676b72',
-                border: '1px solid #e0e0e0',
+                backgroundColor: byMode('#fff', DK.pane),
+                color: byMode('#676b72', DK.desc),
+                border: byMode('1px solid #e0e0e0', `1px solid ${DK.border}`),
                 borderRadius: 0,
                 textTransform: 'none',
                 fontSize: 14,
                 fontWeight: 400,
                 px: 2,
                 transition: 'background 0.2s ease, color 0.2s ease',
-                '&:hover': { backgroundColor: '#f8f8f8' },
+                '&:hover': { backgroundColor: byMode('#f8f8f8', '#303030') },
               }}
             >
               Average Cost
@@ -2852,13 +2875,13 @@ const EditOrder = () => {
           {landedApplies && (() => {
             const barInput = (label, value, onChange, extra = {}) => (
               <Grid item xs={6} sm={2.4} key={label}>
-                <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>{label}</Typography>
+                <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), mb: 0.5 }}>{label}</Typography>
                 <TextField
                   type="number"
                   value={value}
                   onChange={(e) => onChange(e.target.value)}
                   fullWidth
-                  sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#fff' } }}
+                  sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: byMode('#fff', DK.input) } }}
                   InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   {...extra}
                 />
@@ -2866,12 +2889,12 @@ const EditOrder = () => {
             );
             const barReadOnly = (label, text) => (
               <Grid item xs={6} sm={2.4} key={label}>
-                <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>{label}</Typography>
+                <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), mb: 0.5 }}>{label}</Typography>
                 <TextField
                   value={text}
                   disabled
                   fullWidth
-                  sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439', ...landedFigureSx } }}
+                  sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: byMode('#e0e0e0', DK.grey) }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: byMode('#313439', DK.text), ...landedFigureSx } }}
                   InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                 />
               </Grid>
@@ -2891,7 +2914,7 @@ const EditOrder = () => {
           })()}
           {/* Cases / Items: same box style as the reference boxes above (label over a grey read-only box) */}
           <Grid item xs={6} sm={landedApplies ? 2.4 : 4}>
-            <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Cases</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), mb: 0.5 }}>Cases</Typography>
             <TextField
               value={selectedProducts.reduce((sum, product) => {
                 const quantities = productQuantities[product.id] || { cases: 0, items: 0 };
@@ -2899,11 +2922,11 @@ const EditOrder = () => {
               }, 0) || ''}
               disabled
               fullWidth
-              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439' } }}
+              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: byMode('#e0e0e0', DK.grey) }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: byMode('#313439', DK.text) } }}
             />
           </Grid>
           <Grid item xs={6} sm={landedApplies ? 2.4 : 4}>
-            <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Items</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), mb: 0.5 }}>Items</Typography>
             <TextField
               value={selectedProducts.reduce((sum, product) => {
                 // Loose items only (reference parity: Cases and Items are independent sums)
@@ -2912,26 +2935,26 @@ const EditOrder = () => {
               }, 0) || ''}
               disabled
               fullWidth
-              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439' } }}
+              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: byMode('#e0e0e0', DK.grey) }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: byMode('#313439', DK.text) } }}
             />
           </Grid>
           {/* Orders / invoices show the Total in the reference box above */}
           {!landedApplies && (
           <Grid item xs={6} sm={4}>
             {/* Same look as Cases / Items: label above a grey read-only box */}
-            <Typography sx={{ fontSize: 14, color: '#000', mb: 0.5 }}>Total</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), mb: 0.5 }}>Total</Typography>
             <TextField
               value={Math.round((Number(displayGrandTotal()) || 0) * 100) === 0 ? '' : formatCurrency(displayGrandTotal()).replace('$', '')}
               disabled
               fullWidth
-              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: '#e0e0e0' }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#313439', ...landedFigureSx } }}
+              sx={{ ...sfField, '& .MuiOutlinedInput-root': { borderRadius: 0, height: 53, backgroundColor: byMode('#e0e0e0', DK.grey) }, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: byMode('#313439', DK.text), ...landedFigureSx } }}
             />
           </Grid>
           )}
           {/* While the new figures are on their way, say so instead of showing the old sum */}
           {landedPending && landedHasAdjustments && (
             <Grid item xs={12}>
-              <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>Updating total…</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), textAlign: 'right' }}>Updating total…</Typography>
             </Grid>
           )}
           {/* Where the total comes from - only when fees/freight/discount/payment fee apply */}
@@ -2939,34 +2962,34 @@ const EditOrder = () => {
             <Grid item xs={12}>
               {/* The breakdown line only says something when fees / freight / tax-on-top apply */}
               {(Math.abs(landed.fees || 0) >= 0.005 || Math.abs(landed.freight || 0) >= 0.005 || (landed.taxAddedOnTop && landed.tax)) && (
-              <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), textAlign: 'right' }}>
                 Products {formatCurrency(landed.subtotal)}
                 {landed.fees ? ` ${landed.fees < 0 ? '−' : '+'} ${landed.fees < 0 ? 'Discount' : 'Fees'} ${formatCurrency(Math.abs(landed.fees))}` : ''}
                 {landed.freight ? ` + Freight ${formatCurrency(landed.freight)}` : ''}
                 {landed.taxAddedOnTop && landed.tax ? ` + Tax ${formatCurrency(landed.tax)}` : ''}
                 {' = '}
-                <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landedInvoiceTotal)}</Box>
+                <Box component="span" sx={{ fontWeight: 700, color: byMode('#000', DK.onSave) }}>{formatCurrency(landedInvoiceTotal)}</Box>
               </Typography>
               )}
               {/* Reference: the purchase rebate lowers the product cost, not the invoice */}
               {Math.abs(landed.discount || 0) >= 0.005 && (
-                <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), textAlign: 'right' }}>
                   Purchase rebate {formatCurrency(landed.discount)} lowers the products&apos; new cost; it is not taken off the Total
                 </Typography>
               )}
               {/* Freight billed by an outside carrier ("Freight is included on supplier
                   invoice" off): not in this order's total, but in the products' cost */}
               {Math.abs(landed.freightOffInvoice || 0) >= 0.005 && (
-                <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), textAlign: 'right' }}>
                   Freight {formatCurrency(landed.freightOffInvoice)} is not on this supplier&apos;s invoice: left out of the Total, added to the product cost
                 </Typography>
               )}
               {/* Payment fee: on top of the invoice, not part of the Total (reference shows it in its own box) */}
               {Math.abs(landed.paymentFees || 0) >= 0.005 && (
-                <Typography sx={{ fontSize: 14, color: '#000', textAlign: 'right' }}>
+                <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onSave), textAlign: 'right' }}>
                   Payment fees {landed.paymentFeePercentage}%: {formatCurrency(landed.paymentFees)}
                   {' · Total when received: '}
-                  <Box component="span" sx={{ fontWeight: 700, color: '#000' }}>{formatCurrency(landed.total)}</Box>
+                  <Box component="span" sx={{ fontWeight: 700, color: byMode('#000', DK.onSave) }}>{formatCurrency(landed.total)}</Box>
                 </Typography>
               )}
             </Grid>
@@ -2987,12 +3010,12 @@ const EditOrder = () => {
                 '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#1976d2' },
               }}
             />
-            <Typography sx={{ fontSize: 14, color: '#000', whiteSpace: 'nowrap' }}>Details View</Typography>
+            <Typography sx={{ fontSize: 14, color: byMode('#000', DK.onBlue), whiteSpace: 'nowrap' }}>Details View</Typography>
           </Box>
           {landedApplies && (
             <Button
               onClick={() => setShowTaxes((v) => !v)}
-              sx={{ backgroundColor: '#f8f8f8', color: '#313439', borderRadius: 0, textTransform: 'none', fontSize: 16, fontWeight: 400, px: 2, height: 53, boxShadow: 'none', '&:hover': { backgroundColor: '#fff', boxShadow: 'none' } }}
+              sx={{ backgroundColor: byMode('#f8f8f8', DK.pane), color: byMode('#313439', DK.text), borderRadius: 0, textTransform: 'none', fontSize: 16, fontWeight: 400, px: 2, height: 53, boxShadow: 'none', '&:hover': { backgroundColor: byMode('#fff', '#303030'), boxShadow: 'none' } }}
             >
               {showTaxes ? 'Hide Taxes' : 'Show Taxes'}
             </Button>
@@ -3033,7 +3056,7 @@ const EditOrder = () => {
             startIcon={<ReceiveIcon />}
             onClick={handleSaveAndReceive}
             disabled={saving || !linesLoaded}
-            sx={{ ...parityBtn, backgroundColor: '#16a34a', '&:hover': { backgroundColor: '#15803d', boxShadow: 'none' } }}
+            sx={{ ...parityBtn, backgroundColor: byMode('#16a34a', DK.green), '&:hover': { backgroundColor: byMode('#15803d', '#6cc979'), boxShadow: 'none' } }}
           >
             {saving ? 'Processing...' : 'Save & Receive'}
           </Button>
@@ -3059,7 +3082,7 @@ const EditOrder = () => {
               height: 64,
               borderRadius: '50%',
               backgroundColor: '#5ebbeb',
-              color: '#f8f8f8',
+              color: byMode('#f8f8f8', DK.onSave),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -3097,9 +3120,9 @@ const EditOrder = () => {
             return entries.length > 0 ? (
               <Box sx={{ maxHeight: 320, overflowY: 'auto', mb: 3, textAlign: 'left' }}>
                 {entries.map((entry) => (
-                  <Box key={entry.key} sx={{ py: 1, borderBottom: '1px solid #e0e0e0' }}>
+                  <Box key={entry.key} sx={{ py: 1, borderBottom: byMode('1px solid #e0e0e0', `1px solid ${DK.divider}`) }}>
                     <Typography sx={{ fontSize: 14, fontWeight: 700 }}>{entry.title}</Typography>
-                    <Typography sx={{ fontSize: 12, color: '#676b72' }}>
+                    <Typography sx={{ fontSize: 12, color: byMode('#676b72', DK.sub) }}>
                       {formatAppDateTime(entry.at)}
                     </Typography>
                     {entry.text && (
@@ -3110,7 +3133,7 @@ const EditOrder = () => {
               </Box>
             ) : null;
           })() || (
-            <Typography sx={{ textAlign: 'center', color: '#676b72', fontSize: 14, mb: 3 }}>
+            <Typography sx={{ textAlign: 'center', color: byMode('#676b72', DK.sub), fontSize: 14, mb: 3 }}>
               There are no review comments for this order.
             </Typography>
           )}
@@ -3141,7 +3164,7 @@ const EditOrder = () => {
               height: 64,
               borderRadius: '50%',
               backgroundColor: '#5ebbeb',
-              color: '#f8f8f8',
+              color: byMode('#f8f8f8', DK.onSave),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -3168,6 +3191,7 @@ const EditOrder = () => {
                   onChange={(e) => setEditFormData(prev => ({ ...prev, from: e.target.value }))}
                   disabled={!supplierEditable}
                   sx={sfField}
+                  SelectProps={{ MenuProps: { PaperProps: { sx: darkMenuPaperSx } } }}
                 >
                   {editFromOptions.map((o) => (
                     <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
@@ -3207,7 +3231,7 @@ const EditOrder = () => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <OrderIcon sx={{ color: '#666', mr: 1 }} />
+                        <OrderIcon sx={{ color: byMode('#666', DK.muted), mr: 1 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -3288,7 +3312,7 @@ const EditOrder = () => {
             <Button
               onClick={handleSaveEditDetails}
               disabled={saving || !linesLoaded}
-              startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
+              startIcon={saving ? <CircularProgress size={16} sx={{ color: byMode('#fff', DK.onSave) }} /> : <SaveIcon />}
               sx={sfDialogSave}
             >
               {saving ? 'Saving...' : 'Save'}

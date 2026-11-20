@@ -67,13 +67,14 @@ import outletService from '../../services/outletService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import DateTimeField from '../../components/Common/DateTimeField';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
 
 const PRIMARY_BUTTON_SX = {
   bgcolor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   textTransform: 'none',
   boxShadow: 'none',
   borderRadius: '12px',
@@ -98,7 +99,7 @@ const rowActionSx = (color) => ({
   minWidth: 0,
   px: 1.5,
   transition: INSTANT,
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') }
 });
 
 // Bulk-bar pill (reference): white bold text on a coloured pill, colour per button.
@@ -113,7 +114,7 @@ const BULK_BUTTON_SX = {
   transition: INSTANT
 };
 
-const FILTER_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' };
+const FILTER_LABEL_SX = { mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode('#000', '#f8f8f8') };
 
 const EXPRESS_TYPES = ['Price Override', 'Discount Percentage', 'Discount Amount'];
 const viewPath = (p) =>
@@ -152,9 +153,9 @@ const SquareCheckButton = ({ checked, onClick, light, label }) => (
       borderRadius: '4px',
       bgcolor: 'transparent',
       cursor: 'pointer',
-      color: light ? '#fff' : '#000',
+      color: light ? '#fff' : byMode('#000', '#f8f8f8'),
       transition: INSTANT,
-      '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' }
+      '&:hover': { bgcolor: byMode('rgba(0,0,0,0.1)', 'rgba(255,255,255,0.1)') }
     }}
   >
     {checked ? <SquareCheckedIcon sx={{ fontSize: 20 }} /> : <SquareIcon sx={{ fontSize: 20 }} />}
@@ -167,7 +168,7 @@ const PANEL_MESSAGE_SX = {
   height: 56,
   p: 2,
   fontSize: 16,
-  color: '#0a0a0a'
+  color: byMode('#0a0a0a', '#f8f8f8')
 };
 
 /**
@@ -218,19 +219,19 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
           textAlign: 'left',
           fontFamily: 'inherit',
           fontSize: 16,
-          color: isSel ? '#0084d1' : '#0a0a0a',
+          color: isSel ? byMode('#0084d1', '#00a6f4') : byMode('#0a0a0a', '#f8f8f8'),
           transition: INSTANT,
-          '&:hover': { bgcolor: '#74d4ff' }
+          '&:hover': { bgcolor: byMode('#74d4ff', '#0084d1'), color: byMode(undefined, '#fafafa'), '& .MuiSvgIcon-root, & span span': { color: byMode(undefined, '#fafafa') } }
         }}
       >
         {isSel ? (
-          <SquareCheckedIcon sx={{ fontSize: 20, color: '#0084d1' }} />
+          <SquareCheckedIcon sx={{ fontSize: 20, color: byMode('#0084d1', '#00a6f4') }} />
         ) : (
-          <SquareIcon sx={{ fontSize: 20, color: '#0a0a0a' }} />
+          <SquareIcon sx={{ fontSize: 20, color: byMode('#0a0a0a', '#f8f8f8') }} />
         )}
         <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {o.name}
-          {o.isActive === false && <Box component="span" sx={{ color: '#737373' }}>{' - Inactive'}</Box>}
+          {o.isActive === false && <Box component="span" sx={{ color: byMode('#737373', '#a0a4aa') }}>{' - Inactive'}</Box>}
         </Box>
       </Box>
     );
@@ -247,9 +248,9 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
             alignItems: 'center',
             gap: 0.5,
             height: 42,
-            border: '1px solid #404040',
+            border: byMode('1px solid #404040', '1px solid #a1a1a1'),
             borderRadius: '8px',
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#121212'),
             pl: 1,
             pr: 0.5,
             cursor: 'text',
@@ -264,7 +265,7 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
                 flexShrink: 1,
                 minWidth: 0,
                 fontSize: 16,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap'
@@ -274,7 +275,7 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
                   more collapse to one "N Selected..." chip (full list in the tooltip). */}
               <Box component="span" title={selectedOptions.map((o) => o.name).join(', ')} sx={{ display: 'inline-flex', gap: 0.5 }}>
                 {(selectedOptions.length > 2 ? [`${selectedOptions.length} Selected...`] : selectedOptions.map((o) => o.name)).map((label) => (
-                  <Box key={label} component="span" sx={{ px: 1, py: '2px', fontSize: 14, bgcolor: '#e5e5e5', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                  <Box key={label} component="span" sx={{ px: 1, py: '2px', fontSize: 14, bgcolor: byMode('#e5e5e5', '#3a3a3a'), borderRadius: '4px', whiteSpace: 'nowrap' }}>
                     {label}
                   </Box>
                 ))}
@@ -310,8 +311,8 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
               bgcolor: 'transparent',
               fontFamily: 'inherit',
               fontSize: 16,
-              color: '#000',
-              '&::placeholder': { color: '#808080', opacity: 1 }
+              color: byMode('#000', '#f8f8f8'),
+              '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 }
             }}
           />
           {selected.length > 0 && (
@@ -335,10 +336,10 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
                 border: 0,
                 borderRadius: '8px',
                 bgcolor: 'transparent',
-                color: 'rgb(0,0,0)',
+                color: byMode('rgb(0,0,0)', '#f8f8f8'),
                 cursor: 'pointer',
                 transition: INSTANT,
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
+                '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') }
               }}
             >
               <CloseIcon sx={{ fontSize: 16 }} />
@@ -347,7 +348,7 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
           <ArrowDropDownIcon
             sx={{
               flexShrink: 0,
-              color: '#404040',
+              color: byMode('#404040', '#a1a1a1'),
               transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 150ms cubic-bezier(0.4, 0, 0.2, 1)'
             }}
@@ -364,8 +365,8 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
           <Box
             sx={{
               width: anchorRef.current ? anchorRef.current.offsetWidth : 'auto',
-              bgcolor: '#fff',
-              border: '1px solid #000000',
+              bgcolor: byMode('#fff', '#232323'),
+              border: byMode('1px solid #000000', '1px solid #a1a1a1'),
               borderRadius: '8px',
               maxHeight: 288,
               overflow: 'auto',
@@ -381,7 +382,7 @@ const TypeaheadFilter = ({ value, onChange, options = [], requireQuery = false }
                 {selectedOptions.length > 0 && (
                   <>
                     {selectedOptions.map((o) => optionRow(o, `pinned-${o.id}`))}
-                    <Box sx={{ height: '1px', bgcolor: '#e5e5e5' }} />
+                    <Box sx={{ height: '1px', bgcolor: byMode('#e5e5e5', '#373737') }} />
                   </>
                 )}
                 {filtered.map((o) => optionRow(o, o.id))}
@@ -425,11 +426,11 @@ const MonthGrid = ({ month, start, end, onPick, onTitleClick }) => {
           fontFamily: 'inherit',
           fontSize: 18,
           fontWeight: 700,
-          color: '#525252',
+          color: byMode('#525252', '#d4d4d4'),
           mb: 1,
           transition: INSTANT,
           borderRadius: '12px',
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
+          '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') }
         }}
       >
         {format(month, 'MMMM yyyy')}
@@ -445,7 +446,7 @@ const MonthGrid = ({ month, start, end, onPick, onTitleClick }) => {
               justifyContent: 'center',
               fontSize: 14,
               fontWeight: 400,
-              color: d.weekend ? '#737373' : '#262626'
+              color: d.weekend ? byMode('#737373', '#a0a4aa') : byMode('#262626', '#d4d4d4')
             }}
           >
             {d.label}
@@ -477,9 +478,9 @@ const MonthGrid = ({ month, start, end, onPick, onTitleClick }) => {
                 fontWeight: 700,
                 fontSize: 16,
                 transition: INSTANT,
-                bgcolor: isEdge ? '#5ebbeb' : inRange ? 'rgba(94,187,235,0.2)' : 'transparent',
-                color: isEdge ? '#f8f8f8' : outside ? '#a1a1a1' : '#0084d1',
-                '&:hover': { bgcolor: isEdge ? '#5ebbeb' : 'rgba(0,0,0,0.05)' }
+                bgcolor: isEdge ? '#5ebbeb' : inRange ? byMode('rgba(94,187,235,0.2)', '#1f3a4a') : 'transparent',
+                color: isEdge ? byMode('#f8f8f8', '#232323') : outside ? byMode('#a1a1a1', '#5e5e5e') : byMode('#0084d1', '#74d4ff'),
+                '&:hover': { bgcolor: isEdge ? '#5ebbeb' : byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') }
               }}
             >
               {format(day, 'd')}
@@ -540,13 +541,13 @@ const DateRangeFilter = ({ start, end, onChange }) => {
   const dateInputSx = {
     width: 147,
     height: 36,
-    bgcolor: '#fff',
-    border: '1px solid #e5e5e5',
+    bgcolor: byMode('#fff', '#121212'),
+    border: byMode('1px solid #e5e5e5', '1px solid #a1a1a1'),
     borderRadius: '8px',
     px: 1,
     fontFamily: 'inherit',
     fontSize: 12,
-    color: '#404040',
+    color: byMode('#404040', '#f8f8f8'),
     outline: 'none'
   };
 
@@ -560,9 +561,9 @@ const DateRangeFilter = ({ start, end, onChange }) => {
             display: 'flex',
             alignItems: 'center',
             height: 43,
-            border: '1px solid #404040',
+            border: byMode('1px solid #404040', '1px solid #a1a1a1'),
             borderRadius: '8px',
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#121212'),
             px: 1
           }}
         >
@@ -580,7 +581,7 @@ const DateRangeFilter = ({ start, end, onChange }) => {
               textAlign: 'left',
               fontFamily: 'inherit',
               fontSize: 16,
-              color: start ? '#000' : '#808080',
+              color: start ? byMode('#000', '#f8f8f8') : byMode('#808080', '#757575'),
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -589,7 +590,7 @@ const DateRangeFilter = ({ start, end, onChange }) => {
           >
             {startDate ? format(startDate, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
           </Box>
-          <RemoveIcon sx={{ color: '#737373', fontSize: 18, mx: 1.5, flexShrink: 0 }} />
+          <RemoveIcon sx={{ color: byMode('#737373', '#a0a4aa'), fontSize: 18, mx: 1.5, flexShrink: 0 }} />
           <Box
             component="button"
             type="button"
@@ -604,7 +605,7 @@ const DateRangeFilter = ({ start, end, onChange }) => {
               textAlign: 'left',
               fontFamily: 'inherit',
               fontSize: 16,
-              color: end ? '#000' : '#808080',
+              color: end ? byMode('#000', '#f8f8f8') : byMode('#808080', '#757575'),
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -619,7 +620,7 @@ const DateRangeFilter = ({ start, end, onChange }) => {
               type="button"
               aria-label="Clear date range"
               onClick={(e) => { e.stopPropagation(); onChange('', ''); }}
-              sx={{ border: 0, bgcolor: 'transparent', cursor: 'pointer', p: 0.5, display: 'flex', alignItems: 'center', color: '#737373', flexShrink: 0, '&:hover': { color: '#000' } }}
+              sx={{ border: 0, bgcolor: 'transparent', cursor: 'pointer', p: 0.5, display: 'flex', alignItems: 'center', color: byMode('#737373', '#a0a4aa'), flexShrink: 0, '&:hover': { color: byMode('#000', '#f8f8f8') } }}
             >
               <CloseIcon sx={{ fontSize: 16 }} />
             </Box>
@@ -636,8 +637,8 @@ const DateRangeFilter = ({ start, end, onChange }) => {
           <Box
             sx={{
               width: 622,
-              bgcolor: '#f5f5f5',
-              border: '1px solid #e5e5e5',
+              bgcolor: byMode('#f5f5f5', '#232323'),
+              border: byMode('1px solid #e5e5e5', '1px solid #373737'),
               borderRadius: '12px',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
               p: 2,
@@ -653,7 +654,7 @@ const DateRangeFilter = ({ start, end, onChange }) => {
                 onChange={(e) => onChange(e.target.value, end)}
                 sx={dateInputSx}
               />
-              <Typography sx={{ color: '#525252', fontSize: 14 }}>—</Typography>
+              <Typography sx={{ color: byMode('#525252', '#d4d4d4'), fontSize: 14 }}>—</Typography>
               <Box
                 component="input"
                 type="date"
@@ -675,10 +676,10 @@ const DateRangeFilter = ({ start, end, onChange }) => {
                   border: 0,
                   borderRadius: '12px',
                   bgcolor: 'transparent',
-                  color: '#0084d1',
+                  color: byMode('#0084d1', '#74d4ff'),
                   cursor: 'pointer',
                   transition: INSTANT,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
+                  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') }
                 }}
               >
                 <CalendarIcon sx={{ fontSize: 18 }} />
@@ -694,13 +695,13 @@ const DateRangeFilter = ({ start, end, onChange }) => {
                   border: 0,
                   borderRadius: '12px',
                   bgcolor: 'transparent',
-                  color: '#525252',
+                  color: byMode('#525252', '#d4d4d4'),
                   fontFamily: 'inherit',
                   fontSize: 16,
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: INSTANT,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
+                  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') }
                 }}
               >
                 Current Day
@@ -722,10 +723,10 @@ const DateRangeFilter = ({ start, end, onChange }) => {
                   border: 0,
                   borderRadius: '12px',
                   bgcolor: 'transparent',
-                  color: '#0084d1',
+                  color: byMode('#0084d1', '#74d4ff'),
                   cursor: 'pointer',
                   transition: INSTANT,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
+                  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') }
                 }}
               >
                 <ChevronLeftIcon />
@@ -758,10 +759,10 @@ const DateRangeFilter = ({ start, end, onChange }) => {
                   border: 0,
                   borderRadius: '12px',
                   bgcolor: 'transparent',
-                  color: '#0084d1',
+                  color: byMode('#0084d1', '#74d4ff'),
                   cursor: 'pointer',
                   transition: INSTANT,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
+                  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') }
                 }}
               >
                 <ChevronRightIcon />
@@ -1076,20 +1077,21 @@ const Promotions = () => {
           InputProps={{
             endAdornment: loading ? (
               <InputAdornment position="end">
-                <CircularProgress size={18} sx={{ color: '#737373' }} />
+                <CircularProgress size={18} sx={{ color: byMode('#737373', '#a0a4aa') }} />
               </InputAdornment>
             ) : null
           }}
           sx={{
             mb: 2.5,
-            backgroundColor: 'white',
+            backgroundColor: byMode('white', '#121212'),
             '& .MuiOutlinedInput-root': {
               height: 42,
               borderRadius: 2,
               fontSize: 16,
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' }
+              color: byMode(undefined, '#f8f8f8'),
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' }
             },
             '& .MuiOutlinedInput-input': { padding: '9px 16px' }
           }}
@@ -1110,7 +1112,7 @@ const Promotions = () => {
                   '& .MuiSwitch-switchBase.Mui-focusVisible .MuiSwitch-thumb': { outline: '2px solid #38bdf8', outlineOffset: '2px' }
                 }}
               />
-              <Typography sx={{ fontSize: 14, color: '#404040' }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#404040', '#d4d4d4') }}>
                 {showInactive ? 'Showing inactive promotions' : 'Inactive promotions are hidden'}
               </Typography>
             </Box>
@@ -1217,8 +1219,8 @@ const Promotions = () => {
 
       {loading ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, py: 10 }}>
-          <CircularProgress size={22} sx={{ color: '#737373' }} />
-          <Typography sx={{ fontSize: 16, color: '#737373' }}>Loading results...</Typography>
+          <CircularProgress size={22} sx={{ color: byMode('#737373', '#a0a4aa') }} />
+          <Typography sx={{ fontSize: 16, color: byMode('#737373', '#a0a4aa') }}>Loading results...</Typography>
         </Box>
       ) : filteredPromotions.length === 0 ? (
         // reference: nothing matched = no table, just the centred message
@@ -1229,14 +1231,14 @@ const Promotions = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('white', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   // rounded-t-xl: only the top corners are rounded, the bottom edge is
                   // square against the first row.
                   '& th:first-of-type': { borderTopLeftRadius: '12px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px' }
                 }}
               >
-                <TableCell padding="checkbox" sx={{ pl: '20px', width: '3.2%' }}>
+                <TableCell padding="checkbox" sx={{ pl: '20px', width: '3.2%', '& button': { color: byMode('#fff', '#5ebbeb') } }}>
                   <SquareCheckButton checked={allSelected} onClick={toggleAll} light label="Select all promotions" />
                 </TableCell>
                 <TableCell sx={{ width: '20%' }}>Promotion</TableCell>
@@ -1250,9 +1252,9 @@ const Promotions = () => {
             </TableHead>
             <TableBody
               sx={{
-                '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-                '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 }
+                '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+                '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#2a2a2a') },
+                '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5 }
               }}
             >
               {filteredPromotions.length === 0 ? (
@@ -1281,18 +1283,18 @@ const Promotions = () => {
                           e.preventDefault();
                           navigate(viewPath(promotion));
                         }}
-                        sx={{ display: 'block', fontSize: 16, color: '#000', textDecoration: 'none' }}
+                        sx={{ display: 'block', fontSize: 16, color: byMode('#000', '#f8f8f8'), textDecoration: 'none' }}
                       >
                         {/* Fallback for legacy rows saved before POST required a name —
                             an empty anchor is invisible and unclickable-looking. */}
                         {promotion.name || 'Untitled Promotion'}
                         {promotion.isActive === false && (
-                          <Box component="span" sx={{ color: '#737373' }}>
+                          <Box component="span" sx={{ color: byMode('#737373', '#a0a4aa') }}>
                             {' - Inactive'}
                           </Box>
                         )}
                       </Box>
-                      <Typography sx={{ fontSize: 16, color: '#000' }}>
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                         {promotion.category?.name || 'No Category'}
                       </Typography>
                     </TableCell>
@@ -1309,10 +1311,10 @@ const Promotions = () => {
                             px: 1,
                             py: '2px',
                             fontSize: 12,
-                            color: '#000',
-                            border: '1px solid #d4d4d4',
+                            color: byMode('#000', '#f8f8f8'),
+                            border: byMode('1px solid #d4d4d4', '1px solid #a1a1a1'),
                             borderRadius: '4px',
-                            bgcolor: '#fff'
+                            bgcolor: byMode('#fff', '#3a3a3a')
                           }}
                         >
                           {promotion.outlet.name}
@@ -1325,7 +1327,7 @@ const Promotions = () => {
                           disableRipple
                           startIcon={<ViewIcon />}
                           component={RouterLink} to={viewPath(promotion)}
-                          sx={rowActionSx('#0084d1')}
+                          sx={rowActionSx(byMode('#0084d1', '#74d4ff'))}
                         >
                           View
                         </Button>
@@ -1333,7 +1335,7 @@ const Promotions = () => {
                           disableRipple
                           startIcon={<EditIcon />}
                           component={RouterLink} to={editPath(promotion)}
-                          sx={rowActionSx('#00a63e')}
+                          sx={rowActionSx(byMode('#00a63e', '#7bf1a8'))}
                         >
                           Edit
                         </Button>
@@ -1344,7 +1346,7 @@ const Promotions = () => {
                             setPromotionToDelete(promotion);
                             setDeleteDialogOpen(true);
                           }}
-                          sx={rowActionSx('#e7000b')}
+                          sx={rowActionSx(byMode('#e7000b', '#ffa2a2'))}
                         >
                           Delete
                         </Button>
@@ -1432,9 +1434,9 @@ const Promotions = () => {
       >
         {/* Reference (04/11/2026): light-blue header with a "?" and a bold title,
             two DD/MM/YYYY HH:mm:ss date-time fields, grey Cancel / sky Confirm pills. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, py: 1.75, bgcolor: '#bfe3f7', borderRadius: '8px 8px 0 0' }}>
-          <Typography sx={{ color: '#2f8fe0', fontWeight: 700, fontSize: 20, lineHeight: 1 }}>?</Typography>
-          <Typography sx={{ fontWeight: 700, fontSize: 18, color: '#1d5f8c' }}>Bulk Change Date</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, py: 1.75, bgcolor: byMode('#bfe3f7', '#0c3a55'), borderRadius: '8px 8px 0 0' }}>
+          <Typography sx={{ color: byMode('#2f8fe0', '#74d4ff'), fontWeight: 700, fontSize: 20, lineHeight: 1 }}>?</Typography>
+          <Typography sx={{ fontWeight: 700, fontSize: 18, color: byMode('#1d5f8c', '#74d4ff') }}>Bulk Change Date</Typography>
         </Box>
         <DialogContent sx={{ px: 2, pt: 2.5, pb: 1, overflow: 'visible' }}>
           <Typography variant="body2" sx={FILTER_LABEL_SX}>
@@ -1451,7 +1453,7 @@ const Promotions = () => {
             disableRipple
             disableElevation
             onClick={() => setBulkDatesOpen(false)}
-            sx={{ ...BULK_BUTTON_SX, bgcolor: '#d4d4d4', color: '#000', '&:hover': { bgcolor: '#c4c4c4' } }}
+            sx={{ ...BULK_BUTTON_SX, bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), '&:hover': { bgcolor: byMode('#c4c4c4', '#4a4a4a') } }}
           >
             Cancel
           </Button>

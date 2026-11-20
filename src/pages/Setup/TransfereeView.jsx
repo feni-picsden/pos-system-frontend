@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import transfereeService from '../../services/transfereeService';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -77,7 +78,7 @@ const TransfereeView = () => {
     <Box sx={{ p: 3 }}>
       <Typography
         component="h1"
-        sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 2 }}
+        sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}
       >
         {transferee?.name || 'Transferee'}
       </Typography>
@@ -98,9 +99,9 @@ const TransfereeView = () => {
             sx={{
               borderCollapse: 'collapse',
               '& th, & td': {
-                border: '1px solid #000',
+                border: byMode('1px solid #000', '1px solid #a1a1a1'),
                 fontSize: 16,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 p: '8px 8px',
                 height: 36,
               },
@@ -119,7 +120,7 @@ const TransfereeView = () => {
             <TableBody>
               {transfers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} sx={{ color: '#555', textAlign: 'center' }}>
+                  <TableCell colSpan={5} sx={{ color: byMode('#555', '#d4d4d4'), textAlign: 'center' }}>
                     No transfers have been made to this transferee yet.
                   </TableCell>
                 </TableRow>
@@ -134,7 +135,7 @@ const TransfereeView = () => {
                 </TableRow>
               ))}
               <TableRow>
-                <TableCell colSpan={4} sx={{ textAlign: 'right', border: 0, borderRight: '1px solid #000' }}>
+                <TableCell colSpan={4} sx={{ textAlign: 'right', border: 0, borderRight: byMode('1px solid #000', '1px solid #a1a1a1') }}>
                   Total
                 </TableCell>
                 <TableCell>{money(totalCost)}</TableCell>

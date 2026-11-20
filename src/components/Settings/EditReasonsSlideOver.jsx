@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Button, IconButton, TextField, Typography } from '@mui/material';
 import { Add as AddIcon, DeleteOutlined } from '@mui/icons-material';
 import SettingsSlideOver from './SettingsSlideOver';
+import { byMode } from '../../theme/sfPalette';
 
 // "Edit Predefined Reasons" panel for the Setup > General reason-list fields.
 // Reference chrome: 768px right slide-over, no X close - exactly three buttons
@@ -9,8 +10,8 @@ import SettingsSlideOver from './SettingsSlideOver';
 // hands the cleaned list back to the page (blob lists are saved by the
 // floating Save, cash in/out lists PUT immediately).
 const FIELD_SX = {
-  '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px' },
-  '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #404040' }
+  '& .MuiOutlinedInput-root': { height: 42, borderRadius: '8px', backgroundColor: byMode(undefined, '#121212') },
+  '& .MuiOutlinedInput-notchedOutline': { border: byMode('1px solid #404040', '1px solid #a1a1a1') }
 };
 
 const EditReasonsSlideOver = ({ open, noun, reasons, onCancel, onUpdate }) => {
@@ -25,15 +26,15 @@ const EditReasonsSlideOver = ({ open, noun, reasons, onCancel, onUpdate }) => {
   return (
     <SettingsSlideOver open={open} wide header={false} onClose={onCancel}>
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 4 }}>
-        <Typography sx={{ fontSize: 24, fontWeight: 400, color: '#000' }}>
+        <Typography sx={{ fontSize: 24, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
           Edit Predefined Reasons
         </Typography>
-        <Typography sx={{ fontSize: 16, color: '#000', mt: 2 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mt: 2 }}>
           You can modify the predefined {noun} reasons here, this won't affect any reasons
           already provided and users will still be able to select <em>Other</em> and provide a
           custom reason.
         </Typography>
-        <Typography sx={{ fontSize: 16, color: '#000', mt: 1 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mt: 1 }}>
           If no reasons are provided, a user will always need to type in the reason.
         </Typography>
         <Button
@@ -43,8 +44,8 @@ const EditReasonsSlideOver = ({ open, noun, reasons, onCancel, onUpdate }) => {
           sx={{
             mt: 3, height: 42, borderRadius: '12px', textTransform: 'none',
             fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
-            backgroundColor: '#32b643', color: '#fff', boxShadow: 'none',
-            '&:hover': { backgroundColor: '#6dd77b', boxShadow: 'none' }
+            backgroundColor: byMode('#32b643', '#7bf1a8'), color: byMode('#fff', '#232323'), boxShadow: 'none',
+            '&:hover': { backgroundColor: byMode('#6dd77b', '#b9f8cf'), boxShadow: 'none' }
           }}
         >
           Add Reason
@@ -74,8 +75,8 @@ const EditReasonsSlideOver = ({ open, noun, reasons, onCancel, onUpdate }) => {
             sx={{
               flex: 1, height: 42, borderRadius: '12px', textTransform: 'none',
               fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
-              backgroundColor: '#dedede', color: '#000',
-              '&:hover': { backgroundColor: '#cfcfcf' }
+              backgroundColor: byMode('#dedede', '#3a3a3a'), color: byMode('#000', '#f8f8f8'),
+              '&:hover': { backgroundColor: byMode('#cfcfcf', '#4a4a4a') }
             }}
           >
             Cancel
@@ -85,7 +86,7 @@ const EditReasonsSlideOver = ({ open, noun, reasons, onCancel, onUpdate }) => {
             sx={{
               flex: 1, height: 42, borderRadius: '12px', textTransform: 'none',
               fontSize: 16, fontWeight: 700, letterSpacing: '0.025em',
-              backgroundColor: '#5ebbeb', color: '#fff', boxShadow: 'none',
+              backgroundColor: '#5ebbeb', color: byMode('#fff', '#232323'), boxShadow: 'none',
               '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' }
             }}
           >

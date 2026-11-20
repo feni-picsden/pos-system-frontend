@@ -34,6 +34,7 @@ import usePageCache from '../../hooks/usePageCache';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference (live Shopfront, 30/10/2026): "Gift Cards" title with Import (blue)
 // and Export (outlined) beside it, Search box, Outlet + Status filters on one
@@ -42,13 +43,14 @@ import useHeaderScope from '../../hooks/useHeaderScope';
 const STATUS_OPTIONS = ['Current', 'Expired', 'Redeemed'];
 
 const fieldSx = {
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
+  color: byMode(undefined, '#f8f8f8'),
   fontSize: 16,
-  '& .MuiOutlinedInput-root, &.MuiOutlinedInput-root': { height: 42, borderRadius: '8px', fontSize: 16 },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline, & .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-  '& .MuiSelect-icon': { color: '#404040' },
+  '& .MuiOutlinedInput-root, &.MuiOutlinedInput-root': { height: 42, borderRadius: '8px', fontSize: 16, color: byMode(undefined, '#f8f8f8') },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline, & .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+  '& .MuiSelect-icon': { color: byMode('#404040', '#a1a1a1') },
 };
 
 // Reference dropdown: white rounded panel, hovered row blue, selected row blue text.
@@ -57,16 +59,17 @@ const menuProps = {
     sx: {
       mt: 0.5,
       borderRadius: '8px',
-      border: '1px solid #000',
+      border: byMode('1px solid #000', '1px solid #a1a1a1'),
+      bgcolor: byMode(undefined, '#232323'),
       boxShadow: 'none',
-      '& .MuiMenuItem-root': { fontSize: 16, color: '#000', py: 1.75, gap: 1.5, '&:hover': { bgcolor: '#5ebbeb' } },
-      '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: '#1c9cf0' },
-      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: '#5ebbeb', color: '#000' },
+      '& .MuiMenuItem-root': { fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.75, gap: 1.5, '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') } },
+      '& .MuiMenuItem-root.Mui-selected': { bgcolor: 'transparent', color: byMode('#1c9cf0', '#00a6f4') },
+      '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode('#000', '#fafafa') },
     },
   },
 };
 
-const labelSx = { fontSize: 16, color: '#000', mb: 0.5, display: 'block' };
+const labelSx = { fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5, display: 'block' };
 
 const headerButtonSx = {
   height: 42,
@@ -209,18 +212,18 @@ const GiftCards = () => {
   };
 
   return (
-    <Box sx={{ p: 2, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
+    <Box sx={{ p: 2, bgcolor: byMode('#f5f5f5', '#121212'), minHeight: '100vh' }}>
       {/* Title + Import / Export on one row, Results on the right (reference) */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', m: 0, lineHeight: 1.2, mr: 2 }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), m: 0, lineHeight: 1.2, mr: 2 }}>
             Gift Cards
           </Typography>
           <Button
             disableRipple
             onClick={handleImport}
             startIcon={<ImportIcon sx={{ fontSize: 18 }} />}
-            sx={{ ...headerButtonSx, bgcolor: '#5ebbeb', color: '#fff', border: '1px solid #5ebbeb', '&:hover': { bgcolor: '#fff', color: '#5ebbeb' } }}
+            sx={{ ...headerButtonSx, bgcolor: '#5ebbeb', color: byMode('#fff', '#232323'), border: '1px solid #5ebbeb', '&:hover': { bgcolor: byMode('#fff', '#232323'), color: '#5ebbeb' } }}
           >
             Import Gift Cards
           </Button>
@@ -228,16 +231,16 @@ const GiftCards = () => {
             disableRipple
             onClick={handleExport}
             startIcon={<ExportIcon sx={{ fontSize: 18 }} />}
-            sx={{ ...headerButtonSx, bgcolor: '#fff', color: '#404040', border: '1px solid #9e9e9e', '&:hover': { bgcolor: '#f0f0f0' } }}
+            sx={{ ...headerButtonSx, bgcolor: byMode('#fff', 'transparent'), color: byMode('#404040', '#d4d4d4'), border: byMode('1px solid #9e9e9e', '1px solid #a1a1a1'), '&:hover': { bgcolor: byMode('#f0f0f0', '#333333') } }}
           >
             Export Gift Cards
           </Button>
         </Box>
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: '19.2px', fontWeight: 400, color: '#000', lineHeight: 1.2 }}>
+          <Typography sx={{ fontSize: '19.2px', fontWeight: 400, color: byMode('#000', '#f8f8f8'), lineHeight: 1.2 }}>
             {filteredGiftCards.length}
           </Typography>
-          <Typography sx={{ fontSize: 16, fontWeight: 400, color: '#000' }}>Results</Typography>
+          <Typography sx={{ fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>Results</Typography>
         </Box>
       </Box>
 
@@ -253,7 +256,7 @@ const GiftCards = () => {
           InputProps={{
             endAdornment: searchTerm ? (
               <InputAdornment position="end">
-                <IconButton aria-label="Clear search" onClick={() => setSearchTerm('')} sx={{ width: 25, height: 24, p: 0, color: '#404040', borderRadius: 0, '&:hover': { bgcolor: 'transparent' } }}>
+                <IconButton aria-label="Clear search" onClick={() => setSearchTerm('')} sx={{ width: 25, height: 24, p: 0, color: byMode('#404040', '#a1a1a1'), borderRadius: 0, '&:hover': { bgcolor: 'transparent' } }}>
                   <CloseIcon sx={{ fontSize: 20 }} />
                 </IconButton>
               </InputAdornment>
@@ -281,7 +284,7 @@ const GiftCards = () => {
                 renderValue={(value) =>
                   value
                     ? outletOptions.find((o) => o.id.toString() === value)?.name || ''
-                    : <span style={{ color: '#808080' }}>Select...</span>
+                    : <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>Select...</Box>
                 }
                 MenuProps={menuProps}
                 sx={fieldSx}
@@ -306,11 +309,11 @@ const GiftCards = () => {
               IconComponent={ArrowDropDownIcon}
               renderValue={(selected) =>
                 selected.length === 0
-                  ? <span style={{ color: '#808080' }}>Select...</span>
+                  ? <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>Select...</Box>
                   : (
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'nowrap', overflow: 'hidden' }}>
                       {selected.map((s) => (
-                        <Box key={s} component="span" sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', px: 1, fontSize: 16, lineHeight: '26px', color: '#000', whiteSpace: 'nowrap' }}>
+                        <Box key={s} component="span" sx={{ bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'), borderRadius: '4px', px: 1, fontSize: 16, lineHeight: '26px', color: byMode('#000', '#f8f8f8'), whiteSpace: 'nowrap' }}>
                           {s}
                         </Box>
                       ))}
@@ -325,7 +328,7 @@ const GiftCards = () => {
                 const on = statusFilter.includes(s);
                 return (
                   <MenuItem key={s} value={s}>
-                    <Box sx={{ width: 16, height: 16, flex: '0 0 16px', border: on ? '1px solid #1c9cf0' : '1px solid #000', bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Box sx={{ width: 16, height: 16, flex: '0 0 16px', border: on ? '1px solid #1c9cf0' : byMode('1px solid #000', '1px solid #a1a1a1'), bgcolor: byMode('#fff', '#121212'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {on && (
                         <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="#1c9cf0" />
@@ -343,7 +346,7 @@ const GiftCards = () => {
 
       {loading ? null : filteredGiftCards.length === 0 ? (
         // reference: no table, just the centred search icon + message
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 6, color: '#6b7280', fontSize: 20 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mt: 6, color: byMode('#6b7280', '#a0a4aa'), fontSize: 20 }}>
           <SearchGlyph />
           No results found. Try changing the search filters
         </Box>
@@ -353,7 +356,7 @@ const GiftCards = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#fff', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
                 }}
@@ -369,9 +372,9 @@ const GiftCards = () => {
             </TableHead>
             <TableBody
               sx={{
-                '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-                '& td': { border: 0, fontSize: 16, color: '#000', py: '20px' },
+                '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+                '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#2a2a2a') },
+                '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: '20px' },
               }}
             >
               {filteredGiftCards.map((card) => (
@@ -389,7 +392,7 @@ const GiftCards = () => {
                         tabIndex={0}
                         onClick={() => goToSale(card)}
                         onKeyDown={(e) => { if (e.key === 'Enter') goToSale(card); }}
-                        sx={{ fontSize: 16, color: '#000', textDecoration: 'underline', cursor: 'pointer' }}
+                        sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), textDecoration: 'underline', cursor: 'pointer' }}
                       >
                         {card.creationSource}
                       </Typography>
@@ -400,7 +403,7 @@ const GiftCards = () => {
                       disableRipple
                       startIcon={<FindIcon />}
                       onClick={() => goToSale(card)}
-                      sx={{ color: '#1c86f2', textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0, whiteSpace: 'nowrap', '&:hover': { bgcolor: 'transparent' } }}
+                      sx={{ color: byMode('#1c86f2', '#74d4ff'), textTransform: 'none', fontWeight: 700, fontSize: 16, minWidth: 0, whiteSpace: 'nowrap', '&:hover': { bgcolor: 'transparent' } }}
                     >
                       Find in Sales History
                     </Button>
@@ -412,7 +415,7 @@ const GiftCards = () => {
             <TableBody>
               <TableRow
                 sx={{
-                  '& td': { bgcolor: '#5ebbeb', color: '#fff', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& td': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#fff', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& td:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                   '& td:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
                 }}
@@ -437,11 +440,11 @@ const GiftCards = () => {
         onClose={() => setToast('')}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#fff', borderRadius: '4px', boxShadow: '0 4px 14px rgba(0,0,0,0.25)', overflow: 'hidden', height: 52 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: byMode('#fff', '#232323'), borderRadius: '4px', boxShadow: '0 4px 14px rgba(0,0,0,0.25)', overflow: 'hidden', height: 52 }}>
           <Box sx={{ width: 52, height: '100%', bgcolor: '#86efac', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CheckIcon sx={{ color: '#15803d', fontSize: 22 }} />
           </Box>
-          <Typography sx={{ fontSize: 16, color: '#000', px: 2 }}>{toast}</Typography>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), px: 2 }}>{toast}</Typography>
           <CircularProgress size={22} thickness={3} sx={{ color: '#9ca3af', mr: 2 }} />
         </Box>
       </Snackbar>

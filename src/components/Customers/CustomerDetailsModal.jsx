@@ -9,6 +9,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import CustomerDetails from '../../pages/Customers/CustomerDetails';
+import { byMode } from '../../theme/sfPalette';
 
 const CustomerDetailsModal = ({ open, onClose, wizardData, onCustomerSaved }) => {
   return (
@@ -33,9 +34,9 @@ const CustomerDetailsModal = ({ open, onClose, wizardData, onCustomerSaved }) =>
             right: 8,
             top: 8,
             zIndex: 1000,
-            bgcolor: 'rgba(255, 255, 255, 0.9)',
+            bgcolor: byMode('rgba(255, 255, 255, 0.9)', 'rgba(35, 35, 35, 0.9)'),
             '&:hover': {
-              bgcolor: 'rgba(255, 255, 255, 1)',
+              bgcolor: byMode('rgba(255, 255, 255, 1)', 'rgba(35, 35, 35, 1)'),
             }
           }}
         >
@@ -56,7 +57,7 @@ const CustomerDetailsModal = ({ open, onClose, wizardData, onCustomerSaved }) =>
               width: '8px',
             },
             '&::-webkit-scrollbar-track': {
-              background: '#f1f1f1',
+              background: byMode('#f1f1f1', '#232323'),
             },
             '&::-webkit-scrollbar-thumb': {
               background: '#888',

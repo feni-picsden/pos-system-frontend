@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -40,10 +41,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const inputSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', '#121212'),
+    '& fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', '#a1a1a1') },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   },
   '& .MuiOutlinedInput-root:not(.MuiInputBase-multiline)': { height: 42 },
   '& .MuiOutlinedInput-input': { fontSize: 16, padding: '0 12px' },
@@ -51,12 +52,12 @@ const inputSx = {
   '& .MuiSelect-select': { display: 'flex', alignItems: 'center' },
 };
 
-const fieldLabelSx = { fontSize: 16, fontWeight: 700, color: '#000', mb: 0.5 };
+const fieldLabelSx = { fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 0.5 };
 
 const switchSx = {
-  '& .MuiSwitch-track': { backgroundColor: '#ababab' },
+  '& .MuiSwitch-track': { backgroundColor: byMode('#ababab', '#404040') },
   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#5ebbeb' },
-  '&:hover .MuiSwitch-switchBase:not(.Mui-checked) + .MuiSwitch-track': { backgroundColor: '#ababab' },
+  '&:hover .MuiSwitch-switchBase:not(.Mui-checked) + .MuiSwitch-track': { backgroundColor: byMode('#ababab', '#404040') },
   '&:hover .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: '#5ebbeb' },
 };
 
@@ -185,13 +186,13 @@ const TransfereeForm = () => {
   }
 
   return (
-    <Box sx={{ bgcolor: '#fff', minHeight: '100%' }}>
+    <Box sx={{ bgcolor: byMode('#fff', '#121212'), minHeight: '100%' }}>
       {/* Full-width header band — text aligned to the centered form column */}
-      <Box sx={{ bgcolor: '#e2e8f0', height: 128, display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ bgcolor: byMode('#e2e8f0', '#232323'), height: 128, display: 'flex', alignItems: 'center' }}>
         <Box sx={{ maxWidth: 764, width: '100%', mx: 'auto', px: 3 }}>
-          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: '#616161' }}>
+          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: byMode('#616161', '#f8f8f8') }}>
             {isEdit ? 'Editing ' : 'Creating '}
-            <Box component="span" sx={{ color: '#8e8e8e', fontWeight: 400 }}>
+            <Box component="span" sx={{ color: byMode('#8e8e8e', '#a0a4aa'), fontWeight: 400 }}>
               {isEdit ? `${savedName}...` : 'Transferee...'}
             </Box>
           </Typography>
@@ -234,7 +235,7 @@ const TransfereeForm = () => {
           </Box>
         )}
         {isEdit && (
-          <Typography sx={{ fontSize: 14, color: '#5e5e5e', mb: 2 }}>
+          <Typography sx={{ fontSize: 14, color: byMode('#5e5e5e', '#d4d4d4'), mb: 2 }}>
             Outlet: {savedOutlet ? `${savedOutlet.name}${savedOutlet.code ? ` (${savedOutlet.code})` : ''}` : 'Global (All Outlets)'}
           </Typography>
         )}
@@ -248,7 +249,7 @@ const TransfereeForm = () => {
               onChange={(e) => setField('isActive', e.target.checked)}
               sx={switchSx}
             />
-            <Typography sx={{ fontSize: 14, color: '#5e5e5e' }}>
+            <Typography sx={{ fontSize: 14, color: byMode('#5e5e5e', '#d4d4d4') }}>
               {formData.isActive
                 ? 'This Transferee can be selected when creating a transfer'
                 : 'Inactive - new transfers cannot be sent to this Transferee'}
@@ -257,7 +258,7 @@ const TransfereeForm = () => {
         </Box>
 
         <Divider sx={{ my: 2 }} />
-        <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000', mb: 2 }}>Contact</Typography>
+        <Typography sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>Contact</Typography>
 
         <Field label="Email" value={formData.email} onChange={(e) => setField('email', e.target.value)} error={fieldErrors.email} type="email" />
         <Field label="Fax" value={formData.fax} onChange={(e) => setField('fax', e.target.value)} />
@@ -269,7 +270,7 @@ const TransfereeForm = () => {
         <Field label="Notes" value={formData.notes} onChange={(e) => setField('notes', e.target.value)} multiline minRows={3} />
 
         <Divider sx={{ my: 2 }} />
-        <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000', mb: 2 }}>Ordering</Typography>
+        <Typography sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 2 }}>Ordering</Typography>
 
         {/* Email Order Automatically toggle */}
         <Box sx={{ mb: 2 }}>
@@ -280,14 +281,14 @@ const TransfereeForm = () => {
               onChange={(e) => setField('emailOrderAutomatically', e.target.checked)}
               sx={switchSx}
             />
-            <Typography sx={{ fontSize: 14, color: '#5e5e5e' }}>
+            <Typography sx={{ fontSize: 14, color: byMode('#5e5e5e', '#d4d4d4') }}>
               {formData.emailOrderAutomatically
                 ? 'The transfer will be emailed to this Transferee automatically when it is sent'
                 : "User won't automatically prompted to send an email after an order is processed"}
             </Typography>
           </Box>
           {formData.emailOrderAutomatically && !formData.email.trim() && (
-            <Typography sx={{ fontSize: 13, color: '#b45309', mt: 0.5 }}>
+            <Typography sx={{ fontSize: 13, color: byMode('#b45309', '#fbbf24'), mt: 0.5 }}>
               Add an Email address above, or nothing will be sent.
             </Typography>
           )}

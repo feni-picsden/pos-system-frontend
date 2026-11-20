@@ -55,6 +55,7 @@ import {
   DIALOG_CANCEL_SX,
   DIALOG_ADD_SX,
 } from '../../components/Utilities/futureStyles.jsx';
+import { byMode } from '../../theme/sfPalette';
 
 const GLOBAL_OUTLET = 'global';
 
@@ -72,7 +73,7 @@ const SortGlyph = ({ active }) => (
 // Reference dialog field names: 12px black, a fixed 16px line above the field
 // (kept as blank space while hidden so rows never jump).
 const DialogLabel = ({ show, children }) => (
-  <Typography sx={{ fontSize: 12, lineHeight: '16px', color: '#000', mb: '4px', visibility: show ? 'visible' : 'hidden' }}>
+  <Typography sx={{ fontSize: 12, lineHeight: '16px', color: byMode('#000', '#f8f8f8'), mb: '4px', visibility: show ? 'visible' : 'hidden' }}>
     {children}
   </Typography>
 );
@@ -371,9 +372,9 @@ const FutureCosts = () => {
   };
 
   return (
-    <Box sx={{ px: 1, pt: '27px', pb: 1, backgroundColor: '#fff', minHeight: 'calc(100vh - 50px)' }}>
+    <Box sx={{ px: 1, pt: '27px', pb: 1, backgroundColor: byMode('#fff', '#121212'), minHeight: 'calc(100vh - 50px)' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: '3px', mb: '20px' }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 700, fontSize: 32, color: '#000' }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 700, fontSize: 32, color: byMode('#000', '#f8f8f8') }}>
           Future Costs
         </Typography>
         <Button variant="contained" disableElevation startIcon={<AddIcon />} onClick={openDialog} sx={NEW_BUTTON_SX}>
@@ -416,12 +417,12 @@ const FutureCosts = () => {
       {/* Filter hard-left; count + bulk actions right (only when there are rows). */}
       <Box sx={{ display: 'flex', gap: 2, mb: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
         <Button variant="contained" disableElevation onClick={applyFilters} disabled={filtering} sx={FILTER_BUTTON_SX}>
-          {filtering ? <CircularProgress size={18} sx={{ color: '#737373' }} /> : 'Filter'}
+          {filtering ? <CircularProgress size={18} sx={{ color: byMode('#737373', '#a0a4aa') }} /> : 'Filter'}
         </Button>
         <Box sx={{ flexGrow: 1 }} />
         {rows.length > 0 && (
           <>
-            <Typography component="span" sx={{ display: 'inline-block', fontSize: 16, lineHeight: '19px', color: '#000', padding: '0 8px 0 0' }}>
+            <Typography component="span" sx={{ display: 'inline-block', fontSize: 16, lineHeight: '19px', color: byMode('#000', '#f8f8f8'), padding: '0 8px 0 0' }}>
               {selectedCosts.length} Selected Costs
             </Typography>
             <Button variant="outlined" onClick={() => setDeleteConfirm({ ids: selectedCosts })} disabled={selectedCosts.length === 0} sx={BULK_DANGER_SX}>
@@ -456,10 +457,10 @@ const FutureCosts = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, py: 8 }}>
           <EmptySetGlyph />
           <Box>
-            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: '#000', mb: 3 }}>
+            <Typography variant="h2" component="h2" sx={{ fontWeight: 700, fontSize: 24, color: byMode('#000', '#f8f8f8'), mb: 3 }}>
               No Future Costs
             </Typography>
-            <Typography sx={{ color: '#000', fontSize: 16 }}>There are no costs set to be activated in the future.</Typography>
+            <Typography sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 16 }}>There are no costs set to be activated in the future.</Typography>
           </Box>
         </Box>
       ) : (
@@ -473,7 +474,7 @@ const FutureCosts = () => {
                     indeterminate={selectedCosts.length > 0 && selectedCosts.length < rows.length}
                     checked={rows.length > 0 && selectedCosts.length === rows.length}
                     onChange={handleSelectAll}
-                    sx={{ ...CHECKBOX_SX, color: '#fff', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#fff' } }}
+                    sx={{ ...CHECKBOX_SX, color: byMode('#fff', '#5ebbeb'), '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: byMode('#fff', '#5ebbeb') } }}
                   />
                 </TableCell>
                 {COLUMNS.map((col) => (
@@ -490,7 +491,7 @@ const FutureCosts = () => {
             <TableBody sx={TABLE_BODY_SX}>
               {pagedRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={COLUMNS.length + 2} align="center" sx={{ py: 4, color: '#000', fontSize: 16 }}>
+                  <TableCell colSpan={COLUMNS.length + 2} align="center" sx={{ py: 4, color: byMode('#000', '#f8f8f8'), fontSize: 16 }}>
                     No results found. Change search filters and try again.
                   </TableCell>
                 </TableRow>
@@ -501,8 +502,8 @@ const FutureCosts = () => {
                       <Checkbox {...CHECKBOX_GLYPHS} checked={selectedCosts.includes(row.id)} onChange={() => handleSelectCost(row.id)} sx={CHECKBOX_SX} />
                     </TableCell>
                     <TableCell>
-                      <Typography sx={{ fontSize: 12, color: '#404040', lineHeight: '16px' }}>{row.itemType}</Typography>
-                      <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '20px' }}>{row.itemName}</Typography>
+                      <Typography sx={{ fontSize: 12, color: byMode('#404040', '#d4d4d4'), lineHeight: '16px' }}>{row.itemType}</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: '20px' }}>{row.itemName}</Typography>
                     </TableCell>
                     <TableCell>{row.outletName}</TableCell>
                     <TableCell>{row.createdBy}</TableCell>
@@ -510,10 +511,10 @@ const FutureCosts = () => {
                     <TableCell>{formatDate(row.effectiveAt)}</TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', pr: '8px' }}>
-                        <Button variant="outlined" startIcon={<DeleteIcon />} onClick={() => setDeleteConfirm({ ids: [row.id], cost: row })} sx={rowActionSx('#e7000b', '#fb2c36')}>
+                        <Button variant="outlined" startIcon={<DeleteIcon />} onClick={() => setDeleteConfirm({ ids: [row.id], cost: row })} sx={rowActionSx(byMode('#e7000b', '#ffa2a2'), byMode('#fb2c36', '#ffa2a2'))}>
                           Delete
                         </Button>
-                        <Button variant="outlined" startIcon={<CheckCircleIcon />} onClick={() => setApplyConfirm({ ids: [row.id], cost: row })} sx={rowActionSx('#00a63e', '#00c950')}>
+                        <Button variant="outlined" startIcon={<CheckCircleIcon />} onClick={() => setApplyConfirm({ ids: [row.id], cost: row })} sx={rowActionSx(byMode('#00a63e', '#7bf1a8'), byMode('#00c950', '#7bf1a8'))}>
                           Apply
                         </Button>
                       </Box>
@@ -567,9 +568,9 @@ const FutureCosts = () => {
 
       <Dialog open={scheduleDialogOpen} onClose={closeDialog} maxWidth={false} PaperProps={{ sx: { width: 448, maxWidth: '100%', borderRadius: '8px' } }}>
         {/* Reference: sky-200 header band, bold "?" glyph and bold sky-800 title. */}
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, backgroundColor: '#b8e6fe', px: 3, py: 2 }}>
-          <Typography component="span" sx={{ fontSize: 22, fontWeight: 700, color: '#0369a1', lineHeight: 1 }}>?</Typography>
-          <Typography component="span" sx={{ fontSize: 18, fontWeight: 700, color: '#0369a1' }}>Schedule Cost Change</Typography>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, backgroundColor: byMode('#b8e6fe', '#0c3a55'), px: 3, py: 2 }}>
+          <Typography component="span" sx={{ fontSize: 22, fontWeight: 700, color: byMode('#0369a1', '#74d4ff'), lineHeight: 1 }}>?</Typography>
+          <Typography component="span" sx={{ fontSize: 18, fontWeight: 700, color: byMode('#0369a1', '#74d4ff') }}>Schedule Cost Change</Typography>
         </DialogTitle>
 
         <DialogContent sx={{ pt: 3 }}>
@@ -589,12 +590,14 @@ const FutureCosts = () => {
                   paper: {
                     sx: {
                       mt: '4px',
-                      border: '1px solid #000',
+                      border: byMode('1px solid #000', '1px solid #a1a1a1'),
+                      bgcolor: byMode(undefined, '#232323'),
                       borderRadius: '8px',
-                      '& .MuiAutocomplete-groupLabel': { fontWeight: 700, fontSize: 16, color: '#000', lineHeight: '56px', px: '14px', borderBottom: '1px solid #e5e5e5' },
+                      '& .MuiAutocomplete-groupLabel': { fontWeight: 700, fontSize: 16, color: byMode('#000', '#f8f8f8'), bgcolor: byMode(undefined, '#232323'), lineHeight: '56px', px: '14px', borderBottom: byMode('1px solid #e5e5e5', '1px solid #373737') },
                       '& .MuiAutocomplete-listbox': { maxHeight: 289, py: 0 },
-                      '& .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
-                      '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#7dd3fc !important' },
+                      '& .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
+                      '& .MuiAutocomplete-option.Mui-focused': { bgcolor: byMode('#7dd3fc !important', '#0084d1 !important'), color: byMode(undefined, '#fafafa') },
+                      '& .MuiAutocomplete-noOptions': { color: byMode(undefined, '#f8f8f8') },
                     },
                   },
                 }}
@@ -607,7 +610,7 @@ const FutureCosts = () => {
                   return (
                     <li key={option.id} {...optionProps} style={{ ...optionProps.style, display: 'block' }}>
                       <Box sx={{ lineHeight: '20px' }}>{option.name}</Box>
-                      {sub && <Box sx={{ fontSize: 13, color: '#737373', lineHeight: '16px' }}>{sub}</Box>}
+                      {sub && <Box sx={{ fontSize: 13, color: byMode('#737373', '#a0a4aa'), lineHeight: '16px' }}>{sub}</Box>}
                     </li>
                   );
                 }}
@@ -677,7 +680,7 @@ const FutureCosts = () => {
                 slotProps={{ paper: { sx: LIST_PAPER_SX } }}
                 sx={{
                   '& .MuiAutocomplete-clearIndicator': { visibility: dialogOutlet ? 'visible' : 'hidden', p: '2px' },
-                  '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: '#000' },
+                  '& .MuiAutocomplete-clearIndicator .MuiSvgIcon-root': { fontSize: 18, color: byMode('#000', '#f8f8f8') },
                   '& .MuiAutocomplete-inputRoot': { pl: '14px', py: '0 !important', height: 42 },
                   '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': { pl: 0, py: 0, fontSize: 16 },
                 }}
@@ -685,7 +688,7 @@ const FutureCosts = () => {
                   <TextField
                     {...params}
                     placeholder="Global Cost"
-                    sx={{ '& .MuiOutlinedInput-root': DIALOG_INPUT_SX, '& input::placeholder': { color: '#808080', opacity: 1 } }}
+                    sx={{ '& .MuiOutlinedInput-root': DIALOG_INPUT_SX, '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 } }}
                   />
                 )}
               />
@@ -703,7 +706,7 @@ const FutureCosts = () => {
                 disablePast
                 error={!!dateError}
               />
-              {dateError && <Typography sx={{ color: '#e33430', fontSize: 12, mt: 0.5 }}>{dateError}</Typography>}
+              {dateError && <Typography sx={{ color: byMode('#e33430', '#ffa2a2'), fontSize: 12, mt: 0.5 }}>{dateError}</Typography>}
             </Grid>
 
             <Grid item xs={12}>
@@ -718,7 +721,7 @@ const FutureCosts = () => {
                 onFocus={(e) => { setCostFocused(true); e.target.select(); }}
                 onBlur={() => setCostFocused(false)}
                 onChange={(e) => setCost(e.target.value)}
-                InputProps={{ startAdornment: <InputAdornment position="start" sx={{ mr: '6px', '& p': { color: '#404040', fontSize: 16 } }}>$</InputAdornment> }}
+                InputProps={{ startAdornment: <InputAdornment position="start" sx={{ mr: '6px', '& p': { color: byMode('#404040', '#d4d4d4'), fontSize: 16 } }}>$</InputAdornment> }}
                 inputProps={{ min: 0, step: 0.01 }}
               />
             </Grid>

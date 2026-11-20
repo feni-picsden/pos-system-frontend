@@ -39,13 +39,14 @@ import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import ExternalStocktakeHelpDrawer from '../../components/StockManagement/ExternalStocktakeHelpDrawer';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference: Menu > Stock Management > More > External Stocktake
 // (support.onshopfront.com article 34108517200909).
 
 const toolbarBtnSx = {
   bgcolor: '#5ebbeb',
-  color: '#ffffff',
+  color: byMode('#ffffff', '#232323'),
   height: 42,
   width: 253,
   borderRadius: '12px',
@@ -65,8 +66,8 @@ const dialogPaperSx = {
 };
 
 const dialogHeaderSx = {
-  bgcolor: '#c9e8f8',
-  color: '#1a5f86',
+  bgcolor: byMode('#c9e8f8', '#0c3a55'),
+  color: byMode('#1a5f86', '#74d4ff'),
   fontSize: 18,
   fontWeight: 600,
   p: 2,
@@ -76,8 +77,9 @@ const dialogHeaderSx = {
 };
 
 const cancelBtnSx = {
-  bgcolor: '#dddddd',
-  color: '#000000',
+  bgcolor: byMode('#dddddd', 'transparent'),
+  color: byMode('#000000', '#d4d4d4'),
+  border: byMode(undefined, '1px solid #a1a1a1'),
   width: 118,
   height: 42,
   borderRadius: '12px',
@@ -85,12 +87,12 @@ const cancelBtnSx = {
   fontSize: 16,
   textTransform: 'none',
   boxShadow: 'none',
-  '&:hover': { bgcolor: '#d0d0d0', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#d0d0d0', 'rgba(255,255,255,0.08)'), boxShadow: 'none' },
 };
 
 const primaryBtnSx = {
   bgcolor: '#5ebbeb',
-  color: '#ffffff',
+  color: byMode('#ffffff', '#232323'),
   width: 118,
   height: 42,
   borderRadius: '12px',
@@ -99,21 +101,21 @@ const primaryBtnSx = {
   textTransform: 'none',
   boxShadow: 'none',
   '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#ebebeb', color: '#8e8e8e' },
+  '&.Mui-disabled': { bgcolor: byMode('#ebebeb', '#3a3a3a'), color: byMode('#8e8e8e', '#a0a4aa') },
 };
 
 const outletFieldSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000000', borderWidth: '2px' },
+    '& fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', '#a1a1a1') },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000000', '#f8f8f8'), borderWidth: '2px' },
   },
   '& .MuiSelect-select': { fontSize: 16, py: '14px' },
 };
 
 const FieldLabel = ({ children }) => (
-  <Typography sx={{ mb: 1, fontSize: 14, color: '#676b72' }}>{children}</Typography>
+  <Typography sx={{ mb: 1, fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>{children}</Typography>
 );
 
 // Plain dropdown like the other pages' outlet pickers (no free text / clear ✕).
@@ -131,10 +133,10 @@ const OutletCombobox = ({ outlets, value, onChange }) => (
         PaperProps: {
           sx: {
             borderRadius: '8px',
-            border: '1px solid #404040',
+            border: byMode('1px solid #404040', '1px solid #373737'),
             boxShadow: 'none',
             '& .MuiMenuItem-root': { color: '#5ebbeb', fontSize: 16 },
-            '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected:hover': { backgroundColor: '#f8f8f8' },
+            '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-selected, & .MuiMenuItem-root.Mui-selected:hover': { backgroundColor: byMode('#f8f8f8', '#2f2f2f') },
           },
         },
       }}
@@ -218,8 +220,8 @@ const ImportStocktakeDialog = ({ open, onClose, onImport, onOpenHelp }) => {
     textTransform: 'none',
     boxShadow: 'none',
     bgcolor: active ? '#5ebbeb' : 'transparent',
-    color: active ? '#ffffff' : '#000000',
-    '&:hover': { bgcolor: active ? '#4aa9dd' : '#d8d8d8', boxShadow: 'none' },
+    color: active ? '#ffffff' : byMode('#000000', '#f8f8f8'),
+    '&:hover': { bgcolor: active ? '#4aa9dd' : byMode('#d8d8d8', '#2f2f2f'), boxShadow: 'none' },
   });
 
   return (
@@ -237,7 +239,7 @@ const ImportStocktakeDialog = ({ open, onClose, onImport, onOpenHelp }) => {
             <FieldLabel>Stocktaker File</FieldLabel>
             <Box
               sx={{
-                border: '1px solid #404040',
+                border: byMode('1px solid #404040', '1px solid #a1a1a1'),
                 borderRadius: '8px',
                 p: 1,
                 display: 'flex',
@@ -270,7 +272,7 @@ const ImportStocktakeDialog = ({ open, onClose, onImport, onOpenHelp }) => {
           {/* Inventory Insertion Method */}
           <Box>
             <FieldLabel>Inventory Insertion Method</FieldLabel>
-            <Stack direction="row" sx={{ bgcolor: '#e5e5e5', borderRadius: '4px', p: 0 }}>
+            <Stack direction="row" sx={{ bgcolor: byMode('#e5e5e5', '#333333'), borderRadius: '4px', p: 0 }}>
               {['override', 'add'].map((method) => (
                 <Button
                   key={method}
@@ -312,7 +314,7 @@ const ImportStocktakeDialog = ({ open, onClose, onImport, onOpenHelp }) => {
               <Stack direction="row" alignItems="center" spacing={0.5}>
                 <span>Import Costs</span>
                 <Tooltip title="If enabled, this will override the costs on your products with the provided costs. This is typically not wanted">
-                  <HelpIcon sx={{ fontSize: 16, color: '#676b72' }} />
+                  <HelpIcon sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }} />
                 </Tooltip>
               </Stack>
             }
@@ -323,7 +325,7 @@ const ImportStocktakeDialog = ({ open, onClose, onImport, onOpenHelp }) => {
             component="button"
             type="button"
             onClick={onOpenHelp}
-            sx={{ textAlign: 'center', color: 'rgb(0,0,238)', fontSize: 14 }}
+            sx={{ textAlign: 'center', color: byMode('rgb(0,0,238)', '#4ca0f5'), fontSize: 14 }}
           >
             For information about formatting click here.
           </Link>
@@ -425,10 +427,10 @@ const rowBtnSx = (color, disabled) => ({
   fontSize: 16,
   fontWeight: 700,
   textTransform: 'none',
-  color: disabled ? '#9a9a9a' : color,
-  bgcolor: disabled ? '#e5e5e5' : 'transparent',
-  '&.Mui-disabled': { color: '#9a9a9a', bgcolor: '#e5e5e5' },
-  '&:hover': { bgcolor: disabled ? '#e5e5e5' : 'rgba(0,0,0,0.04)' },
+  color: disabled ? byMode('#9a9a9a', '#a0a4aa') : color,
+  bgcolor: disabled ? byMode('#e5e5e5', '#3a3a3a') : 'transparent',
+  '&.Mui-disabled': { color: byMode('#9a9a9a', '#a0a4aa'), bgcolor: byMode('#e5e5e5', '#3a3a3a') },
+  '&:hover': { bgcolor: disabled ? byMode('#e5e5e5', '#3a3a3a') : byMode('rgba(0,0,0,0.04)', 'rgba(255,255,255,0.08)') },
 });
 
 export default function ExternalStocktake() {
@@ -522,8 +524,8 @@ export default function ExternalStocktake() {
   };
 
   const headCellSx = {
-    bgcolor: '#5ebbeb',
-    color: '#f8f8f8',
+    bgcolor: byMode('#5ebbeb', '#333333'),
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontSize: 16,
     fontWeight: 700,
     textTransform: 'none',
@@ -533,7 +535,7 @@ export default function ExternalStocktake() {
     border: 'none',
   };
 
-  const bodyCellSx = { fontSize: 16, color: '#000', p: '8px 8px 8px 10px', border: 'none', height: 74 };
+  const bodyCellSx = { fontSize: 16, color: byMode('#000', '#f8f8f8'), p: '8px 8px 8px 10px', border: 'none', height: 74 };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -541,7 +543,7 @@ export default function ExternalStocktake() {
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
         <Typography
           variant="h1"
-          sx={{ fontSize: 40, fontWeight: 700, color: '#000', mr: '70px' }}
+          sx={{ fontSize: 40, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mr: '70px' }}
         >
           External Stocktakes
         </Typography>
@@ -600,7 +602,7 @@ export default function ExternalStocktake() {
                   <TableCell
                     colSpan={4}
                     align="center"
-                    sx={{ py: 4, color: '#676b72', border: 'none' }}
+                    sx={{ py: 4, color: byMode('#676b72', '#a0a4aa'), border: 'none' }}
                   >
                     No external stocktake files found
                   </TableCell>
@@ -633,7 +635,7 @@ export default function ExternalStocktake() {
                           disabled={busy}
                           startIcon={<DeleteIcon sx={{ fontSize: 20 }} />}
                           onClick={() => setDeleteTarget(file)}
-                          sx={{ ...rowBtnSx('#e33430', busy), ml: 1 }}
+                          sx={{ ...rowBtnSx(byMode('#e33430', '#ffa2a2'), busy), ml: 1 }}
                         >
                           Delete
                         </Button>

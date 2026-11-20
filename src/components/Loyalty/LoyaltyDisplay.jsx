@@ -15,6 +15,7 @@ import {
   Add as AddIcon,
   Remove as RemoveIcon
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 import loyaltyService from '../../services/loyaltyService';
 
 const LoyaltyDisplay = ({ 
@@ -267,7 +268,7 @@ const LoyaltyDisplay = ({
   // Don't show if no customer selected
   if (!customer) {
     return (
-      <Paper elevation={1} sx={{ p: 2, bgcolor: 'grey.100' }}>
+      <Paper elevation={1} sx={{ p: 2, bgcolor: byMode('grey.100', '#2a2a2a') }}>
         <Box display="flex" alignItems="center" gap={1}>
           <LoyaltyIcon color="disabled" />
           <Typography variant="body2" color="text.secondary">
@@ -281,7 +282,7 @@ const LoyaltyDisplay = ({
   // Don't show if customer loyalty is disabled
   if (!(customer.loyaltyEnabled || customer.customerGroup?.loyaltyEnabled)) {
     return (
-      <Paper elevation={0} square sx={{ px: 2, py: 0.5, bgcolor: 'warning.light', borderBottom: '1px solid #e0e0e0' }}>
+      <Paper elevation={0} square sx={{ px: 2, py: 0.5, bgcolor: 'warning.light', borderBottom: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
         <Typography variant="body2" color="warning.dark" sx={{ fontSize: 12 }}>
           Loyalty is disabled for this customer
         </Typography>
@@ -290,7 +291,7 @@ const LoyaltyDisplay = ({
   }
 
   return (
-    <Paper elevation={0} square sx={{ px: 2, py: 0.75, borderBottom: '1px solid #000' }}>
+    <Paper elevation={0} square sx={{ px: 2, py: 0.75, borderBottom: byMode('1px solid #000', '1px solid #373737') }}>
       <Box display="flex" alignItems="center" gap={0.75} mb={0.5}>
         <LoyaltyIcon color="primary" sx={{ fontSize: 18 }} />
         <Typography variant="subtitle2" sx={{ lineHeight: 1.2 }}>Loyalty Program</Typography>

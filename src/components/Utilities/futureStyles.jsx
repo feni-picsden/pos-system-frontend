@@ -7,6 +7,7 @@ import {
   CheckBoxOutlined as CheckSquareIcon,
   IndeterminateCheckBoxOutlined as IndeterminateSquareIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference has no transitions anywhere on these pages.
 export const INSTANT = 'all 0s ease';
@@ -14,27 +15,29 @@ export const INSTANT = 'all 0s ease';
 // Filter field: 42px, white, 8px radius, 1px #404040 rail, 2px black when focused.
 export const FIELD_SX = {
   height: 42,
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
+  color: byMode(undefined, '#f8f8f8'),
   borderRadius: '8px',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   '& .MuiSelect-select, & .MuiInputBase-input': { fontSize: 16, py: 0, height: '42px !important', display: 'flex', alignItems: 'center' },
 };
 
 // Every open list: attached under the field, 1px dark border, 8px radius, 56px
 // rows, hovered / keyboard row sky-300, picked row text blue.
-const activeRowSx = { bgcolor: '#7dd3fc' };
+const activeRowSx = { bgcolor: byMode('#7dd3fc', '#0084d1'), color: byMode(undefined, '#fafafa') };
 export const LIST_PAPER_SX = {
   mt: '4px',
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
+  bgcolor: byMode(undefined, '#232323'),
   borderRadius: '8px',
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
   '& .MuiAutocomplete-listbox': { maxHeight: 289, py: '2px' },
-  '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+  '& .MuiAutocomplete-listbox .MuiAutocomplete-option': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
   '& .MuiAutocomplete-listbox .MuiAutocomplete-option[aria-selected="true"]': { bgcolor: 'transparent', color: '#00a6f4' },
   '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused, & .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused[aria-selected="true"]': activeRowSx,
-  '& .MuiAutocomplete-noOptions': { fontSize: 16, color: '#000', px: '14px', py: '18px' },
+  '& .MuiAutocomplete-noOptions': { fontSize: 16, color: byMode('#000', '#f8f8f8'), px: '14px', py: '18px' },
 };
 export const SELECT_MENU_PROPS = {
   anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
@@ -43,18 +46,19 @@ export const SELECT_MENU_PROPS = {
     sx: {
       mt: '4px',
       maxHeight: 289,
-      border: '1px solid #000',
+      border: byMode('1px solid #000', '1px solid #a1a1a1'),
+      bgcolor: byMode(undefined, '#232323'),
       borderRadius: '8px',
       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
       '& .MuiMenu-list': { py: '2px' },
-      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: '#000' },
+      '& .MuiMenuItem-root': { minHeight: 56, px: '14px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
       '& .MuiMenuItem-root.Mui-selected': { color: '#00a6f4', bgcolor: 'transparent' },
       '& .MuiMenuItem-root:hover, & .MuiMenuItem-root.Mui-focusVisible, & .MuiMenuItem-root.Mui-selected:hover, & .MuiMenuItem-root.Mui-selected.Mui-focusVisible': activeRowSx,
     },
   },
 };
 
-export const CLEAR_ICON_SX = { fontSize: 18, color: '#000' };
+export const CLEAR_ICON_SX = { fontSize: 18, color: byMode('#000', '#f8f8f8') };
 
 // Single-pick Autocomplete root: x only once picked, 14px text inset.
 export const singleAutocompleteSx = (hasValue) => ({
@@ -67,7 +71,7 @@ export const singleAutocompleteSx = (hasValue) => ({
 });
 export const AUTOCOMPLETE_INPUT_SX = {
   '& .MuiOutlinedInput-root': { ...FIELD_SX, py: '0 !important' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Measured on the reference: green-500 -> green-400 on hover (lightens).
@@ -99,8 +103,8 @@ export const BULK_BASE_SX = {
   bgcolor: 'transparent',
   transition: INSTANT,
   '&.Mui-disabled': {
-    bgcolor: '#e5e5e5',
-    color: '#737373',
+    bgcolor: byMode('#e5e5e5', '#3a3a3a'),
+    color: byMode('#737373', '#a0a4aa'),
     borderColor: '#a1a1a1',
     cursor: 'not-allowed',
     pointerEvents: 'auto',
@@ -108,15 +112,15 @@ export const BULK_BASE_SX = {
 };
 export const BULK_DANGER_SX = {
   ...BULK_BASE_SX,
-  color: '#e7000b',
-  borderColor: '#fb2c36',
-  '&:hover': { borderColor: '#fb2c36', bgcolor: 'rgba(0,0,0,0.05)' },
+  color: byMode('#e7000b', '#ffa2a2'),
+  borderColor: byMode('#fb2c36', '#ffa2a2'),
+  '&:hover': { borderColor: byMode('#fb2c36', '#ffa2a2'), bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 };
 export const BULK_PRIMARY_SX = {
   ...BULK_BASE_SX,
   color: '#5ebbeb',
   borderColor: '#5ebbeb',
-  '&:hover': { borderColor: '#5ebbeb', bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { borderColor: '#5ebbeb', bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 };
 // Filter button: solid sky, 106 wide; hover darkens to sky-500.
 export const FILTER_BUTTON_SX = {
@@ -145,33 +149,35 @@ export const CHECKBOX_GLYPHS = {
   checkedIcon: <CheckSquareIcon />,
   indeterminateIcon: <IndeterminateSquareIcon />,
 };
-export const CHECKBOX_SX = { p: '4px 2px', color: '#000', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#000' } };
+export const CHECKBOX_SX = { p: '4px 2px', color: byMode('#000', '#f8f8f8'), '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: byMode('#000', '#f8f8f8') } };
 
 // Grid: 51px rounded sky header, 58px white rows, no rules.
 export const TABLE_HEAD_ROW_SX = {
-  '& th': { bgcolor: '#5ebbeb', color: '#fff', fontSize: 16, fontWeight: 700, border: 0, height: 51, py: 0, px: '8px' },
+  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#fff', '#5ebbeb'), fontSize: 16, fontWeight: 700, border: 0, height: 51, py: 0, px: '8px' },
   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
 };
 export const TABLE_BODY_SX = {
-  '& tr': { bgcolor: '#fff' },
-  '& td': { border: 0, height: 58, py: 0, px: '8px', fontSize: 16, color: '#000' },
+  '& tr': { bgcolor: byMode('#fff', '#232323') },
+  '& td': { border: 0, height: 58, py: 0, px: '8px', fontSize: 16, color: byMode('#000', '#f8f8f8') },
 };
 
 // Schedule-dialog inputs: 1px #404040 border, 8px radius, #d4d4d4 fill when disabled.
 export const DIALOG_INPUT_SX = {
   borderRadius: '8px',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
-  '&.Mui-disabled': { bgcolor: '#d4d4d4' },
-  '&.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
+  bgcolor: byMode(undefined, '#121212'),
+  color: byMode(undefined, '#f8f8f8'),
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
+  '&.Mui-disabled': { bgcolor: byMode('#d4d4d4', '#3a3a3a') },
+  '&.Mui-disabled .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
 };
 export const DIALOG_FIELD_SX = {
   '& .MuiOutlinedInput-root': { ...DIALOG_INPUT_SX, height: 42, pl: '14px' },
   '& .MuiOutlinedInput-input': { py: 0, pl: 0, fontSize: 16, height: '42px' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
-  '& .Mui-disabled input::placeholder': { color: '#737373' },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
+  '& .Mui-disabled input::placeholder': { color: byMode('#737373', '#a0a4aa') },
 };
 export const DIALOG_CANCEL_SX = {
   width: 118,
@@ -180,10 +186,10 @@ export const DIALOG_CANCEL_SX = {
   fontWeight: 700,
   fontSize: 16,
   textTransform: 'none',
-  color: '#000',
-  backgroundColor: '#d4d4d4',
+  color: byMode('#000', '#f8f8f8'),
+  backgroundColor: byMode('#d4d4d4', '#3a3a3a'),
   transition: INSTANT,
-  '&:hover': { backgroundColor: '#c4c4c4' },
+  '&:hover': { backgroundColor: byMode('#c4c4c4', '#4a4a4a') },
 };
 export const DIALOG_ADD_SX = {
   width: 118,
@@ -198,5 +204,5 @@ export const DIALOG_ADD_SX = {
   boxShadow: 'none',
   transition: INSTANT,
   '&:hover': { bgcolor: '#0084d1', borderColor: '#0084d1', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#e5e5e5', color: '#737373', borderColor: '#a1a1a1' },
+  '&.Mui-disabled': { bgcolor: byMode('#e5e5e5', '#3a3a3a'), color: byMode('#737373', '#a0a4aa'), borderColor: '#a1a1a1' },
 };

@@ -12,6 +12,14 @@ import {
   TextField,
 } from '@mui/material';
 import { Create as PencilIcon } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark mode (no own ref): Orders & Invoices dark values (light is unchanged).
+const DK = {
+  pane: '#232323', text: '#f8f8f8', desc: '#d4d4d4', input: '#121212', inputText: '#ffffff',
+  border: '#a1a1a1', focus: '#eeeeee', placeholder: '#757575', onSave: '#232323',
+  hover: '#0084d1', onHover: '#fafafa', selected: '#00a6f4',
+};
 
 const userDisplayName = (u) =>
   u?.name || `${u?.firstName || ''} ${u?.lastName || ''}`.trim() || u?.username || u?.email || 'Unknown';
@@ -79,6 +87,18 @@ const ReviewerSelectDialog = ({
           isOptionEqualToValue={(option, value) => option.id === value.id}
           getOptionDisabled={(option) => lockedIds.includes(option.id)}
           ListboxProps={{ style: { maxHeight: 300 } }}
+          slotProps={{
+            paper: {
+              sx: {
+                bgcolor: byMode(undefined, DK.pane),
+                color: byMode(undefined, DK.text),
+                boxShadow: byMode(undefined, '0 0 0 1px #ffffff'),
+                '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused': { backgroundColor: byMode(undefined, DK.hover), color: byMode(undefined, DK.onHover) },
+                '& .MuiAutocomplete-listbox .MuiAutocomplete-option.Mui-focused .MuiCheckbox-root': { color: byMode(undefined, DK.onHover) },
+                '& .MuiAutocomplete-noOptions': { color: byMode(undefined, DK.text) },
+              },
+            },
+          }}
           renderOption={(props, option, { selected: isSelected }) => (
             <li {...props}>
               <Checkbox checked={isSelected} sx={{ mr: 1 }} disableRipple />
@@ -107,7 +127,12 @@ const ReviewerSelectDialog = ({
               {...params}
               placeholder={selected.length === 0 ? 'Select...' : ''}
               size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 0 } }}
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: byMode(undefined, DK.input), color: byMode(undefined, DK.inputText) },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode(undefined, DK.border) },
+                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode(undefined, DK.focus) },
+                '& input::placeholder': { color: byMode(undefined, DK.placeholder), opacity: byMode(undefined, 1) },
+              }}
             />
           )}
         />
@@ -118,7 +143,7 @@ const ReviewerSelectDialog = ({
           disabled={saving}
           variant="outlined"
           size="small"
-          sx={{ textTransform: 'none', color: '#676b72', borderColor: '#bdbdbd', '&:hover': { borderColor: '#bdbdbd', backgroundColor: 'transparent' } }}
+          sx={{ textTransform: 'none', color: byMode('#676b72', DK.desc), borderColor: byMode('#bdbdbd', DK.border), '&:hover': { borderColor: byMode('#bdbdbd', DK.border), backgroundColor: 'transparent' } }}
         >
           Cancel
         </Button>
@@ -127,7 +152,7 @@ const ReviewerSelectDialog = ({
           disabled={saving}
           variant="contained"
           disableElevation
-          sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
+          sx={{ textTransform: 'none', backgroundColor: '#5ebbeb', color: byMode(undefined, DK.onSave), boxShadow: 'none', '&:hover': { backgroundColor: '#5ebbeb', boxShadow: 'none' } }}
         >
           {saving ? 'Saving...' : confirmLabel}
         </Button>

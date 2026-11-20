@@ -46,13 +46,14 @@ import PageLoader from '../../components/Common/PageLoader';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 // Shared outlined-toolbar-button style (Export / Import / Merge) — matches the reference:
 // transparent bg, 1px #737373 border, #525252 text, radius 12, h42, fw700 16px, instant hover.
 const outlinedBtnSx = {
   bgcolor: 'transparent',
-  border: '1px solid #8e8e8e',
-  color: '#6e6e6e',
+  border: byMode('1px solid #8e8e8e', '1px solid #a1a1a1'),
+  color: byMode('#6e6e6e', '#d4d4d4'),
   borderRadius: '12px',
   textTransform: 'none',
   boxShadow: 'none',
@@ -61,7 +62,7 @@ const outlinedBtnSx = {
   px: 3,
   height: 42,
   transition: 'none',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #8e8e8e', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), border: byMode('1px solid #8e8e8e', '1px solid #a1a1a1'), boxShadow: 'none' },
 };
 
 // Reference row-action buttons: <a>-like links, instant (0s) hover, h42, radius 12, heavy padding, fw700.
@@ -75,13 +76,13 @@ const rowActionSx = (color) => ({
   minWidth: 0,
   px: 1.5, // same footprint as the Products / Promotions / Orders row actions
   transition: 'none',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.04)', 'rgba(255,255,255,0.08)') },
 });
 
 // Reference Cancel button inside dialogs: gray FILLED, black text, radius 12, fw700.
 const grayFilledBtnSx = {
-  bgcolor: '#e5e5e5',
-  color: '#000',
+  bgcolor: byMode('#e5e5e5', '#3a3a3a'),
+  color: byMode('#000', '#f8f8f8'),
   borderRadius: '12px',
   textTransform: 'none',
   boxShadow: 'none',
@@ -89,13 +90,13 @@ const grayFilledBtnSx = {
   fontSize: 16,
   height: 42,
   px: 3,
-  '&:hover': { bgcolor: '#d4d4d4', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#d4d4d4', '#4a4a4a'), boxShadow: 'none' },
 };
 
 // Reference primary FILLED action inside dialogs: sky-blue, white text, radius 12, fw700.
 const skyFilledBtnSx = {
-  bgcolor: '#0ea5e9',
-  color: '#fff',
+  bgcolor: byMode('#0ea5e9', '#5ebbeb'),
+  color: byMode('#fff', '#232323'),
   borderRadius: '12px',
   textTransform: 'none',
   boxShadow: 'none',
@@ -103,8 +104,8 @@ const skyFilledBtnSx = {
   fontSize: 16,
   height: 42,
   px: 3,
-  '&:hover': { bgcolor: '#0284c7', boxShadow: 'none' },
-  '&.Mui-disabled': { bgcolor: '#bae6fd', color: '#fff' },
+  '&:hover': { bgcolor: byMode('#0284c7', '#4aa9dd'), boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: byMode('#bae6fd', '#3a3a3a'), color: byMode('#fff', '#a0a4aa') },
 };
 
 // Reference-style multi-select filter (Customer Group / Price List):
@@ -132,8 +133,8 @@ const MultiSelectFilter = ({ label, options, selected, onChange }) => {
           minHeight: 45,
           cursor: 'pointer',
           fontSize: 16,
-          color: isSel ? '#38bdf8' : '#000',
-          '&:hover': { bgcolor: '#5ebbeb', color: '#fff' },
+          color: isSel ? byMode('#38bdf8', '#00a6f4') : byMode('#000', '#f8f8f8'),
+          '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode('#fff', '#fafafa') },
         }}
       >
         <Checkbox checked={isSel} size="small" disableRipple sx={{ p: 0, color: 'inherit', '&.Mui-checked': { color: 'inherit' } }} />
@@ -145,36 +146,36 @@ const MultiSelectFilter = ({ label, options, selected, onChange }) => {
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
       <Box sx={{ flex: 1, position: 'relative' }} onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
-        <Typography sx={{ mb: 0.5, fontSize: 14, color: '#676b72' }}>{label}</Typography>
+        <Typography sx={{ mb: 0.5, fontSize: 14, color: byMode('#676b72', '#d4d4d4') }}>{label}</Typography>
         <Box
           onClick={() => setOpen((o) => !o)}
           sx={{
             height: 42,
             borderRadius: '8px',
-            border: '1px solid #404040',
+            border: byMode('1px solid #404040', '1px solid #a1a1a1'),
             display: 'flex',
             alignItems: 'center',
             gap: 0.5,
             px: 1.5,
             cursor: 'pointer',
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#121212'),
           }}
         >
           <Box sx={{ flex: 1, display: 'flex', gap: 0.5, overflow: 'hidden', flexWrap: 'nowrap' }}>
             {selectedOpts.length === 0 ? (
-              <Typography sx={{ color: '#808080', fontSize: 16 }}>Select...</Typography>
+              <Typography sx={{ color: byMode('#808080', '#757575'), fontSize: 16 }}>Select...</Typography>
             ) : (
               selectedOpts.map((o) => (
                 <Chip
                   key={o.value}
                   label={o.label}
                   size="small"
-                  sx={{ bgcolor: '#e5e5e5', color: '#525252', maxWidth: 140, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                  sx={{ bgcolor: byMode('#e5e5e5', '#3a3a3a'), color: byMode('#525252', '#f8f8f8'), maxWidth: 140, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
                 />
               ))
             )}
           </Box>
-          <ArrowDropDownIcon sx={{ color: '#404040' }} />
+          <ArrowDropDownIcon sx={{ color: byMode('#404040', '#a1a1a1') }} />
         </Box>
         {open && (
           <Box
@@ -184,8 +185,8 @@ const MultiSelectFilter = ({ label, options, selected, onChange }) => {
               left: 0,
               width: '100%',
               mt: 0.5,
-              bgcolor: '#fff',
-              border: '1px solid #000',
+              bgcolor: byMode('#fff', '#232323'),
+              border: byMode('1px solid #000', '1px solid #a1a1a1'),
               borderRadius: '8px',
               maxHeight: 288,
               overflowY: 'auto',
@@ -588,7 +589,7 @@ const Customers = () => {
             to="/customers/new"
             variant="contained"
             startIcon={<AddIcon />}
-            sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' }, transition: 'none', borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: '32px', py: '8px', border: '1px solid #5ebbeb' }}
+            sx={{ bgcolor: '#5ebbeb', color: byMode(undefined, '#232323'), '&:hover': { bgcolor: byMode('#0ea5e9', '#4aa9dd'), boxShadow: 'none' }, transition: 'none', borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: '32px', py: '8px', border: '1px solid #5ebbeb' }}
           >
             Add Customer
           </Button>
@@ -614,7 +615,7 @@ const Customers = () => {
 
       {/* Search + filter block */}
       <Box sx={{ mb: 3 }}>
-        <Typography sx={{ mb: 0.5, fontSize: 14, color: '#676b72' }}>Search</Typography>
+        <Typography sx={{ mb: 0.5, fontSize: 14, color: byMode('#676b72', '#d4d4d4') }}>Search</Typography>
         <TextField
           fullWidth
           spellCheck={false}
@@ -622,14 +623,16 @@ const Customers = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{
-            backgroundColor: 'white',
+            backgroundColor: byMode('white', '#121212'),
             '& .MuiOutlinedInput-root': {
               height: 40,
               borderRadius: '8px',
               fontSize: 16,
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+              color: byMode(undefined, '#f8f8f8'),
+              '& input::placeholder': { color: byMode(undefined, '#757575'), opacity: byMode(undefined, 1) },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
             },
           }}
         />
@@ -638,7 +641,7 @@ const Customers = () => {
             value={outletFilter}
             onChange={setOutletFilter}
             sx={{ flex: 1, minWidth: 0 }}
-            labelSx={{ fontSize: 14, color: '#676b72' }}
+            labelSx={{ fontSize: 14, color: byMode('#676b72', '#d4d4d4') }}
           />
           <MultiSelectFilter label="Customer Group" options={groupOptions} selected={selectedGroups} onChange={setSelectedGroups} />
           <MultiSelectFilter label="Price List" options={priceListOptions} selected={selectedPriceLists} onChange={setSelectedPriceLists} />
@@ -662,7 +665,7 @@ const Customers = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5ebbeb', color: '#f8f8f8', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
                 }}
@@ -677,42 +680,42 @@ const Customers = () => {
             </TableHead>
             <TableBody
               sx={{
-                '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-                '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 },
+                '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+                '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#2a2a2a') },
+                '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5 },
               }}
             >
               {filteredCustomers.map((customer) => (
                 <TableRow key={customer.id}>
                   {globalMode && (
                     <TableCell>
-                      <Typography sx={{ fontSize: 16, color: '#000' }}>{outletNameOf(customer.outletId)}</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{outletNameOf(customer.outletId)}</Typography>
                     </TableCell>
                   )}
                   <TableCell>
                     <Typography
                       component={RouterLink}
                       to={`/customers/${customer.id}/view`}
-                      sx={{ fontSize: 16, color: '#000', cursor: 'pointer', textDecoration: 'none', '&:hover': { textDecoration: 'none' } }}
+                      sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), cursor: 'pointer', textDecoration: 'none', '&:hover': { textDecoration: 'none' } }}
                     >
                       {customer.firstName} {customer.lastName}
                     </Typography>
                     {customer.code && (
-                      <Typography sx={{ fontSize: 14, color: '#676b72' }}>{customer.code}</Typography>
+                      <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>{customer.code}</Typography>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ fontSize: 16, color: '#000' }}>
+                    <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                       {customer.customerGroup?.name || '-'}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Box>
                       {emailsOf(customer).map((e, i) => (
-                        <Typography key={i} sx={{ fontSize: 16, color: '#000' }}>{e}</Typography>
+                        <Typography key={i} sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{e}</Typography>
                       ))}
                       {phonesOf(customer).map((p, i) => (
-                        <Typography key={i} sx={{ fontSize: 16, color: '#000' }}>{p}</Typography>
+                        <Typography key={i} sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{p}</Typography>
                       ))}
                     </Box>
                   </TableCell>
@@ -729,7 +732,7 @@ const Customers = () => {
                         component={RouterLink}
                         to={`/customers/${customer.id}/view`}
                         startIcon={<ViewIcon />}
-                        sx={rowActionSx('#0284c7')}
+                        sx={rowActionSx(byMode('#0284c7', '#74d4ff'))}
                       >
                         View
                       </Button>
@@ -737,14 +740,14 @@ const Customers = () => {
                         component={RouterLink}
                         to={`/customers/${customer.id}`}
                         startIcon={<EditIcon />}
-                        sx={rowActionSx('#16a34a')}
+                        sx={rowActionSx(byMode('#16a34a', '#7bf1a8'))}
                       >
                         Edit
                       </Button>
                       <Button
                         startIcon={<DeleteIcon />}
                         onClick={() => handleDeleteCustomer(customer.id)}
-                        sx={rowActionSx('#dc2626')}
+                        sx={rowActionSx(byMode('#dc2626', '#ffa2a2'))}
                       >
                         Delete
                       </Button>
@@ -770,12 +773,12 @@ const Customers = () => {
 
       {/* Export scope dialog - reference: light-blue "?" header, question, select, both column sets as bullets */}
       <Dialog open={exportOpen} onClose={() => setExportOpen(false)} PaperProps={{ elevation: 0, sx: { width: 350, maxWidth: '92vw', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)' } }}>
-        <Box sx={{ bgcolor: '#bfe6fb', px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography component="span" aria-hidden sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
-          <Typography component="h3" sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 18, m: 0 }}>Export Customers</Typography>
+        <Box sx={{ bgcolor: byMode('#bfe6fb', '#0c3a55'), px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography component="span" aria-hidden sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
+          <Typography component="h3" sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 18, m: 0 }}>Export Customers</Typography>
         </Box>
         <DialogContent sx={{ px: 2, pt: 3, pb: 1 }}>
-          <Typography sx={{ mb: 1.5, fontSize: 16, color: '#000' }}>
+          <Typography sx={{ mb: 1.5, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
             What level of detail would you like to export?
           </Typography>
           <Autocomplete
@@ -789,22 +792,23 @@ const Customers = () => {
                 required
                 placeholder="Select..."
                 sx={{
-                  backgroundColor: 'white',
+                  backgroundColor: byMode('white', '#121212'),
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '8px',
                     fontSize: 16,
                     minHeight: 42,
                     py: 0,
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+                    color: byMode(undefined, '#f8f8f8'),
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
                   },
                 }}
               />
             )}
           />
           {/* Reference: both column sets always listed as bullets under the select. */}
-          <Box sx={{ mt: 2, fontSize: 16, color: '#000' }}>
+          <Box sx={{ mt: 2, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
             <Typography sx={{ fontWeight: 700, fontSize: 16 }}>Simple</Typography>
             <Box component="ul" sx={{ mt: 0.5, mb: 1.5, pl: 3, '& li': { fontSize: 16, lineHeight: 1.2 } }}>
               {['Name', 'Company', 'Code', 'Birthday', 'Email Addresses', 'Phone Number', 'Subscribed to Marketing Emails'].map((c) => (
@@ -836,27 +840,27 @@ const Customers = () => {
         onClose={() => { setImportOpen(false); setImportFile(null); setImportResult(null); }}
         PaperProps={{ elevation: 0, sx: { width: 375, maxWidth: '92vw', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 0 30px 0 rgba(0,0,0,.25), 0 15px 30px 0 rgba(0,0,0,.19)' } }}
       >
-        <Box sx={{ bgcolor: '#bfe6fb', px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography component="span" aria-hidden sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
-          <Typography component="h3" sx={{ color: '#1c6fa8', fontWeight: 700, fontSize: 18, m: 0 }}>Import Customers</Typography>
+        <Box sx={{ bgcolor: byMode('#bfe6fb', '#0c3a55'), px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography component="span" aria-hidden sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 22, lineHeight: 1 }}>?</Typography>
+          <Typography component="h3" sx={{ color: byMode('#1c6fa8', '#74d4ff'), fontWeight: 700, fontSize: 18, m: 0 }}>Import Customers</Typography>
         </Box>
         <DialogContent sx={{ px: 2, pt: 3, pb: 1 }}>
           {/* Reference: "Click here." opens the Customer Management article in a drawer */}
-          <Typography sx={{ fontSize: 16, color: '#000', mb: 1.5 }}>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 1.5 }}>
             Looking for the file format?{' '}
             <Box
               component="button"
               type="button"
               onClick={() => setHelpOpen(true)}
-              sx={{ font: 'inherit', p: 0, border: 0, bgcolor: 'transparent', color: 'rgb(0,0,238)', textDecoration: 'underline', cursor: 'pointer' }}
+              sx={{ font: 'inherit', p: 0, border: 0, bgcolor: 'transparent', color: byMode('rgb(0,0,238)', '#4ca0f5'), textDecoration: 'underline', cursor: 'pointer' }}
             >
               Click here
             </Box>.
           </Typography>
-          <Typography sx={{ fontSize: 16, color: '#000', mb: 1 }}>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 1 }}>
             Please select the file to import:
           </Typography>
-          <Box sx={{ border: '1px solid #404040', borderRadius: '8px', p: '10px 12px', bgcolor: '#fff' }}>
+          <Box sx={{ border: byMode('1px solid #404040', '1px solid #a1a1a1'), borderRadius: '8px', p: '10px 12px', bgcolor: byMode('#fff', '#121212'), color: byMode(undefined, '#f8f8f8') }}>
             <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={(e) => setImportFile(e.target.files?.[0] || null)} style={{ fontSize: 16, width: '100%' }} />
           </Box>
           {importResult && (

@@ -15,6 +15,7 @@ import {
   Snackbar,
   Autocomplete,
   CircularProgress,
+  useTheme,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -30,17 +31,19 @@ import shelfTicketService from '../../services/shelfTicketService';
 import { queueEverydayTicket } from '../../utils/priceChangeTicket';
 import settingsService from '../../services/settingsService';
 import { effectiveUnitCost, profitPercent } from '../../utils/productCost';
+import { byMode } from '../../theme/sfPalette';
 
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
     height: 42,
     borderRadius: '8px',
-    backgroundColor: '#fff',
-    '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover fieldset': { borderColor: '#404040' },
-    '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+    backgroundColor: byMode('#fff', '#121212'),
+    color: byMode(undefined, '#f8f8f8'),
+    '& fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover fieldset': { borderColor: byMode('#404040', '#a1a1a1') },
+    '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Search dropdown, as the reference: under 2 typed characters only a hint;
@@ -54,6 +57,9 @@ const ROWS_STEP = 30;
 // Price set names are coloured per set, in name order (reference: Grampians -
 // Ararat #143055, Premix King - Portland #6a742a); Default stays black.
 const SET_COLOURS = ['#143055', '#6a742a', '#7a2e2e', '#2e6f6f', '#5b3a7a', '#7a5a1e'];
+// Dark mode: the same hues, lightened to read on the #232323 rows.
+const SET_COLOURS_DARK = ['#8ec5ff', '#d8e27a', '#ffa2a2', '#7fe0e0', '#c9a6f0', '#f0c77a'];
+const setColourSx = (c) => byMode(c, SET_COLOURS_DARK[SET_COLOURS.indexOf(c)] || '#f8f8f8');
 
 // Price cells: the look of the outlined fields above (1px #404040, radius 8,
 // 2px black when focused, "$" prefix), set once on the table body.
@@ -67,14 +73,14 @@ const PRICE_CELL_SX = {
     margin: '0 auto', // centred under its quantity header, like the % below it
     boxSizing: 'border-box',
     padding: '0 14px',
-    border: '1px solid #404040',
+    border: byMode('1px solid #404040', '1px solid #a1a1a1'),
     borderRadius: '8px',
-    backgroundColor: '#fff',
+    backgroundColor: byMode('#fff', '#121212'),
     fontSize: 16,
     cursor: 'text',
   },
-  '& .bpe-box:focus-within': { border: '2px solid #000', padding: '0 13px' },
-  '& .bpe-box span': { color: 'rgba(0, 0, 0, 0.6)' },
+  '& .bpe-box:focus-within': { border: byMode('2px solid #000', '2px solid #2b7fff'), padding: '0 13px' },
+  '& .bpe-box span': { color: byMode('rgba(0, 0, 0, 0.6)', '#a0a4aa') },
   '& .bpe-box input': {
     flex: 1,
     minWidth: 0,
@@ -83,11 +89,11 @@ const PRICE_CELL_SX = {
     padding: 0,
     background: 'transparent',
     font: 'inherit',
-    color: '#000',
+    color: byMode('#000', '#f8f8f8'),
     MozAppearance: 'textfield',
     '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
   },
-  '& .bpe-pct': { fontSize: 12, color: '#676b72', marginTop: '4px' },
+  '& .bpe-pct': { fontSize: 12, color: byMode('#676b72', '#a0a4aa'), marginTop: '4px' },
 };
 
 const hasStock = (product) => (product.currentStockCases || 0) > 0 || (product.currentStockItems || 0) > 0;
@@ -113,12 +119,15 @@ const rowsForProduct = (product) => {
 };
 
 // Reference "No Products" panel: a crossed circle beside the message
-const EmptyIcon = () => (
-  <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
-    <circle cx="70" cy="70" r="55" fill="none" stroke="#000" strokeWidth="10" />
-    <line x1="132" y1="8" x2="8" y2="132" stroke="#000" strokeWidth="10" strokeLinecap="round" />
-  </svg>
-);
+const EmptyIcon = () => {
+  const ink = useTheme().palette.mode === 'dark' ? '#f8f8f8' : '#000';
+  return (
+    <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
+      <circle cx="70" cy="70" r="55" fill="none" stroke={ink} strokeWidth="10" />
+      <line x1="132" y1="8" x2="8" y2="132" stroke={ink} strokeWidth="10" strokeLinecap="round" />
+    </svg>
+  );
+};
 
 // One grid row. Memoised: typing in a price re-draws only its own row.
 const PriceRow = memo(function PriceRow({ row, quantities, edits, setColour, onEdit, onCommit, profitFor }) {
@@ -128,7 +137,7 @@ const PriceRow = memo(function PriceRow({ row, quantities, edits, setColour, onE
       <TableCell>{product.name}</TableCell>
       <TableCell>{product.caseQuantity}</TableCell>
       <TableCell>
-        {priceSetId == null ? 'Default' : <Box component="span" sx={{ color: setColour }}>{priceSetName}</Box>}
+        {priceSetId == null ? 'Default' : <Box component="span" sx={{ color: setColourSx(setColour) }}>{priceSetName}</Box>}
       </TableCell>
       {quantities.map((quantity) => {
         const typed = edits?.[quantity];
@@ -404,12 +413,12 @@ const BulkPriceEdit = () => {
   return (
     <Box sx={{ py: 4, px: '8px' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
           Bulk Price Edit
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {updating && <CircularProgress size={18} thickness={5} aria-label="Updating list" sx={{ color: '#5ebbeb' }} />}
-          <Typography sx={{ fontSize: 16, color: '#000' }}>{scopedProducts.length} Products</Typography>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{scopedProducts.length} Products</Typography>
         </Box>
       </Box>
 
@@ -420,7 +429,7 @@ const BulkPriceEdit = () => {
         freeSolo
         forcePopupIcon
         autoHighlight
-        popupIcon={<ArrowDropDownIcon sx={{ color: '#808080' }} />}
+        popupIcon={<ArrowDropDownIcon sx={{ color: byMode('#808080', '#a0a4aa') }} />}
         value={selectedOption}
         inputValue={searchTerm}
         onInputChange={(e, value, reason) => {
@@ -462,7 +471,9 @@ const BulkPriceEdit = () => {
           },
           paper: {
             sx: {
-              border: '1px solid #000',
+              border: byMode('1px solid #000', '1px solid #a1a1a1'),
+              bgcolor: byMode(undefined, '#232323'),
+              color: byMode(undefined, '#f8f8f8'),
               borderRadius: '8px',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
               // freeSolo opens an empty list when nothing matches; hide it (no stray line)
@@ -471,9 +482,9 @@ const BulkPriceEdit = () => {
               '& .MuiAutocomplete-groupLabel': {
                 fontSize: 16,
                 fontWeight: 700,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 padding: '16px',
-                backgroundColor: '#fff',
+                backgroundColor: byMode('#fff', '#232323'),
                 lineHeight: 1.2,
               },
               '&& li.MuiAutocomplete-option': {
@@ -484,10 +495,11 @@ const BulkPriceEdit = () => {
                 cursor: 'pointer',
                 gap: '8px',
                 '&[aria-selected="true"], &.Mui-focused, &.Mui-focusVisible, &:hover, &[aria-selected="true"].Mui-focused': {
-                  backgroundColor: '#7dd3fc',
+                  backgroundColor: byMode('#7dd3fc', '#0084d1'),
+                  color: byMode(undefined, '#fafafa'),
                 },
                 // the "Keep Typing to Search..." hint: plain text, not a choice
-                '&[aria-disabled="true"]': { opacity: 1, cursor: 'default', backgroundColor: '#fff' },
+                '&[aria-disabled="true"]': { opacity: 1, cursor: 'default', backgroundColor: byMode('#fff', '#232323'), color: byMode(undefined, '#f8f8f8') },
               },
             },
           },
@@ -496,7 +508,7 @@ const BulkPriceEdit = () => {
           const Icon = GROUP_ICONS[option.type];
           return (
             <Box component="li" {...props} key={`${option.type}-${option.id ?? option.label}`}>
-              {Icon && <Icon sx={{ fontSize: 20, color: '#404040' }} />}
+              {Icon && <Icon sx={{ fontSize: 20, color: byMode('#404040', '#d4d4d4') }} />}
               {option.label}
             </Box>
           );
@@ -513,11 +525,11 @@ const BulkPriceEdit = () => {
                 fontSize: 16,
                 paddingTop: '0 !important',
                 paddingBottom: '0 !important',
-                '& fieldset': { borderColor: '#404040', borderWidth: '1px' },
-                '&:hover fieldset': { borderColor: '#404040', borderWidth: '1px' },
-                '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+                '& fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                '&:hover fieldset': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+                '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
               },
-              '& input::placeholder': { color: '#808080', opacity: 1 },
+              '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
               '& .MuiAutocomplete-popupIndicator': { transform: 'none' },
               '& .MuiAutocomplete-popupIndicatorOpen': { transform: 'none' },
             }}
@@ -529,7 +541,7 @@ const BulkPriceEdit = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <ShopfrontSwitch checked={onlyStock} onChange={(e) => setOnlyStock(e.target.checked)} />
-          <Typography sx={{ fontSize: 16, color: '#000' }}>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
             Only display products that have stock (when editing a classification or all products)
           </Typography>
         </Box>
@@ -557,13 +569,13 @@ const BulkPriceEdit = () => {
               textTransform: 'none',
               boxShadow: 'none',
               backgroundColor: '#5ebbeb',
-              color: '#fff',
+              color: byMode('#fff', '#232323'),
               transition: 'none',
               '&:hover': { backgroundColor: '#4aa9dd', boxShadow: 'none' },
               '&.Mui-disabled': {
-                backgroundColor: '#e5e5e5',
-                color: '#737373',
-                border: '1px solid #737373',
+                backgroundColor: byMode('#e5e5e5', '#3a3a3a'),
+                color: byMode('#737373', '#a0a4aa'),
+                border: byMode('1px solid #737373', '1px solid #5e5e5e'),
                 cursor: 'not-allowed',
                 pointerEvents: 'auto',
               },
@@ -579,8 +591,8 @@ const BulkPriceEdit = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, py: 6 }}>
           <EmptyIcon />
           <Box>
-            <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 3 }}>No Products</Typography>
-            <Typography sx={{ fontSize: 16, color: '#000' }}>Search did not yield any results.</Typography>
+            <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 3 }}>No Products</Typography>
+            <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Search did not yield any results.</Typography>
           </Box>
         </Box>
       ) : (
@@ -595,11 +607,11 @@ const BulkPriceEdit = () => {
               <TableRow
                 sx={{
                   '& th': {
-                    backgroundColor: '#5ebbeb',
+                    backgroundColor: byMode('#5ebbeb', '#333333'),
                     // sticky cells: at 125% / 150% scaling a hairline seam showed
                     // between them; 1px of the same blue to the right covers it
-                    boxShadow: '1px 0 0 #5ebbeb',
-                    color: '#fff',
+                    boxShadow: byMode('1px 0 0 #5ebbeb', '1px 0 0 #333333'),
+                    color: byMode('#fff', '#5ebbeb'),
                     fontWeight: 700,
                     fontSize: 16,
                     height: 51,
@@ -626,7 +638,7 @@ const BulkPriceEdit = () => {
             <TableBody
               aria-busy={updating}
               sx={{
-                '& td': { fontSize: 16, color: '#000', padding: '4px 4px 4px 16px', borderBottom: 'none', whiteSpace: 'nowrap', verticalAlign: 'top' },
+                '& td': { fontSize: 16, color: byMode('#000', '#f8f8f8'), padding: '4px 4px 4px 16px', borderBottom: 'none', whiteSpace: 'nowrap', verticalAlign: 'top' },
                 // Name / case qty / set text sits on the price boxes' line (box 42px high),
                 // the profit % under the box; price cells pad evenly so the box centres
                 // under its "1 Profit" header

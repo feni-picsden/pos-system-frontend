@@ -62,6 +62,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import PageSaveBar from '../../components/Common/PageSaveBar';
 import { REF_MENU_PROPS } from '../../components/Common/refMenuProps';
+import { byMode } from '../../theme/sfPalette';
 
 // Shopfront reference has no transitions and no ripple anywhere.
 const INSTANT = 'all 0s ease';
@@ -76,14 +77,14 @@ const rowActionSx = (color) => ({
   height: 42,
   borderRadius: '12px',
   transition: INSTANT,
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
   // Reference disabled state: bg rgba(0,0,0,0.1), gray #b3b3b3 content, not-allowed cursor.
   '&.Mui-disabled': {
-    color: '#b3b3b3',
-    bgcolor: 'rgba(0,0,0,0.1)',
+    color: byMode('#b3b3b3', '#6e6e6e'),
+    bgcolor: byMode('rgba(0,0,0,0.1)', 'rgba(255,255,255,0.06)'),
     pointerEvents: 'auto',
     cursor: 'not-allowed',
-    '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' },
+    '&:hover': { bgcolor: byMode('rgba(0,0,0,0.1)', 'rgba(255,255,255,0.06)') },
   },
 });
 
@@ -126,15 +127,15 @@ const RolesFilter = ({ value, onChange, options }) => {
           textAlign: 'left',
           fontFamily: 'inherit',
           fontSize: 16,
-          color: isSel ? '#5ebbeb' : '#0a0a0a',
+          color: isSel ? byMode('#5ebbeb', '#00a6f4') : byMode('#0a0a0a', '#f8f8f8'),
           transition: INSTANT,
-          '&:hover': { bgcolor: '#5ebbeb' },
+          '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') },
         }}
       >
         {isSel ? (
-          <SquareCheckedIcon sx={{ fontSize: 20, color: '#5ebbeb' }} />
+          <SquareCheckedIcon sx={{ fontSize: 20, color: byMode('#5ebbeb', '#00a6f4') }} />
         ) : (
-          <SquareIcon sx={{ fontSize: 20, color: '#0a0a0a' }} />
+          <SquareIcon sx={{ fontSize: 20, color: byMode('#0a0a0a', '#f8f8f8') }} />
         )}
         <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {name}
@@ -154,10 +155,10 @@ const RolesFilter = ({ value, onChange, options }) => {
               top: -9,
               left: 12,
               px: 0.5,
-              bgcolor: '#fff',
+              bgcolor: byMode('#fff', '#121212'),
               fontSize: 12,
               lineHeight: '18px',
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               zIndex: 1,
             }}
           >
@@ -172,9 +173,9 @@ const RolesFilter = ({ value, onChange, options }) => {
             alignItems: 'center',
             gap: 0.5,
             height: 42,
-            border: '1px solid #404040',
+            border: byMode('1px solid #404040', '1px solid #a1a1a1'),
             borderRadius: '8px',
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#121212'),
             pl: 1,
             pr: 0.5,
             cursor: 'text',
@@ -192,9 +193,9 @@ const RolesFilter = ({ value, onChange, options }) => {
                 maxWidth: 150,
                 px: 1,
                 borderRadius: '4px',
-                bgcolor: 'rgba(0,0,0,0.1)',
+                bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'),
                 fontSize: 16,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -225,8 +226,8 @@ const RolesFilter = ({ value, onChange, options }) => {
               bgcolor: 'transparent',
               fontFamily: 'inherit',
               fontSize: 16,
-              color: '#000',
-              '&::placeholder': { color: '#808080', opacity: 1 },
+              color: byMode('#000', '#f8f8f8'),
+              '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
             }}
           />
           {value.length > 0 && (
@@ -250,10 +251,10 @@ const RolesFilter = ({ value, onChange, options }) => {
                 border: 0,
                 borderRadius: '8px',
                 bgcolor: 'transparent',
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 cursor: 'pointer',
                 transition: INSTANT,
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
               }}
             >
               <CloseIcon sx={{ fontSize: 16 }} />
@@ -262,7 +263,7 @@ const RolesFilter = ({ value, onChange, options }) => {
           <ArrowDropDownIcon
             sx={{
               flexShrink: 0,
-              color: '#404040',
+              color: byMode('#404040', '#a1a1a1'),
               transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 150ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}
@@ -279,8 +280,8 @@ const RolesFilter = ({ value, onChange, options }) => {
           <Box
             sx={{
               width: anchorRef.current ? anchorRef.current.offsetWidth : 'auto',
-              bgcolor: '#fff',
-              border: '1px solid #000000',
+              bgcolor: byMode('#fff', '#232323'),
+              border: byMode('1px solid #000000', '1px solid #a1a1a1'),
               borderRadius: '8px',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
               maxHeight: 288,
@@ -289,7 +290,7 @@ const RolesFilter = ({ value, onChange, options }) => {
             }}
           >
             {value.length === 0 && filtered.length === 0 ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', height: 56, px: 2, fontSize: 16, color: '#0a0a0a' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', height: 56, px: 2, fontSize: 16, color: byMode('#0a0a0a', '#f8f8f8') }}>
                 No Options
               </Box>
             ) : (
@@ -311,26 +312,26 @@ const API_ORIGIN = (apiClient.defaults?.baseURL || '').replace(/\/api\/?$/, '');
 
 // Shared outlined-input styling per the parity system (#404040 1px, focus #000 2px).
 const editInputSx = {
-  backgroundColor: '#fff',
+  backgroundColor: byMode('#fff', '#121212'),
   '& .MuiOutlinedInput-root': {
     height: 42,
     borderRadius: '8px',
     fontSize: 16,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
   },
-  '& .MuiOutlinedInput-input': { padding: '9px 16px', '&::placeholder': { color: '#808080', opacity: 1 } },
+  '& .MuiOutlinedInput-input': { padding: '9px 16px', '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 } },
 };
 
 const editSelectSx = {
   height: 42,
   borderRadius: '8px',
   fontSize: 16,
-  backgroundColor: '#fff',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+  backgroundColor: byMode('#fff', '#121212'),
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
 };
 
 // Reference edit page: a bold label ABOVE each field (not beside it).
@@ -342,7 +343,7 @@ const FieldRow = ({ label, children, invalid = false }) => (
       sx={{
         fontSize: 16,
         fontWeight: 700,
-        color: invalid ? '#c0392b' : '#000',
+        color: invalid ? byMode('#c0392b', '#ffa2a2') : byMode('#000', '#f8f8f8'),
         display: 'flex',
         alignItems: 'center',
         gap: 0.75,
@@ -359,8 +360,8 @@ const FieldRow = ({ label, children, invalid = false }) => (
 // Reference: each tab panel opens with a grey glyph + bold section title.
 const SectionTitle = ({ icon, children }) => (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 4 }}>
-    {React.cloneElement(icon, { sx: { fontSize: 20, color: '#8a8f98' } })}
-    <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000' }}>{children}</Typography>
+    {React.cloneElement(icon, { sx: { fontSize: 20, color: byMode('#8a8f98', '#a0a4aa') } })}
+    <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>{children}</Typography>
   </Box>
 );
 
@@ -621,7 +622,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
     <Box sx={{ pb: 12 }}>
       {/* Reference: a pale blue-grey band holds the back link, the "Editing …"
           title and the tab strip; the open tab is a white card joined to the page. */}
-      <Box sx={{ bgcolor: '#e3e9f1', px: 3, pt: 2, borderBottom: '1px solid #d0d0d0', '& .MuiTabs-root': { mb: '-1px' } }}>
+      <Box sx={{ bgcolor: byMode('#e3e9f1', '#232323'), px: 3, pt: 2, borderBottom: byMode('1px solid #d0d0d0', '1px solid #373737'), '& .MuiTabs-root': { mb: '-1px' } }}>
         <Box sx={{ maxWidth: 900, mx: 'auto' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <Button
@@ -635,12 +636,12 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               height: 42,
               borderRadius: '12px',
               transition: INSTANT,
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+              '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
             }}
           >
             &#8249; Users
           </Button>
-          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+          <Typography component="h1" sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
             Editing {user.name}
           </Typography>
         </Box>
@@ -657,7 +658,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               textTransform: 'none',
               fontSize: 14,
               fontWeight: 500,
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               px: 3,
               gap: 1,
               borderRadius: '8px 8px 0 0',
@@ -665,12 +666,12 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               borderBottom: 0,
               transition: INSTANT,
               outline: 'none',
-              '& .MuiSvgIcon-root': { fontSize: 18, color: '#676b72' },
+              '& .MuiSvgIcon-root': { fontSize: 18, color: byMode('#676b72', '#a0a4aa') },
               // No keyboard-focus ring doubling the tab border (reference has none)
               '&.Mui-focusVisible': { outline: 'none', boxShadow: 'none' },
             },
             // The open tab is a card in the page colour, sitting on the band's edge
-            '& .MuiTab-root.Mui-selected': { bgcolor: '#f8f8f8', borderColor: '#d0d0d0', color: '#000', fontWeight: 700 },
+            '& .MuiTab-root.Mui-selected': { bgcolor: byMode('#f8f8f8', '#121212'), borderColor: byMode('#d0d0d0', '#373737'), color: byMode('#000', '#f8f8f8'), fontWeight: 700 },
           }}
         >
           {/* Reference flags the tab that holds the unfilled field, so the warning
@@ -682,9 +683,9 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                 key={t.label}
                 disableRipple
                 label={t.label}
-                icon={invalid ? <RequiredIcon sx={{ color: '#c0392b !important' }} /> : t.icon}
+                icon={invalid ? <RequiredIcon sx={{ color: byMode('#c0392b !important', '#ffa2a2 !important') }} /> : t.icon}
                 iconPosition="start"
-                sx={invalid ? { color: '#c0392b !important' } : undefined}
+                sx={invalid ? { color: byMode('#c0392b !important', '#ffa2a2 !important') } : undefined}
               />
             );
           })}
@@ -739,8 +740,8 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 sx={{
-                  bgcolor: '#dedede',
-                  color: '#4b4f56',
+                  bgcolor: byMode('#dedede', '#3a3a3a'),
+                  color: byMode('#4b4f56', '#f8f8f8'),
                   textTransform: 'none',
                   fontWeight: 700,
                   fontSize: 16,
@@ -748,7 +749,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                   px: 2,
                   borderRadius: '8px',
                   transition: INSTANT,
-                  '&:hover': { bgcolor: '#d0d0d0' },
+                  '&:hover': { bgcolor: byMode('#d0d0d0', '#4a4a4a') },
                 }}
               >
                 Remove Image
@@ -780,7 +781,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                   ? {
                       endAdornment: (
                         <InputAdornment position="end">
-                          <ValidIcon sx={{ fontSize: 20, color: '#16a34a' }} />
+                          <ValidIcon sx={{ fontSize: 20, color: byMode('#16a34a', '#7bf1a8') }} />
                         </InputAdornment>
                       ),
                     }
@@ -800,15 +801,15 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                 startIcon={<LockIcon sx={{ fontSize: 18 }} />}
                 onClick={() => setShowPasswordFields(true)}
                 sx={{
-                  border: '1px solid #22c55e',
-                  color: '#16a34a',
+                  border: byMode('1px solid #22c55e', '1px solid #7bf1a8'),
+                  color: byMode('#16a34a', '#7bf1a8'),
                   textTransform: 'none',
                   fontWeight: 700,
                   fontSize: 16,
                   height: 42,
                   borderRadius: '8px',
                   transition: INSTANT,
-                  '&:hover': { bgcolor: 'rgba(34,197,94,0.08)', border: '1px solid #22c55e' },
+                  '&:hover': { bgcolor: 'rgba(34,197,94,0.08)', border: byMode('1px solid #22c55e', '1px solid #7bf1a8') },
                 }}
               >
                 Update Password
@@ -839,12 +840,12 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                   }}
                   sx={{
                     alignSelf: 'flex-start',
-                    color: '#676b72',
+                    color: byMode('#676b72', '#d4d4d4'),
                     textTransform: 'none',
                     fontWeight: 700,
                     fontSize: 16,
                     transition: INSTANT,
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                    '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
                   }}
                 >
                   Cancel
@@ -862,7 +863,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               sx={editSelectSx}
               IconComponent={ArrowDropDownIcon}
               MenuProps={REF_MENU_PROPS}
-              renderValue={(v) => (v ? (v === 'NO_ROLE_ALL_PERMISSIONS' ? 'No Role (has all permissions)' : v) : <Box component="span" sx={{ color: '#808080' }}>Select a role</Box>)}
+              renderValue={(v) => (v ? (v === 'NO_ROLE_ALL_PERMISSIONS' ? 'No Role (has all permissions)' : v) : <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>Select a role</Box>)}
             >
               <MenuItem value="NO_ROLE_ALL_PERMISSIONS">No Role (has all permissions)</MenuItem>
               {roles
@@ -917,7 +918,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                 checked={form.requiresPasswordReset}
                 onChange={(e) => setField('requiresPasswordReset')(e.target.checked)}
               />
-              <Typography sx={{ fontSize: 16, color: '#676b72' }}>
+              <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>
                 {form.requiresPasswordReset
                   ? 'The user must have a new password saved before they can log in'
                   : "The user doesn't need to reset their password"}
@@ -958,7 +959,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
         <Box sx={tabPanelSx}>
           <SectionTitle icon={<ReportingIcon />}>Reporting Access</SectionTitle>
           {reporting.length === 0 ? (
-            <Typography sx={{ fontSize: 16, color: '#676b72' }}>
+            <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>
               No outlet assignments found for this user.
             </Typography>
           ) : (
@@ -966,7 +967,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {reporting.map((r) => (
                 <Box key={r.outletId}>
-                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', mb: 1 }}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>
                     {r.outletName}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -981,7 +982,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                         );
                       }}
                     />
-                    <Typography sx={{ fontSize: 16, color: '#676b72' }}>
+                    <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>
                       This user will have access to the report data for this outlet
                     </Typography>
                   </Box>
@@ -996,13 +997,13 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
       {tab === 3 && (
         <Box>
           <SectionTitle icon={<QuickMenuIcon />}>Quick Menu</SectionTitle>
-          <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', mb: 1.5 }}>Quick Menu Items</Typography>
+          <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1.5 }}>Quick Menu Items</Typography>
           {/* Reference columns: handle | Name | URL | bin. The URL column holds our
               page picker (+ External switch) rather than a typed path. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: '28px 1fr 2.4fr 40px', gap: 1.5, mb: 1 }}>
             <Box />
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', textAlign: 'center' }}>Name</Typography>
-            <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', textAlign: 'center' }}>URL</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), textAlign: 'center' }}>Name</Typography>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), textAlign: 'center' }}>URL</Typography>
             <Box />
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -1025,7 +1026,7 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                 {/* Reference "Handle button": click and drag to rearrange the order */}
                 <Box
                   title="Drag to reorder"
-                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', color: '#676b72', '&:active': { cursor: 'grabbing' } }}
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', color: byMode('#676b72', '#a0a4aa'), '&:active': { cursor: 'grabbing' } }}
                 >
                   <DragHandleIcon sx={{ fontSize: 22 }} />
                 </Box>
@@ -1053,10 +1054,10 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
                   disableRipple
                   onClick={() => setQuickMenu((prev) => prev.filter((_, i) => i !== idx))}
                   sx={{
-                    color: '#dc2626',
+                    color: byMode('#dc2626', '#ffa2a2'),
                     borderRadius: '8px',
                     transition: INSTANT,
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                    '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
                   }}
                   title="Remove"
                 >
@@ -1072,15 +1073,15 @@ const UserEditPage = ({ user, roles, onBack, onSaved }) => {
               onClick={() => setQuickMenu((prev) => [...prev, { name: '', url: '' }])}
               sx={{
                 mt: 1,
-                border: '1px solid #22c55e',
-                color: '#16a34a',
+                border: byMode('1px solid #22c55e', '1px solid #7bf1a8'),
+                color: byMode('#16a34a', '#7bf1a8'),
                 textTransform: 'none',
                 fontWeight: 700,
                 fontSize: 16,
                 height: 42,
                 borderRadius: '8px',
                 transition: INSTANT,
-                '&:hover': { bgcolor: 'rgba(34,197,94,0.08)', border: '1px solid #22c55e' },
+                '&:hover': { bgcolor: 'rgba(34,197,94,0.08)', border: byMode('1px solid #22c55e', '1px solid #7bf1a8') },
               }}
             >
               Add Item
@@ -1235,7 +1236,7 @@ const Users = () => {
               boxShadow: 'none',
               transition: INSTANT,
               '&:hover': {
-                bgcolor: 'rgba(0,0,0,0.05)',
+                bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'),
                 border: '1px solid #5ebbeb',
                 color: '#5ebbeb',
                 boxShadow: 'none',
@@ -1248,10 +1249,10 @@ const Users = () => {
         </Typography>
         {/* Same right-top counter as the Products page: big number + "Results" */}
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, color: '#000', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, color: byMode('#000', '#f8f8f8'), lineHeight: 1 }}>
             {filteredUsers.length}
           </Typography>
-          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>Results</Typography>
         </Box>
       </Box>
 
@@ -1264,16 +1265,16 @@ const Users = () => {
           onChange={(e) => setNameFilter(e.target.value)}
           sx={{
             width: '50%',
-            backgroundColor: 'white',
+            backgroundColor: byMode('white', '#121212'),
             '& .MuiOutlinedInput-root': {
               height: 42,
               borderRadius: 2,
               fontSize: 16,
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
             },
-            '& .MuiOutlinedInput-input': { padding: '9px 16px', '&::placeholder': { color: '#808080', opacity: 1 } },
+            '& .MuiOutlinedInput-input': { padding: '9px 16px', '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 } },
           }}
         />
         <RolesFilter value={roleFilter} onChange={setRoleFilter} options={roleOptions} />
@@ -1295,8 +1296,8 @@ const Users = () => {
               <TableRow
                 sx={{
                   '& th': {
-                    bgcolor: '#5ebbeb',
-                    color: '#f8f8f8',
+                    bgcolor: byMode('#5ebbeb', '#333333'),
+                    color: byMode('#f8f8f8', '#5ebbeb'),
                     fontWeight: 700,
                     fontSize: 16,
                     textTransform: 'uppercase',
@@ -1314,7 +1315,7 @@ const Users = () => {
                 <TableCell align="right" />
               </TableRow>
             </TableHead>
-            <TableBody sx={{ '& td': { border: 0, fontSize: 16, color: '#000', height: 80, py: 0 } }}>
+            <TableBody sx={{ '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), height: 80, py: 0, pl: '10px' } }}>
               {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
@@ -1324,17 +1325,17 @@ const Users = () => {
                         sx={{
                           width: 40,
                           height: 40,
-                          backgroundColor: '#e0e0e0',
-                          color: '#666',
+                          backgroundColor: byMode('#e0e0e0', '#3a3a3a'),
+                          color: byMode('#666', '#a0a4aa'),
                         }}
                       >
                         {!user.avatar && <PersonIcon />}
                       </Avatar>
-                      <Typography sx={{ fontSize: 16, color: '#000' }}>{user.name}</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{user.name}</Typography>
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ fontSize: 16, color: roleName(user) === 'No Role' ? '#676b72' : '#000' }}>
+                    <Typography sx={{ fontSize: 16, color: roleName(user) === 'No Role' ? byMode('#676b72', '#a0a4aa') : byMode('#000', '#f8f8f8') }}>
                       {roleName(user)}
                     </Typography>
                   </TableCell>
@@ -1345,7 +1346,7 @@ const Users = () => {
                           disableRipple
                           startIcon={<EditIcon />}
                           onClick={() => handleEditUser(user)}
-                          sx={rowActionSx('#16a34a')}
+                          sx={rowActionSx(byMode('#16a34a', '#7bf1a8'))}
                         >
                           Edit
                         </Button>
@@ -1356,7 +1357,7 @@ const Users = () => {
                           startIcon={<DeleteIcon />}
                           onClick={() => setUserToDelete(user)}
                           disabled={user.id === currentUser?.id || isLastSuperAdmin(user)}
-                          sx={rowActionSx('#dc2626')}
+                          sx={rowActionSx(byMode('#dc2626', '#ffa2a2'))}
                         >
                           Delete
                         </Button>

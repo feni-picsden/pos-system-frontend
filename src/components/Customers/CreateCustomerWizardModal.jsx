@@ -32,6 +32,7 @@ import CreatableAutocomplete from '../Common/CreatableAutocomplete';
 import { fetchPageRuleDatabase } from '../../utils/pageRuleDatabases';
 import PageRuleWizard from '../Common/PageRuleWizard';
 import { resolveCustomPageRuleCode } from '../../utils/pageRuleDefaults';
+import { byMode } from '../../theme/sfPalette';
 
 const steps = [
   { label: 'Name', icon: <PersonIcon /> },
@@ -276,7 +277,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                 placeholder="First Name (required)"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
-                sx={{ mb: 2, backgroundColor: 'white' }}
+                sx={{ mb: 2, backgroundColor: byMode('white', '#232323') }}
                 required
               />
               <TextField
@@ -284,7 +285,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                 placeholder="Last Name"
                 value={formData.lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
-                sx={{ backgroundColor: 'white' }}
+                sx={{ backgroundColor: byMode('white', '#232323') }}
               />
             </Box>
           </Box>
@@ -302,7 +303,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                   <Select
                     value={formData.outletId || ''}
                     onChange={(e) => handleInputChange('outletId', e.target.value === '' ? null : e.target.value)}
-                    sx={{ backgroundColor: 'white' }}
+                    sx={{ backgroundColor: byMode('white', '#232323') }}
                   >
                     <MenuItem value="">
                       <em>Select an outlet</em>
@@ -342,7 +343,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                 onCreate={handleCreateCustomerGroup}
                 onError={(err) => setError(err?.response?.data?.error || 'Failed to create customer group')}
                 placeholder="No group"
-                sx={{ backgroundColor: 'white' }}
+                sx={{ backgroundColor: byMode('white', '#232323') }}
               />
             </Box>
           </Box>
@@ -360,7 +361,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                 value={formData.code}
                 onChange={(e) => handleInputChange('code', e.target.value)}
                 placeholder="Code"
-                sx={{ backgroundColor: 'white' }}
+                sx={{ backgroundColor: byMode('white', '#232323') }}
               />
             </Box>
           </Box>
@@ -379,7 +380,7 @@ const CreateCustomerWizardModal = ({ open, onClose, onCustomerCreated, onOpenDet
                 value={formData.emails[0] || ''}
                 onChange={(e) => handleEmailChange(0, e.target.value)}
                 type="email"
-                sx={{ backgroundColor: 'white' }}
+                sx={{ backgroundColor: byMode('white', '#232323') }}
                 error={!isStepValid()}
                 helperText={isStepValid() ? '' : 'Please enter a valid email address'}
               />

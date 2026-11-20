@@ -10,6 +10,7 @@ import {
   CircularProgress,
   Typography,
 } from '@mui/material';
+import { byMode } from '../../theme/sfPalette';
 
 const OTHER = '__other__';
 
@@ -140,6 +141,7 @@ const CashActionDialog = ({
           sx={{
             minWidth: 120,
             backgroundColor: '#4FC3F7',
+            color: byMode(undefined, '#232323'),
             '&:hover': { backgroundColor: '#29B6F6' },
           }}
         >

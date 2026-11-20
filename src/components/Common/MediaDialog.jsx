@@ -68,6 +68,7 @@ import {
   newFolderBtnSx,
 } from './mediaCentreUi.js';
 import { SortAmountIcon, QuestionDialog } from './mediaCentreComponents';
+import { byMode } from '../../theme/sfPalette';
 
 // Picker tiles are a size down from the page's 227px so five fit a row at ~1500px
 const TILE_W = 150;
@@ -496,7 +497,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
     const list = childrenOf[folderPath];
     if (!list) {
       return treeLoading[folderPath] ? (
-        <ListItem disablePadding sx={{ pl: level * 2 + 3.5, height: 32, fontSize: 16, color: '#676b72' }}>
+        <ListItem disablePadding sx={{ pl: level * 2 + 3.5, height: 32, fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>
           Loading...
         </ListItem>
       ) : null;
@@ -574,7 +575,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
           right: { xs: 0, md: 24 },
           bottom: { xs: 0, md: 24 },
           display: 'flex',
-          bgcolor: '#f8f8f8',
+          bgcolor: byMode('#f8f8f8', '#121212'),
           overflow: 'hidden',
         }}
       >
@@ -588,6 +589,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
             flexDirection: 'column',
             borderRadius: 0,
             boxShadow: 'none',
+            bgcolor: byMode(undefined, '#232323'),
           }}
         >
           <Button
@@ -601,8 +603,8 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
           <Button fullWidth startIcon={<AddIcon />} onClick={() => setFolderDialogOpen(true)} sx={newFolderBtnSx}>
             New Folder
           </Button>
-          <Box sx={{ flex: 1, overflow: 'auto', bgcolor: 'white' }}>
-            <List dense sx={{ py: 0, bgcolor: 'white' }}>
+          <Box sx={{ flex: 1, overflow: 'auto', bgcolor: byMode('white', '#232323') }}>
+            <List dense sx={{ py: 0, bgcolor: byMode('white', '#232323') }}>
               <ListItem disablePadding>
                 <ListItemButton onClick={() => handleFolderClick('')} sx={treeRowSx(currentPath === '')}>
                   <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -622,10 +624,10 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
         </Paper>
 
         {/* Main area – breadcrumb, toolbar, search, tile grid */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#f8f8f8' }}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: byMode('#f8f8f8', '#121212') }}>
           <Box sx={{ p: 2, pb: 0 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', fontSize: 14, color: '#313439' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', fontSize: 14, color: byMode('#313439', '#f8f8f8') }}>
                 {getBreadcrumbs().map((crumb) => (
                   <React.Fragment key={crumb.path || 'home'}>
                     <Box component="span" sx={crumbSeparatorSx}>/</Box>
@@ -673,7 +675,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
                 endAdornment: searchQuery ? (
                   <IconButton
                     onClick={() => setSearchQuery('')}
-                    sx={{ width: 30, height: 24, p: 0, borderRadius: '4px', color: '#676b72' }}
+                    sx={{ width: 30, height: 24, p: 0, borderRadius: '4px', color: byMode('#676b72', '#a0a4aa') }}
                     title="Clear"
                   >
                     <CloseIcon sx={{ fontSize: 18 }} />
@@ -706,7 +708,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
                 {currentPath && (
                   <Paper sx={pickerTileSx(false)} onClick={goUp} title="Up one folder">
                     <Box sx={thumbBoxSx}>
-                      <UpDirIcon sx={{ fontSize: 80, color: '#313439' }} />
+                      <UpDirIcon sx={{ fontSize: 80, color: byMode('#313439', '#f8f8f8') }} />
                     </Box>
                     <Typography sx={pickerCaptionSx}>..</Typography>
                   </Paper>
@@ -715,9 +717,9 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
                 {/* "New Folder" tile */}
                 <Paper sx={pickerTileSx(false)} onClick={() => setFolderDialogOpen(true)}>
                   <Box sx={thumbBoxSx}>
-                    <NewFolderIcon sx={{ fontSize: 80, color: '#1c86f2' }} />
+                    <NewFolderIcon sx={{ fontSize: 80, color: byMode('#1c86f2', '#4ca0f5') }} />
                   </Box>
-                  <Typography sx={{ ...pickerCaptionSx, color: '#1c86f2' }}>New Folder</Typography>
+                  <Typography sx={{ ...pickerCaptionSx, color: byMode('#1c86f2', '#4ca0f5') }}>New Folder</Typography>
                 </Paper>
 
                 {visibleItems.map((item) => {
@@ -736,8 +738,8 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
                       <Box sx={{ ...thumbBoxSx, position: 'relative', overflow: 'hidden' }}>
                         {isFolder ? (
                           <Box sx={{ position: 'relative', width: 80, height: 80 }}>
-                            <FolderIcon sx={{ fontSize: 80, color: '#313439' }} />
-                            <FileIcon sx={{ position: 'absolute', left: '50%', top: '56%', transform: 'translate(-50%, -50%)', fontSize: 22, color: '#313439' }} />
+                            <FolderIcon sx={{ fontSize: 80, color: byMode('#313439', '#f8f8f8') }} />
+                            <FileIcon sx={{ position: 'absolute', left: '50%', top: '56%', transform: 'translate(-50%, -50%)', fontSize: 22, color: byMode('#313439', '#f8f8f8') }} />
                           </Box>
                         ) : (
                           <>
@@ -834,6 +836,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
+            bgcolor: byMode(undefined, '#232323'),
             borderRadius: 0,
             boxShadow: 'none',
           }}
@@ -879,7 +882,7 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
             {selectedItems.length > 1 ? (
               <Box component="ul" sx={{ listStyleType: 'disc', pl: 3, m: 0 }}>
                 {selectedItems.map((item) => (
-                  <Box component="li" key={item.path} sx={{ fontSize: 16, color: '#313439', mb: 0.5 }}>
+                  <Box component="li" key={item.path} sx={{ fontSize: 16, color: byMode('#313439', '#f8f8f8'), mb: 0.5 }}>
                     {item.name}
                   </Box>
                 ))}
@@ -906,13 +909,13 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
                     </Box>
                   )}
                 </Box>
-                <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000000', wordBreak: 'break-word', textAlign: 'center' }}>
+                <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000000', '#f8f8f8'), wordBreak: 'break-word', textAlign: 'center' }}>
                   {selectedFile.name}
                 </Typography>
                 {selectedFile.size != null && selectedFile.type !== 'folder' && (
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 1 }}>
-                    <StorageIcon sx={{ fontSize: 18, color: '#676b72' }} />
-                    <Typography sx={{ fontSize: 14, color: '#313439' }}>{formatFileSize(selectedFile.size)}</Typography>
+                    <StorageIcon sx={{ fontSize: 18, color: byMode('#676b72', '#a0a4aa') }} />
+                    <Typography sx={{ fontSize: 14, color: byMode('#313439', '#f8f8f8') }}>{formatFileSize(selectedFile.size)}</Typography>
                   </Box>
                 )}
               </Box>
@@ -932,14 +935,14 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
               height: 70,
               borderRadius: 0,
               bgcolor: '#1c86f2',
-              color: '#f8f8f8',
+              color: byMode('#f8f8f8', '#232323'),
               fontSize: 24,
               fontWeight: 400,
               textTransform: 'none',
               boxShadow: 'none',
               flexShrink: 0,
               '&&:hover': { bgcolor: 'rgb(12,109,207)', boxShadow: 'none' },
-              '&.Mui-disabled': { bgcolor: '#bdbdbd', color: '#f8f8f8' },
+              '&.Mui-disabled': { bgcolor: byMode('#bdbdbd', '#3a3a3a'), color: byMode('#f8f8f8', '#a0a4aa') },
             }}
           >
             Select{multiple && selectedFiles.length > 1 ? ` (${selectedFiles.length})` : ''}
@@ -965,10 +968,10 @@ const MediaDialog = ({ open, onClose, onSelect, accept = 'image/*', multiple = f
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <Box sx={{ bgcolor: 'white', p: 4, textAlign: 'center', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)', maxWidth: 400, mx: 2 }}>
+            <Box sx={{ bgcolor: byMode('white', '#232323'), p: 4, textAlign: 'center', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)', maxWidth: 400, mx: 2 }}>
               <CloudUploadIcon sx={{ fontSize: 56, color: '#32b643', mb: 2 }} />
-              <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#313439' }}>Drop your file here</Typography>
-              <Typography sx={{ fontSize: 14, color: '#676b72' }}>It will be uploaded to the current directory</Typography>
+              <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>Drop your file here</Typography>
+              <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>It will be uploaded to the current directory</Typography>
             </Box>
           </Box>
         )}

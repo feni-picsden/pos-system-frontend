@@ -49,6 +49,7 @@ import salesReportService from '../../services/salesReportService';
 import outletService from '../../services/outletService';
 import { useAuth } from '../../contexts/AuthContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { byMode } from '../../theme/sfPalette';
 
 // ponytail: reference chrome kept page-local (the sibling report pages own their own
 // copies too) so parallel parity work never collides in components/Common.
@@ -56,7 +57,7 @@ import useHeaderScope from '../../hooks/useHeaderScope';
 // Reference toolbar buttons: flat filled sky, square, invert on hover over 200ms ease.
 const TOOLBAR_BUTTON_SX = {
   bgcolor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', '#232323'),
   border: '1px solid #5ebbeb',
   borderRadius: 0,
   boxShadow: 'none',
@@ -68,7 +69,7 @@ const TOOLBAR_BUTTON_SX = {
   whiteSpace: 'nowrap',
   transition: 'background 200ms ease, color 200ms ease',
   '&:hover': {
-    bgcolor: '#f8f8f8',
+    bgcolor: byMode('#f8f8f8', '#232323'),
     color: '#5ebbeb',
     border: '1px solid #5ebbeb',
     boxShadow: 'none',
@@ -78,21 +79,21 @@ const TOOLBAR_BUTTON_SX = {
 // Parity input outline: #404040 1px, focused #000 2px, radius 8px, 43 tall.
 const FIELD_SX = {
   '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 43 },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 // Popover inputs: white, radius 8, 38 tall.
 const POPOVER_FIELD_SX = {
-  bgcolor: '#fff',
-  '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 38, bgcolor: '#fff' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d4d4d4', borderWidth: '1px' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#d4d4d4' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '1px' },
-  '& input': { fontSize: 14, color: '#404040' },
-  '& input::placeholder': { color: '#5f5f5f', opacity: 1 },
+  bgcolor: byMode('#fff', '#121212'),
+  '& .MuiOutlinedInput-root': { borderRadius: '8px', height: 38, bgcolor: byMode('#fff', '#121212') },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#d4d4d4', '#a1a1a1'), borderWidth: '1px' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#d4d4d4', '#a1a1a1') },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '1px' },
+  '& input': { fontSize: 14, color: byMode('#404040', '#f8f8f8') },
+  '& input::placeholder': { color: byMode('#5f5f5f', '#757575'), opacity: 1 },
 };
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -146,15 +147,15 @@ const MonthGrid = ({ month, rangeStart, rangeEnd, onPick, onPrev, onNext }) => {
     <Box sx={{ flex: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: '8px' }}>
         {onPrev ? (
-          <IconButton size="small" onClick={onPrev} sx={{ color: '#0284c7', fontWeight: 700 }}>
+          <IconButton size="small" onClick={onPrev} sx={{ color: byMode('#0284c7', '#74d4ff'), fontWeight: 700 }}>
             <ChevronLeft />
           </IconButton>
         ) : (
           <Box sx={{ width: 34 }} />
         )}
-        <Box sx={{ fontSize: 18, fontWeight: 700, color: '#313439' }}>{format(month, 'MMMM yyyy')}</Box>
+        <Box sx={{ fontSize: 18, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>{format(month, 'MMMM yyyy')}</Box>
         {onNext ? (
-          <IconButton size="small" onClick={onNext} sx={{ color: '#0284c7', fontWeight: 700 }}>
+          <IconButton size="small" onClick={onNext} sx={{ color: byMode('#0284c7', '#74d4ff'), fontWeight: 700 }}>
             <ChevronRight />
           </IconButton>
         ) : (
@@ -173,7 +174,7 @@ const MonthGrid = ({ month, rangeStart, rangeEnd, onPick, onPrev, onNext }) => {
               justifyContent: 'center',
               fontSize: 12,
               fontWeight: 700,
-              color: '#676b72',
+              color: byMode('#676b72', '#a0a4aa'),
             }}
           >
             {label}
@@ -206,11 +207,11 @@ const MonthGrid = ({ month, rangeStart, rangeEnd, onPick, onPrev, onNext }) => {
                 fontWeight: 700,
                 cursor: 'pointer',
                 opacity: outside ? 0.5 : 1,
-                color: isEdge ? '#f8f8f8' : outside ? '#676b72' : '#0284c7',
-                bgcolor: isEdge ? '#0284c7' : inRange ? '#e0f2fe' : 'transparent',
-                border: isToday && !isEdge ? '1px solid #0284c7' : '1px solid transparent',
+                color: isEdge ? '#f8f8f8' : outside ? byMode('#676b72', '#a0a4aa') : byMode('#0284c7', '#74d4ff'),
+                bgcolor: isEdge ? '#0284c7' : inRange ? byMode('#e0f2fe', '#1f3a4a') : 'transparent',
+                border: isToday && !isEdge ? byMode('1px solid #0284c7', '1px solid #74d4ff') : '1px solid transparent',
                 transition: 'background 200ms ease, color 200ms ease',
-                '&:hover': isEdge ? {} : { bgcolor: '#f0f0f0' },
+                '&:hover': isEdge ? {} : { bgcolor: byMode('#f0f0f0', '#2f2f2f') },
               }}
             >
               {format(day, 'd')}
@@ -500,7 +501,7 @@ const MetcashMscSales = () => {
     const hasChildren = item.children && item.children.length > 0;
     const isCategory = level === 0;
     const isCategoryTotal = isCategory && item.isCategoryTotal;
-    const zebra = rowIndex.count % 2 === 0 ? '#fff' : '#f8f8f8';
+    const zebra = rowIndex.count % 2 === 0 ? byMode('#fff', '#232323') : byMode('#f8f8f8', '#2a2a2a');
     rowIndex.count += 1;
 
     // Show numeric details for:
@@ -513,9 +514,9 @@ const MetcashMscSales = () => {
       <React.Fragment key={key}>
         <TableRow
           sx={{
-            bgcolor: isTotalsRow ? '#5ebbeb' : zebra,
+            bgcolor: isTotalsRow ? byMode('#5ebbeb', '#333333') : zebra,
             '& td': {
-              color: isTotalsRow ? '#f8f8f8' : '#000',
+              color: isTotalsRow ? byMode('#f8f8f8', '#5ebbeb') : byMode('#000', '#f8f8f8'),
               fontWeight: isTotalsRow || isCategory ? 700 : 400,
               fontSize: 16,
               padding: '8px 8px 8px 10px',
@@ -609,7 +610,7 @@ const MetcashMscSales = () => {
           cursor: 'pointer',
           fontFamily: 'monospace',
           fontSize: 16,
-          color: value ? '#000' : '#8e8e8e',
+          color: value ? byMode('#000', '#f8f8f8') : byMode('#8e8e8e', '#757575'),
         }}
       >
         {value ? format(value, DISPLAY_FORMAT) : DATE_TIME_MASK}
@@ -636,8 +637,8 @@ const MetcashMscSales = () => {
             height: 43,
             display: 'flex',
             alignItems: 'center',
-            bgcolor: '#fff',
-            border: '1px solid #404040',
+            bgcolor: byMode('#fff', '#121212'),
+            border: byMode('1px solid #404040', '1px solid #a1a1a1'),
             borderRadius: '8px',
             boxSizing: 'border-box',
           }}
@@ -656,7 +657,7 @@ const MetcashMscSales = () => {
                 textAlign: 'left',
                 cursor: 'pointer',
                 fontSize: 16,
-                color: '#8e8e8e',
+                color: byMode('#8e8e8e', '#757575'),
               }}
             >
               Date (inclusive)
@@ -664,7 +665,7 @@ const MetcashMscSales = () => {
           ) : (
             <>
               {renderTriggerHalf('start')}
-              <MinusIcon sx={{ color: '#737373', fontSize: 16 }} />
+              <MinusIcon sx={{ color: byMode('#737373', '#a0a4aa'), fontSize: 16 }} />
               {renderTriggerHalf('end')}
             </>
           )}
@@ -707,7 +708,7 @@ const MetcashMscSales = () => {
               minHeight: 463,
               boxSizing: 'border-box',
               p: '16px',
-              bgcolor: '#f7f7f7',
+              bgcolor: byMode('#f7f7f7', '#232323'),
               borderRadius: '12px',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
             },
@@ -728,7 +729,7 @@ const MetcashMscSales = () => {
                 sx={{ ...POPOVER_FIELD_SX, width: 229 }}
                 InputProps={{
                   endAdornment: text ? (
-                    <IconButton size="small" onClick={() => clearEnd(which)} sx={{ color: '#737373' }}>
+                    <IconButton size="small" onClick={() => clearEnd(which)} sx={{ color: byMode('#737373', '#a0a4aa') }}>
                       <ClearIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   ) : null,
@@ -753,9 +754,9 @@ const MetcashMscSales = () => {
                   width: 38,
                   height: 42,
                   borderRadius: '12px',
-                  color: pickerTab === key ? '#0284c7' : '#707070',
+                  color: pickerTab === key ? byMode('#0284c7', '#74d4ff') : byMode('#707070', '#a0a4aa'),
                   transition: 'background 200ms ease, color 200ms ease',
-                  '&:hover': { bgcolor: '#eeeeee' },
+                  '&:hover': { bgcolor: byMode('#eeeeee', '#2f2f2f') },
                 }}
               >
                 {icon}
@@ -769,13 +770,13 @@ const MetcashMscSales = () => {
             sx={{
               height: 42,
               minWidth: 107,
-              color: '#313439',
+              color: byMode('#313439', '#f8f8f8'),
               fontSize: 16,
               fontWeight: 700,
               textTransform: 'none',
               borderRadius: '12px',
               transition: 'background 200ms ease, color 200ms ease',
-              '&:hover': { bgcolor: '#eeeeee' },
+              '&:hover': { bgcolor: byMode('#eeeeee', '#2f2f2f') },
             }}
           >
             Current Day
@@ -828,7 +829,7 @@ const MetcashMscSales = () => {
           sx={{
             ...TOOLBAR_BUTTON_SX,
             minWidth: 62,
-            '&.Mui-disabled': { bgcolor: '#404040', color: '#737373', border: '1px solid #404040' },
+            '&.Mui-disabled': { bgcolor: '#404040', color: byMode('#737373', '#a0a4aa'), border: '1px solid #404040' },
           }}
         >
           {loading ? <CircularProgress size={20} sx={{ color: 'inherit' }} /> : 'Run'}
@@ -847,8 +848,8 @@ const MetcashMscSales = () => {
               <TableRow
                 sx={{
                   '& th': {
-                    backgroundColor: '#5ebbeb',
-                    color: '#f8f8f8',
+                    backgroundColor: byMode('#5ebbeb', '#333333'),
+                    color: byMode('#f8f8f8', '#5ebbeb'),
                     fontWeight: 700,
                     fontSize: 16,
                     textTransform: 'uppercase',
@@ -878,9 +879,9 @@ const MetcashMscSales = () => {
               {totals && (
                 <TableRow
                   sx={{
-                    bgcolor: '#5ebbeb',
+                    bgcolor: byMode('#5ebbeb', '#333333'),
                     '& td': {
-                      color: '#f8f8f8',
+                      color: byMode('#f8f8f8', '#5ebbeb'),
                       fontWeight: 700,
                       fontSize: 16,
                       padding: '8px 8px 8px 10px',
@@ -905,7 +906,7 @@ const MetcashMscSales = () => {
           </Table>
         </TableContainer>
       ) : (
-        <Typography sx={{ fontSize: 16, color: '#676b72' }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>
           {hasRun
             ? 'No sales were found for the selected outlet and dates.'
             : 'Please select an Outlet, a date and then press run.'}

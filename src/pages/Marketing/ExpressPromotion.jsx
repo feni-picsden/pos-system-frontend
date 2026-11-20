@@ -55,6 +55,7 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import DateTimeField from '../../components/Common/DateTimeField';
 import useResultKeys, { ACTIVE_ROW_SX } from '../../components/Common/useResultKeys';
 import { getBaseTier } from '../../utils/baseTier';
+import { byMode } from '../../theme/sfPalette';
 
 // Start / End Date are edited with the shared DateTimeField (Date | null, with the
 // reference's DD/MM/YYYY HH:mm:ss mask and calendar / clock popover).
@@ -89,12 +90,12 @@ const pct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
 // Reference labels its fields above the box (same as the Advanced editor).
 const LabeledField = ({ label, children }) => (
   <Box>
-    <Typography sx={{ fontSize: 14, color: '#676b72', mb: 0.5 }}>{label}</Typography>
+    <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#d4d4d4'), mb: 0.5 }}>{label}</Typography>
     {children}
   </Box>
 );
 const headerFieldSx = {
-  '& .MuiOutlinedInput-root': { minHeight: 42, borderRadius: '8px', backgroundColor: '#fff' }
+  '& .MuiOutlinedInput-root': { minHeight: 42, borderRadius: '8px', backgroundColor: byMode('#fff', '#121212') }
 };
 const toggleLabelSx = { ml: 0, '& .MuiFormControlLabel-label': { ml: '10px', fontSize: 16 } };
 
@@ -781,15 +782,15 @@ const ExpressPromotion = () => {
   };
 
   return (
-    <Box sx={{ p: 3, pb: '85px', pr: showSimulator ? `${SIMULATOR_WIDTH + 24}px` : 3, transition: 'padding-right 300ms', backgroundColor: '#fff', minHeight: '100vh' }}>
+    <Box sx={{ p: 3, pb: '85px', pr: showSimulator ? `${SIMULATOR_WIDTH + 24}px` : 3, transition: 'padding-right 300ms', backgroundColor: byMode('#fff', '#121212'), minHeight: '100vh' }}>
       {/* Reference Express editor (live 04/11/2026): no page title, no card - a
           three-column header with labels above the boxes, a divider, then the
           search bar and the items table on the white page. */}
       <Box sx={{
         '& .MuiOutlinedInput-root': { borderRadius: '8px' },
-        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-        '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-        '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
+        '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+        '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+        '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' }
       }}>
         <Grid container spacing={2} alignItems="flex-end">
           <Grid item xs={12} md={4}>
@@ -929,7 +930,7 @@ const ExpressPromotion = () => {
           )}
         </Grid>
 
-        <Box sx={{ borderBottom: '1px solid #d4d4d4', my: 3, mx: -2 }} />
+        <Box sx={{ borderBottom: byMode('1px solid #d4d4d4', '1px solid #373737'), my: 3, mx: -2 }} />
 
         {/* Search: full width, clear button at the right once typed; the dropdown
             overlays the page with grouped results (CATEGORIES ... PRODUCTS). */}
@@ -950,7 +951,7 @@ const ExpressPromotion = () => {
             InputProps={{
               endAdornment: searchTerm ? (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => { setSearchTerm(''); setSearchResults([]); }} sx={{ color: '#404040', p: '2px', mr: '-4px' }}>
+                  <IconButton size="small" onClick={() => { setSearchTerm(''); setSearchResults([]); }} sx={{ color: byMode('#404040', '#a1a1a1'), p: '2px', mr: '-4px' }}>
                     <CancelIcon sx={{ fontSize: 24 }} />
                   </IconButton>
                 </InputAdornment>
@@ -958,23 +959,23 @@ const ExpressPromotion = () => {
             }}
             sx={{
               // Reference: 50px box, dark 1px border, 2px black once typing / focused.
-              '& .MuiOutlinedInput-root': { minHeight: 50, borderRadius: '6px', fontSize: 16, bgcolor: '#fff', pr: '12px' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-              '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-              '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+              '& .MuiOutlinedInput-root': { minHeight: 50, borderRadius: '6px', fontSize: 16, bgcolor: byMode('#fff', '#121212'), pr: '12px' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+              '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+              '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
               // Chrome autofill painted the box light blue.
-              '& input:-webkit-autofill': { WebkitBoxShadow: '0 0 0 100px #fff inset' }
+              '& input:-webkit-autofill': { WebkitBoxShadow: byMode('0 0 0 100px #fff inset', '0 0 0 100px #121212 inset') }
             }}
           />
-          <Typography sx={{ fontSize: 16, color: '#000', mt: '2px' }}>Please note: All figures are inclusive of tax</Typography>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mt: '2px' }}>Please note: All figures are inclusive of tax</Typography>
 
           {/* Reference dropdown: square panel with a 1px dark frame, drop shadow and a
               3px sky line along the bottom; it overlaps the "Please note" line. */}
           {/* Reference states: "Start typing to search..." (1 char), "Searching..." while the
               request is in flight, "No search results found." */}
           {searchTerm.trim().length > 0 && searchResults.length === 0 && (
-            <Paper square elevation={0} sx={{ position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, border: '1px solid #404040', borderBottom: '3px solid #5ebbeb', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '18px', py: '12px' }}>
-              <Typography sx={{ fontSize: 18, color: '#000', lineHeight: '24px' }}>
+            <Paper square elevation={0} sx={{ position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, border: byMode('1px solid #404040', '1px solid #a1a1a1'), borderBottom: '3px solid #5ebbeb', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '18px', py: '12px' }}>
+              <Typography sx={{ fontSize: 18, color: byMode('#000', '#f8f8f8'), lineHeight: '24px' }}>
                 {searchTerm.trim().length < 2 ? 'Start typing to search...' : searchLoading ? 'Searching...' : 'No search results found.'}
               </Typography>
             </Paper>
@@ -983,11 +984,11 @@ const ExpressPromotion = () => {
             <Paper
               square
               elevation={0}
-              sx={{ position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, maxHeight: 480, overflowY: 'scroll', border: '1px solid #404040', borderBottom: '3px solid #5ebbeb', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '14px', pt: '8px', pb: '6px' }}
+              sx={{ position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, maxHeight: 480, overflowY: 'scroll', border: byMode('1px solid #404040', '1px solid #a1a1a1'), borderBottom: '3px solid #5ebbeb', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '14px', pt: '8px', pb: '6px' }}
             >
               {GROUP_ORDER.filter((g) => searchResults.some((r) => groupOf(r) === g)).map((g) => (
                 <Box key={g}>
-                  <Typography sx={{ fontSize: 16, color: '#9e9e9e', letterSpacing: 0.5, lineHeight: '20px', pt: '10px', pb: '4px' }}>{GROUP_LABEL[g]}</Typography>
+                  <Typography sx={{ fontSize: 16, color: byMode('#9e9e9e', '#a0a4aa'), letterSpacing: 0.5, lineHeight: '20px', pt: '10px', pb: '4px' }}>{GROUP_LABEL[g]}</Typography>
                   {inDisplayOrder(searchResults).map((product, flatIndex) => (groupOf(product) === g ? (
                     <Box
                       key={`${product.resultType}-${product.id}`}
@@ -1000,7 +1001,7 @@ const ExpressPromotion = () => {
                         cursor: 'pointer',
                         mx: '-14px',
                         px: '14px',
-                        '&:hover': { backgroundColor: '#f5f5f5' },
+                        '&:hover': { backgroundColor: byMode('#f5f5f5', '#2f2f2f') },
                         // Top result pre-highlighted; ArrowUp/Down move it, Enter adds it.
                         ...(resultKeys.isActive('items', flatIndex) ? ACTIVE_ROW_SX : {}),
                       }}
@@ -1009,9 +1010,9 @@ const ExpressPromotion = () => {
                       {(() => {
                         const g = groupOf(product);
                         const Glyph = g === 'PRODUCT' ? ImageIcon : g === 'FAMILY' ? HomeOutlinedIcon : g === 'CATEGORY' ? Inventory2OutlinedIcon : LocalOfferOutlinedIcon;
-                        return <Glyph sx={{ fontSize: 22, color: '#404040' }} />;
+                        return <Glyph sx={{ fontSize: 22, color: byMode('#404040', '#a0a4aa') }} />;
                       })()}
-                      <Typography sx={{ fontSize: 18, color: '#404040', lineHeight: '24px' }}>
+                      <Typography sx={{ fontSize: 18, color: byMode('#404040', '#f8f8f8'), lineHeight: '24px' }}>
                         <Highlight text={product.name} term={searchTerm} />
                       </Typography>
                     </Box>
@@ -1039,7 +1040,7 @@ const ExpressPromotion = () => {
               <col style={{ width: 48 }} />
             </colgroup>
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#5ebbeb', '& th': { color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', py: 1, whiteSpace: 'nowrap', px: 1 } }}>
+              <TableRow sx={{ backgroundColor: byMode('#5ebbeb', '#333333'), '& th': { color: byMode('#fff', '#5ebbeb'), fontWeight: 700, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', py: 1, whiteSpace: 'nowrap', px: 1 } }}>
                 <TableCell sx={{ textAlign: 'left !important' }}>ITEM</TableCell>
                 <TableCell>QUANTITY</TableCell>
                 <TableCell>COST</TableCell>
@@ -1051,7 +1052,7 @@ const ExpressPromotion = () => {
                 <TableCell sx={{ width: 48 }} />
               </TableRow>
             </TableHead>
-            <TableBody sx={{ '& td': { fontSize: 16, color: '#000', py: 1.5, px: 1 } }}>
+            <TableBody sx={{ '& td': { fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5, px: 1 } }}>
               {formData.items.map((item, index) => {
                 // Reference (live 04/11/2026): a classification is ONE row. A FAMILY
                 // row shows "~" averages over its members and expands (arrow) into
@@ -1081,13 +1082,13 @@ const ExpressPromotion = () => {
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           {isClass && members.length > 0 && (
-                            <IconButton size="small" onClick={() => toggleExpanded(index)} sx={{ p: 0, color: '#404040' }}>
+                            <IconButton size="small" onClick={() => toggleExpanded(index)} sx={{ p: 0, color: byMode('#404040', '#a1a1a1') }}>
                               {item.expanded ? <ArrowDropDownIcon /> : <ArrowRightIcon />}
                             </IconButton>
                           )}
                           <Box>
                             <Typography sx={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{item.productName}</Typography>
-                            <Typography sx={{ fontSize: 10, letterSpacing: 1, color: '#404040' }}>{isClass ? item.classificationType : 'PRODUCT'}</Typography>
+                            <Typography sx={{ fontSize: 10, letterSpacing: 1, color: byMode('#404040', '#a0a4aa') }}>{isClass ? item.classificationType : 'PRODUCT'}</Typography>
                           </Box>
                         </Box>
                       </TableCell>
@@ -1155,11 +1156,11 @@ const ExpressPromotion = () => {
                           sx={{ minWidth: 160, ...headerFieldSx }}
                         />
                       </TableCell>
-                      <TableCell sx={{ color: hasFigures && calculateProfit(item) < 0 ? '#e33430 !important' : '#000', whiteSpace: 'nowrap' }}>
+                      <TableCell sx={{ color: hasFigures && calculateProfit(item) < 0 ? byMode('#e33430 !important', '#ffa2a2 !important') : byMode('#000', '#f8f8f8'), whiteSpace: 'nowrap' }}>
                         {hasFigures ? approx + pct(calculateProfit(item)) : dash}
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" onClick={() => handleRemoveItem(index)} sx={{ color: '#e33430' }}>
+                        <IconButton size="small" onClick={() => handleRemoveItem(index)} sx={{ color: byMode('#e33430', '#ffa2a2') }}>
                           <DeleteIcon />
                         </IconButton>
                       </TableCell>
@@ -1173,7 +1174,7 @@ const ExpressPromotion = () => {
                         <TableRow key={`m-${item.classificationId}-${m.productId}`} sx={{ '& td': { py: 1 } }}>
                           <TableCell sx={{ pl: '40px !important' }}>
                             <Typography sx={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{m.name}</Typography>
-                            <Typography sx={{ fontSize: 10, letterSpacing: 1, color: '#404040' }}>PRODUCT</Typography>
+                            <Typography sx={{ fontSize: 10, letterSpacing: 1, color: byMode('#404040', '#a0a4aa') }}>PRODUCT</Typography>
                           </TableCell>
                           <TableCell />
                           <TableCell>{money(mCost)}</TableCell>
@@ -1181,7 +1182,7 @@ const ExpressPromotion = () => {
                           {!isPriceOverride && <TableCell />}
                           <TableCell>{mPromo > 0 ? money(mPromo) : ''}</TableCell>
                           <TableCell />
-                          <TableCell sx={{ color: mProfit < 0 ? '#e33430 !important' : '#000', whiteSpace: 'nowrap' }}>{mPromo > 0 ? pct(mProfit) : ''}</TableCell>
+                          <TableCell sx={{ color: mProfit < 0 ? byMode('#e33430 !important', '#ffa2a2 !important') : byMode('#000', '#f8f8f8'), whiteSpace: 'nowrap' }}>{mPromo > 0 ? pct(mProfit) : ''}</TableCell>
                           <TableCell />
                         </TableRow>
                       );
@@ -1193,7 +1194,7 @@ const ExpressPromotion = () => {
           </Table>
         </TableContainer>
         {formData.items.length === 0 && (
-          <Typography sx={{ textAlign: 'center', py: 6, fontSize: 32, color: '#b5b5b5' }}>No items in promotion</Typography>
+          <Typography sx={{ textAlign: 'center', py: 6, fontSize: 32, color: byMode('#b5b5b5', '#a0a4aa') }}>No items in promotion</Typography>
         )}
       </Box>
 

@@ -71,6 +71,46 @@ import {
   newFolderBtnSx,
 } from '../../components/Common/mediaCentreUi.js';
 import { SortAmountIcon, QuestionDialog } from '../../components/Common/mediaCentreComponents';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-only layers over the shared media-centre styles (light: {} = shared look unchanged).
+const treeRowDark = (current) => byMode({}, {
+  color: current ? '#74d4ff' : '#f8f8f8',
+  '& .MuiSvgIcon-root': { color: current ? '#74d4ff' : '#a0a4aa' },
+  '&&:hover': { bgcolor: current ? '#333333' : '#2f2f2f', color: current ? '#74d4ff' : '#f8f8f8' },
+  '& .folder-close-toggle:hover .MuiSvgIcon-root': { color: '#74d4ff' },
+  '& .folder-heading:hover': { color: '#74d4ff' },
+});
+const tileDark = (selected) => byMode({}, { bgcolor: selected ? '#3a3a3a' : '#232323', '&:hover': { bgcolor: '#3a3a3a' } });
+const captionDark = byMode({}, { color: '#f8f8f8' });
+const chipBtnDark = byMode({}, { bgcolor: '#232323', color: '#f8f8f8', '&&:hover': { bgcolor: '#3a3a3a' } });
+const railBtnDark = (disabled) => byMode({}, {
+  bgcolor: '#232323',
+  color: '#d4d4d4',
+  '&:hover': { bgcolor: disabled ? '#232323' : '#3a3a3a', color: disabled ? '#757575' : '#f8f8f8' },
+  '&.Mui-disabled': { bgcolor: '#232323', color: '#757575' },
+});
+const sortSelectDark = byMode({}, {
+  bgcolor: '#232323',
+  color: '#f8f8f8',
+  '& .MuiSelect-icon': { color: '#a0a4aa' },
+  '&:hover': { bgcolor: '#3a3a3a' },
+  '&:hover .MuiSelect-icon': { color: '#f8f8f8' },
+});
+const sortMenuDark = byMode({}, {
+  '& .MuiMenuItem-root': { color: '#f8f8f8' },
+  '& .MuiMenuItem-root.Mui-selected': { color: '#00a6f4' },
+  '& .MuiMenuItem-root.Mui-selected:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+});
+const sortMenuPropsThemed = {
+  ...sortMenuProps,
+  PaperProps: { ...sortMenuProps.PaperProps, sx: [sortMenuProps.PaperProps.sx, sortMenuDark] },
+};
+const searchFieldDark = byMode({}, {
+  '& .MuiInputBase-root': { bgcolor: '#232323', color: '#f8f8f8' },
+  '& .MuiInputBase-input::placeholder': { color: '#757575', opacity: 1 },
+});
+const crumbDark = byMode({}, { color: '#f8f8f8', '&&:hover': { bgcolor: '#3a3a3a' } });
 
 const Media = () => {
   const theme = useTheme();
@@ -428,7 +468,7 @@ const Media = () => {
                 // Reference: the name only navigates; the chevron opens / closes
                 handleFolderClick(folder.path);
               }}
-              sx={treeRowSx(isCurrent)}
+              sx={[treeRowSx(isCurrent), treeRowDark(isCurrent)]}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                 {/* Expand/Collapse Icon */}
@@ -481,7 +521,7 @@ const Media = () => {
     const list = childrenOf[folderPath];
     if (!list) {
       return treeLoading[folderPath] ? (
-        <ListItem disablePadding sx={{ pl: level * 2 + 3.5, height: 32, fontSize: 16, color: '#676b72' }}>
+        <ListItem disablePadding sx={{ pl: level * 2 + 3.5, height: 32, fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>
           Loading...
         </ListItem>
       ) : null;
@@ -525,7 +565,7 @@ const Media = () => {
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
         height: { xs: 'auto', md: 'calc(100vh - 50px)' },
-        bgcolor: '#f8f8f8',
+        bgcolor: byMode('#f8f8f8', '#121212'),
       }}
     >
       {/* Left Sidebar – Upload / New Folder / Folder tree */}
@@ -557,11 +597,11 @@ const Media = () => {
         >
           New Folder
         </Button>
-        <Box sx={{ flex: 1, overflow: 'auto', bgcolor: 'white' }}>
-          <List dense sx={{ py: 0, bgcolor: 'white' }}>
+        <Box sx={{ flex: 1, overflow: 'auto', bgcolor: byMode('white', '#232323') }}>
+          <List dense sx={{ py: 0, bgcolor: byMode('white', '#232323') }}>
             {/* Home root node – always the first row, returns to the root directory */}
             <ListItem disablePadding>
-              <ListItemButton onClick={() => handleFolderClick('')} sx={treeRowSx(currentPath === '')}>
+              <ListItemButton onClick={() => handleFolderClick('')} sx={[treeRowSx(currentPath === ''), treeRowDark(currentPath === '')]}>
                 <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                   <Box className="folder-close-toggle" sx={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 0.5 }}>
                     <ChevronDownIcon sx={{ fontSize: 18 }} />
@@ -585,7 +625,7 @@ const Media = () => {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          bgcolor: '#ffffff',
+          bgcolor: byMode('#ffffff', '#121212'),
         }}
       >
         {/* Breadcrumb + toolbar */}
@@ -600,17 +640,17 @@ const Media = () => {
             }}
           >
             {/* Breadcrumbs – "/ Home / Product Images" */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', fontSize: 14, color: '#313439' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap', fontSize: 14, color: byMode('#313439', '#f8f8f8') }}>
               {getBreadcrumbs().map((crumb) => (
                 <React.Fragment key={crumb.path || 'home'}>
-                  <Box component="span" sx={crumbSeparatorSx}>
+                  <Box component="span" sx={[crumbSeparatorSx, captionDark]}>
                     /
                   </Box>
                   <Box
                     component="button"
                     type="button"
                     onClick={() => handleFolderClick(crumb.path)}
-                    sx={crumbButtonSx}
+                    sx={[crumbButtonSx, crumbDark]}
                   >
                     {crumb.name}
                   </Box>
@@ -620,13 +660,13 @@ const Media = () => {
 
             {/* File viewer actions: refresh | sort direction | sort by */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton disableRipple onClick={() => { spinRefresh(); fetchFiles(currentPath); }} sx={chipBtnSx} title="Refresh">
+              <IconButton disableRipple onClick={() => { spinRefresh(); fetchFiles(currentPath); }} sx={[chipBtnSx, chipBtnDark]} title="Refresh">
                 <RefreshIcon sx={{ fontSize: 16, ...spinSx(refreshSpinning) }} />
               </IconButton>
               <IconButton
                 disableRipple
                 onClick={() => setSortAsc((prev) => !prev)}
-                sx={chipBtnSx}
+                sx={[chipBtnSx, chipBtnDark]}
                 title={sortAsc ? 'Sort ascending' : 'Sort descending'}
               >
                 <SortAmountIcon up={sortAsc} sx={{ fontSize: 16 }} />
@@ -635,8 +675,8 @@ const Media = () => {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 IconComponent={ArrowDropDown}
-                sx={sortSelectSx}
-                MenuProps={sortMenuProps}
+                sx={[sortSelectSx, sortSelectDark]}
+                MenuProps={sortMenuPropsThemed}
               >
                 {SORT_OPTIONS.map((option) => (
                   <MenuItem key={option} value={option}>{option}</MenuItem>
@@ -653,15 +693,16 @@ const Media = () => {
                   sx={{
                     width: 170,
                     height: 34,
-                    bgcolor: '#f8f8f8',
+                    bgcolor: byMode('#f8f8f8', '#232323'),
+                    color: byMode(undefined, '#f8f8f8'),
                     borderRadius: '6px',
                     fontSize: 14,
                     '& .MuiSelect-select': { padding: '0 8px 0 10px !important', minHeight: 'unset', height: 34, lineHeight: '34px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' },
                     '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                    '& .MuiSelect-icon': { color: '#676b72' },
-                    '&:hover': { bgcolor: '#d9d9d9' },
+                    '& .MuiSelect-icon': { color: byMode('#676b72', '#a0a4aa') },
+                    '&:hover': { bgcolor: byMode('#d9d9d9', '#3a3a3a') },
                   }}
-                  MenuProps={{ transitionDuration: 0, PaperProps: { sx: { borderRadius: 0, '& .MuiMenuItem-root': { minHeight: 48, fontSize: 16, color: '#313439' }, '& .MuiMenuItem-root.Mui-selected': { color: '#38bdf8', bgcolor: 'transparent' } } } }}
+                  MenuProps={{ transitionDuration: 0, PaperProps: { sx: { borderRadius: 0, '& .MuiMenuItem-root': { minHeight: 48, fontSize: 16, color: byMode('#313439', '#f8f8f8') }, '& .MuiMenuItem-root.Mui-selected': { color: '#38bdf8', bgcolor: 'transparent' } } } }}
                 >
                   <MenuItem value="">Common</MenuItem>
                   {outlets.map((o) => (
@@ -684,14 +725,14 @@ const Media = () => {
               endAdornment: searchQuery ? (
                 <IconButton
                   onClick={() => setSearchQuery('')}
-                  sx={{ width: 30, height: 24, p: 0, borderRadius: '4px', color: '#676b72' }}
+                  sx={{ width: 30, height: 24, p: 0, borderRadius: '4px', color: byMode('#676b72', '#a0a4aa') }}
                   title="Clear"
                 >
                   <CloseIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               ) : null,
             }}
-            sx={searchFieldSx}
+            sx={[searchFieldSx, searchFieldDark]}
           />
         </Box>
 
@@ -728,21 +769,21 @@ const Media = () => {
             >
               {/* ".." up-directory tile – always the first tile, even at root */}
               <Paper
-                sx={tileSx(false)}
+                sx={[tileSx(false), tileDark(false)]}
                 onDoubleClick={() => handleFolderClick(currentPath.split('/').filter(Boolean).slice(0, -1).join('/'))}
               >
                 <Box sx={{ width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <UpDirIcon sx={{ fontSize: 92, color: '#313439' }} />
+                  <UpDirIcon sx={{ fontSize: 92, color: byMode('#313439', '#f8f8f8') }} />
                 </Box>
-                <Typography sx={captionSx}>...</Typography>
+                <Typography sx={[captionSx, captionDark]}>...</Typography>
               </Paper>
 
               {/* "New Folder" tile – second tile of every directory */}
-              <Paper sx={tileSx(false)} onClick={() => setFolderDialogOpen(true)}>
+              <Paper sx={[tileSx(false), tileDark(false)]} onClick={() => setFolderDialogOpen(true)}>
                 <Box sx={{ width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <NewFolderIcon sx={{ fontSize: 92, color: '#1c86f2' }} />
+                  <NewFolderIcon sx={{ fontSize: 92, color: byMode('#1c86f2', '#4ca0f5') }} />
                 </Box>
-                <Typography sx={{ ...captionSx, color: '#1c86f2' }}>New Folder</Typography>
+                <Typography sx={{ ...captionSx, color: byMode('#1c86f2', '#4ca0f5') }}>New Folder</Typography>
               </Paper>
 
               {visibleItems.map((item) => {
@@ -750,7 +791,7 @@ const Media = () => {
                 return (
                   <Paper
                     key={item.path}
-                    sx={tileSx(selected)}
+                    sx={[tileSx(selected), tileDark(selected)]}
                     onClick={() => selectOnly(item)}
                     onDoubleClick={() => {
                       if (item.type === 'folder') handleFolderClick(item.path);
@@ -760,8 +801,8 @@ const Media = () => {
                       {item.type === 'folder' ? (
                         // Reference: a folder with a small file glyph inside it
                         <Box sx={{ position: 'relative', width: 92, height: 92 }}>
-                          <FolderIcon sx={{ fontSize: 92, color: '#313439' }} />
-                          <FileIcon sx={{ position: 'absolute', left: '50%', top: '56%', transform: 'translate(-50%, -50%)', fontSize: 26, color: '#313439' }} />
+                          <FolderIcon sx={{ fontSize: 92, color: byMode('#313439', '#f8f8f8') }} />
+                          <FileIcon sx={{ position: 'absolute', left: '50%', top: '56%', transform: 'translate(-50%, -50%)', fontSize: 26, color: byMode('#313439', '#f8f8f8') }} />
                         </Box>
                       ) : (
                         <>
@@ -835,7 +876,7 @@ const Media = () => {
                           : <UncheckedIcon sx={{ fontSize: 16, color: '#ffffff' }} />}
                       </Box>
                     </Box>
-                    <Typography sx={captionSx} title={item.name}>
+                    <Typography sx={[captionSx, captionDark]} title={item.name}>
                       {item.usedBy?.length > 0 && (
                         <AttachIcon titleAccess="Used in Crinit's Shop" sx={{ fontSize: 16, verticalAlign: 'text-bottom', mr: 0.25, transform: 'rotate(45deg)' }} />
                       )}
@@ -865,7 +906,7 @@ const Media = () => {
               disabled={!canRename}
               onClick={() => openRename(selectedFile)}
               startIcon={<EditIcon sx={{ color: canRename ? '#32b643' : '#bdbdbd' }} />}
-              sx={{ ...railBtnSx(!canRename), width: 118 }}
+              sx={[{ ...railBtnSx(!canRename), width: 118 }, railBtnDark(!canRename)]}
             >
               Rename
             </Button>
@@ -886,7 +927,7 @@ const Media = () => {
                 disabled={!canDelete}
                 onClick={() => handleDelete(selectedItems)}
                 startIcon={<DeleteIcon sx={{ color: canDelete ? '#e33430' : '#bdbdbd' }} />}
-                sx={{ ...railBtnSx(!canDelete), width: 105 }}
+                sx={[{ ...railBtnSx(!canDelete), width: 105 }, railBtnDark(!canDelete)]}
               >
                 Delete
               </Button>
@@ -897,7 +938,7 @@ const Media = () => {
           {selectedItems.length > 1 ? (
             <Box component="ul" sx={{ listStyleType: 'disc', pl: 3, m: 0 }}>
               {selectedItems.map((item) => (
-                <Box component="li" key={item.path} sx={{ fontSize: 16, color: '#313439', mb: 0.5 }}>
+                <Box component="li" key={item.path} sx={{ fontSize: 16, color: byMode('#313439', '#f8f8f8'), mb: 0.5 }}>
                   {item.name}
                 </Box>
               ))}
@@ -929,43 +970,43 @@ const Media = () => {
                   )}
                 </Box>
               )}
-              <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000000', wordBreak: 'break-word', textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000000', '#f8f8f8'), wordBreak: 'break-word', textAlign: 'center' }}>
                 {selectedFile.name}
               </Typography>
               {relativeCreated(selectedFile.created) && (
-                <Typography sx={{ fontSize: 12, color: '#676b72', mt: 0.5, textAlign: 'center' }}>
+                <Typography sx={{ fontSize: 12, color: byMode('#676b72', '#a0a4aa'), mt: 0.5, textAlign: 'center' }}>
                   {relativeCreated(selectedFile.created)}
                 </Typography>
               )}
               {selectedFile.size != null && (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 1 }}>
-                  <StorageIcon sx={{ fontSize: 18, color: '#676b72' }} />
-                  <Typography sx={{ fontSize: 14, color: '#313439' }}>
+                  <StorageIcon sx={{ fontSize: 18, color: byMode('#676b72', '#a0a4aa') }} />
+                  <Typography sx={{ fontSize: 14, color: byMode('#313439', '#f8f8f8') }}>
                     {formatFileSize(selectedFile.size)}
                   </Typography>
                 </Box>
               )}
               {selectedFile.extension && (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 1 }}>
-                  <DescriptionIcon sx={{ fontSize: 18, color: '#676b72' }} />
-                  <Typography sx={{ fontSize: 14, color: '#313439' }}>
+                  <DescriptionIcon sx={{ fontSize: 18, color: byMode('#676b72', '#a0a4aa') }} />
+                  <Typography sx={{ fontSize: 14, color: byMode('#313439', '#f8f8f8') }}>
                     {selectedFile.extension.replace('.', '').toUpperCase()}
                   </Typography>
                 </Box>
               )}
               {selectedFile.usedBy?.length > 0 && (
                 <Box sx={{ mt: 2, textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#313439', mb: 0.5 }}>Used by</Typography>
+                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#313439', '#f8f8f8'), mb: 0.5 }}>Used by</Typography>
                   {Object.entries(
                     selectedFile.usedBy.reduce((acc, u) => ({ ...acc, [u.group]: [...(acc[u.group] || []), u] }), {})
                   ).map(([group, uses]) => (
                     <Box key={group} sx={{ mb: 1 }}>
-                      <Typography sx={{ fontSize: 14, color: '#676b72' }}>{group}</Typography>
+                      <Typography sx={{ fontSize: 14, color: byMode('#676b72', '#a0a4aa') }}>{group}</Typography>
                       {/* centred list: bullets would float left of the text, so none */}
                       <Box component="ul" sx={{ listStyleType: 'none', p: 0, m: 0 }}>
                         {uses.map((u) => (
                           <Box component="li" key={u.link} sx={{ fontSize: 14 }}>
-                            <Box component={RouterLink} to={u.link} sx={{ color: '#1c86f2', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                            <Box component={RouterLink} to={u.link} sx={{ color: byMode('#1c86f2', '#4ca0f5'), textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
                               {u.name}
                             </Box>
                           </Box>

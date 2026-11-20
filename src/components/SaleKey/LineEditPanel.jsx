@@ -188,7 +188,7 @@ export const BlueEditableCell = React.forwardRef(({ display, onClick }, ref) => 
 // Cancel (grey) | Confirm (orange) full-width halves, 39px, 19.2px black text.
 export const CancelConfirmRow = ({ onCancel, onConfirm, cancelBg = '#E5E7EB' }) => (
   <Box sx={{ display: 'flex', height: 39 }}>
-    <Box onClick={onCancel} sx={{ width: '50%', bgcolor: cancelBg, color: '#000', fontSize: '19.2px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', userSelect: 'none' }}>Cancel</Box>
+    <Box onClick={onCancel} sx={{ width: '50%', bgcolor: byMode(cancelBg, '#3a3a3a'), color: byMode('#000', '#f8f8f8'), fontSize: '19.2px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', userSelect: 'none' }}>Cancel</Box>
     <Box onClick={onConfirm} sx={{ width: '50%', bgcolor: CONFIRM_ORANGE, color: '#000', fontSize: '19.2px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', userSelect: 'none' }}>Confirm</Box>
   </Box>
 );

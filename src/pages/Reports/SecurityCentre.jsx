@@ -44,6 +44,7 @@ import {
 import { format, parse, isValid, addMonths, startOfMonth, endOfMonth, isSameMonth, isSameDay } from 'date-fns';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import securityReportService from '../../services/securityReportService';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference chart uses the Chart.js default palette, assigned by slice order
 const CHART_PALETTE = [
@@ -64,9 +65,9 @@ const CHART_PALETTE = [
 ];
 
 // Reference date-range popover tokens
-const SKY = '#0284c7';            // oklch(0.588 0.158 241.966) — in-month day numbers
+const SKY = byMode('#0284c7', '#74d4ff');           // oklch(0.588 0.158 241.966) — in-month day numbers
 const SKY_SELECTED = '#0ea5e9';   // oklch(0.685 0.169 237.323) — selected day chip
-const NEUTRAL = '#6b6b6b';        // oklch(0.439 0 0) — month titles / preset button
+const NEUTRAL = byMode('#6b6b6b', '#a0a4aa');       // oklch(0.439 0 0) — month titles / preset button
 const DT_FORMAT = 'dd-MMM-yyyy hh:mm:ss a';   // 30-Jul-2026 12:00:00 AM
 const TRIGGER_FORMAT = 'dd/MM/yyyy HH:mm:ss'; // trigger always shows the literal pair
 const TRIGGER_PLACEHOLDER = 'DD/MM/YYYY HH:mm:ss'; // reference shows this when an end is cleared
@@ -80,7 +81,7 @@ const iconToggleSx = (active) => ({
   borderRadius: '8px',
   color: active ? SKY : NEUTRAL,
   bgcolor: active ? 'rgba(2,132,199,0.12)' : 'transparent',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 });
 
 const dtInputSx = {
@@ -88,14 +89,15 @@ const dtInputSx = {
   '& .MuiOutlinedInput-root': {
     height: 36,
     borderRadius: '8px',
-    bgcolor: '#fff',
+    bgcolor: byMode('#fff', '#121212'),
+    color: byMode(undefined, '#f8f8f8'),
     fontFamily: '"Roboto Mono", ui-monospace, monospace',
     fontSize: 12,
     pr: '4px',
   },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
 };
 
 const dayCellSx = (inMonth, selected, inRange) => ({
@@ -113,8 +115,8 @@ const dayCellSx = (inMonth, selected, inRange) => ({
   borderRadius: '12px',
   cursor: inMonth ? 'pointer' : 'default',
   bgcolor: selected ? SKY_SELECTED : inRange ? 'rgba(14,165,233,0.12)' : 'transparent',
-  color: selected ? '#fff' : inMonth ? SKY : 'rgba(107,107,107,0.5)',
-  '&:hover': inMonth ? { bgcolor: selected ? SKY_SELECTED : 'rgba(0,0,0,0.05)' } : {},
+  color: selected ? '#fff' : inMonth ? SKY : byMode('rgba(107,107,107,0.5)', 'rgba(160,164,170,0.5)'),
+  '&:hover': inMonth ? { bgcolor: selected ? SKY_SELECTED : byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') } : {},
 });
 
 // Reference date-range control: a bordered pill holding two independent datetime buttons,
@@ -276,7 +278,7 @@ const SecurityDateRange = ({ value, onChange }) => {
               color: SKY,
               borderRadius: '12px',
               cursor: 'pointer',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+              '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
             }}
           >
             {name.slice(0, 3)}
@@ -313,7 +315,7 @@ const SecurityDateRange = ({ value, onChange }) => {
             borderRadius: '8px',
             px: 1,
             cursor: 'pointer',
-            '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+            '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
           }}
         >
           {format(m, 'MMMM yyyy')}
@@ -341,14 +343,14 @@ const SecurityDateRange = ({ value, onChange }) => {
           gap: 0.5,
           width: 388,
           height: 42,
-          bgcolor: '#fff',
-          border: '1px solid #404040',
+          bgcolor: byMode('#fff', '#121212'),
+          border: byMode('1px solid #404040', '1px solid #a1a1a1'),
           borderRadius: '8px',
         }}
       >
         {['start', 'end'].map((which, i) => (
           <React.Fragment key={which}>
-            {i > 0 && <Typography sx={{ color: '#000', fontSize: 16 }}>&ndash;</Typography>}
+            {i > 0 && <Typography sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 16 }}>&ndash;</Typography>}
             <Box
               component="button"
               type="button"
@@ -364,7 +366,7 @@ const SecurityDateRange = ({ value, onChange }) => {
                 fontFamily: '"Roboto Mono", Consolas, "Courier New", monospace',
                 fontSize: 15,
                 fontWeight: 400,
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 textAlign: 'left',
                 cursor: 'default',
                 // The literal placeholder is wider than a real date and used to wrap
@@ -391,8 +393,8 @@ const SecurityDateRange = ({ value, onChange }) => {
             width: 622,
             minHeight: 463,
             p: 2,
-            bgcolor: '#fff',
-            border: '1px solid #e5e5e5',
+            bgcolor: byMode('#fff', '#232323'),
+            border: byMode('1px solid #e5e5e5', '1px solid #373737'),
             borderRadius: '12px',
             boxShadow: 'none',
           },
@@ -442,7 +444,7 @@ const SecurityDateRange = ({ value, onChange }) => {
               textTransform: 'none',
               whiteSpace: 'nowrap',
               color: NEUTRAL,
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+              '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
             }}
           >
             Current Day
@@ -497,8 +499,8 @@ const EVENT_TYPE_OPTIONS = [
 // ReportTable-style headers (blue #5ebbeb / near-white / 16px bold uppercase)
 const tableHeadSx = {
   '& th': {
-    backgroundColor: '#5ebbeb',
-    color: '#f8f8f8',
+    backgroundColor: byMode('#5ebbeb', '#333333'),
+    color: byMode('#f8f8f8', '#5ebbeb'),
     fontWeight: 700,
     fontSize: 16,
     textTransform: 'uppercase',
@@ -507,9 +509,9 @@ const tableHeadSx = {
   },
 };
 const bodyRowSx = (index) => ({
-  bgcolor: index % 2 === 0 ? '#fff' : '#f8f8f8',
+  bgcolor: index % 2 === 0 ? byMode('#fff', '#232323') : byMode('#f8f8f8', '#2a2a2a'),
   '& td': {
-    color: '#000',
+    color: byMode('#000', '#f8f8f8'),
     fontSize: 16,
     padding: '8px 8px 8px 10px',
     borderBottom: 'none',
@@ -517,7 +519,7 @@ const bodyRowSx = (index) => ({
 });
 // Reference "More" action: gray 16px bold radius-12 h42 button, hover = 5% black tint (no underline)
 const moreButtonSx = {
-  color: '#6b6b6b',
+  color: byMode('#6b6b6b', '#a0a4aa'),
   fontSize: 16,
   fontWeight: 700,
   borderRadius: '12px',
@@ -525,12 +527,12 @@ const moreButtonSx = {
   minWidth: 0,
   px: 2,
   textTransform: 'none',
-  '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { backgroundColor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 };
 // Reference dialog header: light-blue bar + info icon, blue 18px title
 const dialogTitleSx = {
-  backgroundColor: '#cbe9f7',
-  color: '#0284c7',
+  backgroundColor: byMode('#cbe9f7', '#0c3a55'),
+  color: byMode('#0284c7', '#74d4ff'),
   fontSize: 18,
   fontWeight: 700,
   display: 'flex',
@@ -539,19 +541,20 @@ const dialogTitleSx = {
 };
 // Reference footer "Done": gray bg, black text, radius12, fw700, h42
 const doneButtonSx = {
-  backgroundColor: '#d6d6d6',
-  color: '#000',
+  backgroundColor: byMode('#d6d6d6', '#3a3a3a'),
+  color: byMode('#000', '#f8f8f8'),
   borderRadius: '12px',
   fontWeight: 700,
   height: 42,
   textTransform: 'none',
   boxShadow: 'none',
-  '&:hover': { backgroundColor: '#c4c4c4', boxShadow: 'none' },
+  '&:hover': { backgroundColor: byMode('#c4c4c4', '#4a4a4a'), boxShadow: 'none' },
 };
 
 // Chart.js default tooltip: dark translucent rounded box, bold title, swatch + "Name: 84" body
 // Reference "Meta Data" block: pretty JSON with syntax colours (keys teal, strings
 // blue, numbers magenta, true/false/null orange, punctuation grey).
+const JSON_PUNCT = byMode('#676b72', '#a0a4aa');
 const JSON_TOKEN = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
 const JsonView = ({ value }) => {
   const text = JSON.stringify(value, null, 4) || '';
@@ -559,11 +562,11 @@ const JsonView = ({ value }) => {
   let last = 0;
   let m;
   while ((m = JSON_TOKEN.exec(text)) !== null) {
-    if (m.index > last) parts.push(<span key={last} style={{ color: '#676b72' }}>{text.slice(last, m.index)}</span>);
+    if (m.index > last) parts.push(<Box component="span" key={last} sx={{ color: JSON_PUNCT }}>{text.slice(last, m.index)}</Box>);
     if (m[1] !== undefined) {
       const isKey = m[2] !== undefined;
       parts.push(<span key={m.index} style={{ color: isKey ? '#2aa198' : '#268bd2' }}>{m[1]}</span>);
-      if (isKey) parts.push(<span key={m.index + 'c'} style={{ color: '#676b72' }}>{m[2]}</span>);
+      if (isKey) parts.push(<Box component="span" key={m.index + 'c'} sx={{ color: JSON_PUNCT }}>{m[2]}</Box>);
     } else if (m[3] !== undefined) {
       parts.push(<span key={m.index} style={{ color: '#cb4b16' }}>{m[3]}</span>);
     } else {
@@ -571,7 +574,7 @@ const JsonView = ({ value }) => {
     }
     last = m.index + m[0].length;
   }
-  if (last < text.length) parts.push(<span key={last} style={{ color: '#676b72' }}>{text.slice(last)}</span>);
+  if (last < text.length) parts.push(<Box component="span" key={last} sx={{ color: JSON_PUNCT }}>{text.slice(last)}</Box>);
   return (
     <Box component="pre" sx={{ m: 0, fontFamily: '"Roboto Mono", Consolas, "Courier New", monospace', fontSize: 14, lineHeight: '20px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
       {parts}
@@ -753,7 +756,7 @@ const SecurityCentre = () => {
   return (
       <Box sx={{ p: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 81, mb: 2 }}>
-          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
             Security Centre
           </Typography>
           <SecurityDateRange value={dateRange} onChange={(newRange) => setDateRange(newRange)} />
@@ -763,7 +766,7 @@ const SecurityCentre = () => {
         <Paper
           elevation={0}
           sx={{
-            bgcolor: '#f7f7f7',
+            bgcolor: byMode('#f7f7f7', '#232323'),
             borderRadius: '12px',
             p: 4,
             mb: 2,
@@ -798,7 +801,7 @@ const SecurityCentre = () => {
                       <Typography
                         sx={{
                           fontSize: 16,
-                          color: '#000',
+                          color: byMode('#000', '#f8f8f8'),
                           textDecoration: hidden ? 'line-through' : 'none',
                         }}
                       >
@@ -839,14 +842,14 @@ const SecurityCentre = () => {
           {/* Reference: the two counts stack, bold 14px label over a 20px value */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, ml: 4 }}>
             <Box>
-              <Typography sx={{ color: '#000', fontSize: 14, fontWeight: 700 }}>Raw Events</Typography>
-              <Typography sx={{ fontSize: 20, color: '#000' }}>
+              <Typography sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 14, fontWeight: 700 }}>Raw Events</Typography>
+              <Typography sx={{ fontSize: 20, color: byMode('#000', '#f8f8f8') }}>
                 {statistics.rawEventsCount}
               </Typography>
             </Box>
             <Box>
-              <Typography sx={{ color: '#000', fontSize: 14, fontWeight: 700 }}>Patterns Detected</Typography>
-              <Typography sx={{ fontSize: 20, color: '#000' }}>
+              <Typography sx={{ color: byMode('#000', '#f8f8f8'), fontSize: 14, fontWeight: 700 }}>Patterns Detected</Typography>
+              <Typography sx={{ fontSize: 20, color: byMode('#000', '#f8f8f8') }}>
                 {statistics.patternsCount}
               </Typography>
             </Box>
@@ -925,13 +928,13 @@ const SecurityCentre = () => {
                   width: 300,
                   maxWidth: '100%',
                   minWidth: 0,
-                  '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: '#fff' },
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' },
-                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+                  '& .MuiOutlinedInput-root': { borderRadius: '8px', bgcolor: byMode('#fff', '#121212'), color: byMode(undefined, '#f8f8f8') },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') },
+                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
                 }}
               >
-                <Typography id="security-event-filter-label" sx={{ fontSize: 14, lineHeight: '20px', color: '#333' }}>Filters</Typography>
+                <Typography id="security-event-filter-label" sx={{ fontSize: 14, lineHeight: '20px', color: byMode('#333', '#d4d4d4') }}>Filters</Typography>
                 <Select
                   labelId="security-event-filter-label"
                   multiple
@@ -940,7 +943,7 @@ const SecurityCentre = () => {
                   MenuProps={{
                     anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
                     transformOrigin: { vertical: 'top', horizontal: 'left' },
-                    PaperProps: { sx: { mt: 1, maxHeight: 288, border: '1px solid #000', borderRadius: '8px', boxShadow: '0 8px 16px rgba(0,0,0,0.2)' } },
+                    PaperProps: { sx: { mt: 1, maxHeight: 288, border: byMode('1px solid #000', '1px solid #a1a1a1'), bgcolor: byMode(undefined, '#232323'), color: byMode(undefined, '#f8f8f8'), borderRadius: '8px', boxShadow: '0 8px 16px rgba(0,0,0,0.2)' } },
                     MenuListProps: { sx: { py: 0 } },
                   }}
                   value={selectedEventTypes}
@@ -951,7 +954,7 @@ const SecurityCentre = () => {
                   }
                   renderValue={(selected) =>
                     selected.length === 0 ? (
-                      <span style={{ color: '#808080' }}>Select...</span>
+                      <Box component="span" sx={{ color: byMode('#808080', '#757575') }}>Select...</Box>
                     ) : (
                       selected.join(', ')
                     )
@@ -1016,7 +1019,7 @@ const SecurityCentre = () => {
         {/* Event Details Dialog */}
         <Dialog open={eventDialogOpen} onClose={() => setEventDialogOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle sx={dialogTitleSx}>
-            <InfoOutlined sx={{ color: '#0284c7' }} />
+            <InfoOutlined sx={{ color: byMode('#0284c7', '#74d4ff') }} />
             Security Event Details
           </DialogTitle>
           <DialogContent>
@@ -1079,7 +1082,7 @@ const SecurityCentre = () => {
         {/* Pattern Details Dialog */}
         <Dialog open={patternDialogOpen} onClose={() => setPatternDialogOpen(false)} maxWidth="lg" fullWidth>
           <DialogTitle sx={dialogTitleSx}>
-            <InfoOutlined sx={{ color: '#0284c7' }} />
+            <InfoOutlined sx={{ color: byMode('#0284c7', '#74d4ff') }} />
             Security Pattern Details
           </DialogTitle>
           <DialogContent>

@@ -42,6 +42,15 @@ import {
   EditOutlined,
 } from '@mui/icons-material';
 import stocktakeService from '../../services/stocktakeService';
+import { byMode } from '../../theme/sfPalette';
+
+// Reference dark (Force Dark Mode) colours
+const DK_TEXT = '#f8f8f8';
+const DK_MUTED = '#a0a4aa';
+const DK_ON_BLUE = '#232323';
+const DK_PANE = '#232323';
+const DK_HEAD = '#333333';
+const DK_LINE = '#373737';
 
 function timeAgo(dateString) {
   if (!dateString) return 'just now';
@@ -87,6 +96,13 @@ function signColor(value) {
   if (n === 0) return '#000';
   return n > 0 ? '#22c55e' : '#ef4444';
 }
+// Dark: zero #f8f8f8, above #05df72, below #ff6467 (reference dark).
+function signColorDark(value) {
+  const n = Math.round((Number(value) || 0) * 100);
+  if (n === 0) return DK_TEXT;
+  return n > 0 ? '#05df72' : '#ff6467';
+}
+const signSx = (value) => byMode(`${signColor(value)} !important`, `${signColorDark(value)} !important`);
 
 // "dd/mm/yyyy HH:mm:ss" in the store's zone (Setup > General > Timezone).
 const formatTimestamp = formatAppDateTime;
@@ -107,28 +123,29 @@ const headerBtn = {
 };
 const exportBtn = {
   ...headerBtn,
-  bgcolor: '#dedede',
-  color: '#555',
+  bgcolor: byMode('#dedede', DK_HEAD),
+  color: byMode('#555', DK_TEXT),
   border: '1px solid transparent',
-  '&:hover': { bgcolor: '#d0d0d0', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#d0d0d0', '#404040'), boxShadow: 'none' },
   // Statistics tab: outlined and inactive (reference)
   // pointerEvents back on so the hover shows the not-allowed cursor (the
   // native disabled attribute still blocks the click).
-  '&.Mui-disabled': { bgcolor: '#e9e9e9', color: '#8a8a8a', border: '1px solid #676b72', pointerEvents: 'auto', cursor: 'not-allowed' },
+  '&.Mui-disabled': { bgcolor: byMode('#e9e9e9', DK_HEAD), color: byMode('#8a8a8a', '#5e5e5e'), border: byMode('1px solid #676b72', '1px solid #5e5e5e'), pointerEvents: 'auto', cursor: 'not-allowed' },
 };
 const primaryBtn = {
   ...headerBtn,
   bgcolor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', DK_ON_BLUE),
   '&:hover': { bgcolor: '#4aa9dd', boxShadow: 'none' },
+  '&.Mui-disabled': { bgcolor: byMode(undefined, '#3a3a3a'), color: byMode(undefined, '#757575') },
 };
 
 const HEADER_BAND = '#e2e8f0';
 const APP_BAR = 50; // fixed top bar - the sticky table header sits under it
 
 const th = {
-  backgroundColor: '#5ebbeb',
-  color: '#fff',
+  backgroundColor: byMode('#5ebbeb', DK_HEAD),
+  color: byMode('#fff', '#5ebbeb'),
   fontWeight: 700,
   fontSize: 16,
   textTransform: 'none',
@@ -471,15 +488,15 @@ export default function StocktakeDetails() {
   const valueCell = { textAlign: 'left', pl: '16px !important' };
 
   return (
-    <Box sx={{ bgcolor: 'white', minHeight: '100vh' }}>
+    <Box sx={{ bgcolor: byMode('white', '#121212'), minHeight: '100vh' }}>
       {/* Header band (reference: grey-blue, tabs sit on its bottom edge) */}
-      <Box sx={{ bgcolor: HEADER_BAND, px: { xs: 2, md: 8 }, pt: { xs: 3, md: 7 }, borderBottom: '3px solid #d5dde8' }}>
+      <Box sx={{ bgcolor: byMode(HEADER_BAND, '#314158'), px: { xs: 2, md: 8 }, pt: { xs: 3, md: 7 }, borderBottom: byMode('3px solid #d5dde8', '3px solid #314158') }}>
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} spacing={2}>
           <Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000' }}>
+            <Typography sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', DK_TEXT) }}>
               {/* Reference: a nameless stocktake is titled "Unnamed Stocktake" in grey */}
-              {stocktake.name || <Box component="span" sx={{ color: '#808080' }}>Unnamed Stocktake</Box>}
-              <Box component="span" sx={{ color: '#676b72', fontWeight: 400, fontSize: 16 }}>
+              {stocktake.name || <Box component="span" sx={{ color: byMode('#808080', DK_MUTED) }}>Unnamed Stocktake</Box>}
+              <Box component="span" sx={{ color: byMode('#676b72', DK_MUTED), fontWeight: 400, fontSize: 16 }}>
                 {' - '}{stocktake.outlet?.name || stocktake.outlet || ''}
               </Box>
             </Typography>
@@ -497,16 +514,16 @@ export default function StocktakeDetails() {
                   : stocktake.createdBy?.name;
               // Reference: no user -> "Completed 7 years ago" (no "by -")
               return (
-                <Typography sx={{ fontSize: 16, color: '#000' }}>{label} {timeAgo(when)}{byName ? ` by ${byName}` : ''}</Typography>
+                <Typography sx={{ fontSize: 16, color: byMode('#000', DK_TEXT) }}>{label} {timeAgo(when)}{byName ? ` by ${byName}` : ''}</Typography>
               );
             })()}
             <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
-              <Typography sx={{ fontSize: 14, color: '#000' }}>
+              <Typography sx={{ fontSize: 14, color: byMode('#000', DK_TEXT) }}>
                 {isFullStocktake ? 'Full Stocktake' : 'Partial Stocktake'}
               </Typography>
               {/* Reference: the finalise categories as grey chips beside the label */}
               {scopeChips.map((name) => (
-                <Chip key={name} label={name} size="small" sx={{ borderRadius: '4px', bgcolor: '#cfd6df', color: '#313439', fontSize: 13, height: 24 }} />
+                <Chip key={name} label={name} size="small" sx={{ borderRadius: '4px', bgcolor: byMode('#cfd6df', '#3a3a3a'), color: byMode('#313439', DK_TEXT), fontSize: 13, height: 24 }} />
               ))}
             </Stack>
           </Box>
@@ -515,7 +532,7 @@ export default function StocktakeDetails() {
               <AvatarGroup max={6} sx={{ mr: 0.5, '& .MuiAvatar-root': avatarSx(48) }}>
                 {users.map((u) => (
                   <Tooltip key={u.userId} title={u.userName || ''} arrow
-                    componentsProps={{ tooltip: { sx: { bgcolor: '#fff', color: '#000', fontSize: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', px: 2, py: 1 } }, arrow: { sx: { color: '#fff' } } }}>
+                    componentsProps={{ tooltip: { sx: { bgcolor: byMode('#fff', DK_PANE), color: byMode('#000', DK_TEXT), fontSize: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', px: 2, py: 1 } }, arrow: { sx: { color: byMode('#fff', DK_PANE) } } }}>
                     <Avatar />
                   </Tooltip>
                 ))}
@@ -553,11 +570,12 @@ export default function StocktakeDetails() {
                 sx={{
                   display: 'flex', alignItems: 'center', gap: 1,
                   px: 3, height: 55, cursor: 'pointer', whiteSpace: 'nowrap',
-                  fontSize: 14, color: '#000',
+                  fontSize: 14, color: byMode('#000', DK_TEXT),
                   borderRadius: '8px 8px 0 0',
-                  bgcolor: active ? '#fff' : 'transparent',
+                  bgcolor: active ? byMode('#fff', DK_PANE) : 'transparent',
                   mb: '-3px', // sit on (and cover) the band's bottom rule
-                  '&:hover': { bgcolor: active ? '#fff' : 'rgba(255,255,255,0.45)' },
+                  '&:hover': { bgcolor: active ? byMode('#fff', DK_PANE) : byMode('rgba(255,255,255,0.45)', 'rgba(255,255,255,0.08)') },
+                  '& .MuiSvgIcon-root': { color: byMode(undefined, active ? '#5ebbeb' : undefined) },
                   outline: 'none',
                 }}
               >
@@ -571,9 +589,9 @@ export default function StocktakeDetails() {
 
       {/* Reference "Stocktake Export" popup: two blue tiles (PDF / CSV) + Cancel */}
       <Dialog open={exportOpen} onClose={() => setExportOpen(false)} PaperProps={{ sx: { borderRadius: '8px', width: 300, maxWidth: '95vw', boxShadow: 'none' } }}>
-        <Box sx={{ bgcolor: 'rgb(190,227,248)', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5 }}>
-          <Typography sx={{ color: 'rgb(38,99,143)', fontWeight: 700, fontSize: 18 }}>?</Typography>
-          <Typography sx={{ color: 'rgb(38,99,143)', fontWeight: 700, fontSize: 17 }}>Stocktake Export</Typography>
+        <Box sx={{ bgcolor: byMode('rgb(190,227,248)', '#024a70'), display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5 }}>
+          <Typography sx={{ color: byMode('rgb(38,99,143)', '#00a6f4'), fontWeight: 700, fontSize: 18 }}>?</Typography>
+          <Typography sx={{ color: byMode('rgb(38,99,143)', '#00a6f4'), fontWeight: 700, fontSize: 17 }}>Stocktake Export</Typography>
         </Box>
         <Box sx={{ p: 2 }}>
           <Stack direction="row" spacing={2} justifyContent="center">
@@ -592,7 +610,7 @@ export default function StocktakeDetails() {
             ))}
           </Stack>
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.5 }}>
-            <Button onClick={() => setExportOpen(false)} sx={{ ...exportBtn, minWidth: 118, bgcolor: '#dddddd', color: '#000' }}>Cancel</Button>
+            <Button onClick={() => setExportOpen(false)} sx={{ ...exportBtn, minWidth: 118, bgcolor: byMode('#dddddd', '#3a3a3a'), color: byMode('#000', DK_TEXT) }}>Cancel</Button>
           </Stack>
         </Box>
       </Dialog>
@@ -600,26 +618,26 @@ export default function StocktakeDetails() {
       {/* Reference "Apply Stocktake" popup - opens right after Complete, from the
           Apply button on a completed stocktake, and after the Re-Apply warning. */}
       <Dialog open={applyOpen} onClose={() => !applying && setApplyOpen(false)} PaperProps={{ sx: { borderRadius: '8px', width: 700, maxWidth: '95vw' } }}>
-        <Box sx={{ bgcolor: 'rgb(190,227,248)', display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25 }}>
-          <Typography sx={{ color: 'rgb(38,99,143)', fontWeight: 700, fontSize: 18 }}>?</Typography>
-          <Typography sx={{ color: 'rgb(38,99,143)', fontWeight: 700, fontSize: 17 }}>Apply Stocktake</Typography>
+        <Box sx={{ bgcolor: byMode('rgb(190,227,248)', '#024a70'), display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25 }}>
+          <Typography sx={{ color: byMode('rgb(38,99,143)', '#00a6f4'), fontWeight: 700, fontSize: 18 }}>?</Typography>
+          <Typography sx={{ color: byMode('rgb(38,99,143)', '#00a6f4'), fontWeight: 700, fontSize: 17 }}>Apply Stocktake</Typography>
         </Box>
         <Box sx={{ px: 2, py: 2 }}>
-          <Typography sx={{ fontSize: 15, color: '#313439', mb: 1.5 }}>Congratulations for completing your stocktake, there is only one step left.</Typography>
-          <Typography sx={{ fontSize: 15, color: '#313439', mb: 1.5 }}>
+          <Typography sx={{ fontSize: 15, color: byMode('#313439', DK_TEXT), mb: 1.5 }}>Congratulations for completing your stocktake, there is only one step left.</Typography>
+          <Typography sx={{ fontSize: 15, color: byMode('#313439', DK_TEXT), mb: 1.5 }}>
             Please choose between <b>IGNORING</b> uncounted products (Ignore Other Stock) or setting uncounted product's inventory to <b>ZERO</b> (Zero Other Stock).
           </Typography>
           {stocktake.status === 'Applied' ? (
-            <Typography sx={{ fontSize: 15, color: '#313439', mb: 1.5 }}>This stocktake has already been applied, reapplying the stocktake will modify your current inventory.</Typography>
+            <Typography sx={{ fontSize: 15, color: byMode('#313439', DK_TEXT), mb: 1.5 }}>This stocktake has already been applied, reapplying the stocktake will modify your current inventory.</Typography>
           ) : (
-            <Typography sx={{ fontSize: 15, color: '#313439', mb: 1.5 }}>You can also review the products before applying the stocktake.</Typography>
+            <Typography sx={{ fontSize: 15, color: byMode('#313439', DK_TEXT), mb: 1.5 }}>You can also review the products before applying the stocktake.</Typography>
           )}
           <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1} useFlexGap sx={{ mb: 2.5 }}>
-            <Typography sx={{ fontSize: 15, color: '#313439' }}>
+            <Typography sx={{ fontSize: 15, color: byMode('#313439', DK_TEXT) }}>
               {isFullStocktake ? 'This stocktake will apply to all products.' : 'This stocktake will only apply to the following categories:'}
             </Typography>
             {scopeChips.map((name) => (
-              <Chip key={name} label={name} size="small" sx={{ borderRadius: '4px', bgcolor: '#e5e5e5', color: '#313439', fontSize: 13, height: 24 }} />
+              <Chip key={name} label={name} size="small" sx={{ borderRadius: '4px', bgcolor: byMode('#e5e5e5', '#3a3a3a'), color: byMode('#313439', DK_TEXT), fontSize: 13, height: 24 }} />
             ))}
           </Stack>
           <Stack direction="row" justifyContent="flex-end" spacing={1.5} flexWrap="wrap" useFlexGap>
@@ -651,17 +669,17 @@ export default function StocktakeDetails() {
                   height: 42,
                   borderRadius: '4px',
                   fontSize: 16,
-                  '& fieldset': { border: '1px solid #676b72' },
-                  '&:hover fieldset': { border: '1px solid #676b72' },
-                  '&.Mui-focused fieldset': { border: '2px solid #000' },
+                  '& fieldset': { border: byMode('1px solid #676b72', '1px solid #a1a1a1') },
+                  '&:hover fieldset': { border: byMode('1px solid #676b72', '1px solid #a1a1a1') },
+                  '&.Mui-focused fieldset': { border: byMode('2px solid #000', '2px solid #2b7fff') },
                 },
-                '& input::placeholder': { color: '#808080', opacity: 1 },
+                '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
               }}
               InputProps={{
                 endAdornment: searchInput ? (
                   <InputAdornment position="end">
                     {/* ✕ empties the box only; the table follows on Filter */}
-                    <Close sx={{ fontSize: 20, color: '#313439', cursor: 'pointer' }} onClick={() => setSearchInput('')} />
+                    <Close sx={{ fontSize: 20, color: byMode('#313439', DK_TEXT), cursor: 'pointer' }} onClick={() => setSearchInput('')} />
                   </InputAdornment>
                 ) : null,
               }}
@@ -682,7 +700,7 @@ export default function StocktakeDetails() {
                 <SortHeader label="Difference" col="difference" colSpan={2} align="center" />
               </TableRow>
             </TableHead>
-            <TableBody sx={{ '& td': { color: '#000', fontSize: 16, padding: '12px 16px', borderBottom: 'none', bgcolor: '#fff' } }}>
+            <TableBody sx={{ '& td': { color: byMode('#000', DK_TEXT), fontSize: 16, padding: '12px 16px', borderBottom: 'none', bgcolor: byMode('#fff', DK_PANE) } }}>
               {filteredItems.map((item) => {
                 const c = getItemCost(item.product);
                 return (
@@ -700,7 +718,7 @@ export default function StocktakeDetails() {
                         {item.product.name}
                       </Box>
                       {item.product.isActive === false && (
-                        <Box component="span" sx={{ color: '#808080' }}> - Inactive</Box>
+                        <Box component="span" sx={{ color: byMode('#808080', DK_MUTED) }}> - Inactive</Box>
                       )}
                     </TableCell>
                     {/* Reference "Cost" is the CASE cost as a plain number (93.74 for a
@@ -711,8 +729,8 @@ export default function StocktakeDetails() {
                     <TableCell sx={valueCell}>{money(item.expected * c)}</TableCell>
                     <TableCell sx={qtyCell}>{item.actual}</TableCell>
                     <TableCell sx={valueCell}>{money(item.actual * c)}</TableCell>
-                    <TableCell sx={{ ...qtyCell, color: `${signColor(item.difference)} !important` }}>{item.difference}</TableCell>
-                    <TableCell sx={{ ...valueCell, color: `${signColor(item.difference * c)} !important` }}>{money(item.difference * c)}</TableCell>
+                    <TableCell sx={{ ...qtyCell, color: signSx(item.difference) }}>{item.difference}</TableCell>
+                    <TableCell sx={{ ...valueCell, color: signSx(item.difference * c) }}>{money(item.difference * c)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -721,17 +739,17 @@ export default function StocktakeDetails() {
                 white block with a blue outline, stuck to the bottom of the window. */}
             <TableBody>
               <TableRow sx={{
-                '& td': { position: 'sticky', bottom: 0, zIndex: 2, fontWeight: 700, fontSize: 16, color: '#000', height: 51, padding: '8px 16px', bgcolor: '#fff', borderTop: '1px solid #5ebbeb', borderBottom: '1px solid #5ebbeb' },
+                '& td': { position: 'sticky', bottom: 0, zIndex: 2, fontWeight: 700, fontSize: 16, color: byMode('#000', DK_TEXT), height: 51, padding: '8px 16px', bgcolor: byMode('#fff', DK_PANE), borderTop: '1px solid #5ebbeb', borderBottom: '1px solid #5ebbeb' },
                 '& td:last-of-type': { borderRight: '1px solid #5ebbeb', borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
               }}>
-                <TableCell colSpan={3} sx={{ bgcolor: '#5ebbeb !important', color: '#fff !important', borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' }}>Total</TableCell>
+                <TableCell colSpan={3} sx={{ bgcolor: byMode('#5ebbeb !important', '#333333 !important'), color: byMode('#fff !important', '#5ebbeb !important'), borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' }}>Total</TableCell>
                 {/* Reference totals are whole units ("6"), not "6.00". */}
                 <TableCell sx={qtyCell}>{fmtQty(stats.expectedQty)}</TableCell>
                 <TableCell sx={valueCell}>{money(stats.expectedValue)}</TableCell>
                 <TableCell sx={qtyCell}>{fmtQty(stats.actualQty)}</TableCell>
                 <TableCell sx={valueCell}>{money(stats.actualValue)}</TableCell>
-                <TableCell sx={{ ...qtyCell, color: `${signColor(stats.differenceQty)} !important` }}>{fmtQty(stats.differenceQty)}</TableCell>
-                <TableCell sx={{ ...valueCell, color: `${signColor(stats.differenceValue)} !important` }}>{money(stats.differenceValue)}</TableCell>
+                <TableCell sx={{ ...qtyCell, color: signSx(stats.differenceQty) }}>{fmtQty(stats.differenceQty)}</TableCell>
+                <TableCell sx={{ ...valueCell, color: signSx(stats.differenceValue) }}>{money(stats.differenceValue)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -752,8 +770,8 @@ export default function StocktakeDetails() {
 // The product arrives with the stocktake (type, cost, category, family, tags,
 // suppliers), so the card opens instantly - no extra request.
 function ProductCard({ product, anchorEl, onClose }) {
-  const label = { fontSize: 14, color: '#555' };
-  const value = { fontSize: 16, color: '#000' };
+  const label = { fontSize: 14, color: byMode('#555', '#d4d4d4') };
+  const value = { fontSize: 16, color: byMode('#000', DK_TEXT) };
   // Today's cost (the table keeps the stocktake-time cost).
   const caseCost = (() => {
     if (!product) return null;
@@ -773,18 +791,18 @@ function ProductCard({ product, anchorEl, onClose }) {
       onClose={onClose}
       anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
       transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-      PaperProps={{ sx: { ml: 1.5, mt: -4, width: 420, maxWidth: '90vw', bgcolor: '#f8f8f8', border: '1px solid #ddd', borderRadius: '12px', boxShadow: '0 4px 14px rgba(0,0,0,0.12)', p: 3 } }}
+      PaperProps={{ sx: { ml: 1.5, mt: -4, width: 420, maxWidth: '90vw', bgcolor: byMode('#f8f8f8', DK_PANE), border: byMode('1px solid #ddd', `1px solid ${DK_LINE}`), borderRadius: '12px', boxShadow: '0 4px 14px rgba(0,0,0,0.12)', p: 3 } }}
     >
       {product && (
         <>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ pb: 2, borderBottom: '1px solid #ddd' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ pb: 2, borderBottom: byMode('1px solid #ddd', `1px solid ${DK_LINE}`) }}>
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={label}>{type}</Typography>
               <Typography sx={value}>{product.name}</Typography>
             </Box>
             <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
               <Typography sx={label}>Cost</Typography>
-              <Typography sx={{ fontSize: 18, color: '#000' }}>
+              <Typography sx={{ fontSize: 18, color: byMode('#000', DK_TEXT) }}>
                 {caseCost < 0 ? '-' : ''}${dollars}.<Box component="span" sx={{ fontSize: 13 }}>{cents}</Box>
               </Typography>
             </Box>
@@ -813,7 +831,7 @@ function ProductCard({ product, anchorEl, onClose }) {
                 <Typography sx={{ ...label, mb: 0.5 }}>Tags</Typography>
                 <Stack direction="row" flexWrap="wrap" gap={1} useFlexGap>
                   {tags.map((t) => (
-                    <Box key={t} sx={{ border: '1px solid #ccc', borderRadius: '6px', px: 1, py: 0.25, fontSize: 15, bgcolor: '#fff' }}>{t}</Box>
+                    <Box key={t} sx={{ border: byMode('1px solid #ccc', '1px solid #a1a1a1'), borderRadius: '6px', px: 1, py: 0.25, fontSize: 15, bgcolor: byMode('#fff', '#3a3a3a'), color: byMode(undefined, DK_TEXT) }}>{t}</Box>
                   ))}
                 </Stack>
               </Grid>
@@ -826,7 +844,7 @@ function ProductCard({ product, anchorEl, onClose }) {
 }
 
 // Reference statistics cards: light grey, hairline border, 4px radius.
-const cardSx = { width: 450, maxWidth: '100%', boxSizing: 'border-box', bgcolor: '#f8f8f8', border: '1px solid #e6e6e6', borderRadius: '4px', p: 2 };
+const cardSx = { width: 450, maxWidth: '100%', boxSizing: 'border-box', bgcolor: byMode('#f8f8f8', DK_PANE), border: byMode('1px solid #e6e6e6', `1px solid ${DK_LINE}`), borderRadius: '4px', p: 2 };
 
 // Statistics View Component — stat tiles, apply cards, per-user cards, events
 function StatisticsView({ statistics, loading, external = false }) {
@@ -846,8 +864,8 @@ function StatisticsView({ statistics, loading, external = false }) {
     );
   }
 
-  const label = { fontSize: 14, color: '#000' };
-  const bigNumber = { fontSize: 36, fontWeight: 700, lineHeight: 1.2, color: '#000' };
+  const label = { fontSize: 14, color: byMode('#000', DK_TEXT) };
+  const bigNumber = { fontSize: 36, fontWeight: 700, lineHeight: 1.2, color: byMode('#000', DK_TEXT) };
 
   // Reference External Stocktake statistics (Mayfair 29/10/2026): only
   // "Products counted" and "Completed" plus the Applied card - no scans,
@@ -885,9 +903,9 @@ function StatisticsView({ statistics, loading, external = false }) {
             <Box key={i} sx={cardSx}>
               <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
                 <Avatar sx={avatarSx(44)} />
-                <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000' }}>{h.userName || '-'}</Typography>
+                <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', DK_TEXT) }}>{h.userName || '-'}</Typography>
               </Stack>
-              <Typography sx={{ fontSize: 16, color: '#000', pl: 2 }}>
+              <Typography sx={{ fontSize: 16, color: byMode('#000', DK_TEXT), pl: 2 }}>
                 Applied this stocktake {timeAgo(h.at)}, <b>{h.mode === 'zero' ? 'zeroing' : 'ignoring'}</b> other stock
               </Typography>
             </Box>
@@ -902,7 +920,7 @@ function StatisticsView({ statistics, loading, external = false }) {
             <Box key={user.userId} sx={cardSx}>
               <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
                 <Avatar sx={avatarSx(44)} />
-                <Typography sx={{ fontSize: 18, fontWeight: 700, color: '#000' }}>{user.userName}</Typography>
+                <Typography sx={{ fontSize: 18, fontWeight: 700, color: byMode('#000', DK_TEXT) }}>{user.userName}</Typography>
               </Stack>
               <Stack direction="row" spacing={9}>
                 <Box>
@@ -968,15 +986,15 @@ function ActivityTable({ activities }) {
       borderRadius: '4px',
       fontSize: 16,
       py: '0 !important',
-      '& fieldset': { border: '1px solid #676b72' },
-      '&:hover fieldset': { border: '1px solid #676b72' },
-      '&.Mui-focused fieldset': { border: '2px solid #000' },
+      '& fieldset': { border: byMode('1px solid #676b72', '1px solid #a1a1a1') },
+      '&:hover fieldset': { border: byMode('1px solid #676b72', '1px solid #a1a1a1') },
+      '&.Mui-focused fieldset': { border: byMode('2px solid #000', '2px solid #2b7fff') },
     },
-    '& input::placeholder': { color: '#808080', opacity: 1 },
+    '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
   };
   const listboxSx = {
-    '& .MuiAutocomplete-option': { minHeight: 56, fontSize: 16, color: '#000' },
-    '& .MuiAutocomplete-option.Mui-focused': { bgcolor: '#74d0fb !important' },
+    '& .MuiAutocomplete-option': { minHeight: 56, fontSize: 16, color: byMode('#000', DK_TEXT) },
+    '& .MuiAutocomplete-option.Mui-focused': { bgcolor: byMode('#74d0fb !important', '#0084d1 !important'), color: byMode(undefined, '#fafafa') },
   };
 
   return (
@@ -1012,7 +1030,7 @@ function ActivityTable({ activities }) {
       </Stack>
 
       {rows.length === 0 ? (
-        <Typography sx={{ textAlign: 'center', color: '#676b72', fontSize: 16, py: 3 }}>No stocktake events found</Typography>
+        <Typography sx={{ textAlign: 'center', color: byMode('#676b72', DK_MUTED), fontSize: 16, py: 3 }}>No stocktake events found</Typography>
       ) : (
         <Table sx={{ borderCollapse: 'separate', borderSpacing: 0 }}>
           <TableHead>
@@ -1024,7 +1042,7 @@ function ActivityTable({ activities }) {
           </TableHead>
           <TableBody>
             {rows.map((a, index) => (
-              <TableRow key={a.id} sx={{ bgcolor: index % 2 === 0 ? '#fff' : '#f4f4f4', '& td': { color: '#000', fontSize: 16, padding: '13px 16px', borderBottom: 'none' } }}>
+              <TableRow key={a.id} sx={{ bgcolor: index % 2 === 0 ? byMode('#fff', DK_PANE) : byMode('#f4f4f4', '#2a2a2a'), '& td': { color: byMode('#000', DK_TEXT), fontSize: 16, padding: '13px 16px', borderBottom: 'none' } }}>
                 <TableCell>{a.productName || '-'}</TableCell>
                 <TableCell>{EVENT_LABEL[a.eventType] || a.eventType}</TableCell>
                 <TableCell>{a.count}</TableCell>

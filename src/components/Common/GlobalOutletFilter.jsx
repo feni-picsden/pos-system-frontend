@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import useHeaderScope from '../../hooks/useHeaderScope';
+import { byMode } from '../../theme/sfPalette';
 
 /**
  * Outlet filter + Outlet column on list/report pages (rebuilt 19/10/2026 - the
@@ -25,12 +26,12 @@ export const useGlobalOutlet = () => {
 
 const FIELD_SX = {
   '& .MuiOutlinedInput-root': {
-    backgroundColor: '#fff',
+    backgroundColor: byMode('#fff', '#121212'),
     borderRadius: '8px',
     fontSize: 16,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#f8f8f8'), borderWidth: '2px' },
   },
 };
 
@@ -44,7 +45,7 @@ const GlobalOutletFilter = ({ value, onChange, label = 'Outlet', placeholder = '
   return (
     <Box sx={sx}>
       {!hideLabel && (
-        <Typography sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000', ...labelSx }}>{label}</Typography>
+        <Typography sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode('#000', '#f8f8f8'), ...labelSx }}>{label}</Typography>
       )}
       <Autocomplete
         size="small"

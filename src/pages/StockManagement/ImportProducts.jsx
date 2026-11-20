@@ -160,9 +160,9 @@ const ImportToast = ({ message, onClose }) => {
     return () => clearInterval(id);
   }, [onClose]);
   return (
-    <Box role="alert" data-testid="import-toast" sx={{ position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 1500, display: 'flex', alignItems: 'stretch', width: 'min(752px, calc(100vw - 32px))', bgcolor: '#fff', borderRadius: '0 0 8px 8px', boxShadow: '0 2px 12px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+    <Box role="alert" data-testid="import-toast" sx={{ position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 1500, display: 'flex', alignItems: 'stretch', width: 'min(752px, calc(100vw - 32px))', bgcolor: byMode('#fff', '#232323'), borderRadius: '0 0 8px 8px', boxShadow: '0 2px 12px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
       <Box sx={{ width: 52, bgcolor: '#f9c7cf', color: '#c62828', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700 }}>!</Box>
-      <Typography sx={{ flex: 1, fontSize: 16, color: '#000', px: 2, py: 1.5, lineHeight: 1.3 }}>{message}</Typography>
+      <Typography sx={{ flex: 1, fontSize: 16, color: byMode('#000', '#f8f8f8'), px: 2, py: 1.5, lineHeight: 1.3 }}>{message}</Typography>
       <Box onClick={onClose} sx={{ width: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} aria-label="Dismiss">
         <CircularProgress variant="determinate" value={left} size={24} thickness={3} sx={{ color: '#9e9e9e' }} />
       </Box>

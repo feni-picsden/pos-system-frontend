@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400, referenceSizing = false }) => {
   const totalMinWidth = (columns || []).reduce((sum, column) => {
@@ -56,8 +57,8 @@ const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400, refer
             <TableRow
               sx={{
                 '& th': {
-                  backgroundColor: '#5ebbeb',
-                  color: '#f8f8f8',
+                  backgroundColor: byMode('#5ebbeb', '#333333'),
+                  color: byMode('#f8f8f8', '#5ebbeb'),
                   fontWeight: 700,
                   fontSize: 16,
                   textTransform: 'uppercase',
@@ -87,9 +88,9 @@ const ReportTable = ({ data, columns, hideFooter = false, maxHeight = 400, refer
                 <TableRow
                   key={index}
                   sx={{
-                    bgcolor: isTotal ? '#5ebbeb' : index % 2 === 0 ? (referenceSizing ? '#f7f7f7' : '#fff') : (referenceSizing ? '#dedede' : '#f8f8f8'),
+                    bgcolor: isTotal ? byMode('#5ebbeb', '#333333') : index % 2 === 0 ? (referenceSizing ? byMode('#f7f7f7', '#232323') : byMode('#fff', '#232323')) : (referenceSizing ? byMode('#dedede', '#2a2a2a') : byMode('#f8f8f8', '#2a2a2a')),
                     '& td': {
-                      color: isTotal ? '#f8f8f8' : '#000',
+                      color: isTotal ? byMode('#f8f8f8', '#5ebbeb') : byMode('#000', '#f8f8f8'),
                       fontWeight: isTotal ? 700 : 400,
                       fontSize: 16,
                       padding: '8px 8px 8px 10px',

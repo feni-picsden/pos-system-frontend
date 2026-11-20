@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Box,
   Typography,
@@ -34,25 +35,25 @@ const BRANDS = ['Epson', 'Star', 'Generic ESC/POS'];
 // buttons are square, 16px, no shadow. Dropdown papers are square, black
 // bordered, no shadow, and the global focus outline is suppressed on items.
 const REF_FIELD_SX = {
-  '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: '#fff', height: 50, fontSize: 16, py: 0 },
+  '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: byMode('#fff', '#121212'), height: 50, fontSize: 16, py: 0 },
   '& .MuiOutlinedInput-input, & .MuiAutocomplete-input': { py: '0 !important' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
-  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: 1 },
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') },
+  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') },
+  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 1 },
 };
 const REF_MENU_SX = {
   borderRadius: 0,
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   boxShadow: 'none',
   mt: '2px',
   '& li': { fontSize: 16, minHeight: 44 },
-  '& li.Mui-selected, & li[aria-selected="true"]': { bgcolor: '#dbeafe !important' },
-  '& li:hover': { bgcolor: '#eff6ff' },
+  '& li.Mui-selected, & li[aria-selected="true"]': { bgcolor: byMode('#dbeafe !important', 'transparent !important'), color: byMode(undefined, '#00a6f4') },
+  '& li:hover': { bgcolor: byMode('#eff6ff', '#0084d1 !important'), color: byMode(undefined, '#fafafa') },
   '& li:focus-visible': { outline: 'none' },
 };
 const REF_BTN_SX = { borderRadius: 0, textTransform: 'none', fontSize: 16, fontWeight: 400, px: 2.5, py: 1, boxShadow: 'none' };
 const RefLabel = ({ children }) => (
-  <Typography component="label" sx={{ display: 'block', fontSize: 12, color: '#333', mb: '4px', ml: '2px' }}>
+  <Typography component="label" sx={{ display: 'block', fontSize: 12, color: byMode('#333', '#d4d4d4'), mb: '4px', ml: '2px' }}>
     {children}
   </Typography>
 );
@@ -63,12 +64,12 @@ const AGENT_DOWNLOAD_URL = 'https://qz.io/download/';
 // Reference ".nice-error" neutral face: a 160px ring, two dots and a flat mouth,
 // drawn inline so the stroke weight matches the reference glyph.
 const NeutralFace = () => (
-  <svg width="160" height="160" viewBox="0 0 160 160" aria-hidden="true" style={{ display: 'inline-block' }}>
-    <circle cx="80" cy="80" r="72" fill="none" stroke="#000" strokeWidth="8" />
-    <circle cx="57" cy="62" r="7" fill="#000" />
-    <circle cx="103" cy="62" r="7" fill="#000" />
-    <line x1="50" y1="106" x2="110" y2="106" stroke="#000" strokeWidth="8" strokeLinecap="round" />
-  </svg>
+  <Box component="svg" viewBox="0 0 160 160" aria-hidden="true" sx={{ display: 'inline-block', width: 160, height: 160, color: byMode('#000', '#f8f8f8') }}>
+    <circle cx="80" cy="80" r="72" fill="none" stroke="currentColor" strokeWidth="8" />
+    <circle cx="57" cy="62" r="7" fill="currentColor" />
+    <circle cx="103" cy="62" r="7" fill="currentColor" />
+    <line x1="50" y1="106" x2="110" y2="106" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
+  </Box>
 );
 
 // Reference: when Hardware Connect cannot be reached the page shows only this
@@ -85,9 +86,9 @@ const AgentError = ({ onRetry, retrying }) => (
       </Typography>
       <Typography component="p" sx={{ ...NICE_ERROR_BODY_SX, m: '0 0 8px' }}>
         Error trying to get Hardware Connect settings. Try{' '}
-        <a href={AGENT_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#1a0dab' }}>
+        <Box component="a" href={AGENT_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" sx={{ color: byMode('#1a0dab', '#4ca0f5') }}>
           installing
-        </a>{' '}
+        </Box>{' '}
         or restarting Hardware Connect (QZ Tray) and try again
       </Typography>
       <Box>
@@ -212,7 +213,7 @@ const HardwareSettings = () => {
             startIcon={testing ? <CircularProgress size={16} /> : null}
             onClick={handleTest}
             disabled={testing}
-            sx={{ ...REF_BTN_SX, color: '#555', borderColor: '#ccc', bgcolor: '#fff', '&:hover': { borderColor: '#999', bgcolor: '#fafafa' } }}
+            sx={{ ...REF_BTN_SX, color: byMode('#555', '#d4d4d4'), borderColor: byMode('#ccc', '#a1a1a1'), bgcolor: byMode('#fff', 'transparent'), '&:hover': { borderColor: byMode('#999', '#d4d4d4'), bgcolor: byMode('#fafafa', 'rgba(255,255,255,0.08)') } }}
           >
             Test Open Cash Drawer
           </Button>

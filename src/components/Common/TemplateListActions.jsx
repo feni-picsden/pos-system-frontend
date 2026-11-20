@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference Setup list row actions (Statements / Receipts): an inline
 // `ul.actions` of coloured text links with a FontAwesome-light glyph each —
@@ -71,20 +72,20 @@ export const templateListActionsSx = {
     width: 20, height: 16, mr: '8px', fontWeight: 300, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     verticalAlign: 'middle', flexShrink: 0, '& svg': { width: 14, height: 14 },
   },
-  '& li.action-edit': { color: '#32b643', '&:hover': { color: '#6dd77b' } },
-  '& li.action-view': { color: '#1c86f2', '&:hover': { color: '#73b4f7' } },
-  '& li.action-delete': { color: '#e3342f', '&:hover': { color: '#f3aaa8' } },
-  '& li.action-clone': { color: '#1c86f2', '&:hover': { color: '#73b4f7' } },
+  '& li.action-edit': { color: byMode('#32b643', '#7bf1a8'), '&:hover': { color: byMode('#6dd77b', '#a4f6c4') } },
+  '& li.action-view': { color: byMode('#1c86f2', '#74d4ff'), '&:hover': { color: byMode('#73b4f7', '#a6e4ff') } },
+  '& li.action-delete': { color: byMode('#e3342f', '#ffa2a2'), '&:hover': { color: byMode('#f3aaa8', '#ffc9c9') } },
+  '& li.action-clone': { color: byMode('#1c86f2', '#74d4ff'), '&:hover': { color: byMode('#73b4f7', '#a6e4ff') } },
 };
 
 // Same bordered table every Setup template list uses (reference): 1px black
 // cell borders, centred bold headers, near-white rows.
 export const templateListHeadSx = {
-  '& th': { bgcolor: 'transparent', color: '#000', fontWeight: 700, fontSize: 16, border: '1px solid #000', borderRadius: 0, height: 36, lineHeight: '20px', p: '8px', textAlign: 'center' },
+  '& th': { bgcolor: byMode('transparent', '#333333'), color: byMode('#000', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: byMode('1px solid #000', '1px solid #373737'), borderRadius: 0, height: 36, lineHeight: '20px', p: '8px', textAlign: 'center' },
 };
 export const templateListBodySx = {
-  '& tr': { bgcolor: '#f8f8f8', height: 52 },
-  '& td': { border: '1px solid #000', fontSize: 16, fontWeight: 400, lineHeight: '20px', color: '#000', p: '16px' },
+  '& tr': { bgcolor: byMode('#f8f8f8', '#232323'), height: 52 },
+  '& td': { border: byMode('1px solid #000', '1px solid #373737'), fontSize: 16, fontWeight: 400, lineHeight: '20px', color: byMode('#000', '#f8f8f8'), p: '16px' },
 };
 
 const TemplateListActions = ({ onEdit, onConfigure, onDelete, onClone }) => (

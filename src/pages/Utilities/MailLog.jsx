@@ -17,6 +17,7 @@ import {
 import emailLogService from '../../services/emailLogService';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference table is auto-layout: across three captures the Subject column starts
 // at 609 / 589 / 537px and Sent At at 1365 / 1344 / 1293px, i.e. widths follow
@@ -42,7 +43,7 @@ const cellSx = {
   fontSize: 16,
   lineHeight: '19px', // 16 + 19 + 16 = 51px row height (reference)
   fontWeight: 400,
-  color: '#000', // reference solid rgb(0,0,0), not MUI's rgba(0,0,0,0.87)
+  color: byMode('#000', '#f8f8f8'), // reference solid rgb(0,0,0), not MUI's rgba(0,0,0,0.87)
   border: 'none',
   whiteSpace: 'normal',
   overflow: 'visible',
@@ -109,13 +110,13 @@ const MailLog = () => {
   const getStatusColor = (status) => {
     const upperStatus = (status || '').toUpperCase();
     if (upperStatus === 'DELIVERED' || upperStatus === 'OPENED') {
-      return '#15803d'; // green-700 (reference)
+      return byMode('#15803d', '#7bf1a8'); // green-700 (reference)
     } else if (upperStatus === 'FAILED' || upperStatus === 'BOUNCED') {
-      return '#b91c1c'; // red-700 (reference)
+      return byMode('#b91c1c', '#ffa2a2'); // red-700 (reference)
     } else if (upperStatus === 'SENT') {
-      return '#0284c7';
+      return byMode('#0284c7', '#74d4ff');
     }
-    return '#676b72';
+    return byMode('#676b72', '#a0a4aa');
   };
 
   const getRecipient = (receiverEmails) => {
@@ -138,7 +139,7 @@ const MailLog = () => {
       >
         <Typography
           variant="h1"
-          sx={{ fontSize: 32, fontWeight: 700, color: '#000000', lineHeight: 1.2 }}
+          sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000000', '#f8f8f8'), lineHeight: 1.2 }}
         >
           Mail Log
         </Typography>
@@ -146,18 +147,18 @@ const MailLog = () => {
         <Box sx={{ textAlign: 'right' }}>
           <Typography
             variant="h3"
-            sx={{ fontSize: '18.72px', fontWeight: 700, color: '#000000', lineHeight: 1.2 }}
+            sx={{ fontSize: '18.72px', fontWeight: 700, color: byMode('#000000', '#f8f8f8'), lineHeight: 1.2 }}
           >
             Total Count: {totalCount}
           </Typography>
-          <Typography sx={{ fontSize: 14, fontWeight: 400, color: '#374151', mt: '5px' }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 400, color: byMode('#374151', '#d4d4d4'), mt: '5px' }}>
             Mail is limited to the last 3 months
           </Typography>
         </Box>
       </Box>
 
       {error && (
-        <Box sx={{ mb: 2, p: 2, bgcolor: '#ffebee', color: '#c62828', borderRadius: 1 }}>
+        <Box sx={{ mb: 2, p: 2, bgcolor: byMode('#ffebee', '#492625'), color: byMode('#c62828', '#ffa2a2'), borderRadius: 1 }}>
           {error}
         </Box>
       )}
@@ -173,8 +174,8 @@ const MailLog = () => {
                 <TableCell
                   key={col.key}
                   sx={{
-                    bgcolor: '#5ebbeb',
-                    color: '#ffffff',
+                    bgcolor: byMode('#5ebbeb', '#333333'),
+                    color: byMode('#ffffff', '#5ebbeb'),
                     fontSize: 16,
                     lineHeight: '19px', // 16 + 19 + 16 = 51px header height (reference)
                     fontWeight: 700,
@@ -211,14 +212,14 @@ const MailLog = () => {
                 <TableCell
                   colSpan={COLUMNS.length}
                   align="center"
-                  sx={{ py: 4, border: 'none', fontSize: 16, color: '#676b72' }}
+                  sx={{ py: 4, border: 'none', fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}
                 >
                   No email logs found
                 </TableCell>
               </TableRow>
             ) : (
               emailLogs.map((log) => (
-                <TableRow key={log.id} sx={{ height: 51, bgcolor: '#ffffff' }}>
+                <TableRow key={log.id} sx={{ height: 51, bgcolor: byMode('#ffffff', '#232323') }}>
                   <TableCell sx={{ ...cellSx, color: getStatusColor(log.status) }}>
                     {getStatusDisplay(log.status)}
                   </TableCell>
@@ -232,9 +233,9 @@ const MailLog = () => {
                     {/* Reference glyphs are ~14px wide (green check, red cross); MUI's
                         outlined icons fill ~70% of their box, hence 20px. */}
                     {log.hasAttachment ? (
-                      <CheckIcon sx={{ color: '#15803d', fontSize: 20, display: 'block', mx: 'auto', my: '-0.5px' }} />
+                      <CheckIcon sx={{ color: byMode('#15803d', '#7bf1a8'), fontSize: 20, display: 'block', mx: 'auto', my: '-0.5px' }} />
                     ) : (
-                      <CloseIcon sx={{ color: '#b91c1c', fontSize: 20, display: 'block', mx: 'auto', my: '-0.5px' }} />
+                      <CloseIcon sx={{ color: byMode('#b91c1c', '#ffa2a2'), fontSize: 20, display: 'block', mx: 'auto', my: '-0.5px' }} />
                     )}
                   </TableCell>
                 </TableRow>

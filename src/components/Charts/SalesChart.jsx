@@ -1,10 +1,12 @@
 
 import React, { useState } from 'react';
 import { timelineSaleColor } from '../../utils/reportingDashboard';
+import { byMode } from '../../theme/sfPalette';
 import { 
   Box,
   Typography,
-  Paper
+  Paper,
+  useTheme
 } from '@mui/material';
 import {
   BarChart,
@@ -61,6 +63,7 @@ export const SalesChart = ({
   showRegisterNames = true,
   colorBy = 'outlet',
 }) => {
+  const isDark = useTheme().palette.mode === 'dark';
   const [hoveredSegment, setHoveredSegment] = useState(null); // { bucketKey, segmentIndex }
 
   const prepareChartData = () => {
@@ -167,16 +170,16 @@ export const SalesChart = ({
         ['Time', sale.time ? formatDateTime(sale.time) : '-'],
       ];
       return (
-        <Box sx={{ width: 295, backgroundColor: '#fff', borderRadius: 0, boxShadow: 'none' }}>
+        <Box sx={{ width: 295, backgroundColor: byMode('#fff', '#232323'), borderRadius: 0, boxShadow: 'none' }}>
           <Box sx={{ height: 16, backgroundColor: timelineSaleColor(sale, colorBy, outletColors) }} />
           <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
             <Box component="tbody">
               {rows.map(([label, val]) => (
                 <Box component="tr" key={label}>
-                  <Box component="td" sx={{ display: 'table-cell', padding: '8px 16px', color: '#000', fontSize: 14 }}>
+                  <Box component="td" sx={{ display: 'table-cell', padding: '8px 16px', color: byMode('#000', '#f8f8f8'), fontSize: 14 }}>
                     {label}
                   </Box>
-                  <Box component="td" sx={{ display: 'table-cell', padding: '8px 16px', color: '#000', fontSize: 14 }}>
+                  <Box component="td" sx={{ display: 'table-cell', padding: '8px 16px', color: byMode('#000', '#f8f8f8'), fontSize: 14 }}>
                     {val}
                   </Box>
                 </Box>
@@ -193,7 +196,7 @@ export const SalesChart = ({
         <Paper
           elevation={3}
           sx={{
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            backgroundColor: byMode('rgba(255, 255, 255, 0.98)', '#232323'),
             border: '2px solid #ec4899',
             borderRadius: 2,
             p: 2,
@@ -222,9 +225,9 @@ export const SalesChart = ({
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>Invoice Number</Typography>
-              <Typography variant="body2" sx={{ fontFamily: 'monospace', color: '#2563eb' }}>{sale.invoiceNumber}</Typography>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace', color: byMode('#2563eb', '#4ca0f5') }}>{sale.invoiceNumber}</Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5, pt: 1, borderTop: '1px solid #e5e7eb' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5, pt: 1, borderTop: byMode('1px solid #e5e7eb', '1px solid #373737') }}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>Time</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>{formatDateTime(sale.time)}</Typography>
             </Box>
@@ -269,21 +272,21 @@ export const SalesChart = ({
                 bottom: isMainChart ? 60 : 50,
               }}
             >
-              <CartesianGrid stroke="#dddddd" />
+              <CartesianGrid stroke={isDark ? '#333333' : '#dddddd'} />
               <XAxis
                 dataKey="displayLabel"
-                tick={{ fontSize: 11, fill: '#000000' }}
+                tick={{ fontSize: 11, fill: isDark ? '#f8f8f8' : '#000000' }}
                 angle={isMainBarStacked || period === 'day' ? -45 : period === 'year' ? -45 : 0}
                 textAnchor={isMainBarStacked || period === 'day' || period === 'year' ? 'end' : 'middle'}
                 height={isMainBarStacked || period === 'day' || period === 'year' ? 80 : 30}
                 interval={0}
-                label={isMainChart ? { value: 'Time', position: 'insideBottom', offset: -2, style: { fontSize: 12, fill: '#000000' } } : undefined}
+                label={isMainChart ? { value: 'Time', position: 'insideBottom', offset: -2, style: { fontSize: 12, fill: isDark ? '#f8f8f8' : '#000000' } } : undefined}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#000000' }}
+                tick={{ fontSize: 11, fill: isDark ? '#f8f8f8' : '#000000' }}
                 tickFormatter={yTickFormatter}
                 width={isMainChart && timelineValue === 'revenue' ? 80 : 60}
-                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#000000' } }}
+                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: isDark ? '#f8f8f8' : '#000000' } }}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(236, 72, 153, 0.1)' }} />
               {isMainBarStacked ? (
@@ -331,18 +334,18 @@ export const SalesChart = ({
                 bottom: 50,
               }}
             >
-              <CartesianGrid stroke="#dddddd" />
+              <CartesianGrid stroke={isDark ? '#333333' : '#dddddd'} />
               <XAxis
                 dataKey="displayLabel"
-                tick={{ fontSize: 11, fill: '#000000' }}
+                tick={{ fontSize: 11, fill: isDark ? '#f8f8f8' : '#000000' }}
                 angle={period === 'day' ? -45 : period === 'year' ? -45 : 0}
                 textAnchor={period === 'day' || period === 'year' ? 'end' : 'middle'}
                 height={period === 'day' || period === 'year' ? 70 : 30}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#000000' }}
+                tick={{ fontSize: 11, fill: isDark ? '#f8f8f8' : '#000000' }}
                 tickFormatter={yTickFormatter}
-                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#000000' } }}
+                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: isDark ? '#f8f8f8' : '#000000' } }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Line

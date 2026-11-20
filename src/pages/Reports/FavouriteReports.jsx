@@ -48,11 +48,12 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useAppDialogs } from '../../components/Common/AppDialogProvider';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 // The Shopfront reference has no transitions on filters, panels or rows.
 const INSTANT = 'all 0s ease';
 const PANEL_SHADOW = '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)';
-const FILTER_LABEL_SX = { mb: 0.5, fontSize: 16, fontWeight: 400, color: '#000', letterSpacing: 'normal' };
+const FILTER_LABEL_SX = { mb: 0.5, fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8'), letterSpacing: 'normal' };
 
 // Report type catalog — texts and order as on the reference Favourite Reports screen.
 // Each option lists every saved reportType it matches (pages save their own
@@ -146,16 +147,16 @@ const FilterSelect = ({ multiple, options, value, onChange, placeholder }) => {
           textAlign: 'left',
           fontFamily: 'inherit',
           fontSize: 16,
-          color: isSel ? '#38bdf8' : '#0a0a0a',
+          color: isSel ? byMode('#38bdf8', '#00a6f4') : byMode('#0a0a0a', '#f8f8f8'),
           transition: INSTANT,
-          '&:hover': { bgcolor: '#7dd3fc' },
+          '&:hover': { bgcolor: byMode('#7dd3fc', '#0084d1'), color: byMode(undefined, '#fafafa'), '& .MuiSvgIcon-root': { color: byMode(undefined, '#fafafa') } },
         }}
       >
         {multiple &&
           (isSel ? (
-            <SquareCheckedIcon sx={{ fontSize: 20, color: '#38bdf8' }} />
+            <SquareCheckedIcon sx={{ fontSize: 20, color: byMode('#38bdf8', '#00a6f4') }} />
           ) : (
-            <SquareIcon sx={{ fontSize: 20, color: '#0a0a0a' }} />
+            <SquareIcon sx={{ fontSize: 20, color: byMode('#0a0a0a', '#f8f8f8') }} />
           ))}
         <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {o.label}
@@ -178,9 +179,9 @@ const FilterSelect = ({ multiple, options, value, onChange, placeholder }) => {
             alignItems: 'center',
             gap: 0.5,
             height: 42,
-            border: '1px solid #404040',
+            border: byMode('1px solid #404040', '1px solid #a1a1a1'),
             borderRadius: '8px',
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#121212'),
             px: 1,
             cursor: 'pointer',
             overflow: 'hidden',
@@ -189,12 +190,12 @@ const FilterSelect = ({ multiple, options, value, onChange, placeholder }) => {
         >
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5, overflow: 'hidden' }}>
             {selectedOptions.length === 0 ? (
-              <Box component="span" sx={{ fontSize: 16, color: '#808080' }}>
+              <Box component="span" sx={{ fontSize: 16, color: byMode('#808080', '#757575') }}>
                 {placeholder}
               </Box>
             ) : multiple && selectedOptions.length > 2 ? (
               // More than two picks collapse to one "N Selected..." pill.
-              <Box component="span" sx={{ bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', px: 1, fontSize: 16, color: '#000', whiteSpace: 'nowrap' }}>
+              <Box component="span" sx={{ bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'), borderRadius: '4px', px: 1, fontSize: 16, color: byMode('#000', '#f8f8f8'), whiteSpace: 'nowrap' }}>
                 {selectedOptions.length} Selected...
               </Box>
             ) : (
@@ -203,11 +204,11 @@ const FilterSelect = ({ multiple, options, value, onChange, placeholder }) => {
                   key={o.value}
                   component="span"
                   sx={{
-                    bgcolor: 'rgba(0,0,0,0.1)',
+                    bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'),
                     borderRadius: '4px',
                     px: 1,
                     fontSize: 16,
-                    color: '#000',
+                    color: byMode('#000', '#f8f8f8'),
                     maxWidth: 150,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -239,16 +240,16 @@ const FilterSelect = ({ multiple, options, value, onChange, placeholder }) => {
                 border: 0,
                 borderRadius: '8px',
                 bgcolor: 'transparent',
-                color: '#000',
+                color: byMode('#000', '#f8f8f8'),
                 cursor: 'pointer',
                 transition: INSTANT,
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
               }}
             >
               <CloseIcon sx={{ fontSize: 16 }} />
             </Box>
           )}
-          <ArrowDropDownIcon sx={{ flexShrink: 0, color: '#404040' }} />
+          <ArrowDropDownIcon sx={{ flexShrink: 0, color: byMode('#404040', '#a1a1a1') }} />
         </Box>
 
         <Popper
@@ -261,8 +262,8 @@ const FilterSelect = ({ multiple, options, value, onChange, placeholder }) => {
           <Box
             sx={{
               width: anchorRef.current ? anchorRef.current.offsetWidth : 'auto',
-              bgcolor: '#fff',
-              border: '1px solid #000000',
+              bgcolor: byMode('#fff', '#232323'),
+              border: byMode('1px solid #000000', '1px solid #a1a1a1'),
               borderRadius: '8px',
               boxShadow: PANEL_SHADOW,
               maxHeight: 288,
@@ -273,7 +274,7 @@ const FilterSelect = ({ multiple, options, value, onChange, placeholder }) => {
             {multiple && selectedOptions.length > 0 && (
               <>
                 {selectedOptions.map((o) => optionRow(o, `pinned-${o.value}`))}
-                <Box sx={{ height: '1px', bgcolor: '#e5e5e5' }} />
+                <Box sx={{ height: '1px', bgcolor: byMode('#e5e5e5', '#373737') }} />
               </>
             )}
             {(multiple ? rest : options).map((o) => optionRow(o, o.value))}
@@ -578,23 +579,24 @@ const FavouriteReports = () => {
 
   // Shared outlined field styling (parity: #404040 border, 8px radius).
   const outlinedSx = {
-    bgcolor: '#fff',
+    bgcolor: byMode('#fff', '#121212'),
     '& .MuiOutlinedInput-root': {
       borderRadius: '8px',
       height: 42,
       fontSize: 16,
-      '& fieldset': { borderColor: '#404040' },
-      '&:hover fieldset': { borderColor: '#404040' },
-      '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: 2 },
+      color: byMode(undefined, '#f8f8f8'),
+      '& fieldset': { borderColor: byMode('#404040', '#a1a1a1') },
+      '&:hover fieldset': { borderColor: byMode('#404040', '#a1a1a1') },
+      '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: 2 },
     },
     '& .MuiOutlinedInput-input': { padding: '8px 16px' },
-    '& .MuiOutlinedInput-input::placeholder': { color: '#808080', opacity: 1 },
+    '& .MuiOutlinedInput-input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
   };
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ p: 1 }}>
-      <Typography component="h1" sx={{ mb: 3, fontSize: 32, fontWeight: 700, color: '#000' }}>
+      <Typography component="h1" sx={{ mb: 3, fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>
         Favourite Reports
       </Typography>
 
@@ -672,7 +674,7 @@ const FavouriteReports = () => {
           <CircularProgress />
         </Box>
       ) : visibleReports.length === 0 ? (
-        <Typography sx={{ fontSize: 18, color: '#404040', textAlign: 'center', py: 8 }}>
+        <Typography sx={{ fontSize: 18, color: byMode('#404040', '#d4d4d4'), textAlign: 'center', py: 8 }}>
           No reports found. Change the filters and try again.
         </Typography>
       ) : (
@@ -682,8 +684,8 @@ const FavouriteReports = () => {
               <TableRow
                 sx={{
                   '& th': {
-                    bgcolor: '#5ebbeb',
-                    color: '#ffffff',
+                    bgcolor: byMode('#5ebbeb', '#333333'),
+                    color: byMode('#ffffff', '#5ebbeb'),
                     fontWeight: 700,
                     fontSize: 16,
                     textTransform: 'none',
@@ -707,8 +709,8 @@ const FavouriteReports = () => {
             <TableBody
               sx={{
                 // No zebra on this screen — every row is white, like the reference.
-                '& tr': { bgcolor: '#ffffff' },
-                '& td': { border: 0, padding: '16px', height: 74, fontSize: 16, color: '#000' },
+                '& tr': { bgcolor: byMode('#ffffff', '#232323') },
+                '& td': { border: 0, padding: '16px', height: 74, fontSize: 16, color: byMode('#000', '#f8f8f8') },
                 '& tr:first-of-type td:first-of-type': { borderTopLeftRadius: '12px' },
                 '& tr:first-of-type td:last-of-type': { borderTopRightRadius: '12px' },
               }}
@@ -719,14 +721,14 @@ const FavouriteReports = () => {
                       <Box sx={{ maxWidth: '30vw' }}>
                         <Typography
                           noWrap
-                          sx={{ fontWeight: 400, fontSize: 16, color: '#000' }}
+                          sx={{ fontWeight: 400, fontSize: 16, color: byMode('#000', '#f8f8f8') }}
                         >
                           {report.name}
                           {report.emailEnabled && (
-                            <EmailIcon sx={{ fontSize: 16, width: 20, ml: 1, color: '#a3a3a3', verticalAlign: 'middle' }} />
+                            <EmailIcon sx={{ fontSize: 16, width: 20, ml: 1, color: byMode('#a3a3a3', '#a0a4aa'), verticalAlign: 'middle' }} />
                           )}
                         </Typography>
-                        <Typography sx={{ fontSize: 14, color: '#4b5563' }}>
+                        <Typography sx={{ fontSize: 14, color: byMode('#4b5563', '#a0a4aa') }}>
                           {getReportTypeLabel(report.reportType)}
                         </Typography>
                       </Box>
@@ -735,8 +737,8 @@ const FavouriteReports = () => {
                     <TableCell>{formatDate(report.createdAt)}</TableCell>
                     <TableCell>
                       <Box>
-                        <Typography sx={{ fontSize: 16, color: '#000' }}>{formatDate(report.updatedAt)}</Typography>
-                        <Typography sx={{ fontSize: 14, color: '#4b5563' }}>
+                        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{formatDate(report.updatedAt)}</Typography>
+                        <Typography sx={{ fontSize: 14, color: byMode('#4b5563', '#a0a4aa') }}>
                           {report.updatedBy || report.user?.name || 'Crinit Shop'}
                         </Typography>
                       </Box>
@@ -752,9 +754,9 @@ const FavouriteReports = () => {
                           startIcon={<ViewIcon />}
                           disableRipple
                           sx={{
-                            color: '#0284c7', fontWeight: 700, fontSize: 16, borderRadius: '12px',
+                            color: byMode('#0284c7', '#74d4ff'), fontWeight: 700, fontSize: 16, borderRadius: '12px',
                             textTransform: 'none', minWidth: 0, transition: INSTANT,
-                            '&:hover': { bgcolor: 'transparent', color: '#0284c7' },
+                            '&:hover': { bgcolor: 'transparent', color: byMode('#0284c7', '#74d4ff') },
                           }}
                         >
                           View
@@ -764,9 +766,9 @@ const FavouriteReports = () => {
                           startIcon={<SettingsIcon />}
                           disableRipple
                           sx={{
-                            color: '#32b643', fontWeight: 700, fontSize: 16, borderRadius: '12px',
+                            color: byMode('#32b643', '#7bf1a8'), fontWeight: 700, fontSize: 16, borderRadius: '12px',
                             textTransform: 'none', minWidth: 0, transition: INSTANT,
-                            '&:hover': { bgcolor: 'transparent', color: '#32b643' },
+                            '&:hover': { bgcolor: 'transparent', color: byMode('#32b643', '#7bf1a8') },
                           }}
                         >
                           Settings
@@ -776,9 +778,9 @@ const FavouriteReports = () => {
                           startIcon={<DeleteIcon />}
                           disableRipple
                           sx={{
-                            color: '#dc2626', fontWeight: 700, fontSize: 16, borderRadius: '12px',
+                            color: byMode('#dc2626', '#ffa2a2'), fontWeight: 700, fontSize: 16, borderRadius: '12px',
                             textTransform: 'none', minWidth: 0, transition: INSTANT,
-                            '&:hover': { bgcolor: 'transparent', color: '#dc2626' },
+                            '&:hover': { bgcolor: 'transparent', color: byMode('#dc2626', '#ffa2a2') },
                           }}
                         >
                           Delete
@@ -815,11 +817,11 @@ const FavouriteReports = () => {
       >
         <DialogTitle
           sx={{
-            bgcolor: '#e8f5e9',
+            bgcolor: byMode('#e8f5e9', '#264029'),
             display: 'flex',
             alignItems: 'center',
             gap: 1,
-            color: '#16a34a',
+            color: byMode('#16a34a', '#7bf1a8'),
             fontWeight: 700,
             fontSize: 16,
             py: 1.5,
@@ -834,7 +836,7 @@ const FavouriteReports = () => {
           {selectedReport && (
             <Box>
               {/* Report Name */}
-              <Typography sx={{ mb: 2, fontSize: 16, fontWeight: 600, color: '#000' }}>
+              <Typography sx={{ mb: 2, fontSize: 16, fontWeight: 600, color: byMode('#000', '#f8f8f8') }}>
                 {selectedReport.name}
               </Typography>
 
@@ -857,7 +859,7 @@ const FavouriteReports = () => {
                       Next Email Date
                     </Typography>
                     {/* Store wall time (reference: "03/11/2026 00:00:00" on a Hawaii browser) */}
-                    <Typography variant="body2" sx={{ color: '#4b5563' }}>
+                    <Typography variant="body2" sx={{ color: byMode('#4b5563', '#a0a4aa') }}>
                       {formatAppDateTime(
                         timePeriod === 'Custom'
                           ? nextCustomDate(nextEmailDate, customPeriod) || nextEmailDate
@@ -874,9 +876,9 @@ const FavouriteReports = () => {
                   {/* Reference row: Export Type | Time Period (labels above the fields) */}
                   <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Export Type</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>Export Type</Typography>
                       <FormControl fullWidth size="small">
-                        <Select value={exportType} onChange={(e) => setExportType(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}>
+                        <Select value={exportType} onChange={(e) => setExportType(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') } }}>
                           <MenuItem value="PDF">PDF</MenuItem>
                           <MenuItem value="CSV">CSV</MenuItem>
                           <MenuItem value="XLSX">XLSX</MenuItem>
@@ -885,9 +887,9 @@ const FavouriteReports = () => {
                       </FormControl>
                     </Box>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Time Period</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>Time Period</Typography>
                       <FormControl fullWidth size="small">
-                        <Select value={timePeriod} onChange={(e) => handleTimePeriodChange(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}>
+                        <Select value={timePeriod} onChange={(e) => handleTimePeriodChange(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') } }}>
                           <MenuItem value="Every 5 minutes">Every 5 minutes</MenuItem>
                           <MenuItem value="Daily">Daily</MenuItem>
                           <MenuItem value="Weekly">Weekly</MenuItem>
@@ -902,9 +904,9 @@ const FavouriteReports = () => {
                   {/* Page Orientation only matters for a PDF export */}
                   {exportType === 'PDF' && (
                     <Box sx={{ mb: 2 }}>
-                      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Page Orientation</Typography>
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>Page Orientation</Typography>
                       <FormControl fullWidth size="small">
-                        <Select value={pageOrientation} onChange={(e) => setPageOrientation(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}>
+                        <Select value={pageOrientation} onChange={(e) => setPageOrientation(e.target.value)} sx={{ borderRadius: '8px', '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') } }}>
                           <MenuItem value="Portrait">
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <DescriptionIcon sx={{ fontSize: 18 }} />
@@ -952,7 +954,7 @@ const FavouriteReports = () => {
 
                   {/* Email Addresses */}
                   <Box sx={{ mb: 1 }}>
-                    <Typography sx={{ mb: 0.5, fontSize: 16, color: '#000' }}>
+                    <Typography sx={{ mb: 0.5, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                       Emails
                     </Typography>
                     {emailAddresses.map((email, index) => (
@@ -964,7 +966,7 @@ const FavouriteReports = () => {
                           value={email}
                           onChange={(e) => handleEmailChange(index, e.target.value)}
                           placeholder="Email Address"
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', pr: 0.5 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040' } }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', pr: 0.5 }, '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1') } }}
                           InputProps={{
                             // Remove icon inside the field so every input lines up with the selects above.
                             endAdornment: emailAddresses.length > 1 ? (
@@ -980,7 +982,7 @@ const FavouriteReports = () => {
                       startIcon={<AddIcon />}
                       onClick={handleAddEmail}
                       size="small"
-                      sx={{ mt: 0.5, textTransform: 'none', color: '#32b643' }}
+                      sx={{ mt: 0.5, textTransform: 'none', color: byMode('#32b643', '#7bf1a8') }}
                       variant="text"
                     >
                       New Email Address
@@ -991,14 +993,14 @@ const FavouriteReports = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #e0e0e0' }}>
+        <DialogActions sx={{ p: 2, borderTop: byMode('1px solid #e0e0e0', '1px solid #373737') }}>
           <Button
             onClick={() => setSettingsDialogOpen(false)}
             sx={{
               borderRadius: '12px',
               textTransform: 'none',
               fontWeight: 700,
-              color: '#404040'
+              color: byMode('#404040', '#d4d4d4')
             }}
           >
             Cancel

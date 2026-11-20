@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import PageLoader from '../../components/Common/PageLoader';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import {
@@ -264,7 +265,7 @@ const RolePermissions = () => {
           onClick={handleBack}
           sx={{
             bgcolor: '#5ebbeb',
-            color: '#fff',
+            color: byMode('#fff', '#232323'),
             textTransform: 'none',
             fontWeight: 700,
             fontSize: 16,
@@ -289,9 +290,9 @@ const RolePermissions = () => {
             onClick={handleRevisions}
             startIcon={<HistoryIcon />}
             sx={{
-              color: '#313439',
-              border: '1px solid #8a8f98',
-              bgcolor: '#fff',
+              color: byMode('#313439', '#d4d4d4'),
+              border: byMode('1px solid #8a8f98', '1px solid #a1a1a1'),
+              bgcolor: byMode('#fff', 'transparent'),
               textTransform: 'none',
               fontWeight: 700,
               fontSize: 16,
@@ -299,7 +300,7 @@ const RolePermissions = () => {
               px: 2.5,
               borderRadius: '12px',
               transition: INSTANT,
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', border: '1px solid #8a8f98' },
+              '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), border: byMode('1px solid #8a8f98', '1px solid #a1a1a1') },
             }}
           >
             Revisions
@@ -314,7 +315,7 @@ const RolePermissions = () => {
       )}
 
       {/* Name */}
-      <Typography sx={{ fontSize: 13, color: '#595959', mb: 0.5 }}>Name</Typography>
+      <Typography sx={{ fontSize: 13, color: byMode('#595959', '#d4d4d4'), mb: 0.5 }}>Name</Typography>
       <TextField
         fullWidth
         value={roleName}
@@ -324,9 +325,9 @@ const RolePermissions = () => {
           '& .MuiOutlinedInput-root': {
             height: 42,
             borderRadius: '8px',
-            '& fieldset': { borderColor: '#595959' },
-            '&:hover fieldset': { borderColor: '#595959' },
-            '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+            '& fieldset': { borderColor: byMode('#595959', '#a1a1a1') },
+            '&:hover fieldset': { borderColor: byMode('#595959', '#a1a1a1') },
+            '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
           },
         }}
       />
@@ -354,7 +355,7 @@ const RolePermissions = () => {
       )}
 
       {/* Search */}
-      <Typography sx={{ fontSize: 13, color: '#595959', mb: 0.5 }}>Search</Typography>
+      <Typography sx={{ fontSize: 13, color: byMode('#595959', '#d4d4d4'), mb: 0.5 }}>Search</Typography>
       <TextField
         fullWidth
         placeholder="Search Permissions..."
@@ -365,9 +366,9 @@ const RolePermissions = () => {
           '& .MuiOutlinedInput-root': {
             height: 42,
             borderRadius: '8px',
-            '& fieldset': { borderColor: '#595959' },
-            '&:hover fieldset': { borderColor: '#595959' },
-            '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+            '& fieldset': { borderColor: byMode('#595959', '#a1a1a1') },
+            '&:hover fieldset': { borderColor: byMode('#595959', '#a1a1a1') },
+            '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
           },
         }}
       />
@@ -377,7 +378,7 @@ const RolePermissions = () => {
       {groups.map(({ category, permissions }) => (
         <Box key={category} sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 20, color: '#313439' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: 20, color: byMode('#313439', '#f8f8f8') }}>
               {category}
             </Typography>
             <ShopfrontSwitch
@@ -385,7 +386,7 @@ const RolePermissions = () => {
               onChange={() => handleCategoryToggle(permissions)}
               inputProps={{ 'aria-label': `All ${category} permissions` }}
             />
-            <Typography sx={{ fontSize: 13, color: '#676b72' }}>
+            <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>
               {permissions.filter((p) => selectedPermissions.includes(p.name)).length} / {permissions.length}
             </Typography>
           </Box>
@@ -415,7 +416,7 @@ const RolePermissions = () => {
                     sx={locked ? { opacity: 0.45 } : undefined}
                     inputProps={{ 'aria-label': permission.label }}
                   />
-                  <Typography sx={{ fontSize: 15, color: locked ? '#8a8f98' : '#313439' }}>
+                  <Typography sx={{ fontSize: 15, color: byMode(locked ? '#8a8f98' : '#313439', locked ? '#a0a4aa' : '#f8f8f8') }}>
                     {permission.label}
                   </Typography>
                 </Box>
@@ -431,8 +432,8 @@ const RolePermissions = () => {
                       arrow
                       placement="top"
                       componentsProps={{
-                        tooltip: { sx: { bgcolor: '#f8f8f8', color: '#000', fontSize: 15, border: '1px solid #d9d9d9', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', px: 2, py: 1.5, maxWidth: 360 } },
-                        arrow: { sx: { color: '#f8f8f8', '&::before': { border: '1px solid #d9d9d9' } } },
+                        tooltip: { sx: { bgcolor: byMode('#f8f8f8', '#232323'), color: byMode('#000', '#f8f8f8'), fontSize: 15, border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1'), boxShadow: '0 4px 12px rgba(0,0,0,0.15)', px: 2, py: 1.5, maxWidth: 360 } },
+                        arrow: { sx: { color: byMode('#f8f8f8', '#232323'), '&::before': { border: byMode('1px solid #d9d9d9', '1px solid #a1a1a1') } } },
                       }}
                       title={
                         <Box>
@@ -466,7 +467,7 @@ const RolePermissions = () => {
 
       {/* Confirm Leaving - raised when navigating away with unsaved changes */}
       <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)}>
-        <DialogTitle sx={{ backgroundColor: '#fdecea', color: '#d32f2f', fontWeight: 700 }}>
+        <DialogTitle sx={{ backgroundColor: byMode('#fdecea', '#492625'), color: byMode('#d32f2f', '#ffa2a2'), fontWeight: 700 }}>
           Confirm Leaving
         </DialogTitle>
         <DialogContent sx={{ pt: '16px !important' }}>
@@ -476,8 +477,8 @@ const RolePermissions = () => {
           <Button
             onClick={() => setLeaveOpen(false)}
             sx={{
-              backgroundColor: '#dedede', color: '#000', fontWeight: 700,
-              textTransform: 'none', '&:hover': { backgroundColor: '#cfcfcf' }
+              backgroundColor: byMode('#dedede', '#3a3a3a'), color: byMode('#000', '#f8f8f8'), fontWeight: 700,
+              textTransform: 'none', '&:hover': { backgroundColor: byMode('#cfcfcf', '#4a4a4a') }
             }}
           >
             Cancel

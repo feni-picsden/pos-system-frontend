@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Box,
   Typography,
@@ -60,22 +61,22 @@ const EnterprisePolicies = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 1 }}>
+      <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>
         Enterprise Connections
       </Typography>
-      <Typography sx={{ fontSize: 15, color: '#313439', mb: 4 }}>
+      <Typography sx={{ fontSize: 15, color: byMode('#313439', '#d4d4d4'), mb: 4 }}>
         Overall, your application is managed by {PLATFORM}.
       </Typography>
 
       {connections.length === 0 ? (
         // Reference empty state: large slashed-circle glyph beside the headline.
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, py: 6 }}>
-          <NoneIcon sx={{ fontSize: 120, color: '#000' }} />
+          <NoneIcon sx={{ fontSize: 120, color: byMode('#000', '#f8f8f8') }} />
           <Box>
-            <Typography sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 1 }}>
+            <Typography sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>
               No Enterprise Connections
             </Typography>
-            <Typography sx={{ fontSize: 15, color: '#313439' }}>
+            <Typography sx={{ fontSize: 15, color: byMode('#313439', '#d4d4d4') }}>
               You're not connected to any enterprises.
             </Typography>
           </Box>
@@ -83,18 +84,18 @@ const EnterprisePolicies = () => {
       ) : (
         <Box sx={{ mb: 4 }}>
           {connections.map((connection, index) => (
-            <Typography key={index} sx={{ fontSize: 16, color: '#313439', py: 0.5 }}>
+            <Typography key={index} sx={{ fontSize: 16, color: byMode('#313439', '#d4d4d4'), py: 0.5 }}>
               {connection.name || String(connection)}
             </Typography>
           ))}
         </Box>
       )}
 
-      <Typography sx={{ fontSize: 20, fontWeight: 700, color: '#000', mb: 1.5 }}>
+      <Typography sx={{ fontSize: 20, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1.5 }}>
         Policies
       </Typography>
       <TableContainer>
-        <Table sx={{ borderCollapse: 'collapse', '& td, & th': { border: '1px solid #d5d9d8', fontSize: 15, color: '#313439', py: 1.5 } }}>
+        <Table sx={{ borderCollapse: 'collapse', '& td, & th': { border: byMode('1px solid #d5d9d8', '1px solid #373737'), fontSize: 15, color: byMode('#313439', '#f8f8f8'), py: 1.5 } }}>
           <TableHead>
             <TableRow sx={{ '& th': { fontWeight: 700 } }}>
               <TableCell sx={{ width: '46%' }}>Name</TableCell>
@@ -104,12 +105,12 @@ const EnterprisePolicies = () => {
           </TableHead>
           <TableBody>
             {policies.map((policy, index) => (
-              <TableRow key={policy.name} sx={{ bgcolor: index % 2 ? '#fff' : '#fafafa' }}>
+              <TableRow key={policy.name} sx={{ bgcolor: byMode(index % 2 ? '#fff' : '#fafafa', index % 2 ? '#232323' : '#2a2a2a') }}>
                 <TableCell>{policy.name}</TableCell>
                 <TableCell>{policy.enforcedBy}</TableCell>
                 <TableCell>
                   {policy.json ? (
-                    <Box component="code" sx={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13.5, bgcolor: '#f0f2f2', px: 1, py: 0.5, borderRadius: 1, display: 'inline-block' }}>
+                    <Box component="code" sx={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13.5, bgcolor: byMode('#f0f2f2', '#3a3a3a'), px: 1, py: 0.5, borderRadius: 1, display: 'inline-block' }}>
                       {policy.value}
                     </Box>
                   ) : (

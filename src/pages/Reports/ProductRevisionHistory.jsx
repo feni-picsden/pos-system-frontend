@@ -17,6 +17,7 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
+  useTheme,
 } from '@mui/material';
 import {
   TableChartOutlined as ExportIcon,
@@ -46,6 +47,7 @@ import { formatDateTime as formatAppDateTime } from '../../utils/appDateTime';
 import { userService } from '../../services/userService';
 import { matchesProductSearch } from '../../utils/productSearch';
 import { rankProducts } from '../../utils/searchRank';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference Keys list (26/10 ss), alphabetical as shown there.
 const PRODUCT_FIELD_OPTIONS = [
@@ -107,43 +109,44 @@ const toolbarBtnSx = (minWidth) => ({
   borderRadius: 0,
   border: '1px solid #5ebbeb',
   bgcolor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', '#232323'),
   fontSize: 16,
   fontWeight: 400,
   textTransform: 'none',
   boxShadow: 'none',
   transition: 'background 0.2s ease, color 0.2s ease',
-  '&:hover': { bgcolor: '#f8f8f8', color: '#5ebbeb', boxShadow: 'none' },
+  '&:hover': { bgcolor: byMode('#f8f8f8', '#232323'), color: '#5ebbeb', boxShadow: 'none' },
 });
 
 // Reference filter field: 42px tall, 8px radius, 1px #5e5e5e rail; the four
 // fields share one row equally (flex: 1 in the row below).
 const fieldSx = {
   width: '100%',
-  bgcolor: '#fff',
+  bgcolor: byMode('#fff', '#121212'),
   '& .MuiOutlinedInput-root': {
     minHeight: 42,
     borderRadius: '8px',
     fontSize: 16,
     py: '3px',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#5e5e5e', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#5e5e5e', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    color: byMode(undefined, '#f8f8f8'),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#5e5e5e', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#5e5e5e', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   },
-  '& .MuiInputLabel-root': { fontSize: 16, color: 'rgba(103,107,114,0.6)' },
+  '& .MuiInputLabel-root': { fontSize: 16, color: byMode('rgba(103,107,114,0.6)', '#757575') },
   // Resting label sits vertically centred in the 44px box, 16px in — same spot
   // as the date field's placeholder text beside it.
   '& .MuiInputLabel-root:not(.MuiInputLabel-shrink)': { transform: 'translate(16px, 11px) scale(1)' },
   // Reference: once focused or filled the name moves ABOVE the box as small
   // dark text at its left edge (no notch cut into the border).
   '& .MuiInputLabel-root.MuiInputLabel-shrink': {
-    color: '#313439',
+    color: byMode('#313439', '#d4d4d4'),
     transform: 'translate(0px, -22px) scale(0.8)',
   },
   '& .MuiOutlinedInput-notchedOutline legend': { maxWidth: 0 },
-  '& .MuiInputLabel-root.Mui-focused': { color: '#313439' },
-  '& .MuiAutocomplete-popupIndicator': { color: '#313439' },
-  '& .MuiAutocomplete-clearIndicator': { color: '#313439', visibility: 'visible' },
+  '& .MuiInputLabel-root.Mui-focused': { color: byMode('#313439', '#d4d4d4') },
+  '& .MuiAutocomplete-popupIndicator': { color: byMode('#313439', '#d4d4d4') },
+  '& .MuiAutocomplete-clearIndicator': { color: byMode('#313439', '#d4d4d4'), visibility: 'visible' },
 };
 
 // Reference dropdown: anchored under the field, 288px scroll, 1px solid black,
@@ -151,25 +154,26 @@ const fieldSx = {
 const panelSlotProps = {
   paper: {
     sx: {
-      border: '1px solid #000',
+      border: byMode('1px solid #000', '1px solid #a1a1a1'),
+      bgcolor: byMode(undefined, '#232323'),
       borderRadius: '8px',
       boxShadow: '0 20px 25px -5px rgba(0,0,0,0.10), 0 8px 10px -6px rgba(0,0,0,0.10)',
       mt: '4px',
       '& .MuiAutocomplete-listbox': { maxHeight: 288, py: 0 },
-      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: '#262626' },
+      '& .MuiAutocomplete-noOptions': { padding: '16px', fontSize: 16, color: byMode('#262626', '#f8f8f8') },
       // "&&" doubles the selector weight: MUI's own option rules (min-height auto
       // on desktop, its selected fill) otherwise win and squash the 56px rows.
       '&& .MuiAutocomplete-option': {
         minHeight: 56,
         padding: '16px',
         fontSize: 16,
-        color: '#262626',
-        '&:hover, &.Mui-focused': { backgroundColor: '#e0f2fe', color: '#000' },
+        color: byMode('#262626', '#f8f8f8'),
+        '&:hover, &.Mui-focused': { backgroundColor: byMode('#e0f2fe', '#0084d1'), color: byMode('#000', '#fafafa') },
         "&[aria-selected='true'], &[aria-selected='true'].Mui-focused": {
           backgroundColor: 'transparent',
-          color: '#0284c7',
+          color: byMode('#0284c7', '#00a6f4'),
         },
-        "&[aria-selected='true']:hover": { backgroundColor: '#e0f2fe' },
+        "&[aria-selected='true']:hover": { backgroundColor: byMode('#e0f2fe', '#0084d1') },
       },
     },
   },
@@ -177,7 +181,9 @@ const panelSlotProps = {
 
 // Reference filters are multi-selects showing grey chips in the field. Keys lists
 // every option at once; Products / Users (typeToSearch) wait for typing.
-const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => o, typeToSearch = false }) => (
+const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => o, typeToSearch = false }) => {
+  const isDark = useTheme().palette.mode === 'dark';
+  return (
   <Autocomplete
     autoHighlight
     multiple
@@ -206,7 +212,7 @@ const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => 
       const { key, ...optionProps } = props;
       if (option?.__hint) {
         return (
-          <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: '#262626', cursor: 'default' }}>
+          <li key={key} {...optionProps} aria-selected={false} style={{ opacity: 1, color: isDark ? '#a0a4aa' : '#262626', cursor: 'default' }}>
             {option.name}
           </li>
         );
@@ -218,7 +224,7 @@ const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => 
             checkedIcon={<CheckSquareIcon />}
             checked={selected}
             disableRipple
-            sx={{ p: 0, mr: '8px', color: 'inherit', '&.Mui-checked': { color: '#0284c7' } }}
+            sx={{ p: 0, mr: '8px', color: 'inherit', '&.Mui-checked': { color: byMode('#0284c7', '#00a6f4') } }}
           />
           {getLabel(option)}
         </li>
@@ -227,7 +233,7 @@ const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => 
     // Reference: the first two picks as grey chips (long names cut with "…"), then
     // one "N More..." chip; no per-chip x (the clear-all x removes everything).
     renderTags={(vals) => {
-      const chipSx = { bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px', color: '#000', fontSize: 16, maxWidth: 150, height: 26, mr: '6px', '& .MuiChip-label': { px: '8px' } };
+      const chipSx = { bgcolor: byMode('rgba(0,0,0,0.1)', '#3a3a3a'), borderRadius: '4px', color: byMode('#000', '#f8f8f8'), fontSize: 16, maxWidth: 150, height: 26, mr: '6px', '& .MuiChip-label': { px: '8px' } };
       const shown = vals.slice(0, 2);
       return [
         ...shown.map((option, i) => <Chip key={i} label={getLabel(option)} size="small" sx={chipSx} />),
@@ -236,7 +242,8 @@ const SearchMultiSelect = ({ label, options, value, onChange, getLabel = (o) => 
     }}
     renderInput={(params) => <TextField {...params} label={label} />}
   />
-);
+  );
+};
 
 const toInputValue = (d) => (d ? format(d, 'yyyy-MM-dd') : '');
 const fromInputValue = (v) => (v ? new Date(`${v}T00:00:00`) : null);
@@ -287,8 +294,10 @@ const DateRangeField = ({ value, onChange, label }) => {
             fontFamily: 'monospace',
             px: '8px',
             borderRadius: '8px',
-            border: '1px solid #5e5e5e',
-            bgcolor: '#fff',
+            border: byMode('1px solid #5e5e5e', '1px solid #a1a1a1'),
+            bgcolor: byMode('#fff', '#121212'),
+            color: byMode(undefined, '#f8f8f8'),
+            colorScheme: byMode(undefined, 'dark'),
           }}
         />
         {d && (
@@ -296,7 +305,7 @@ const DateRangeField = ({ value, onChange, label }) => {
             size="small"
             aria-label={`Clear ${which} date`}
             onClick={() => (which === 'start' ? setRange(null, endDate) : setRange(startDate, null))}
-            sx={{ p: '2px', color: '#6f6f6f' }}
+            sx={{ p: '2px', color: byMode('#6f6f6f', '#a0a4aa') }}
           >
             <Close sx={{ fontSize: 14 }} />
           </IconButton>
@@ -324,7 +333,7 @@ const DateRangeField = ({ value, onChange, label }) => {
             <IconButton
               aria-label="Previous month"
               onClick={() => setLeftMonth(addMonths(leftMonth, -1))}
-              sx={{ width: 30, height: 45, borderRadius: '12px', color: '#0284c7' }}
+              sx={{ width: 30, height: 45, borderRadius: '12px', color: byMode('#0284c7', '#74d4ff') }}
             >
               <KeyboardArrowLeft />
             </IconButton>
@@ -341,10 +350,10 @@ const DateRangeField = ({ value, onChange, label }) => {
               cursor: 'pointer',
               fontSize: 18,
               fontWeight: 700,
-              color: '#313439',
+              color: byMode('#313439', '#f8f8f8'),
               borderRadius: '12px',
               px: '8px',
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+              '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
             }}
           >
             {format(month, 'MMMM yyyy')}
@@ -355,7 +364,7 @@ const DateRangeField = ({ value, onChange, label }) => {
             <IconButton
               aria-label="Next month"
               onClick={() => setLeftMonth(addMonths(leftMonth, 1))}
-              sx={{ width: 30, height: 45, borderRadius: '12px', color: '#0284c7' }}
+              sx={{ width: 30, height: 45, borderRadius: '12px', color: byMode('#0284c7', '#74d4ff') }}
             >
               <KeyboardArrowRight />
             </IconButton>
@@ -380,9 +389,9 @@ const DateRangeField = ({ value, onChange, label }) => {
                   borderRadius: '12px',
                   fontSize: 16,
                   fontWeight: 700,
-                  color: '#0284c7',
+                  color: byMode('#0284c7', '#74d4ff'),
                   bgcolor: 'transparent',
-                  '&:hover': { bgcolor: '#e0f2fe' },
+                  '&:hover': { bgcolor: byMode('#e0f2fe', '#1f3a4a') },
                 }}
               >
                 {format(m, 'MMM')}
@@ -393,7 +402,7 @@ const DateRangeField = ({ value, onChange, label }) => {
           <>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', justifyItems: 'center' }}>
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                <Typography key={i} sx={{ fontSize: 14, fontWeight: 700, color: '#6f6f6f', py: '4px' }}>
+                <Typography key={i} sx={{ fontSize: 14, fontWeight: 700, color: byMode('#6f6f6f', '#a0a4aa'), py: '4px' }}>
                   {d}
                 </Typography>
               ))}
@@ -420,10 +429,10 @@ const DateRangeField = ({ value, onChange, label }) => {
                       bgcolor: endpoint
                         ? 'oklch(0.685 0.169 237.323)'
                         : inRange(day)
-                        ? '#e0f2fe'
+                        ? byMode('#e0f2fe', '#1f3a4a')
                         : 'transparent',
-                      color: endpoint ? '#fff' : currentMonth ? '#0284c7' : 'rgba(111,111,111,0.5)',
-                      '&:hover': { bgcolor: endpoint ? 'oklch(0.685 0.169 237.323)' : '#e0f2fe' },
+                      color: endpoint ? '#fff' : currentMonth ? byMode('#0284c7', '#74d4ff') : byMode('rgba(111,111,111,0.5)', 'rgba(160,164,170,0.5)'),
+                      '&:hover': { bgcolor: endpoint ? 'oklch(0.685 0.169 237.323)' : byMode('#e0f2fe', '#1f3a4a') },
                     }}
                   >
                     {format(day, 'd')}
@@ -445,7 +454,7 @@ const DateRangeField = ({ value, onChange, label }) => {
     <Box sx={{ width: '100%', position: 'relative' }}>
       {hasValue && (
         <Typography
-          sx={{ position: 'absolute', top: -20, left: 0, fontSize: 12.8, color: '#6f6f6f', lineHeight: '18px' }}
+          sx={{ position: 'absolute', top: -20, left: 0, fontSize: 12.8, color: byMode('#6f6f6f', '#d4d4d4'), lineHeight: '18px' }}
         >
           {label}
         </Typography>
@@ -456,20 +465,20 @@ const DateRangeField = ({ value, onChange, label }) => {
           display: 'flex',
           alignItems: 'center',
           height: 44, // same rendered height as the combos beside it
-          bgcolor: '#fff',
-          border: '1px solid #5e5e5e',
+          bgcolor: byMode('#fff', '#121212'),
+          border: byMode('1px solid #5e5e5e', '1px solid #a1a1a1'),
           borderRadius: '8px',
           cursor: 'pointer',
         }}
       >
         {!hasValue && (
-          <Typography sx={{ px: '16px', fontSize: 16, color: 'rgba(103,107,114,0.6)' }}>{label}</Typography>
+          <Typography sx={{ px: '16px', fontSize: 16, color: byMode('rgba(103,107,114,0.6)', '#757575') }}>{label}</Typography>
         )}
         {hasValue && ['start', 'end'].map((which, i) => {
           const d = which === 'start' ? startDate : endDate;
           return (
             <React.Fragment key={which}>
-              {i > 0 && <Typography sx={{ color: '#6f6f6f' }}>–</Typography>}
+              {i > 0 && <Typography sx={{ color: byMode('#6f6f6f', '#d4d4d4') }}>–</Typography>}
               <Box
                 component="button"
                 type="button"
@@ -483,7 +492,7 @@ const DateRangeField = ({ value, onChange, label }) => {
                   fontWeight: 400,
                   textAlign: 'left',
                   cursor: 'pointer',
-                  color: d ? '#000' : '#808080',
+                  color: d ? byMode('#000', '#f8f8f8') : byMode('#808080', '#757575'),
                 }}
               >
                 {d ? format(d, 'dd/MM/yyyy') : 'DD/MM/YYYY'}
@@ -503,8 +512,8 @@ const DateRangeField = ({ value, onChange, label }) => {
           sx: {
             p: 2,
             width: 622,
-            bgcolor: '#f7f7f7',
-            border: '1px solid #e5e5e5',
+            bgcolor: byMode('#f7f7f7', '#232323'),
+            border: byMode('1px solid #e5e5e5', '1px solid #373737'),
             borderRadius: '12px',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
           },
@@ -524,8 +533,8 @@ const DateRangeField = ({ value, onChange, label }) => {
                 width: 38,
                 height: 42,
                 borderRadius: '12px',
-                color: '#0284c7',
-                bgcolor: showCalendar ? 'rgba(0,0,0,0.05)' : 'transparent',
+                color: byMode('#0284c7', '#74d4ff'),
+                bgcolor: showCalendar ? byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') : 'transparent',
               }}
             >
               <CalendarIcon fontSize="small" />
@@ -547,8 +556,8 @@ const DateRangeField = ({ value, onChange, label }) => {
                 borderRadius: '12px',
                 fontSize: 16,
                 fontWeight: 700,
-                color: '#6f6f6f',
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                color: byMode('#6f6f6f', '#d4d4d4'),
+                '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
               }}
             >
               Current Day
@@ -568,8 +577,8 @@ const DateRangeField = ({ value, onChange, label }) => {
 };
 
 // Pink = a row the change removed (From side), green = a row it added (To side).
-const TONE_BG = { removed: '#f8d7da', added: '#d4edda' };
-const MINI_CELL = { border: '1px solid #000', padding: '8px', fontSize: 16, color: '#000' };
+const TONE_BG = { removed: byMode('#f8d7da', '#492625'), added: byMode('#d4edda', '#264029') };
+const MINI_CELL = { border: byMode('1px solid #000', '1px solid #373737'), padding: '8px', fontSize: 16, color: byMode('#000', '#f8f8f8') };
 
 // Reference nested table: black 1px grid, bold centred header, plain cells.
 const MiniTable = ({ title, headers, rows }) => (
@@ -973,7 +982,7 @@ const ProductRevisionHistory = () => {
   };
 
   return (
-    <Box sx={{ px: '16px', pt: '16px', pb: 4, bgcolor: '#fff', minHeight: 'calc(100vh - 50px)' }}>
+    <Box sx={{ px: '16px', pt: '16px', pb: 4, bgcolor: byMode('#fff', '#121212'), minHeight: 'calc(100vh - 50px)' }}>
       {/* Reference print sheet: the results region drops out of sticky/scroll flow. */}
       <style>{`@media print {
         .revision-noprint { display: none !important; }
@@ -1038,11 +1047,11 @@ const ProductRevisionHistory = () => {
           disableRipple
           sx={{
             ...toolbarBtnSx(62),
-            '&:focus-visible': { outline: '2px solid #000', outlineOffset: 0 },
-            '&.Mui-disabled': { bgcolor: '#5ebbeb', color: '#f8f8f8', opacity: 0.6 },
+            '&:focus-visible': { outline: byMode('2px solid #000', '2px solid #2b7fff'), outlineOffset: 0 },
+            '&.Mui-disabled': { bgcolor: '#5ebbeb', color: byMode('#f8f8f8', '#232323'), opacity: 0.6 },
           }}
         >
-          {loading ? <CircularProgress size={20} sx={{ color: '#f8f8f8' }} /> : 'Run'}
+          {loading ? <CircularProgress size={20} sx={{ color: byMode('#f8f8f8', '#232323') }} /> : 'Run'}
         </Button>
       </Box>
 
@@ -1053,7 +1062,7 @@ const ProductRevisionHistory = () => {
       ) : reportData.length === 0 ? (
         // Reference: before Run, and when Run finds nothing, there is no table at
         // all — just this one line under the Run button, at the left edge.
-        <Typography sx={{ fontSize: 16, color: '#000', textAlign: 'left', mt: '8px' }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), textAlign: 'left', mt: '8px' }}>
           No revisions found, check the filters above and press run
         </Typography>
       ) : (
@@ -1072,11 +1081,11 @@ const ProductRevisionHistory = () => {
             sx={{
               borderCollapse: 'separate',
               borderSpacing: 0,
-              borderLeft: '1px solid #000',
+              borderLeft: byMode('1px solid #000', '1px solid #373737'),
               '& th, & td': {
-                borderRight: '1px solid #000',
-                borderBottom: '1px solid #000',
-                color: '#000',
+                borderRight: byMode('1px solid #000', '1px solid #373737'),
+                borderBottom: byMode('1px solid #000', '1px solid #373737'),
+                color: byMode('#000', '#f8f8f8'),
                 fontSize: 16,
                 padding: '8px',
               },
@@ -1088,10 +1097,10 @@ const ProductRevisionHistory = () => {
               <TableRow
                 sx={{
                   '& th': {
-                    bgcolor: '#fff',
+                    bgcolor: byMode('#fff', '#232323'),
                     fontWeight: 700,
                     textAlign: 'center',
-                    borderTop: '1px solid #000',
+                    borderTop: byMode('1px solid #000', '1px solid #373737'),
                     // Reference: a soft grey shadow under the sticky header.
                     boxShadow: '0 6px 8px -4px rgba(0,0,0,0.25)',
                     zIndex: 2,
@@ -1109,12 +1118,12 @@ const ProductRevisionHistory = () => {
             <TableBody>
               {/* Reference prints this notice as the first body row of the report. */}
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ bgcolor: '#f0f0f0' }}>
+                <TableCell colSpan={6} align="center" sx={{ bgcolor: byMode('#f0f0f0', '#2a2a2a') }}>
                   Please Note: Revisions may take up to five minutes to appear
                 </TableCell>
               </TableRow>
               {reportData.map((row, index) => (
-                <TableRow key={index} sx={{ bgcolor: '#fff' }}>
+                <TableRow key={index} sx={{ bgcolor: byMode('#fff', '#232323') }}>
                   <TableCell>{row.productName}</TableCell>
                   <TableCell>{row.field}</TableCell>
                   <TableCell>{renderValueCell(row, true)}</TableCell>

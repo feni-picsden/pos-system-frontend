@@ -28,6 +28,7 @@ import {
   DragIndicator as DragIndicatorIcon
 } from '@mui/icons-material';
 import ReportTable from './ReportTable';
+import { byMode } from '../../theme/sfPalette';
 
 const ReportBox = ({ 
   title, 
@@ -119,7 +120,7 @@ const ReportBox = ({
               justifyContent: 'center',
               zIndex: 2,
               '&:hover': {
-                backgroundColor: 'rgba(0,0,0,0.04)'
+                backgroundColor: byMode('rgba(0,0,0,0.04)', 'rgba(255,255,255,0.08)')
               }
             }}
           >
@@ -134,7 +135,7 @@ const ReportBox = ({
             alignItems: 'center', 
             p: 2,
             borderBottom: '1px solid #1976d2',
-            bgcolor: '#fff',
+            bgcolor: byMode('#fff', '#232323'),
             position: 'relative'
           }}
         >
@@ -237,7 +238,7 @@ const ReportBox = ({
                 alignItems: 'center', 
                 mb: 1, 
                 p: 1,
-                border: '1px solid #e0e0e0',
+                border: byMode('1px solid #e0e0e0', '1px solid #373737'),
                 borderRadius: 1
               }}
             >

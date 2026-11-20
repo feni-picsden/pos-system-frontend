@@ -36,11 +36,12 @@ import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import DateRangePicker from '../../components/Common/DateRangePicker';
 import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
+import { byMode } from '../../theme/sfPalette';
 
 // Parity system: primary button (#5ebbeb, radius 12, h42, fs16/700, no shadow, 200ms)
 const primaryBtnSx = {
   bgcolor: '#5ebbeb',
-  color: '#f8f8f8',
+  color: byMode('#f8f8f8', '#232323'),
   borderRadius: '12px',
   height: 42,
   fontSize: 16,
@@ -57,11 +58,12 @@ const inputSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: '8px',
     fontSize: 16,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+    bgcolor: byMode(undefined, '#121212'),
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
   },
-  '& input::placeholder': { color: '#808080', opacity: 1 },
+  '& input::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 },
 };
 
 const emptyForm = {
@@ -262,9 +264,9 @@ export default function ProductBuyingPeriods() {
       ) : periods.length === 0 ? (
         // Reference empty state: neutral face + message + centered Create button
         <Box sx={{ py: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <NeutralIcon sx={{ fontSize: 64, color: '#676b72' }} />
-          <Typography sx={{ fontSize: 22, fontWeight: 700, color: '#313439' }}>No Buying Periods</Typography>
-          <Typography sx={{ fontSize: 16, color: '#676b72' }}>
+          <NeutralIcon sx={{ fontSize: 64, color: byMode('#676b72', '#a0a4aa') }} />
+          <Typography sx={{ fontSize: 22, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>No Buying Periods</Typography>
+          <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>
             There are currently no buying periods defined.
           </Typography>
           <Button variant="contained" disableElevation onClick={openCreate} sx={primaryBtnSx}>
@@ -278,7 +280,7 @@ export default function ProductBuyingPeriods() {
               <TableHead>
                 <TableRow
                   sx={{
-                    '& th': { bgcolor: '#5ebbeb', color: '#f8f8f8', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                    '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('#f8f8f8', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                     '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px', pl: '20px' },
                     '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px', pr: '20px' },
                   }}
@@ -293,9 +295,9 @@ export default function ProductBuyingPeriods() {
               </TableHead>
               <TableBody
                 sx={{
-                  '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                  '& tr:nth-of-type(even)': { bgcolor: '#f8f8f8' },
-                  '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 },
+                  '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+                  '& tr:nth-of-type(even)': { bgcolor: byMode('#f8f8f8', '#2a2a2a') },
+                  '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5 },
                 }}
               >
                 {periods.map((p) => (
@@ -311,7 +313,7 @@ export default function ProductBuyingPeriods() {
                       <IconButton onClick={() => openEdit(p)} sx={{ color: '#5ebbeb' }}>
                         <EditIcon />
                       </IconButton>
-                      <IconButton onClick={() => setDeleteTarget(p)} sx={{ color: '#e33430' }}>
+                      <IconButton onClick={() => setDeleteTarget(p)} sx={{ color: byMode('#e33430', '#ffa2a2') }}>
                         <DeleteIcon />
                       </IconButton>
                     </TableCell>
@@ -356,7 +358,7 @@ export default function ProductBuyingPeriods() {
           <EditIcon sx={{ color: '#f8f8f8', fontSize: 30 }} />
         </Box>
 
-        <Typography sx={{ mt: '44px', textAlign: 'center', fontSize: 17, fontWeight: 700, color: '#313439' }}>
+        <Typography sx={{ mt: '44px', textAlign: 'center', fontSize: 17, fontWeight: 700, color: byMode('#313439', '#f8f8f8') }}>
           {editTarget ? 'Edit Buying Period' : 'Create Buying Period'}
         </Typography>
 
@@ -381,7 +383,7 @@ export default function ProductBuyingPeriods() {
               renderInput={(params) => <TextField {...params} label="Item" sx={inputSx} />}
               slotProps={{
                 paper: {
-                  sx: { '& .MuiAutocomplete-groupLabel': { fontWeight: 700, color: '#313439', fontSize: 15 } },
+                  sx: { '& .MuiAutocomplete-groupLabel': { fontWeight: 700, color: byMode('#313439', '#f8f8f8'), fontSize: 15 } },
                 },
               }}
             />
@@ -429,7 +431,7 @@ export default function ProductBuyingPeriods() {
                 />
               }
               label="Inclusive of Tax"
-              sx={{ ml: 0, gap: 1.5, '& .MuiFormControlLabel-label': { fontSize: 16, color: '#313439' } }}
+              sx={{ ml: 0, gap: 1.5, '& .MuiFormControlLabel-label': { fontSize: 16, color: byMode('#313439', '#f8f8f8') } }}
             />
           </Box>
         </DialogContent>
@@ -445,12 +447,12 @@ export default function ProductBuyingPeriods() {
               m: 0,
               height: 48,
               borderRadius: 0,
-              bgcolor: '#e5e7eb',
-              color: '#000',
+              bgcolor: byMode('#e5e7eb', '#3a3a3a'),
+              color: byMode('#000', '#f8f8f8'),
               fontSize: 16,
               textTransform: 'none',
               transition: 'background 0.2s ease, color 0.2s ease',
-              '&:hover': { bgcolor: '#e5e7eb' },
+              '&:hover': { bgcolor: byMode('#e5e7eb', '#3a3a3a') },
             }}
           >
             Cancel
@@ -465,7 +467,7 @@ export default function ProductBuyingPeriods() {
               height: 48,
               borderRadius: 0,
               bgcolor: '#5ebbeb',
-              color: '#f8f8f8',
+              color: byMode('#f8f8f8', '#232323'),
               fontSize: 16,
               textTransform: 'none',
               boxShadow: 'none',
@@ -474,7 +476,7 @@ export default function ProductBuyingPeriods() {
             }}
           >
             {saving ? (
-              <CircularProgress size={22} sx={{ color: '#f8f8f8' }} />
+              <CircularProgress size={22} sx={{ color: byMode('#f8f8f8', '#232323') }} />
             ) : editTarget ? (
               'Save Buying Period'
             ) : (

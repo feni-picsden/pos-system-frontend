@@ -7,6 +7,7 @@ import {
   ChevronRightOutlined as ChevronRightIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 import { DT_FORMAT, DT_MASK, parseDateTimeText } from './dateTimeText';
 import {
   format,
@@ -37,7 +38,7 @@ export const FloatLabel = ({ show, children }) =>
   show ? (
     <Typography
       component="span"
-      sx={{ position: 'absolute', top: -18, left: 0, fontSize: 12, lineHeight: '16px', color: '#000', whiteSpace: 'nowrap' }}
+      sx={{ position: 'absolute', top: -18, left: 0, fontSize: 12, lineHeight: '16px', color: byMode('#000', '#f8f8f8'), whiteSpace: 'nowrap' }}
     >
       {children}
     </Typography>
@@ -74,11 +75,11 @@ const MonthGrid = ({ month, selected, onPick, onTitleClick, minDay }) => {
           fontFamily: 'inherit',
           fontSize: 18,
           fontWeight: 700,
-          color: '#525252',
+          color: byMode('#525252', '#d4d4d4'),
           mb: 1,
           borderRadius: '12px',
           transition: INSTANT,
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+          '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.1)') },
         }}
       >
         {format(month, 'MMMM yyyy')}
@@ -93,7 +94,7 @@ const MonthGrid = ({ month, selected, onPick, onTitleClick, minDay }) => {
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 14,
-              color: d.weekend ? '#737373' : '#262626',
+              color: d.weekend ? byMode('#737373', '#5e5e5e') : byMode('#262626', '#d4d4d4'),
             }}
           >
             {d.label}
@@ -127,8 +128,8 @@ const MonthGrid = ({ month, selected, onPick, onTitleClick, minDay }) => {
                 transition: INSTANT,
                 // Reference: the picked day is a solid sky-500 square with white text.
                 bgcolor: isSelected ? '#00a6f4' : 'transparent',
-                color: isSelected ? '#fff' : outside || past ? '#a1a1a1' : '#0084d1',
-                '&:hover': { bgcolor: isSelected ? '#00a6f4' : past ? 'transparent' : 'rgba(0,0,0,0.05)' },
+                color: isSelected ? '#fff' : outside || past ? byMode('#a1a1a1', '#5e5e5e') : byMode('#0084d1', '#74d4ff'),
+                '&:hover': { bgcolor: isSelected ? '#00a6f4' : past ? 'transparent' : byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.1)') },
               }}
             >
               {format(day, 'd')}
@@ -143,13 +144,13 @@ const MonthGrid = ({ month, selected, onPick, onTitleClick, minDay }) => {
 const timeInputSx = {
   width: 64,
   height: 36,
-  bgcolor: '#fff',
-  border: '1px solid #e5e5e5',
+  bgcolor: byMode('#fff', '#121212'),
+  border: byMode('1px solid #e5e5e5', '1px solid #373737'),
   borderRadius: '8px',
   px: 1,
   fontFamily: 'inherit',
   fontSize: 14,
-  color: '#404040',
+  color: byMode('#404040', '#d4d4d4'),
   outline: 'none',
 };
 
@@ -162,10 +163,10 @@ const squareBtnSx = {
   border: 0,
   borderRadius: '12px',
   bgcolor: 'transparent',
-  color: '#0084d1',
+  color: byMode('#0084d1', '#74d4ff'),
   cursor: 'pointer',
   transition: INSTANT,
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.1)') },
 };
 
 /**
@@ -289,9 +290,9 @@ const DateTimeField = ({
             display: 'flex',
             alignItems: 'center',
             height: 42,
-            border: error || invalid ? '1px solid #e33430' : active ? '2px solid #000' : '1px solid #404040',
+            border: error || invalid ? '1px solid #e33430' : active ? byMode('2px solid #000', '2px solid #2b7fff') : byMode('1px solid #404040', '1px solid #a1a1a1'),
             borderRadius: '8px',
-            bgcolor: disabled ? '#d4d4d4' : '#fff',
+            bgcolor: disabled ? byMode('#d4d4d4', '#3a3a3a') : byMode('#fff', '#121212'),
             px: active ? '13px' : '14px',
           }}
         >
@@ -315,16 +316,16 @@ const DateTimeField = ({
               bgcolor: 'transparent',
               fontFamily: active && !value ? '"Roboto Mono", "Courier New", monospace' : 'inherit',
               fontSize: 16,
-              color: '#000',
+              color: byMode('#000', '#f8f8f8'),
               cursor: disabled ? 'not-allowed' : 'text',
-              '&::placeholder': { color: disabled ? '#737373' : '#808080', opacity: 1 },
+              '&::placeholder': { color: disabled ? byMode('#737373', '#a0a4aa') : byMode('#808080', '#757575'), opacity: 1 },
             }}
           />
           {suffix && !value && (
             <Box
               component="span"
               onClick={() => { if (!disabled) setOpen(true); }}
-              sx={{ fontWeight: 700, fontSize: 16, color: disabled ? '#737373' : '#000', ml: 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
+              sx={{ fontWeight: 700, fontSize: 16, color: disabled ? byMode('#737373', '#a0a4aa') : byMode('#000', '#f8f8f8'), ml: 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
             >
               {suffix}
             </Box>
@@ -341,8 +342,8 @@ const DateTimeField = ({
           <Box
             sx={{
               width: 622,
-              bgcolor: '#f5f5f5',
-              border: '1px solid #e5e5e5',
+              bgcolor: byMode('#f5f5f5', '#232323'),
+              border: byMode('1px solid #e5e5e5', '1px solid #373737'),
               borderRadius: '12px',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
               p: 2,
@@ -356,11 +357,11 @@ const DateTimeField = ({
                 alignItems: 'center',
                 width: 248,
                 height: 38,
-                border: '1px solid #000',
+                border: byMode('1px solid #000', '1px solid #a1a1a1'),
                 borderRadius: '8px',
                 px: 1.5,
                 mb: 2,
-                bgcolor: '#fff',
+                bgcolor: byMode('#fff', '#121212'),
               }}
             >
               <Box
@@ -380,9 +381,9 @@ const DateTimeField = ({
                   bgcolor: 'transparent',
                   fontFamily: '"Roboto Mono", "Courier New", monospace',
                   fontSize: 14,
-                  color: '#000',
+                  color: byMode('#000', '#f8f8f8'),
                   outline: 'none',
-                  '&::placeholder': { color: '#404040', opacity: 1 },
+                  '&::placeholder': { color: byMode('#404040', '#757575'), opacity: 1 },
                 }}
               />
               {value && (
@@ -393,7 +394,7 @@ const DateTimeField = ({
                   onClick={() => { onChange(null); setStripText(''); }}
                   sx={{ border: 0, bgcolor: 'transparent', p: 0, ml: 1, cursor: 'pointer', display: 'flex' }}
                 >
-                  <CloseIcon sx={{ fontSize: 16, color: '#000' }} />
+                  <CloseIcon sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }} />
                 </Box>
               )}
             </Box>
@@ -412,8 +413,8 @@ const DateTimeField = ({
                   sx={{
                     ...squareBtnSx,
                     bgcolor: tab === key ? '#5ebbeb' : 'transparent',
-                    color: tab === key ? '#f8f8f8' : '#0084d1',
-                    '&:hover': { bgcolor: tab === key ? '#5ebbeb' : 'rgba(0,0,0,0.05)' },
+                    color: tab === key ? '#f8f8f8' : byMode('#0084d1', '#74d4ff'),
+                    '&:hover': { bgcolor: tab === key ? '#5ebbeb' : byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.1)') },
                   }}
                 >
                   {icon}
@@ -430,13 +431,13 @@ const DateTimeField = ({
                   border: 0,
                   borderRadius: '12px',
                   bgcolor: 'transparent',
-                  color: '#525252',
+                  color: byMode('#525252', '#d4d4d4'),
                   fontFamily: 'inherit',
                   fontSize: 16,
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: INSTANT,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+                  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.1)') },
                 }}
               >
                 Current Day
@@ -462,7 +463,7 @@ const DateTimeField = ({
                   { part: 's', name: 'Seconds', v: value ? value.getSeconds() : 0, max: 59 },
                 ].map(({ part, name, v, max }) => (
                   <Box key={part}>
-                    <Typography sx={{ fontSize: 12, color: '#525252', mb: 0.5 }}>{name}</Typography>
+                    <Typography sx={{ fontSize: 12, color: byMode('#525252', '#d4d4d4'), mb: 0.5 }}>{name}</Typography>
                     <Box
                       component="input"
                       type="number"

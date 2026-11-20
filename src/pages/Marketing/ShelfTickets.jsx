@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 // Reference uses fa-award: a rosette medal with two ribbon tails, not a trophy cup.
 import { LocalOfferOutlined, WorkspacePremiumOutlined } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference hub: no heading, two fixed 400x250 tiles, vertically centred, no hover effect.
 const TicketCard = ({ to, icon, title, description }) => (
@@ -18,11 +19,11 @@ const TicketCard = ({ to, icon, title, description }) => (
         maxWidth: '100%',
         height: 250,
         p: 2,
-        bgcolor: '#fff',
-        border: '1px solid #000',
+        bgcolor: byMode('#fff', '#232323'),
+        border: byMode('1px solid #000', '1px solid #a1a1a1'),
         borderRadius: 0,
         boxShadow: '0 0 30px rgba(0,0,0,0.25), 0 15px 30px rgba(0,0,0,0.19)',
-        color: '#313439',
+        color: byMode('#313439', '#f8f8f8'),
         transition: 'color 0.2s ease',
       }}
     >

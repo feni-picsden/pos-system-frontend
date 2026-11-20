@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Paper } from '@mui/material';
 import PropTypes from 'prop-types';
+import { byMode } from '../../theme/sfPalette';
 
 const ResizableBox = ({ 
   children, 
@@ -112,7 +113,7 @@ const ResizableBox = ({
           cursor: 'ew-resize',
           zIndex: 10,
           '&:hover': {
-            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            backgroundColor: byMode('rgba(0, 0, 0, 0.1)', 'rgba(255, 255, 255, 0.15)'),
           }
         }}
         onMouseDown={(e) => handleMouseDown(e, 'right')}
@@ -129,7 +130,7 @@ const ResizableBox = ({
           cursor: 'ns-resize',
           zIndex: 10,
           '&:hover': {
-            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            backgroundColor: byMode('rgba(0, 0, 0, 0.1)', 'rgba(255, 255, 255, 0.15)'),
           }
         }}
         onMouseDown={(e) => handleMouseDown(e, 'bottom')}
@@ -146,7 +147,7 @@ const ResizableBox = ({
           cursor: 'nwse-resize',
           zIndex: 20,
           '&:hover': {
-            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            backgroundColor: byMode('rgba(0, 0, 0, 0.2)', 'rgba(255, 255, 255, 0.25)'),
           },
           '&::after': {
             content: '""',
@@ -155,8 +156,8 @@ const ResizableBox = ({
             right: 3,
             width: 5,
             height: 5,
-            borderRight: '2px solid rgba(0, 0, 0, 0.4)',
-            borderBottom: '2px solid rgba(0, 0, 0, 0.4)',
+            borderRight: byMode('2px solid rgba(0, 0, 0, 0.4)', '2px solid rgba(255, 255, 255, 0.5)'),
+            borderBottom: byMode('2px solid rgba(0, 0, 0, 0.4)', '2px solid rgba(255, 255, 255, 0.5)'),
           }
         }}
         onMouseDown={(e) => handleMouseDown(e, 'bottom-right')}

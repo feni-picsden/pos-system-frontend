@@ -37,6 +37,24 @@ import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import { useHasPermission } from '../../hooks/usePermissions';
 import { applyReceiptConfig } from '../../utils/receiptTemplateShape';
 import ConfigureReceiptDialog from '../../components/Receipt/ConfigureReceiptDialog';
+import { byMode } from '../../theme/sfPalette';
+
+// Dark-mode overrides for the shared Setup template list (light values = TemplateListActions' own).
+const listHeadDarkSx = {
+  '& th': { bgcolor: byMode('transparent', '#333333'), color: byMode('#000', '#5ebbeb'), borderColor: byMode('#000', '#373737') },
+};
+const listBodyDarkSx = {
+  '& tr': { bgcolor: byMode('#f8f8f8', '#232323') },
+  '& td': { borderColor: byMode('#000', '#373737'), color: byMode('#000', '#f8f8f8') },
+  '& ul.actions li.action-edit': { color: byMode('#32b643', '#7bf1a8'), '&:hover': { color: byMode('#6dd77b', '#a4f6c4') } },
+  '& ul.actions li.action-view': { color: byMode('#1c86f2', '#74d4ff'), '&:hover': { color: byMode('#73b4f7', '#a6e4ff') } },
+  '& ul.actions li.action-delete': { color: byMode('#e3342f', '#ffa2a2'), '&:hover': { color: byMode('#f3aaa8', '#ffc9c9') } },
+  '& ul.actions li.action-clone': { color: byMode('#1c86f2', '#74d4ff'), '&:hover': { color: byMode('#73b4f7', '#a6e4ff') } },
+};
+// Dark dialog bits (light values = the page's own).
+const D_TEXT = byMode('#000', '#f8f8f8');
+const D_BORDER = byMode('#404040', '#a1a1a1');
+const D_FOCUS = byMode('#000', '#2b7fff');
 
 const ReceiptTemplates = () => {
   const navigate = useNavigate();
@@ -329,7 +347,7 @@ const ReceiptTemplates = () => {
       {/* Header — same h1 + green "+ New" as the Statements list (reference) */}
       <Typography
         component="h1"
-        sx={{ fontSize: 32, fontWeight: 700, color: '#000', height: 48, lineHeight: '48px', m: 0, mb: '22px' }}
+        sx={{ fontSize: 32, fontWeight: 700, color: D_TEXT, height: 48, lineHeight: '48px', m: 0, mb: '22px' }}
       >
         Receipt List
         {canModifyReceipts && (
@@ -337,11 +355,11 @@ const ReceiptTemplates = () => {
             disableRipple
             onClick={() => setShowCreateDialog(true)}
             sx={{
-              width: 130, height: 48, minWidth: 130, bgcolor: '#32b643', color: '#f8f8f8', border: '1px solid #f8f8f8',
+              width: 130, height: 48, minWidth: 130, bgcolor: byMode('#32b643', '#7bf1a8'), color: byMode('#f8f8f8', '#232323'), border: byMode('1px solid #f8f8f8', '1px solid #7bf1a8'),
               borderRadius: 0, fontSize: 32, fontWeight: 400, lineHeight: 1, textTransform: 'none', boxShadow: 'none',
               p: '4px 8px', verticalAlign: 'middle', ml: '9px', position: 'relative', top: '-3px',
               transition: 'background 0.2s ease, color 0.2s ease',
-              '&:hover': { bgcolor: '#f8f8f8', color: '#32b643', boxShadow: 'none' },
+              '&:hover': { bgcolor: byMode('#f8f8f8', '#232323'), color: byMode('#32b643', '#7bf1a8'), boxShadow: 'none' },
             }}
           >
             + New
@@ -356,14 +374,14 @@ const ReceiptTemplates = () => {
       <TableContainer>
         <Table sx={{ borderCollapse: 'collapse', tableLayout: 'fixed', bgcolor: 'transparent' }}>
           <TableHead>
-            <TableRow sx={templateListHeadSx}>
+            <TableRow sx={[templateListHeadSx, listHeadDarkSx]}>
               <TableCell sx={{ width: '46%', textAlign: 'left !important' }}>Name</TableCell>
               <TableCell sx={{ width: '17%' }}>Type</TableCell>
               <TableCell sx={{ width: '12%' }}>For</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody sx={templateListBodySx}>
+          <TableBody sx={[templateListBodySx, listBodyDarkSx]}>
             {templates.map((template) => (
               <TableRow key={template.id}>
                 <TableCell>{template.name}</TableCell>
@@ -426,7 +444,7 @@ const ReceiptTemplates = () => {
         }}>
           <Typography sx={{ color: '#fff', fontSize: 30, fontWeight: 700, lineHeight: 1 }}>?</Typography>
         </Box>
-        <Typography sx={{ textAlign: 'center', color: '#000', fontWeight: 700, fontSize: 20, pt: 4.5, pb: 0.5, px: 3 }}>
+        <Typography sx={{ textAlign: 'center', color: D_TEXT, fontWeight: 700, fontSize: 20, pt: 4.5, pb: 0.5, px: 3 }}>
           Create New Receipt
         </Typography>
         {/* This form sends no outletId: a global admin creates a global template. Say so. */}
@@ -445,9 +463,9 @@ const ReceiptTemplates = () => {
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '8px',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: D_BORDER, borderWidth: '1px' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: D_BORDER, borderWidth: '1px' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: D_FOCUS, borderWidth: '2px' }
                 }
               }}
             />
@@ -464,23 +482,24 @@ const ReceiptTemplates = () => {
                     sx: {
                       mt: 0.5,
                       borderRadius: '8px',
-                      border: '1px solid #e0e0e0',
+                      border: byMode('1px solid #e0e0e0', '1px solid #a1a1a1'),
+                      bgcolor: byMode(undefined, '#232323'),
                       boxShadow: '0 4px 14px rgba(0,0,0,0.12)'
                     }
                   }
                 }}
                 sx={{
                   borderRadius: '8px',
-                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' }
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: D_BORDER, borderWidth: '1px' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: D_BORDER, borderWidth: '1px' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: D_FOCUS, borderWidth: '2px' }
                 }}
               >
                 {getReceiptTypeOptions().map((option) => (
                   <MenuItem
                     key={option}
                     value={option}
-                    sx={{ fontSize: 16, color: '#000', '&:hover': { bgcolor: '#5ebbeb' }, '&.Mui-selected': { bgcolor: 'transparent' }, '&.Mui-selected:hover': { bgcolor: '#5ebbeb' }, '&.Mui-focusVisible': { bgcolor: '#5ebbeb' } }}
+                    sx={{ fontSize: 16, color: D_TEXT, '&:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') }, '&.Mui-selected': { bgcolor: 'transparent', color: byMode(undefined, '#00a6f4') }, '&.Mui-selected:hover': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') }, '&.Mui-focusVisible': { bgcolor: byMode('#5ebbeb', '#0084d1'), color: byMode(undefined, '#fafafa') } }}
                   >
                     {option}
                   </MenuItem>
@@ -503,7 +522,7 @@ const ReceiptTemplates = () => {
             />
 
             <FormControl>
-              <FormLabel sx={{ color: '#313439', fontWeight: 700, fontSize: 16, mb: 0.5, '&.Mui-focused': { color: '#313439' } }}>
+              <FormLabel sx={{ color: byMode('#313439', '#f8f8f8'), fontWeight: 700, fontSize: 16, mb: 0.5, '&.Mui-focused': { color: byMode('#313439', '#f8f8f8') } }}>
                 What would you like to start from?
               </FormLabel>
               <RadioGroup
@@ -528,7 +547,7 @@ const ReceiptTemplates = () => {
         <DialogActions sx={{ p: 3, pt: 0, gap: 2 }}>
           <Button
             onClick={handleCloseCreateDialog}
-            sx={{ bgcolor: '#f8f8f8', color: '#313439', border: '1px solid #e5e5e5', textTransform: 'none', boxShadow: 'none', borderRadius: 0, fontWeight: 700, fontSize: 16, minWidth: 100, height: 42, '&:hover': { bgcolor: '#e9e9e9', boxShadow: 'none' } }}
+            sx={{ bgcolor: byMode('#f8f8f8', 'transparent'), color: byMode('#313439', '#d4d4d4'), border: byMode('1px solid #e5e5e5', '1px solid #a1a1a1'), textTransform: 'none', boxShadow: 'none', borderRadius: 0, fontWeight: 700, fontSize: 16, minWidth: 100, height: 42, '&:hover': { bgcolor: byMode('#e9e9e9', '#3a3a3a'), boxShadow: 'none' } }}
           >
             Cancel
           </Button>
@@ -538,9 +557,9 @@ const ReceiptTemplates = () => {
             disabled={creating}
             data-create-receipt
             sx={{
-              bgcolor: '#32b643', color: '#f8f8f8', '&:hover': { bgcolor: '#2ba03b', boxShadow: 'none' }, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, minWidth: 100, height: 42,
+              bgcolor: byMode('#32b643', '#7bf1a8'), color: byMode('#f8f8f8', '#232323'), '&:hover': { bgcolor: byMode('#2ba03b', '#5ee08e'), boxShadow: 'none' }, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, minWidth: 100, height: 42,
               // While the template is being created: greyed, no second click (no duplicate).
-              '&.Mui-disabled': { bgcolor: '#9fd8a7', color: '#f8f8f8' },
+              '&.Mui-disabled': { bgcolor: byMode('#9fd8a7', '#3d6b4f'), color: byMode('#f8f8f8', '#a0a4aa') },
             }}
           >
             {creating ? 'Creating...' : 'Create'}
@@ -561,14 +580,14 @@ const ReceiptTemplates = () => {
         }}>
           <Typography sx={{ color: '#fff', fontSize: 30, fontWeight: 700, lineHeight: 1 }}>?</Typography>
         </Box>
-        <Typography sx={{ textAlign: 'center', color: '#000', fontWeight: 700, fontSize: 20, pt: 4.5, pb: 0.5, px: 3 }}>
+        <Typography sx={{ textAlign: 'center', color: D_TEXT, fontWeight: 700, fontSize: 20, pt: 4.5, pb: 0.5, px: 3 }}>
           Confirm Clone
         </Typography>
         <DialogContent sx={{ px: 3, pt: 1.5, pb: 2 }}>
           {cloneError && (
             <Alert severity="error" onClose={() => setCloneError('')} sx={{ mb: 2 }}>{cloneError}</Alert>
           )}
-          <Typography sx={{ fontSize: 16, color: '#000', mb: 1.5, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: 16, color: D_TEXT, mb: 1.5, textAlign: 'center' }}>
             What do you want to name the clone of &quot;{cloneSource?.name}&quot;?
           </Typography>
           <TextField
@@ -580,9 +599,9 @@ const ReceiptTemplates = () => {
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: '4px',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '1px' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#000' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1'), borderWidth: '1px' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#a1a1a1') },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: D_FOCUS, borderWidth: '2px' },
               },
             }}
           />
@@ -592,7 +611,7 @@ const ReceiptTemplates = () => {
             fullWidth
             onClick={closeCloneDialog}
             disabled={cloning}
-            sx={{ bgcolor: '#f8f8f8', color: '#676b72', border: '1px solid #9e9e9e', textTransform: 'none', boxShadow: 'none', borderRadius: 0, fontWeight: 400, fontSize: 26, height: 48, '&:hover': { bgcolor: '#e9e9e9', boxShadow: 'none' } }}
+            sx={{ bgcolor: byMode('#f8f8f8', 'transparent'), color: byMode('#676b72', '#d4d4d4'), border: byMode('1px solid #9e9e9e', '1px solid #a1a1a1'), textTransform: 'none', boxShadow: 'none', borderRadius: 0, fontWeight: 400, fontSize: 26, height: 48, '&:hover': { bgcolor: byMode('#e9e9e9', '#3a3a3a'), boxShadow: 'none' } }}
           >
             Cancel
           </Button>
@@ -601,7 +620,7 @@ const ReceiptTemplates = () => {
             variant="contained"
             onClick={confirmClone}
             disabled={cloning}
-            sx={{ bgcolor: '#32b643', color: '#fff', '&:hover': { bgcolor: '#2ba03b', boxShadow: 'none' }, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 400, fontSize: 26, height: 48, '&.Mui-disabled': { bgcolor: '#9fd8a7', color: '#fff' } }}
+            sx={{ bgcolor: byMode('#32b643', '#7bf1a8'), color: byMode('#fff', '#232323'), '&:hover': { bgcolor: byMode('#2ba03b', '#5ee08e'), boxShadow: 'none' }, borderRadius: 0, textTransform: 'none', boxShadow: 'none', fontWeight: 400, fontSize: 26, height: 48, '&.Mui-disabled': { bgcolor: byMode('#9fd8a7', '#3d6b4f'), color: byMode('#fff', '#a0a4aa') } }}
           >
             {cloning ? 'Cloning...' : 'Clone'}
           </Button>

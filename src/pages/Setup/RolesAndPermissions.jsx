@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { byMode } from '../../theme/sfPalette';
 import {
   Box,
   Button,
@@ -39,7 +40,7 @@ const INSTANT = 'all 0s ease';
 
 const PRIMARY_BUTTON_SX = {
   bgcolor: '#5ebbeb',
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   textTransform: 'none',
   boxShadow: 'none',
   borderRadius: '12px',
@@ -62,7 +63,7 @@ const rowActionSx = (color) => ({
   minWidth: 0,
   px: 1.5,
   transition: INSTANT,
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)') },
 });
 
 // Reference lays the row actions out as three equal columns (Edit / Delete / Clone);
@@ -73,8 +74,8 @@ const LOCKED_TOOLTIP_PROPS = {
   arrow: true,
   placement: 'top',
   componentsProps: {
-    tooltip: { sx: { bgcolor: '#fff', color: '#313439', fontSize: 15, fontWeight: 400, border: '1px solid #d0d0d0', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', px: 2, py: 1, borderRadius: '8px' } },
-    arrow: { sx: { color: '#fff', '&::before': { border: '1px solid #d0d0d0' } } },
+    tooltip: { sx: { bgcolor: byMode('#fff', '#232323'), color: byMode('#313439', '#f8f8f8'), fontSize: 15, fontWeight: 400, border: byMode('1px solid #d0d0d0', '1px solid #a1a1a1'), boxShadow: '0 2px 8px rgba(0,0,0,0.15)', px: 2, py: 1, borderRadius: '8px' } },
+    arrow: { sx: { color: byMode('#fff', '#232323'), '&::before': { border: byMode('1px solid #d0d0d0', '1px solid #a1a1a1') } } },
   },
 };
 
@@ -90,9 +91,9 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
     onClose={onCancel}
     PaperProps={{ sx: { width: 300, maxWidth: '92vw', borderRadius: '8px', overflow: 'hidden' } }}
   >
-    <Box sx={{ bgcolor: '#b9e0f7', px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Typography sx={{ color: '#0c4a6e', fontWeight: 700, fontSize: 18 }}>?</Typography>
-      <Typography sx={{ color: '#0c4a6e', fontWeight: 700, fontSize: 18 }}>{title}</Typography>
+    <Box sx={{ bgcolor: byMode('#b9e0f7', '#0c3a55'), px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Typography sx={{ color: byMode('#0c4a6e', '#74d4ff'), fontWeight: 700, fontSize: 18 }}>?</Typography>
+      <Typography sx={{ color: byMode('#0c4a6e', '#74d4ff'), fontWeight: 700, fontSize: 18 }}>{title}</Typography>
     </Box>
     <Box
       component="form"
@@ -102,7 +103,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
       }}
       sx={{ px: 2, py: 2 }}
     >
-      <Typography sx={{ color: '#313439', fontSize: 16, mb: 1.5 }}>{prompt}</Typography>
+      <Typography sx={{ color: byMode('#313439', '#f8f8f8'), fontSize: 16, mb: 1.5 }}>{prompt}</Typography>
       <TextField
         autoFocus
         fullWidth
@@ -112,15 +113,15 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
           '& .MuiOutlinedInput-root': {
             height: 42,
             borderRadius: '8px',
-            '& fieldset': { borderColor: '#595959', borderWidth: '1px' },
-            '&:hover fieldset': { borderColor: '#595959' },
-            '&.Mui-focused fieldset': { borderColor: '#000', borderWidth: '2px' },
+            '& fieldset': { borderColor: byMode('#595959', '#a1a1a1'), borderWidth: '1px' },
+            '&:hover fieldset': { borderColor: byMode('#595959', '#a1a1a1') },
+            '&.Mui-focused fieldset': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
           },
         }}
       />
       {outletPicker && (
         <>
-          <Typography sx={{ color: '#313439', fontSize: 16, mt: 2, mb: 0.75 }}>Outlet</Typography>
+          <Typography sx={{ color: byMode('#313439', '#f8f8f8'), fontSize: 16, mt: 2, mb: 0.75 }}>Outlet</Typography>
           <Select
             fullWidth
             value={outletPicker.value}
@@ -130,9 +131,9 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
             sx={{
               height: 42,
               borderRadius: '8px',
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#595959', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#595959' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000', borderWidth: '2px' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#595959', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#595959', '#a1a1a1') },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000', '#2b7fff'), borderWidth: '2px' },
             }}
           >
             <MenuItem value="global">Global</MenuItem>
@@ -149,8 +150,8 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
           onClick={onCancel}
           disabled={busy}
           sx={{
-            bgcolor: '#d4d4d4',
-            color: '#313439',
+            bgcolor: byMode('#d4d4d4', '#3a3a3a'),
+            color: byMode('#313439', '#f8f8f8'),
             textTransform: 'none',
             fontWeight: 700,
             fontSize: 16,
@@ -158,7 +159,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
             height: 42,
             borderRadius: '12px',
             transition: INSTANT,
-            '&:hover': { bgcolor: '#c2c2c2' },
+            '&:hover': { bgcolor: byMode('#c2c2c2', '#4a4a4a') },
           }}
         >
           Cancel
@@ -178,7 +179,7 @@ const NamePromptDialog = ({ open, title, prompt, value, confirmText, onChange, o
             borderRadius: '12px',
             transition: INSTANT,
             '&:hover': { bgcolor: '#0284c7' },
-            '&.Mui-disabled': { bgcolor: '#d4d4d4', color: '#737373' },
+            '&.Mui-disabled': { bgcolor: byMode('#d4d4d4', '#3a3a3a'), color: byMode('#737373', '#757575') },
           }}
         >
           {busy ? `${confirmText}...` : confirmText}
@@ -360,7 +361,7 @@ const RolesAndPermissions = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('white', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
                 }}
@@ -377,9 +378,9 @@ const RolesAndPermissions = () => {
             </TableHead>
             <TableBody
               sx={{
-                '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                '& tr:nth-of-type(even)': { bgcolor: '#f8f8f8' },
-                '& td': { border: 0, fontSize: 16, color: '#000', height: 58, py: 0 },
+                '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+                '& tr:nth-of-type(even)': { bgcolor: byMode('#f8f8f8', '#2a2a2a') },
+                '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), height: 58, py: 0 },
               }}
             >
               {roles.map((role) => (
@@ -396,7 +397,7 @@ const RolesAndPermissions = () => {
                               disableRipple
                               startIcon={<EditIcon />}
                               onClick={() => handleEditRole(role)}
-                              sx={rowActionSx('#16a34a')}
+                              sx={rowActionSx(byMode('#16a34a', '#7bf1a8'))}
                             >
                               Edit
                             </Button>
@@ -408,7 +409,7 @@ const RolesAndPermissions = () => {
                               disableRipple
                               startIcon={<DeleteIcon />}
                               onClick={() => setDeleteDialog({ open: true, role, loading: false })}
-                              sx={rowActionSx('#dc2626')}
+                              sx={rowActionSx(byMode('#dc2626', '#ffa2a2'))}
                             >
                               Delete
                             </Button>
@@ -420,7 +421,7 @@ const RolesAndPermissions = () => {
                               disableRipple
                               startIcon={<RestoreIcon />}
                               onClick={() => handleToggleStatus(role.id)}
-                              sx={rowActionSx('#0284c7')}
+                              sx={rowActionSx(byMode('#0284c7', '#74d4ff'))}
                             >
                               Restore
                             </Button>
@@ -429,7 +430,7 @@ const RolesAndPermissions = () => {
                               disableRipple
                               startIcon={<CloneIcon />}
                               onClick={() => handleCloneRole(role)}
-                              sx={rowActionSx('#d97706')}
+                              sx={rowActionSx(byMode('#d97706', '#fbbf24'))}
                             >
                               Clone
                             </Button>
@@ -451,8 +452,8 @@ const RolesAndPermissions = () => {
                 <TableRow>
                   <TableCell sx={{ pl: '20px' }}>
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, cursor: 'default' }}>
-                      <LockIcon sx={{ fontSize: 18, color: '#313439' }} />
-                      <Typography sx={{ fontSize: 16, color: '#000' }}>{item.name}</Typography>
+                      <LockIcon sx={{ fontSize: 18, color: byMode('#313439', '#a0a4aa') }} />
+                      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>{item.name}</Typography>
                     </Box>
                   </TableCell>
                   <TableCell />
@@ -466,7 +467,7 @@ const RolesAndPermissions = () => {
                             disableRipple
                             startIcon={<RestoreIcon />}
                             onClick={() => handleRestoreDeleted(item)}
-                            sx={rowActionSx('#0284c7')}
+                            sx={rowActionSx(byMode('#0284c7', '#74d4ff'))}
                           >
                             Restore
                           </Button>

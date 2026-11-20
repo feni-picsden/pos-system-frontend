@@ -8,6 +8,7 @@ import {
   Cancel as CancelIcon
 } from '@mui/icons-material';
 import { KeypadBody } from '../SaleKey/LineEditPanel';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference Promotion Simulator (live 04/11/2026): a panel down the RIGHT edge of
 // the Express / Advanced editor, from the app bar to the bottom button bar.
@@ -56,9 +57,9 @@ const QuantityKeypad = ({ anchorEl, value, onClose, onCommit }) => {
       onClose={onClose}
       anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
       transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-      PaperProps={{ sx: { width: 357, p: 2, borderRadius: '12px', bgcolor: '#FAFAFA', border: '1px solid #D4D4D4', overflow: 'visible', ml: '-10px' } }}
+      PaperProps={{ sx: { width: 357, p: 2, borderRadius: '12px', bgcolor: byMode('#FAFAFA', '#232323'), border: byMode('1px solid #D4D4D4', '1px solid #a1a1a1'), overflow: 'visible', ml: '-10px' } }}
     >
-      <Box sx={{ position: 'absolute', top: 32, right: '-8px', width: 14, height: 14, bgcolor: '#FAFAFA', borderTop: '1px solid #D4D4D4', borderRight: '1px solid #D4D4D4', transform: 'rotate(45deg)' }} />
+      <Box sx={{ position: 'absolute', top: 32, right: '-8px', width: 14, height: 14, bgcolor: byMode('#FAFAFA', '#232323'), borderTop: byMode('1px solid #D4D4D4', '1px solid #a1a1a1'), borderRight: byMode('1px solid #D4D4D4', '1px solid #a1a1a1'), transform: 'rotate(45deg)' }} />
       <KeypadBody value={text} setValue={setText} onOk={ok} mode="qty" min={0} />
     </Popover>
   );
@@ -84,8 +85,8 @@ const PromotionSimulatorPanel = ({ open, search, lines, onQuantity, onRemove }) 
         right: 0,
         bottom: BOTTOM_BAR_HEIGHT,
         width: SIMULATOR_WIDTH,
-        bgcolor: '#fff',
-        borderLeft: '1px solid #404040',
+        bgcolor: byMode('#fff', '#232323'),
+        borderLeft: byMode('1px solid #404040', '1px solid #373737'),
         zIndex: 1100,
         display: 'flex',
         flexDirection: 'column',
@@ -93,7 +94,7 @@ const PromotionSimulatorPanel = ({ open, search, lines, onQuantity, onRemove }) 
       }}
     >
       {/* Reference: dark 1px rule under the search strip (same tone as the panel's left edge). */}
-      <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', borderBottom: '1px solid #404040' }}>
+      <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', borderBottom: byMode('1px solid #404040', '1px solid #373737') }}>
         <Box
           component="input"
           type="text"
@@ -112,34 +113,34 @@ const PromotionSimulatorPanel = ({ open, search, lines, onQuantity, onRemove }) 
             outline: 'none',
             fontFamily: 'inherit',
             fontSize: 16,
-            color: '#000',
-            bgcolor: '#fff',
-            '&::placeholder': { color: '#808080', opacity: 1 }
+            color: byMode('#000', '#f8f8f8'),
+            bgcolor: byMode('#fff', '#121212'),
+            '&::placeholder': { color: byMode('#808080', '#757575'), opacity: 1 }
           }}
         />
         {search.loading && <CircularProgress size={18} sx={{ color: '#b5b5b5', mr: 1.5 }} />}
         {term && (
-          <IconButton size="small" onClick={() => search.onChange('')} sx={{ color: '#404040', mr: '6px' }}>
+          <IconButton size="small" onClick={() => search.onChange('')} sx={{ color: byMode('#404040', '#a1a1a1'), mr: '6px' }}>
             <CancelIcon sx={{ fontSize: 28 }} />
           </IconButton>
         )}
         {term && (
           // ref: full-width white sheet straight under the strip, soft shadow, square corners;
           // "Searching..." while the request is in flight, then results / no-results.
-          <Paper square elevation={0} sx={{ position: 'absolute', top: 56, left: 0, right: 0, zIndex: 5, maxHeight: 560, overflow: 'auto', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '20px', pt: '14px', pb: '10px' }}>
+          <Paper square elevation={0} sx={{ position: 'absolute', top: 56, left: 0, right: 0, zIndex: 5, maxHeight: 560, overflow: 'auto', boxShadow: '0 6px 12px rgba(0,0,0,0.25)', px: '20px', pt: '14px', pb: '10px', bgcolor: byMode(undefined, '#232323') }}>
             {search.results.length === 0 ? (
-              <Typography sx={{ fontSize: 18, color: '#000', py: 1 }}>{search.loading ? 'Searching...' : 'No search results found.'}</Typography>
+              <Typography sx={{ fontSize: 18, color: byMode('#000', '#f8f8f8'), py: 1 }}>{search.loading ? 'Searching...' : 'No search results found.'}</Typography>
             ) : (
               <>
-                <Typography sx={{ fontSize: 16, color: '#9e9e9e', letterSpacing: 0.5, lineHeight: '22px', mb: '6px' }}>PRODUCTS</Typography>
+                <Typography sx={{ fontSize: 16, color: byMode('#9e9e9e', '#a0a4aa'), letterSpacing: 0.5, lineHeight: '22px', mb: '6px' }}>PRODUCTS</Typography>
                 {search.results.map((r) => (
                   <Box
                     key={r.id}
                     onClick={() => search.onPick(r)}
-                    sx={{ display: 'flex', alignItems: 'flex-start', gap: '12px', py: '9px', cursor: 'pointer', '&:hover': { bgcolor: '#f5f5f5' } }}
+                    sx={{ display: 'flex', alignItems: 'flex-start', gap: '12px', py: '9px', cursor: 'pointer', '&:hover': { bgcolor: byMode('#f5f5f5', '#2f2f2f') } }}
                   >
-                    <ImageIcon sx={{ fontSize: 22, color: '#555', mt: '1px' }} />
-                    <Typography sx={{ fontSize: 18, color: '#404040', lineHeight: '23px' }}>
+                    <ImageIcon sx={{ fontSize: 22, color: byMode('#555', '#a0a4aa'), mt: '1px' }} />
+                    <Typography sx={{ fontSize: 18, color: byMode('#404040', '#f8f8f8'), lineHeight: '23px' }}>
                       <Highlight text={r.name} term={search.value} />
                     </Typography>
                   </Box>
@@ -158,7 +159,7 @@ const PromotionSimulatorPanel = ({ open, search, lines, onQuantity, onRemove }) 
                 the edge; "Item price" ends under the bin. */}
             <Box
               sx={{
-                bgcolor: '#d6edfb',
+                bgcolor: byMode('#d6edfb', '#0c3a55'),
                 pl: '23px',
                 pr: '20px',
                 py: '12px',
@@ -176,24 +177,24 @@ const PromotionSimulatorPanel = ({ open, search, lines, onQuantity, onRemove }) 
                 component="button"
                 type="button"
                 onClick={(e) => setKeypad({ anchorEl: e.currentTarget, key: line.key, quantity: line.quantity })}
-                sx={{ border: 0, outline: 'none', bgcolor: 'transparent', fontFamily: 'inherit', fontSize: 16, color: '#000', cursor: 'pointer', textAlign: 'left', p: 0, m: 0, lineHeight: '23px', height: 23, '&:focus, &:focus-visible': { outline: 'none' } }}
+                sx={{ border: 0, outline: 'none', bgcolor: 'transparent', fontFamily: 'inherit', fontSize: 16, color: byMode('#000', '#f8f8f8'), cursor: 'pointer', textAlign: 'left', p: 0, m: 0, lineHeight: '23px', height: 23, '&:focus, &:focus-visible': { outline: 'none' } }}
               >
                 {line.quantity}
               </Box>
-              <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '23px' }}>{line.name}</Typography>
-              <Typography sx={{ fontSize: 16, color: '#000', lineHeight: '23px' }}>${(Number(line.total) || 0).toFixed(2)}</Typography>
+              <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: '23px' }}>{line.name}</Typography>
+              <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), lineHeight: '23px' }}>${(Number(line.total) || 0).toFixed(2)}</Typography>
               <DeleteIcon
                 onClick={() => onRemove(line.key)}
-                sx={{ fontSize: 22, color: '#404040', cursor: 'pointer', justifySelf: 'end', display: 'block' }}
+                sx={{ fontSize: 22, color: byMode('#404040', '#ffa2a2'), cursor: 'pointer', justifySelf: 'end', display: 'block' }}
               />
               {line.quantity > 1 && (
                 // second row: "Item price" right-aligned, ending under the bin (ref)
-                <Typography sx={{ gridColumn: '2 / 5', fontSize: 16, color: '#000', textAlign: 'right', lineHeight: '24px' }}>
+                <Typography sx={{ gridColumn: '2 / 5', fontSize: 16, color: byMode('#000', '#f8f8f8'), textAlign: 'right', lineHeight: '24px' }}>
                   Item price: ${((Number(line.total) || 0) / line.quantity).toFixed(2)}
                 </Typography>
               )}
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px', px: '12px', height: 44, borderTop: '1px solid #404040', borderBottom: '1px solid #404040', boxSizing: 'border-box', color: line.active ? '#16a34a' : '#e33430' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px', px: '12px', height: 44, borderTop: byMode('1px solid #404040', '1px solid #373737'), borderBottom: byMode('1px solid #404040', '1px solid #373737'), boxSizing: 'border-box', color: line.active ? byMode('#16a34a', '#7bf1a8') : byMode('#e33430', '#ffa2a2') }}>
               {line.active ? <CheckCircleOutlineIcon sx={{ fontSize: 17 }} /> : <HighlightOffOutlinedIcon sx={{ fontSize: 17 }} />}
               <Typography sx={{ fontSize: 16, color: 'inherit', lineHeight: '22px' }}>{line.active ? 'Current Promotion Active' : 'No Promotion Active'}</Typography>
             </Box>

@@ -4,8 +4,9 @@
 // criterion id...). Pure rules live in utils/searchKeys.js.
 import { useCallback, useRef, useState } from 'react';
 import { nextIndex, pickIndex } from '../../utils/searchKeys';
+import { byMode } from '../../theme/sfPalette';
 
-export const ACTIVE_ROW_SX = { bgcolor: '#d6ecfa', boxShadow: 'inset 3px 0 0 #5ebbeb' };
+export const ACTIVE_ROW_SX = { bgcolor: byMode('#d6ecfa', '#0c3a55'), boxShadow: 'inset 3px 0 0 #5ebbeb' };
 
 const useResultKeys = () => {
   const [active, setActive] = useState({});

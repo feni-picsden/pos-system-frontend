@@ -24,6 +24,7 @@ import { useSelectedOutlet } from '../../contexts/SelectedOutletContext';
 import { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import CreatingForOutlet from '../../components/Common/CreatingForOutlet';
 import ShopfrontSwitch from '../../components/Common/ShopfrontSwitch';
+import { byMode } from '../../theme/sfPalette';
 
 // Settings > Barcode Templates (reference: Setup > Barcode Templates, help art.
 // 360060962031). Gated by Setup > General > "Use Barcode Templates": while it is
@@ -36,7 +37,7 @@ const BLUE = '#2d8ff5';
 const GREEN = '#32b643';
 
 const PILL_SX = {
-  color: '#fff',
+  color: byMode('#fff', '#232323'),
   textTransform: 'none',
   boxShadow: 'none',
   borderRadius: '8px',
@@ -64,23 +65,23 @@ const LINK_SX = (color) => ({
 
 const GRID_TABLE_SX = {
   borderCollapse: 'collapse',
-  '& th, & td': { border: '1px solid #000', fontSize: 16, color: '#000', padding: '12px 16px' },
+  '& th, & td': { border: byMode('1px solid #000', '1px solid #a1a1a1'), fontSize: 16, color: byMode('#000', '#f8f8f8'), padding: '12px 16px' },
   '& th': { fontWeight: 700, textAlign: 'center' },
 };
 
 const FIELD_INPUT_SX = {
   width: '100%',
   height: 48,
-  border: '1px solid #000',
+  border: byMode('1px solid #000', '1px solid #a1a1a1'),
   borderRadius: '4px',
   px: 1.5,
   fontFamily: 'inherit',
   fontSize: 16,
-  color: '#000',
-  bgcolor: '#fff',
+  color: byMode('#000', '#f8f8f8'),
+  bgcolor: byMode('#fff', '#121212'),
   outline: 'none',
   boxSizing: 'border-box',
-  '&:focus': { border: '2px solid #000' },
+  '&:focus': { border: byMode('2px solid #000', '2px solid #f8f8f8') },
 };
 
 // Dialog footer buttons: compact, right-aligned (user 16/11/2026).
@@ -118,7 +119,7 @@ const BadgeDialog = ({ open, onClose, title, children }) => (
       ?
     </Box>
     <Box sx={{ pt: 8.5, px: 2, pb: 2, textAlign: 'center' }}>
-      <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#000', mb: 1 }}>{title}</Typography>
+      <Typography sx={{ fontSize: 16, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>{title}</Typography>
       {children}
     </Box>
   </Dialog>
@@ -132,14 +133,14 @@ const BarcodeGlyph = () => {
   const Row = () => (
     <Box sx={{ display: 'flex', alignItems: 'flex-end', height: 52 }}>
       {bars.map((b, i) => (
-        <Box key={i} sx={{ width: b.w, height: 52, bgcolor: '#000', ml: `${b.gap || 0}px` }} />
+        <Box key={i} sx={{ width: b.w, height: 52, bgcolor: byMode('#000', '#f8f8f8'), ml: `${b.gap || 0}px` }} />
       ))}
     </Box>
   );
   return (
     <Box sx={{ width: 200, flexShrink: 0 }} aria-hidden>
       <Row />
-      <Box sx={{ height: 14, bgcolor: '#000', my: '12px' }} />
+      <Box sx={{ height: 14, bgcolor: byMode('#000', '#f8f8f8'), my: '12px' }} />
       <Row />
     </Box>
   );
@@ -150,13 +151,13 @@ const DisabledNotice = () => (
   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 3, pt: 4, px: 2 }} data-testid="barcode-templates-disabled">
     <BarcodeGlyph />
     <Box sx={{ pt: 3 }}>
-      <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700, color: '#000', mb: 3 }}>
+      <Typography component="h1" sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 3 }}>
         Barcode Templates Disabled
       </Typography>
-      <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>
+      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 2 }}>
         You need to enable barcode templates in the general settings to use this feature.
       </Typography>
-      <Typography sx={{ fontSize: 16, color: '#000' }}>
+      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
         Barcode templates allow you to define price templates for barcodes (e.g. for deli scales or lotto payouts)
       </Typography>
     </Box>
@@ -179,7 +180,7 @@ const NameDialog = ({ open, onClose, onSubmit, saving }) => {
   };
   return (
     <BadgeDialog open={open} onClose={saving ? undefined : onClose} title="Create Barcode Template">
-      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Name</Typography>
+      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>Name</Typography>
       <InputBase
         inputProps={{ id: 'barcode-template-name', 'aria-label': 'Name', maxLength: 100 }}
         autoFocus
@@ -190,12 +191,12 @@ const NameDialog = ({ open, onClose, onSubmit, saving }) => {
         sx={FIELD_INPUT_SX}
       />
       <CreatingForOutlet sx={{ mt: 1, textAlign: 'left' }} />
-      {error && <Typography sx={{ mt: 1, fontSize: 14, color: '#dc2626' }}>{error}</Typography>}
+      {error && <Typography sx={{ mt: 1, fontSize: 14, color: byMode('#dc2626', '#ffa2a2') }}>{error}</Typography>}
       <Box sx={DIALOG_ACTIONS_SX}>
-        <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: '#676b72', borderColor: '#d4d4d4', bgcolor: '#f3f4f6', '&:hover': { bgcolor: '#e5e7eb', borderColor: '#d4d4d4' } }}>
+        <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: byMode('#676b72', '#f8f8f8'), borderColor: byMode('#d4d4d4', '#3a3a3a'), bgcolor: byMode('#f3f4f6', '#3a3a3a'), '&:hover': { bgcolor: byMode('#e5e7eb', '#4a4a4a'), borderColor: byMode('#d4d4d4', '#3a3a3a') } }}>
           Cancel
         </Button>
-        <Button disableRipple variant="contained" onClick={submit} disabled={saving} sx={{ ...DIALOG_BTN_SX, bgcolor: GREEN, '&:hover': { bgcolor: '#2a9c39' } }}>
+        <Button disableRipple variant="contained" onClick={submit} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: byMode(undefined, '#232323'), bgcolor: byMode(GREEN, '#7bf1a8'), '&:hover': { bgcolor: byMode('#2a9c39', '#5ee08e') } }}>
           {saving ? 'Creating...' : 'Create'}
         </Button>
       </Box>
@@ -224,7 +225,7 @@ const TemplateDialog = ({ open, onClose, template, onSubmit, saving }) => {
   };
   return (
     <BadgeDialog open={open} onClose={saving ? undefined : onClose} title={`Template — ${template?.name || ''}`}>
-      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Template</Typography>
+      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>Template</Typography>
       <InputBase
         inputProps={{ id: 'barcode-template-code', 'aria-label': 'Template', maxLength: 100, style: { fontFamily: 'monospace' } }}
         autoFocus
@@ -235,27 +236,27 @@ const TemplateDialog = ({ open, onClose, template, onSubmit, saving }) => {
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
         sx={FIELD_INPUT_SX}
       />
-      <Box sx={{ textAlign: 'left', mt: 1.5, fontSize: 13, color: '#404040', lineHeight: 1.6 }}>
+      <Box sx={{ textAlign: 'left', mt: 1.5, fontSize: 13, color: byMode('#404040', '#f8f8f8'), lineHeight: 1.6 }}>
         <Box><b>$</b> dollars (zero filled) &nbsp; <b>C</b> cents &nbsp; <b>Q</b> quantity &nbsp; <b>X</b> product identifier &nbsp; <b>?</b> any character</Box>
         <Box>Any other character is a literal; escape a code letter with <b>\</b> (e.g. <b>\Q</b>).</Box>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
         <ShopfrontSwitch checked={recalc} onChange={(e) => setRecalc(e.target.checked)} disabled={saving} inputProps={{ 'aria-label': 'Recalculate Quantity' }} />
         <Box sx={{ ml: 1.5, textAlign: 'left' }}>
-          <Typography sx={{ fontSize: 16, color: '#000' }}>Recalculate Quantity</Typography>
-          <Typography sx={{ fontSize: 13, color: '#676b72' }}>
+          <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Recalculate Quantity</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>
             {recalc
               ? 'The quantity is worked out from the scanned price (1 for $4, scanned $8 = quantity 2)'
               : 'The scanned price is charged as is'}
           </Typography>
         </Box>
       </Box>
-      {error && <Typography sx={{ mt: 1, fontSize: 14, color: '#dc2626' }}>{error}</Typography>}
+      {error && <Typography sx={{ mt: 1, fontSize: 14, color: byMode('#dc2626', '#ffa2a2') }}>{error}</Typography>}
       <Box sx={DIALOG_ACTIONS_SX}>
-        <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: '#676b72', borderColor: '#d4d4d4', bgcolor: '#f3f4f6', '&:hover': { bgcolor: '#e5e7eb', borderColor: '#d4d4d4' } }}>
+        <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: byMode('#676b72', '#f8f8f8'), borderColor: byMode('#d4d4d4', '#3a3a3a'), bgcolor: byMode('#f3f4f6', '#3a3a3a'), '&:hover': { bgcolor: byMode('#e5e7eb', '#4a4a4a'), borderColor: byMode('#d4d4d4', '#3a3a3a') } }}>
           Cancel
         </Button>
-        <Button disableRipple variant="contained" onClick={submit} disabled={saving} sx={{ ...DIALOG_BTN_SX, bgcolor: BLUE, '&:hover': { bgcolor: '#1f7fe0' } }}>
+        <Button disableRipple variant="contained" onClick={submit} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: byMode(undefined, '#232323'), bgcolor: BLUE, '&:hover': { bgcolor: '#1f7fe0' } }}>
           {saving ? 'Saving...' : 'Done'}
         </Button>
       </Box>
@@ -275,7 +276,7 @@ const RenameDialog = ({ open, onClose, template, onSubmit, saving }) => {
   };
   return (
     <BadgeDialog open={open} onClose={saving ? undefined : onClose} title="Edit Barcode Template">
-      <Typography sx={{ fontSize: 16, color: '#000', mb: 0.5 }}>Name</Typography>
+      <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 0.5 }}>Name</Typography>
       <InputBase
         inputProps={{ id: 'barcode-template-rename', 'aria-label': 'Name', maxLength: 100 }}
         autoFocus
@@ -285,12 +286,12 @@ const RenameDialog = ({ open, onClose, template, onSubmit, saving }) => {
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
         sx={FIELD_INPUT_SX}
       />
-      {error && <Typography sx={{ mt: 1, fontSize: 14, color: '#dc2626' }}>{error}</Typography>}
+      {error && <Typography sx={{ mt: 1, fontSize: 14, color: byMode('#dc2626', '#ffa2a2') }}>{error}</Typography>}
       <Box sx={DIALOG_ACTIONS_SX}>
-        <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: '#676b72', borderColor: '#d4d4d4', bgcolor: '#f3f4f6', '&:hover': { bgcolor: '#e5e7eb', borderColor: '#d4d4d4' } }}>
+        <Button disableRipple variant="outlined" onClick={onClose} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: byMode('#676b72', '#f8f8f8'), borderColor: byMode('#d4d4d4', '#3a3a3a'), bgcolor: byMode('#f3f4f6', '#3a3a3a'), '&:hover': { bgcolor: byMode('#e5e7eb', '#4a4a4a'), borderColor: byMode('#d4d4d4', '#3a3a3a') } }}>
           Cancel
         </Button>
-        <Button disableRipple variant="contained" onClick={submit} disabled={saving} sx={{ ...DIALOG_BTN_SX, bgcolor: BLUE, '&:hover': { bgcolor: '#1f7fe0' } }}>
+        <Button disableRipple variant="contained" onClick={submit} disabled={saving} sx={{ ...DIALOG_BTN_SX, color: byMode(undefined, '#232323'), bgcolor: BLUE, '&:hover': { bgcolor: '#1f7fe0' } }}>
           {saving ? 'Saving...' : 'Update'}
         </Button>
       </Box>
@@ -375,13 +376,13 @@ const BarcodeTemplates = () => {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000' }}>Barcode Templates</Typography>
+          <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8') }}>Barcode Templates</Typography>
           {canModify && (
             <Button
               disableRipple
               startIcon={<AddIcon sx={{ fontSize: '28px !important' }} />}
               onClick={() => setDialog({ mode: 'create', template: null })}
-              sx={{ ...PILL_SX, borderRadius: 0, bgcolor: GREEN, '&:hover': { bgcolor: '#2a9c39' } }}
+              sx={{ ...PILL_SX, borderRadius: 0, bgcolor: byMode(GREEN, '#7bf1a8'), '&:hover': { bgcolor: byMode('#2a9c39', '#5ee08e') } }}
             >
               New
             </Button>
@@ -389,12 +390,12 @@ const BarcodeTemplates = () => {
         </Box>
         {/* Count block top-right, like the report / Products pages */}
         <Box data-total-count sx={{ textAlign: 'right' }}>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: '#000' }}>{templates.length}</Typography>
-          <Typography sx={{ fontSize: 13, color: '#676b72' }}>Results</Typography>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: byMode('#000', '#f8f8f8') }}>{templates.length}</Typography>
+          <Typography sx={{ fontSize: 13, color: byMode('#676b72', '#a0a4aa') }}>Results</Typography>
         </Box>
       </Box>
 
-      {error && <Typography sx={{ color: '#dc2626', mb: 2 }}>{error}</Typography>}
+      {error && <Typography sx={{ color: byMode('#dc2626', '#ffa2a2'), mb: 2 }}>{error}</Typography>}
 
       <Table sx={GRID_TABLE_SX} data-testid="barcode-templates-table">
         <TableHead>
@@ -408,13 +409,13 @@ const BarcodeTemplates = () => {
         <TableBody>
           {!loading && templates.length === 0 && (
             <TableRow>
-              <TableCell colSpan={globalMode ? 4 : 3} align="center" sx={{ color: '#676b72' }}>
+              <TableCell colSpan={globalMode ? 4 : 3} align="center" sx={{ color: byMode('#676b72', '#a0a4aa') }}>
                 No barcode templates yet
               </TableCell>
             </TableRow>
           )}
           {templates.map((t, i) => (
-            <TableRow key={t.id} data-testid="barcode-template-row" sx={{ bgcolor: i % 2 ? '#f3f4f6' : '#fff' }}>
+            <TableRow key={t.id} data-testid="barcode-template-row" sx={{ bgcolor: i % 2 ? byMode('#f3f4f6', '#2a2a2a') : byMode('#fff', '#232323') }}>
               <TableCell>{t.name}</TableCell>
               {globalMode && <TableCell data-testid="barcode-template-outlet">{outletNameOf(t.outletId)}</TableCell>}
               <TableCell>
@@ -425,16 +426,16 @@ const BarcodeTemplates = () => {
                     startIcon={<EditIcon />}
                     onClick={() => setDialog({ mode: 'template', template: t })}
                     disabled={!canModify}
-                    sx={LINK_SX(GREEN)}
+                    sx={LINK_SX(byMode(GREEN, '#7bf1a8'))}
                     aria-label={`Edit template ${t.name}`}
                   >
                     {t.template ? '' : 'Set template'}
                   </Button>
-                  <Typography component="code" data-testid="barcode-template-code" sx={{ fontFamily: 'monospace', fontSize: 16, color: '#000' }}>
+                  <Typography component="code" data-testid="barcode-template-code" sx={{ fontFamily: 'monospace', fontSize: 16, color: byMode('#000', '#f8f8f8') }}>
                     {t.template}
                   </Typography>
                   {t.recalculateQuantity && (
-                    <Typography component="span" sx={{ fontSize: 12, color: '#676b72', border: '1px solid #d4d4d4', borderRadius: '10px', px: 1 }}>
+                    <Typography component="span" sx={{ fontSize: 12, color: byMode('#676b72', '#a0a4aa'), border: byMode('1px solid #d4d4d4', '1px solid #373737'), borderRadius: '10px', px: 1 }}>
                       Recalculate Quantity
                     </Typography>
                   )}
@@ -442,7 +443,7 @@ const BarcodeTemplates = () => {
               </TableCell>
               <TableCell align="center">
                 <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Button disableRipple startIcon={<EditIcon />} onClick={() => setDialog({ mode: 'rename', template: t })} disabled={!canModify} sx={LINK_SX(GREEN)}>
+                  <Button disableRipple startIcon={<EditIcon />} onClick={() => setDialog({ mode: 'rename', template: t })} disabled={!canModify} sx={LINK_SX(byMode(GREEN, '#7bf1a8'))}>
                     Edit
                   </Button>
                   <Button
@@ -450,7 +451,7 @@ const BarcodeTemplates = () => {
                     startIcon={<DeleteIcon />}
                     onClick={() => handleDelete(t)}
                     disabled={!canModify || deletingId != null}
-                    sx={LINK_SX('#e33430')}
+                    sx={LINK_SX(byMode('#e33430', '#ffa2a2'))}
                   >
                     {deletingId === t.id ? 'Deleting...' : 'Delete'}
                   </Button>

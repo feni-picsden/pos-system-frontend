@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@mui/material';
 import { Close as CloseIcon, OpenInNew as OpenIcon } from '@mui/icons-material';
+import { byMode } from '../../theme/sfPalette';
 
 // Reference: Customer Group > Account Sales > Credit Terms, "It must be formatted
 // as an ISO 8601 duration." opens help article 27899706774157 in a right drawer.
@@ -39,8 +40,8 @@ const EXAMPLES = [
   ['P3Y6M4DT12H30M5S', '3 years, 6 months, 4 days, 12 hours, 30 minutes and 5 seconds'],
 ];
 
-const headSx = { '& th': { fontWeight: 700, fontSize: 16, color: '#000', borderBottom: '2px solid #000' } };
-const cellSx = { '& td': { fontSize: 16, color: '#000', borderBottom: '1px solid #ddd', verticalAlign: 'top' } };
+const headSx = { '& th': { fontWeight: 700, fontSize: 16, color: byMode('#000', '#f8f8f8'), borderBottom: byMode('2px solid #000', '2px solid #a1a1a1') } };
+const cellSx = { '& td': { fontSize: 16, color: byMode('#000', '#f8f8f8'), borderBottom: byMode('1px solid #ddd', '1px solid #373737'), verticalAlign: 'top' } };
 
 const SimpleTable = ({ headers, rows }) => (
   <Table size="small" sx={{ mb: 3 }}>
@@ -68,28 +69,28 @@ export default function IsoPeriodHelpDrawer({ open, onClose }) {
         <Button
           onClick={onClose}
           startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
-          sx={{ ml: 'auto', color: '#000', fontSize: 16, fontWeight: 700, textTransform: 'none' }}
+          sx={{ ml: 'auto', color: byMode('#000', '#f8f8f8'), fontSize: 16, fontWeight: 700, textTransform: 'none' }}
         >
           Close
         </Button>
       </Box>
       <Box sx={{ flex: 1, overflowY: 'auto', px: 4, pb: 4 }}>
-        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: '#000', mb: 1 }}>ISO 8601 Period Format</Typography>
-        <Typography sx={{ fontSize: 16, color: '#444', mb: 3 }}>
-          <Link href={ARTICLE_URL} target="_blank" rel="noopener noreferrer" sx={{ color: 'rgb(0,0,238)', display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography component="h1" sx={{ fontSize: 32, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mb: 1 }}>ISO 8601 Period Format</Typography>
+        <Typography sx={{ fontSize: 16, color: byMode('#444', '#a0a4aa'), mb: 3 }}>
+          <Link href={ARTICLE_URL} target="_blank" rel="noopener noreferrer" sx={{ color: byMode('rgb(0,0,238)', '#4ca0f5'), display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
             Open externally <OpenIcon sx={{ fontSize: 16 }} />
           </Link>
         </Typography>
 
-        <Typography sx={{ fontSize: 16, color: '#000', mb: 2 }}>
+        <Typography sx={{ fontSize: 16, color: byMode('#000', '#f8f8f8'), mb: 2 }}>
           Crinit Shop uses the ISO 8601 Period format to define a period of time. A period starts with a P (for
           Period), followed by a number and a designator. Multiple number and designator pairs can be combined.
         </Typography>
 
-        <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700, color: '#000', mt: 3, mb: 1.5 }}>Designators</Typography>
+        <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mt: 3, mb: 1.5 }}>Designators</Typography>
         <SimpleTable headers={['Designator', 'Meaning']} rows={DESIGNATORS} />
 
-        <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700, color: '#000', mt: 3, mb: 1.5 }}>Examples</Typography>
+        <Typography component="h2" sx={{ fontSize: 24, fontWeight: 700, color: byMode('#000', '#f8f8f8'), mt: 3, mb: 1.5 }}>Examples</Typography>
         <SimpleTable headers={['Period', 'Represents']} rows={EXAMPLES} />
       </Box>
     </Drawer>

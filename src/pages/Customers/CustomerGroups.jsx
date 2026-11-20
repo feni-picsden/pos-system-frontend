@@ -25,6 +25,7 @@ import customerGroupService from '../../services/customerGroupService';
 import ConfirmDeleteDialog from '../../components/Common/ConfirmDeleteDialog';
 import GlobalOutletFilter, { useGlobalOutlet } from '../../components/Common/GlobalOutletFilter';
 import { useSelectedRegister } from '../../contexts/SelectedRegisterContext';
+import { byMode } from '../../theme/sfPalette';
 
 const ADD_GROUP_ACTION = 'customerGroups.add';
 
@@ -38,7 +39,7 @@ const rowActionSx = (color, width) => ({
   fontWeight: 700,
   fontSize: 16,
   transition: 'none',
-  '&:hover': { bgcolor: 'rgba(0,0,0,0.05)', color },
+  '&:hover': { bgcolor: byMode('rgba(0,0,0,0.05)', 'rgba(255,255,255,0.08)'), color },
 });
 
 const CustomerGroups = () => {
@@ -143,7 +144,7 @@ const CustomerGroups = () => {
           <Button
             variant="contained"
             onClick={handleAddGroup}
-            sx={{ bgcolor: '#5ebbeb', '&:hover': { bgcolor: '#0ea5e9', boxShadow: 'none' }, transition: 'none', borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
+            sx={{ bgcolor: '#5ebbeb', color: byMode(undefined, '#232323'), '&:hover': { bgcolor: byMode('#0ea5e9', '#4aa9dd'), boxShadow: 'none' }, transition: 'none', borderRadius: '12px', textTransform: 'none', boxShadow: 'none', fontWeight: 700, fontSize: 16, px: 4, height: 42 }}
           >
             Add Customer Group
           </Button>
@@ -162,21 +163,22 @@ const CustomerGroups = () => {
       <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'flex-end' }}>
         {/* Full width: Search takes 2/3, Outlet 1/3 (All Outlets mode only). */}
         <Box sx={{ flex: 2, minWidth: 0 }}>
-        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: '#000' }}>Search</Typography>
+        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Search</Typography>
         <TextField
           fullWidth
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{
-            backgroundColor: 'white',
+            backgroundColor: byMode('white', '#121212'),
             '& .MuiOutlinedInput-root': {
               height: 40,
               borderRadius: 2,
               fontSize: 16,
+              color: byMode(undefined, '#f8f8f8'),
               // Match Shopfront: dark-gray border, turns solid black on focus/click
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#404040', borderWidth: '1px' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#000000', borderWidth: '2px' }
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#404040', '#a1a1a1'), borderWidth: '1px' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: byMode('#000000', '#2b7fff'), borderWidth: '2px' }
             },
             '& .MuiOutlinedInput-input': { py: 0 },
           }}
@@ -201,7 +203,7 @@ const CustomerGroups = () => {
             <TableHead>
               <TableRow
                 sx={{
-                  '& th': { bgcolor: '#5ebbeb', color: 'white', fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
+                  '& th': { bgcolor: byMode('#5ebbeb', '#333333'), color: byMode('white', '#5ebbeb'), fontWeight: 700, fontSize: 16, border: 0, height: 51, py: 0 },
                   '& th:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
                   '& th:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' }
                 }}
@@ -214,9 +216,9 @@ const CustomerGroups = () => {
             </TableHead>
             <TableBody
               sx={{
-                '& tr:nth-of-type(odd)': { bgcolor: '#ffffff' },
-                '& tr:nth-of-type(even)': { bgcolor: '#f5f5f5' },
-                '& td': { border: 0, fontSize: 16, color: '#000', py: 1.5 }
+                '& tr:nth-of-type(odd)': { bgcolor: byMode('#ffffff', '#232323') },
+                '& tr:nth-of-type(even)': { bgcolor: byMode('#f5f5f5', '#2a2a2a') },
+                '& td': { border: 0, fontSize: 16, color: byMode('#000', '#f8f8f8'), py: 1.5 }
               }}
             >
               {filteredGroups.map((group) => (
@@ -226,7 +228,7 @@ const CustomerGroups = () => {
                       component={RouterLink}
                       to={`/customers/groups/${group.id}/view`}
                       underline="none"
-                      sx={{ fontSize: 16, fontWeight: 400, color: '#000', cursor: 'pointer' }}
+                      sx={{ fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8'), cursor: 'pointer' }}
                     >
                       {group.name}
                     </Link>
@@ -244,7 +246,7 @@ const CustomerGroups = () => {
                         disableRipple
                         startIcon={<ViewIcon />}
                         component={RouterLink} to={`/customers/groups/${group.id}/view`}
-                        sx={rowActionSx('#0284c7', 129)}
+                        sx={rowActionSx(byMode('#0284c7', '#74d4ff'), 129)}
                       >
                         View
                       </Button>
@@ -252,7 +254,7 @@ const CustomerGroups = () => {
                         disableRipple
                         startIcon={<EditIcon />}
                         component={RouterLink} to={`/customers/groups/${group.id}`}
-                        sx={rowActionSx('#16a34a', 120)}
+                        sx={rowActionSx(byMode('#16a34a', '#7bf1a8'), 120)}
                       >
                         Edit
                       </Button>
@@ -260,7 +262,7 @@ const CustomerGroups = () => {
                         disableRipple
                         startIcon={<DeleteIcon />}
                         onClick={() => handleDeleteGroup(group.id)}
-                        sx={rowActionSx('#dc2626', 137)}
+                        sx={rowActionSx(byMode('#dc2626', '#ffa2a2'), 137)}
                       >
                         Delete
                       </Button>
