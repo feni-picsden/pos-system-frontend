@@ -35,6 +35,9 @@
   --sf-border: #6b7076;
   --sf-border-light: #3a3d42;
   color-scheme: dark;
+  /* Explicit so every scrollable list is dark even where the browser ignores
+     color-scheme for scrollbars (inherited by all descendants). */
+  scrollbar-color: #5a5a5a #232323;
 }
 
 * {
