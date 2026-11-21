@@ -9,7 +9,7 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
 import { useParams, useNavigate } from 'react-router-dom';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { formatDateTime as formatAppDateTime, appTimeZone } from '../../utils/appDateTime';
+import { formatDateTime as formatAppDateTime, formatDate as formatAppDate, appTimeZone } from '../../utils/appDateTime';
 import { zonedParts, zonedInstant } from '../../utils/dateFormat';
 import registerClosureService from '../../services/registerClosureService';
 import settingsService from '../../services/settingsService';
@@ -236,13 +236,38 @@ const RegisterClosureView = () => {
     const end = new Date(Math.max(endActual.getTime(), start.getTime() + hourMs));
     const hourKey = (d) => storeHour(d).toISOString();
     const map = new Map((hourlyRows || []).map(r => [hourKey(new Date(r.time)), r]));
+    const hours = Math.floor((end.getTime() - start.getTime()) / hourMs) + 1;
+    // A closure longer than two days has too many hours to plot one per hour
+    // (hundreds of points on a flat line). Roll the hours up to one point per
+    // store day — same look as the reference hourly chart, labelled by date.
+    if (hours > 48) {
+      const days = new Map();
+      for (let t = start.getTime(); t <= end.getTime(); t += hourMs) {
+        const d = new Date(t);
+        const p = zonedParts(d, zone);
+        const key = `${p.year}-${p.month}-${p.day}`;
+        if (!days.has(key)) days.set(key, { time: formatAppDate(d), revenue: 0, customers: 0, transactions: 0 });
+        const row = map.get(hourKey(d));
+        if (row) {
+          const agg = days.get(key);
+          agg.revenue += Number(row.revenue) || 0;
+          agg.customers += Number(row.customers) || 0;
+          agg.transactions += Number(row.transactions) || 0;
+        }
+      }
+      return [...days.values()].map((agg) => ({
+        time: agg.time,
+        value: hourlyTab === 'averageSale'
+          ? (agg.transactions ? Math.round((agg.revenue / agg.transactions) * 100) / 100 : 0)
+          : Number(agg[hourlyTab]) || 0,
+      }));
+    }
     const result = [];
     for (let t = start.getTime(); t <= end.getTime(); t += hourMs) {
       const d = new Date(t);
       const row = map.get(hourKey(d));
       const value = Number(row ? row[hourlyTab] : 0);
-      const label = formatAppDateTime(d);
-      result.push({ time: label, value });
+      result.push({ time: formatAppDateTime(d), value });
     }
     return result;
   }, [closure, hourlyRows, hourlyTab]);
@@ -506,6 +531,8 @@ table.info{width:88%;margin:0 0 14px 2%}table.info th{width:50%;text-align:left;
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={hourlyChartData} margin={{ top: 10, right: 20, left: 10, bottom: 60 }}>
               <CartesianGrid stroke={isDark ? '#333333' : '#e5e5e5'} />
+              {/* One label per point (reference): hours for a normal closure, days
+                  for one left open longer than two days (see hourlyChartData). */}
               <XAxis dataKey="time" angle={-35} textAnchor="end" height={70} interval={0} tick={{ fontSize: 11, fill: isDark ? '#f8f8f8' : '#000' }} tickLine={false} axisLine={{ stroke: isDark ? '#373737' : '#ccc' }} />
               <YAxis tick={{ fontSize: 11, fill: isDark ? '#f8f8f8' : '#000' }} tickLine={false} axisLine={false} tickFormatter={hourlyFormat} width={80} allowDecimals={hourlyTab === 'averageSale'} />
               <Tooltip labelStyle={isDark ? { color: '#000' } : undefined} formatter={(v) => [hourlyFormat(v), activeHourlyTab.label]} />

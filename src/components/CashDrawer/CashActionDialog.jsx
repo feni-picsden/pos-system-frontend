@@ -38,7 +38,9 @@ const CashActionDialog = ({
   const [choice, setChoice] = useState(OTHER);
   const [note, setNote] = useState('');
 
-  const options = (reasonOptions || []).filter(Boolean);
+  // The dialog adds its own "Other" (frees the text field); a list that also
+  // holds "Other" showed it twice.
+  const options = (reasonOptions || []).filter((o) => o && String(o).trim().toLowerCase() !== 'other');
 
   // Reset ONLY when the dialog opens. `reasonOptions` used to be a dependency
   // too, but its `[]` default is a new array on every render, so every
@@ -68,7 +70,8 @@ const CashActionDialog = ({
   const amountValid =
     !requireAmount ||
     amountOptional ||
-    (parseFloat(amount) > 0 && !Number.isNaN(parseFloat(amount)));
+    // Server minimum is $0.01; 0.001 used to enable Done and then bounce with a 400.
+    (parseFloat(amount) >= 0.01 && !Number.isNaN(parseFloat(amount)));
   const reasonValid = !requireReason || effectiveReason.length > 0;
   const noteValid = !requireNote || note.trim().length > 0;
   const canSubmit = amountValid && reasonValid && noteValid && !loading;

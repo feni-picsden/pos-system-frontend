@@ -13,6 +13,8 @@ import drawerService from '../services/drawerService';
 import settingsService from '../services/settingsService';
 import { formatCurrency } from '../utils/currency';
 import CashActionDialog from '../components/CashDrawer/CashActionDialog';
+import SwapCashDialog from '../components/CashDrawer/SwapCashDialog';
+import { printHtmlDocument } from '../utils/printHtmlDocument';
 import NiceError from '../components/Common/NiceError';
 import { useHasPermission, useHasAnyPermission } from '../hooks/usePermissions';
 import { useSelectedRegister } from '../contexts/SelectedRegisterContext';
@@ -139,6 +141,13 @@ const ManageCash = () => {
     setSnackbar({ open: true, message, severity: 'success' });
   const showError = (message) =>
     setSnackbar({ open: true, message, severity: 'error' });
+  // The server's own words ("Insufficient drawer balance. Available: $110.00")
+  // live at err.response.data; reading err.message alone showed the axios
+  // boilerplate "Request failed with status code 400".
+  const errorText = (err, fallback) => {
+    const d = err?.response?.data;
+    return d?.error || d?.errors?.[0]?.msg || d?.message || err?.error || err?.errors?.[0]?.msg || err?.message || fallback;
+  };
 
   const loadShift = useCallback(async () => {
     if (!registerId) {
@@ -199,12 +208,7 @@ const ManageCash = () => {
       setDialog(null);
       await refreshAll();
     } catch (err) {
-      const msg =
-        err?.error ||
-        err?.errors?.[0]?.msg ||
-        err?.message ||
-        'Action failed';
-      showError(msg);
+      showError(errorText(err, 'Action failed'));
     } finally {
       setActionLoading(false);
     }
@@ -240,7 +244,7 @@ const ManageCash = () => {
       setDialog(null);
       await refreshAll();
     } catch (err) {
-      showError(err?.error || err?.errors?.[0]?.msg || err?.message || 'Failed to open drawer');
+      showError(errorText(err, 'Failed to open drawer'));
     } finally {
       setActionLoading(false);
     }
@@ -353,7 +357,7 @@ const ManageCash = () => {
             >
               Recent Cash Movements
             </Typography>
-            <MovementsList movements={movements.slice(0, 10)} />
+            <MovementsList movements={movements.slice(0, 10)} registerName={selectedRegister?.name} />
           </Box>
         </>
       )}
@@ -415,13 +419,13 @@ const ManageCash = () => {
         open={dialog === 'openDrawer'}
         onClose={() => setDialog(null)}
         title="Open Cash Drawer"
-        submitLabel="Open Drawer"
+        submitLabel="Open"
         loading={actionLoading}
         requireAmount={false}
         requireReason={reasons.requireDrawerReason}
         reasonLabel="Reason (required)"
         reasonOptions={reasons.drawer}
-        noteLabel={reasons.requireDrawerReason ? 'Note (optional)' : 'Reason (optional)'}
+        noteLabel={reasons.requireDrawerReason ? 'Note (optional)' : 'What is the reason for opening the cash drawer?'}
         onSubmit={({ reason, note }) =>
           handleOpenDrawer({ reason: reason || note || 'Manual open', note })
         }
@@ -430,8 +434,8 @@ const ManageCash = () => {
       <CashActionDialog
         open={dialog === 'putIn'}
         onClose={() => setDialog(null)}
-        title="Put Cash In"
-        submitLabel="Add Cash"
+        title="Put Cash In Drawer"
+        submitLabel="Done"
         loading={actionLoading}
         requireAmount
         requireReason
@@ -454,8 +458,8 @@ const ManageCash = () => {
       <CashActionDialog
         open={dialog === 'takeOut'}
         onClose={() => setDialog(null)}
-        title="Take Cash Out"
-        submitLabel="Remove Cash"
+        title="Take Cash Out Of Drawer"
+        submitLabel="Done"
         loading={actionLoading}
         requireAmount
         requireReason
@@ -484,14 +488,13 @@ const ManageCash = () => {
         open={dialog === 'safeDrop'}
         onClose={() => setDialog(null)}
         title="Safe Drop"
-        submitLabel="Record Safe Drop"
+        submitLabel="Done"
         loading={actionLoading}
         requireAmount
-        requireNote
-        noteLabel="Note (required)"
+        noteLabel="Note (optional)"
         extraContent={
           <Typography variant="body2" color="text.secondary">
-            Moves excess cash to safe. Available: {formatCurrency(summary?.currentDrawerBalance ?? 0)}
+            Enter the amount of money you would like to drop into the safe. Available: {formatCurrency(summary?.currentDrawerBalance ?? 0)}
           </Typography>
         }
         onSubmit={({ amount, note }) =>
@@ -507,22 +510,16 @@ const ManageCash = () => {
         }
       />
 
-      <CashActionDialog
+      <SwapCashDialog
         open={dialog === 'swap'}
         onClose={() => setDialog(null)}
-        title="Swap Cash"
-        submitLabel="Record Swap"
         loading={actionLoading}
-        requireAmount={false}
-        amountOptional
-        noteLabel="Note (required)"
-        requireNote
         onSubmit={({ amount, note }) =>
           runAction(
             () =>
               cashManagementService.swapCash({
                 registerId,
-                amount: amount ?? 0,
+                amount,
                 notes: note,
               }),
             'Cash swap recorded (balance unchanged)'
@@ -548,7 +545,30 @@ const ManageCash = () => {
   );
 };
 
-function MovementsList({ movements }) {
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Receipt-style slip for one movement (browser print dialog over this page).
+const printMovement = (m, registerName) => {
+  const rows = [
+    ['Type', TYPE_LABELS[m.type] || m.type],
+    ['Amount', formatCurrency(m.amount)],
+    ['Reason', m.reason || '—'],
+    ['Note', m.notes || '—'],
+    ['Register', m.register?.name || registerName || '—'],
+    ['User', m.user?.name || '—'],
+    ['Date', formatDateTime(m.createdAt)],
+    ['Reference', m.referenceNumber || `#${m.id}`],
+  ];
+  printHtmlDocument(`<!doctype html><html><head><meta charset="utf-8"><title>Cash Movement</title><style>
+    body{font-family:'Courier New',monospace;font-size:13px;margin:16px;max-width:320px}
+    h1{font-size:16px;text-align:center;margin:0 0 12px}
+    table{width:100%;border-collapse:collapse}td{padding:3px 0;vertical-align:top}td:first-child{font-weight:bold;width:40%}
+  </style></head><body><h1>Cash Movement</h1><table>${rows
+    .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)
+    .join('')}</table></body></html>`);
+};
+
+function MovementsList({ movements, registerName }) {
   if (!movements?.length) {
     return (
       <Typography sx={{ fontSize: 16, color: byMode('#676b72', '#a0a4aa') }}>No activity recorded</Typography>
@@ -572,7 +592,7 @@ function MovementsList({ movements }) {
             <Box>
               <Typography sx={{ fontSize: 16, fontWeight: 400, color: byMode('#000', '#f8f8f8') }}>
                 {TYPE_LABELS[m.type] || m.type}
-                {m.reason ? `: ${m.reason}` : ''}
+                {String(m.reason || '').trim() ? `: ${String(m.reason).trim()}` : ''}
               </Typography>
               <Typography sx={{ fontSize: 12, color: byMode('#676b72', '#a0a4aa') }}>
                 {formatDateTime(m.createdAt)}
@@ -590,7 +610,12 @@ function MovementsList({ movements }) {
                   {cents}
                 </Box>
               </Typography>
-              <Button variant="outlined" startIcon={<PrintOutlined />} sx={PRINT_BTN_SX}>
+              <Button
+                variant="outlined"
+                startIcon={<PrintOutlined />}
+                sx={PRINT_BTN_SX}
+                onClick={() => printMovement(m, registerName)}
+              >
                 Print
               </Button>
             </Box>
