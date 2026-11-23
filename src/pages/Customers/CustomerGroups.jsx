@@ -166,6 +166,7 @@ const CustomerGroups = () => {
         <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 400, fontSize: 16, color: byMode('#000', '#f8f8f8') }}>Search</Typography>
         <TextField
           fullWidth
+          placeholder="Search for Customer Groups..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{

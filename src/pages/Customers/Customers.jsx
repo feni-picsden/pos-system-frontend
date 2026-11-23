@@ -619,7 +619,7 @@ const Customers = () => {
         <TextField
           fullWidth
           spellCheck={false}
-          placeholder="Search Customers..."
+          placeholder="Search for Customers..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{

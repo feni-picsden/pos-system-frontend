@@ -3221,7 +3221,7 @@ const GeneralSettings = () => {
             renderInput={(params) => (
               <TextField
                 {...params}
-                placeholder="Search Settings..."
+                placeholder="Search for Settings..."
                 size="small"
                 sx={SETTING_FIELD_SX}
               />

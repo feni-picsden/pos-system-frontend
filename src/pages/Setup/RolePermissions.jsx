@@ -358,7 +358,7 @@ const RolePermissions = () => {
       <Typography sx={{ fontSize: 13, color: byMode('#595959', '#d4d4d4'), mb: 0.5 }}>Search</Typography>
       <TextField
         fullWidth
-        placeholder="Search Permissions..."
+        placeholder="Search for Permissions..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         sx={{

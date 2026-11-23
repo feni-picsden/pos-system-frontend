@@ -790,7 +790,7 @@ const Products = () => {
       <TextField
         fullWidth
         spellCheck={false}
-        placeholder="Search Products..."
+        placeholder="Search for Products..."
         sx={{
           mb: 2,
           "& .MuiOutlinedInput-root": {

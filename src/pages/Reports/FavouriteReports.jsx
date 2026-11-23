@@ -617,7 +617,7 @@ const FavouriteReports = () => {
           </Typography>
           <TextField
             fullWidth
-            placeholder="Search Report Name..."
+            placeholder="Search for Reports..."
             value={reportName}
             onChange={(e) => setReportName(e.target.value)}
             sx={outlinedSx}

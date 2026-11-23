@@ -250,7 +250,7 @@ const GiftCards = () => {
         <TextField
           fullWidth
           id="gift-card-search"
-          placeholder="Search Gift Card codes..."
+          placeholder="Search for Gift Card Codes..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{

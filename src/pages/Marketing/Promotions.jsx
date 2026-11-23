@@ -1072,6 +1072,7 @@ const Promotions = () => {
         <TextField
           fullWidth
           autoFocus
+          placeholder="Search for Promotions..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           InputProps={{

@@ -172,7 +172,7 @@ const PriceLists = () => {
           fullWidth
           id="price-list-search"
           inputRef={searchInputRef}
-          placeholder="Search Price Lists..."
+          placeholder="Search for Price Lists..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{

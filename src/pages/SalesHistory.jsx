@@ -1205,7 +1205,7 @@ const SalesHistory = () => {
           componentsProps={{ paper: { sx: comboPaperSx } }}
           sx={fieldSx}
           renderInput={(params) => (
-            <TextField {...params} size="small" placeholder="Search customers..." />
+            <TextField {...params} size="small" placeholder="Search for Customers..." />
           )}
         />
       </ShopfrontDialog>

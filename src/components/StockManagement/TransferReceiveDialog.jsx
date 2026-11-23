@@ -283,7 +283,7 @@ const DestinationProductPicker = ({ outletId, value, onChange, disabled }) => {
       renderInput={(params) => (
         <TextField
           {...params}
-          placeholder="Search product..."
+          placeholder="Search for Products..."
           sx={{
             '& .MuiOutlinedInput-root': { borderRadius: 0, bgcolor: byMode('#fff', DK.input), color: byMode(undefined, DK.inputText) },
             '& .MuiOutlinedInput-notchedOutline': { borderColor: byMode(undefined, DK.border) },

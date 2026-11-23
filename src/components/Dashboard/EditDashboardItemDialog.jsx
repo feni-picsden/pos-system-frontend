@@ -77,7 +77,7 @@ const EditDashboardItemDialog = ({ open, onClose, onSave, initialReport, initial
               getOptionLabel={reportLabel}
               isOptionEqualToValue={(a, b) => a?.id === b?.id}
               renderInput={(params) => (
-                <TextField {...params} label="Favourite report" placeholder="Search..." size="small" />
+                <TextField {...params} label="Favourite report" placeholder="Search for Items..." size="small" />
               )}
               renderOption={(props, option) => (
                 <li {...props} key={option.id}>

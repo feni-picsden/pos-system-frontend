@@ -260,6 +260,7 @@ const Classifications = () => {
       </Typography>
       <TextField
         fullWidth
+        placeholder="Search for Classifications..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         sx={{

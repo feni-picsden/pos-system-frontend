@@ -644,7 +644,7 @@ const FutureCosts = () => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    placeholder="Search items..."
+                    placeholder="Search for Items..."
                     sx={{ '& .MuiOutlinedInput-root': DIALOG_INPUT_SX }}
                     InputProps={{
                       ...params.InputProps,

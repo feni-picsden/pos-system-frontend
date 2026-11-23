@@ -52,7 +52,7 @@ const QuickLinkTargetField = ({ value, onChange, disabled = false, sx, inputSx }
           onChange={(_, page) => onChange(page ? page.path : '', page)}
           noOptionsText="No page found"
           renderInput={(params) => (
-            <TextField {...params} label="Page" placeholder="Search pages…" sx={inputSx} />
+            <TextField {...params} label="Page" placeholder="Search for Pages..." sx={inputSx} />
           )}
           sx={{ flex: 1, minWidth: 0 }}
         />

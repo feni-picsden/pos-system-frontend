@@ -793,7 +793,7 @@ const InventoryAtDate = () => {
       {hasRun && (
         <TextField
           fullWidth
-          placeholder="Search Products..."
+          placeholder="Search for Products..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ ...FIELD_SX, mb: '16px' }}

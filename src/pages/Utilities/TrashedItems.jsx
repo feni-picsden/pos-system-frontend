@@ -578,7 +578,7 @@ const TrashedItems = () => {
           <TextField
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by Name..."
+            placeholder="Search for Name..."
             sx={FIELD_SX}
           />
         </Box>

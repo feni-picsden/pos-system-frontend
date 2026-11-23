@@ -716,7 +716,7 @@ const ProductUtilities = () => {
             <FieldLabel>Name</FieldLabel>
             <TextField
               fullWidth
-              placeholder="Search by Name..."
+              placeholder="Search for Name..."
               value={nameFilter}
               onChange={(e) => setNameFilter(e.target.value)}
               size="small"

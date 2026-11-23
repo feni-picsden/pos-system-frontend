@@ -1399,7 +1399,7 @@ const SaleKeyEditor = () => {
                 value={actionOptionsFor(selectedKey.action).find((o) => o.value === selectedKey.action) || null}
                 onChange={(event, newValue) => handlePropertyChange('action', newValue ? newValue.value : 'no-action')}
                 renderInput={(params) => (
-                  <TextField {...params} label="Action" placeholder="Search actions..." />
+                  <TextField {...params} label="Action" placeholder="Search for Actions..." />
                 )}
                 sx={{ mb: 2 }}
               />

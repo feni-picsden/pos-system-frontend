@@ -499,7 +499,7 @@ const ProductCombos = () => {
             blurOnSelect
             onChange={(e, option) => addProduct(option)}
             renderInput={(params) => (
-              <TextField {...params} placeholder="Search and add product" />
+              <TextField {...params} placeholder="Search for a Product to Add..." />
             )}
             sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
           />

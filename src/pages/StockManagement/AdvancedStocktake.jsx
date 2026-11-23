@@ -618,7 +618,7 @@ export default function AdvancedStocktake() {
             <Box sx={{ position: 'relative', flex: 1 }}>
               <Box
                 component="input"
-                placeholder="Search by name or barcode"
+                placeholder="Search for Name or Barcode..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => {

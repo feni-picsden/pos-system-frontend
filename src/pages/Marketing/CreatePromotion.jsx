@@ -992,7 +992,7 @@ const CreatePromotion = () => {
               onChange={(event, newValue) => handleAddComboProduct(newValue)}
               noOptionsText={comboProductSearch ? 'No products found' : 'Keep Typing to Search...'}
               renderInput={(params) => (
-                <TextField {...params} placeholder="Search and add a product" sx={roundFieldSx} />
+                <TextField {...params} placeholder="Search for a Product to Add..." sx={roundFieldSx} />
               )}
             />
           </Grid>

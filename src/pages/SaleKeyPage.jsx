@@ -9820,7 +9820,7 @@ const SaleKeyPage = () => {
                 <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                   <TextField
                     fullWidth
-                    placeholder="Search products..."
+                    placeholder="Search for Products..."
                     value={classificationSearchTerm}
                     onChange={(e) => setClassificationSearchTerm(e.target.value)}
                     InputProps={{

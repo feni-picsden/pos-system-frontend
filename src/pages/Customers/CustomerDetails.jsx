@@ -1020,7 +1020,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
               onChange={(_, option) => handleInputChange("customerGroupId", option ? option.id : "")}
               sx={wizardInputSx}
               renderInput={(params) => (
-                <TextField {...params} placeholder="Search customer groups" />
+                <TextField {...params} placeholder="Search for Customer Groups..." />
               )}
             />
           </>
@@ -1381,7 +1381,7 @@ const CustomerDetails = ({ modalWizardData, isModal, onClose, onSave } = {}) => 
                   onError={(err) =>
                     setError(err?.response?.data?.error || "Failed to create customer group")
                   }
-                  placeholder="Search customer groups"
+                  placeholder="Search for Customer Groups..."
                   textFieldProps={{
                     ref: (el) => (fieldRefs.current.customerGroupId = el),
                     label: "Customer Group",

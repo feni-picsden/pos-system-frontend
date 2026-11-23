@@ -50,7 +50,7 @@ const EditReviewersSlideOver = ({ open, users = [], selectedIds = [], onCancel, 
             </li>
           )}
           renderInput={(params) => (
-            <TextField {...params} placeholder="Search Users to Add..." size="small" sx={{ ...FIELD_SX, mt: 3 }} inputProps={{ ...params.inputProps, 'aria-label': 'Search Users to Add' }} />
+            <TextField {...params} placeholder="Search for Users to Add..." size="small" sx={{ ...FIELD_SX, mt: 3 }} inputProps={{ ...params.inputProps, 'aria-label': 'Search Users to Add' }} />
           )}
         />
         <Box sx={{ flex: 1, overflowY: 'auto', mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }} data-testid="default-reviewers-list">

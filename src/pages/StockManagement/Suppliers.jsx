@@ -218,6 +218,7 @@ const Suppliers = () => {
             spellCheck={false}
             variant="outlined"
             size="small"
+            placeholder="Search for Suppliers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ width: '100%', ...searchFieldSx }}

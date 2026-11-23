@@ -748,7 +748,7 @@ const QueryEditorPage = ({ runQuery: runService = defaultRunQuery, popularQuerie
             </Box>
             {selectedTab === 'schema' && (
               <TextField
-                placeholder="Search Schema..."
+                placeholder="Search for Schema..."
                 size="small"
                 value={schemaSearch}
                 onChange={(e) => setSchemaSearch(e.target.value)}
